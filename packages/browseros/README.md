@@ -57,7 +57,7 @@ packages/browseros/
 │   └── entitlements/        # macOS entitlements (app, helper, GPU, etc.)
 │
 ├── tools/
-│   └── bdev                 # Developer tool
+│   └── patch                # BrowserOS patch CLI
 │
 ├── CHROMIUM_VERSION          # Pinned Chromium version (MAJOR.MINOR.BUILD.PATCH)
 ├── BASE_COMMIT              # Base Chromium commit hash

@@ -180,8 +180,7 @@ packages/*/dist
 browseros-server
 browseros-server.exe
 browseros-server-*
-tools/alpha/balpha
-tools/alpha/browseros-alpha
+tools/dogfood/browseros-dogfood
 tools/dev/browseros-dev
 
 log.txt

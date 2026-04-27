@@ -14,7 +14,7 @@
     "dev:watch:new": "./tools/dev/run.sh watch --new",
     "dev:manual": "./tools/dev/run.sh watch --manual",
     "dev:setup": "./tools/dev/setup.sh",
-    "install:balpha": "make -C tools/alpha install",
+    "install:browseros-dogfood": "make -C tools/dogfood install",
     "test:env": "./tools/dev/run.sh test",
     "test:cleanup": "./tools/dev/run.sh cleanup",
     "start:server": "bun run --filter @browseros/server --elide-lines=0 start",
