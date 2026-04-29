@@ -58,6 +58,7 @@ describe('AgentHarnessService', () => {
       await service.send({
         agentId: agent.id,
         message: 'hello',
+        cwd: '/tmp/work',
       }),
     )
 
@@ -67,6 +68,7 @@ describe('AgentHarnessService', () => {
       sessionKey: 'agent:agent-1:main',
       message: 'hello',
       permissionMode: 'approve-all',
+      cwd: '/tmp/work',
     })
     expect(events).toEqual([
       { type: 'text_delta', text: 'answer', stream: 'output' },

@@ -756,15 +756,11 @@ function resolveOpenclawAcpCommand(
   // to a synthetic acp:<uuid> session that does not resolve to any
   // provisioned gateway agent.
   //
-  // Two callers send sessionKeys here:
-  //   * Harness: `agent:<harness-id>:main` — the harness id matches a
-  //     dual-created gateway agent name (Step 5), so the bridge resolves
-  //     directly. Pass through unchanged.
-  //   * Sidepanel: `sidepanel:<convId>:openclaw:<model>:<effort>` — no
-  //     dedicated gateway agent exists for sidepanel sessions, so we
-  //     route them to the always-provisioned `main` gateway agent and
-  //     keep state segregated by encoding the original key as a channel
-  //     suffix.
+  // Harness keys are `agent:<harness-id>:main`; the harness id matches
+  // a dual-created gateway agent name, so the bridge resolves directly.
+  // Any legacy non-agent key falls back to the always-provisioned
+  // `main` gateway agent with the original key encoded as a channel
+  // suffix.
   const bridgeSessionKey = sessionKey
     ? sessionKey.startsWith('agent:')
       ? sessionKey

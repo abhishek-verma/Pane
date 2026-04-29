@@ -1,5 +1,6 @@
 import type {
   HarnessAdapterDescriptor,
+  HarnessAgent,
   HarnessAgentAdapter,
 } from '@/entrypoints/app/agents/agent-harness-types'
 import type { LlmProviderConfig, ProviderType } from '@/lib/llm-providers/types'
@@ -19,6 +20,7 @@ export type SidepanelChatTarget =
       id: string
       name: string
       type: 'acp'
+      agentId: string
       adapter: HarnessAgentAdapter
       adapterName: string
       modelId: string
@@ -37,6 +39,7 @@ export type SidepanelChatTargetSelection = Pick<
 interface BuildSidepanelChatTargetsInput {
   providers: LlmProviderConfig[]
   adapters: HarnessAdapterDescriptor[]
+  agents?: HarnessAgent[]
 }
 
 interface ResolveSidepanelChatTargetInput {
@@ -63,61 +66,49 @@ let sidepanelChatTargetSelectionStorage:
 export function buildSidepanelChatTargets({
   providers,
   adapters,
+  agents = [],
 }: BuildSidepanelChatTargetsInput): SidepanelChatTarget[] {
   return [
     ...providers.map(toLlmTarget),
-    ...adapters.flatMap(toAcpTargetsForAdapter),
+    ...agents.map((agent) => toAcpTargetForAgent(agent, adapters)),
   ]
 }
 
-function toAcpTargetsForAdapter(
-  adapter: HarnessAdapterDescriptor,
-): SidepanelChatTarget[] {
-  const reasoning = adapter.reasoningEfforts.find(
-    (effort) => effort.id === adapter.defaultReasoningEffort,
-  )
+function toAcpTargetForAgent(
+  agent: HarnessAgent,
+  adapters: HarnessAdapterDescriptor[],
+): SidepanelChatTarget {
+  const adapter = adapters.find((entry) => entry.id === agent.adapter)
+  const modelId = agent.modelId ?? adapter?.defaultModelId ?? 'default'
   const reasoningEffort =
-    reasoning?.id ?? adapter.defaultReasoningEffort ?? 'medium'
+    agent.reasoningEffort ?? adapter?.defaultReasoningEffort ?? 'medium'
+  const model = adapter?.models.find((entry) => entry.id === modelId)
+  const reasoning = adapter?.reasoningEfforts.find(
+    (effort) => effort.id === reasoningEffort,
+  )
 
-  // Adapters with no per-session model picker (e.g. OpenClaw, whose
-  // model lives on the gateway-side agent record) still need exactly
-  // one sidepanel target so the user can pick the adapter at all.
-  if (adapter.models.length === 0) {
-    return [
-      {
-        kind: 'acp',
-        id: buildAcpTargetId(
-          adapter.id,
-          adapter.defaultModelId,
-          reasoningEffort,
-        ),
-        name: adapter.name,
-        type: 'acp',
-        adapter: adapter.id,
-        adapterName: adapter.name,
-        modelId: adapter.defaultModelId,
-        modelLabel: 'default',
-        modelControl: adapter.modelControl,
-        reasoningEffort,
-        reasoningEffortLabel: reasoning?.label,
-      },
-    ]
-  }
-
-  return adapter.models.map((model) => ({
-    kind: 'acp' as const,
-    id: buildAcpTargetId(adapter.id, model.id, reasoningEffort),
-    name: `${adapter.name} ${model.label}`,
-    type: 'acp' as const,
-    adapter: adapter.id,
-    adapterName: adapter.name,
-    modelId: model.id,
-    modelLabel: model.label,
-    modelControl: adapter.modelControl,
-    recommended: model.recommended,
+  return {
+    kind: 'acp',
+    id: agent.id,
+    name: agent.name,
+    type: 'acp',
+    agentId: agent.id,
+    adapter: agent.adapter,
+    adapterName: adapter?.name ?? formatAdapterName(agent.adapter),
+    modelId,
+    modelLabel: model?.label ?? modelId,
+    modelControl: adapter?.modelControl ?? 'best-effort',
+    recommended: model?.recommended,
     reasoningEffort,
     reasoningEffortLabel: reasoning?.label,
-  }))
+  }
+}
+
+function formatAdapterName(adapter: HarnessAgentAdapter): string {
+  if (adapter === 'claude') return 'Claude Code'
+  if (adapter === 'codex') return 'Codex'
+  if (adapter === 'openclaw') return 'OpenClaw'
+  return adapter
 }
 
 export function resolveSidepanelChatTarget({
@@ -170,14 +161,6 @@ function toLlmTarget(provider: LlmProviderConfig): SidepanelChatTarget {
     type: provider.type,
     provider,
   }
-}
-
-export function buildAcpTargetId(
-  adapter: HarnessAgentAdapter,
-  modelId: string,
-  reasoningEffort: string,
-): string {
-  return `acp:${adapter}:${modelId}:${reasoningEffort}`
 }
 
 async function getSidepanelChatTargetSelectionStorage(): Promise<SidepanelChatTargetSelectionStore> {

@@ -41,7 +41,10 @@ export const ChatProviderSelector: FC<
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-64 p-0">
         <Command>
-          <CommandInput placeholder="Search models..." className="h-9" />
+          <CommandInput
+            placeholder="Search providers or agents..."
+            className="h-9"
+          />
           <CommandList>
             <CommandEmpty>No provider found</CommandEmpty>
             {groups.map((group) => (

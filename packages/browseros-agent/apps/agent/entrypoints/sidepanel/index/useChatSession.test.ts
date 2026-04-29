@@ -40,7 +40,7 @@ describe('buildSidepanelPreparedSendMessagesRequest', () => {
     })
   })
 
-  it('sends ACP targets to the sidepanel ACP route with explicit target fields', () => {
+  it('sends created-agent targets to the agent-id sidepanel route', () => {
     const request = buildSidepanelPreparedSendMessagesRequest({
       agentServerUrl: 'http://127.0.0.1:5151',
       target: acpTarget,
@@ -52,12 +52,11 @@ describe('buildSidepanelPreparedSendMessagesRequest', () => {
       ...commonRequestInput(),
     })
 
-    expect(request.api).toBe('http://127.0.0.1:5151/agents/sidepanel/chat')
+    expect(request.api).toBe(
+      'http://127.0.0.1:5151/agents/agent-codex/sidepanel/chat',
+    )
     expect(request.body).toEqual({
       conversationId,
-      adapter: 'codex',
-      modelId: 'gpt-5.5',
-      reasoningEffort: 'medium',
       message: 'Inspect the current tab',
       browserContext: {
         activeTab: { id: 10, url: 'https://example.com', title: 'Example' },
@@ -140,9 +139,10 @@ const llmTarget: SidepanelChatTarget = {
 
 const acpTarget: SidepanelChatTarget = {
   kind: 'acp',
-  id: 'acp:codex:gpt-5.5:medium',
-  name: 'Codex GPT-5.5',
+  id: 'agent-codex',
+  name: 'Review bot',
   type: 'acp',
+  agentId: 'agent-codex',
   adapter: 'codex',
   adapterName: 'Codex',
   modelId: 'gpt-5.5',

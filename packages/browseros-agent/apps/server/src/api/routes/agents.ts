@@ -14,32 +14,22 @@ import { stream } from 'hono/streaming'
 import { formatUserMessage } from '../../agent/format-message'
 import type { Browser } from '../../browser/browser'
 import { createAcpUIMessageStreamResponse } from '../../lib/agents/acp-ui-message-stream'
-import {
-  AcpxRuntime,
-  type OpenclawGatewayAccessor,
-} from '../../lib/agents/acpx-runtime'
+import type { OpenclawGatewayAccessor } from '../../lib/agents/acpx-runtime'
 import type {
   ActiveTurnInfo,
   TurnFrame,
 } from '../../lib/agents/active-turn-registry'
 import {
   AGENT_ADAPTER_CATALOG,
-  getAgentAdapterDescriptor,
   isAgentAdapter,
   isSupportedAgentModel,
   isSupportedReasoningEffort,
-  resolveDefaultModelId,
-  resolveDefaultReasoningEffort,
 } from '../../lib/agents/agent-catalog'
 import type {
   AgentAdapter,
   AgentDefinition,
 } from '../../lib/agents/agent-types'
-import type {
-  AgentHistoryPage,
-  AgentRuntime,
-  AgentStreamEvent,
-} from '../../lib/agents/types'
+import type { AgentHistoryPage, AgentStreamEvent } from '../../lib/agents/types'
 import {
   type AgentDefinitionWithActivity,
   AgentHarnessService,
@@ -75,6 +65,7 @@ type AgentRouteService = {
     agentId: string
     message: string
     attachments?: ReadonlyArray<{ mediaType: string; data: string }>
+    cwd?: string
   }): Promise<{ turnId: string; frames: ReadableStream<TurnFrame> }>
   attachTurn(input: {
     turnId: string
@@ -86,22 +77,10 @@ type AgentRouteService = {
     turnId?: string
     reason?: string
   }): boolean
-  /**
-   * Legacy wrapper used by the sidepanel ACP route and any external
-   * callers that want a flat AgentStreamEvent stream. Internally goes
-   * through the registry.
-   */
-  send(input: {
-    agentId: string
-    message: string
-    attachments?: ReadonlyArray<{ mediaType: string; data: string }>
-    signal?: AbortSignal
-  }): Promise<ReadableStream<AgentStreamEvent>>
 }
 
 type AgentRouteDeps = {
   service?: AgentRouteService
-  runtime?: AgentRuntime
   browser?: Pick<Browser, 'resolveTabIds'>
   browserosServerPort?: number
   /**
@@ -124,11 +103,8 @@ type AgentRouteDeps = {
   openclawProvisioner?: OpenClawProvisioner
 }
 
-type SidepanelAcpChatRequest = {
+type SidepanelAgentChatRequest = {
   conversationId: string
-  adapter: AgentAdapter
-  modelId: string
-  reasoningEffort: string
   message: string
   browserContext?: BrowserContext
   selectedText?: string
@@ -146,7 +122,6 @@ export function createAgentRoutes(deps: AgentRouteDeps = {}) {
       openclawGatewayChat: deps.openclawGatewayChat,
       openclawProvisioner: deps.openclawProvisioner,
     })
-  let sidepanelRuntime = deps.runtime
 
   return new Hono<Env>()
     .get('/adapters', (c) => c.json({ adapters: AGENT_ADAPTER_CATALOG }))
@@ -170,44 +145,82 @@ export function createAgentRoutes(deps: AgentRouteDeps = {}) {
         return handleAgentRouteError(c, err)
       }
     })
-    .post('/sidepanel/chat', async (c) => {
-      const parsed = await parseSidepanelAcpChatBody(c)
+    .post('/:agentId/sidepanel/chat', async (c) => {
+      const agentId = c.req.param('agentId')
+      const parsed = await parseSidepanelAgentChatBody(c)
       if ('error' in parsed) return c.json({ error: parsed.error }, 400)
 
-      let browserContext = parsed.browserContext
-      if (deps.browser) {
-        browserContext = await resolveBrowserContextPageIds(
-          deps.browser,
-          browserContext,
-        )
-      }
-
-      const userContent = formatUserMessage(
-        parsed.message,
-        browserContext,
-        parsed.selectedText,
-        parsed.selectedTextSource,
-      )
-      const message = parsed.userSystemPrompt?.trim()
-        ? `${parsed.userSystemPrompt.trim()}\n\n${userContent}`
-        : userContent
-      const agent = buildSidepanelAcpAgent(parsed)
-
       try {
-        sidepanelRuntime ??= new AcpxRuntime({
-          browserosServerPort: deps.browserosServerPort,
-          openclawGateway: deps.openclawGateway,
+        const agent = await service.getAgent(agentId)
+        if (!agent) return c.json({ error: 'Unknown agent' }, 404)
+
+        let browserContext = parsed.browserContext
+        if (deps.browser) {
+          browserContext = await resolveBrowserContextPageIds(
+            deps.browser,
+            browserContext,
+          )
+        }
+
+        const userContent = formatUserMessage(
+          parsed.message,
+          browserContext,
+          parsed.selectedText,
+          parsed.selectedTextSource,
+        )
+        const message = parsed.userSystemPrompt?.trim()
+          ? `${parsed.userSystemPrompt.trim()}\n\n${userContent}`
+          : userContent
+
+        let started: { turnId: string; frames: ReadableStream<TurnFrame> }
+        try {
+          started = await service.startTurn({
+            agentId: agent.id,
+            message,
+            cwd: parsed.userWorkingDir,
+          })
+        } catch (err) {
+          if (err instanceof TurnAlreadyActiveError) {
+            return c.json(
+              {
+                error: 'Turn already active',
+                turnId: err.turnId,
+                attachUrl: `/agents/${agent.id}/chat/stream?turnId=${err.turnId}`,
+              },
+              409,
+            )
+          }
+          throw err
+        }
+
+        let didRequestCancel = false
+        const cancelStartedTurn = () => {
+          if (didRequestCancel) return
+          didRequestCancel = true
+          service.cancelTurn({
+            agentId: agent.id,
+            turnId: started.turnId,
+            reason: 'sidepanel stream cancelled',
+          })
+        }
+        if (c.req.raw.signal.aborted) {
+          cancelStartedTurn()
+        } else {
+          c.req.raw.signal.addEventListener('abort', cancelStartedTurn, {
+            once: true,
+          })
+        }
+
+        const events = turnFramesToAgentEvents(started.frames, {
+          onCancel: cancelStartedTurn,
         })
-        const eventStream = await sidepanelRuntime.send({
-          agent,
-          sessionId: 'main',
-          sessionKey: agent.sessionKey,
-          message,
-          permissionMode: agent.permissionMode,
-          cwd: parsed.userWorkingDir,
-          signal: c.req.raw.signal,
+
+        return createAcpUIMessageStreamResponse(events, {
+          headers: {
+            'X-Session-Id': 'main',
+            'X-Turn-Id': started.turnId,
+          },
         })
-        return createAcpUIMessageStreamResponse(eventStream)
       } catch (err) {
         return handleAgentRouteError(c, err)
       }
@@ -307,6 +320,51 @@ export function createAgentRoutes(deps: AgentRouteDeps = {}) {
       const cancelled = service.cancelTurn({ agentId, turnId, reason })
       return c.json({ cancelled })
     })
+}
+
+function turnFramesToAgentEvents(
+  frames: ReadableStream<TurnFrame>,
+  options: { onCancel(): void | Promise<void> },
+): ReadableStream<AgentStreamEvent> {
+  let reader: ReadableStreamDefaultReader<TurnFrame> | undefined
+
+  return new ReadableStream<AgentStreamEvent>({
+    start() {
+      reader = frames.getReader()
+    },
+    async pull(controller) {
+      const activeReader = reader
+      if (!activeReader) {
+        controller.close()
+        return
+      }
+      let result: Awaited<ReturnType<typeof activeReader.read>>
+      try {
+        result = await activeReader.read()
+      } catch (err) {
+        try {
+          activeReader.releaseLock()
+        } catch {}
+        if (reader === activeReader) reader = undefined
+        throw err
+      }
+      if (result?.done === false) {
+        controller.enqueue(result.value.event)
+      } else {
+        controller.close()
+        activeReader.releaseLock()
+        if (reader === activeReader) reader = undefined
+      }
+    },
+    async cancel(reason) {
+      try {
+        await options.onCancel()
+      } finally {
+        await reader?.cancel(reason).catch(() => {})
+        reader = undefined
+      }
+    },
+  })
 }
 
 /**
@@ -515,9 +573,9 @@ async function parseChatBody(
   return { message, attachments }
 }
 
-async function parseSidepanelAcpChatBody(
+async function parseSidepanelAgentChatBody(
   c: Context<Env>,
-): Promise<SidepanelAcpChatRequest | { error: string }> {
+): Promise<SidepanelAgentChatRequest | { error: string }> {
   const body = await readJsonBody(c)
   if ('error' in body) return body
   const record = body.value
@@ -525,23 +583,6 @@ async function parseSidepanelAcpChatBody(
   const conversationId = readOptionalTrimmedString(record, 'conversationId')
   if (!conversationId || !isUuid(conversationId)) {
     return { error: 'conversationId must be a UUID' }
-  }
-  if (!isAgentAdapter(record.adapter)) {
-    return { error: 'Invalid adapter' }
-  }
-
-  const modelId =
-    readOptionalTrimmedString(record, 'modelId') ??
-    resolveDefaultModelId(record.adapter)
-  const reasoningEffort =
-    readOptionalTrimmedString(record, 'reasoningEffort') ??
-    resolveDefaultReasoningEffort(record.adapter)
-
-  if (!isSupportedAgentModel(record.adapter, modelId)) {
-    return { error: 'Invalid modelId' }
-  }
-  if (!isSupportedReasoningEffort(record.adapter, reasoningEffort)) {
-    return { error: 'Invalid reasoningEffort' }
   }
 
   const message = readOptionalTrimmedString(record, 'message')
@@ -556,41 +597,12 @@ async function parseSidepanelAcpChatBody(
 
   return {
     conversationId,
-    adapter: record.adapter,
-    modelId,
-    reasoningEffort,
     message,
     browserContext: browserContext.value,
     selectedText,
     selectedTextSource: selectedTextSource.value,
     userSystemPrompt: readOptionalString(record, 'userSystemPrompt'),
     userWorkingDir: readOptionalTrimmedString(record, 'userWorkingDir'),
-  }
-}
-
-function buildSidepanelAcpAgent(
-  request: SidepanelAcpChatRequest,
-): AgentDefinition {
-  const now = Date.now()
-  const descriptor = getAgentAdapterDescriptor(request.adapter)
-  const sessionKey = [
-    'sidepanel',
-    request.conversationId,
-    request.adapter,
-    request.modelId,
-    request.reasoningEffort,
-  ].join(':')
-
-  return {
-    id: `sidepanel:${request.conversationId}`,
-    name: descriptor?.name ?? request.adapter,
-    adapter: request.adapter,
-    modelId: request.modelId,
-    reasoningEffort: request.reasoningEffort,
-    permissionMode: 'approve-all',
-    sessionKey,
-    createdAt: now,
-    updatedAt: now,
   }
 }
 

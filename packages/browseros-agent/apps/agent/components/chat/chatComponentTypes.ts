@@ -7,5 +7,8 @@ export interface Provider {
   name: string
   type: ChatProviderType
   kind: 'llm' | 'acp'
+  agentId?: string
+  adapterName?: string
+  modelLabel?: string
   modelControl?: 'runtime-supported' | 'best-effort'
 }

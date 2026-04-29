@@ -409,6 +409,7 @@ export class AgentHarnessService {
     agentId: string
     message: string
     attachments?: ReadonlyArray<{ mediaType: string; data: string }>
+    cwd?: string
   }): Promise<{ turnId: string; frames: ReadableStream<TurnFrame> }> {
     const agent = await this.requireAgent(input.agentId)
 
@@ -490,6 +491,7 @@ export class AgentHarnessService {
     agentId: string
     message: string
     attachments?: ReadonlyArray<{ mediaType: string; data: string }>
+    cwd?: string
     signal?: AbortSignal
   }): Promise<ReadableStream<AgentStreamEvent>> {
     const { frames } = await this.startTurn(input)
@@ -513,6 +515,7 @@ export class AgentHarnessService {
     input: {
       message: string
       attachments?: ReadonlyArray<{ mediaType: string; data: string }>
+      cwd?: string
     },
   ): Promise<void> {
     const turn = this.turnRegistry.get(turnId)
@@ -526,6 +529,7 @@ export class AgentHarnessService {
         message: input.message,
         attachments: input.attachments,
         permissionMode: agent.permissionMode,
+        cwd: input.cwd,
         signal: turn.abortController.signal,
       })
       const reader = upstream.getReader()

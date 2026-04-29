@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import type { HarnessAdapterDescriptor } from '@/entrypoints/app/agents/agent-harness-types'
+import type {
+  HarnessAdapterDescriptor,
+  HarnessAgent,
+} from '@/entrypoints/app/agents/agent-harness-types'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import {
   buildSidepanelChatTargets,
@@ -77,58 +80,96 @@ const adapters: HarnessAdapterDescriptor[] = [
   },
 ]
 
+const agents: HarnessAgent[] = [
+  {
+    id: 'agent-codex',
+    name: 'Review Bot',
+    adapter: 'codex',
+    modelId: 'gpt-5.5',
+    reasoningEffort: 'medium',
+    permissionMode: 'approve-all',
+    sessionKey: 'agent:agent-codex:main',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  },
+  {
+    id: 'agent-openclaw',
+    name: 'Research Claw',
+    adapter: 'openclaw',
+    modelId: 'default',
+    reasoningEffort: 'high',
+    permissionMode: 'approve-all',
+    sessionKey: 'agent:agent-openclaw:main',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  },
+]
+
 describe('buildSidepanelChatTargets', () => {
-  it('returns LLM targets plus one ACP target per adapter model', () => {
-    const targets = buildSidepanelChatTargets({ providers, adapters })
+  it('returns LLM targets plus one ACP target per persisted harness agent', () => {
+    const targets = buildSidepanelChatTargets({ providers, adapters, agents })
 
     expect(targets.map((target) => target.id)).toEqual([
       'browseros',
       'anthropic-sonnet',
-      'acp:claude:sonnet:medium',
-      'acp:claude:haiku:medium',
-      'acp:codex:gpt-5.5:medium',
-      'acp:openclaw:default:medium',
+      'agent-codex',
+      'agent-openclaw',
     ])
   })
 
-  it('emits a single default ACP target for adapters with no per-session model picker', () => {
-    const targets = buildSidepanelChatTargets({ providers, adapters })
-    const openclaw = targets.find(
-      (target) => target.id === 'acp:openclaw:default:medium',
-    )
+  it('does not emit catalog-only ACP targets without persisted agents', () => {
+    const targets = buildSidepanelChatTargets({
+      providers,
+      adapters,
+      agents: [],
+    })
+
+    expect(targets.map((target) => target.id)).toEqual([
+      'browseros',
+      'anthropic-sonnet',
+    ])
+  })
+
+  it('uses the created OpenClaw agent name instead of a generic adapter target', () => {
+    const targets = buildSidepanelChatTargets({ providers, adapters, agents })
+    const openclaw = targets.find((target) => target.id === 'agent-openclaw')
 
     expect(openclaw).toMatchObject({
       kind: 'acp',
+      id: 'agent-openclaw',
+      agentId: 'agent-openclaw',
       adapter: 'openclaw',
       adapterName: 'OpenClaw',
       modelId: 'default',
       modelLabel: 'default',
-      // Without a model picker, the target name is just the adapter
-      // name — the user picks the adapter, not a model under it.
-      name: 'OpenClaw',
+      name: 'Research Claw',
       modelControl: 'best-effort',
-      reasoningEffort: 'medium',
+      reasoningEffort: 'high',
     })
   })
 
-  it('preserves ACP model-control and recommendation metadata', () => {
-    const targets = buildSidepanelChatTargets({ providers, adapters })
-    const haiku = targets.find(
-      (target) => target.id === 'acp:claude:haiku:medium',
-    )
+  it('preserves adapter metadata for created agent targets', () => {
+    const targets = buildSidepanelChatTargets({ providers, adapters, agents })
+    const codex = targets.find((target) => target.id === 'agent-codex')
 
-    expect(haiku).toMatchObject({
+    expect(codex).toMatchObject({
       kind: 'acp',
-      adapter: 'claude',
-      modelId: 'haiku',
-      modelControl: 'best-effort',
+      agentId: 'agent-codex',
+      adapter: 'codex',
+      adapterName: 'Codex',
+      modelId: 'gpt-5.5',
+      modelLabel: 'GPT-5.5',
+      modelControl: 'runtime-supported',
       recommended: true,
       reasoningEffort: 'medium',
+      reasoningEffortLabel: 'Medium',
     })
   })
 
-  it('still returns LLM targets when ACP adapters are unavailable', () => {
-    expect(buildSidepanelChatTargets({ providers, adapters: [] })).toEqual([
+  it('still returns LLM targets when agents and adapters are unavailable', () => {
+    expect(
+      buildSidepanelChatTargets({ providers, adapters: [], agents: [] }),
+    ).toEqual([
       {
         kind: 'llm',
         id: 'browseros',
@@ -149,7 +190,7 @@ describe('buildSidepanelChatTargets', () => {
 
 describe('resolveSidepanelChatTarget', () => {
   it('resolves selected LLM targets back to their provider config', () => {
-    const targets = buildSidepanelChatTargets({ providers, adapters })
+    const targets = buildSidepanelChatTargets({ providers, adapters, agents })
     const resolved = resolveSidepanelChatTarget({
       targets,
       defaultProviderId: 'browseros',
@@ -161,13 +202,32 @@ describe('resolveSidepanelChatTarget', () => {
   })
 
   it('falls back to the current default LLM provider when a persisted ACP target is stale', () => {
-    const targets = buildSidepanelChatTargets({ providers, adapters: [] })
+    const targets = buildSidepanelChatTargets({
+      providers,
+      adapters,
+      agents: [],
+    })
 
     expect(
       resolveSidepanelChatTarget({
         targets,
         defaultProviderId: 'anthropic-sonnet',
-        selection: { kind: 'acp', id: 'acp:claude:haiku:medium' },
+        selection: { kind: 'acp', id: 'agent-codex' },
+      }),
+    ).toMatchObject({
+      kind: 'llm',
+      id: 'anthropic-sonnet',
+    })
+  })
+
+  it('falls back when an old catalog-style ACP target id is persisted', () => {
+    const targets = buildSidepanelChatTargets({ providers, adapters, agents })
+
+    expect(
+      resolveSidepanelChatTarget({
+        targets,
+        defaultProviderId: 'anthropic-sonnet',
+        selection: { kind: 'acp', id: 'acp:codex:gpt-5.5:medium' },
       }),
     ).toMatchObject({
       kind: 'llm',
@@ -180,10 +240,8 @@ describe('persistSidepanelChatTargetSelection', () => {
   it('stores only target identity and does not mutate LLM provider arrays', async () => {
     let savedSelection: SidepanelChatTargetSelection | null = null
     const originalProviders = providers.map((provider) => ({ ...provider }))
-    const targets = buildSidepanelChatTargets({ providers, adapters })
-    const target = targets.find(
-      (candidate) => candidate.id === 'acp:codex:gpt-5.5:medium',
-    )
+    const targets = buildSidepanelChatTargets({ providers, adapters, agents })
+    const target = targets.find((candidate) => candidate.id === 'agent-codex')
 
     await persistSidepanelChatTargetSelection(target, {
       setValue: async (value) => {
@@ -193,7 +251,7 @@ describe('persistSidepanelChatTargetSelection', () => {
 
     expect(savedSelection as SidepanelChatTargetSelection | null).toEqual({
       kind: 'acp',
-      id: 'acp:codex:gpt-5.5:medium',
+      id: 'agent-codex',
     })
     expect(providers).toEqual(originalProviders)
   })

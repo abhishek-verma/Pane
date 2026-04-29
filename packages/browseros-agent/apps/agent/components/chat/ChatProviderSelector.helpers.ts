@@ -17,7 +17,7 @@ export function groupProviderOptions(
       ? [{ key: 'llm' as const, label: 'AI Providers', options: llm }]
       : []),
     ...(acp.length
-      ? [{ key: 'acp' as const, label: 'ACP Models', options: acp }]
+      ? [{ key: 'acp' as const, label: 'Agents', options: acp }]
       : []),
   ]
 }
@@ -26,14 +26,25 @@ export function getProviderSearchValue(
   provider: Provider,
   groupLabel: string,
 ): string {
-  return [provider.id, provider.name, provider.type, groupLabel]
+  return [
+    provider.id,
+    provider.name,
+    provider.type,
+    groupLabel,
+    provider.adapterName,
+    provider.modelLabel,
+  ]
     .filter(Boolean)
     .join(' ')
 }
 
 export function getProviderSubtitle(provider: Provider): string | undefined {
   if (provider.kind !== 'acp') return undefined
-  return provider.modelControl === 'best-effort'
-    ? 'ACP model · best effort'
-    : 'ACP model'
+  return [
+    provider.adapterName,
+    provider.modelLabel,
+    provider.modelControl === 'best-effort' ? 'best effort' : undefined,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }

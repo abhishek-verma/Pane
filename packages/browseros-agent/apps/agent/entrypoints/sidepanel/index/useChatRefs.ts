@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDeepCompareEffect from 'use-deep-compare-effect'
-import { useAgentAdapters } from '@/entrypoints/app/agents/useAgents'
+import {
+  useAgentAdapters,
+  useHarnessAgents,
+} from '@/entrypoints/app/agents/useAgents'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { useLlmProviders } from '@/lib/llm-providers/useLlmProviders'
 import { type McpServer, useMcpServers } from '@/lib/mcp/mcpServerStorage'
@@ -38,6 +41,7 @@ export const useChatRefs = () => {
     isLoading: isLoadingProviders,
   } = useLlmProviders()
   const { adapters, loading: isLoadingAdapters } = useAgentAdapters()
+  const { harnessAgents, loading: isLoadingAgents } = useHarnessAgents()
   const { personalization } = usePersonalization()
   const [targetSelection, setTargetSelection] =
     useState<SidepanelChatTargetSelection | null>(null)
@@ -57,8 +61,9 @@ export const useChatRefs = () => {
       buildSidepanelChatTargets({
         providers: llmProviders,
         adapters,
+        agents: harnessAgents,
       }),
-    [llmProviders, adapters],
+    [llmProviders, adapters, harnessAgents],
   )
 
   const selectedChatTarget = useMemo(
@@ -116,6 +121,7 @@ export const useChatRefs = () => {
     selectedChatTarget,
     selectChatTarget,
     selectedLlmProvider,
-    isLoadingProviders: isLoadingProviders || isLoadingAdapters,
+    isLoadingProviders:
+      isLoadingProviders || isLoadingAdapters || isLoadingAgents,
   }
 }

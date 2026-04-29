@@ -16,22 +16,26 @@ const options: Provider[] = [
   },
   {
     kind: 'acp',
-    id: 'acp:claude:haiku:medium',
-    name: 'Claude Code Haiku',
+    id: 'agent-claude-review',
+    name: 'Review Bot',
     type: 'acp',
+    adapterName: 'Claude Code',
+    modelLabel: 'Haiku',
     modelControl: 'best-effort',
   },
   {
     kind: 'acp',
-    id: 'acp:codex:gpt-5.5:medium',
-    name: 'Codex GPT-5.5',
+    id: 'agent-codex-browser',
+    name: 'Browser Driver',
     type: 'acp',
+    adapterName: 'Codex',
+    modelLabel: 'GPT-5.5',
     modelControl: 'runtime-supported',
   },
 ]
 
 describe('groupProviderOptions', () => {
-  it('groups normal providers separately from ACP models', () => {
+  it('groups normal providers separately from created agents', () => {
     expect(groupProviderOptions(options)).toEqual([
       {
         key: 'llm',
@@ -40,7 +44,7 @@ describe('groupProviderOptions', () => {
       },
       {
         key: 'acp',
-        label: 'ACP Models',
+        label: 'Agents',
         options: [options[2], options[3]],
       },
     ])
@@ -48,20 +52,21 @@ describe('groupProviderOptions', () => {
 })
 
 describe('getProviderSearchValue', () => {
-  it('matches ACP group labels and item labels', () => {
-    expect(getProviderSearchValue(options[2], 'ACP Models')).toContain(
-      'ACP Models',
-    )
-    expect(getProviderSearchValue(options[2], 'ACP Models')).toContain(
-      'Claude Code Haiku',
+  it('matches created-agent group labels and item labels', () => {
+    expect(getProviderSearchValue(options[2], 'Agents')).toContain('Agents')
+    expect(getProviderSearchValue(options[2], 'Agents')).toContain('Review Bot')
+    expect(getProviderSearchValue(options[2], 'Agents')).toContain(
+      'Claude Code',
     )
   })
 })
 
 describe('getProviderSubtitle', () => {
-  it('does not present best-effort ACP models as guaranteed routing', () => {
-    expect(getProviderSubtitle(options[2])).toBe('ACP model · best effort')
-    expect(getProviderSubtitle(options[3])).toBe('ACP model')
+  it('describes created-agent runtime context without model-target copy', () => {
+    expect(getProviderSubtitle(options[2])).toBe(
+      'Claude Code · Haiku · best effort',
+    )
+    expect(getProviderSubtitle(options[3])).toBe('Codex · GPT-5.5')
     expect(getProviderSubtitle(options[0])).toBeUndefined()
   })
 })

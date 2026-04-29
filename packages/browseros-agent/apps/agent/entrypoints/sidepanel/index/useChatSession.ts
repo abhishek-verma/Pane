@@ -680,13 +680,20 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const sendMessage = (params: { text: string; action?: ChatAction }) => {
     const target = selectedChatTargetRef.current
     const llmTargetProvider = toLlmProviderConfig(target)
+    const agentTarget = target?.kind === 'acp' ? target : undefined
     track(MESSAGE_SENT_EVENT, {
       mode,
-      provider_type: target?.kind === 'acp' ? 'acp' : llmTargetProvider?.type,
+      provider_id:
+        agentTarget?.agentId ??
+        llmTargetProvider?.id ??
+        selectedLlmProvider?.id,
+      provider_type: agentTarget ? 'acp' : llmTargetProvider?.type,
+      agent_id: agentTarget?.agentId,
+      adapter: agentTarget?.adapter,
       model:
-        target?.kind === 'acp'
-          ? target.modelId
-          : llmTargetProvider?.modelId || selectedLlmProvider?.modelId,
+        agentTarget?.modelId ??
+        llmTargetProvider?.modelId ??
+        selectedLlmProvider?.modelId,
     })
 
     if (!isIntegrationsSyncedRef.current) {
@@ -763,6 +770,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       provider_type: target.kind === 'acp' ? 'acp' : target.type,
       model_id:
         target.kind === 'acp' ? target.modelId : target.provider.modelId,
+      agent_id: target.kind === 'acp' ? target.agentId : undefined,
+      adapter: target.kind === 'acp' ? target.adapter : undefined,
     })
 
     void selectChatTarget(target).catch((error) => {
