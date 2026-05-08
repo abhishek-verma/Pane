@@ -713,18 +713,20 @@ function createBrowserosAgentRegistry(input: {
 
       if (lower === 'hermes') {
         const runtime = getHermesRuntime()
-        if (!runtime) {
-          // No runtime registered (tests, dev fallback, non-darwin).
-          // Spawn the host-side `hermes` binary if available; acpx's
-          // built-in registry resolution suffices, with HERMES_HOME
-          // injected via the env wrapper so per-agent state still
-          // works. Production registers the runtime and goes through
-          // the container path below.
-          return wrapCommandWithEnv('hermes acp', input.commandEnv)
-        }
-        return runtime.buildExecArgv(runtime.getAcpExecSpec(input.commandEnv))
+        if (runtime)
+          return runtime.buildExecArgv(runtime.getAcpExecSpec(input.commandEnv))
+        // No runtime registered (tests, dev fallback, non-darwin) →
+        // host-process spawn of the bare hermes binary.
+        return wrapCommandWithEnv('hermes acp', input.commandEnv)
       }
 
+      // claude + codex resolve through acpx-core's built-in registry
+      // because the canonical command is an npx wrapper around the
+      // upstream ACP-adapter package (e.g. `npx @zed-industries/codex-acp`),
+      // and the package version range lives inside acpx-core. The
+      // ClaudeRuntime / CodexRuntime registrations still drive health
+      // probing and per-turn prep; only the spawn command source-of-
+      // truth stays in acpx-core.
       if (lower === 'claude' || lower === 'codex') {
         return wrapCommandWithEnv(registry.resolve(agentName), input.commandEnv)
       }
