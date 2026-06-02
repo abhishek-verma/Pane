@@ -8,7 +8,7 @@ import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 
 export const ToolbarSettingsCard: FC = () => {
   const [showLlmChat, setShowLlmChat] = useState(true)
-  const [showLlmHub, setShowLlmHub] = useState(true)
+  const [showLlmHub, setShowLlmHub] = useState(false)
   const [showToolbarLabels, setShowToolbarLabels] = useState(true)
   const [verticalTabsEnabled, setVerticalTabsEnabled] = useState(true)
   const [supportsVerticalTabs, setSupportsVerticalTabs] = useState(false)
@@ -24,7 +24,7 @@ export const ToolbarSettingsCard: FC = () => {
           adapter.getPref(BROWSEROS_PREFS.SHOW_TOOLBAR_LABELS),
         ])
         setShowLlmChat(chatPref?.value !== false)
-        setShowLlmHub(hubPref?.value !== false)
+        setShowLlmHub(hubPref?.value === true)
         setShowToolbarLabels(labelsPref?.value !== false)
 
         const hasVerticalTabsSupport = await Capabilities.supports(

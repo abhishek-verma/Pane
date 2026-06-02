@@ -21,7 +21,7 @@ index 0000000000000..c191fb3963968
 +void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 +  // Toolbar visibility prefs
 +  registry->RegisterBooleanPref(prefs::kShowLLMChat, true);
-+  registry->RegisterBooleanPref(prefs::kShowLLMHub, true);
++  registry->RegisterBooleanPref(prefs::kShowLLMHub, false);
 +  registry->RegisterBooleanPref(prefs::kShowToolbarLabels, true);
 +
 +  // Vertical tabs pref

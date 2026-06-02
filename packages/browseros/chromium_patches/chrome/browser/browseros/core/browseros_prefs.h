@@ -26,7 +26,7 @@ index 0000000000000..a94b14e0664ca
 +// Boolean: Show LLM Chat in toolbar (default: true)
 +inline constexpr char kShowLLMChat[] = "browseros.show_llm_chat";
 +
-+// Boolean: Show LLM Hub in toolbar (default: true)
++// Boolean: Show LLM Hub in toolbar (default: false)
 +inline constexpr char kShowLLMHub[] = "browseros.show_llm_hub";
 +
 +// Boolean: Show labels on BrowserOS toolbar actions (default: true)
