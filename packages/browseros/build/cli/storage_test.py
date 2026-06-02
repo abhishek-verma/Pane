@@ -51,11 +51,16 @@ def _add_tar_file(
     tar.addfile(info, io.BytesIO(payload))
 
 
-def _build_bun_zip(payload: bytes) -> bytes:
+def _build_bun_zip(
+    payload: bytes,
+    *,
+    root_dir: str = "bun-darwin-aarch64",
+    binary_name: str = "bun",
+) -> bytes:
     """Return a Bun release zip with the upstream directory layout."""
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr("bun-darwin-aarch64/bun", payload)
+        archive.writestr(f"{root_dir}/{binary_name}", payload)
     return buffer.getvalue()
 
 
@@ -214,8 +219,49 @@ class ExtractBunFileTest(unittest.TestCase):
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
                 archive.writestr("bun-darwin-aarch64/README.md", b"missing")
 
-            with self.assertRaisesRegex(RuntimeError, "bun binary not found"):
+            with self.assertRaisesRegex(RuntimeError, "bun not found in Bun zip"):
                 storage._extract_bun_file(zip_path, tmp_path / "bun")
+
+    def test_raises_with_requested_binary_name_when_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            zip_path = tmp_path / "bun.zip"
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr("bun-windows-x64-baseline/README.md", b"missing")
+
+            with self.assertRaisesRegex(RuntimeError, r"bun\.exe not found"):
+                storage._extract_bun_file(
+                    zip_path,
+                    tmp_path / "bun.exe",
+                    binary_name="bun.exe",
+                )
+
+
+class BunTargetTest(unittest.TestCase):
+    def test_bun_targets_have_expected_fields(self) -> None:
+        self.assertEqual(
+            [
+                (target.internal, target.upstream, target.r2_name, target.binary_name)
+                for target in storage.BUN_TARGETS
+            ],
+            [
+                ("darwin-arm64", "darwin-aarch64", "bun-darwin-arm64", "bun"),
+                ("darwin-x64", "darwin-x64", "bun-darwin-x64", "bun"),
+                ("linux-arm64", "linux-aarch64", "bun-linux-arm64", "bun"),
+                (
+                    "linux-x64",
+                    "linux-x64-baseline",
+                    "bun-linux-x64-baseline",
+                    "bun",
+                ),
+                (
+                    "windows-x64",
+                    "windows-x64-baseline",
+                    "bun-windows-x64-baseline.exe",
+                    "bun.exe",
+                ),
+            ],
+        )
 
 
 class RollbackTest(unittest.TestCase):
@@ -260,12 +306,15 @@ class BuildManifestTest(unittest.TestCase):
     def test_bun_manifest_shape(self) -> None:
         manifest = storage._build_bun_manifest(
             "bun-v1.2.3",
-            {"arm64": "a" * 64, "x64": "b" * 64},
-            {"arm64": "c" * 64, "x64": "d" * 64},
+            {"darwin-arm64": "a" * 64, "linux-x64": "b" * 64},
+            {"darwin-arm64": "c" * 64, "linux-x64": "d" * 64},
         )
         self.assertEqual(manifest["bun_version"], "bun-v1.2.3")
-        self.assertEqual(manifest["zip_shas_upstream"]["arm64"], "a" * 64)
-        self.assertEqual(manifest["r2_object_shas"]["x64"], "d" * 64)
+        self.assertEqual(
+            manifest["zip_shas_upstream"]["darwin-arm64"],
+            "a" * 64,
+        )
+        self.assertEqual(manifest["r2_object_shas"]["linux-x64"], "d" * 64)
         self.assertIn("uploaded_at", manifest)
         self.assertIn("uploaded_by", manifest)
 
@@ -507,7 +556,7 @@ class ProcessArchTest(unittest.TestCase):
         self.assertEqual(uploads, [])
 
 
-class ProcessBunArchTest(unittest.TestCase):
+class ProcessBunTargetTest(unittest.TestCase):
     def setUp(self) -> None:
         self.bun_payload = b"bun-binary-" + b"z" * 200
         self.zip_bytes = _build_bun_zip(self.bun_payload)
@@ -539,9 +588,13 @@ class ProcessBunArchTest(unittest.TestCase):
                     storage, "upload_file_to_r2", side_effect=fake_upload
                 ),
             ):
-                zip_sha, binary_sha, r2_key = storage._process_bun_arch(
+                zip_sha, binary_sha, r2_key = storage._process_bun_target(
                     tag="bun-v1.2.3",
-                    arch=storage.BunArch(internal="arm64", upstream="darwin-aarch64"),
+                    target=storage.BunTarget(
+                        internal="darwin-arm64",
+                        upstream="darwin-aarch64",
+                        r2_name="bun-darwin-arm64",
+                    ),
                     tmp_dir=tmp_path,
                     checksums={"bun-darwin-aarch64.zip": self.expected_zip_sha},
                     client=mock.Mock(),
@@ -574,9 +627,13 @@ class ProcessBunArchTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             with mock.patch.object(storage, "_download", side_effect=fake_download):
-                storage._process_bun_arch(
+                storage._process_bun_target(
                     tag="bun-v1.2.3",
-                    arch=storage.BunArch(internal="arm64", upstream="darwin-aarch64"),
+                    target=storage.BunTarget(
+                        internal="darwin-arm64",
+                        upstream="darwin-aarch64",
+                        r2_name="bun-darwin-arm64",
+                    ),
                     tmp_dir=tmp_path,
                     checksums={"bun-darwin-aarch64.zip": self.expected_zip_sha},
                     client=None,
@@ -608,11 +665,12 @@ class ProcessBunArchTest(unittest.TestCase):
                 ),
             ):
                 with self.assertRaisesRegex(RuntimeError, "sha256 mismatch"):
-                    storage._process_bun_arch(
+                    storage._process_bun_target(
                         tag="bun-v1.2.3",
-                        arch=storage.BunArch(
-                            internal="arm64",
+                        target=storage.BunTarget(
+                            internal="darwin-arm64",
                             upstream="darwin-aarch64",
+                            r2_name="bun-darwin-arm64",
                         ),
                         tmp_dir=tmp_path,
                         checksums={"bun-darwin-aarch64.zip": "0" * 64},
@@ -642,9 +700,13 @@ class ProcessBunArchTest(unittest.TestCase):
                     storage, "upload_file_to_r2", side_effect=fake_upload
                 ),
             ):
-                _, _, r2_key = storage._process_bun_arch(
+                _, _, r2_key = storage._process_bun_target(
                     tag="bun-v1.2.3",
-                    arch=storage.BunArch(internal="arm64", upstream="darwin-aarch64"),
+                    target=storage.BunTarget(
+                        internal="darwin-arm64",
+                        upstream="darwin-aarch64",
+                        r2_name="bun-darwin-arm64",
+                    ),
                     tmp_dir=tmp_path,
                     checksums={"bun-darwin-aarch64.zip": self.expected_zip_sha},
                     client=None,
@@ -654,6 +716,69 @@ class ProcessBunArchTest(unittest.TestCase):
 
         self.assertEqual(uploads, [])
         self.assertEqual(r2_key, "artifacts/vendor/third_party/bun/bun-darwin-arm64")
+
+    def test_windows_target_extracts_exe_and_uploads_exe_key(self) -> None:
+        payload = b"bun-windows-exe-" + b"w" * 200
+        zip_bytes = _build_bun_zip(
+            payload,
+            root_dir="bun-windows-x64-baseline",
+            binary_name="bun.exe",
+        )
+        expected_zip_sha = hashlib.sha256(zip_bytes).hexdigest()
+        expected_bun_sha = hashlib.sha256(payload).hexdigest()
+        uploads: List[Tuple[str, str, bytes]] = []
+
+        def fake_download(_url: str, dest: Path, **_kwargs: Any) -> None:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(zip_bytes)
+
+        def fake_upload(
+            _client: Any, local_path: Path, r2_key: str, bucket: str
+        ) -> bool:
+            uploads.append((r2_key, bucket, local_path.read_bytes()))
+            return True
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            with (
+                mock.patch.object(storage, "_download", side_effect=fake_download),
+                mock.patch.object(
+                    storage,
+                    "upload_file_to_r2",
+                    side_effect=fake_upload,
+                ),
+            ):
+                zip_sha, binary_sha, r2_key = storage._process_bun_target(
+                    tag="bun-v1.2.3",
+                    target=storage.BunTarget(
+                        internal="windows-x64",
+                        upstream="windows-x64-baseline",
+                        r2_name="bun-windows-x64-baseline.exe",
+                        binary_name="bun.exe",
+                    ),
+                    tmp_dir=tmp_path,
+                    checksums={"bun-windows-x64-baseline.zip": expected_zip_sha},
+                    client=mock.Mock(),
+                    env=mock.Mock(r2_bucket="browseros"),
+                    dry_run=False,
+                )
+
+        self.assertEqual(zip_sha, expected_zip_sha)
+        self.assertEqual(binary_sha, expected_bun_sha)
+        self.assertEqual(
+            r2_key,
+            "artifacts/vendor/third_party/bun/bun-windows-x64-baseline.exe",
+        )
+        self.assertEqual(
+            uploads,
+            [
+                (
+                    "artifacts/vendor/third_party/bun/bun-windows-x64-baseline.exe",
+                    "browseros",
+                    payload,
+                )
+            ],
+        )
 
 
 if __name__ == "__main__":

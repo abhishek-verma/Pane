@@ -32,7 +32,28 @@ describe('bundled Bun helpers', () => {
     )
   })
 
-  it('ignores non-executable bundled Bun files', async () => {
+  it('resolves the Linux bundled Bun executable', async () => {
+    const resourcesDir = await mkdtemp(join(tmpdir(), 'browseros-bun-'))
+    tempDirs.push(resourcesDir)
+    const bunPath = join(resourcesDir, 'bin', 'third_party', 'bun')
+    await mkdir(dirname(bunPath), { recursive: true })
+    await writeFile(bunPath, '#!/bin/sh\n')
+    await chmod(bunPath, 0o755)
+
+    expect(resolveBundledBun({ resourcesDir, platform: 'linux' })).toBe(bunPath)
+  })
+
+  it('resolves the Windows bundled Bun executable', async () => {
+    const resourcesDir = await mkdtemp(join(tmpdir(), 'browseros-bun-'))
+    tempDirs.push(resourcesDir)
+    const bunPath = join(resourcesDir, 'bin', 'third_party', 'bun.exe')
+    await mkdir(dirname(bunPath), { recursive: true })
+    await writeFile(bunPath, 'MZ')
+
+    expect(resolveBundledBun({ resourcesDir, platform: 'win32' })).toBe(bunPath)
+  })
+
+  it('ignores non-executable bundled Bun files on macOS', async () => {
     const resourcesDir = await mkdtemp(join(tmpdir(), 'browseros-bun-'))
     tempDirs.push(resourcesDir)
     const bunPath = join(resourcesDir, 'bin', 'third_party', 'bun')
@@ -43,13 +64,24 @@ describe('bundled Bun helpers', () => {
     expect(resolveBundledBun({ resourcesDir, platform: 'darwin' })).toBeNull()
   })
 
-  it('ignores bundled Bun on non-macOS platforms', async () => {
+  it('ignores non-executable bundled Bun files on Linux', async () => {
+    const resourcesDir = await mkdtemp(join(tmpdir(), 'browseros-bun-'))
+    tempDirs.push(resourcesDir)
+    const bunPath = join(resourcesDir, 'bin', 'third_party', 'bun')
+    await mkdir(dirname(bunPath), { recursive: true })
+    await writeFile(bunPath, '#!/bin/sh\n')
+    await chmod(bunPath, 0o644)
+
+    expect(resolveBundledBun({ resourcesDir, platform: 'linux' })).toBeNull()
+  })
+
+  it('ignores bundled Bun on unsupported platforms', async () => {
     const resourcesDir = await mkdtemp(join(tmpdir(), 'browseros-bun-'))
     tempDirs.push(resourcesDir)
     const bunPath = join(resourcesDir, 'bin', 'third_party', 'bun')
     await mkdir(dirname(bunPath), { recursive: true })
     await writeFile(bunPath, '#!/bin/sh\n')
 
-    expect(resolveBundledBun({ resourcesDir, platform: 'linux' })).toBeNull()
+    expect(resolveBundledBun({ resourcesDir, platform: 'freebsd' })).toBeNull()
   })
 })

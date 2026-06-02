@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { S3Client } from '@aws-sdk/client-s3'
-import { loadManifest } from './manifest'
+import { getTargetRules, loadManifest } from './manifest'
 import { stageCompiledArtifact, stageTargetArtifact } from './stage'
 import type { BuildTarget, R2Config, ResourceRule } from './types'
 
@@ -121,6 +121,69 @@ describe('server artifact staging', () => {
     expect(await readFile(bunPath, 'utf8')).toBe('#!/bin/sh\n')
     expect((await stat(bunPath)).mode & 0o111).not.toBe(0)
   })
+
+  for (const { target, expectedKey, expectedRelativePath } of [
+    {
+      target: linuxArm64Target,
+      expectedKey: 'third_party/bun/bun-linux-arm64',
+      expectedRelativePath: 'bin/third_party/bun',
+    },
+    {
+      target: linuxX64Target,
+      expectedKey: 'third_party/bun/bun-linux-x64-baseline',
+      expectedRelativePath: 'bin/third_party/bun',
+    },
+    {
+      target: windowsX64Target,
+      expectedKey: 'third_party/bun/bun-windows-x64-baseline.exe',
+      expectedRelativePath: 'bin/third_party/bun.exe',
+    },
+  ]) {
+    it(`stages the platform Bun resource for ${target.id}`, async () => {
+      tempDir = await mkdtemp(join(tmpdir(), 'browseros-stage-test-'))
+      const sourceRoot = join(tempDir, 'source')
+      const distRoot = join(tempDir, 'dist')
+      const binaryPath = join(tempDir, target.serverBinaryName)
+      const requests: string[] = []
+      const payload = new TextEncoder().encode(`${target.id}-bun`)
+      await writeFile(binaryPath, 'server')
+
+      const rules = bunRulesForTarget(target)
+      expect(rules).toHaveLength(1)
+      expect(rules[0]?.source).toEqual({
+        type: 'r2',
+        key: expectedKey,
+      })
+
+      const artifact = await stageTargetArtifact(
+        distRoot,
+        binaryPath,
+        target,
+        rules,
+        sourceRoot,
+        {
+          send: async (command: unknown) => {
+            requests.push((command as { input: { Key: string } }).input.Key)
+            return {
+              Body: {
+                transformToByteArray: async () => payload,
+              },
+            }
+          },
+        } as unknown as S3Client,
+        fakeR2Config,
+        '0.0.0-test',
+      )
+
+      expect(requests).toEqual([`artifacts/vendor/${expectedKey}`])
+      expect(
+        await readFile(
+          join(artifact.resourcesDir, expectedRelativePath),
+          'utf8',
+        ),
+      ).toBe(`${target.id}-bun`)
+    })
+  }
 })
 
 const testTarget: BuildTarget = {
@@ -130,6 +193,42 @@ const testTarget: BuildTarget = {
   arch: 'arm64',
   bunTarget: 'bun-darwin-arm64',
   serverBinaryName: 'browseros-server',
+}
+
+const linuxArm64Target: BuildTarget = {
+  id: 'linux-arm64',
+  name: 'Linux ARM64',
+  os: 'linux',
+  arch: 'arm64',
+  bunTarget: 'bun-linux-arm64',
+  serverBinaryName: 'browseros_server',
+}
+
+const linuxX64Target: BuildTarget = {
+  id: 'linux-x64',
+  name: 'Linux x64',
+  os: 'linux',
+  arch: 'x64',
+  bunTarget: 'bun-linux-x64-baseline',
+  serverBinaryName: 'browseros_server',
+}
+
+const windowsX64Target: BuildTarget = {
+  id: 'windows-x64',
+  name: 'Windows x64',
+  os: 'windows',
+  arch: 'x64',
+  bunTarget: 'bun-windows-x64-baseline',
+  serverBinaryName: 'browseros_server.exe',
+}
+
+function bunRulesForTarget(target: BuildTarget): ResourceRule[] {
+  return getTargetRules(
+    loadManifest(join(import.meta.dir, '../config/server-prod-resources.json')),
+    target,
+  ).filter(
+    (rule) => rule.source.type === 'r2' && rule.name.startsWith('Bun - '),
+  )
 }
 
 const migrationRule: ResourceRule = {

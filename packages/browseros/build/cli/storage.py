@@ -49,16 +49,42 @@ LIMA_ARCHES: Tuple[LimaArch, ...] = (
 
 
 @dataclass(frozen=True)
-class BunArch:
-    """Arch-pair: the suffix Bun uses upstream and the suffix we use in R2."""
+class BunTarget:
+    """Mapping from a Bun release asset to the R2 object staged into bundles."""
 
-    internal: str  # "arm64" | "x64" — how our R2 keys name it
-    upstream: str  # "darwin-aarch64" | "darwin-x64" — Bun's zip suffix
+    internal: str  # "darwin-arm64" | "linux-x64" — how manifests identify it
+    upstream: str  # "darwin-aarch64" | "linux-x64-baseline" — Bun's zip suffix
+    r2_name: str  # object basename under BUN_R2_PREFIX
+    binary_name: str = "bun"  # Windows zips contain bun.exe
 
 
-BUN_ARCHES: Tuple[BunArch, ...] = (
-    BunArch(internal="arm64", upstream="darwin-aarch64"),
-    BunArch(internal="x64", upstream="darwin-x64"),
+BUN_TARGETS: Tuple[BunTarget, ...] = (
+    BunTarget(
+        internal="darwin-arm64",
+        upstream="darwin-aarch64",
+        r2_name="bun-darwin-arm64",
+    ),
+    BunTarget(
+        internal="darwin-x64",
+        upstream="darwin-x64",
+        r2_name="bun-darwin-x64",
+    ),
+    BunTarget(
+        internal="linux-arm64",
+        upstream="linux-aarch64",
+        r2_name="bun-linux-arm64",
+    ),
+    BunTarget(
+        internal="linux-x64",
+        upstream="linux-x64-baseline",
+        r2_name="bun-linux-x64-baseline",
+    ),
+    BunTarget(
+        internal="windows-x64",
+        upstream="windows-x64-baseline",
+        r2_name="bun-windows-x64-baseline.exe",
+        binary_name="bun.exe",
+    ),
 )
 
 
@@ -154,7 +180,7 @@ def upload_bun(
         help="Download + verify only; skip R2 uploads.",
     ),
 ) -> None:
-    """Download Bun from an upstream GitHub release and push macOS binaries to R2."""
+    """Download Bun from an upstream GitHub release and push target binaries to R2."""
     if not BOTO3_AVAILABLE:
         log_error("boto3 not installed — run: pip install boto3")
         raise typer.Exit(1)
@@ -181,10 +207,10 @@ def upload_bun(
         zip_shas: Dict[str, str] = {}
 
         try:
-            for arch in BUN_ARCHES:
-                zip_sha, binary_sha, _ = _process_bun_arch(
+            for target in BUN_TARGETS:
+                zip_sha, binary_sha, _ = _process_bun_target(
                     tag,
-                    arch,
+                    target,
                     tmp_dir,
                     checksums,
                     client,
@@ -192,8 +218,8 @@ def upload_bun(
                     dry_run,
                     uploaded_keys,
                 )
-                zip_shas[arch.internal] = zip_sha
-                object_shas[arch.internal] = binary_sha
+                zip_shas[target.internal] = zip_sha
+                object_shas[target.internal] = binary_sha
 
             manifest = _build_bun_manifest(tag, zip_shas, object_shas)
             _upload_bun_manifest(client, env, manifest, tmp_dir, dry_run)
@@ -206,7 +232,7 @@ def upload_bun(
             log_error(f"Bun upload aborted: {exc}")
             raise typer.Exit(1)
 
-    log_success(f"Bun {tag} uploaded for {[a.internal for a in BUN_ARCHES]}")
+    log_success(f"Bun {tag} uploaded for {[t.internal for t in BUN_TARGETS]}")
 
 
 def _normalize_version_tag(version: str) -> str:
@@ -319,9 +345,9 @@ def _process_arch(
     return actual_sha, object_shas, r2_keys
 
 
-def _process_bun_arch(
+def _process_bun_target(
     tag: str,
-    arch: BunArch,
+    target: BunTarget,
     tmp_dir: Path,
     checksums: Dict[str, str],
     client: Any,
@@ -329,7 +355,7 @@ def _process_bun_arch(
     dry_run: bool,
     uploaded_keys: Optional[List[str]] = None,
 ) -> Tuple[str, str, str]:
-    zip_name = f"bun-{arch.upstream}.zip"
+    zip_name = f"bun-{target.upstream}.zip"
     expected_sha = checksums.get(zip_name)
     if not expected_sha:
         raise RuntimeError(
@@ -347,9 +373,9 @@ def _process_bun_arch(
             f"sha256 mismatch for {zip_name}: expected {expected_sha}, got {actual_sha}"
         )
 
-    local_path = tmp_dir / f"bun-darwin-{arch.internal}"
-    r2_key = f"{BUN_R2_PREFIX}/bun-darwin-{arch.internal}"
-    _extract_bun_file(zip_path, local_path)
+    local_path = tmp_dir / target.r2_name
+    r2_key = f"{BUN_R2_PREFIX}/{target.r2_name}"
+    _extract_bun_file(zip_path, local_path, target.binary_name)
     binary_sha = _sha256_file(local_path)
 
     if dry_run:
@@ -381,12 +407,12 @@ def _extract_lima_file(tarball_path: Path, logical_path: str, dest: Path) -> Non
     raise RuntimeError(f"{logical_path} not found in Lima tarball")
 
 
-def _extract_bun_file(zip_path: Path, dest: Path) -> None:
+def _extract_bun_file(zip_path: Path, dest: Path, binary_name: str = "bun") -> None:
     with zipfile.ZipFile(zip_path) as archive:
         for member in archive.infolist():
             if member.is_dir():
                 continue
-            if _logical_bun_path(member.filename) != "bun":
+            if _logical_bun_path(member.filename) != binary_name:
                 continue
             dest.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(member) as src, open(dest, "wb") as out:
@@ -394,7 +420,7 @@ def _extract_bun_file(zip_path: Path, dest: Path) -> None:
                     out.write(chunk)
             dest.chmod(0o755)
             return
-    raise RuntimeError("bun binary not found in Bun zip")
+    raise RuntimeError(f"{binary_name} not found in Bun zip")
 
 
 def _logical_lima_path(member_name: str) -> str:
