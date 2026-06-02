@@ -158,6 +158,115 @@ describe('adapter detection', () => {
     })
   })
 
+  it('uses bundled native CLIs before host PATH for version and auth probes', async () => {
+    const resourcesDir = '/Applications/BrowserOS.app/Contents/Resources'
+    const bundledDir = join(resourcesDir, 'bin', 'third_party')
+    const bundledCodex = join(bundledDir, 'codex')
+    const hostResolveCalls: string[] = []
+    const commandCalls: Array<{
+      cmd: string
+      args: string[]
+      pathEnv: string | undefined
+    }> = []
+
+    const result = await detectHostAdapter('codex', {
+      now: () => 1234,
+      platform: 'darwin',
+      resourcesDir,
+      resolveBundledBun: () => join(bundledDir, 'bun'),
+      resolveBundledNativeBinary: ({ adapter, env, platform }) => {
+        expect(adapter).toBe('codex')
+        expect(platform).toBe('darwin')
+        expect(env?.PATH).toBe('/usr/bin')
+        return {
+          path: bundledCodex,
+          env: { PATH: `${bundledDir}:/usr/bin` },
+        }
+      },
+      env: { PATH: '/usr/bin' },
+      resolveBinary: async (name) => {
+        hostResolveCalls.push(name)
+        return null
+      },
+      runCommand: async (cmd, args, options) => {
+        commandCalls.push({ cmd, args, pathEnv: options.env?.PATH })
+        if (args[0] === '--version') {
+          return { exitCode: 0, stdout: 'codex-cli 0.136.0\n', stderr: '' }
+        }
+        if (args.join(' ') === 'login status') {
+          return { exitCode: 0, stdout: 'authenticated\n', stderr: '' }
+        }
+        throw new Error(`unexpected command ${cmd} ${args.join(' ')}`)
+      },
+      probePackageCache: async () => false,
+    })
+
+    expect(result).toMatchObject({
+      healthy: true,
+      readiness: 'ready',
+      installState: 'installed',
+      nativeCliState: 'present',
+      authState: 'authenticated',
+      adapterLaunchSource: 'bundled-bun',
+      packageCacheState: 'unknown',
+      version: 'codex-cli 0.136.0',
+      checkedAt: 1234,
+    })
+    expect(hostResolveCalls).toEqual([])
+    expect(commandCalls).toEqual([
+      {
+        cmd: bundledCodex,
+        args: ['--version'],
+        pathEnv: `${bundledDir}:/usr/bin`,
+      },
+      {
+        cmd: bundledCodex,
+        args: ['login', 'status'],
+        pathEnv: `${bundledDir}:/usr/bin`,
+      },
+    ])
+  })
+
+  it('reports missing package runner separately from bundled native CLI presence', async () => {
+    const resourcesDir = '/opt/BrowserOS/resources'
+    const bundledDir = join(resourcesDir, 'bin', 'third_party')
+    const bundledCodex = join(bundledDir, 'codex')
+
+    const result = await detectHostAdapter('codex', {
+      now: () => 1234,
+      platform: 'linux',
+      resourcesDir,
+      resolveBundledNativeBinary: () => ({
+        path: bundledCodex,
+        env: { PATH: `${bundledDir}:/usr/bin` },
+      }),
+      resolveBundledBun: () => null,
+      resolveBinary: async () => null,
+      runCommand: async (_cmd, args) => {
+        if (args[0] === '--version') {
+          return { exitCode: 0, stdout: 'codex-cli 0.136.0\n', stderr: '' }
+        }
+        if (args.join(' ') === 'login status') {
+          return { exitCode: 0, stdout: 'authenticated\n', stderr: '' }
+        }
+        throw new Error(`unexpected command ${args.join(' ')}`)
+      },
+      probePackageCache: async () => false,
+    })
+
+    expect(result).toMatchObject({
+      healthy: false,
+      readiness: 'needs-install',
+      installState: 'installed',
+      nativeCliState: 'present',
+      authState: 'authenticated',
+      adapterLaunchSource: 'none',
+      packageCacheState: 'unknown',
+      reason:
+        'Codex adapter package cannot launch because neither bundled Bun nor npx is available.',
+    })
+  })
+
   it('uses codex doctor when login status is not supported', async () => {
     const calls: Array<{ args: string[]; timeoutMs: number | undefined }> = []
 

@@ -31,6 +31,16 @@ BUN_RELEASE_BASE = "https://github.com/oven-sh/bun/releases/download"
 BUN_R2_PREFIX = "artifacts/vendor/third_party/bun"
 BUN_MANIFEST_KEY = f"{BUN_R2_PREFIX}/manifest.json"
 BUN_HTTP_TIMEOUT_S = 120
+CODEX_RELEASE_BASE = "https://github.com/openai/codex/releases/download"
+CODEX_DEFAULT_TAG = "rust-v0.136.0"
+CODEX_R2_PREFIX = "artifacts/vendor/third_party/codex"
+CODEX_MANIFEST_KEY = f"{CODEX_R2_PREFIX}/manifest.json"
+CODEX_HTTP_TIMEOUT_S = 120
+CLAUDE_CODE_RELEASE_BASE = "https://downloads.claude.ai/claude-code-releases"
+CLAUDE_CODE_DEFAULT_VERSION = "2.1.159"
+CLAUDE_CODE_R2_PREFIX = "artifacts/vendor/third_party/claude-code"
+CLAUDE_CODE_MANIFEST_KEY = f"{CLAUDE_CODE_R2_PREFIX}/manifest.json"
+CLAUDE_CODE_HTTP_TIMEOUT_S = 300
 
 
 @dataclass(frozen=True)
@@ -85,6 +95,55 @@ BUN_TARGETS: Tuple[BunTarget, ...] = (
         r2_name="bun-windows-x64-baseline.exe",
         binary_name="bun.exe",
     ),
+)
+
+
+@dataclass(frozen=True)
+class CodexPlatform:
+    """BrowserOS target plus the upstream Codex package coordinates."""
+
+    target: str
+    upstream: str
+
+
+CODEX_PLATFORMS: Tuple[CodexPlatform, ...] = (
+    CodexPlatform(
+        target="darwin-arm64",
+        upstream="aarch64-apple-darwin",
+    ),
+    CodexPlatform(
+        target="darwin-x64",
+        upstream="x86_64-apple-darwin",
+    ),
+    CodexPlatform(
+        target="linux-arm64",
+        upstream="aarch64-unknown-linux-musl",
+    ),
+    CodexPlatform(
+        target="linux-x64",
+        upstream="x86_64-unknown-linux-musl",
+    ),
+    CodexPlatform(
+        target="windows-x64",
+        upstream="x86_64-pc-windows-msvc",
+    ),
+)
+
+
+@dataclass(frozen=True)
+class ClaudeCodePlatform:
+    """BrowserOS target plus the upstream Claude Code platform name."""
+
+    target: str
+    upstream: str
+
+
+CLAUDE_CODE_PLATFORMS: Tuple[ClaudeCodePlatform, ...] = (
+    ClaudeCodePlatform(target="darwin-arm64", upstream="darwin-arm64"),
+    ClaudeCodePlatform(target="darwin-x64", upstream="darwin-x64"),
+    ClaudeCodePlatform(target="linux-arm64", upstream="linux-arm64"),
+    ClaudeCodePlatform(target="linux-x64", upstream="linux-x64"),
+    ClaudeCodePlatform(target="windows-x64", upstream="win32-x64"),
 )
 
 
@@ -235,6 +294,120 @@ def upload_bun(
     log_success(f"Bun {tag} uploaded for {[t.internal for t in BUN_TARGETS]}")
 
 
+@app.command("codex")
+def upload_codex(
+    version: str = typer.Option(
+        CODEX_DEFAULT_TAG,
+        "--version",
+        "-v",
+        help="Codex release tag, e.g. rust-v0.136.0",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Download + verify only; skip R2 uploads.",
+    ),
+) -> None:
+    """Download Codex release packages and push normalized native binaries to R2."""
+    tag = _normalize_codex_release_tag(version)
+    env, client = _prepare_upload_client(dry_run)
+
+    with tempfile.TemporaryDirectory(prefix="codex-upload-") as tmp:
+        tmp_dir = Path(tmp)
+        checksums = _fetch_codex_package_checksums(tag, tmp_dir)
+        uploaded_keys: List[str] = []
+        package_shas: Dict[str, str] = {}
+        object_shas: Dict[str, str] = {}
+
+        try:
+            for platform in CODEX_PLATFORMS:
+                package_sha, binary_sha, _ = _process_codex_platform(
+                    tag,
+                    platform,
+                    tmp_dir,
+                    checksums,
+                    client,
+                    env,
+                    dry_run,
+                    uploaded_keys,
+                )
+                package_shas[platform.target] = package_sha
+                object_shas[platform.target] = binary_sha
+
+            manifest = _build_codex_manifest(tag, package_shas, object_shas)
+            _upload_codex_manifest(client, env, manifest, tmp_dir, dry_run)
+        except Exception as exc:
+            if not dry_run and uploaded_keys:
+                log_warning(
+                    f"Upload failed — rolling back {len(uploaded_keys)} object(s)"
+                )
+                _rollback(client, env.r2_bucket, uploaded_keys)
+            log_error(f"Codex upload aborted: {exc}")
+            raise typer.Exit(1)
+
+    log_success(f"Codex {tag} uploaded for {[p.target for p in CODEX_PLATFORMS]}")
+
+
+@app.command("claude-code")
+def upload_claude_code(
+    version: str = typer.Option(
+        CLAUDE_CODE_DEFAULT_VERSION,
+        "--version",
+        "-v",
+        help="Claude Code release version, e.g. 2.1.159",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Download + verify only; skip R2 uploads.",
+    ),
+) -> None:
+    """Download Claude Code release binaries and push normalized objects to R2."""
+    version = version.strip()
+    env, client = _prepare_upload_client(dry_run)
+
+    with tempfile.TemporaryDirectory(prefix="claude-code-upload-") as tmp:
+        tmp_dir = Path(tmp)
+        manifest = _fetch_claude_code_manifest(version, tmp_dir)
+        uploaded_keys: List[str] = []
+        object_shas: Dict[str, str] = {}
+        platform_info: Dict[str, Dict[str, str]] = {}
+
+        try:
+            for platform in CLAUDE_CODE_PLATFORMS:
+                binary_sha, _ = _process_claude_code_platform(
+                    version,
+                    platform,
+                    manifest,
+                    tmp_dir,
+                    client,
+                    env,
+                    dry_run,
+                    uploaded_keys,
+                )
+                object_shas[platform.target] = binary_sha
+                platform_info[platform.target] = _claude_code_manifest_info(
+                    manifest, platform
+                )
+
+            upload_manifest = _build_claude_code_manifest(
+                version, object_shas, platform_info
+            )
+            _upload_claude_code_manifest(client, env, upload_manifest, tmp_dir, dry_run)
+        except Exception as exc:
+            if not dry_run and uploaded_keys:
+                log_warning(
+                    f"Upload failed — rolling back {len(uploaded_keys)} object(s)"
+                )
+                _rollback(client, env.r2_bucket, uploaded_keys)
+            log_error(f"Claude Code upload aborted: {exc}")
+            raise typer.Exit(1)
+
+    log_success(
+        f"Claude Code {version} uploaded for {[p.target for p in CLAUDE_CODE_PLATFORMS]}"
+    )
+
+
 def _normalize_version_tag(version: str) -> str:
     return version if version.startswith("v") else f"v{version}"
 
@@ -245,6 +418,40 @@ def _normalize_bun_version_tag(version: str) -> str:
     if version.startswith("bun-"):
         return f"bun-v{version[len('bun-') :]}"
     return f"bun-{_normalize_version_tag(version)}"
+
+
+def _normalize_codex_release_tag(version: str) -> str:
+    if version.startswith("rust-v"):
+        return version
+    if version.startswith("rust-"):
+        suffix = version[len("rust-") :]
+        return f"rust-{_normalize_version_tag(suffix)}"
+    return f"rust-{_normalize_version_tag(version)}"
+
+
+def _codex_cli_version(tag: str) -> str:
+    return tag[len("rust-v") :] if tag.startswith("rust-v") else tag
+
+
+def _prepare_upload_client(dry_run: bool) -> Tuple[EnvConfig, Any]:
+    """Create the R2 client for real uploads while keeping dry-runs local."""
+    env = EnvConfig()
+    if dry_run:
+        return env, None
+    if not BOTO3_AVAILABLE:
+        log_error("boto3 not installed — run: pip install boto3")
+        raise typer.Exit(1)
+    if not env.has_r2_config():
+        log_error(
+            "R2 configuration missing. Required: "
+            "R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY"
+        )
+        raise typer.Exit(1)
+    client = get_r2_client(env)
+    if client is None:
+        log_error("Failed to create R2 client")
+        raise typer.Exit(1)
+    return env, client
 
 
 def _fetch_checksums(tag: str, tmp_dir: Path) -> Dict[str, str]:
@@ -261,6 +468,25 @@ def _fetch_bun_checksums(tag: str, tmp_dir: Path) -> Dict[str, str]:
     log_info(f"Fetching {url}")
     _download(url, dest)
     return _parse_checksums(dest.read_text(encoding="utf-8"))
+
+
+def _fetch_codex_package_checksums(tag: str, tmp_dir: Path) -> Dict[str, str]:
+    url = f"{CODEX_RELEASE_BASE}/{tag}/codex-package_SHA256SUMS"
+    dest = tmp_dir / "codex-package_SHA256SUMS"
+    log_info(f"Fetching {url}")
+    _download(url, dest)
+    return _parse_checksums(dest.read_text(encoding="utf-8"))
+
+
+def _fetch_claude_code_manifest(version: str, tmp_dir: Path) -> Dict[str, Any]:
+    url = f"{CLAUDE_CODE_RELEASE_BASE}/{version}/manifest.json"
+    dest = tmp_dir / "claude-code-manifest.json"
+    log_info(f"Fetching {url}")
+    _download(url, dest, timeout=CLAUDE_CODE_HTTP_TIMEOUT_S)
+    manifest = json.loads(dest.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise RuntimeError("Claude Code manifest must be a JSON object")
+    return manifest
 
 
 def _parse_checksums(contents: str) -> Dict[str, str]:
@@ -388,6 +614,100 @@ def _process_bun_target(
     return actual_sha, binary_sha, r2_key
 
 
+def _process_codex_platform(
+    tag: str,
+    platform: CodexPlatform,
+    tmp_dir: Path,
+    checksums: Dict[str, str],
+    client: Any,
+    env: EnvConfig,
+    dry_run: bool,
+    uploaded_keys: Optional[List[str]] = None,
+) -> Tuple[str, str, str]:
+    package_name = f"codex-package-{platform.upstream}.tar.gz"
+    expected_sha = checksums.get(package_name)
+    if not expected_sha:
+        raise RuntimeError(
+            f"{package_name} missing from codex-package_SHA256SUMS "
+            "(is the version tag correct?)"
+        )
+
+    package_path = tmp_dir / package_name
+    url = f"{CODEX_RELEASE_BASE}/{tag}/{package_name}"
+    log_info(f"Downloading {url}")
+    _download(url, package_path, timeout=CODEX_HTTP_TIMEOUT_S)
+
+    actual_sha = _sha256_file(package_path)
+    if actual_sha != expected_sha:
+        raise RuntimeError(
+            f"sha256 mismatch for {package_name}: expected {expected_sha}, got {actual_sha}"
+        )
+
+    local_path = tmp_dir / _platform_binary_object_name("codex", platform.target)
+    r2_key = (
+        f"{CODEX_R2_PREFIX}/{_platform_binary_object_name('codex', platform.target)}"
+    )
+    _extract_codex_file(package_path, local_path)
+    binary_sha = _sha256_file(local_path)
+
+    if dry_run:
+        log_info(f"[dry-run] skipped upload of {r2_key}")
+    elif not upload_file_to_r2(client, local_path, r2_key, env.r2_bucket):
+        raise RuntimeError(f"Failed to upload {r2_key}")
+    elif uploaded_keys is not None:
+        uploaded_keys.append(r2_key)
+
+    return actual_sha, binary_sha, r2_key
+
+
+def _process_claude_code_platform(
+    version: str,
+    platform: ClaudeCodePlatform,
+    manifest: Dict[str, Any],
+    tmp_dir: Path,
+    client: Any,
+    env: EnvConfig,
+    dry_run: bool,
+    uploaded_keys: Optional[List[str]] = None,
+) -> Tuple[str, str]:
+    entry = _claude_code_manifest_entry(manifest, platform)
+    binary_name = entry["binary"]
+    expected_sha = entry["checksum"]
+    expected_size = entry["size"]
+
+    local_path = tmp_dir / f"{platform.upstream}-{binary_name}"
+    url = f"{CLAUDE_CODE_RELEASE_BASE}/{version}/{platform.upstream}/{binary_name}"
+    log_info(f"Downloading {url}")
+    _download(url, local_path, timeout=CLAUDE_CODE_HTTP_TIMEOUT_S)
+
+    actual_size = local_path.stat().st_size
+    if actual_size != expected_size:
+        raise RuntimeError(
+            f"size mismatch for Claude Code {platform.upstream}: "
+            f"expected {expected_size}, got {actual_size}"
+        )
+
+    actual_sha = _sha256_file(local_path)
+    if actual_sha != expected_sha:
+        raise RuntimeError(
+            f"sha256 mismatch for Claude Code {platform.upstream}: "
+            f"expected {expected_sha}, got {actual_sha}"
+        )
+
+    if not binary_name.endswith(".exe"):
+        local_path.chmod(0o755)
+
+    r2_key = f"{CLAUDE_CODE_R2_PREFIX}/{_platform_binary_object_name('claude', platform.target)}"
+    if dry_run:
+        log_info(f"[dry-run] skipped upload of {r2_key}")
+    elif not upload_file_to_r2(client, local_path, r2_key, env.r2_bucket):
+        raise RuntimeError(f"Failed to upload {r2_key}")
+    elif uploaded_keys is not None:
+        uploaded_keys.append(r2_key)
+
+    return actual_sha, r2_key
+
+
 def _extract_lima_file(tarball_path: Path, logical_path: str, dest: Path) -> None:
     with tarfile.open(tarball_path, "r:gz") as tar:
         for member in tar.getmembers():
@@ -418,9 +738,33 @@ def _extract_bun_file(zip_path: Path, dest: Path, binary_name: str = "bun") -> N
             with archive.open(member) as src, open(dest, "wb") as out:
                 while chunk := src.read(1024 * 1024):
                     out.write(chunk)
-            dest.chmod(0o755)
+            if not binary_name.endswith(".exe"):
+                dest.chmod(0o755)
             return
     raise RuntimeError(f"{binary_name} not found in Bun zip")
+
+
+def _extract_codex_file(package_path: Path, dest: Path) -> None:
+    """Extract the entrypoint declared by Codex's package metadata."""
+    with tarfile.open(package_path, "r:gz") as tar:
+        members = tar.getmembers()
+        entrypoint = _read_codex_package_entrypoint(tar, members)
+        for member in members:
+            if not member.isfile():
+                continue
+            if _logical_archive_path(member.name) != entrypoint:
+                continue
+            extracted = tar.extractfile(member)
+            if extracted is None:
+                raise RuntimeError(f"{member.name} is not a regular file")
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            with extracted as src, open(dest, "wb") as out:
+                while chunk := src.read(1024 * 1024):
+                    out.write(chunk)
+            if not entrypoint.endswith(".exe"):
+                dest.chmod(0o755)
+            return
+    raise RuntimeError(f"Codex entrypoint {entrypoint} not found in package")
 
 
 def _logical_lima_path(member_name: str) -> str:
@@ -435,6 +779,80 @@ def _logical_bun_path(member_name: str) -> str:
     if len(parts) > 1 and parts[0].startswith("bun-"):
         parts = parts[1:]
     return "/".join(parts)
+
+
+def _logical_archive_path(member_name: str) -> str:
+    return "/".join(Path(member_name.lstrip("./")).parts)
+
+
+def _read_codex_package_entrypoint(
+    tar: tarfile.TarFile,
+    members: List[tarfile.TarInfo],
+) -> str:
+    for member in members:
+        if not member.isfile():
+            continue
+        if _logical_archive_path(member.name) != "codex-package.json":
+            continue
+        extracted = tar.extractfile(member)
+        if extracted is None:
+            raise RuntimeError("codex-package.json is not a regular file")
+        with extracted as src:
+            metadata = json.loads(src.read().decode("utf-8"))
+        entrypoint = metadata.get("entrypoint") if isinstance(metadata, dict) else None
+        if not isinstance(entrypoint, str) or not entrypoint:
+            raise RuntimeError("Codex package metadata is missing entrypoint")
+        return entrypoint
+    raise RuntimeError("codex-package.json not found in Codex package")
+
+
+def _platform_binary_object_name(binary_stem: str, target: str) -> str:
+    suffix = ".exe" if target.startswith("windows-") else ""
+    return f"{binary_stem}-{target}{suffix}"
+
+
+def _claude_code_manifest_entry(
+    manifest: Dict[str, Any],
+    platform: ClaudeCodePlatform,
+) -> Dict[str, Any]:
+    platforms = manifest.get("platforms")
+    if not isinstance(platforms, dict):
+        raise RuntimeError("Claude Code manifest is missing platforms")
+    entry = platforms.get(platform.upstream)
+    if not isinstance(entry, dict):
+        raise RuntimeError(f"{platform.upstream} missing from Claude Code manifest")
+    binary = entry.get("binary")
+    checksum = entry.get("checksum")
+    size = entry.get("size")
+    if not isinstance(binary, str) or not binary:
+        raise RuntimeError(
+            f"Claude Code manifest has invalid binary for {platform.upstream}"
+        )
+    if not _is_sha256(checksum):
+        raise RuntimeError(
+            f"Claude Code manifest has invalid checksum for {platform.upstream}"
+        )
+    if not isinstance(size, int) or size < 0:
+        raise RuntimeError(
+            f"Claude Code manifest has invalid size for {platform.upstream}"
+        )
+    return {"binary": binary, "checksum": checksum, "size": size}
+
+
+def _claude_code_manifest_info(
+    manifest: Dict[str, Any],
+    platform: ClaudeCodePlatform,
+) -> Dict[str, str]:
+    entry = _claude_code_manifest_entry(manifest, platform)
+    return {"platform": platform.upstream, "binary": entry["binary"]}
+
+
+def _is_sha256(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(c in "0123456789abcdef" for c in value.lower())
+    )
 
 
 def _build_manifest(
@@ -462,6 +880,36 @@ def _build_bun_manifest(
         "bun_version": tag,
         "zip_shas_upstream": zip_shas,
         "r2_object_shas": object_shas,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "uploaded_by": os.environ.get("GITHUB_ACTOR") or "local",
+    }
+
+
+def _build_codex_manifest(
+    tag: str,
+    package_shas: Dict[str, str],
+    object_shas: Dict[str, str],
+) -> Dict[str, Any]:
+    return {
+        "codex_release_tag": tag,
+        "codex_cli_version": _codex_cli_version(tag),
+        "package_shas_upstream": package_shas,
+        "r2_object_shas": object_shas,
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "uploaded_by": os.environ.get("GITHUB_ACTOR") or "local",
+    }
+
+
+def _build_claude_code_manifest(
+    version: str,
+    binary_shas: Dict[str, str],
+    platform_info: Dict[str, Dict[str, str]],
+) -> Dict[str, Any]:
+    return {
+        "claude_code_version": version,
+        "binary_shas_upstream": dict(binary_shas),
+        "r2_object_shas": dict(binary_shas),
+        "platforms": {target: dict(info) for target, info in platform_info.items()},
         "uploaded_at": datetime.now(timezone.utc).isoformat(),
         "uploaded_by": os.environ.get("GITHUB_ACTOR") or "local",
     }
@@ -497,6 +945,40 @@ def _upload_bun_manifest(
         return
     if not upload_file_to_r2(client, manifest_path, BUN_MANIFEST_KEY, env.r2_bucket):
         raise RuntimeError(f"Failed to upload {BUN_MANIFEST_KEY}")
+
+
+def _upload_codex_manifest(
+    client: Any,
+    env: EnvConfig,
+    manifest: Dict[str, Any],
+    tmp_dir: Path,
+    dry_run: bool,
+) -> None:
+    manifest_path = tmp_dir / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    if dry_run:
+        log_info(f"[dry-run] manifest would be: {manifest}")
+        return
+    if not upload_file_to_r2(client, manifest_path, CODEX_MANIFEST_KEY, env.r2_bucket):
+        raise RuntimeError(f"Failed to upload {CODEX_MANIFEST_KEY}")
+
+
+def _upload_claude_code_manifest(
+    client: Any,
+    env: EnvConfig,
+    manifest: Dict[str, Any],
+    tmp_dir: Path,
+    dry_run: bool,
+) -> None:
+    manifest_path = tmp_dir / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    if dry_run:
+        log_info(f"[dry-run] manifest would be: {manifest}")
+        return
+    if not upload_file_to_r2(
+        client, manifest_path, CLAUDE_CODE_MANIFEST_KEY, env.r2_bucket
+    ):
+        raise RuntimeError(f"Failed to upload {CLAUDE_CODE_MANIFEST_KEY}")
 
 
 def _rollback(client: Any, bucket: str, keys: List[str]) -> None:

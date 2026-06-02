@@ -26,6 +26,7 @@ import type {
   AgentHistoryToolCall,
 } from '../agent-types'
 import { resolveBundledBun } from '../host-acp/bundled-bun'
+import { withBundledNativeBinaryPath } from '../host-acp/bundled-native-binary'
 import { HOST_ACP_ADAPTER_CONFIG } from '../host-acp/config'
 import { getHermesRuntime } from '../runtime'
 import type {
@@ -678,11 +679,15 @@ function createBrowserosAgentRegistry(input: {
           adapter: lower,
           resourcesDir: input.resourcesDir,
         })
+        const commandEnv = withBundledNativeBinaryPath({
+          env: input.commandEnv,
+          resourcesDir: input.resourcesDir,
+        })
         return wrapCommandWithEnv(
           launch.command,
           launch.addBundledBunAdapterEnv
-            ? withBundledBunAcpAdapterEnv(input.commandEnv, input.browserosDir)
-            : input.commandEnv,
+            ? withBundledBunAcpAdapterEnv(commandEnv, input.browserosDir)
+            : commandEnv,
         )
       }
 

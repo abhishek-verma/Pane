@@ -29,6 +29,8 @@ MACOS_SERVER_BINARIES: Dict[str, SignSpec] = {
         "browseros_server", "runtime", "browseros-executable-entitlements.plist"
     ),
     "bun": SignSpec("bun", "runtime", "browseros-executable-entitlements.plist"),
+    "codex": SignSpec("codex", "runtime"),
+    "claude": SignSpec("claude", "runtime"),
     "rg": SignSpec("rg", "runtime"),
     "limactl": SignSpec("limactl", "runtime", "lima-vz-entitlements.plist"),
 }
@@ -36,6 +38,8 @@ MACOS_SERVER_BINARIES: Dict[str, SignSpec] = {
 
 WINDOWS_SERVER_BINARIES: List[str] = [
     "browseros_server.exe",
+    "third_party/codex.exe",
+    "third_party/claude.exe",
 ]
 
 

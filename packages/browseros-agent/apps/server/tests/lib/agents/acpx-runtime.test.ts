@@ -961,6 +961,47 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
     expect(command).toContain('npx -y @zed-industries/codex-acp')
   })
 
+  it('prepends the bundled native CLI directory to host ACP adapter commands', async () => {
+    const browserosDir = await mkdtemp(
+      join(tmpdir(), 'browseros-acpx-browseros-'),
+    )
+    const stateDir = await mkdtemp(join(tmpdir(), 'browseros-acpx-state-'))
+    const resourcesDir = await mkdtemp(
+      join(tmpdir(), 'browseros-acpx-resources-'),
+    )
+    tempDirs.push(browserosDir, stateDir, resourcesDir)
+    const bundledDir = join(resourcesDir, 'bin', 'third_party')
+    await mkdir(bundledDir, { recursive: true })
+    const calls: Array<{ method: string; input: unknown }> = []
+    const runtime = new AcpxRuntime({
+      browserosDir,
+      resourcesDir,
+      stateDir,
+      runtimeFactory: (options) => {
+        calls.push({ method: 'createRuntime', input: options })
+        return createFakeAcpRuntime(calls)
+      },
+    })
+    const agent = makeAgent({ id: 'agent-1', adapter: 'codex' })
+
+    await collectStream(
+      await runtime.send({
+        agent,
+        sessionId: 'main',
+        sessionKey: agent.sessionKey,
+        message: 'hi',
+        permissionMode: 'approve-all',
+      }),
+    )
+
+    const registry = getCreateRuntimeOptions(calls).agentRegistry
+    const pathEnvKey = process.platform === 'win32' ? 'Path' : 'PATH'
+    expect(registry.resolve('claude')).toContain(
+      `${pathEnvKey}='${bundledDir}'`,
+    )
+    expect(registry.resolve('codex')).toContain(`${pathEnvKey}='${bundledDir}'`)
+  })
+
   macosIt(
     'runs Claude and Codex ACP adapter packages through bundled Bun on macOS',
     async () => {
@@ -1005,7 +1046,7 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
         `'${bunPath}' x --bun --silent --package '@zed-industries/codex-acp@^0.12.0' 'codex-acp'`,
       )
       expect(codexCommand).toContain('BUN_INSTALL_CACHE_DIR=')
-      expect(codexCommand).not.toContain('PATH=')
+      expect(codexCommand).toContain(`PATH='${dirname(bunPath)}'`)
       expect(codexCommand).not.toContain('npx -y')
     },
   )

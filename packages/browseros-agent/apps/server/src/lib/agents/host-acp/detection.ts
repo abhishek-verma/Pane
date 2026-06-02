@@ -11,6 +11,7 @@ import {
   runHostCommand,
 } from './binary-resolver'
 import { resolveBundledBun } from './bundled-bun'
+import { resolveBundledNativeBinary } from './bundled-native-binary'
 import { HOST_ACP_ADAPTER_CONFIG, type HostAcpAdapter } from './config'
 import { probeNpxPackageCache } from './npx-package-cache'
 
@@ -69,6 +70,7 @@ export interface DetectHostAdapterOptions {
     versionRange?: string,
   ) => Promise<boolean>
   resolveBundledBun?: typeof resolveBundledBun
+  resolveBundledNativeBinary?: typeof resolveBundledNativeBinary
 }
 
 const DEFAULT_PROBE_TIMEOUT_MS = 3_000
@@ -92,9 +94,19 @@ export async function detectHostAdapter(
     ((packageName: string, versionRange?: string) =>
       probeNpxPackageCache(packageName, { versionRange }))
   const resolveBun = options.resolveBundledBun ?? resolveBundledBun
+  const resolveBundledNative =
+    options.resolveBundledNativeBinary ?? resolveBundledNativeBinary
 
   const [nativeCli, launch] = await Promise.all([
-    resolveBinary(config.nativeBinary).catch(() => null),
+    resolveNativeCli({
+      adapter,
+      nativeBinary: config.nativeBinary,
+      resourcesDir: options.resourcesDir,
+      env,
+      platform,
+      resolveBinary,
+      resolveBundledNativeBinary: resolveBundledNative,
+    }).catch(() => null),
     detectAdapterLaunch({
       adapter,
       platform,
@@ -140,6 +152,26 @@ export async function detectHostAdapter(
     adapterLaunchSource: launch.source,
     packageCacheState: launch.packageCacheState,
   }
+}
+
+/** Resolves BrowserOS-packaged native CLIs before consulting the user's host PATH. */
+async function resolveNativeCli(input: {
+  adapter: HostAcpAdapter
+  nativeBinary: string
+  resourcesDir?: string | null
+  env: NodeJS.ProcessEnv
+  platform: NodeJS.Platform
+  resolveBinary: (name: string) => Promise<ResolvedHostBinary | null>
+  resolveBundledNativeBinary: typeof resolveBundledNativeBinary
+}): Promise<ResolvedHostBinary | null> {
+  const bundled = input.resolveBundledNativeBinary({
+    adapter: input.adapter,
+    resourcesDir: input.resourcesDir,
+    env: input.env,
+    platform: input.platform,
+  })
+  if (bundled) return bundled
+  return input.resolveBinary(input.nativeBinary)
 }
 
 async function detectAdapterLaunch(input: {
@@ -289,7 +321,7 @@ function reasonFor(input: {
     case 'needs-auth':
       return `${input.displayName} is installed but is not authenticated.`
     case 'needs-install':
-      return `${input.displayName} adapter cannot launch because neither bundled Bun nor npx is available.`
+      return `${input.displayName} adapter package cannot launch because neither bundled Bun nor npx is available.`
     case 'will-fetch-package':
       return `${input.displayName} adapter package will be downloaded on first use.`
     case 'diagnostic-warning':

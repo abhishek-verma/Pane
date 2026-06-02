@@ -3,6 +3,7 @@
 
 import hashlib
 import io
+import json
 import tarfile
 import tempfile
 import unittest
@@ -61,6 +62,23 @@ def _build_bun_zip(
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(f"{root_dir}/{binary_name}", payload)
+    return buffer.getvalue()
+
+
+def _build_codex_package(
+    entrypoint: str,
+    payload: bytes,
+    actual_entrypoint: str | None = None,
+) -> bytes:
+    """Return a Codex package archive with package metadata and entrypoint."""
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
+        _add_tar_file(
+            tar,
+            "codex-package.json",
+            json.dumps({"entrypoint": entrypoint}).encode("utf-8"),
+        )
+        _add_tar_file(tar, actual_entrypoint or entrypoint, payload, mode=0o755)
     return buffer.getvalue()
 
 
@@ -236,6 +254,26 @@ class ExtractBunFileTest(unittest.TestCase):
                     binary_name="bun.exe",
                 )
 
+    def test_windows_exe_is_not_marked_executable(self) -> None:
+        payload = b"bun-windows-exe-" + b"b" * 100
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            zip_path = tmp_path / "bun.zip"
+            zip_path.write_bytes(
+                _build_bun_zip(
+                    payload,
+                    root_dir="bun-windows-x64-baseline",
+                    binary_name="bun.exe",
+                )
+            )
+            dest = tmp_path / "bun.exe"
+
+            storage._extract_bun_file(zip_path, dest, binary_name="bun.exe")
+
+            self.assertEqual(dest.read_bytes(), payload)
+            self.assertFalse(dest.stat().st_mode & 0o100, "should not be executable")
+
 
 class BunTargetTest(unittest.TestCase):
     def test_bun_targets_have_expected_fields(self) -> None:
@@ -317,6 +355,72 @@ class BuildManifestTest(unittest.TestCase):
         self.assertEqual(manifest["r2_object_shas"]["linux-x64"], "d" * 64)
         self.assertIn("uploaded_at", manifest)
         self.assertIn("uploaded_by", manifest)
+
+    def test_codex_manifest_shape(self) -> None:
+        manifest = storage._build_codex_manifest(
+            "rust-v0.136.0",
+            {"darwin-arm64": "a" * 64, "windows-x64": "b" * 64},
+            {"darwin-arm64": "c" * 64, "windows-x64": "d" * 64},
+        )
+        self.assertEqual(manifest["codex_release_tag"], "rust-v0.136.0")
+        self.assertEqual(manifest["codex_cli_version"], "0.136.0")
+        self.assertEqual(manifest["package_shas_upstream"]["darwin-arm64"], "a" * 64)
+        self.assertEqual(manifest["r2_object_shas"]["windows-x64"], "d" * 64)
+        self.assertIn("uploaded_at", manifest)
+        self.assertIn("uploaded_by", manifest)
+
+    def test_claude_code_manifest_shape(self) -> None:
+        manifest = storage._build_claude_code_manifest(
+            "2.1.159",
+            {"darwin-arm64": "5" * 64, "windows-x64": "6" * 64},
+            {
+                "darwin-arm64": {"platform": "darwin-arm64", "binary": "claude"},
+                "windows-x64": {"platform": "win32-x64", "binary": "claude.exe"},
+            },
+        )
+        self.assertEqual(manifest["claude_code_version"], "2.1.159")
+        self.assertEqual(manifest["binary_shas_upstream"]["darwin-arm64"], "5" * 64)
+        self.assertEqual(
+            manifest["platforms"]["windows-x64"],
+            {"platform": "win32-x64", "binary": "claude.exe"},
+        )
+        self.assertIsNot(
+            manifest["binary_shas_upstream"],
+            manifest["r2_object_shas"],
+        )
+        self.assertIn("uploaded_at", manifest)
+        self.assertIn("uploaded_by", manifest)
+
+
+class PackagedAgentCliContractTest(unittest.TestCase):
+    def test_server_resource_keys_match_storage_upload_keys(self) -> None:
+        manifest_path = (
+            Path(__file__).resolve().parents[3]
+            / "browseros-agent"
+            / "scripts"
+            / "build"
+            / "config"
+            / "server-prod-resources.json"
+        )
+        manifest = json.loads(manifest_path.read_text())
+        actual_keys = {
+            f"artifacts/vendor/{resource['source']['key']}"
+            for resource in manifest["resources"]
+            if resource["source"]["type"] == "r2"
+            and (
+                resource["source"]["key"].startswith("third_party/codex/")
+                or resource["source"]["key"].startswith("third_party/claude-code/")
+            )
+        }
+        expected_keys = {
+            f"{storage.CODEX_R2_PREFIX}/{storage._platform_binary_object_name('codex', platform.target)}"
+            for platform in storage.CODEX_PLATFORMS
+        } | {
+            f"{storage.CLAUDE_CODE_R2_PREFIX}/{storage._platform_binary_object_name('claude', platform.target)}"
+            for platform in storage.CLAUDE_CODE_PLATFORMS
+        }
+
+        self.assertEqual(actual_keys, expected_keys)
 
 
 class ProcessArchTest(unittest.TestCase):
@@ -778,6 +882,402 @@ class ProcessBunTargetTest(unittest.TestCase):
                     payload,
                 )
             ],
+        )
+
+
+class ExtractCodexFileTest(unittest.TestCase):
+    def test_extracts_declared_entrypoint(self) -> None:
+        payload = b"codex-binary-" + b"c" * 100
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            package_path = tmp_path / "codex.tar.gz"
+            package_path.write_bytes(_build_codex_package("bin/codex", payload))
+            dest = tmp_path / "codex"
+
+            storage._extract_codex_file(package_path, dest)
+
+            self.assertEqual(dest.read_bytes(), payload)
+            self.assertTrue(dest.stat().st_mode & 0o100, "should be executable")
+
+    def test_raises_when_declared_entrypoint_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            package_path = tmp_path / "codex.tar.gz"
+            package_path.write_bytes(
+                _build_codex_package("bin/missing", b"payload", "bin/codex")
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "Codex entrypoint .* not found"):
+                storage._extract_codex_file(package_path, tmp_path / "codex")
+
+    def test_windows_entrypoint_is_not_marked_executable(self) -> None:
+        payload = b"codex-windows-exe-" + b"c" * 100
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            package_path = tmp_path / "codex.tar.gz"
+            package_path.write_bytes(_build_codex_package("bin/codex.exe", payload))
+            dest = tmp_path / "codex.exe"
+
+            storage._extract_codex_file(package_path, dest)
+
+            self.assertEqual(dest.read_bytes(), payload)
+            self.assertFalse(dest.stat().st_mode & 0o100, "should not be executable")
+
+
+class ProcessCodexPlatformTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.codex_payload = b"codex-binary-" + b"x" * 200
+        self.package_bytes = _build_codex_package("bin/codex", self.codex_payload)
+        self.expected_package_sha = hashlib.sha256(self.package_bytes).hexdigest()
+        self.expected_codex_sha = hashlib.sha256(self.codex_payload).hexdigest()
+
+    def _fake_download(self, _url: str, dest: Path, **_kwargs: Any) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(self.package_bytes)
+
+    def test_happy_path_uploads_and_returns_shas(self) -> None:
+        uploads: List[Tuple[str, str, bytes]] = []
+
+        def fake_upload(
+            _client: Any, local_path: Path, r2_key: str, bucket: str
+        ) -> bool:
+            uploads.append((r2_key, bucket, local_path.read_bytes()))
+            return True
+
+        env = mock.Mock(r2_bucket="browseros")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            with (
+                mock.patch.object(
+                    storage, "_download", side_effect=self._fake_download
+                ),
+                mock.patch.object(
+                    storage, "upload_file_to_r2", side_effect=fake_upload
+                ),
+            ):
+                package_sha, binary_sha, r2_key = storage._process_codex_platform(
+                    tag="rust-v0.136.0",
+                    platform=storage.CodexPlatform(
+                        target="darwin-arm64",
+                        upstream="aarch64-apple-darwin",
+                    ),
+                    tmp_dir=tmp_path,
+                    checksums={
+                        "codex-package-aarch64-apple-darwin.tar.gz": self.expected_package_sha
+                    },
+                    client=mock.Mock(),
+                    env=env,
+                    dry_run=False,
+                )
+
+        self.assertEqual(package_sha, self.expected_package_sha)
+        self.assertEqual(binary_sha, self.expected_codex_sha)
+        self.assertEqual(
+            r2_key, "artifacts/vendor/third_party/codex/codex-darwin-arm64"
+        )
+        self.assertEqual(
+            uploads,
+            [
+                (
+                    "artifacts/vendor/third_party/codex/codex-darwin-arm64",
+                    "browseros",
+                    self.codex_payload,
+                )
+            ],
+        )
+
+    def test_sha_mismatch_aborts_before_upload(self) -> None:
+        uploads: List[Tuple[str, str]] = []
+
+        def fake_upload(
+            _client: Any, _local_path: Path, r2_key: str, bucket: str
+        ) -> bool:
+            uploads.append((r2_key, bucket))
+            return True
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            with (
+                mock.patch.object(
+                    storage, "_download", side_effect=self._fake_download
+                ),
+                mock.patch.object(
+                    storage, "upload_file_to_r2", side_effect=fake_upload
+                ),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "sha256 mismatch"):
+                    storage._process_codex_platform(
+                        tag="rust-v0.136.0",
+                        platform=storage.CodexPlatform(
+                            target="darwin-arm64",
+                            upstream="aarch64-apple-darwin",
+                        ),
+                        tmp_dir=tmp_path,
+                        checksums={
+                            "codex-package-aarch64-apple-darwin.tar.gz": "0" * 64
+                        },
+                        client=mock.Mock(),
+                        env=mock.Mock(r2_bucket="browseros"),
+                        dry_run=False,
+                    )
+
+        self.assertEqual(uploads, [])
+
+    def test_dry_run_skips_upload(self) -> None:
+        uploads: List[Tuple[str, str]] = []
+
+        def fake_upload(*args: Any, **kwargs: Any) -> bool:
+            uploads.append(("called", ""))
+            return True
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            with (
+                mock.patch.object(
+                    storage, "_download", side_effect=self._fake_download
+                ),
+                mock.patch.object(
+                    storage, "upload_file_to_r2", side_effect=fake_upload
+                ),
+            ):
+                _, _, r2_key = storage._process_codex_platform(
+                    tag="rust-v0.136.0",
+                    platform=storage.CodexPlatform(
+                        target="windows-x64",
+                        upstream="x86_64-pc-windows-msvc",
+                    ),
+                    tmp_dir=tmp_path,
+                    checksums={
+                        "codex-package-x86_64-pc-windows-msvc.tar.gz": self.expected_package_sha
+                    },
+                    client=None,
+                    env=mock.Mock(r2_bucket="browseros"),
+                    dry_run=True,
+                )
+
+        self.assertEqual(uploads, [])
+        self.assertEqual(
+            r2_key, "artifacts/vendor/third_party/codex/codex-windows-x64.exe"
+        )
+
+
+class ProcessClaudeCodePlatformTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.claude_payload = b"claude-binary-" + b"y" * 200
+        self.expected_binary_sha = hashlib.sha256(self.claude_payload).hexdigest()
+        self.manifest = {
+            "platforms": {
+                "darwin-arm64": {
+                    "binary": "claude",
+                    "checksum": self.expected_binary_sha,
+                    "size": len(self.claude_payload),
+                },
+                "win32-x64": {
+                    "binary": "claude.exe",
+                    "checksum": self.expected_binary_sha,
+                    "size": len(self.claude_payload),
+                },
+            }
+        }
+
+    def _fake_download(self, _url: str, dest: Path, **_kwargs: Any) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(self.claude_payload)
+
+    def test_happy_path_uploads_and_returns_shas(self) -> None:
+        uploads: List[Tuple[str, str, bytes]] = []
+
+        def fake_upload(
+            _client: Any, local_path: Path, r2_key: str, bucket: str
+        ) -> bool:
+            uploads.append((r2_key, bucket, local_path.read_bytes()))
+            return True
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            with (
+                mock.patch.object(
+                    storage, "_download", side_effect=self._fake_download
+                ),
+                mock.patch.object(
+                    storage, "upload_file_to_r2", side_effect=fake_upload
+                ),
+            ):
+                binary_sha, r2_key = storage._process_claude_code_platform(
+                    version="2.1.159",
+                    platform=storage.ClaudeCodePlatform(
+                        target="darwin-arm64",
+                        upstream="darwin-arm64",
+                    ),
+                    manifest=self.manifest,
+                    tmp_dir=tmp_path,
+                    client=mock.Mock(),
+                    env=mock.Mock(r2_bucket="browseros"),
+                    dry_run=False,
+                )
+
+        self.assertEqual(binary_sha, self.expected_binary_sha)
+        self.assertEqual(
+            r2_key,
+            "artifacts/vendor/third_party/claude-code/claude-darwin-arm64",
+        )
+        self.assertEqual(
+            uploads,
+            [
+                (
+                    "artifacts/vendor/third_party/claude-code/claude-darwin-arm64",
+                    "browseros",
+                    self.claude_payload,
+                )
+            ],
+        )
+
+    def test_size_mismatch_aborts_before_upload(self) -> None:
+        uploads: List[Tuple[str, str]] = []
+        bad_manifest = {
+            "platforms": {
+                "darwin-arm64": {
+                    "binary": "claude",
+                    "checksum": self.expected_binary_sha,
+                    "size": len(self.claude_payload) + 1,
+                }
+            }
+        }
+
+        def fake_upload(
+            _client: Any, _local_path: Path, r2_key: str, bucket: str
+        ) -> bool:
+            uploads.append((r2_key, bucket))
+            return True
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            with (
+                mock.patch.object(
+                    storage, "_download", side_effect=self._fake_download
+                ),
+                mock.patch.object(
+                    storage, "upload_file_to_r2", side_effect=fake_upload
+                ),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "size mismatch"):
+                    storage._process_claude_code_platform(
+                        version="2.1.159",
+                        platform=storage.ClaudeCodePlatform(
+                            target="darwin-arm64",
+                            upstream="darwin-arm64",
+                        ),
+                        manifest=bad_manifest,
+                        tmp_dir=tmp_path,
+                        client=mock.Mock(),
+                        env=mock.Mock(r2_bucket="browseros"),
+                        dry_run=False,
+                    )
+
+        self.assertEqual(uploads, [])
+
+    def test_missing_manifest_platform_aborts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(
+                RuntimeError, "missing from Claude Code manifest"
+            ):
+                storage._process_claude_code_platform(
+                    version="2.1.159",
+                    platform=storage.ClaudeCodePlatform(
+                        target="linux-x64",
+                        upstream="linux-x64",
+                    ),
+                    manifest=self.manifest,
+                    tmp_dir=Path(tmp),
+                    client=mock.Mock(),
+                    env=mock.Mock(r2_bucket="browseros"),
+                    dry_run=False,
+                )
+
+    def test_dry_run_skips_upload_and_uses_manifest_binary_name(self) -> None:
+        uploads: List[Tuple[str, str]] = []
+
+        def fake_upload(*args: Any, **kwargs: Any) -> bool:
+            uploads.append(("called", ""))
+            return True
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            with (
+                mock.patch.object(
+                    storage, "_download", side_effect=self._fake_download
+                ),
+                mock.patch.object(
+                    storage, "upload_file_to_r2", side_effect=fake_upload
+                ),
+            ):
+                _, r2_key = storage._process_claude_code_platform(
+                    version="2.1.159",
+                    platform=storage.ClaudeCodePlatform(
+                        target="windows-x64",
+                        upstream="win32-x64",
+                    ),
+                    manifest=self.manifest,
+                    tmp_dir=tmp_path,
+                    client=None,
+                    env=mock.Mock(r2_bucket="browseros"),
+                    dry_run=True,
+                )
+
+        self.assertEqual(uploads, [])
+        self.assertEqual(
+            r2_key,
+            "artifacts/vendor/third_party/claude-code/claude-windows-x64.exe",
+        )
+
+
+class UploadVendorRollbackTest(unittest.TestCase):
+    def test_codex_upload_rolls_back_objects_uploaded_before_failure(self) -> None:
+        client = mock.Mock()
+        env = mock.Mock(
+            r2_bucket="browseros", has_r2_config=mock.Mock(return_value=True)
+        )
+        calls = 0
+
+        def fake_process(
+            tag: str,
+            platform: Any,
+            tmp_dir: Path,
+            checksums: Dict[str, str],
+            client_arg: Any,
+            env_arg: Any,
+            dry_run: bool,
+            uploaded_keys: List[str],
+        ) -> Tuple[str, str, str]:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                key = "artifacts/vendor/third_party/codex/codex-darwin-arm64"
+                uploaded_keys.append(key)
+                return "a" * 64, "b" * 64, key
+            raise RuntimeError("boom")
+
+        with (
+            mock.patch.object(storage, "BOTO3_AVAILABLE", True),
+            mock.patch.object(storage, "EnvConfig", return_value=env),
+            mock.patch.object(storage, "get_r2_client", return_value=client),
+            mock.patch.object(
+                storage, "_fetch_codex_package_checksums", return_value={}
+            ),
+            mock.patch.object(
+                storage, "_process_codex_platform", side_effect=fake_process
+            ),
+        ):
+            with self.assertRaises(Exception) as exc:
+                storage.upload_codex(version="rust-v0.136.0", dry_run=False)
+
+        self.assertEqual(exc.exception.exit_code, 1)
+        client.delete_object.assert_called_once_with(
+            Bucket="browseros",
+            Key="artifacts/vendor/third_party/codex/codex-darwin-arm64",
         )
 
 

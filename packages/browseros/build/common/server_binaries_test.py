@@ -41,8 +41,18 @@ class MacosServerBinariesTest(unittest.TestCase):
 
         entitlements_name = spec.entitlements
         assert entitlements_name is not None
-        entitlements = plistlib.loads((ENTITLEMENTS_DIR / entitlements_name).read_bytes())
+        entitlements = plistlib.loads(
+            (ENTITLEMENTS_DIR / entitlements_name).read_bytes()
+        )
         self.assertIs(entitlements.get("com.apple.security.virtualization"), True)
+
+    def test_agent_cli_entries_use_plain_hardened_runtime(self):
+        for binary in ["codex", "claude"]:
+            spec = macos_sign_spec_for(Path(f"/x/{binary}"))
+            assert spec is not None
+            self.assertEqual(spec.identifier_suffix, binary)
+            self.assertEqual(spec.options, "runtime")
+            self.assertIsNone(spec.entitlements)
 
     def test_matches_lima_bundle_layout(self):
         keys = set(MACOS_SERVER_BINARIES.keys())
@@ -64,6 +74,10 @@ class WindowsServerBinariesTest(unittest.TestCase):
                 rel == "browseros_server.exe" or rel.startswith("third_party/"),
                 f"{rel} outside expected layout",
             )
+
+    def test_windows_includes_agent_cli_entries(self):
+        self.assertIn("third_party/codex.exe", WINDOWS_SERVER_BINARIES)
+        self.assertIn("third_party/claude.exe", WINDOWS_SERVER_BINARIES)
 
     def test_expected_windows_binary_paths_joins_root(self):
         root = Path("/tmp/fake/resources/bin")

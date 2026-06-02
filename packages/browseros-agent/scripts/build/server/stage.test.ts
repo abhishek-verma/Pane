@@ -201,6 +201,123 @@ describe('server artifact staging', () => {
     expect(destinations).toContain('resources/bin/third_party/bun')
     expect(destinations).toContain('resources/db/migrations')
   })
+
+  it('downloads bundled agent CLIs for Linux targets and marks them executable', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'browseros-stage-test-'))
+    const sourceRoot = join(tempDir, 'source')
+    const distRoot = join(tempDir, 'dist')
+    const binaryPath = join(tempDir, 'browseros-server')
+    await writeFile(binaryPath, 'server')
+
+    const artifact = await stageTargetArtifact(
+      distRoot,
+      binaryPath,
+      linuxArm64Target,
+      [codexLinuxArm64Rule, claudeLinuxArm64Rule],
+      sourceRoot,
+      fakeObjectClient({
+        'artifacts/vendor/third_party/codex/codex-linux-arm64':
+          '#!/bin/sh\ncodex\n',
+        'artifacts/vendor/third_party/claude-code/claude-linux-arm64':
+          '#!/bin/sh\nclaude\n',
+      }),
+      fakeR2Config,
+      '0.0.0-test',
+    )
+
+    const codexPath = join(artifact.resourcesDir, 'bin/third_party/codex')
+    const claudePath = join(artifact.resourcesDir, 'bin/third_party/claude')
+    expect(await readFile(codexPath, 'utf8')).toBe('#!/bin/sh\ncodex\n')
+    expect(await readFile(claudePath, 'utf8')).toBe('#!/bin/sh\nclaude\n')
+    expect((await stat(codexPath)).mode & 0o111).not.toBe(0)
+    expect((await stat(claudePath)).mode & 0o111).not.toBe(0)
+  })
+
+  it('downloads bundled agent CLIs for Windows targets without chmod', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'browseros-stage-test-'))
+    const sourceRoot = join(tempDir, 'source')
+    const distRoot = join(tempDir, 'dist')
+    const binaryPath = join(tempDir, 'browseros-server.exe')
+    await writeFile(binaryPath, 'server')
+
+    const artifact = await stageTargetArtifact(
+      distRoot,
+      binaryPath,
+      windowsX64Target,
+      [codexWindowsX64Rule, claudeWindowsX64Rule],
+      sourceRoot,
+      fakeObjectClient({
+        'artifacts/vendor/third_party/codex/codex-windows-x64.exe': 'codex.exe',
+        'artifacts/vendor/third_party/claude-code/claude-windows-x64.exe':
+          'claude.exe',
+      }),
+      fakeR2Config,
+      '0.0.0-test',
+    )
+
+    const codexPath = join(artifact.resourcesDir, 'bin/third_party/codex.exe')
+    const claudePath = join(artifact.resourcesDir, 'bin/third_party/claude.exe')
+    expect(await readFile(codexPath, 'utf8')).toBe('codex.exe')
+    expect(await readFile(claudePath, 'utf8')).toBe('claude.exe')
+    expect((await stat(codexPath)).mode & 0o111).toBe(0)
+    expect((await stat(claudePath)).mode & 0o111).toBe(0)
+  })
+
+  it('loads target-filtered bundled CLI rules from the production manifest', () => {
+    const manifest = loadManifest(
+      'scripts/build/config/server-prod-resources.json',
+    )
+    const linuxRules = getTargetRules(manifest, linuxArm64Target)
+    const windowsRules = getTargetRules(manifest, windowsX64Target)
+
+    expect(linuxRules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Codex - Linux ARM64',
+          source: {
+            type: 'r2',
+            key: 'third_party/codex/codex-linux-arm64',
+          },
+          destination: 'resources/bin/third_party/codex',
+          executable: true,
+        }),
+        expect.objectContaining({
+          name: 'Claude Code - Linux ARM64',
+          source: {
+            type: 'r2',
+            key: 'third_party/claude-code/claude-linux-arm64',
+          },
+          destination: 'resources/bin/third_party/claude',
+          executable: true,
+        }),
+      ]),
+    )
+    expect(windowsRules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Codex - Windows x64',
+          source: {
+            type: 'r2',
+            key: 'third_party/codex/codex-windows-x64.exe',
+          },
+          destination: 'resources/bin/third_party/codex.exe',
+          executable: true,
+        }),
+        expect.objectContaining({
+          name: 'Claude Code - Windows x64',
+          source: {
+            type: 'r2',
+            key: 'third_party/claude-code/claude-windows-x64.exe',
+          },
+          destination: 'resources/bin/third_party/claude.exe',
+          executable: true,
+        }),
+      ]),
+    )
+    expect(linuxRules.find((rule) => rule.name === 'Codex - Windows x64')).toBe(
+      undefined,
+    )
+  })
 })
 
 const testTarget: BuildTarget = {
@@ -272,6 +389,54 @@ const bunRule: ResourceRule = {
   executable: true,
 }
 
+const codexLinuxArm64Rule: ResourceRule = {
+  name: 'Codex - Linux ARM64',
+  source: {
+    type: 'r2',
+    key: 'third_party/codex/codex-linux-arm64',
+  },
+  destination: 'resources/bin/third_party/codex',
+  os: ['linux'],
+  arch: ['arm64'],
+  executable: true,
+}
+
+const claudeLinuxArm64Rule: ResourceRule = {
+  name: 'Claude Code - Linux ARM64',
+  source: {
+    type: 'r2',
+    key: 'third_party/claude-code/claude-linux-arm64',
+  },
+  destination: 'resources/bin/third_party/claude',
+  os: ['linux'],
+  arch: ['arm64'],
+  executable: true,
+}
+
+const codexWindowsX64Rule: ResourceRule = {
+  name: 'Codex - Windows x64',
+  source: {
+    type: 'r2',
+    key: 'third_party/codex/codex-windows-x64.exe',
+  },
+  destination: 'resources/bin/third_party/codex.exe',
+  os: ['windows'],
+  arch: ['x64'],
+  executable: true,
+}
+
+const claudeWindowsX64Rule: ResourceRule = {
+  name: 'Claude Code - Windows x64',
+  source: {
+    type: 'r2',
+    key: 'third_party/claude-code/claude-windows-x64.exe',
+  },
+  destination: 'resources/bin/third_party/claude.exe',
+  os: ['windows'],
+  arch: ['x64'],
+  executable: true,
+}
+
 const fakeR2Config: R2Config = {
   accountId: 'test',
   accessKeyId: 'test',
@@ -279,4 +444,21 @@ const fakeR2Config: R2Config = {
   bucket: 'browseros-test',
   downloadPrefix: 'artifacts/vendor',
   uploadPrefix: 'server/prod-resources',
+}
+
+function fakeObjectClient(objects: Record<string, string>): S3Client {
+  return {
+    send: async (command: { input?: { Key?: string } }) => {
+      const key = command.input?.Key
+      const payload = key ? objects[key] : undefined
+      if (payload === undefined) {
+        throw new Error(`Unexpected R2 object: ${String(key)}`)
+      }
+      return {
+        Body: {
+          transformToByteArray: async () => new TextEncoder().encode(payload),
+        },
+      }
+    },
+  } as unknown as S3Client
 }
