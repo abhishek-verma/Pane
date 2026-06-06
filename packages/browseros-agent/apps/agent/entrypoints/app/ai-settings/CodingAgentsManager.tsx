@@ -27,31 +27,29 @@ export const CodingAgentsManager: FC<{
   } = controller
 
   return (
-    <>
-      <NewAgentDialog
-        adapters={createAdapter ? [createAdapter] : []}
-        createError={createError}
-        createRuntime={createAdapterId ?? 'claude'}
-        creating={creating}
-        defaultProviderId=""
-        harnessAdapterId={createAdapterId ?? 'claude'}
-        harnessModelId={modelId}
-        harnessReasoningEffort={reasoningEffort}
-        hermesProviders={[]}
-        hermesSelectedProviderId=""
-        name={newName}
-        open={createOpen}
-        onCreate={handleCreate}
-        onOpenChange={(open) => {
-          if (!open) closeCreate()
-        }}
-        onRuntimeChange={() => {}}
-        onHarnessAdapterChange={() => {}}
-        onHarnessModelChange={setModelId}
-        onHarnessReasoningChange={setReasoningEffort}
-        onHermesProviderChange={() => {}}
-        onNameChange={setNewName}
-      />
-    </>
+    <NewAgentDialog
+      adapters={createAdapter ? [createAdapter] : []}
+      createError={createError}
+      createRuntime={createAdapterId ?? 'claude'}
+      creating={creating}
+      defaultProviderId=""
+      harnessAdapterId={createAdapterId ?? 'claude'}
+      harnessModelId={modelId}
+      harnessReasoningEffort={reasoningEffort}
+      hermesProviders={[]}
+      hermesSelectedProviderId=""
+      name={newName}
+      open={createOpen}
+      onCreate={handleCreate}
+      onOpenChange={(open) => {
+        if (!open) closeCreate()
+      }}
+      onRuntimeChange={() => {}}
+      onHarnessAdapterChange={() => {}}
+      onHarnessModelChange={setModelId}
+      onHarnessReasoningChange={setReasoningEffort}
+      onHermesProviderChange={() => {}}
+      onNameChange={setNewName}
+    />
   )
 }
