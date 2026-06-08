@@ -28,6 +28,7 @@ describe('loadServerConfig', () => {
     delete process.env.BROWSEROS_INSTALL_ID
     delete process.env.BROWSEROS_CLIENT_ID
     delete process.env.BROWSEROS_AI_SDK_DEVTOOLS
+    delete process.env.BROWSER_USE_NEW_TOOLS
   })
 
   afterEach(() => {
@@ -443,6 +444,48 @@ describe('loadServerConfig', () => {
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
       assert.strictEqual(result.value.aiSdkDevtoolsEnabled, false)
+    })
+
+    it('defaults browserUseNewTools to true', () => {
+      const result = loadServerConfig([
+        'bun',
+        'src/index.ts',
+        '--server-port=3000',
+      ])
+
+      assert.strictEqual(result.ok, true)
+      if (!result.ok) return
+      assert.strictEqual(result.value.browserUseNewTools, true)
+    })
+  })
+
+  describe('Browser tool registry switch', () => {
+    it('disables new browser tools via BROWSER_USE_NEW_TOOLS=false', () => {
+      process.env.BROWSER_USE_NEW_TOOLS = 'false'
+
+      const result = loadServerConfig([
+        'bun',
+        'src/index.ts',
+        '--server-port=3000',
+      ])
+
+      assert.strictEqual(result.ok, true)
+      if (!result.ok) return
+      assert.strictEqual(result.value.browserUseNewTools, false)
+    })
+
+    it('disables new browser tools via BROWSER_USE_NEW_TOOLS=0', () => {
+      process.env.BROWSER_USE_NEW_TOOLS = '0'
+
+      const result = loadServerConfig([
+        'bun',
+        'src/index.ts',
+        '--server-port=3000',
+      ])
+
+      assert.strictEqual(result.ok, true)
+      if (!result.ok) return
+      assert.strictEqual(result.value.browserUseNewTools, false)
     })
   })
 

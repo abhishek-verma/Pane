@@ -1,14 +1,15 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
-import { close_page, new_page } from '../../src/tools/browser/navigation'
+import { withBrowser } from '../__helpers__/with-browser'
 import {
+  close_page,
   close_tab_group,
   group_tabs,
   list_tab_groups,
+  new_page,
   ungroup_tabs,
   update_tab_group,
-} from '../../src/tools/browser/tab-groups'
-import { withBrowser } from '../__helpers__/with-browser'
+} from './browser/helpers'
 
 function textOf(result: {
   content: { type: string; text?: string }[]
@@ -37,7 +38,6 @@ describe('tab group tools', () => {
 
   it('group, update, ungroup lifecycle', async () => {
     await withBrowser(async ({ execute }) => {
-      // Create two tabs to group
       const tab1Result = await execute(new_page, { url: 'about:blank' })
       const tab1PageId = structuredOf<{ pageId: number }>(tab1Result).pageId
 
@@ -46,7 +46,6 @@ describe('tab group tools', () => {
 
       const pageIds = [tab1PageId, tab2PageId]
 
-      // Group tabs
       const groupResult = await execute(group_tabs, {
         pageIds,
         title: 'Test Group',
@@ -59,7 +58,6 @@ describe('tab group tools', () => {
       assert.deepStrictEqual(groupData.group.pageIds.sort(), pageIds.sort())
       const groupId = groupData.group.groupId
 
-      // Update group
       const updateResult = await execute(update_tab_group, {
         groupId,
         title: 'Renamed Group',
@@ -73,7 +71,6 @@ describe('tab group tools', () => {
       assert.strictEqual(updateData.group.title, 'Renamed Group')
       assert.strictEqual(updateData.group.color, 'blue')
 
-      // Verify in list
       const listResult = await execute(list_tab_groups, {})
       assert.ok(!listResult.isError, textOf(listResult))
       const listData = structuredOf<{
@@ -86,7 +83,6 @@ describe('tab group tools', () => {
         ),
       )
 
-      // Ungroup
       const ungroupResult = await execute(ungroup_tabs, { pageIds })
       assert.ok(!ungroupResult.isError, textOf(ungroupResult))
       const ungroupData = structuredOf<{ action: string; count: number }>(
@@ -95,7 +91,6 @@ describe('tab group tools', () => {
       assert.strictEqual(ungroupData.action, 'ungroup_tabs')
       assert.strictEqual(ungroupData.count, 2)
 
-      // Cleanup
       await execute(close_page, { page: tab1PageId })
       await execute(close_page, { page: tab2PageId })
     })
@@ -106,7 +101,6 @@ describe('tab group tools', () => {
       const tabResult = await execute(new_page, { url: 'about:blank' })
       const tabPageId = structuredOf<{ pageId: number }>(tabResult).pageId
 
-      // Group
       const groupResult = await execute(group_tabs, {
         pageIds: [tabPageId],
         title: 'Disposable',
@@ -115,7 +109,6 @@ describe('tab group tools', () => {
       const groupId = structuredOf<{ group: { groupId: string } }>(groupResult)
         .group.groupId
 
-      // Close group (also closes the tab)
       const closeResult = await execute(close_tab_group, { groupId })
       assert.ok(!closeResult.isError, textOf(closeResult))
       const closeData = structuredOf<{ action: string; groupId: string }>(

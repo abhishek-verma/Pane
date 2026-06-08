@@ -52,17 +52,24 @@ export class TaskRunPipeline {
   ) {}
 
   /**
-   * Resolve the initial page ID via list_pages MCP call.
+   * Resolve the initial page ID via the compact tabs MCP tool.
    * Called once per task on a fresh browser — there's exactly one page.
    */
   private async resolveInitialPageId(mcpUrl: string): Promise<number> {
     try {
-      const result = await callMcpTool(mcpUrl, 'list_pages', {})
+      const result = await callMcpTool(mcpUrl, 'tabs', { action: 'list' })
       if (!result.isError) {
+        const page = (
+          result.structuredContent?.pages as
+            | Array<{ page?: number }>
+            | undefined
+        )?.[0]?.page
+        if (typeof page === 'number') return page
+
         const textContent = result.content?.find(
           (c: { type: string }) => c.type === 'text',
         )
-        const match = textContent?.text?.match(/^\s*(\d+)\./m)
+        const match = textContent?.text?.match(/^\[(\d+)\]/m)
         if (match) return Number.parseInt(match[1], 10)
       }
     } catch {
@@ -134,9 +141,9 @@ export class TaskRunPipeline {
     try {
       // Phase 1: Set viewport + navigate to start URL
       try {
-        await callMcpTool(mcpUrl, 'evaluate_script', {
+        await callMcpTool(mcpUrl, 'run', {
           page: pageId,
-          expression: 'window.resizeTo(1440, 900)',
+          code: 'window.resizeTo(1440, 900); return { width: window.innerWidth, height: window.innerHeight }',
         })
       } catch (vpError) {
         console.warn(
@@ -146,9 +153,10 @@ export class TaskRunPipeline {
 
       if (actualStartUrl && actualStartUrl !== 'about:blank') {
         try {
-          await callMcpTool(mcpUrl, 'navigate_page', {
+          await callMcpTool(mcpUrl, 'navigate', {
             url: actualStartUrl,
             page: pageId,
+            action: 'url',
           })
         } catch (error) {
           throw new TaskExecutionError(
@@ -196,9 +204,10 @@ export class TaskRunPipeline {
     } finally {
       // Navigate to about:blank to clean up
       try {
-        await callMcpTool(mcpUrl, 'navigate_page', {
+        await callMcpTool(mcpUrl, 'navigate', {
           url: 'about:blank',
           page: pageId,
+          action: 'url',
         })
       } catch {
         // Ignore cleanup errors

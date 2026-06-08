@@ -18,7 +18,7 @@ import {
   normalizeCladoDirection,
   normalizeCladoPressKey,
   normalizeCladoScrollAmount,
-  prepareCladoToolArgs,
+  prepareCladoToolCall,
   resolveCladoPoint,
 } from './clado-browser-driver'
 import { CladoActionClient } from './clado-client'
@@ -538,10 +538,13 @@ export class CladoActionExecutor {
       throw new Error('aborted')
     }
 
-    const toolArgs = prepareCladoToolArgs(toolName, args, this.pageId)
+    const prepared = prepareCladoToolCall(toolName, args, this.pageId)
 
     try {
-      const raw = await this.mcpClient.callTool(toolName, toolArgs)
+      const raw = await this.mcpClient.callTool(
+        prepared.toolName,
+        prepared.args,
+      )
       const text = raw.content
         .map((item) => item.text)
         .filter((value): value is string => typeof value === 'string')

@@ -14,9 +14,9 @@ import {
 import type { AgentSession, SessionStore } from '../../agent/session-store'
 import type { ResolvedAgentConfig } from '../../agent/types'
 import type { Browser } from '../../browser/browser'
+import type { BrowserSession } from '../../browser/core/session'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
-import type { ToolRegistry } from '../../tools/tool-registry'
 import type { KlavisProxyRef } from '../services/klavis/strata-proxy'
 import type { BrowserContext, ChatRequest } from '../types'
 import { resolveBrowserContextPageIds } from '../utils/resolve-browser-context-page-ids'
@@ -25,7 +25,7 @@ export interface ChatServiceDeps {
   sessionStore: SessionStore
   klavisRef?: KlavisProxyRef
   browser: Browser
-  registry: ToolRegistry
+  browserSession: BrowserSession
   browserosId?: string
   aiSdkDevtoolsEnabled?: boolean
 }
@@ -216,8 +216,7 @@ export class ChatService {
 
       const agent = await AiSdkAgent.create({
         resolvedConfig: agentConfig,
-        browser: this.deps.browser,
-        registry: this.deps.registry,
+        browserSession: this.deps.browserSession,
         browserContext,
         klavisRef: this.deps.klavisRef,
         browserosId: this.deps.browserosId,
@@ -368,8 +367,7 @@ export class ChatService {
         )
     const agent = await AiSdkAgent.create({
       resolvedConfig: agentConfig,
-      browser: this.deps.browser,
-      registry: this.deps.registry,
+      browserSession: this.deps.browserSession,
       browserContext,
       klavisRef: this.deps.klavisRef,
       browserosId: this.deps.browserosId,

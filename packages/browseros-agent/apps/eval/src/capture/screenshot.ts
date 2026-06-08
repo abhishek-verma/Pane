@@ -94,8 +94,7 @@ export class ScreenshotCapture {
   }
 
   private async captureMcp(pageId: number): Promise<string | null> {
-    const result = await callMcpTool(this.mcpUrl, 'take_screenshot', {
-      format: 'png',
+    const result = await callMcpTool(this.mcpUrl, 'screenshot', {
       page: pageId,
     })
 

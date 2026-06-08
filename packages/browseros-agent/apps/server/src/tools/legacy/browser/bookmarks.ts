@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { BookmarkNode } from '../../browser/bookmarks'
+import type { BookmarkNode } from '../../../browser/bookmarks'
 import { defineTool } from '../framework'
 
 const bookmarkNodeSchema = z.object({

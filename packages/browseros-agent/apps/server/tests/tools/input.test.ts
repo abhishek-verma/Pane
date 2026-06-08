@@ -1,23 +1,23 @@
 import { afterAll, describe, it } from 'bun:test'
 import assert from 'node:assert'
 import type { Browser } from '../../src/browser/browser'
+import { cleanupWithBrowser, withBrowser } from '../__helpers__/with-browser'
 import {
   check,
   click,
+  close_page,
+  evaluate_script,
+  executeTool,
   fill,
   hover,
+  new_page,
   press_key,
   scroll,
   select_option,
-  uncheck,
-} from '../../src/tools/browser/input'
-import { close_page, new_page } from '../../src/tools/browser/navigation'
-import {
-  evaluate_script,
+  type ToolContext,
   take_snapshot,
-} from '../../src/tools/browser/snapshot'
-import { executeTool, type ToolContext } from '../../src/tools/framework'
-import { cleanupWithBrowser, withBrowser } from '../__helpers__/with-browser'
+  uncheck,
+} from './browser/helpers'
 
 function textOf(result: {
   content: { type: string; text?: string }[]
@@ -129,13 +129,11 @@ describe('input tools', () => {
       const newResult = await execute(new_page, { url: FORM_PAGE })
       const pageId = pageIdOf(newResult)
 
-      // Fill the input first
       const snap = await execute(take_snapshot, { page: pageId })
       const snapText = textOf(snap)
       const inputId = findElementId(snapText, 'Enter name')
       await execute(fill, { page: pageId, element: inputId, text: 'Alice' })
 
-      // Click submit
       const btnId = findElementId(snapText, 'Submit')
       const clickResult = await execute(click, {
         page: pageId,
@@ -200,7 +198,6 @@ describe('input tools', () => {
       const newResult = await execute(new_page, { url: FORM_PAGE })
       const pageId = pageIdOf(newResult)
 
-      // Use evaluate_script to get the select element's backendNodeId directly
       const nodeId = await execute(evaluate_script, {
         page: pageId,
         expression:
@@ -208,11 +205,9 @@ describe('input tools', () => {
       })
       assert.strictEqual(textOf(nodeId), 'color')
 
-      // Get the select element ID from the snapshot
       const snap = await execute(take_snapshot, { page: pageId })
       const snapText = textOf(snap)
 
-      // Find the combobox/listbox element (the <select>), not an individual option
       const comboboxMatch = snapText.match(
         /\[(\d+)\]\s*(?:combobox|listbox|PopUpButton)/,
       )
@@ -240,7 +235,6 @@ describe('input tools', () => {
       const inputId = findElementId(textOf(snap), 'Enter name')
       await execute(fill, { page: pageId, element: inputId, text: 'hello' })
 
-      // Press Backspace to delete last character
       const keyResult = await execute(press_key, {
         page: pageId,
         key: 'Backspace',
@@ -309,7 +303,6 @@ describe('input tools', () => {
       const inputId = findElementId(textOf(snap), 'Enter name')
       await execute(fill, { page: pageId, element: inputId, text: 'hello' })
 
-      // "backspace" (lowercase) should work the same as "Backspace"
       const keyResult = await execute(press_key, {
         page: pageId,
         key: 'backspace',

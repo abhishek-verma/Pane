@@ -1,7 +1,10 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
+import { withBrowser } from '../__helpers__/with-browser'
 import {
   close_page,
+  close_window,
+  create_window,
   get_active_page,
   list_pages,
   move_page,
@@ -9,9 +12,7 @@ import {
   new_hidden_page,
   new_page,
   show_page,
-} from '../../src/tools/browser/navigation'
-import { close_window, create_window } from '../../src/tools/browser/windows'
-import { withBrowser } from '../__helpers__/with-browser'
+} from './browser/helpers'
 
 function textOf(result: {
   content: { type: string; text?: string }[]

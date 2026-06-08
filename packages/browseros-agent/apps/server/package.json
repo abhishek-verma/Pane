@@ -25,7 +25,7 @@
     "test:root": "bun run ./tests/__helpers__/run-test-group.ts root",
     "test:tools": "bun run ./tests/__helpers__/run-test-group.ts tools",
     "test:tools:filesystem": "bun run test:cleanup && bun --env-file=.env.development test ./tests/tools/filesystem",
-    "test:tools:input": "bun run test:cleanup && bun --env-file=.env.development test ./tests/tools/input.test.ts",
+    "test:tools:input": "bun --env-file=.env.development test ./tests/tools/keyboard.test.ts",
     "test:cleanup": "./tests/__helpers__/cleanup.sh",
     "typecheck": "tsc --noEmit",
     "devtools": "bunx @ai-sdk/devtools"
@@ -66,10 +66,6 @@
     "./browser/backends/cdp": {
       "types": "./src/browser/backends/cdp.ts",
       "default": "./src/browser/backends/cdp.ts"
-    },
-    "./tools/registry": {
-      "types": "./src/tools/registry.ts",
-      "default": "./src/tools/registry.ts"
     }
   },
   "dependencies": {

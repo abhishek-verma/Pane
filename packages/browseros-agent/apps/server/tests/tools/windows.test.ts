@@ -1,16 +1,16 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import type { Browser } from '../../src/browser/browser'
+import { withBrowser } from '../__helpers__/with-browser'
 import {
   activate_window,
   close_window,
   create_hidden_window,
   create_window,
+  executeTool,
   list_windows,
   set_window_visibility,
-} from '../../src/tools/browser/windows'
-import { executeTool } from '../../src/tools/framework'
-import { withBrowser } from '../__helpers__/with-browser'
+} from './browser/helpers'
 
 function textOf(result: {
   content: { type: string; text?: string }[]

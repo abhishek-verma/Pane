@@ -1,5 +1,6 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
+import { withBrowser } from '../__helpers__/with-browser'
 import {
   create_bookmark,
   get_bookmarks,
@@ -7,8 +8,7 @@ import {
   remove_bookmark,
   search_bookmarks,
   update_bookmark,
-} from '../../src/tools/browser/bookmarks'
-import { withBrowser } from '../__helpers__/with-browser'
+} from './browser/helpers'
 
 function textOf(result: {
   content: { type: string; text?: string }[]
@@ -27,7 +27,6 @@ function structuredOf<T>(result: { structuredContent?: unknown }): T {
 describe('bookmark tools', () => {
   it('full CRUD lifecycle', async () => {
     await withBrowser(async ({ execute }) => {
-      // Create
       const createResult = await execute(create_bookmark, {
         title: 'Test Bookmark',
         url: 'https://example.com/test-bookmark',
@@ -39,7 +38,6 @@ describe('bookmark tools', () => {
       assert.strictEqual(createData.bookmark.title, 'Test Bookmark')
       const bookmarkId = createData.bookmark.id
 
-      // Get
       const getResult = await execute(get_bookmarks, {})
       assert.ok(!getResult.isError, textOf(getResult))
       const getData = structuredOf<{ bookmarks: Array<{ title: string }> }>(
@@ -51,7 +49,6 @@ describe('bookmark tools', () => {
         ),
       )
 
-      // Search
       const searchResult = await execute(search_bookmarks, {
         query: 'Test Bookmark',
       })
@@ -63,7 +60,6 @@ describe('bookmark tools', () => {
         searchData.bookmarks.some((bookmark) => bookmark.id === bookmarkId),
       )
 
-      // Update
       const updateResult = await execute(update_bookmark, {
         id: bookmarkId,
         title: 'Updated Bookmark',
@@ -74,7 +70,6 @@ describe('bookmark tools', () => {
       )
       assert.strictEqual(updateData.bookmark.title, 'Updated Bookmark')
 
-      // Remove
       const removeResult = await execute(remove_bookmark, { id: bookmarkId })
       assert.ok(!removeResult.isError, textOf(removeResult))
       const removeData = structuredOf<{ action: string; id: string }>(
@@ -87,7 +82,6 @@ describe('bookmark tools', () => {
 
   it('create folder and move bookmark into it', async () => {
     await withBrowser(async ({ execute }) => {
-      // Create folder
       const folderResult = await execute(create_bookmark, {
         title: 'Test Folder',
       })
@@ -98,7 +92,6 @@ describe('bookmark tools', () => {
       assert.strictEqual(folderData.bookmark.type, 'folder')
       const folderId = folderData.bookmark.id
 
-      // Create bookmark
       const bmResult = await execute(create_bookmark, {
         title: 'Movable Bookmark',
         url: 'https://example.com/movable',
@@ -106,7 +99,6 @@ describe('bookmark tools', () => {
       const bmId = structuredOf<{ bookmark: { id: string } }>(bmResult).bookmark
         .id
 
-      // Move into folder
       const moveResult = await execute(move_bookmark, {
         id: bmId,
         parentId: folderId,
@@ -117,7 +109,6 @@ describe('bookmark tools', () => {
       )
       assert.strictEqual(moveData.bookmark.parentId, folderId)
 
-      // Cleanup
       await execute(remove_bookmark, { id: folderId })
     })
   }, 60_000)

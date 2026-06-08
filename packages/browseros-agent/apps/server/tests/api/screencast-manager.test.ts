@@ -5,7 +5,6 @@ import {
   ScreencastManager,
   type ScreencastOutboundMessage,
 } from '../../src/api/services/screencast/screencast-manager'
-import { close_window, create_window } from '../../src/tools/browser/windows'
 import { withBrowser } from '../__helpers__/with-browser'
 
 interface FakeWs {
@@ -57,12 +56,8 @@ describe('ScreencastManager', () => {
   // depend on subsequent invalidations for frames (Chromium pauses
   // composition for off-screen windows).
   it('subscribes, emits frames, displaces a prior subscriber, and stops on unsubscribe', async () => {
-    await withBrowser(async ({ browser, execute }) => {
-      const created = await execute(create_window, {})
-      assert.ok(!created.isError, 'create_window failed')
-      const windowId = (
-        created.structuredContent as { window: { windowId: number } }
-      ).window.windowId
+    await withBrowser(async ({ browser }) => {
+      const { windowId } = await browser.createWindow()
 
       try {
         const manager = new ScreencastManager(browser)
@@ -97,7 +92,7 @@ describe('ScreencastManager', () => {
         manager.unsubscribe(handleA, subA.ws)
         manager.unsubscribe(handleB, subB.ws)
       } finally {
-        await execute(close_window, { windowId })
+        await browser.closeWindow(windowId)
       }
     })
   }, 60_000)

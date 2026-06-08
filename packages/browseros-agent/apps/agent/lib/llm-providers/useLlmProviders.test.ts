@@ -26,15 +26,68 @@ mock.module('@/lib/auth/sessionStorage', () => ({
   },
 }))
 
+const browserOSAdapter = {
+  getBrowserosVersion: async () => null,
+  getPref: async (name: string) =>
+    new Promise<{ value?: unknown }>((resolve) => {
+      const getPref = globalThis.chrome?.browserOS?.getPref
+      if (!getPref) {
+        resolve({ value: null })
+        return
+      }
+      getPref(name, resolve)
+    }),
+  setPref: async () => {},
+}
+
+const MockBrowserOSAdapter = {
+  getInstance: () => browserOSAdapter,
+}
+
+const createBrowserOSProvider = () => ({
+  id: 'browseros',
+  type: 'browseros',
+  name: 'BrowserOS',
+  modelId: 'browseros-auto',
+  supportsImages: true,
+  contextWindow: 200000,
+  temperature: 0.2,
+  createdAt: 0,
+  updatedAt: 0,
+})
+
 mock.module('@/lib/browseros/adapter', () => ({
-  getBrowserOSAdapter: () => ({
-    setPref: async () => {},
-  }),
+  BrowserOSAdapter: MockBrowserOSAdapter,
+  getBrowserOSAdapter: () => browserOSAdapter,
 }))
 
 mock.module('@/lib/browseros/prefs', () => ({
   BROWSEROS_PREFS: {
     PROVIDERS: 'browseros.providers',
+    MCP_PORT: 'browseros.server.mcp_port',
+  },
+}))
+
+mock.module('./storage', () => ({
+  DEFAULT_PROVIDER_ID: 'browseros',
+  createDefaultBrowserOSProvider: createBrowserOSProvider,
+  createDefaultProvidersConfig: () => [createBrowserOSProvider()],
+  defaultProviderIdStorage: {
+    getValue: async () => storageValues.get('local:default-provider-id'),
+    setValue: async (value: string) => {
+      storageValues.set('local:default-provider-id', value)
+    },
+    watch: () => () => {},
+  },
+  loadProviders: async () =>
+    (storageValues.get('local:llm-providers') as LlmProviderConfig[]) ?? [],
+  providersStorage: {
+    getValue: async () =>
+      (storageValues.get('local:llm-providers') as LlmProviderConfig[]) ?? [],
+    setValue: async (value: LlmProviderConfig[]) => {
+      storageValues.set('local:llm-providers', value)
+    },
+    watch: () => () => {},
   },
 }))
 

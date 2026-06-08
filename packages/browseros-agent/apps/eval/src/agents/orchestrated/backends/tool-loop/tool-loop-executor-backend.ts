@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto'
 import { AiSdkAgent } from '@browseros/server/agent/tool-loop'
 import type { ResolvedAgentConfig } from '@browseros/server/agent/types'
 import type { Browser } from '@browseros/server/browser'
-import { registry } from '@browseros/server/tools/registry'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type {
   DelegationResult,
@@ -33,6 +32,7 @@ export class ToolLoopExecutorBackend implements ExecutorBackend {
     if (!browser) {
       throw new Error('Browser instance is required for tool-loop executor')
     }
+    const browserSession = browser.session
 
     const stepsAtStart = this.stepsUsed
     const toolsUsed: string[] = []
@@ -54,8 +54,7 @@ export class ToolLoopExecutorBackend implements ExecutorBackend {
     try {
       agent = await AiSdkAgent.create({
         resolvedConfig: agentConfig,
-        browser,
-        registry,
+        browserSession,
         browserContext,
       })
 

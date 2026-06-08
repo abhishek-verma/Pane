@@ -1,4 +1,5 @@
 import type { ProtocolApi } from '@browseros/cdp-protocol/protocol-api'
+import { logger } from '../../lib/logger'
 import {
   type CdpConnection,
   EXCLUDED_URL_PREFIXES,
@@ -23,6 +24,11 @@ export interface PageInfo {
 
 // Shape returned by the custom Browser.* CDP domain (a PageInfo without our synthetic pageId).
 type TabInfo = Omit<PageInfo, 'pageId'>
+type WindowInfo = {
+  windowId: number
+  isVisible: boolean
+  isActive: boolean
+}
 
 export interface PageSession {
   targetId: string
@@ -48,6 +54,7 @@ export class PageManager {
   private readonly sessions = new Map<string, SessionId>()
   private connectionEpoch: number
   private nextPageId = 1
+  private hiddenWindowId?: number
 
   constructor(
     private readonly cdp: CdpConnection,
@@ -190,13 +197,19 @@ export class PageManager {
 
   async newPage(
     url: string,
-    opts?: { background?: boolean; windowId?: number },
+    opts?: {
+      background?: boolean
+      hidden?: boolean
+      windowId?: number
+      tabGroupId?: string
+    },
   ): Promise<number> {
     await this.ensureConnected()
+    const windowId = await this.resolveWindowIdForNewPage(opts)
     const created = await this.cdp.Browser.createTab({
       url,
       ...(opts?.background !== undefined && { background: opts.background }),
-      ...(opts?.windowId !== undefined && { windowId: opts.windowId }),
+      ...(windowId !== undefined && { windowId }),
     })
     const tabId = (created.tab as TabInfo).tabId
 
@@ -210,9 +223,68 @@ export class PageManager {
     }
     if (!tab) throw new Error(`Tab ${tabId} not found after creation`)
 
+    if (opts?.tabGroupId) {
+      try {
+        await this.cdp.Browser.addTabsToGroup({
+          groupId: opts.tabGroupId,
+          tabIds: [tabId],
+        })
+        tab = (await this.cdp.Browser.getTabInfo({ tabId })).tab as TabInfo
+      } catch (error) {
+        logger.warn('Failed to add new page to default tab group', {
+          tabGroupId: opts.tabGroupId,
+          tabId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
     const pageId = this.nextPageId++
     this.pages.set(pageId, { pageId, ...tab, url: tab.url || url })
     return pageId
+  }
+
+  private async resolveWindowIdForNewPage(opts?: {
+    hidden?: boolean
+    windowId?: number
+  }): Promise<number | undefined> {
+    if (!opts?.hidden) {
+      if (opts?.windowId !== undefined) return opts.windowId
+      return undefined
+    }
+
+    const windows = (await this.cdp.Browser.getWindows())
+      .windows as WindowInfo[]
+    if (opts.windowId !== undefined) {
+      const targetWindow = windows.find(
+        (window) => window.windowId === opts.windowId,
+      )
+      if (targetWindow && !targetWindow.isVisible) {
+        this.hiddenWindowId = targetWindow.windowId
+        return targetWindow.windowId
+      }
+      if (targetWindow?.isVisible) {
+        logger.warn(
+          'Requested hidden page target window is visible, creating a new hidden window instead',
+          { requestedWindowId: opts.windowId },
+        )
+      }
+      const hiddenWindow = await this.cdp.Browser.createWindow({ hidden: true })
+      this.hiddenWindowId = (hiddenWindow.window as WindowInfo).windowId
+      return this.hiddenWindowId
+    }
+
+    if (this.hiddenWindowId !== undefined) {
+      const cachedWindow = windows.find(
+        (window) => window.windowId === this.hiddenWindowId,
+      )
+      if (cachedWindow && !cachedWindow.isVisible) return cachedWindow.windowId
+      this.hiddenWindowId = undefined
+    }
+
+    const hiddenWindow = await this.cdp.Browser.createWindow({ hidden: true })
+    this.hiddenWindowId = (hiddenWindow.window as WindowInfo).windowId
+    return this.hiddenWindowId
   }
 
   async close(pageId: number): Promise<void> {
@@ -295,6 +367,7 @@ export class PageManager {
     const epoch = this.cdp.connectionEpoch()
     if (epoch !== this.connectionEpoch) {
       this.sessions.clear()
+      this.hiddenWindowId = undefined
       this.connectionEpoch = epoch
       return true
     }

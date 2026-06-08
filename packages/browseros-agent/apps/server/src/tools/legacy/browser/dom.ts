@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { formatSearchResult } from '../../browser/dom'
+import { formatSearchResult } from '../../../browser/dom'
 import { defineTool } from '../framework'
 import { writeTempToolOutputFile } from '../output-file'
 

@@ -5,14 +5,16 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Browser } from '../../src/browser/browser'
-import { close_page, new_page } from '../../src/tools/browser/navigation'
+import { withBrowser } from '../__helpers__/with-browser'
 import {
+  close_page,
   download_file,
+  executeTool,
+  new_page,
   save_pdf,
   save_screenshot,
-} from '../../src/tools/browser/page-actions'
-import { executeTool, type ToolContext } from '../../src/tools/framework'
-import { withBrowser } from '../__helpers__/with-browser'
+  type ToolContext,
+} from './browser/helpers'
 
 function textOf(result: {
   content: { type: string; text?: string }[]

@@ -6,7 +6,6 @@ import {
 import type { ResolvedAgentConfig } from '@browseros/server/agent/types'
 import { Browser } from '@browseros/server/browser'
 import { CdpBackend } from '@browseros/server/browser/backends/cdp'
-import { registry } from '@browseros/server/tools/registry'
 import { CaptchaWaiter } from '../capture/captcha-waiter'
 import { DEFAULT_TIMEOUT_MS } from '../constants'
 import type { TaskMetadata, TokenUsage } from '../types'
@@ -56,6 +55,7 @@ export class SingleAgentEvaluator implements AgentEvaluator {
     await cdp.connect()
 
     const browser = new Browser(cdp)
+    const browserSession = browser.session
     capture.screenshot.setBrowser(browser)
 
     // Build browser context so the agent knows the correct starting page ID
@@ -91,8 +91,7 @@ export class SingleAgentEvaluator implements AgentEvaluator {
     try {
       agent = await AiSdkAgent.create({
         resolvedConfig: agentConfig,
-        browser,
-        registry,
+        browserSession,
         browserContext,
       })
 

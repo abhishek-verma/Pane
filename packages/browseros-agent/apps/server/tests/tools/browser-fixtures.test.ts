@@ -4,24 +4,6 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { diffSnapshots } from '../../src/browser/core/snapshot/diff'
-import { search_dom } from '../../src/tools/browser/dom'
-import {
-  check,
-  click,
-  select_option,
-  uncheck,
-  upload_file,
-} from '../../src/tools/browser/input'
-import {
-  close_page,
-  list_pages,
-  navigate_page,
-  new_page,
-} from '../../src/tools/browser/navigation'
-import {
-  evaluate_script,
-  take_snapshot,
-} from '../../src/tools/browser/snapshot'
 import {
   type BrowserFixtureServer,
   fixtureRoutes,
@@ -32,6 +14,20 @@ import {
   type WithBrowserContext,
   withBrowser,
 } from '../__helpers__/with-browser'
+import {
+  check,
+  click,
+  close_page,
+  evaluate_script,
+  list_pages,
+  navigate_page,
+  new_page,
+  search_dom,
+  select_option,
+  take_snapshot,
+  uncheck,
+  upload_file,
+} from './browser/helpers'
 
 let fixtureServer: BrowserFixtureServer
 

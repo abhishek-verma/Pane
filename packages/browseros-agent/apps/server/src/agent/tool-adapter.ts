@@ -1,103 +1,103 @@
 import type { LanguageModelV2ToolResultOutput } from '@ai-sdk/provider'
 import { type ToolSet, tool } from 'ai'
-import { logger } from '../lib/logger'
+import type { BrowserSession } from '../browser/core/session'
 import { metrics } from '../lib/metrics'
-import { executeTool, type ToolContext } from '../tools/framework'
-import type { ContentItem } from '../tools/response'
-import type { ToolRegistry } from '../tools/tool-registry'
+import {
+  type ContentBlock,
+  errorResult,
+  executeTool,
+  type ToolDefinition,
+  type ToolResult,
+  throwIfAborted,
+} from '../tools/browser/framework'
+import { BROWSER_TOOLS } from '../tools/browser/registry'
+
+export interface BrowserToolSetOptions {
+  readOnly?: boolean
+}
+
+interface ToolExecuteOptions {
+  abortSignal?: AbortSignal
+}
+
+const BROWSER_TOOL_TIMEOUT_MS = 120_000
+
+function withBrowserToolTimeout(signal?: AbortSignal): AbortSignal {
+  const timeoutSignal = AbortSignal.timeout(BROWSER_TOOL_TIMEOUT_MS)
+  if (!signal) return timeoutSignal
+
+  const controller = new AbortController()
+  const forwardAbort = (source: AbortSignal) => {
+    if (source.aborted) {
+      controller.abort(source.reason)
+      return
+    }
+    source.addEventListener('abort', () => controller.abort(source.reason), {
+      once: true,
+    })
+  }
+
+  forwardAbort(signal)
+  forwardAbort(timeoutSignal)
+  return controller.signal
+}
 
 function contentToModelOutput(
-  content: ContentItem[],
+  content: ContentBlock[],
 ): LanguageModelV2ToolResultOutput {
   const hasImages = content.some((c) => c.type === 'image')
-
   if (!hasImages) {
     const text = content
-      .filter((c): c is ContentItem & { type: 'text' } => c.type === 'text')
+      .filter((c): c is ContentBlock & { type: 'text' } => c.type === 'text')
       .map((c) => c.text)
       .join('\n')
     return { type: 'text', value: text || 'Success' }
   }
-
   return {
     type: 'content',
-    value: content.map((c) => {
-      if (c.type === 'text') {
-        return { type: 'text' as const, text: c.text }
-      }
-      return {
-        type: 'media' as const,
-        data: c.data,
-        mediaType: c.mimeType,
-      }
-    }),
+    value: content.map((c) =>
+      c.type === 'text'
+        ? { type: 'text' as const, text: c.text }
+        : { type: 'media' as const, data: c.data, mediaType: c.mimeType },
+    ),
   }
 }
 
+/** Wraps the browser-core tool surface as AI SDK tools for the internal agent. */
 export function buildBrowserToolSet(
-  registry: ToolRegistry,
-  ctx: ToolContext,
+  session: BrowserSession,
+  options: BrowserToolSetOptions = {},
 ): ToolSet {
   const toolSet: ToolSet = {}
 
-  for (const def of registry.all()) {
+  for (const def of BROWSER_TOOLS) {
     toolSet[def.name] = tool({
       description: def.description,
       inputSchema: def.input,
-      execute: async (params) => {
+      execute: async (params, executeOptions?: ToolExecuteOptions) => {
         const startTime = performance.now()
-        try {
-          const result = await executeTool(
-            def,
-            params,
-            ctx,
-            AbortSignal.timeout(120_000),
-          )
-
-          metrics.log('tool_executed', {
-            tool_name: def.name,
-            duration_ms: Math.round(performance.now() - startTime),
-            success: !result.isError,
-            source: 'chat',
-          })
-
-          return {
-            content: result.content,
-            isError: result.isError ?? false,
-            metadata: result.metadata,
-          }
-        } catch (error) {
-          const errorText =
-            error instanceof Error ? error.message : String(error)
-
-          logger.error('Tool execution failed', {
-            tool: def.name,
-            error: errorText,
-          })
-          metrics.log('tool_executed', {
-            tool_name: def.name,
-            duration_ms: Math.round(performance.now() - startTime),
-            success: false,
-            error_message:
-              error instanceof Error ? error.message : 'Unknown error',
-            source: 'chat',
-          })
-
-          return {
-            content: [{ type: 'text' as const, text: errorText }],
-            isError: true,
-          }
-        }
+        const signal = withBrowserToolTimeout(executeOptions?.abortSignal)
+        throwIfAborted(signal)
+        const result =
+          readOnlyGuard(def, params, options) ??
+          (await executeTool(def, params as Record<string, unknown>, {
+            session,
+            signal,
+          }))
+        metrics.log('tool_executed', {
+          tool_name: def.name,
+          duration_ms: Math.round(performance.now() - startTime),
+          success: !result.isError,
+          source: 'chat',
+        })
+        return { content: result.content, isError: result.isError ?? false }
       },
       toModelOutput: ({ output }) => {
-        const result = output as {
-          content: ContentItem[]
-          isError: boolean
-        }
+        const result = output as { content: ContentBlock[]; isError: boolean }
         if (result.isError) {
           const text = result.content
             .filter(
-              (c): c is ContentItem & { type: 'text' } => c.type === 'text',
+              (c): c is ContentBlock & { type: 'text' } => c.type === 'text',
             )
             .map((c) => c.text)
             .join('\n')
@@ -112,4 +112,21 @@ export function buildBrowserToolSet(
   }
 
   return toolSet
+}
+
+function readOnlyGuard(
+  def: ToolDefinition,
+  params: unknown,
+  options: BrowserToolSetOptions,
+): ToolResult | null {
+  if (!options.readOnly || def.name !== 'tabs') return null
+  const action =
+    params &&
+    typeof params === 'object' &&
+    'action' in params &&
+    typeof params.action === 'string'
+      ? params.action
+      : 'list'
+  if (action === 'list') return null
+  return errorResult('tabs: chat mode only supports action="list".')
 }

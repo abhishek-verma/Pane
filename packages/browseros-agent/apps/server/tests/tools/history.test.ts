@@ -1,13 +1,14 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
+import { withBrowser } from '../__helpers__/with-browser'
 import {
+  close_page,
   delete_history_range,
   delete_history_url,
   get_recent_history,
+  new_page,
   search_history,
-} from '../../src/tools/browser/history'
-import { close_page, new_page } from '../../src/tools/browser/navigation'
-import { withBrowser } from '../__helpers__/with-browser'
+} from './browser/helpers'
 
 function textOf(result: {
   content: { type: string; text?: string }[]
@@ -35,7 +36,6 @@ function pageIdOf(result: {
 describe('history tools', () => {
   it('get_recent_history returns items', async () => {
     await withBrowser(async ({ execute }) => {
-      // Navigate somewhere to ensure history exists
       const newResult = await execute(new_page, { url: 'https://example.com' })
       const pageId = pageIdOf(newResult)
 

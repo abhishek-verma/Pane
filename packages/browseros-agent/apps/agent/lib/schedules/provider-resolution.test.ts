@@ -1,32 +1,49 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
+import { getAgentServerUrl } from '../browseros/helpers'
+import { buildChatRequestBody } from '../messaging/server/buildChatRequestBody'
 
 const storageValues = new Map<string, unknown>()
 const fetchBodies: Array<Record<string, unknown>> = []
 const originalFetch = globalThis.fetch
+const originalChrome = globalThis.chrome
+
+const createBrowserOSProvider = () => ({
+  id: 'browseros',
+  type: 'browseros',
+  name: 'BrowserOS',
+  modelId: 'browseros-auto',
+  supportsImages: true,
+  contextWindow: 200000,
+  temperature: 0.2,
+  createdAt: 0,
+  updatedAt: 0,
+})
 
 mock.module('@/lib/llm-providers/storage', () => ({
+  DEFAULT_PROVIDER_ID: 'browseros',
+  createDefaultBrowserOSProvider: createBrowserOSProvider,
+  createDefaultProvidersConfig: () => [createBrowserOSProvider()],
+  loadProviders: async () =>
+    (storageValues.get('providers') as LlmProviderConfig[]) ?? [],
   providersStorage: {
     getValue: async () => storageValues.get('providers'),
+    setValue: async (value: LlmProviderConfig[]) => {
+      storageValues.set('providers', value)
+    },
+    watch: () => () => {},
   },
   defaultProviderIdStorage: {
     getValue: async () => storageValues.get('defaultProviderId'),
+    setValue: async (value: string) => {
+      storageValues.set('defaultProviderId', value)
+    },
+    watch: () => () => {},
   },
-  createDefaultBrowserOSProvider: () => ({
-    id: 'browseros',
-    type: 'browseros',
-    name: 'BrowserOS',
-    modelId: 'browseros-auto',
-    supportsImages: true,
-    contextWindow: 200000,
-    temperature: 0.2,
-    createdAt: 0,
-    updatedAt: 0,
-  }),
 }))
 
 mock.module('@/lib/browseros/helpers', () => ({
-  getAgentServerUrl: async () => 'http://agent.local',
+  getAgentServerUrl,
 }))
 
 mock.module('@/lib/mcp/mcpServerStorage', () => ({
@@ -36,21 +53,7 @@ mock.module('@/lib/mcp/mcpServerStorage', () => ({
 }))
 
 mock.module('@/lib/messaging/server/buildChatRequestBody', () => ({
-  buildChatRequestBody: ({
-    message,
-    conversationId,
-    provider,
-  }: {
-    message: string
-    conversationId: string
-    provider: LlmProviderConfig
-  }) => ({
-    message,
-    conversationId,
-    provider: provider.type,
-    providerName: provider.name,
-    model: provider.modelId ?? 'default',
-  }),
+  buildChatRequestBody,
 }))
 
 mock.module('../personalization/personalizationStorage', () => ({
@@ -64,6 +67,14 @@ beforeEach(() => {
   fetchBodies.length = 0
   storageValues.set('providers', providers)
   storageValues.set('defaultProviderId', 'anthropic-sonnet')
+  globalThis.chrome = {
+    runtime: {},
+    browserOS: {
+      getPref(_name: string, callback: (pref: { value?: unknown }) => void) {
+        callback({ value: 9105 })
+      },
+    },
+  } as typeof chrome
   globalThis.fetch = mock(async (_url, init) => {
     fetchBodies.push(JSON.parse(String(init?.body ?? '{}')))
     return new Response(
@@ -84,6 +95,7 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch
+  globalThis.chrome = originalChrome
 })
 
 describe('scheduled provider resolution', () => {

@@ -64,6 +64,7 @@ web_modules/
 .claude/*
 !.claude/skills/
 !.claude/commands/
+.llm/
 .worktrees/
 
 # Generated documentation artifacts

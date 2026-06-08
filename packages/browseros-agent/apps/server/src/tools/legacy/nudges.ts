@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { OAUTH_MCP_SERVERS } from '../lib/clients/klavis/oauth-mcp-servers'
+import { OAUTH_MCP_SERVERS } from '../../lib/clients/klavis/oauth-mcp-servers'
 import { defineTool } from './framework'
 
 const appNames = OAUTH_MCP_SERVERS.map((s) => s.name).join(', ')

@@ -28,6 +28,7 @@ describe('getAgentServerUrl', () => {
       const { getAgentServerUrl } = await import('./helpers')
 
       await expect(getAgentServerUrl()).resolves.toBe('http://127.0.0.1:9105')
+      expect(prefRequests).toContain(BROWSEROS_PREFS.MCP_PORT)
       expect(prefRequests).not.toContain('browseros.server.agent_port')
     } finally {
       globalThis.chrome = previousChrome

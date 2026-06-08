@@ -1,23 +1,15 @@
-/**
- * New-tab origin navigation guards.
- *
- * When the chat session originates from the new-tab page, navigate_page and
- * close_page must reject attempts to act on the origin tab. These are
- * integration tests that run against a real browser to verify the guards
- * work end-to-end through executeTool.
- */
-
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
+import { withBrowser } from '../__helpers__/with-browser'
 import {
   close_page,
+  executeTool,
   navigate_page,
   new_page,
-} from '../../src/tools/browser/navigation'
-import type { ToolContext, ToolDefinition } from '../../src/tools/framework'
-import { executeTool } from '../../src/tools/framework'
-import type { ToolResult } from '../../src/tools/response'
-import { withBrowser } from '../__helpers__/with-browser'
+  type ToolContext,
+  type ToolDefinition,
+  type ToolResult,
+} from './browser/helpers'
 
 function textOf(result: {
   content: { type: string; text?: string }[]
@@ -34,7 +26,6 @@ function structuredOf<T>(result: { structuredContent?: unknown }): T {
 }
 
 describe('new-tab origin navigation guards', () => {
-  // Helper: execute a tool with newtab session context
   function executeWithSession(
     ctx: { browser: ToolContext['browser'] },
     tool: ToolDefinition,
@@ -54,13 +45,8 @@ describe('new-tab origin navigation guards', () => {
     )
   }
 
-  // -------------------------------------------------------------------------
-  // navigate_page guards
-  // -------------------------------------------------------------------------
-
   it('navigate_page rejects navigation on origin tab in newtab mode', async () => {
     await withBrowser(async ({ browser }) => {
-      // Use a new page as the simulated "origin tab"
       const setupResult = await executeTool(
         new_page,
         { url: 'about:blank' },
@@ -82,7 +68,6 @@ describe('new-tab origin navigation guards', () => {
         `Expected origin tab error, got: ${textOf(result)}`,
       )
 
-      // Cleanup
       await executeTool(
         close_page,
         { page: originPageId },
@@ -102,7 +87,6 @@ describe('new-tab origin navigation guards', () => {
       )
       const originPageId = structuredOf<{ pageId: number }>(originResult).pageId
 
-      // Open a second tab — this is NOT the origin tab
       const otherResult = await executeTool(
         new_page,
         { url: 'about:blank' },
@@ -124,7 +108,6 @@ describe('new-tab origin navigation guards', () => {
       )
       assert.ok(textOf(result).includes('Navigated to'))
 
-      // Cleanup
       const noSession = { browser, directories: { workingDir: process.cwd() } }
       await executeTool(
         close_page,
@@ -178,7 +161,6 @@ describe('new-tab origin navigation guards', () => {
       const setupResult = await execute(new_page, { url: 'about:blank' })
       const pageId = structuredOf<{ pageId: number }>(setupResult).pageId
 
-      // execute() from withBrowser passes no session — simulates old clients
       const result = await execute(navigate_page, {
         page: pageId,
         action: 'url',
@@ -193,10 +175,6 @@ describe('new-tab origin navigation guards', () => {
       await execute(close_page, { page: pageId })
     })
   }, 60_000)
-
-  // -------------------------------------------------------------------------
-  // close_page guards
-  // -------------------------------------------------------------------------
 
   it('close_page rejects closing origin tab in newtab mode', async () => {
     await withBrowser(async ({ browser }) => {
@@ -221,7 +199,6 @@ describe('new-tab origin navigation guards', () => {
         `Expected origin tab error, got: ${textOf(result)}`,
       )
 
-      // Clean up the page we created (without newtab guard)
       await executeTool(
         close_page,
         { page: originPageId },
@@ -262,7 +239,6 @@ describe('new-tab origin navigation guards', () => {
       )
       assert.ok(textOf(result).includes(`Closed page ${otherPageId}`))
 
-      // Cleanup origin page
       await executeTool(
         close_page,
         { page: originPageId },

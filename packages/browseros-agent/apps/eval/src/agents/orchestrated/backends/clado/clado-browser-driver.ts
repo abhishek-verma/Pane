@@ -59,6 +59,116 @@ export function prepareCladoToolArgs(
   return prepared
 }
 
+export function prepareCladoToolCall(
+  toolName: string,
+  args: Record<string, unknown>,
+  pageId: number,
+): { toolName: string; args: Record<string, unknown> } {
+  const prepared = prepareCladoToolArgs(toolName, args, pageId)
+  const page = prepared.page
+
+  switch (toolName) {
+    case 'take_screenshot':
+      return {
+        toolName: 'screenshot',
+        args: {
+          page,
+          ...(typeof prepared.fullPage === 'boolean' && {
+            fullPage: prepared.fullPage,
+          }),
+        },
+      }
+    case 'evaluate_script': {
+      const expression = toCladoEvaluateExpression(
+        prepared.expression ?? prepared.function,
+      )
+      return {
+        toolName: 'run',
+        args: { page, code: `return await (${expression})` },
+      }
+    }
+    case 'click_at':
+      return {
+        toolName: 'act',
+        args: {
+          page,
+          kind: 'click_at',
+          x: prepared.x,
+          y: prepared.y,
+          button: prepared.button,
+          clickCount: prepared.clickCount,
+        },
+      }
+    case 'hover_at':
+      return {
+        toolName: 'act',
+        args: { page, kind: 'hover_at', x: prepared.x, y: prepared.y },
+      }
+    case 'type_at':
+      return {
+        toolName: 'act',
+        args: {
+          page,
+          kind: 'type_at',
+          x: prepared.x,
+          y: prepared.y,
+          text: prepared.text,
+          clear: prepared.clear,
+        },
+      }
+    case 'press_key':
+      return {
+        toolName: 'act',
+        args: { page, kind: 'press', key: prepared.key },
+      }
+    case 'scroll':
+      return {
+        toolName: 'act',
+        args: {
+          page,
+          kind: 'scroll',
+          direction: prepared.direction,
+          amount: prepared.amount,
+        },
+      }
+    case 'drag_at':
+      return {
+        toolName: 'act',
+        args: {
+          page,
+          kind: 'drag_at',
+          startX: prepared.startX,
+          startY: prepared.startY,
+          endX: prepared.endX,
+          endY: prepared.endY,
+        },
+      }
+    case 'navigate_page':
+      return {
+        toolName: 'navigate',
+        args: {
+          page,
+          action: prepared.action ?? 'url',
+          url: prepared.url,
+        },
+      }
+    case 'close_page':
+      return { toolName: 'tabs', args: { action: 'close', page } }
+    case 'wait_for':
+      return {
+        toolName: 'wait',
+        args: {
+          page,
+          for: prepared.selector ? 'selector' : 'time',
+          ...(prepared.selector !== undefined && { value: prepared.selector }),
+          timeout: prepared.timeout,
+        },
+      }
+    default:
+      return { toolName, args: prepared }
+  }
+}
+
 export function toCladoEvaluateExpression(rawFunction: unknown): string {
   const source = String(rawFunction).trim()
   if (source.startsWith('() =>') || source.startsWith('async () =>')) {

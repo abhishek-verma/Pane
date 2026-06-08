@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { logger } from '../../lib/logger'
+import { logger } from '../../../lib/logger'
 import { defineTool, type ToolContext } from '../framework'
 
 // Best-effort: attach a page to a tab group. Failure is logged but
@@ -183,16 +183,16 @@ export const new_page = defineTool({
     const pageId = await ctx.browser.newPage(args.url, {
       hidden: args.hidden ? true : undefined,
       background: args.background !== false,
-      windowId: args.windowId,
+      windowId: args.windowId ?? ctx.defaultWindowId,
     })
-    await joinTabGroup(ctx, pageId, args.tabGroupId)
+    await joinTabGroup(ctx, pageId, args.tabGroupId ?? ctx.defaultTabGroupId)
     response.text(`Opened new page: ${args.url}\nPage ID: ${pageId}`)
     response.data({
       pageId,
       url: args.url,
       hidden: args.hidden,
       background: args.background,
-      windowId: args.windowId,
+      windowId: args.windowId ?? ctx.defaultWindowId,
     })
     response.includePages()
   },
@@ -221,16 +221,16 @@ export const new_hidden_page = defineTool({
     const pageId = await ctx.browser.newPage(args.url, {
       hidden: true,
       background: true,
-      windowId: args.windowId,
+      windowId: args.windowId ?? ctx.defaultWindowId,
     })
-    await joinTabGroup(ctx, pageId, args.tabGroupId)
+    await joinTabGroup(ctx, pageId, args.tabGroupId ?? ctx.defaultTabGroupId)
     response.text(`Opened hidden page: ${args.url}\nPage ID: ${pageId}`)
     response.data({
       pageId,
       url: args.url,
       hidden: true,
       background: true,
-      windowId: args.windowId,
+      windowId: args.windowId ?? ctx.defaultWindowId,
     })
     response.includePages()
   },
@@ -262,11 +262,11 @@ export const show_page = defineTool({
   output: z.object({ page: pageInfoSchema }),
   handler: async (args, ctx, response) => {
     const updated = await ctx.browser.showPage(args.page, {
-      windowId: args.windowId,
+      windowId: args.windowId ?? ctx.defaultWindowId,
       index: args.index,
       activate: args.activate,
     })
-    await joinTabGroup(ctx, args.page, args.tabGroupId)
+    await joinTabGroup(ctx, args.page, args.tabGroupId ?? ctx.defaultTabGroupId)
     response.text(
       `Page ${args.page} is now visible in window ${updated.windowId}`,
     )
@@ -297,10 +297,10 @@ export const move_page = defineTool({
   output: z.object({ page: pageInfoSchema }),
   handler: async (args, ctx, response) => {
     const updated = await ctx.browser.movePage(args.page, {
-      windowId: args.windowId,
+      windowId: args.windowId ?? ctx.defaultWindowId,
       index: args.index,
     })
-    await joinTabGroup(ctx, args.page, args.tabGroupId)
+    await joinTabGroup(ctx, args.page, args.tabGroupId ?? ctx.defaultTabGroupId)
     response.text(
       `Moved page ${args.page} to window ${updated.windowId} at index ${updated.index}`,
     )

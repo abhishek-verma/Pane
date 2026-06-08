@@ -2,9 +2,12 @@ import { existsSync } from 'node:fs'
 import { Mutex } from 'async-mutex'
 import { CdpBackend } from '../../src/browser/backends/cdp'
 import { Browser } from '../../src/browser/browser'
-import type { ToolDefinition } from '../../src/tools/framework'
-import { executeTool } from '../../src/tools/framework'
-import type { ToolResult } from '../../src/tools/response'
+import {
+  executeTool,
+  type ToolDefinition,
+  type ToolResult,
+  type ToolSessionContext,
+} from '../tools/browser/helpers'
 import {
   type BrowserConfig,
   isBrowserRunning,
@@ -77,7 +80,11 @@ export async function cleanupWithBrowser(): Promise<void> {
 
 export interface WithBrowserContext {
   browser: Browser
-  execute: (tool: ToolDefinition, args: unknown) => Promise<ToolResult>
+  execute: (
+    tool: ToolDefinition,
+    args: unknown,
+    session?: ToolSessionContext,
+  ) => Promise<ToolResult>
 }
 
 export async function withBrowser(
@@ -85,23 +92,19 @@ export async function withBrowser(
 ): Promise<void> {
   return await mutex.runExclusive(async () => {
     const browser = await getOrCreateBrowser()
-
-    const execute = async (
-      tool: ToolDefinition,
-      args: unknown,
-    ): Promise<ToolResult> => {
-      const signal = AbortSignal.timeout(30_000)
-      return executeTool(
-        tool,
-        args,
-        {
-          browser,
-          directories: { workingDir: process.cwd() },
-        },
-        signal,
-      )
-    }
-
-    await cb({ browser, execute })
+    await cb({
+      browser,
+      execute: (tool, args, session) =>
+        executeTool(
+          tool,
+          args,
+          {
+            browser,
+            directories: { workingDir: process.cwd() },
+            session,
+          },
+          AbortSignal.timeout(30_000),
+        ),
+    })
   })
 }

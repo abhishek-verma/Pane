@@ -1,8 +1,8 @@
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import type { z } from 'zod'
-import type { Browser } from '../browser/browser'
-import { ToolResponse, type ToolResult } from './response'
+import type { Browser } from '../../browser/browser'
+import { ToolResponse, type ToolResult } from '../response'
 
 export interface ToolDefinition {
   name: string
@@ -31,6 +31,8 @@ export interface ToolSessionContext {
 export type ToolContext = {
   browser: Browser
   directories: ToolDirectories
+  defaultWindowId?: number
+  defaultTabGroupId?: string
   session?: ToolSessionContext
 }
 

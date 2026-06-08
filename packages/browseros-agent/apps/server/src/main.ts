@@ -33,7 +33,6 @@ import { logger } from './lib/logger'
 import { metrics } from './lib/metrics'
 import { isPortInUseError } from './lib/port-binding'
 import { Sentry } from './lib/sentry'
-import { registry } from './tools/registry'
 import { VERSION } from './version'
 
 export class Application {
@@ -69,8 +68,7 @@ export class Application {
     }
 
     const browser = new Browser(cdp)
-
-    logger.info(`Loaded ${registry.names().length} unified tools`)
+    const browserSession = browser.session
 
     try {
       await createHttpServer({
@@ -78,11 +76,12 @@ export class Application {
         host: '0.0.0.0',
         version: VERSION,
         browser,
-        registry,
+        browserSession,
         browserosId: identity.getBrowserOSId(),
         executionDir: this.config.executionDir,
         resourcesDir: this.config.resourcesDir,
         aiSdkDevtoolsEnabled: this.config.aiSdkDevtoolsEnabled,
+        browserUseNewTools: this.config.browserUseNewTools,
 
         onShutdown: () => this.stop('shutdown-endpoint'),
       })

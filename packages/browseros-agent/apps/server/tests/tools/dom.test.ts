@@ -3,13 +3,17 @@ import assert from 'node:assert'
 import { existsSync, readFileSync, rmSync, unlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { get_dom, search_dom } from '../../src/tools/browser/dom'
-import { close_page, new_page } from '../../src/tools/browser/navigation'
-import { evaluate_script } from '../../src/tools/browser/snapshot'
 import {
   type WithBrowserContext,
   withBrowser,
 } from '../__helpers__/with-browser'
+import {
+  close_page,
+  evaluate_script,
+  get_dom,
+  new_page,
+  search_dom,
+} from './browser/helpers'
 
 function textOf(result: {
   content: { type: string; text?: string }[]
@@ -103,8 +107,6 @@ async function openRichPage(
   assert.fail('Rich DOM fixture did not become queryable')
 }
 
-// ── get_dom ──
-
 describe('get_dom', () => {
   it('returns full page HTML', async () => {
     await withBrowser(async ({ execute }) => {
@@ -120,7 +122,9 @@ describe('get_dom', () => {
         assert.ok(textOf(result).includes('Saved DOM'))
         assert.ok(existsSync(domPath), 'Saved DOM file should exist')
         assert.ok(
-          dirname(domPath).startsWith(join(tmpdir(), 'browseros-tool-output-')),
+          dirname(domPath).startsWith(
+            join(tmpdir(), 'browseros-browser-tool-'),
+          ),
           'Saved DOM file should be written to an OS temp directory',
         )
         assert.ok(html.includes('<html'), 'Should contain <html> tag')
@@ -272,7 +276,9 @@ describe('get_dom', () => {
 
         assert.ok(textOf(result).includes('Saved DOM'))
         assert.ok(
-          dirname(domPath).startsWith(join(tmpdir(), 'browseros-tool-output-')),
+          dirname(domPath).startsWith(
+            join(tmpdir(), 'browseros-browser-tool-'),
+          ),
           'Saved DOM file should be written to an OS temp directory',
         )
         assert.ok(data.totalLength > 100_000, 'Expected a large DOM payload')
@@ -318,8 +324,6 @@ describe('get_dom', () => {
     })
   }, 60_000)
 })
-
-// ── search_dom ──
 
 describe('search_dom', () => {
   it('finds elements by plain text', async () => {
@@ -454,14 +458,12 @@ describe('search_dom', () => {
       assert.ok(!result.isError, textOf(result))
       const text = textOf(result)
 
-      // Should show the total count but limit actual results
       const nodeIdCount = (text.match(/nodeId:/g) || []).length
       assert.ok(
         nodeIdCount <= 2,
         `Expected at most 2 results, got ${nodeIdCount}`,
       )
 
-      // Should mention there are more matches available
       assert.ok(
         text.includes('Showing 2 of 3') || text.includes('Found 3'),
         'Should indicate total matches or show pagination note',
@@ -552,7 +554,6 @@ describe('search_dom', () => {
       })
       assert.ok(!result.isError, textOf(result))
       const text = textOf(result)
-      // "Feature" appears as text in 3 list items, plus potentially h2 and section
       const matchCount = text.match(/Found (\d+)/)?.[1]
       assert.ok(
         matchCount && Number(matchCount) >= 3,
@@ -598,7 +599,6 @@ describe('search_dom', () => {
         page: pageId,
         query: 'anything',
       })
-      // Should either return no matches or handle gracefully
       assert.ok(!result.isError, 'Empty page search should not throw error')
       assert.ok(
         textOf(result).includes('No elements matching'),

@@ -2,18 +2,27 @@ import { describe, it } from 'bun:test'
 import assert from 'node:assert'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { get_bookmarks } from '../../src/tools/browser/bookmarks'
-import { get_dom } from '../../src/tools/browser/dom'
-import { search_history } from '../../src/tools/browser/history'
-import { click } from '../../src/tools/browser/input'
-import { list_pages } from '../../src/tools/browser/navigation'
-import { save_pdf } from '../../src/tools/browser/page-actions'
-import { take_snapshot } from '../../src/tools/browser/snapshot'
-import { group_tabs } from '../../src/tools/browser/tab-groups'
-import { list_windows } from '../../src/tools/browser/windows'
-import { registry } from '../../src/tools/registry'
+import { BROWSER_TOOLS } from '../../src/tools/browser/registry'
 
-const browserToolFiles = [
+const compactBrowserToolFiles = [
+  'act.ts',
+  'diff.ts',
+  'framework.ts',
+  'grep.ts',
+  'navigate.ts',
+  'output-file.ts',
+  'read.ts',
+  'register.ts',
+  'registry.ts',
+  'run.ts',
+  'screenshot.ts',
+  'snapshot.ts',
+  'tabs.ts',
+  'trust-boundary.ts',
+  'wait.ts',
+]
+
+const legacyBrowserToolFiles = [
   'bookmarks.ts',
   'dom.ts',
   'history.ts',
@@ -25,34 +34,52 @@ const browserToolFiles = [
   'windows.ts',
 ]
 
+const legacyOnlyToolNames = [
+  'get_bookmarks',
+  'get_dom',
+  'search_history',
+  'click',
+  'list_pages',
+  'save_pdf',
+  'take_snapshot',
+  'group_tabs',
+  'list_windows',
+]
+
 describe('browser tool boundary', () => {
-  it('keeps browser tool modules under src/tools/browser', () => {
+  it('keeps the compact browser tools under src/tools/browser', () => {
     const toolsDir = join(import.meta.dir, '../../src/tools')
 
-    for (const file of browserToolFiles) {
+    for (const file of compactBrowserToolFiles) {
       assert.ok(
         existsSync(join(toolsDir, 'browser', file)),
         `Expected browser/${file}`,
       )
-      assert.ok(!existsSync(join(toolsDir, file)), `Unexpected ${file}`)
     }
-
-    assert.ok(
-      !existsSync(join(toolsDir, 'browser', 'console.ts')),
-      'Unexpected browser/console.ts',
-    )
   })
 
-  it('registers browser tools from the browser tool modules', () => {
-    assert.strictEqual(registry.get('get_bookmarks'), get_bookmarks)
-    assert.strictEqual(registry.get('get_console_logs'), undefined)
-    assert.strictEqual(registry.get('get_dom'), get_dom)
-    assert.strictEqual(registry.get('search_history'), search_history)
-    assert.strictEqual(registry.get('click'), click)
-    assert.strictEqual(registry.get('list_pages'), list_pages)
-    assert.strictEqual(registry.get('save_pdf'), save_pdf)
-    assert.strictEqual(registry.get('take_snapshot'), take_snapshot)
-    assert.strictEqual(registry.get('group_tabs'), group_tabs)
-    assert.strictEqual(registry.get('list_windows'), list_windows)
+  it('keeps the old browser modules as legacy reference code only', () => {
+    const toolsDir = join(import.meta.dir, '../../src/tools')
+
+    for (const file of legacyBrowserToolFiles) {
+      assert.ok(
+        existsSync(join(toolsDir, 'legacy/browser', file)),
+        `Expected legacy/browser/${file}`,
+      )
+      if (file !== 'snapshot.ts') {
+        assert.ok(
+          !existsSync(join(toolsDir, 'browser', file)),
+          `Unexpected active legacy browser module ${file}`,
+        )
+      }
+    }
+  })
+
+  it('does not register the legacy-only browser tool names', () => {
+    const activeNames = new Set(BROWSER_TOOLS.map((tool) => tool.name))
+
+    for (const name of legacyOnlyToolNames) {
+      assert.ok(!activeNames.has(name), `Unexpected active tool ${name}`)
+    }
   })
 })

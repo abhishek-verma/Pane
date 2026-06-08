@@ -60,6 +60,11 @@ export class Browser {
     return this.core.isConnected()
   }
 
+  /** Browser-core session shared by MCP and the in-process agent. */
+  get session(): BrowserSession {
+    return this.core
+  }
+
   private async resolveSession(page: number): Promise<ProtocolApi> {
     return (await this.core.pages.getSession(page)).session
   }

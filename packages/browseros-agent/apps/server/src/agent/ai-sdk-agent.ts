@@ -19,12 +19,10 @@ import {
   buildKlavisToolSet,
   type KlavisProxyRef,
 } from '../api/services/klavis/strata-proxy'
-import type { Browser } from '../browser/browser'
+import type { BrowserSession } from '../browser/core/session'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
 import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
-import type { ToolContext } from '../tools/framework'
-import type { ToolRegistry } from '../tools/tool-registry'
 import { CHAT_MODE_ALLOWED_TOOLS } from './chat-mode'
 import { createCompactionPrepareStep, type StepWithUsage } from './compaction'
 import { buildMcpServerSpecs, createMcpClients } from './mcp-builder'
@@ -32,6 +30,7 @@ import {
   getMessageNormalizationOptions,
   normalizeMessagesForModel,
 } from './message-normalization'
+import { buildNudgeToolSet } from './nudge-tools'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
 import { readSoulPrompt } from './soul-prompt'
@@ -40,8 +39,7 @@ import type { ResolvedAgentConfig } from './types'
 
 export interface AiSdkAgentConfig {
   resolvedConfig: ResolvedAgentConfig
-  browser: Browser
-  registry: ToolRegistry
+  browserSession: BrowserSession
   browserContext?: BrowserContext
   klavisRef?: KlavisProxyRef
   browserosId?: string
@@ -87,17 +85,10 @@ export class AiSdkAgent {
       })
     }
 
-    // Build browser tools from the unified tool registry
-    const originPageId = config.browserContext?.activeTab?.pageId
-    const toolContext: ToolContext = {
-      browser: config.browser,
-      directories: { workingDir: config.resolvedConfig.workingDir },
-      session: {
-        origin: config.resolvedConfig.origin,
-        originPageId,
-      },
-    }
-    const allBrowserTools = buildBrowserToolSet(config.registry, toolContext)
+    const allBrowserTools = buildBrowserToolSet(config.browserSession, {
+      readOnly: config.resolvedConfig.chatMode,
+    })
+    const reservedBrowserToolNames = new Set(Object.keys(allBrowserTools))
     const browserTools = config.resolvedConfig.chatMode
       ? Object.fromEntries(
           Object.entries(allBrowserTools).filter(([name]) =>
@@ -124,15 +115,18 @@ export class AiSdkAgent {
       browserContext: config.browserContext,
     })
     const { clients, tools: customMcpTools } = await createMcpClients(specs)
-    const collidingToolNames = Object.keys(customMcpTools).filter(
+    const klavisCollidingToolNames = Object.keys(customMcpTools).filter(
       (name) => name in klavisTools,
     )
-    if (collidingToolNames.length > 0) {
+    if (klavisCollidingToolNames.length > 0) {
       logger.warn('Custom MCP tools override Klavis tools', {
-        toolNames: collidingToolNames,
+        toolNames: klavisCollidingToolNames,
       })
     }
-    const rawExternalMcpTools = { ...klavisTools, ...customMcpTools }
+    const rawExternalMcpTools = withoutReservedBrowserToolNames(
+      { ...klavisTools, ...customMcpTools },
+      reservedBrowserToolNames,
+    )
 
     // Wrap external MCP tools (Klavis, custom) with metrics
     const externalMcpTools: ToolSet = {}
@@ -179,6 +173,7 @@ export class AiSdkAgent {
       ...browserTools,
       ...externalMcpTools,
       ...filesystemTools,
+      ...buildNudgeToolSet(),
     }
 
     if (
@@ -298,6 +293,30 @@ export class AiSdkAgent {
     }
     logger.info('Agent disposed', { conversationId: this.conversationId })
   }
+}
+
+function withoutReservedBrowserToolNames(
+  tools: ToolSet,
+  reservedNames: Set<string>,
+): ToolSet {
+  const result: ToolSet = {}
+  const skipped: string[] = []
+  for (const [name, value] of Object.entries(tools)) {
+    if (reservedNames.has(name)) {
+      skipped.push(name)
+      continue
+    }
+    result[name] = value
+  }
+  if (skipped.length > 0) {
+    logger.warn(
+      'External MCP tools skipped due to BrowserOS tool name collision',
+      {
+        toolNames: skipped,
+      },
+    )
+  }
+  return result
 }
 
 export { formatUserMessage } from './format-message'
