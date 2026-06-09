@@ -12,8 +12,6 @@ import {
   resolveChatProvider,
 } from '../../lib/llm-providers/provider-runtime'
 
-export type SidepanelTargetKind = 'llm' | 'acp'
-
 export type SidepanelChatTarget =
   | {
       kind: 'llm'

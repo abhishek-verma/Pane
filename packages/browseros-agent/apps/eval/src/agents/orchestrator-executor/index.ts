@@ -334,5 +334,4 @@ export class OrchestratorExecutorEvaluator implements AgentEvaluator {
   }
 }
 
-export { OrchestratorAgent } from './orchestrator-agent'
 export * from './types'
