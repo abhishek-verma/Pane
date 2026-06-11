@@ -14,7 +14,7 @@ function pickRandomDirection(): string {
   return SURVEY_DIRECTIONS[Math.floor(Math.random() * SURVEY_DIRECTIONS.length)]
 }
 
-interface ChatErrorProps {
+export interface ChatErrorProps {
   error: Error
   onRetry?: () => void
   providerType?: string

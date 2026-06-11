@@ -5,10 +5,10 @@ import type { FC } from 'react'
 import { cn } from '@/lib/utils'
 import type { SuggestionItem, SuggestionSection } from './lib/suggestions/types'
 
-type GetMenuProps = ReturnType<typeof useCombobox>['getMenuProps']
-type GetItemProps = ReturnType<typeof useCombobox>['getItemProps']
+export type GetMenuProps = ReturnType<typeof useCombobox>['getMenuProps']
+export type GetItemProps = ReturnType<typeof useCombobox>['getItemProps']
 
-interface SearchSuggestionsProps {
+export interface SearchSuggestionsProps {
   getMenuProps: GetMenuProps
   getItemProps: GetItemProps
   sections: SuggestionSection[]

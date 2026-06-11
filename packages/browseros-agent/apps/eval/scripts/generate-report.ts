@@ -8,8 +8,10 @@ import { readRunMetricSummary } from '../src/reporting/task-metrics'
 export const DEFAULT_REPORT_MODEL = 'claude-opus-4-6'
 export const DEFAULT_REPORT_MAX_TURNS = 300
 
-type Env = Record<string, string | undefined>
-type ClaudeQuery = (input: unknown) => AsyncIterable<Record<string, unknown>>
+export type Env = Record<string, string | undefined>
+export type ClaudeQuery = (
+  input: unknown,
+) => AsyncIterable<Record<string, unknown>>
 
 export interface ReportAgentInvocation {
   inputDir: string
@@ -23,7 +25,7 @@ export interface GenerateEvalReportOptions {
   runAgent?: (invocation: ReportAgentInvocation) => Promise<void>
 }
 
-interface ClaudeReportAgentDeps {
+export interface ClaudeReportAgentDeps {
   query?: ClaudeQuery
   env?: Env
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import useSWR from 'swr'
 import { getSearchSuggestions } from './search-suggestions'
 
-interface UseSearchSuggestionsArgs {
+export interface UseSearchSuggestionsArgs {
   query: string
   debounceMs?: number
 }

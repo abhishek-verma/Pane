@@ -9,7 +9,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { ChatMode } from '@/modules/chat/chat-types'
 
-interface ChatModeToggleProps {
+export interface ChatModeToggleProps {
   mode: ChatMode
   onModeChange: (mode: ChatMode) => void
 }

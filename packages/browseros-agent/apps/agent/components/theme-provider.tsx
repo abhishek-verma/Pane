@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { type Theme, themeStorage } from '@/lib/theme/theme-storage'
 
-type ThemeProviderProps = {
+export type ThemeProviderProps = {
   children: React.ReactNode
   defaultTheme?: Theme
 }

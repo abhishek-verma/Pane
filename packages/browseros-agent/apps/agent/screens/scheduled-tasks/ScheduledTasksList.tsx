@@ -2,7 +2,7 @@ import type { FC } from 'react'
 import { ScheduledTaskCard } from './ScheduledTaskCard'
 import type { ScheduledJob, ScheduledJobRun } from './types'
 
-interface ScheduledTasksListProps {
+export interface ScheduledTasksListProps {
   jobs: ScheduledJob[]
   onEdit: (job: ScheduledJob) => void
   onDelete: (jobId: string) => void

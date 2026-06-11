@@ -14,7 +14,7 @@ import { track } from '@/lib/metrics/track'
 import { ServerPortEditor } from './ServerPortEditor'
 import { waitForServerHealth } from './server-health'
 
-interface MCPServerHeaderProps {
+export interface MCPServerHeaderProps {
   serverUrl: string | null
   isLoading: boolean
   error: string | null

@@ -8,7 +8,7 @@ import type {
   UserModelMessage,
 } from 'ai'
 
-type ToolResultOutput = ToolResultPart['output']
+export type ToolResultOutput = ToolResultPart['output']
 type ToolResultContentPart = Extract<
   ToolResultOutput,
   { type: 'content' }

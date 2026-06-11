@@ -27,7 +27,7 @@ interface JobRunWithDetails extends ScheduledJobRun {
   job: ScheduledJob | undefined
 }
 
-interface ScheduledTaskResultsProps {
+export interface ScheduledTaskResultsProps {
   onViewRun: (run: ScheduledJobRun) => void
   onCancelRun: (runId: string) => void
   onRetryRun: (jobId: string) => void

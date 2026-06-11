@@ -11,12 +11,12 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 
-interface UnauthenticatedServer {
+export interface UnauthenticatedServer {
   name: string
   description: string
 }
 
-interface AddManagedMCPDialogProps {
+export interface AddManagedMCPDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   serversList?: { name: string; description: string }[]

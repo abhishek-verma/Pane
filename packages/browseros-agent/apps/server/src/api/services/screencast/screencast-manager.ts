@@ -36,7 +36,7 @@ export type ScreencastOutboundMessage =
   | ScreencastFrameMessage
   | ScreencastStatusMessage
 
-type Subscriber = WSContext<unknown>
+export type Subscriber = WSContext<unknown>
 
 // At most one active screencast across the whole BrowserOS instance.
 // A new subscribe displaces the prior one — so frame events from

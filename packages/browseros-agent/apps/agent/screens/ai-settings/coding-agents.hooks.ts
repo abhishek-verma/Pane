@@ -21,7 +21,7 @@ import type { AgentListItem } from '@/modules/agents/agents-page-types'
 import { toHarnessListItem } from '@/modules/agents/agents-page-utils'
 import { clearSidepanelChatTargetSelectionForAgent } from '@/modules/chat/sidepanel-chat-targets'
 
-type AgentActivity = Record<
+export type AgentActivity = Record<
   string,
   { status: 'working' | 'idle' | 'asleep' | 'error'; lastUsedAt: number | null }
 >

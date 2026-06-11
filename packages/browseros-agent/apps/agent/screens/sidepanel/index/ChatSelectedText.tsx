@@ -4,7 +4,7 @@ import type { SelectedTextData } from '@/lib/selected-text/selectedTextStorage'
 
 const MAX_DISPLAY_LENGTH = 200
 
-interface ChatSelectedTextProps {
+export interface ChatSelectedTextProps {
   selectedText: SelectedTextData
   onDismiss: () => void
 }

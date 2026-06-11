@@ -28,7 +28,7 @@ import type {
 } from '@/modules/agents/agents-page-types'
 import { ProviderSelector } from './ProviderSelector'
 
-interface NewAgentDialogProps {
+export interface NewAgentDialogProps {
   adapters: HarnessAdapterDescriptor[]
   createError: string | null
   createRuntime: CreateAgentRuntime

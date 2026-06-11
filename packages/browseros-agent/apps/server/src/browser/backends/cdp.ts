@@ -23,7 +23,7 @@ interface CdpVersion {
 const LOOPBACK_DISCOVERY_HOSTS = ['127.0.0.1', 'localhost', '[::1]'] as const
 type LoopbackDiscoveryHost = (typeof LOOPBACK_DISCOVERY_HOSTS)[number]
 
-interface CdpBackendConfig {
+export interface CdpBackendConfig {
   port: number
   exitOnReconnectFailure?: boolean
 }

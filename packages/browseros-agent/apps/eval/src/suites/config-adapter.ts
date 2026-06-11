@@ -3,7 +3,7 @@ import { type EvalConfig, EvalConfigSchema } from '../types'
 import { type EvalVariant, resolveVariant } from './resolve-variant'
 import type { EvalSuite } from './schema'
 
-type Env = Record<string, string | undefined>
+export type Env = Record<string, string | undefined>
 
 export interface AdaptEvalConfigOptions {
   env?: Env

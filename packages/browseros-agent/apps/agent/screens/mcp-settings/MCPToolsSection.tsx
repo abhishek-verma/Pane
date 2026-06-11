@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/collapsible'
 import type { McpTool } from '@/lib/mcp/client'
 
-interface MCPToolsSectionProps {
+export interface MCPToolsSectionProps {
   tools: McpTool[]
   isLoading: boolean
   error: string | null

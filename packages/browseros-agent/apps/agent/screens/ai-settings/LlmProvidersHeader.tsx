@@ -19,7 +19,7 @@ import {
   encodeTargetValue,
 } from './default-chat-target.helpers'
 
-interface LlmProvidersHeaderProps {
+export interface LlmProvidersHeaderProps {
   providers: LlmProviderConfig[]
   agents: HarnessAgent[]
   selectedTarget: SidepanelChatTargetSelection

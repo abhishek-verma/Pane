@@ -4,7 +4,7 @@ import { SidebarBranding } from './SidebarBranding'
 import { SidebarNavigation } from './SidebarNavigation'
 import { SidebarUserFooter } from './SidebarUserFooter'
 
-interface AppSidebarProps {
+export interface AppSidebarProps {
   expanded?: boolean
   onOpenShortcuts?: () => void
 }

@@ -9,7 +9,7 @@ import {
 } from '@/modules/chat/sidepanel-chat-targets'
 import { resolveEffectiveDefaultTarget } from './default-chat-target.helpers'
 
-interface UseDefaultChatTargetInput {
+export interface UseDefaultChatTargetInput {
   providers: LlmProviderConfig[]
   agents: ReadonlyArray<{ id: string }>
   defaultProviderId: string

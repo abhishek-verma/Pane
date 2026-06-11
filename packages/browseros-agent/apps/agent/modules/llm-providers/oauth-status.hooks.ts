@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
-interface OAuthStatus {
+export interface OAuthStatus {
   authenticated: boolean
   email?: string
   provider: string
 }
 
-interface UseOAuthStatusReturn {
+export interface UseOAuthStatusReturn {
   status: OAuthStatus | null
   isPolling: boolean
   startPolling: () => void

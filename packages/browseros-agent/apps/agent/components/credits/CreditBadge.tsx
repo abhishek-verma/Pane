@@ -3,7 +3,7 @@ import type { FC } from 'react'
 import { getCreditTextColor } from '@/lib/credits/credit-colors'
 import { cn } from '@/lib/utils'
 
-interface CreditBadgeProps {
+export interface CreditBadgeProps {
   credits: number
   onClick?: () => void
 }

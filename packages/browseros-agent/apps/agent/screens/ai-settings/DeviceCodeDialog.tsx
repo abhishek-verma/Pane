@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import type { PendingDeviceCode } from '@/modules/llm-providers/oauth-provider-flow.hooks'
 
-interface DeviceCodeDialogProps {
+export interface DeviceCodeDialogProps {
   deviceCode: PendingDeviceCode | null
   onClose: () => void
 }

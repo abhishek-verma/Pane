@@ -7,7 +7,7 @@ interface CapabilitiesState {
   supportedFeatures: Map<Feature, boolean>
 }
 
-interface UseCapabilitiesResult {
+export interface UseCapabilitiesResult {
   supports: (feature: Feature) => boolean
   isLoading: boolean
   browserOSVersion: string | null

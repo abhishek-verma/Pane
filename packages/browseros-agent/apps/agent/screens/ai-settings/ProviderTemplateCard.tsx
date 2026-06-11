@@ -4,7 +4,7 @@ import { ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderTemplate } from '@/lib/llm-providers/providerTemplates'
 import { cn } from '@/lib/utils'
 
-interface ProviderTemplateCardProps {
+export interface ProviderTemplateCardProps {
   template: ProviderTemplate
   highlighted?: boolean
   onUseTemplate: (template: ProviderTemplate) => void

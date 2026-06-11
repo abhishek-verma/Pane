@@ -24,7 +24,7 @@ const CreditsBadgeWrapper: FC = () => {
   )
 }
 
-interface ChatHeaderProps {
+export interface ChatHeaderProps {
   selectedProvider: Provider
   providers: Provider[]
   onSelectProvider: (provider: Provider) => void

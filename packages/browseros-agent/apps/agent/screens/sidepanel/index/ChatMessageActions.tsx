@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { SIDEPANEL_MESSAGE_COPIED_EVENT } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
 
-interface ChatMessageActionsProps {
+export interface ChatMessageActionsProps {
   messageId: string
   messageText: string
   liked: boolean

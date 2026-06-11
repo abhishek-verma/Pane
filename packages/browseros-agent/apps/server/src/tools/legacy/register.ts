@@ -22,7 +22,7 @@ type RegisterFn = (
   }>,
 ) => void
 
-interface LegacyToolDefaults {
+export interface LegacyToolDefaults {
   defaultWindowId?: number
   defaultTabGroupId?: string
 }

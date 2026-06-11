@@ -9,7 +9,7 @@ import { Kbd, KbdGroup } from '@/components/ui/kbd'
 import { SHORTCUTS_LIST } from '@/lib/constants/shortcuts'
 import { useIsMac } from '@/lib/useIsMac'
 
-interface ShortcutsDialogProps {
+export interface ShortcutsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }

@@ -17,7 +17,7 @@ import type { HistoryConversation } from './types'
 
 dayjs.extend(relativeTime)
 
-interface ConversationItemProps {
+export interface ConversationItemProps {
   conversation: HistoryConversation
   onDelete?: (id: string) => void
   isActive: boolean

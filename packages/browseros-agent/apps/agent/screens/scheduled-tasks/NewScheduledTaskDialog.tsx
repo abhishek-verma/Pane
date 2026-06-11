@@ -86,7 +86,7 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>
 
-interface NewScheduledTaskDialogProps {
+export interface NewScheduledTaskDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialValues?: ScheduledJob | null

@@ -2,7 +2,7 @@ import type { FC } from 'react'
 import { ConversationItem } from './ConversationItem'
 import type { HistoryConversation } from './types'
 
-interface ConversationGroupProps {
+export interface ConversationGroupProps {
   label: string
   conversations: HistoryConversation[]
   onDelete?: (id: string) => void

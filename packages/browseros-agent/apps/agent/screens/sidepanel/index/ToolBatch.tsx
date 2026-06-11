@@ -19,7 +19,7 @@ import type {
   ToolInvocationState,
 } from './getMessageSegments'
 
-interface ToolBatchProps {
+export interface ToolBatchProps {
   tools: ToolInvocationInfo[]
   isLastBatch: boolean
   isLastMessage: boolean

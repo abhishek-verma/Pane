@@ -15,7 +15,7 @@ import type { HarnessAgentAdapter } from '@/modules/agents/agent-harness-types'
 import { adapterLabel } from '../AdapterIcon'
 import type { AgentAdapterHealth } from './agent-row.types'
 
-interface AgentSummaryChipsProps {
+export interface AgentSummaryChipsProps {
   adapter: HarnessAgentAdapter | 'unknown'
   modelLabel: string | null
   reasoningEffort: string | null

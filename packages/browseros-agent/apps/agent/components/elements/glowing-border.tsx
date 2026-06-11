@@ -7,7 +7,7 @@ import {
 } from 'motion/react'
 import React, { type FC, type SVGProps, useRef } from 'react'
 
-interface GlowingBorderProps extends SVGProps<SVGSVGElement> {
+export interface GlowingBorderProps extends SVGProps<SVGSVGElement> {
   duration?: number
   rx?: string
   ry?: string

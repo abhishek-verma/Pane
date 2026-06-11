@@ -6,7 +6,7 @@ import {
   ToolResponse,
 } from '../response'
 
-type ToolInputSchema = ZodObject<ZodRawShape>
+export type ToolInputSchema = ZodObject<ZodRawShape>
 
 export interface ToolContext {
   session: BrowserSession

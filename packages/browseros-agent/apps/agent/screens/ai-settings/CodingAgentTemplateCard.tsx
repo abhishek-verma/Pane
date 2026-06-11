@@ -6,7 +6,7 @@ import type {
   HarnessAgentAdapter,
 } from '@/modules/agents/agent-harness-types'
 
-interface CodingAgentTemplateCardProps {
+export interface CodingAgentTemplateCardProps {
   adapter: HarnessAdapterDescriptor
   onCreate: (adapterId: HarnessAgentAdapter) => void
 }

@@ -37,7 +37,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-interface AddCustomMCPDialogProps {
+export interface AddCustomMCPDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAddServer: (config: {

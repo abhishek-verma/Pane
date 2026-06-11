@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 
-interface UseAvailableTabsOptions {
+export interface UseAvailableTabsOptions {
   enabled: boolean
   filterText?: string
 }
 
-interface UseAvailableTabsResult {
+export interface UseAvailableTabsResult {
   tabs: chrome.tabs.Tab[]
   allTabs: chrome.tabs.Tab[]
   isLoading: boolean

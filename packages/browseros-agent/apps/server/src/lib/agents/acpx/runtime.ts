@@ -53,7 +53,7 @@ import {
   loadLatestRuntimeState,
 } from './runtime-state'
 
-type AcpxRuntimeOptions = {
+export type AcpxRuntimeOptions = {
   cwd?: string
   browserosDir?: string
   resourcesDir?: string

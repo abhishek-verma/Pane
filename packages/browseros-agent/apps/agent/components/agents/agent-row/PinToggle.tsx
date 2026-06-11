@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-interface PinToggleProps {
+export interface PinToggleProps {
   pinned: boolean
   onToggle: (next: boolean) => void
 }

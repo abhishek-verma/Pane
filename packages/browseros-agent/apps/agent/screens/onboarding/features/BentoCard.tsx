@@ -26,7 +26,7 @@ export interface Feature {
   gifUrl?: string
 }
 
-interface BentoCardProps {
+export interface BentoCardProps {
   feature: Feature
   mounted: boolean
   index: number

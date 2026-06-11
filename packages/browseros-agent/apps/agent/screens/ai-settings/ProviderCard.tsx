@@ -7,7 +7,7 @@ import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { cn } from '@/lib/utils'
 
-interface ProviderCardProps {
+export interface ProviderCardProps {
   provider: LlmProviderConfig
   isSelected: boolean
   isBuiltIn: boolean

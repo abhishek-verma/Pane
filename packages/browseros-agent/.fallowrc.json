@@ -20,7 +20,13 @@
     "tw-animate-css",
     "@tailwindcss/typography",
     "pino-pretty",
-    "@browseros/cdp-protocol"
+    "@browseros/cdp-protocol",
+    "@graphql-typed-document-node/core"
+  ],
+  "ignoreUnresolvedImports": [
+    "@/assets/**",
+    "@/generated/graphql/**",
+    "@/styles/global.css"
   ],
   "ignorePatterns": [
     "**/*.d.ts",

@@ -2,7 +2,7 @@ import { Loader2, Mic, Square } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
 
-interface Props {
+export interface Props {
   isRecording: boolean
   isTranscribing: boolean
   audioLevel: number

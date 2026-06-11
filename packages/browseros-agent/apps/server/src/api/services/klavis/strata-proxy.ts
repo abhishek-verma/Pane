@@ -48,12 +48,12 @@ export interface KlavisProxyRef {
   handle: KlavisProxyHandle | null
 }
 
-interface ConnectDeps {
+export interface ConnectDeps {
   klavisClient: KlavisClient
   browserosId: string
 }
 
-interface BackgroundConnectOptions {
+export interface BackgroundConnectOptions {
   connect?: (deps: ConnectDeps) => Promise<KlavisProxyHandle>
   retryDelaysMs?: readonly number[]
 }

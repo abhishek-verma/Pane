@@ -8,7 +8,7 @@ import type {
 import { orderAgentsByPinThenRecency } from '@/modules/agents/agents-list-order'
 import { AgentRailRow } from './AgentRailRow'
 
-interface AgentRailProps {
+export interface AgentRailProps {
   agents: HarnessAgent[]
   adapters: HarnessAdapterDescriptor[]
   activeAgentId: string

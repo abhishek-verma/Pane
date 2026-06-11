@@ -3,7 +3,7 @@ import type { FC, PropsWithChildren } from 'react'
 
 export type StepDirection = -1 | 1
 
-interface StepTransitionProps {
+export interface StepTransitionProps {
   direction: StepDirection
 }
 

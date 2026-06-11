@@ -11,7 +11,7 @@ import { AgentChatMessage } from './AgentChatMessage'
 import type { AgentChatMessage as AgentChatMessageModel } from './agent-chat-types'
 import { ConversationMessage } from './ConversationMessage'
 
-interface AgentChatProps {
+export interface AgentChatProps {
   agentName: string
   historyMessages: AgentChatMessageModel[]
   turns: AgentConversationTurn[]

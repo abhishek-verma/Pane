@@ -21,7 +21,7 @@ import type {
   HarnessQueuedMessageAttachment,
 } from '@/modules/agents/agent-harness-types'
 
-interface QueuePanelProps {
+export interface QueuePanelProps {
   queue: HarnessQueuedMessage[]
   onRemove: (messageId: string) => void
 }

@@ -23,7 +23,7 @@ import type {
   ToolEntry,
 } from '@/lib/agent-conversations/types'
 
-interface ConversationMessageProps {
+export interface ConversationMessageProps {
   turn: AgentConversationTurn
   streaming: boolean
 }

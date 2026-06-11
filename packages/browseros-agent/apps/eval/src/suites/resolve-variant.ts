@@ -1,4 +1,4 @@
-type Env = Record<string, string | undefined>
+export type Env = Record<string, string | undefined>
 
 export interface ResolveVariantOptions {
   variantId?: string

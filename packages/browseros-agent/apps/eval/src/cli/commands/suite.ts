@@ -10,7 +10,7 @@ import type { EvalSuite } from '../../suites/schema'
 import { type EvalConfig, EvalConfigSchema } from '../../types'
 import type { PublishTarget } from '../args'
 
-type Env = Record<string, string | undefined>
+export type Env = Record<string, string | undefined>
 
 export interface SuiteCommandOptions {
   configPath?: string

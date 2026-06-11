@@ -17,13 +17,13 @@ import { personalizationStorage } from '../personalization/personalizationStorag
 import { scheduleSystemPrompt } from './scheduleSystemPrompt'
 import type { ToolCallExecution } from './scheduleTypes'
 
-interface ActiveTab {
+export interface ActiveTab {
   id?: number
   url?: string
   title?: string
 }
 
-interface ChatServerRequest {
+export interface ChatServerRequest {
   message: string
   mode?: ChatMode
   conversationId?: string
@@ -33,7 +33,7 @@ interface ChatServerRequest {
   providerId?: string
 }
 
-interface ChatServerResponse {
+export interface ChatServerResponse {
   text: string
   conversationId: string
   finalResult: string

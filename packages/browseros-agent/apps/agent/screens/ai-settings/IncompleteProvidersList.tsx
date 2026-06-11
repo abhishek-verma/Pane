@@ -5,7 +5,7 @@ import {
   IncompleteProviderCard,
 } from './IncompleteProviderCard'
 
-interface IncompleteProvidersListProps {
+export interface IncompleteProvidersListProps {
   providers: IncompleteProvider[]
   onAddKeys: (provider: IncompleteProvider) => void
   onDelete: (provider: IncompleteProvider) => void

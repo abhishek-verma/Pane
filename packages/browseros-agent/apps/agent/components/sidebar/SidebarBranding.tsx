@@ -17,7 +17,7 @@ import { useGraphqlQuery } from '@/modules/graphql/graphql-query.hooks'
 import { useWorkspace } from '@/modules/workspace/workspace.hooks'
 import { GetProfileByUserIdDocument } from '@/screens/profile/graphql/profileDocument'
 
-interface SidebarBrandingProps {
+export interface SidebarBrandingProps {
   expanded?: boolean
 }
 

@@ -4,7 +4,7 @@ import { Message, MessageContent } from '@/components/ai-elements/message'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 
-interface JtbdPopupProps {
+export interface JtbdPopupProps {
   onTakeSurvey: (opts?: { dontShowAgain?: boolean }) => void
   onDismiss: (dontShowAgain: boolean) => void
   showDontShowAgain: boolean

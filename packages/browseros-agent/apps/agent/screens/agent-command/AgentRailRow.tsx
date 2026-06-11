@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import type { HarnessAgent } from '@/modules/agents/agent-harness-types'
 
-interface AgentRailRowProps {
+export interface AgentRailRowProps {
   agent: HarnessAgent
   active: boolean
   adapterHealth: AgentAdapterHealth | null

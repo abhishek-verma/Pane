@@ -29,7 +29,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-interface ApiKeyDialogProps {
+export interface ApiKeyDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   serverName: string

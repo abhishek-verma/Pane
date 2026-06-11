@@ -7,7 +7,7 @@
 import type { cors } from 'hono/cors'
 import { logger } from '../../lib/logger'
 
-type CorsOptions = Parameters<typeof cors>[0]
+export type CorsOptions = Parameters<typeof cors>[0]
 
 const STATIC_ALLOWED_ORIGINS = new Set<string>([
   'chrome-extension://bflpfmnmnokmjhmgnolecpppdbdophmk',

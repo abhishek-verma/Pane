@@ -19,7 +19,7 @@ import { useCapabilities } from '@/modules/browseros/capabilities.hooks'
 import { CodingAgentTemplateCard } from './CodingAgentTemplateCard'
 import { ProviderTemplateCard } from './ProviderTemplateCard'
 
-interface ProviderTemplatesSectionProps {
+export interface ProviderTemplatesSectionProps {
   /** Coding-agent runtimes (Claude Code / Codex) shown first in the grid. */
   codingAdapters: HarnessAdapterDescriptor[]
   onCreateAgent: (adapterId: HarnessAgentAdapter) => void

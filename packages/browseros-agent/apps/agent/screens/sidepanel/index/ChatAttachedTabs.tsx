@@ -1,7 +1,7 @@
 import { Globe, X } from 'lucide-react'
 import type { FC } from 'react'
 
-interface ChatAttachedTabsProps {
+export interface ChatAttachedTabsProps {
   tabs: chrome.tabs.Tab[]
   onRemoveTab: (tabId?: number) => void
 }

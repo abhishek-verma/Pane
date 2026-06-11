@@ -7,7 +7,7 @@ import { Header } from './SurveyHeader'
 import { Welcome } from './SurveyWelcome'
 import { useChat } from './survey-chat.hooks'
 
-interface SurveyPageProps {
+export interface SurveyPageProps {
   maxTurns?: number
   experimentId?: string
 }

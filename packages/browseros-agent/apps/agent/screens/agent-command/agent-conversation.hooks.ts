@@ -27,7 +27,7 @@ interface SendInput {
   attachmentPreviews?: UserAttachmentPreview[]
 }
 
-interface UseAgentConversationOptions {
+export interface UseAgentConversationOptions {
   runtime?: 'agent-harness'
   sessionId?: string
   sessionKey?: string | null

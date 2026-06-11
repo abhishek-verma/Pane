@@ -49,7 +49,7 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-interface AddHubProviderDialogProps {
+export interface AddHubProviderDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialValues?: LlmHubProvider | null

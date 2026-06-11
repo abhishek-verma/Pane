@@ -5,7 +5,7 @@ import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import type { ChatMode } from '@/modules/chat/chat-types'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
 
-interface ChatActionsConfig {
+export interface ChatActionsConfig {
   /** Analytics event names scoped to the origin */
   events: {
     modeChanged: string

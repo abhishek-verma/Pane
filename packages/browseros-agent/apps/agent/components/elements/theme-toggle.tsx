@@ -19,7 +19,7 @@ const themes: { value: Theme; icon: typeof Monitor; label: string }[] = [
   { value: 'dark', icon: Moon, label: 'Dark' },
 ]
 
-interface ThemeToggleProps {
+export interface ThemeToggleProps {
   hideLabel?: boolean
   iconClassName?: ClassNameValue
   className?: ClassNameValue

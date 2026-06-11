@@ -2,7 +2,7 @@ import type { FC } from 'react'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { ProviderCard } from './ProviderCard'
 
-interface ConfiguredProvidersListProps {
+export interface ConfiguredProvidersListProps {
   providers: LlmProviderConfig[]
   selectedProviderId: string | null
   testingProviderId: string | null

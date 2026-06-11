@@ -41,28 +41,28 @@ export type SidepanelChatTargetSelection = Pick<
   'kind' | 'id'
 >
 
-interface BuildSidepanelChatTargetsInput {
+export interface BuildSidepanelChatTargetsInput {
   providers: LlmProviderConfig[]
   adapters: HarnessAdapterDescriptor[]
   agents?: HarnessAgent[]
   hermesAgentSupported?: boolean
 }
 
-interface ResolveSidepanelChatTargetInput {
+export interface ResolveSidepanelChatTargetInput {
   targets: SidepanelChatTarget[]
   defaultProviderId: string
   selection?: SidepanelChatTargetSelection | null
 }
 
-interface SidepanelChatTargetSelectionWriter {
+export interface SidepanelChatTargetSelectionWriter {
   setValue(value: SidepanelChatTargetSelection | null): Promise<void>
 }
 
-interface SidepanelChatTargetSelectionReader {
+export interface SidepanelChatTargetSelectionReader {
   getValue(): Promise<SidepanelChatTargetSelection | null>
 }
 
-interface SidepanelChatTargetSelectionWatcher {
+export interface SidepanelChatTargetSelectionWatcher {
   watch(
     callback: (selection: SidepanelChatTargetSelection | null) => void,
   ): () => void

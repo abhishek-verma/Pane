@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { getFaviconUrl, type LlmHubProvider } from './models'
 
-interface HubProviderRowProps {
+export interface HubProviderRowProps {
   provider: LlmHubProvider
   canDelete: boolean
   onEdit: () => void

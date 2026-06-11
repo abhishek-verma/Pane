@@ -4,7 +4,7 @@ import type { ProtocolApi } from '@browseros/cdp-protocol/protocol-api'
 // Meta (Cmd) on macOS, Control on everything else.
 const PLATFORM_MODIFIER = platform() === 'darwin' ? 4 : 2
 
-interface KeyInfo {
+export interface KeyInfo {
   code: string
   keyCode: number | undefined
 }

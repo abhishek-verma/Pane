@@ -20,7 +20,7 @@ import type { NudgeData } from './getMessageSegments'
 
 type CardPhase = 'choosing' | 'oauth-pending' | 'resolved'
 
-interface ConnectAppCardProps {
+export interface ConnectAppCardProps {
   data: NudgeData
   isLastMessage: boolean
 }

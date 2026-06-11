@@ -8,7 +8,7 @@ export type SuggestionType = 'search' | 'ai-tab' | 'browseros'
 /**
  * @public
  */
-interface BaseSuggestionItem {
+export interface BaseSuggestionItem {
   id: string
 }
 

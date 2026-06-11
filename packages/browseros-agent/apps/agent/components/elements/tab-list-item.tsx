@@ -2,7 +2,7 @@ import { Check, Globe } from 'lucide-react'
 import type { FC } from 'react'
 import { cn } from '@/lib/utils'
 
-interface TabListItemProps {
+export interface TabListItemProps {
   tab: chrome.tabs.Tab
   isSelected: boolean
   className?: string

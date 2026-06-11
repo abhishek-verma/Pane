@@ -11,7 +11,7 @@ import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { cn } from '../../lib/utils'
 
-interface CodingAgentCardProps {
+export interface CodingAgentCardProps {
   agent: AgentListItem
   adapter: HarnessAgentAdapter | 'unknown'
   modelLabel: string | null

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 export type AgentLiveness = 'working' | 'idle' | 'asleep' | 'error' | 'unknown'
 
-interface LivenessDotProps {
+export interface LivenessDotProps {
   status: AgentLiveness
   /**
    * Optional human-friendly secondary line, e.g. "Idle for 4 min" or

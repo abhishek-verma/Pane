@@ -29,7 +29,7 @@ import type { ScheduledJob, ScheduledJobRun } from './types'
 dayjs.extend(relativeTime)
 dayjs.extend(duration)
 
-interface ScheduledTaskCardProps {
+export interface ScheduledTaskCardProps {
   job: ScheduledJob
   onEdit: () => void
   onDelete: () => void

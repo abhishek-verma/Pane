@@ -23,7 +23,7 @@ export interface ToolResult {
   structuredContent?: unknown
 }
 
-interface ToolResponseOptions {
+export interface ToolResponseOptions {
   postActionTimeoutMs?: number
 }
 

@@ -6,7 +6,10 @@ const getGoogleSuggestions = async (query: string): Promise<string[]> => {
   return data[1] || []
 }
 
-type SearchSuggestionsKey = readonly ['google-search-suggestions', string]
+export type SearchSuggestionsKey = readonly [
+  'google-search-suggestions',
+  string,
+]
 
 /**
  * Fetches new-tab search suggestions from the fixed Google provider.

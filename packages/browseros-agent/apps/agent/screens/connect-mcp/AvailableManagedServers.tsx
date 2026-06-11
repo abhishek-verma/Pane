@@ -8,7 +8,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 
-interface AvailableManagedServersProps {
+export interface AvailableManagedServersProps {
   availableServers?: { name: string; description: string }[]
   onAddServer: (args: { name: string; description: string }) => void
   isLoading?: boolean

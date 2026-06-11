@@ -7,7 +7,7 @@ import {
   type ChatMode,
 } from '@/modules/chat/chat-types'
 
-interface ChatEmptyStateProps {
+export interface ChatEmptyStateProps {
   mode: ChatMode
   mounted: boolean
   onSuggestionClick: (suggestion: string) => void

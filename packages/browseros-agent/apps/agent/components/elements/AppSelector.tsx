@@ -27,7 +27,7 @@ import { useSubmitApiKey } from '@/modules/mcp/submit-api-key.hooks'
 import { useSyncRemoteIntegrations } from '@/modules/mcp/sync-remote-integrations.hooks'
 import { useGetUserMCPIntegrations } from '@/modules/mcp/user-integrations.hooks'
 
-interface AppSelectorProps {
+export interface AppSelectorProps {
   children: ReactNode
   side?: 'top' | 'bottom' | 'left' | 'right'
 }

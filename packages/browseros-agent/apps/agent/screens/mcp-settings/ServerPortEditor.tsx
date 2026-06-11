@@ -18,7 +18,7 @@ import { track } from '@/lib/metrics/track'
 import { waitForServerHealth } from './server-health'
 import { PROXY_PORT_MIN, parseProxyPort } from './server-port-editor.helpers'
 
-interface ServerPortEditorProps {
+export interface ServerPortEditorProps {
   onPortChanged?: () => void
 }
 

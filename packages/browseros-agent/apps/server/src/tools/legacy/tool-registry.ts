@@ -26,6 +26,8 @@ class ToolRegistry {
   }
 }
 
+export type { ToolRegistry }
+
 export function createRegistry(tools: ToolDefinition[]): ToolRegistry {
   return new ToolRegistry(tools)
 }

@@ -8,7 +8,7 @@ import {
 import { track } from '@/lib/metrics/track'
 import type { NudgeData } from './getMessageSegments'
 
-interface ScheduleSuggestionCardProps {
+export interface ScheduleSuggestionCardProps {
   data: NudgeData
   isLastMessage: boolean
 }

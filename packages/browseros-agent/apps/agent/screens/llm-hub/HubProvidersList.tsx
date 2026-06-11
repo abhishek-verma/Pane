@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { HubProviderRow } from './HubProviderRow'
 import type { LlmHubProvider } from './models'
 
-interface HubProvidersListProps {
+export interface HubProvidersListProps {
   providers: LlmHubProvider[]
   isLoading?: boolean
   onEditProvider: (index: number) => void

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { HarnessAgent } from '@/modules/agents/agent-harness-types'
 
-interface ConversationHeaderProps {
+export interface ConversationHeaderProps {
   agent: HarnessAgent | null
   fallbackName: string
   fallbackAdapter: 'claude' | 'codex' | 'hermes' | 'unknown'

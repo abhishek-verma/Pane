@@ -21,7 +21,7 @@ import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { ChatModeToggle } from './ChatModeToggle'
 import { ChatSelectedText } from './ChatSelectedText'
 
-interface ChatFooterProps {
+export interface ChatFooterProps {
   mode: ChatMode
   onModeChange: (mode: ChatMode) => void
   input: string

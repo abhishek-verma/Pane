@@ -37,7 +37,7 @@ import { personalizationStorage } from '@/lib/personalization/personalizationSto
 import { cn } from '@/lib/utils'
 import { type StepDirection, StepTransition } from './StepTransition'
 
-interface StepOneProps {
+export interface StepOneProps {
   direction: StepDirection
   onContinue: () => void
 }

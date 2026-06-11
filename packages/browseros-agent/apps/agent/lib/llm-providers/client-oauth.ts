@@ -14,7 +14,7 @@ export interface ClientAuthConfig {
   contentType: 'json' | 'form'
 }
 
-interface DeviceCodeData {
+export interface DeviceCodeData {
   device_code: string
   user_code: string
   verification_uri: string

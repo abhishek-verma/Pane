@@ -1,7 +1,7 @@
 import type { FC } from 'react'
 import { cn } from '@/lib/utils'
 
-interface PillIndicatorProps {
+export interface PillIndicatorProps {
   text: string
   className?: string
 }

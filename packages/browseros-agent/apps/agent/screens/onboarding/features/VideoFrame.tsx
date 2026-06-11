@@ -1,7 +1,7 @@
 import type { FC, PropsWithChildren } from 'react'
 import { cn } from '@/lib/utils'
 
-interface VideoFrameProps {
+export interface VideoFrameProps {
   className?: string
   title?: string
 }

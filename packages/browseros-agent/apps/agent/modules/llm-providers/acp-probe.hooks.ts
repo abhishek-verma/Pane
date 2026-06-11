@@ -2,23 +2,23 @@ import { useQuery } from '@tanstack/react-query'
 import type { ProviderType } from '@/lib/llm-providers/types'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
-export interface AcpProbeModel {
+interface AcpProbeModel {
   id: string
   name?: string
   description?: string
 }
 
-export interface AcpProbeReasoning {
+interface AcpProbeReasoning {
   values: string[]
   defaultValue?: string
 }
 
-export interface AcpProbeError {
+interface AcpProbeError {
   code: string
   message: string
 }
 
-export interface AcpProbeResult {
+interface AcpProbeResult {
   models: AcpProbeModel[]
   reasoning: AcpProbeReasoning | null
   supportsConfigOption: boolean

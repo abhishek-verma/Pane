@@ -1,7 +1,7 @@
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { type EvalConfig, EvalConfigSchema } from '../types'
 
-interface ValidationResult {
+export interface ValidationResult {
   valid: boolean
   config?: EvalConfig
   errors: string[]

@@ -92,7 +92,7 @@ function ToolStatusIcon({ status }: { status: ToolCallPart['status'] }) {
   return <XCircle className="size-3.5 shrink-0 text-destructive" />
 }
 
-interface AgentChatMessageProps {
+export interface AgentChatMessageProps {
   message: AgentChatMessageType
 }
 

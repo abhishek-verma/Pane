@@ -8,7 +8,7 @@ import { useVoiceInput } from '@/modules/voice/voice.hooks'
 import type { Message } from './survey-chat.hooks'
 import { VoiceInputButton } from './VoiceInputButton'
 
-interface Props {
+export interface Props {
   messages: Message[]
   isStreaming: boolean
   onSendMessage: (text: string) => void

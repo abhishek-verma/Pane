@@ -55,7 +55,7 @@ export interface BrowserFixtureServer {
   stop(): Promise<void>
 }
 
-interface StartOptions {
+export interface StartOptions {
   port?: number
 }
 

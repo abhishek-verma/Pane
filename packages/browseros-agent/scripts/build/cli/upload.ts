@@ -45,7 +45,7 @@ export interface CliReleaseManifest {
   assets: Record<string, CliReleaseAsset>
 }
 
-interface CliArchiveMetadata {
+export interface CliArchiveMetadata {
   filename: string
   version: string
   os: string

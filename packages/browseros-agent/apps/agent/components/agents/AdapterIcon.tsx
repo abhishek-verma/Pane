@@ -7,7 +7,7 @@ import type { HarnessAgentAdapter } from '@/modules/agents/agent-harness-types'
  * Falls back to a generic bot when the adapter is unknown so future
  * adapters land without a code change at the call site.
  */
-interface AdapterIconProps {
+export interface AdapterIconProps {
   adapter: HarnessAgentAdapter | 'unknown'
   className?: string
 }

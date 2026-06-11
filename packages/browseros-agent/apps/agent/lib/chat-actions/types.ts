@@ -2,7 +2,7 @@
  * Base interface for all chat actions
  * @public
  */
-interface BaseChatAction {
+export interface BaseChatAction {
   id: string
   timestamp: number
 }

@@ -4,7 +4,7 @@ import { ChatSessionProvider } from '@/modules/chat/chat-session-context'
 import { NewTabFocusGrid } from './NewTabFocusGrid'
 import { shouldHideFocusGrid, shouldUseChatSession } from './route-utils'
 
-interface NewTabLayoutProps {
+export interface NewTabLayoutProps {
   useChatSessionOnHome?: boolean
 }
 

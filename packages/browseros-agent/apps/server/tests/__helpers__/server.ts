@@ -19,7 +19,7 @@ export interface ServerConfig {
   extensionPort: number
 }
 
-interface ServerState {
+export interface ServerState {
   process: ChildProcess
   config: ServerConfig
 }

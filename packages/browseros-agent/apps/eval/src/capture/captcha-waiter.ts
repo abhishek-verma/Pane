@@ -7,7 +7,7 @@ export interface CaptchaWaitResult {
   waitDurationMs: number
 }
 
-interface CaptchaWaiterConfig {
+export interface CaptchaWaiterConfig {
   waitTimeoutMs: number
   pollIntervalMs: number
 }

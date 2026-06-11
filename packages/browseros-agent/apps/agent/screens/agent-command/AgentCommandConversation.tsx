@@ -239,7 +239,7 @@ function AgentConversationController({
   )
 }
 
-interface AgentCommandConversationProps {
+export interface AgentCommandConversationProps {
   variant?: 'command' | 'page'
   backPath?: string
   agentPathPrefix?: string

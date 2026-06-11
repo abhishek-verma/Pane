@@ -6,7 +6,7 @@ import type {
   ChatAction,
 } from '@/lib/chat-actions/types'
 
-interface UserActionMessageProps {
+export interface UserActionMessageProps {
   action: ChatAction
 }
 

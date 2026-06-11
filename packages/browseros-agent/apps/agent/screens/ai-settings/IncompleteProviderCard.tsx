@@ -17,7 +17,7 @@ export interface IncompleteProvider {
   region?: string | null
 }
 
-interface IncompleteProviderCardProps {
+export interface IncompleteProviderCardProps {
   provider: IncompleteProvider
   onAddKeys: () => void
   onDelete: () => void

@@ -12,7 +12,7 @@ import { track } from '@/lib/metrics/track'
 import { authRedirectPathStorage } from '@/lib/onboarding/onboardingStorage'
 import { type StepDirection, StepTransition } from './StepTransition'
 
-interface StepTwoProps {
+export interface StepTwoProps {
   direction: StepDirection
   onContinue: () => void
 }

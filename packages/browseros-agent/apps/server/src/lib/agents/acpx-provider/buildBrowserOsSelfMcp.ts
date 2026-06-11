@@ -64,7 +64,3 @@ export function buildBrowserOsSelfMcpEntry(
     headers,
   }
 }
-
-export const __internal__ = {
-  BROWSEROS_SELF_MCP_NAME,
-}

@@ -21,7 +21,7 @@ export interface BrowserConfig {
   extraArgs: string[]
 }
 
-interface BrowserState {
+export interface BrowserState {
   process: ChildProcess
   userDataDir: string
   config: BrowserConfig

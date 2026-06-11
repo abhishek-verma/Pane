@@ -3,7 +3,7 @@ import ProductLogoSvg from '@/assets/product_logo.svg'
 import { Button } from '@/components/ui/button'
 import { docsUrl, githubOrgUrl } from '@/lib/constants/productUrls'
 
-interface OnboardingHeaderProps {
+export interface OnboardingHeaderProps {
   isMounted: boolean
 }
 

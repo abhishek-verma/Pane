@@ -4,7 +4,7 @@ import { getAgentServerUrl } from '@/lib/browseros/helpers'
 const MAX_AGENT_SERVER_URL_ATTEMPTS = 3
 const AGENT_SERVER_URL_RETRY_DELAY_MS = 500
 
-type UseAgentServerUrlResult =
+export type UseAgentServerUrlResult =
   | { baseUrl: string; isLoading: false; error: null }
   | { baseUrl?: never; isLoading: true; error: null }
   | { baseUrl?: never; isLoading: false; error: Error }

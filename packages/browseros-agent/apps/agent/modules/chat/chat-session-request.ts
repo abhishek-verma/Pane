@@ -6,14 +6,14 @@ import {
   toLlmProviderConfig,
 } from './sidepanel-chat-targets'
 
-type LlmChatRequestBodyInput = Parameters<typeof buildChatRequestBody>[0]
+export type LlmChatRequestBodyInput = Parameters<typeof buildChatRequestBody>[0]
 
-type CommonSidepanelRequestInput = Omit<
+export type CommonSidepanelRequestInput = Omit<
   LlmChatRequestBodyInput,
   'provider' | 'message' | 'isScheduledTask'
 >
 
-interface BuildSidepanelPreparedSendMessagesRequestInput
+export interface BuildSidepanelPreparedSendMessagesRequestInput
   extends CommonSidepanelRequestInput {
   agentServerUrl: string
   target: SidepanelChatTarget | undefined

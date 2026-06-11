@@ -25,7 +25,7 @@ import { ScheduleSuggestionCard } from './ScheduleSuggestionCard'
 import { ToolBatch } from './ToolBatch'
 import { UserActionMessage } from './UserActionMessage'
 
-interface ChatMessagesProps {
+export interface ChatMessagesProps {
   messages: UIMessage[]
   status: 'streaming' | 'submitted' | 'ready' | 'error'
   getActionForMessage?: (message: UIMessage) => ChatAction | undefined

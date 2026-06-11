@@ -3,7 +3,7 @@ import type { UIMessage } from 'ai'
 const MAX_MESSAGES = 10
 const MAX_MESSAGE_CHARS = 65536
 
-interface ConversationMessage {
+export interface ConversationMessage {
   role: 'user' | 'assistant'
   content: string
 }

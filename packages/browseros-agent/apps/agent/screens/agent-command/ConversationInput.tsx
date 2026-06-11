@@ -44,7 +44,7 @@ export interface ConversationInputSendInput {
   attachments: StagedAttachment[]
 }
 
-interface ConversationInputProps {
+export interface ConversationInputProps {
   onSend: (input: ConversationInputSendInput) => void
   /**
    * Merged provider/agent picker shown only on the `home` variant. Lets the

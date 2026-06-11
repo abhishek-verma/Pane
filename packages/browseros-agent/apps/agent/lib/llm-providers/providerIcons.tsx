@@ -41,7 +41,7 @@ const providerIconMap: Record<ProviderType, IconComponent | null> = {
   'acp-custom': null,
 }
 
-interface ProviderIconProps {
+export interface ProviderIconProps {
   type: ProviderType
   size?: number
   className?: string

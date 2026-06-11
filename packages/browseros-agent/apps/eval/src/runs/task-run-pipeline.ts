@@ -39,7 +39,7 @@ class TaskExecutionError extends Error {
 // Task Executor
 // ============================================================================
 
-interface TaskRunPipelineDeps {
+export interface TaskRunPipelineDeps {
   onEvent?: (taskId: string, event: Record<string, unknown>) => void
 }
 
@@ -311,6 +311,8 @@ class TaskRunPipeline {
     }
   }
 }
+
+export type { TaskRunPipeline }
 
 // ============================================================================
 // Factory

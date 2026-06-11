@@ -26,7 +26,7 @@ export interface PendingDeviceCode {
   verificationUri: string
 }
 
-interface OAuthProviderFlowReturn {
+export interface OAuthProviderFlowReturn {
   status: { authenticated: boolean; email?: string } | null
   disconnect: () => Promise<void>
   startOAuthFlow: (agentServerUrl: string | undefined) => Promise<void>

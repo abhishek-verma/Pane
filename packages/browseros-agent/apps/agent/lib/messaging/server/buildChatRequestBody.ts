@@ -1,7 +1,7 @@
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import type { ChatMode } from '@/modules/chat/chat-types'
 
-interface ChatHistoryEntry {
+export interface ChatHistoryEntry {
   role: 'user' | 'assistant'
   content: string
 }
@@ -25,7 +25,7 @@ export interface ChatRequestBrowserContext {
   }[]
 }
 
-interface ChatRequestBodyParams {
+export interface ChatRequestBodyParams {
   conversationId: string
   provider: LlmProviderConfig
   message?: string

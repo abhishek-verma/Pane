@@ -10,7 +10,7 @@ import type {
   SuggestionSection,
 } from './types'
 
-interface UseSuggestionsArgs {
+export interface UseSuggestionsArgs {
   query: string
   selectedTabs: chrome.tabs.Tab[]
 }

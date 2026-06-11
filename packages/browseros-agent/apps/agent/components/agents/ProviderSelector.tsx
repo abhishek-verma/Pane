@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/select'
 import type { ProviderOption } from '@/modules/agents/agents-page-types'
 
-interface ProviderSelectorProps {
+export interface ProviderSelectorProps {
   providers: ProviderOption[]
   defaultProviderId: string
   selectedId: string

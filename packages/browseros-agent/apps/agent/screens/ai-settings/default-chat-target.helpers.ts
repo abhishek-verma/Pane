@@ -4,7 +4,7 @@ import type { SidepanelChatTargetSelection } from '@/modules/chat/sidepanel-chat
 // resolves tsconfig `@/` aliases for erased type imports only, not values.
 import { resolveDefaultProviderId } from '../../lib/llm-providers/provider-selection'
 
-interface ResolveEffectiveDefaultTargetInput {
+export interface ResolveEffectiveDefaultTargetInput {
   providers: LlmProviderConfig[]
   agents: ReadonlyArray<{ id: string }>
   selection: SidepanelChatTargetSelection | null

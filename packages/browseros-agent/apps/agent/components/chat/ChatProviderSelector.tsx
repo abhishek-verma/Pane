@@ -24,7 +24,7 @@ import {
 } from './ChatProviderSelector.helpers'
 import type { Provider } from './chatComponentTypes'
 
-interface ChatProviderSelectorProps {
+export interface ChatProviderSelectorProps {
   providers: Provider[]
   selectedProvider: Provider
   onSelectProvider: (provider: Provider) => void

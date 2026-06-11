@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/tooltip'
 import { scheduledTasksHelpUrl } from '@/lib/constants/productUrls'
 
-interface ScheduledTasksHeaderProps {
+export interface ScheduledTasksHeaderProps {
   onAddClick: () => void
 }
 

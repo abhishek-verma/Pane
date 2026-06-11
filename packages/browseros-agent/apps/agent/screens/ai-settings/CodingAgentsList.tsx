@@ -6,7 +6,7 @@ import type { AgentListItem } from '@/modules/agents/agents-page-types'
 import { CodingAgentCard } from './CodingAgentCard'
 import type { CodingAgentsController } from './coding-agents.hooks'
 
-interface CodingAgentsListProps {
+export interface CodingAgentsListProps {
   controller: CodingAgentsController
   selectedAgentId: string | null
   onSelectAgent: (agentId: string) => void

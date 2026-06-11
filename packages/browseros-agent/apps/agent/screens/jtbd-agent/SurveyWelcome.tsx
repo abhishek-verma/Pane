@@ -2,7 +2,7 @@ import { Sparkles } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
 
-interface Props {
+export interface Props {
   onStart: () => void
   isLoading?: boolean
 }

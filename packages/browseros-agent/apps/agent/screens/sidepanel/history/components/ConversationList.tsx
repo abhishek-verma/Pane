@@ -5,7 +5,7 @@ import { ConversationGroup } from './ConversationGroup'
 import type { GroupedConversations } from './types'
 import { TIME_GROUP_LABELS } from './utils'
 
-interface ConversationListProps {
+export interface ConversationListProps {
   groupedConversations: GroupedConversations
   activeConversationId: string
   onDelete?: (id: string) => void

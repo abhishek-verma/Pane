@@ -93,7 +93,7 @@ const mcpIconMap: Record<string, string> = {
   Intercom: IntercomSvg,
 }
 
-interface McpServerIconProps {
+export interface McpServerIconProps {
   serverName: string
   size?: number
   className?: string

@@ -3,7 +3,7 @@ import { Outlet, useOutletContext } from 'react-router'
 import type { AgentEntry } from '@/modules/agents/agent-harness-types'
 import { useHarnessAgents } from '@/modules/agents/agents.hooks'
 
-interface AgentCommandContextValue {
+export interface AgentCommandContextValue {
   agents: AgentEntry[]
   agentsLoading: boolean
 }

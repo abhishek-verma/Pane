@@ -11,7 +11,7 @@ import { Feature } from '@/lib/browseros/capabilities'
 import { cn } from '@/lib/utils'
 import { useCapabilities } from '@/modules/browseros/capabilities.hooks'
 
-interface SidebarNavigationProps {
+export interface SidebarNavigationProps {
   expanded?: boolean
 }
 

@@ -15,7 +15,7 @@ import { useAddManagedServer } from '@/modules/mcp/add-managed-server.hooks'
 import { useGetUserMCPIntegrations } from '@/modules/mcp/user-integrations.hooks'
 import { type StepDirection, StepTransition } from './StepTransition'
 
-interface StepConnectAppsProps {
+export interface StepConnectAppsProps {
   direction: StepDirection
   onContinue: () => void
 }
