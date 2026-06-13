@@ -59,7 +59,7 @@ jobs:
 
           matrix='[
             {"platform":"linux","arch":"x64","runner":"warp-ubuntu-2204-x64-32x","config":"release.linux.ci.yaml","timeout":660},
-            {"platform":"windows","arch":"x64","runner":"warp-windows-2025-x64-32x","config":"release.windows.ci.yaml","timeout":780},
+            {"platform":"windows","arch":"x64","runner":"warp-windows-2022-x64-32x","config":"release.windows.ci.yaml","timeout":780},
             {"platform":"macos","arch":"arm64","runner":"warp-macos-15-arm64-12x","config":"release.macos.arm64.ci.yaml","timeout":720}
           ]'
           if [ "$PLATFORMS" != "all" ]; then
@@ -79,6 +79,66 @@ jobs:
             echo "matrix=$matrix"
             echo "publish=$publish"
           } >> "$GITHUB_OUTPUT"
+
+  # WarpBuild provisions runners on demand via webhook; when none arrive
+  # (org runner-group policy, bad label, account issue) the build jobs sit
+  # queued until GitHub discards them 24h later, holding the
+  # nightly-release concurrency group all day. Fail fast instead — see the
+  # troubleshooting section of
+  # packages/browseros/build/docs/nightly-warpbuild-ci.md.
+  queue-watchdog:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: write
+    steps:
+      - name: Fail fast when no runner picks up the builds
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          deadline=$(( $(date +%s) + 20 * 60 ))
+          failures=0
+          while :; do
+            if jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" \
+              --jq '[.jobs[] | select(.name | startswith("build (")) | {name, status}]')"; then
+              failures=0
+            else
+              failures=$(( failures + 1 ))
+              if [ "$failures" -ge 3 ]; then
+                echo "::error::queue-watchdog could not list this run's jobs (3 consecutive failures); builds are unwatched this run."
+                exit 1
+              fi
+              sleep 120
+              continue
+            fi
+            total="$(jq 'length' <<<"$jobs")"
+            queued="$(jq '[.[] | select(.status == "queued")] | length' <<<"$jobs")"
+            in_progress="$(jq '[.[] | select(.status == "in_progress")] | length' <<<"$jobs")"
+            if [ "$total" -gt 0 ] && [ "$queued" -eq 0 ]; then
+              echo "All $total build jobs picked up by runners."
+              exit 0
+            fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              doc="packages/browseros/build/docs/nightly-warpbuild-ci.md"
+              if [ "$total" -eq 0 ]; then
+                echo "::error::queue-watchdog matched no 'build (' jobs — were the matrix job names changed? Fix the filter; not cancelling."
+                exit 1
+              fi
+              stuck="$(jq -r '[.[] | select(.status == "queued") | .name] | join(", ")' <<<"$jobs")"
+              # Cancel only when nothing is live: a queued job is then the
+              # only thing keeping the run (and concurrency group) pinned.
+              if [ "$in_progress" -eq 0 ]; then
+                echo "::error::No build job is running and these never left the queue: $stuck. Check the runner-group public-repo setting, runner labels, and the WarpBuild dashboard — see $doc. Cancelling the run to free the nightly-release concurrency group."
+                gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/cancel"
+              else
+                echo "::error::Still queued after 20 min: $stuck. In-progress builds keep running — see $doc."
+              fi
+              exit 1
+            fi
+            sleep 120
+          done
 
   build:
     needs: plan
