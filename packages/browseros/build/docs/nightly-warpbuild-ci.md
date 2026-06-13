@@ -13,14 +13,19 @@ up here, that workflow can be retired.
 | --- | --- | --- | --- |
 | Linux x64 | `warp-ubuntu-2204-x64-32x` | 32 vCPU / 128 GB | 256 GB |
 | Windows x64 | `warp-windows-2025-x64-32x` | 32 vCPU / 128 GB | 256 GB |
-| macOS arm64 | `warp-macos-15-arm64-12x` | M4 Pro, 12 vCPU / 44 GB | 500 GB |
+| macOS arm64 | `warp-macos-26-arm64-12x` | M4 Pro, 12 vCPU / 44 GB | 500 GB |
 
-There is no 32-core macOS tier; 12x is WarpBuild's largest Mac. WarpBuild
-runners register as self-hosted, so GitHub's 6-hour hosted-job cap does not
-apply — but `timeout-minutes` must be set explicitly (the implicit default is
-360). Disk is comfortable on all three tiers — the ~60-75 GB checkout +
-~25-40 GB out dir leave ample headroom. The workflow prints `df -h`
-after each build. Specs above come from the account's runner catalog
+There is no 32-core macOS tier; 12x is WarpBuild's largest Mac. The macOS
+image version must satisfy the chromium pin's SDK requirement — check
+`build/config/mac/mac_sdk.gni` (`mac_sdk_official_version`) in the pinned
+tree when bumping `CHROMIUM_VERSION`; chromium 148 needs the macOS 26 SDK,
+and the macOS 15 image (Xcode 16.4 / SDK 15.5) fails compiling
+`skia_utils_mac.mm` (`kCGImageByteOrder32Host` only exists in SDK 26).
+WarpBuild runners register as self-hosted, so GitHub's 6-hour hosted-job
+cap does not apply — but `timeout-minutes` must be set explicitly (the
+implicit default is 360). Disk is comfortable on all three tiers — the
+~60-75 GB checkout + ~25-40 GB out dir leave ample headroom. The workflow
+prints `df -h` after each build. Specs above come from the account's runner catalog
 (app.warpbuild.com → Runners), which is the source of truth for labels
 and sizes; WarpBuild's public docs pages can lag it.
 

@@ -60,7 +60,7 @@ jobs:
           matrix='[
             {"platform":"linux","arch":"x64","runner":"warp-ubuntu-2204-x64-32x","config":"release.linux.ci.yaml","timeout":660},
             {"platform":"windows","arch":"x64","runner":"warp-windows-2025-x64-32x","config":"release.windows.ci.yaml","timeout":780},
-            {"platform":"macos","arch":"arm64","runner":"warp-macos-15-arm64-12x","config":"release.macos.arm64.ci.yaml","timeout":720}
+            {"platform":"macos","arch":"arm64","runner":"warp-macos-26-arm64-12x","config":"release.macos.arm64.ci.yaml","timeout":720}
           ]'
           if [ "$PLATFORMS" != "all" ]; then
             matrix="$(jq -c --arg p "$PLATFORMS" '[ .[] | select(.platform == $p) ]' <<<"$matrix")"
