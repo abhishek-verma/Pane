@@ -244,7 +244,8 @@ function parseConfigFile(filePath?: string): ConfigResult<PartialConfig> {
 
 function parseRuntimeEnv(): ConfigResult<PartialConfig> {
   const cwd = process.cwd()
-  const browserUseNewTools = parseBrowserUseNewToolsEnv(
+  const browserUseNewTools = parseBooleanEnv(
+    'BROWSER_USE_NEW_TOOLS',
     process.env.BROWSER_USE_NEW_TOOLS,
   )
   if (!browserUseNewTools.ok) return browserUseNewTools
@@ -327,16 +328,17 @@ function safeParseInt(value: string): number | undefined {
   return Number.isNaN(num) ? undefined : num
 }
 
-/** Parses the local tool-registry opt-in flag with a strict true/false surface. */
-function parseBrowserUseNewToolsEnv(
+/** Parses a strict boolean env var, defaulting missing values to false. */
+function parseBooleanEnv(
+  envName: string,
   value: string | undefined,
-): ConfigResult<boolean | undefined> {
-  if (value === undefined) return { ok: true, value: undefined }
+): ConfigResult<boolean> {
+  if (value === undefined) return { ok: true, value: false }
   if (value === 'true') return { ok: true, value: true }
   if (value === 'false') return { ok: true, value: false }
   return {
     ok: false,
-    error: 'BROWSER_USE_NEW_TOOLS must be "true" or "false".',
+    error: `${envName} must be "true" or "false".`,
   }
 }
 
