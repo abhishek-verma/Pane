@@ -23,6 +23,8 @@ from ...common.utils import (
     safe_rmtree,
 )
 
+BROWSEROS_BRANCH = "browseros"
+
 
 class GitSetupModule(CommandModule):
     produces = []
@@ -37,6 +39,7 @@ class GitSetupModule(CommandModule):
             raise ValidationError("Chromium version not set")
 
     def execute(self, ctx: Context) -> None:
+        """Prepare Chromium at the configured tag for BrowserOS patch application."""
         log_info(f"\n🔀 Setting up Chromium {ctx.chromium_version}...")
 
         log_info("📥 Fetching all tags from remote...")
@@ -45,7 +48,10 @@ class GitSetupModule(CommandModule):
         self._verify_tag_exists(ctx)
 
         log_info(f"🔀 Checking out tag: {ctx.chromium_version}")
-        run_command(["git", "checkout", f"tags/{ctx.chromium_version}"], cwd=ctx.chromium_src)
+        run_command(
+            ["git", "checkout", f"tags/{ctx.chromium_version}"], cwd=ctx.chromium_src
+        )
+        self._checkout_browseros_branch(ctx)
 
         # On Linux, depot_tools fetches per-arch sysroots automatically when
         # `.gclient` declares `target_cpus`. Ensure both x64 and arm64 are
@@ -55,22 +61,34 @@ class GitSetupModule(CommandModule):
 
         log_info("📥 Syncing dependencies (this may take a while)...")
         if IS_WINDOWS():
-            run_command(["gclient.bat", "sync", "-D", "--no-history", "--shallow"], cwd=ctx.chromium_src)
+            run_command(
+                ["gclient.bat", "sync", "-D", "--no-history", "--shallow"],
+                cwd=ctx.chromium_src,
+            )
         else:
-            run_command(["gclient", "sync", "-D", "--no-history", "--shallow"], cwd=ctx.chromium_src)
+            run_command(
+                ["gclient", "sync", "-D", "--no-history", "--shallow"],
+                cwd=ctx.chromium_src,
+            )
 
         log_success("Git setup complete")
 
-    def _ensure_gclient_target_cpus(self, ctx: Context, required: List[str]) -> None:
-        """Idempotently add `target_cpus` to .gclient so depot_tools fetches
-        the matching Linux sysroots for cross-compilation.
+    def _checkout_browseros_branch(self, ctx: Context) -> None:
+        """Switch Chromium onto the local branch that receives BrowserOS patches."""
+        log_info(f"🔀 Creating/resetting branch: {BROWSEROS_BRANCH}")
+        run_command(
+            [
+                "git",
+                "checkout",
+                "-B",
+                BROWSEROS_BRANCH,
+                f"tags/{ctx.chromium_version}",
+            ],
+            cwd=ctx.chromium_src,
+        )
 
-        depot_tools convention: .gclient lives one directory above
-        chromium_src (i.e. ../.gclient). It is a Python file with a list
-        of solution dicts followed by optional top-level assignments.
-        We append a `target_cpus = [...]` line if missing or merge in any
-        archs that aren't already present.
-        """
+    def _ensure_gclient_target_cpus(self, ctx: Context, required: List[str]) -> None:
+        """Ensure gclient sync fetches the Linux sysroots needed for target CPUs."""
         gclient_path = ctx.chromium_src.parent / ".gclient"
         if not gclient_path.exists():
             log_warning(
@@ -91,12 +109,8 @@ class GitSetupModule(CommandModule):
                 return
             merged = sorted(set(existing) | set(required))
             new_line = f"target_cpus = {merged!r}"
-            content = (
-                content[: match.start()] + new_line + content[match.end() :]
-            )
-            log_info(
-                f"📝 Updating .gclient target_cpus: {existing} → {merged}"
-            )
+            content = content[: match.start()] + new_line + content[match.end() :]
+            log_info(f"📝 Updating .gclient target_cpus: {existing} → {merged}")
         else:
             new_line = f"\ntarget_cpus = {required!r}\n"
             content = content.rstrip() + "\n" + new_line
@@ -133,6 +147,7 @@ class SparkleSetupModule(CommandModule):
 
     def validate(self, ctx: Context) -> None:
         from ...common.utils import IS_MACOS
+
         if not IS_MACOS():
             raise ValidationError("Sparkle setup requires macOS")
 
@@ -195,16 +210,15 @@ class WinSparkleSetupModule(CommandModule):
 
 
 def extract_winsparkle_zip(archive: Path, dest: Path) -> None:
-    """Extract the release zip stripping its top-level WinSparkle-<version>/
-    directory, so //third_party/winsparkle paths stay version-independent
-    (include/, x64/Release/, ...) and match the vendored BUILD.gn.
-    """
+    """Extract WinSparkle so Chromium paths stay version-independent."""
     with zipfile.ZipFile(archive) as zf:
         infos = zf.infolist()
 
         # The official archive wraps everything in a single version dir; a
         # different layout would silently produce a broken tree, so fail fast.
-        top_levels = {Path(info.filename).parts[0] for info in infos if info.filename.strip("/")}
+        top_levels = {
+            Path(info.filename).parts[0] for info in infos if info.filename.strip("/")
+        }
         if len(top_levels) != 1:
             raise RuntimeError(
                 f"Expected a single top-level directory in {archive.name}, "

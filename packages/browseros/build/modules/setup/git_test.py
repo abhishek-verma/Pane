@@ -4,6 +4,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from .git import GitSetupModule
 from ...common.context import Context
@@ -48,6 +49,86 @@ class GitSetupValidateTest(unittest.TestCase):
             GitSetupModule().validate(ctx)
 
 
+class GitSetupExecuteTest(unittest.TestCase):
+    def setUp(self):
+        self._chromium_tmp = tempfile.TemporaryDirectory()
+        self._root_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._chromium_tmp.cleanup)
+        self.addCleanup(self._root_tmp.cleanup)
+        self.ctx = make_context(
+            MockChromium(Path(self._chromium_tmp.name)),
+            MockBrowserOSRoot(Path(self._root_tmp.name)),
+        )
+
+    def test_checks_out_browseros_branch_after_tag(self):
+        commands = []
+        events = []
+
+        def fake_run_command(cmd, cwd=None):
+            commands.append(cmd)
+            if cmd[:3] == ["git", "checkout", "-B"]:
+                events.append("checkout_browseros")
+            elif cmd[:2] == ["git", "checkout"]:
+                events.append("checkout_tag")
+            else:
+                events.append(cmd[0])
+
+        def fake_ensure_gclient_target_cpus(module, ctx, required):
+            events.append("ensure_gclient_target_cpus")
+
+        with (
+            mock.patch("build.modules.setup.git.run_command", fake_run_command),
+            mock.patch("build.modules.setup.git.IS_LINUX", return_value=True),
+            mock.patch("build.modules.setup.git.IS_WINDOWS", return_value=False),
+            mock.patch.object(GitSetupModule, "_verify_tag_exists", return_value=None),
+            mock.patch.object(
+                GitSetupModule,
+                "_ensure_gclient_target_cpus",
+                fake_ensure_gclient_target_cpus,
+            ),
+        ):
+            GitSetupModule().execute(self.ctx)
+
+        self.assertEqual(
+            commands[:3],
+            [
+                ["git", "fetch", "--tags", "--force"],
+                ["git", "checkout", f"tags/{self.ctx.chromium_version}"],
+                [
+                    "git",
+                    "checkout",
+                    "-B",
+                    "browseros",
+                    f"tags/{self.ctx.chromium_version}",
+                ],
+            ],
+        )
+        self.assertLess(
+            events.index("checkout_browseros"),
+            events.index("ensure_gclient_target_cpus"),
+        )
+        self.assertLess(events.index("checkout_browseros"), events.index("gclient"))
+
+    def test_missing_tag_stops_before_checkout(self):
+        commands = []
+
+        def fake_run_command(cmd, cwd=None):
+            commands.append(cmd)
+
+        with (
+            mock.patch("build.modules.setup.git.run_command", fake_run_command),
+            mock.patch.object(
+                GitSetupModule,
+                "_verify_tag_exists",
+                side_effect=ValidationError("missing"),
+            ),
+        ):
+            with self.assertRaises(ValidationError):
+                GitSetupModule().execute(self.ctx)
+
+        self.assertEqual(commands, [["git", "fetch", "--tags", "--force"]])
+
+
 class EnsureGclientTargetCpusTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -76,9 +157,7 @@ class EnsureGclientTargetCpusTest(unittest.TestCase):
         self.assertIn("solutions = [", content)
 
     def test_merges_missing_archs_into_existing_list(self):
-        self.gclient.write_text(
-            self.gclient.read_text() + "\ntarget_cpus = ['x64']\n"
-        )
+        self.gclient.write_text(self.gclient.read_text() + "\ntarget_cpus = ['x64']\n")
 
         self.module._ensure_gclient_target_cpus(self.ctx, ["x64", "arm64"])
 
