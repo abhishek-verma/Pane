@@ -37,10 +37,6 @@
       "types": "./src/constants/hermes.ts",
       "default": "./src/constants/hermes.ts"
     },
-    "./constants/role-aware-agents": {
-      "types": "./src/constants/role-aware-agents.ts",
-      "default": "./src/constants/role-aware-agents.ts"
-    },
     "./types/logger": {
       "types": "./src/types/logger.ts",
       "default": "./src/types/logger.ts"
@@ -48,10 +44,6 @@
     "./types/server-config": {
       "types": "./src/types/server-config.ts",
       "default": "./src/types/server-config.ts"
-    },
-    "./types/role-aware-agents": {
-      "types": "./src/types/role-aware-agents.ts",
-      "default": "./src/types/role-aware-agents.ts"
     },
     "./schemas/llm": {
       "types": "./src/schemas/llm.ts",
