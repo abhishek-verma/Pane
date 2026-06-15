@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { registerTools } from '../../../../src/api/services/mcp/register-mcp'
 import type { BrowserSession } from '../../../../src/browser/core/session'
+import { logger } from '../../../../src/lib/logger'
 import { BROWSER_TOOLS } from '../../../../src/tools/browser/registry'
+import { resetToolRegistrationLogSamplingForTests } from '../../../../src/tools/registration-log-sampling'
 
 type RegisteredHandler = (
   args: Record<string, unknown>,
@@ -36,6 +38,22 @@ function createFakeServer() {
 }
 
 describe('registerTools', () => {
+  const originalInfo = logger.info
+  let infoMessages: unknown[] = []
+
+  beforeEach(() => {
+    resetToolRegistrationLogSamplingForTests()
+    infoMessages = []
+    logger.info = ((message: string) => {
+      infoMessages.push(message)
+    }) as typeof logger.info
+  })
+
+  afterEach(() => {
+    logger.info = originalInfo
+    resetToolRegistrationLogSamplingForTests()
+  })
+
   it('registers the legacy browser tools by default', () => {
     const fake = createFakeServer()
 
@@ -48,6 +66,47 @@ describe('registerTools', () => {
     expect(fake.handlers.has('new_page')).toBe(true)
     expect(fake.handlers.has('get_bookmarks')).toBe(true)
     expect(fake.handlers.has('browseros_info')).toBe(true)
+  })
+
+  it('samples repeated registration info logs without skipping tool registration', () => {
+    for (let i = 0; i < 20; i++) {
+      const fake = createFakeServer()
+      const useNewTools = i % 2 === 0
+      registerTools(fake.server as never, {
+        browser: {} as never,
+        browserSession: { pages: {} } as unknown as BrowserSession,
+        useNewTools,
+      })
+
+      if (i === 1) {
+        expect(fake.handlers.has('tabs')).toBe(false)
+        expect(fake.handlers.has('new_page')).toBe(true)
+      }
+      if (i === 2) {
+        expect(fake.handlers.has('tabs')).toBe(true)
+        expect(fake.handlers.has('new_page')).toBe(false)
+      }
+    }
+
+    expect(infoMessages).toHaveLength(2)
+    expect(infoMessages).toEqual([
+      expect.stringContaining('Registered 10 browser tools'),
+      expect.stringContaining('Registered 10 browser tools'),
+    ])
+  })
+
+  it('keeps the legacy registration info log available when sampled in', () => {
+    const fake = createFakeServer()
+
+    registerTools(fake.server as never, {
+      browser: {} as never,
+      browserSession: { pages: {} } as unknown as BrowserSession,
+      useNewTools: false,
+    })
+
+    expect(infoMessages).toEqual([
+      expect.stringContaining('legacy browser tools'),
+    ])
   })
 
   it('registers the new compact browser tools when explicitly enabled', () => {

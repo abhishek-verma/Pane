@@ -3,6 +3,7 @@ import { type ZodRawShape, z } from 'zod'
 import type { Browser } from '../../browser/browser'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
+import { shouldLogToolRegistration } from '../registration-log-sampling'
 import { executeTool, type ToolDefinition } from './framework'
 import { registry } from './registry'
 
@@ -92,7 +93,9 @@ export function registerLegacyBrowserTools(
     )
   }
 
-  logger.info(
-    `Registered ${tools.length} legacy browser tools: ${tools.map((t) => t.name).join(', ')}`,
-  )
+  if (shouldLogToolRegistration()) {
+    logger.info(
+      `Registered ${tools.length} legacy browser tools: ${tools.map((t) => t.name).join(', ')}`,
+    )
+  }
 }

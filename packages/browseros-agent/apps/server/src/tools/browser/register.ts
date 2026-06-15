@@ -3,6 +3,7 @@ import type { ZodRawShape } from 'zod'
 import type { BrowserSession } from '../../browser/core/session'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
+import { shouldLogToolRegistration } from '../registration-log-sampling'
 import { executeTool } from './framework'
 import { BROWSER_TOOLS } from './registry'
 
@@ -88,7 +89,9 @@ export function registerBrowserTools(
     )
   }
 
-  logger.info(
-    `Registered ${BROWSER_TOOLS.length} browser tools: ${BROWSER_TOOLS.map((t) => t.name).join(', ')}`,
-  )
+  if (shouldLogToolRegistration()) {
+    logger.info(
+      `Registered ${BROWSER_TOOLS.length} browser tools: ${BROWSER_TOOLS.map((t) => t.name).join(', ')}`,
+    )
+  }
 }
