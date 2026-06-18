@@ -130,6 +130,81 @@ describe('browser tool framework post-actions', () => {
     expect(text).toContain('[END_UNTRUSTED_PAGE_CONTENT')
   })
 
+  it('writes large snapshot post-actions to a BrowserOS output file', async () => {
+    await withBrowserosDir(async () => {
+      const largeSnapshot = [
+        ...Array.from({ length: 15000 }, () => 'x'),
+        'last-node',
+      ].join(' ')
+      const postActionTool = defineTool({
+        name: 'large_snapshot_post_action_test',
+        description: 'Test large snapshot post-action execution.',
+        input: z.object({ page: z.number().int() }),
+        handler: async (args, _ctx, response) => {
+          response.includeSnapshot(args.page)
+        },
+      })
+      const session = {
+        observe: () => ({
+          snapshot: async () => ({ text: largeSnapshot }),
+        }),
+        pages: {
+          getInfo: () => ({ url: 'https://example.com/large-snapshot' }),
+          getTabId: () => undefined,
+        },
+      } as unknown as BrowserSession
+
+      const result = await executeTool(postActionTool, { page: 8 }, { session })
+      const text = textOf(result)
+      const savedPath = text.match(/saved to: (.+\.md)/)?.[1]
+
+      expect(result.isError).toBeFalsy()
+      expect(text).toContain('[Page 8 snapshot]')
+      expect(text).toContain('Large snapshot (15001 words')
+      expect(savedPath).toBeTruthy()
+      expect(text).not.toContain('last-node')
+      expect(text).not.toContain('[UNTRUSTED_PAGE_CONTENT')
+      expect(readFileSync(savedPath ?? '', 'utf8')).toContain('last-node')
+    })
+  })
+
+  it('keeps large snapshot post-actions visible when output file writes fail', async () => {
+    await withBrowserosFile(async () => {
+      const largeSnapshot = [
+        ...Array.from({ length: 15000 }, () => 'x'),
+        'last-node',
+      ].join(' ')
+      const postActionTool = defineTool({
+        name: 'large_snapshot_post_action_failure_test',
+        description: 'Test failed large snapshot post-action output.',
+        input: z.object({ page: z.number().int() }),
+        handler: async (args, _ctx, response) => {
+          response.includeSnapshot(args.page)
+        },
+      })
+      const session = {
+        observe: () => ({
+          snapshot: async () => ({ text: largeSnapshot }),
+        }),
+        pages: {
+          getInfo: () => ({ url: 'https://example.com/large-snapshot' }),
+          getTabId: () => undefined,
+        },
+      } as unknown as BrowserSession
+
+      const result = await executeTool(postActionTool, { page: 8 }, { session })
+      const text = textOf(result)
+
+      expect(result.isError).toBeFalsy()
+      expect(text).toContain('[Page 8 snapshot]')
+      expect(text).toContain('could not be saved to a BrowserOS output file')
+      expect(text).toContain('Showing the first')
+      expect(text).toContain('[UNTRUSTED_PAGE_CONTENT')
+      expect(text).toContain('x x x')
+      expect(text).not.toContain('last-node')
+    })
+  })
+
   it('runs diff post-actions through ToolResponse', async () => {
     const events: string[] = []
     const postActionTool = defineTool({

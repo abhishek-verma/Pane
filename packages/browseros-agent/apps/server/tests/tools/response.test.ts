@@ -1,5 +1,8 @@
 import { describe, it } from 'bun:test'
 import assert from 'node:assert'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { Browser } from '../../src/browser/browser'
 import { ToolResponse } from '../../src/tools/response'
 
@@ -10,6 +13,22 @@ function textOf(result: {
     .filter((item) => item.type === 'text')
     .map((item) => item.text)
     .join('\n')
+}
+
+async function withBrowserosDir<T>(run: () => Promise<T>): Promise<T> {
+  const previous = process.env.BROWSEROS_DIR
+  const browserosDir = mkdtempSync(join(tmpdir(), 'browseros-response-test-'))
+  process.env.BROWSEROS_DIR = browserosDir
+  try {
+    return await run()
+  } finally {
+    if (previous === undefined) {
+      delete process.env.BROWSEROS_DIR
+    } else {
+      process.env.BROWSEROS_DIR = previous
+    }
+    rmSync(browserosDir, { recursive: true, force: true })
+  }
 }
 
 describe('ToolResponse', () => {
@@ -64,6 +83,7 @@ describe('ToolResponse', () => {
 
     const browser = {
       snapshot: async () => '[42] button "Submit"',
+      getPageInfo: () => ({ url: 'https://example.com/small' }),
     } as unknown as Browser
 
     const result = await response.build(browser)
@@ -72,6 +92,35 @@ describe('ToolResponse', () => {
     assert.ok(text.includes('ok'))
     assert.ok(text.includes('[Page 1 snapshot]'))
     assert.ok(text.includes('[42] button "Submit"'))
+  })
+
+  it('writes large legacy snapshot post-actions to a BrowserOS output file', async () => {
+    await withBrowserosDir(async () => {
+      const response = new ToolResponse({ postActionTimeoutMs: 200 })
+      const largeSnapshot = [
+        ...Array.from({ length: 15000 }, () => 'x'),
+        'last-node',
+      ].join(' ')
+      response.text('ok')
+      response.includeSnapshot(1)
+
+      const browser = {
+        snapshot: async () => largeSnapshot,
+        getPageInfo: () => ({ url: 'https://example.com/legacy-large' }),
+      } as unknown as Browser
+
+      const result = await response.build(browser)
+      const text = textOf(result)
+      const savedPath = text.match(/saved to: (.+\.md)/)?.[1]
+
+      assert.ok(!result.isError)
+      assert.ok(text.includes('ok'))
+      assert.ok(text.includes('[Page 1 snapshot]'))
+      assert.ok(text.includes('Large snapshot (15001 words'))
+      assert.ok(savedPath)
+      assert.ok(!text.includes('last-node'))
+      assert.ok(readFileSync(savedPath ?? '', 'utf8').includes('last-node'))
+    })
   })
 
   it('includes diff output when legacy build receives a diff post-action', async () => {

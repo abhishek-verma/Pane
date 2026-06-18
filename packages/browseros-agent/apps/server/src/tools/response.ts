@@ -3,17 +3,22 @@ import type { Browser } from '../browser/browser'
 import type { BrowserSession } from '../browser/core/session'
 import type { SnapshotDiff } from '../browser/core/snapshot/diff'
 import { formatDiffResult } from './browser/diff-format'
-import { wrapUntrusted } from './browser/trust-boundary'
+import { formatSnapshotResult } from './browser/snapshot-format'
 
 export type ContentItem =
   | { type: 'text'; text: string }
   | { type: 'image'; data: string; mimeType: string }
 
 type PostAction =
-  | { type: 'snapshot'; page: number }
+  | SnapshotPostAction
   | { type: 'screenshot'; page: number }
   | DiffPostAction
   | { type: 'pages' }
+
+type SnapshotPostAction = {
+  type: 'snapshot'
+  page: number
+}
 
 type DiffPostAction = {
   type: 'diff'
@@ -117,7 +122,8 @@ export class ToolResponse {
     switch (action.type) {
       case 'snapshot': {
         const tree = await browser.snapshot(action.page)
-        if (tree) this.text(`[Page ${action.page} snapshot]\n${tree}`)
+        const origin = browser.getPageInfo(action.page)?.url ?? 'unknown'
+        await this.appendSnapshotPostAction(action, tree, origin)
         return
       }
       case 'screenshot': {
@@ -160,9 +166,7 @@ export class ToolResponse {
       case 'snapshot': {
         const { text } = await session.observe(action.page).snapshot()
         const origin = session.pages.getInfo(action.page)?.url ?? 'unknown'
-        this.text(
-          `[Page ${action.page} snapshot]\n${wrapUntrusted(text || '(empty page)', origin)}`,
-        )
+        await this.appendSnapshotPostAction(action, text, origin)
         return
       }
       case 'screenshot': {
@@ -198,6 +202,15 @@ export class ToolResponse {
         return
       }
     }
+  }
+
+  private async appendSnapshotPostAction(
+    action: SnapshotPostAction,
+    snapshot: string,
+    origin: string,
+  ): Promise<void> {
+    const formatted = await formatSnapshotResult(snapshot, origin)
+    this.text(`[Page ${action.page} snapshot]\n${formatted.text}`)
   }
 
   private async appendDiffPostAction(
