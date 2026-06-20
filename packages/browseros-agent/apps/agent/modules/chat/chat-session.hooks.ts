@@ -5,6 +5,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Provider } from '@/components/chat/chatComponentTypes'
+import {
+  getWindowConversation,
+  setWindowConversation,
+} from '@/lib/browseros/perWindowConversationStorage'
+import { sidePanelPerWindowStorage } from '@/lib/browseros/sidePanelOpenStateStorage'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import {
   CONVERSATION_RESET_EVENT,
@@ -208,6 +213,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
   const [conversationId, setConversationId] = useState(crypto.randomUUID())
   const conversationIdRef = useRef(conversationId)
+  // The window this panel belongs to, resolved on mount in per-window scope.
+  const windowIdRef = useRef<number | null>(null)
 
   useEffect(() => {
     conversationIdRef.current = conversationId
@@ -506,6 +513,45 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       restoreLocal()
     }
   }, [conversationIdParam, remoteConversationData, isLoggedIn])
+
+  // Per-window scope: resume this window's conversation when the panel
+  // (re)mounts (e.g. closed + reopened) instead of starting a blank chat.
+  // No-op in per-tab scope. Tab switches keep the same panel instance, so this
+  // only matters for a fresh mount.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only; reads refs
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!(await sidePanelPerWindowStorage.getValue())) return
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      })
+      const windowId = tab?.windowId
+      if (windowId == null || cancelled) return
+      windowIdRef.current = windowId
+      const stored = await getWindowConversation(windowId)
+      if (cancelled) return
+      if (stored && stored !== conversationIdRef.current) {
+        setSearchParams({ conversationId: stored })
+      } else if (!stored) {
+        await setWindowConversation(windowId, conversationIdRef.current)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Remember the conversation this window is on so a remount can resume it.
+  useEffect(() => {
+    const windowId = windowIdRef.current
+    if (windowId == null) return
+    ;(async () => {
+      if (!(await sidePanelPerWindowStorage.getValue())) return
+      await setWindowConversation(windowId, conversationId)
+    })()
+  }, [conversationId])
 
   // Keep messagesRef in sync on every change (cheap ref assignment)
   useEffect(() => {
