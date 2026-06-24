@@ -63,6 +63,27 @@ browseros-cli update --check # check only
 browseros-cli update --yes   # apply without prompting
 ```
 
+### Release flow
+
+CLI releases are cut from annotated git tags. The tag is the source of truth for the release version; do not commit a version bump or add a checked-in version file.
+
+```bash
+git tag -a cli/v0.2.3 -m "browseros-cli v0.2.3"
+git push origin cli/v0.2.3
+```
+
+Pushing `cli/vX.Y.Z` starts the CLI release workflow. The workflow rejects tags that are not newer than production latest or whose target commit is not reachable from the repository default branch.
+
+Inspect versions with:
+
+```bash
+browseros-cli --version
+curl -fsSL https://cdn.browseros.com/cli/latest/version.txt
+curl -fsSL https://cdn.browseros.com/cli/latest/manifest.json
+git tag -l 'cli/v*' --sort=-v:refname
+git tag -l 'browseros-cli-v*' --sort=-v:refname
+```
+
 ## Usage
 
 ```bash
