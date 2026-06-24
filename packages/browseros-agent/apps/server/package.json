@@ -90,7 +90,7 @@
     "@ai-sdk/openai": "^3.0.73",
     "@ai-sdk/openai-compatible": "^2.0.51",
     "@ai-sdk/provider": "^3.0.10",
-    "@browseros/agent-mcp-interface": "workspace:*",
+    "@browseros/claw-server": "workspace:*",
     "@browseros/cdp-protocol": "workspace:*",
     "@browseros/shared": "workspace:*",
     "@hono/mcp": "^0.2.5",

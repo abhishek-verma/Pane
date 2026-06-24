@@ -25,10 +25,7 @@
     "declaration": true,
     "declarationMap": true
   },
-  "references": [
-    { "path": "./apps/server" },
-    { "path": "./apps/agent-mcp-interface" }
-  ],
+  "references": [{ "path": "./apps/server" }, { "path": "./apps/claw-server" }],
   "include": [],
   "exclude": ["node_modules", "dist", "build", "*.config.js"]
 }

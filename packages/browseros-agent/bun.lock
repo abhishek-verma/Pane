@@ -20,8 +20,8 @@
         "typescript": "^5.9.3",
       },
     },
-    "apps/agent": {
-      "name": "@browseros/agent",
+    "apps/app": {
+      "name": "@browseros/app",
       "version": "0.0.99",
       "dependencies": {
         "@ai-sdk/react": "^3.0.210",
@@ -117,30 +117,12 @@
         "wxt": "^0.20.26",
       },
     },
-    "apps/agent-mcp-interface": {
-      "name": "@browseros/agent-mcp-interface",
-      "version": "0.0.1",
-      "dependencies": {
-        "@browseros/server": "workspace:*",
-        "@browseros/shared": "workspace:*",
-        "@hono/zod-validator": "^0.8.0",
-        "@modelcontextprotocol/sdk": "^1.27.1",
-        "agent-mcp-manager": "^0.0.1",
-        "hono": "^4.12.3",
-        "nanoid": "^5.1.11",
-        "zod": "^4.4.3",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.3.5",
-        "typescript": "^5.9.2",
-      },
-    },
-    "apps/agent-mcp-ui": {
-      "name": "@browseros/agent-mcp-ui",
+    "apps/claw-app": {
+      "name": "@browseros/claw-app",
       "version": "0.0.1",
       "dependencies": {
         "@base-ui/react": "^1.5.0",
-        "@browseros/agent-mcp-interface": "*",
+        "@browseros/claw-server": "*",
         "@fontsource-variable/jetbrains-mono": "^5.2.5",
         "@fontsource-variable/schibsted-grotesk": "^5.2.5",
         "@fontsource/newsreader": "^5.2.5",
@@ -190,6 +172,24 @@
         "wxt": "^0.20.18",
       },
     },
+    "apps/claw-server": {
+      "name": "@browseros/claw-server",
+      "version": "0.0.1",
+      "dependencies": {
+        "@browseros/server": "workspace:*",
+        "@browseros/shared": "workspace:*",
+        "@hono/zod-validator": "^0.8.0",
+        "@modelcontextprotocol/sdk": "^1.27.1",
+        "agent-mcp-manager": "^0.0.1",
+        "hono": "^4.12.3",
+        "nanoid": "^5.1.11",
+        "zod": "^4.4.3",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.3.5",
+        "typescript": "^5.9.2",
+      },
+    },
     "apps/eval": {
       "name": "@browseros/eval",
       "version": "0.1.0",
@@ -224,8 +224,8 @@
         "@ai-sdk/openai": "^3.0.73",
         "@ai-sdk/openai-compatible": "^2.0.51",
         "@ai-sdk/provider": "^3.0.10",
-        "@browseros/agent-mcp-interface": "workspace:*",
         "@browseros/cdp-protocol": "workspace:*",
+        "@browseros/claw-server": "workspace:*",
         "@browseros/shared": "workspace:*",
         "@hono/mcp": "^0.2.5",
         "@hono/zod-validator": "^0.4.3",
@@ -513,15 +513,15 @@
 
     "@braintree/sanitize-url": ["@braintree/sanitize-url@7.1.2", "", {}, "sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA=="],
 
-    "@browseros/agent": ["@browseros/agent@workspace:apps/agent"],
-
-    "@browseros/agent-mcp-interface": ["@browseros/agent-mcp-interface@workspace:apps/agent-mcp-interface"],
-
-    "@browseros/agent-mcp-ui": ["@browseros/agent-mcp-ui@workspace:apps/agent-mcp-ui"],
+    "@browseros/app": ["@browseros/app@workspace:apps/app"],
 
     "@browseros/build-tools": ["@browseros/build-tools@workspace:packages/build-tools"],
 
     "@browseros/cdp-protocol": ["@browseros/cdp-protocol@workspace:packages/cdp-protocol"],
+
+    "@browseros/claw-app": ["@browseros/claw-app@workspace:apps/claw-app"],
+
+    "@browseros/claw-server": ["@browseros/claw-server@workspace:apps/claw-server"],
 
     "@browseros/eval": ["@browseros/eval@workspace:apps/eval"],
 
@@ -3727,9 +3727,9 @@
 
     "@better-auth/core/jose": ["jose@6.2.3", "", {}, "sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw=="],
 
-    "@browseros/agent-mcp-ui/lucide-react": ["lucide-react@1.21.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-reEZMXq8Qdd5jg5XYkQ5TR1fB/GiQ7ih4vcrthYDtgjSDwh0i6/YLiGjsWsIwgN49gpAnd4J2elSNzncMEEUUQ=="],
+    "@browseros/claw-app/lucide-react": ["lucide-react@1.21.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-reEZMXq8Qdd5jg5XYkQ5TR1fB/GiQ7ih4vcrthYDtgjSDwh0i6/YLiGjsWsIwgN49gpAnd4J2elSNzncMEEUUQ=="],
 
-    "@browseros/agent-mcp-ui/react-hook-form": ["react-hook-form@7.78.0", "", { "peerDependencies": { "react": "^16.8.0 || ^17 || ^18 || ^19" } }, "sha512-EEZqc+N23moyzTlz61Pj+JvcXo76ICkpfOZo8JZw+sM4+wLQGh6nI2Ms+PdMOYNluFu0ghlM7B8mCzhRYtJCnA=="],
+    "@browseros/claw-app/react-hook-form": ["react-hook-form@7.78.0", "", { "peerDependencies": { "react": "^16.8.0 || ^17 || ^18 || ^19" } }, "sha512-EEZqc+N23moyzTlz61Pj+JvcXo76ICkpfOZo8JZw+sM4+wLQGh6nI2Ms+PdMOYNluFu0ghlM7B8mCzhRYtJCnA=="],
 
     "@browseros/eval/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 

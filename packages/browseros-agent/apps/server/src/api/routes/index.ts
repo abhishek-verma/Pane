@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { createCockpitRoutes } from '@browseros/agent-mcp-interface/cockpit'
+import { createCockpitRoutes } from '@browseros/claw-server/cockpit'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { TurnRegistry } from '../../lib/agents/turns/active-turn-registry'

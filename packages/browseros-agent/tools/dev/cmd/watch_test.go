@@ -9,20 +9,20 @@ import (
 	"browseros-dev/proc"
 )
 
-func TestWatchModeRejectsManualBrowserOSForAgentsCombination(t *testing.T) {
-	oldManual, oldBrowserOSForAgents := watchManual, watchBrowserOSForAgents
+func TestWatchModeRejectsManualClawCombination(t *testing.T) {
+	oldManual, oldClaw := watchManual, watchClaw
 	watchManual = true
-	watchBrowserOSForAgents = true
+	watchClaw = true
 	t.Cleanup(func() {
 		watchManual = oldManual
-		watchBrowserOSForAgents = oldBrowserOSForAgents
+		watchClaw = oldClaw
 	})
 
 	_, err := watchMode()
 	if err == nil {
 		t.Fatal("expected incompatible watch flags to return an error")
 	}
-	if !strings.Contains(err.Error(), "--manual cannot be combined with --agent-mcp") {
+	if !strings.Contains(err.Error(), "--manual cannot be combined with --claw") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -33,8 +33,8 @@ func TestWatchRunLockModeIsSharedAcrossWatchVariants(t *testing.T) {
 	}
 }
 
-func TestBuildBrowserOSForAgentsWatchEnvIncludesSelectedPorts(t *testing.T) {
-	env := buildBrowserOSForAgentsWatchEnv([]string{"BASE=1"}, proc.Ports{
+func TestBuildClawWatchEnvIncludesSelectedPorts(t *testing.T) {
+	env := buildClawWatchEnv([]string{"BASE=1"}, proc.Ports{
 		CDP:       9012,
 		Server:    9123,
 		Extension: 9321,
@@ -42,9 +42,9 @@ func TestBuildBrowserOSForAgentsWatchEnvIncludesSelectedPorts(t *testing.T) {
 
 	for _, want := range []string{
 		"BASE=1",
-		"BROWSEROS_AGENT_MCP_INTERFACE_PORT=9123",
+		"BROWSEROS_CLAW_SERVER_PORT=9123",
 		"BROWSEROS_COCKPIT_CDP_PORT=9012",
-		"VITE_BROWSEROS_AGENT_MCP_API_URL=http://127.0.0.1:9123/cockpit",
+		"VITE_BROWSEROS_CLAW_API_URL=http://127.0.0.1:9123/cockpit",
 	} {
 		if !hasEnvEntry(env, want) {
 			t.Fatalf("expected env to contain %q, got %#v", want, env)

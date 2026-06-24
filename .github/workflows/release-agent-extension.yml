@@ -16,7 +16,7 @@ jobs:
       pull-requests: write
     defaults:
       run:
-        working-directory: packages/browseros-agent/apps/agent
+        working-directory: packages/browseros-agent/apps/app
 
     steps:
       - uses: actions/checkout@v7
@@ -47,7 +47,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          AGENT_PATH="packages/browseros-agent/apps/agent"
+          AGENT_PATH="packages/browseros-agent/apps/app"
           CURRENT_TAG="agent-extension-v${{ steps.version.outputs.version }}"
           PREV_TAG=$(git tag -l "agent-extension-v*" --sort=-v:refname | grep -v "^${CURRENT_TAG}$" | head -n 1)
 
@@ -116,7 +116,7 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           DATE=$(date -u +"%Y-%m-%d")
           BRANCH="docs/agent-extension-changelog-v${VERSION}"
-          CHANGELOG="packages/browseros-agent/apps/agent/CHANGELOG.md"
+          CHANGELOG="packages/browseros-agent/apps/app/CHANGELOG.md"
 
           git checkout main
 
