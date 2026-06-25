@@ -223,7 +223,7 @@ func resolveWatchDefaultPorts(root string, claw bool) (proc.Ports, error) {
 
 // buildClawWatchEnv bridges shared dev ports into the standalone BrowserClaw apps.
 func buildClawWatchEnv(env []string, p proc.Ports) []string {
-	apiURL := fmt.Sprintf("http://127.0.0.1:%d/cockpit", p.Server)
+	apiURL := fmt.Sprintf("http://127.0.0.1:%d", p.Server)
 	return append(env,
 		fmt.Sprintf("CLAW_SERVER_PORT=%d", p.Server),
 		fmt.Sprintf("BROWSEROS_CLAW_CDP_PORT=%d", p.CDP),

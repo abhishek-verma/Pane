@@ -38,7 +38,7 @@ async function connect(clientName: string, clientVersion = '0.0.1') {
   return { client, transport }
 }
 
-describe('POST /cockpit/mcp (single endpoint)', () => {
+describe('POST /mcp (single endpoint)', () => {
   beforeEach(() => {
     resetSingleMcpInstanceForTesting()
     identityService.clear()

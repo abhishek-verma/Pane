@@ -6,7 +6,7 @@ import {
 import app from '../../../src/server'
 import { createStubMcpManager } from '../../_helpers/stub-mcp-manager'
 
-describe('/cockpit/connections route chain', () => {
+describe('/connections route chain', () => {
   beforeEach(() => {
     resetMcpManagerForTesting()
     setMcpManagerForTesting(createStubMcpManager())

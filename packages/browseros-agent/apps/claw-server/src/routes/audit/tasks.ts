@@ -6,10 +6,10 @@
  * v2 task-centric read routes. Tasks are derived at read time from
  * tool_dispatches + agent_session_starts + agent_session_ends.
  *
- *   GET /cockpit/audit/tasks             paginated task list
- *   GET /cockpit/audit/tasks/:sessionId  full task detail incl. dispatches
+ *   GET /audit/tasks             paginated task list
+ *   GET /audit/tasks/:sessionId  full task detail incl. dispatches
  *
- * The flat `/cockpit/audit/dispatches` route stays as a low-level
+ * The flat `/audit/dispatches` route stays as a low-level
  * fallback for callers that want raw rows.
  */
 

@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Polls `GET /cockpit/tabs/activity` so the homepage can render a
+ * Polls `GET /tabs/activity` so the homepage can render a
  * live view of which tabs each agent has touched, how recently, and
  * what sequence of tool calls produced the current state. Backed by
  * the in-memory registry in

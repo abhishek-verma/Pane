@@ -7,13 +7,11 @@ import {
 
 describe('canonicalMcpUrlForPort', () => {
   it('emits the slugless v2 shape on the default standalone port', () => {
-    expect(canonicalMcpUrlForPort()).toBe('http://127.0.0.1:9200/cockpit/mcp')
+    expect(canonicalMcpUrlForPort()).toBe('http://127.0.0.1:9200/mcp')
   })
 
   it('respects an alternate dev port', () => {
-    expect(canonicalMcpUrlForPort(9100)).toBe(
-      'http://127.0.0.1:9100/cockpit/mcp',
-    )
+    expect(canonicalMcpUrlForPort(9100)).toBe('http://127.0.0.1:9100/mcp')
   })
 
   it('uses the constant mcp path', () => {

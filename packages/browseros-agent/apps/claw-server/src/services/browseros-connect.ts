@@ -6,7 +6,7 @@
  * v2 single-endpoint install layer. Writes one canonical
  * `"browseros"` entry into the harness's MCP config file via
  * `agent-mcp-manager`, pointing at the slugless canonical URL
- * (`http://127.0.0.1:9200/cockpit/mcp`). One row per supported
+ * (`http://127.0.0.1:9200/mcp`). One row per supported
  * harness, idempotent connect / disconnect, list reads through the
  * library's manifest so the UI reflects the current install state
  * within the polling interval.

@@ -7,7 +7,7 @@
  * Reproduces the parallel-burst pattern that exposed the homepage
  * rollup flicker: fire N `tabs.new + snapshot` chains in parallel
  * against the cockpit's per-agent MCP route, then poll
- * `/cockpit/tabs/activity` once per second for 30 seconds and print
+ * `/tabs/activity` once per second for 30 seconds and print
  * a structured PASS/FAIL summary. The rig is the documented
  * validation gate for any future change to `ACTIVE_WINDOW_MS`, the
  * rollup helper, or the per-agent MCP route.
@@ -20,7 +20,7 @@
  *
  * Optional flags:
  *
- *   --cockpit-url=http://127.0.0.1:9200/cockpit   default
+ *   --cockpit-url=http://127.0.0.1:9200           default
  *   --origin=chrome-extension://...                default uses the claw-app pinned key
  *   --poll-seconds=30                              total window to observe
  *   --hold-seconds=3                               PASS requires the active count to hold for at least this many consecutive samples at N
@@ -30,7 +30,7 @@
  * PASS line into the PR description.
  */
 
-const DEFAULT_COCKPIT_URL = 'http://127.0.0.1:9200/cockpit'
+const DEFAULT_COCKPIT_URL = 'http://127.0.0.1:9200'
 const DEFAULT_ORIGIN = 'chrome-extension://cbjjhiahclaiijedfmgafnkmejjoemga'
 const DEFAULT_POLL_SECONDS = 30
 const DEFAULT_HOLD_SECONDS = 3

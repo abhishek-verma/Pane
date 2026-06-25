@@ -23,14 +23,11 @@
  */
 
 import type { AppType } from '@browseros/claw-server/server'
-import {
-  CLAW_API_PORT_DEFAULT,
-  COCKPIT_MOUNT_PREFIX,
-} from '@browseros/claw-server/shared/port'
+import { CLAW_API_PORT_DEFAULT } from '@browseros/claw-server/shared/port'
 import { hc } from 'hono/client'
 import {
   API_URL_STORAGE_KEY,
-  isLoopbackCockpitUrl,
+  normalizeLoopbackApiRootUrl,
   resolveApiBaseUrlFromSources,
 } from './client.helpers'
 
@@ -45,18 +42,19 @@ export function apiBaseUrl(): string {
 }
 
 function resolveApiBaseUrl(): string {
-  const fallback = `http://127.0.0.1:${CLAW_API_PORT_DEFAULT}${COCKPIT_MOUNT_PREFIX}`
+  const fallback = `http://127.0.0.1:${CLAW_API_PORT_DEFAULT}`
   if (typeof window === 'undefined') return fallback
 
   const fromQuery = new URLSearchParams(window.location.search).get('apiUrl')
-  if (isLoopbackCockpitUrl(fromQuery)) {
+  const queryBaseUrl = normalizeLoopbackApiRootUrl(fromQuery)
+  if (queryBaseUrl) {
     try {
-      window.sessionStorage.setItem(API_URL_STORAGE_KEY, fromQuery)
+      window.sessionStorage.setItem(API_URL_STORAGE_KEY, queryBaseUrl)
     } catch {
       // sessionStorage can refuse writes in sandboxed contexts; the
       // resolved URL still serves this session.
     }
-    return fromQuery
+    return queryBaseUrl
   }
 
   try {

@@ -23,7 +23,7 @@ export const mcpRoute = new Hono().all('/mcp/:slug', async (c) => {
     return c.json(
       {
         error: 'legacy per-agent MCP endpoint is disabled',
-        hint: 'use the standard endpoint at /cockpit/mcp, or set COCKPIT_LEGACY_PER_AGENT_MCP=1 to re-enable per-slug routes',
+        hint: 'use the standard endpoint at /mcp, or set COCKPIT_LEGACY_PER_AGENT_MCP=1 to re-enable per-slug routes',
       },
       404,
     )

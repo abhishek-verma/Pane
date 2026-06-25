@@ -6,7 +6,7 @@
  *
  * Standalone BrowserClaw API entry point.
  *
- * Binds Hono on 127.0.0.1 and serves routes under `/cockpit`; the
+ * Binds Hono on 127.0.0.1 and serves routes from the root; the
  * claw-app extension can override the base URL with `?apiUrl=` or
  * `VITE_BROWSEROS_CLAW_API_URL` when dev-watch selects a random port.
  */
@@ -19,7 +19,6 @@ if (typeof Bun === 'undefined') {
   process.exit(1)
 }
 
-import { Hono } from 'hono'
 import { loadClawConfig } from './config'
 import { applyClawConfig, env } from './env'
 import { bootstrapBrowserosBrowser } from './lib/browser-bootstrap'
@@ -28,7 +27,6 @@ import { logger } from './lib/logger'
 import { migrateMcpUrls } from './lib/migrate-mcp-urls'
 import { setLocalServerUrl } from './local-server-url'
 import server from './server'
-import { COCKPIT_MOUNT_PREFIX } from './shared/port'
 
 async function start(): Promise<void> {
   const config = loadClawConfig()
@@ -39,13 +37,12 @@ async function start(): Promise<void> {
   }
   applyClawConfig(config.value)
 
-  const root = new Hono().route(COCKPIT_MOUNT_PREFIX, server)
   const httpServer = Bun.serve({
     hostname: '127.0.0.1',
     port: env.port,
-    fetch: root.fetch,
+    fetch: server.fetch,
   })
-  const url = `http://${httpServer.hostname}:${httpServer.port}${COCKPIT_MOUNT_PREFIX}`
+  const url = `http://${httpServer.hostname}:${httpServer.port}`
   setLocalServerUrl(url)
   logger.info('claw-server listening', { url })
 

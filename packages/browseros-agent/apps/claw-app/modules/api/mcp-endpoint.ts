@@ -18,33 +18,31 @@ import {
   BROWSEROS_MCP_SERVER_NAME,
   MCP_PATH,
 } from '@browseros/claw-server/shared/mcp-url'
-import {
-  CLAW_API_PORT_DEFAULT,
-  COCKPIT_MOUNT_PREFIX,
-} from '@browseros/claw-server/shared/port'
+import { CLAW_API_PORT_DEFAULT } from '@browseros/claw-server/shared/port'
 import {
   API_URL_STORAGE_KEY,
-  isLoopbackCockpitUrl,
+  normalizeLoopbackApiRootUrl,
   resolveApiBaseUrlFromSources,
 } from './client.helpers'
 
 function fallbackBaseUrl(): string {
-  return `http://127.0.0.1:${CLAW_API_PORT_DEFAULT}${COCKPIT_MOUNT_PREFIX}`
+  return `http://127.0.0.1:${CLAW_API_PORT_DEFAULT}`
 }
 
-/** Resolves the same cockpit base URL as the API client for pre-create previews. */
+/** Resolves the same API base URL as the client for pre-create previews. */
 function resolveMcpBaseUrl(): string {
   const fallback = fallbackBaseUrl()
   if (typeof window === 'undefined') return fallback
 
   const query = new URLSearchParams(window.location.search).get('apiUrl')
-  if (isLoopbackCockpitUrl(query)) {
+  const queryBaseUrl = normalizeLoopbackApiRootUrl(query)
+  if (queryBaseUrl) {
     try {
-      window.sessionStorage.setItem(API_URL_STORAGE_KEY, query)
+      window.sessionStorage.setItem(API_URL_STORAGE_KEY, queryBaseUrl)
     } catch {
       // sessionStorage may reject writes in sandboxed contexts; this call can still use the query URL.
     }
-    return query
+    return queryBaseUrl
   }
 
   try {
@@ -76,9 +74,9 @@ export function buildMcpEndpointUrl(slug: string): string {
 
 /**
  * Pulls the slug segment out of an MCP URL. Tolerates both the
- * prefixed shape (`/cockpit/mcp/<slug>`) and the direct shape
- * (`/mcp/<slug>`). Returns an empty string when neither matches so
- * callers can fall back to a known id.
+ * removed prefixed shape and the current direct shape. Returns an
+ * empty string when neither matches so callers can fall back to a
+ * known id.
  */
 export function slugFromMcpEndpointUrl(url: string): string {
   const match = url.match(/\/mcp\/([^/?#]+)/)

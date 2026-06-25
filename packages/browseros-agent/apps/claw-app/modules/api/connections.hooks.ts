@@ -5,7 +5,7 @@
  *
  * react-query-kit factories for the v2 MCP page's per-harness
  * Connect / Disconnect buttons. Backed by the
- * `GET /cockpit/connections` and `POST /cockpit/connections/:harness/{connect,disconnect}`
+ * `GET /connections` and `POST /connections/:harness/{connect,disconnect}`
  * routes shipped in this PR. Mutation success invalidates the list
  * query by its `getKey()` so the row's "Connected" badge flips
  * within one render.

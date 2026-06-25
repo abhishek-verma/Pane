@@ -6,17 +6,7 @@ interface RunningGridProps {
   agents: AgentActivityRecord[]
 }
 
-/**
- * One uniform card per rolled-up agent. v2 has no per-agent profile
- * directory, so the trailing "New profile" tile is gone; the
- * AddAgentTile file stays on disk with a TODO header that names what
- * brings it back. Watch focuses the agent's tab group in BrowserOS
- * via `POST /cockpit/tabs/focus/:agentId`. When the registry is
- * empty, the section returns null so the homepage does not carry an
- * empty card that adds noise without information. The operator's
- * entry point to connect agents is the MCP link in the sidebar /
- * the hero copy above the section.
- */
+/** Renders live agent cards and focuses their BrowserOS tab group on watch. */
 export function RunningGrid({ agents }: RunningGridProps) {
   const focus = useFocusAgent()
   const liveCount = agents.filter((a) => a.status === 'active').length

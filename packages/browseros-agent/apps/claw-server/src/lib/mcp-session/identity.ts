@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * Per-session identity map. In v2 the cockpit exposes one standard
- * MCP endpoint at `POST /cockpit/mcp` and every agent connects to it
+ * MCP endpoint at `POST /mcp` and every agent connects to it
  * over a `StreamableHTTPTransport` session. The transport assigns an
  * `mcp-session-id` at handshake time; we use that id as the key into
  * this map so subsequent `tools/call` requests on the same session

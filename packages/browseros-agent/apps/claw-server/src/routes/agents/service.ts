@@ -27,7 +27,6 @@ import {
   reconcileHarnessLink,
   uninstallForAgent,
 } from '../../services/harness-install'
-import { COCKPIT_MOUNT_PREFIX } from '../../shared/port'
 import {
   type AgentProfileSummary,
   type CreatedAgent,
@@ -77,9 +76,7 @@ function nowIso(): string {
 }
 
 function baseUrl(): string {
-  return (
-    getLocalServerUrl() ?? `http://127.0.0.1:${env.port}${COCKPIT_MOUNT_PREFIX}`
-  )
+  return getLocalServerUrl() ?? `http://127.0.0.1:${env.port}`
 }
 
 function buildMcpUrl(slug: string): string {

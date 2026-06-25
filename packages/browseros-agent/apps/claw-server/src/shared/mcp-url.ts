@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Canonical v2 MCP URL shape. One endpoint per cockpit, no per-agent
+ * Canonical v2 MCP URL shape. One endpoint per Claw server, no per-agent
  * slug. Used by both the server-side install service (writes the URL
  * into harness configs) and the UI's URL widgets (copy button + CLI
  * snippet). Keeping the shape in `shared/` mirrors the `shared/port`
@@ -11,9 +11,9 @@
  * single-file edit.
  */
 
-import { CLAW_API_PORT_DEFAULT, COCKPIT_MOUNT_PREFIX } from './port'
+import { CLAW_API_PORT_DEFAULT } from './port'
 
-/** Path the v2 single MCP route is mounted at, relative to the cockpit prefix. */
+/** Path the v2 single MCP route is mounted at. */
 export const MCP_PATH = '/mcp'
 
 /**
@@ -29,5 +29,5 @@ export const BROWSEROS_MCP_SERVER_NAME = 'browseros'
  * resolves alternate bases (dev-launcher overrides, query string).
  */
 export function canonicalMcpUrlForPort(port = CLAW_API_PORT_DEFAULT): string {
-  return `http://127.0.0.1:${port}${COCKPIT_MOUNT_PREFIX}${MCP_PATH}`
+  return `http://127.0.0.1:${port}${MCP_PATH}`
 }

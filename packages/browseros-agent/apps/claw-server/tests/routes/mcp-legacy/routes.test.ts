@@ -54,7 +54,8 @@ describe('/mcp/:slug legacy gate', () => {
     expect(res.status).toBe(404)
     const body = (await res.json()) as { error?: string; hint?: string }
     expect(body.error).toBe('legacy per-agent MCP endpoint is disabled')
-    expect(body.hint).toContain('/cockpit/mcp')
+    expect(body.hint).toContain('/mcp')
+    expect(body.hint).not.toContain('/cockpit')
     expect(body.hint).toContain('COCKPIT_LEGACY_PER_AGENT_MCP')
   })
 

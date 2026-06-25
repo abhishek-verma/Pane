@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * react-query-kit mutation backing the homepage's Watch button.
- * Hits `POST /cockpit/tabs/focus/:agentId`; the server expands the
+ * Hits `POST /tabs/focus/:agentId`; the server expands the
  * agent's tab group in BrowserOS and activates the group's window.
  */
 

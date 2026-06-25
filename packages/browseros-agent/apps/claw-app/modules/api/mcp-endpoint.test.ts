@@ -35,43 +35,29 @@ afterEach(() => {
 
 describe('buildMcpEndpointUrl', () => {
   it('persists a valid query api URL for later same-session calls', () => {
-    const storage = installWindow(
-      '?apiUrl=http%3A%2F%2F127.0.0.1%3A9234%2Fcockpit',
-    )
+    const storage = installWindow('?apiUrl=http%3A%2F%2F127.0.0.1%3A9234')
 
-    expect(buildMcpEndpointUrl('demo')).toBe(
-      'http://127.0.0.1:9234/cockpit/mcp/demo',
-    )
-    expect(storage.get(API_URL_STORAGE_KEY)).toBe(
-      'http://127.0.0.1:9234/cockpit',
-    )
+    expect(buildMcpEndpointUrl('demo')).toBe('http://127.0.0.1:9234/mcp/demo')
+    expect(storage.get(API_URL_STORAGE_KEY)).toBe('http://127.0.0.1:9234')
   })
 
   it('uses the cached API URL when the query is absent', () => {
-    const storage = new Map([
-      [API_URL_STORAGE_KEY, 'http://127.0.0.1:9345/cockpit'],
-    ])
+    const storage = new Map([[API_URL_STORAGE_KEY, 'http://127.0.0.1:9345']])
     installWindow('', storage)
 
-    expect(buildMcpEndpointUrl('demo')).toBe(
-      'http://127.0.0.1:9345/cockpit/mcp/demo',
-    )
+    expect(buildMcpEndpointUrl('demo')).toBe('http://127.0.0.1:9345/mcp/demo')
   })
 })
 
 describe('buildCanonicalMcpEndpointUrl', () => {
   it('emits the v2 slugless URL using the query-supplied base', () => {
-    installWindow('?apiUrl=http%3A%2F%2F127.0.0.1%3A9234%2Fcockpit')
-    expect(buildCanonicalMcpEndpointUrl()).toBe(
-      'http://127.0.0.1:9234/cockpit/mcp',
-    )
+    installWindow('?apiUrl=http%3A%2F%2F127.0.0.1%3A9234')
+    expect(buildCanonicalMcpEndpointUrl()).toBe('http://127.0.0.1:9234/mcp')
   })
 
-  it('falls back to the prod port + cockpit prefix when no overrides exist', () => {
+  it('falls back to the prod port root when no overrides exist', () => {
     installWindow('')
-    expect(buildCanonicalMcpEndpointUrl()).toBe(
-      'http://127.0.0.1:9200/cockpit/mcp',
-    )
+    expect(buildCanonicalMcpEndpointUrl()).toBe('http://127.0.0.1:9200/mcp')
   })
 })
 
@@ -80,7 +66,7 @@ describe('buildCanonicalMcpCliCommand', () => {
     installWindow('')
     const cli = buildCanonicalMcpCliCommand()
     expect(cli).toContain('claude mcp add browseros')
-    expect(cli).toContain('http://127.0.0.1:9200/cockpit/mcp')
+    expect(cli).toContain('http://127.0.0.1:9200/mcp')
     expect(cli).toContain('--transport http')
     expect(cli).toContain('--scope user')
   })

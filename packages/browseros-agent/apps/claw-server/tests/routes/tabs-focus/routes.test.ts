@@ -20,7 +20,7 @@ const { setBrowserSession } = await import('../../../src/lib/browser-session')
 const { tabGroupTracker } = await import('../../../src/lib/agent-tab-groups')
 const app = (await import('../../../src/server')).default
 
-describe('POST /cockpit/tabs/focus/:agentId', () => {
+describe('POST /tabs/focus/:agentId', () => {
   beforeEach(() => {
     tabGroupTracker.reset()
   })

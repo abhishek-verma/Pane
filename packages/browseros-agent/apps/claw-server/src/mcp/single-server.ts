@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * v2 single MCP endpoint. Every agent connects to the same public
- * URL (`POST /cockpit/mcp`); the SDK's stateful Streamable HTTP
+ * URL (`POST /mcp`); the SDK's stateful Streamable HTTP
  * transport supports one session per transport instance, so we keep
  * a `sessionId -> { server, transport }` map and route each request
  * to its session's transport. Identity is captured on the client's

@@ -8,8 +8,7 @@
  * `single-server.ts` (which fires on the InitializedNotification,
  * after the server has stored `clientInfo`). This route is always
  * mounted; turning off the legacy per-slug route does not affect
- * this one. The standalone server mounts the cockpit at `/cockpit`,
- * so the resulting public URL is `POST /cockpit/mcp`.
+ * this one. The standalone server serves the route at `POST /mcp`.
  */
 
 import { Hono } from 'hono'

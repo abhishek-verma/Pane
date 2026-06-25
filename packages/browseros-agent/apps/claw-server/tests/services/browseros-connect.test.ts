@@ -35,7 +35,8 @@ describe('connectBrowserosToHarness', () => {
     }
     expect(addPayload.name).toBe('browseros')
     expect(addPayload.spec.transport).toBe('http')
-    expect(addPayload.spec.url).toContain('/cockpit/mcp')
+    expect(addPayload.spec.url).toContain('/mcp')
+    expect(addPayload.spec.url).not.toContain('/cockpit')
     const link = stub.calls.find((c) => c.method === 'link')
     expect(link).toBeDefined()
     expect((link?.payload as { agent: string }).agent).toBe('claude-code')
@@ -52,7 +53,8 @@ describe('connectBrowserosToHarness', () => {
     expect(payload.spec.transport).toBe('stdio')
     expect(payload.spec.command).toBe('npx')
     expect(payload.spec.args?.[0]).toBe('mcp-remote')
-    expect(payload.spec.args?.[1]).toContain('/cockpit/mcp')
+    expect(payload.spec.args?.[1]).toContain('/mcp')
+    expect(payload.spec.args?.[1]).not.toContain('/cockpit')
   })
 
   it('short-circuits as a no-op for BrowserOS-internal harnesses (Hermes, OpenClaw)', async () => {

@@ -27,7 +27,7 @@ function seed(over: { agentId?: string; sessionId?: string } = {}): void {
   })
 }
 
-describe('GET /cockpit/audit/dispatches', () => {
+describe('GET /audit/dispatches', () => {
   beforeEach(() => setAuditDbForTesting())
   afterEach(() => resetAuditDbForTesting())
 

@@ -7,32 +7,35 @@ export type ApiBaseUrlSources = {
 
 export const API_URL_STORAGE_KEY = 'browseros.claw-app.apiUrl'
 
-/** Accepts numeric loopback only; `localhost` can go through DNS. */
-export function isLoopbackCockpitUrl(
+/** Normalizes trusted root API URLs; `localhost` can go through DNS. */
+export function normalizeLoopbackApiRootUrl(
   value: string | null | undefined,
-): value is string {
-  if (!value) return false
+): string | null {
+  if (!value) return null
   try {
     const url = new URL(value)
-    return (
+    const isValid =
       url.protocol === 'http:' &&
       url.hostname === '127.0.0.1' &&
       url.port !== '' &&
-      url.pathname === '/cockpit' &&
+      url.pathname === '/' &&
       url.search === '' &&
       url.hash === ''
-    )
+    return isValid ? url.origin : null
   } catch {
-    return false
+    return null
   }
 }
 
-/** Resolves the cockpit API URL from trusted local dev sources. */
+/** Resolves the Claw API URL from trusted local dev sources. */
 export function resolveApiBaseUrlFromSources(
   sources: ApiBaseUrlSources,
 ): string {
-  if (isLoopbackCockpitUrl(sources.query)) return sources.query
-  if (isLoopbackCockpitUrl(sources.stored)) return sources.stored
-  if (isLoopbackCockpitUrl(sources.launcher)) return sources.launcher
+  const query = normalizeLoopbackApiRootUrl(sources.query)
+  if (query) return query
+  const stored = normalizeLoopbackApiRootUrl(sources.stored)
+  if (stored) return stored
+  const launcher = normalizeLoopbackApiRootUrl(sources.launcher)
+  if (launcher) return launcher
   return sources.fallback
 }
