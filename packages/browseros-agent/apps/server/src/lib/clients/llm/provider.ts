@@ -161,6 +161,26 @@ function createQwenCodeModel(config: ResolvedLLMConfig): LanguageModel {
   })(config.model)
 }
 
+function createCerebrasModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.baseUrl) throw new Error('Cerebras provider requires baseUrl')
+  if (!config.apiKey) throw new Error('Cerebras provider requires apiKey')
+  return createOpenAICompatible({
+    name: 'cerebras',
+    baseURL: config.baseUrl,
+    apiKey: config.apiKey,
+  })(config.model)
+}
+
+function createDeepSeekModel(config: ResolvedLLMConfig): LanguageModel {
+  if (!config.baseUrl) throw new Error('DeepSeek provider requires baseUrl')
+  if (!config.apiKey) throw new Error('DeepSeek provider requires apiKey')
+  return createOpenAICompatible({
+    name: 'deepseek',
+    baseURL: config.baseUrl,
+    apiKey: config.apiKey,
+  })(config.model)
+}
+
 function createGitHubCopilotModel(config: ResolvedLLMConfig): LanguageModel {
   if (!config.apiKey)
     throw new Error('GitHub Copilot requires OAuth authentication')
@@ -195,6 +215,8 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.CHATGPT_PRO]: createChatGPTProModel,
   [LLM_PROVIDERS.GITHUB_COPILOT]: createGitHubCopilotModel,
   [LLM_PROVIDERS.QWEN_CODE]: createQwenCodeModel,
+  [LLM_PROVIDERS.CEREBRAS]: createCerebrasModel,
+  [LLM_PROVIDERS.DEEPSEEK]: createDeepSeekModel,
 }
 
 export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {

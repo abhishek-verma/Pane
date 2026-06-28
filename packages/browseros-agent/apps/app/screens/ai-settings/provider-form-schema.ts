@@ -20,6 +20,8 @@ const providerTypeEnum = z.enum([
   'claude-code',
   'acp-custom',
   'remote-hermes',
+  'cerebras',
+  'deepseek',
 ])
 
 const credentiallessProviderTypes: ReadonlySet<

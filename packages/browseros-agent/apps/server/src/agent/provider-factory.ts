@@ -421,6 +421,30 @@ function createQwenCodeFactory(
   })
 }
 
+function createCerebrasFactory(
+  config: ResolvedAgentConfig,
+): (modelId: string) => unknown {
+  if (!config.baseUrl) throw new Error('Cerebras provider requires baseUrl')
+  if (!config.apiKey) throw new Error('Cerebras provider requires apiKey')
+  return createOpenAICompatible({
+    name: 'cerebras',
+    baseURL: config.baseUrl,
+    apiKey: config.apiKey,
+  })
+}
+
+function createDeepSeekFactory(
+  config: ResolvedAgentConfig,
+): (modelId: string) => unknown {
+  if (!config.baseUrl) throw new Error('DeepSeek provider requires baseUrl')
+  if (!config.apiKey) throw new Error('DeepSeek provider requires apiKey')
+  return createOpenAICompatible({
+    name: 'deepseek',
+    baseURL: config.baseUrl,
+    apiKey: config.apiKey,
+  })
+}
+
 function createGitHubCopilotFactory(
   config: ResolvedAgentConfig,
 ): (modelId: string) => unknown {
@@ -459,6 +483,8 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.CHATGPT_PRO]: createChatGPTProFactory,
   [LLM_PROVIDERS.GITHUB_COPILOT]: createGitHubCopilotFactory,
   [LLM_PROVIDERS.QWEN_CODE]: createQwenCodeFactory,
+  [LLM_PROVIDERS.CEREBRAS]: createCerebrasFactory,
+  [LLM_PROVIDERS.DEEPSEEK]: createDeepSeekFactory,
 }
 
 export interface LanguageModelWithCleanup {

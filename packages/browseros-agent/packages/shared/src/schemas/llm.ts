@@ -31,6 +31,8 @@ export const LLM_PROVIDERS = {
   CODEX: 'codex',
   ACP_CUSTOM: 'acp-custom',
   REMOTE_HERMES: 'remote-hermes',
+  CEREBRAS: 'cerebras',
+  DEEPSEEK: 'deepseek',
 } as const
 
 /**
@@ -56,6 +58,8 @@ export const LLMProviderSchema: z.ZodEnum<
     'codex',
     'acp-custom',
     'remote-hermes',
+    'cerebras',
+    'deepseek',
   ]
 > = z.enum([
   LLM_PROVIDERS.ANTHROPIC,
@@ -76,6 +80,8 @@ export const LLMProviderSchema: z.ZodEnum<
   LLM_PROVIDERS.CODEX,
   LLM_PROVIDERS.ACP_CUSTOM,
   LLM_PROVIDERS.REMOTE_HERMES,
+  LLM_PROVIDERS.CEREBRAS,
+  LLM_PROVIDERS.DEEPSEEK,
 ])
 
 export type LLMProvider = z.infer<typeof LLMProviderSchema>

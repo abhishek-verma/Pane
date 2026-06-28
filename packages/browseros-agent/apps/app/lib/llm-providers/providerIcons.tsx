@@ -2,6 +2,8 @@ import {
   Anthropic,
   Azure,
   Bedrock,
+  Cerebras,
+  DeepSeek,
   Gemini,
   Kimi,
   LmStudio,
@@ -40,6 +42,8 @@ const providerIconMap: Record<ProviderType, IconComponent | null> = {
   'claude-code': Anthropic,
   'acp-custom': null,
   'remote-hermes': Sparkles,
+  cerebras: Cerebras,
+  deepseek: DeepSeek,
 }
 
 export interface ProviderIconProps {

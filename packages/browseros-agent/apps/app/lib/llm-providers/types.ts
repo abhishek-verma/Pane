@@ -18,6 +18,8 @@ export type ProviderType =
   | 'claude-code'
   | 'acp-custom'
   | 'remote-hermes'
+  | 'cerebras'
+  | 'deepseek'
 
 // Mirror of @browseros/shared/constants/hermes REMOTE_HERMES_PROVIDER_TYPE.
 // Re-declared locally because the agent UI is a WXT/Vite extension and
