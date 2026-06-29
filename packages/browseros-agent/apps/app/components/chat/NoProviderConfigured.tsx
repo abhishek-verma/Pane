@@ -4,6 +4,13 @@ import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { PRODUCT_NAME } from '@/lib/constants/product'
 
+const isSidePanel = location.pathname.endsWith('/sidepanel.html')
+
+const openSettings = () => {
+  const url = chrome.runtime.getURL('app.html#/settings/ai')
+  void chrome.tabs.create({ url })
+}
+
 /** Shown when chat is opened before the user adds an LLM provider. */
 export const NoProviderConfigured: FC = () => {
   return (
@@ -18,12 +25,19 @@ export const NoProviderConfigured: FC = () => {
           Studio) before chat and agent features can run.
         </p>
       </div>
-      <Button asChild>
-        <Link to="/settings/ai">
+      {isSidePanel ? (
+        <Button onClick={openSettings}>
           <Settings className="mr-2 h-4 w-4" />
           Configure in Settings
-        </Link>
-      </Button>
+        </Button>
+      ) : (
+        <Button asChild>
+          <Link to="/settings/ai">
+            <Settings className="mr-2 h-4 w-4" />
+            Configure in Settings
+          </Link>
+        </Button>
+      )}
     </div>
   )
 }
