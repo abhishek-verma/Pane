@@ -39,7 +39,7 @@ const clients: ClientConfig[] = [
       JSON.stringify(
         {
           mcpServers: {
-            browseros: { type: 'http', url },
+            pane: { type: 'http', url },
           },
         },
         null,
@@ -52,7 +52,7 @@ const clients: ClientConfig[] = [
     kind: 'command',
     action: 'Run in your terminal:',
     getSnippet: (url) =>
-      `claude mcp add --transport http browseros ${url} --scope user`,
+      `claude mcp add --transport http pane ${url} --scope user`,
   },
   {
     id: 'claude-desktop',
@@ -71,7 +71,7 @@ const clients: ClientConfig[] = [
       JSON.stringify(
         {
           mcpServers: {
-            browseros: {
+            pane: {
               command: 'npx',
               args: ['mcp-remote', url],
             },
@@ -86,7 +86,7 @@ const clients: ClientConfig[] = [
     name: 'Codex',
     kind: 'command',
     action: 'Run in your terminal:',
-    getSnippet: (url) => `codex mcp add browseros ${url}`,
+    getSnippet: (url) => `codex mcp add pane ${url}`,
   },
 ]
 

@@ -1,56 +1,82 @@
 /**
+ * Primary public URL for Pane — used for docs, help, about, and community links in the UI.
  * @public
  */
-export const docsUrl = 'https://docs.browseros.com/'
+export const PANE_GITHUB_URL = 'https://github.com/abhishek-verma/Pane'
 
 /**
  * @public
  */
-export const productWebUrl = 'https://browseros.com'
+export const productRepositoryUrl = PANE_GITHUB_URL
 
 /**
  * @public
  */
-export const productRepositoryUrl = 'https://github.com/browseros-ai/BrowserOS'
+export const githubOrgUrl = PANE_GITHUB_URL
 
 /**
  * @public
  */
-export const githubOrgUrl = 'https://github.com/browseros-ai'
+export const docsUrl = PANE_GITHUB_URL
 
 /**
  * @public
  */
-export const privacyPolicyUrl = 'https://browseros.com/privacy'
+export const productWebUrl = PANE_GITHUB_URL
 
 /**
  * @public
  */
-export const contributorsUrl =
-  'https://github.com/browseros-ai/BrowserOS/graphs/contributors'
+export const privacyPolicyUrl = PANE_GITHUB_URL
 
 /**
  * @public
  */
-export const discordUrl = 'https://discord.gg/browseros'
+export const contributorsUrl = `${PANE_GITHUB_URL}/graphs/contributors`
 
 /**
  * @public
  */
-export const slackUrl = 'https://dub.sh/browserOS-slack'
+export const productRepositoryShortUrl = PANE_GITHUB_URL
+
+/**
+ * @public
+ */
+export const scheduledTasksHelpUrl = PANE_GITHUB_URL
+
+/**
+ * @public
+ */
+export const mcpSetupGuideUrl = PANE_GITHUB_URL
+
+/**
+ * @public
+ */
+export const byokGuideUrl = PANE_GITHUB_URL
+
+/**
+ * @public
+ */
+export const connectionTroubleshootingUrl = PANE_GITHUB_URL
+
+/**
+ * @public
+ */
+export const changelogUrl = `${PANE_GITHUB_URL}/releases`
+
+/**
+ * @public
+ * TODO(pane-infra): Pane Discord invite URL
+ */
+export const discordUrl: string | null = null
+
+/**
+ * @public
+ * TODO(pane-infra): Pane Slack invite URL
+ */
+export const slackUrl: string | null = null
 
 /**
  * @public
  */
 export const productVideoUrl = 'https://youtu.be/J-lFhTP-7is'
-
-/**
- * @public
- */
-export const productRepositoryShortUrl = 'https://git.new/browseros'
-
-/**
- * @public
- */
-export const scheduledTasksHelpUrl =
-  'https://docs.browseros.com/features/scheduled-tasks'

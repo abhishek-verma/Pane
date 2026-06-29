@@ -25,17 +25,17 @@ export const CHAT_SUGGESTIONS: Suggestion[] = [
   },
 ]
 
+import { PANE_GITHUB_URL } from '@/lib/constants/productUrls'
+
 export const AGENT_SUGGESTIONS: Suggestion[] = [
   {
     display: 'Read about our vision and upvote',
-    prompt:
-      'Go to https://dub.sh/browseros-launch in current tab. Find and click the upvote button',
+    prompt: `Go to ${PANE_GITHUB_URL} in current tab. Find and click the star button`,
     icon: '❤️',
   },
   {
-    display: 'Support BrowserOS on Github',
-    prompt:
-      'Go to http://git.new/browseros in current tab and star the repository',
+    display: 'Support Pane on Github',
+    prompt: `Go to ${PANE_GITHUB_URL} in current tab and star the repository`,
     icon: '⭐',
   },
   {
