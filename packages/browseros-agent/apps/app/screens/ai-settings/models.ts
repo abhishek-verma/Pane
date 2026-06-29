@@ -37,18 +37,8 @@ const CUSTOM_PROVIDER_MODELS: Partial<Record<ProviderType, ModelInfo[]>> = {
     { modelId: 'qwen3.5-plus', contextLength: 1000000 },
   ],
   cerebras: [
-    { modelId: 'llama-3.3-70b', contextLength: 128000, supportsToolCall: true },
-    { modelId: 'llama3.1-8b', contextLength: 128000, supportsToolCall: true },
-    {
-      modelId: 'llama-4-scout-17b-16e-instruct',
-      contextLength: 128000,
-      supportsToolCall: true,
-    },
-    {
-      modelId: 'qwen-3-235b-a22b-instruct-2507',
-      contextLength: 128000,
-      supportsToolCall: true,
-    },
+    { modelId: 'zai-glm-4.7', contextLength: 128000, supportsToolCall: true },
+    { modelId: 'gpt-oss-120b', contextLength: 128000, supportsToolCall: true },
   ],
   deepseek: [
     {
