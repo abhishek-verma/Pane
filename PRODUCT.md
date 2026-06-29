@@ -29,21 +29,25 @@ This document is the product lens on the Pane workspace: who it serves, what it 
 
 ## Vision and Positioning
 
-**One-line:** The privacy-first, open-source alternative to AI browsers like ChatGPT Atlas, Perplexity Comet, and Dia — with MCP built in so developers can control the same browser from Claude Code, Cursor, or the terminal.
+**One-line:** Pane is the open-source, AI-native browser that puts the agent *inside* the browser — where your work already lives — so it can act on your tabs, files, and terminal in one loop, locally, with your own models. No Pane servers, no account, no vendor lock-in.
 
-**Category:** Agentic browser (Chromium fork + native assistant + MCP server).
+**Category:** Agentic browser (Chromium fork + native agent + MCP server).
+
+**Origin:** Pane is a fork of [BrowserOS](https://github.com/browseros-ai/BrowserOS) — an excellent open-source agentic-browser project. We forked to pursue a different product trajectory: agent-native, local-first, and server-free, building the "agent that lives in your browser" vision on top of a solid foundation.
 
 **Differentiators:**
 
 | Dimension | Pane stance |
 |-----------|------------------|
-| **Privacy** | Local-first; BYOK or local models (Ollama, LM Studio); browsing stays on device unless user connects cloud sync |
+| **Agent placement** | The agent lives *in* the browser — same session, tabs, logins; not a sidebar or a remote-driven browser |
+| **Scope** | Web + files + terminal in one agent loop (Cowork), not browser-only |
+| **Privacy** | Local-first; BYOK or local models (Ollama, LM Studio); data stays on device |
 | **Openness** | AGPL-3.0; inspectable code; no vendor lock-in on model or integrations |
-| **Depth** | Full browser automation (53+ tools), not chat-only |
-| **Developer surface** | Browser *is* the MCP server; one URL for Claude Code, Gemini CLI, `browseros-cli` |
+| **Developer surface** | The browser *is* the MCP server; one URL for Claude Code, Cursor, Gemini CLI, `browseros-cli` |
+| **Servers** | None. No Pane account, cloud, credits, or metering — by design |
 | **Chrome compatibility** | Extensions, import, familiar UX; MV2 support for full uBlock Origin |
 
-**Company context:** Built by Felafax, Inc. (San Francisco). Public docs at [docs.browseros.com](https://docs.browseros.com). Community on Discord and Slack.
+**Created by:** [Abhishek Verma](https://www.linkedin.com/in/abhi-vrma/) ([GitHub](http://github.com/abhishek-verma/) · [X](https://x.com/vrma_abhi)). Community on Discord.
 
 ---
 
