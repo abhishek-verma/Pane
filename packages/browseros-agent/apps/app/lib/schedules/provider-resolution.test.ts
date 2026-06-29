@@ -40,7 +40,7 @@ mock.module('@/lib/llm-providers/storage', () => ({
   },
   resolveStoredChatProvider: async (
     preferredProviderId?: string | null,
-    _cloudOnly = false,
+    cloudOnly = false,
   ) => {
     const providers =
       (storageValues.get('providers') as LlmProviderConfig[]) ?? []
@@ -48,7 +48,25 @@ mock.module('@/lib/llm-providers/storage', () => ({
       preferredProviderId ??
       (storageValues.get('defaultProviderId') as string | undefined) ??
       'browseros'
-    return providers.find((p) => p.id === preferredId) ?? providers[0] ?? null
+
+    if (!cloudOnly) {
+      return providers.find((p) => p.id === preferredId) ?? providers[0] ?? null
+    }
+
+    const cloudProviders = providers.filter(
+      (provider) =>
+        provider.type !== 'browseros' &&
+        provider.type !== 'codex' &&
+        provider.type !== 'claude-code' &&
+        provider.type !== 'acp-custom',
+    )
+    if (preferredProviderId) {
+      const preferred = cloudProviders.find(
+        (provider) => provider.id === preferredProviderId,
+      )
+      if (preferred) return preferred
+    }
+    return cloudProviders[0] ?? null
   },
 }))
 
