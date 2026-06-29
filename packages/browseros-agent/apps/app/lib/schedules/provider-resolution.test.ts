@@ -38,6 +38,18 @@ mock.module('@/lib/llm-providers/storage', () => ({
     },
     watch: () => () => {},
   },
+  resolveStoredChatProvider: async (
+    preferredProviderId?: string | null,
+    _cloudOnly = false,
+  ) => {
+    const providers =
+      (storageValues.get('providers') as LlmProviderConfig[]) ?? []
+    const preferredId =
+      preferredProviderId ??
+      (storageValues.get('defaultProviderId') as string | undefined) ??
+      'browseros'
+    return providers.find((p) => p.id === preferredId) ?? providers[0] ?? null
+  },
 }))
 
 mock.module('@/lib/browseros/helpers', () => ({

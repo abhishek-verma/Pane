@@ -47,6 +47,7 @@ export const NewTabChat: FC = () => {
     disliked,
     onClickDislike,
     isRestoringConversation,
+    isLoading,
     providers,
     selectedProvider,
     handleSelectProvider,
@@ -144,6 +145,14 @@ export const NewTabChat: FC = () => {
   const handleNewConversation = () => {
     track(NEWTAB_CHAT_RESET_EVENT, { message_count: messages.length })
     resetConversation()
+  }
+
+  if (isLoading) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   if (!selectedProvider) {

@@ -1,11 +1,6 @@
-import { AlertCircle, ChevronDown, ExternalLink, Loader2 } from 'lucide-react'
+import { AlertCircle, ExternalLink, Loader2 } from 'lucide-react'
 import { type FC, Fragment, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { presentationFor } from './integrations-section.helpers'
 import {
@@ -14,7 +9,6 @@ import {
   useMcpAgents,
   useUninstallAgent,
 } from './integrations-section.hooks'
-import { QuickSetupSection } from './QuickSetupSection'
 
 export interface IntegrationsSectionProps {
   serverUrl: string | null
@@ -131,22 +125,6 @@ export const IntegrationsSection: FC<IntegrationsSectionProps> = ({
           ))}
         </div>
       )}
-
-      <Collapsible>
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="-ml-2 text-muted-foreground hover:text-foreground"
-          >
-            <ChevronDown className="mr-1 h-3.5 w-3.5 transition-transform data-[state=open]:rotate-180" />
-            Show manual setup
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          <QuickSetupSection serverUrl={serverUrl} />
-        </CollapsibleContent>
-      </Collapsible>
     </section>
   )
 }
