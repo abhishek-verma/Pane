@@ -82,54 +82,50 @@
     <rect x="612" y="92" width="612" height="456" fill="#1b1613"/>
 
     <!-- combined title + nav bar (tabs live in the sidebar) -->
-    <rect x="612" y="92" width="612" height="50" fill="#1d1714"/>
-    <line x1="612" y1="142" x2="1224" y2="142" stroke="#ffffff" stroke-opacity="0.05"/>
-    <circle cx="634" cy="117" r="5.5" fill="#ff5f57"/>
-    <circle cx="652" cy="117" r="5.5" fill="#febc2e"/>
-    <circle cx="670" cy="117" r="5.5" fill="#28c840"/>
+    <rect x="612" y="92" width="612" height="40" fill="#1d1714"/>
+    <line x1="612" y1="132" x2="1224" y2="132" stroke="#ffffff" stroke-opacity="0.05"/>
+    <circle cx="634" cy="112" r="5" fill="#ff5f57"/>
+    <circle cx="652" cy="112" r="5" fill="#febc2e"/>
+    <circle cx="670" cy="112" r="5" fill="#28c840"/>
     <!-- expand sidebar tabs button -->
-    <g transform="translate(696 107)">
-      <rect x="0" y="0" width="20" height="20" rx="5" fill="none" stroke="#9a8c7e" stroke-opacity="0.85" stroke-width="1.4"/>
-      <line x1="7.5" y1="1" x2="7.5" y2="19" stroke="#9a8c7e" stroke-opacity="0.85" stroke-width="1.4"/>
+    <g transform="translate(696 104)" stroke="#9a8c7e" stroke-opacity="0.85" stroke-width="1.4" stroke-linecap="round">
+      <rect x="0" y="0" width="16" height="16" rx="4.5" fill="none"/>
+      <line x1="6" y1="2" x2="6" y2="14"/>
     </g>
     <!-- back / forward -->
-    <path d="M740 111l-6 6 6 6" fill="none" stroke="#9a8c7e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M760 111l6 6-6 6" fill="none" stroke="#4a4138" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M736 104 l-8 8 8 8" fill="none" stroke="#9a8c7e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M756 104 l8 8 -8 8" fill="none" stroke="#4a4138" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
     <!-- address bar -->
-    <rect x="788" y="105" width="412" height="24" rx="12" fill="#15110e" stroke="#ffffff" stroke-opacity="0.05"/>
-    <g transform="translate(804 110) scale(0.13)">
-      <path fill="#f6efe7" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
-      <rect x="66" y="66" width="24" height="24" fill="#e07a2f"/>
-    </g>
-    <text x="824" y="121" fill="#a89a8c" font-size="11.5">Pane Home</text>
+    <rect x="788" y="100" width="412" height="24" rx="12" fill="#15110e" stroke="#ffffff" stroke-opacity="0.05"/>
+    <text x="804" y="116" fill="#a89a8c" font-size="12">Pane Home</text>
 
     <!-- body divider -->
-    <line x1="960" y1="142" x2="960" y2="548" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
+    <line x1="960" y1="132" x2="960" y2="548" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
 
     <!-- MAIN: a new tab that knows your day -->
     <g>
-      <text x="628" y="186" fill="#f1e7da" font-size="20" font-weight="600" letter-spacing="-0.02em">Good morning, Abhishek</text>
-      <text x="628" y="208" fill="#8a7d70" font-size="13">Here is what matters today.</text>
+      <text x="628" y="176" fill="#f1e7da" font-size="20" font-weight="600" letter-spacing="-0.02em">Good morning, Abhishek</text>
+      <text x="628" y="198" fill="#8a7d70" font-size="13">Here is what matters today.</text>
 
-      <g transform="translate(628 228)">
+      <g transform="translate(628 218)">
         <rect width="316" height="62" rx="12" fill="#221b17" stroke="#ffffff" stroke-opacity="0.05"/>
         <rect x="0" y="0" width="3" height="62" rx="1.5" fill="url(#accent)"/>
         <text x="20" y="27" fill="#e9ddcf" font-size="13.5" font-weight="600">Standup in 18 min</text>
         <text x="20" y="46" fill="#8a7d70" font-size="12">Notes and open items from last week ready</text>
       </g>
-      <g transform="translate(628 298)">
+      <g transform="translate(628 288)">
         <rect width="316" height="62" rx="12" fill="#221b17" stroke="#ffffff" stroke-opacity="0.05"/>
         <rect x="0" y="0" width="3" height="62" rx="1.5" fill="#5fb872"/>
         <text x="20" y="27" fill="#e9ddcf" font-size="13.5" font-weight="600">3 pull requests waiting on you</text>
         <text x="20" y="46" fill="#8a7d70" font-size="12">Reviewed across two repos since Friday</text>
       </g>
-      <g transform="translate(628 368)">
+      <g transform="translate(628 358)">
         <rect width="316" height="62" rx="12" fill="#221b17" stroke="#ffffff" stroke-opacity="0.05"/>
         <rect x="0" y="0" width="3" height="62" rx="1.5" fill="#6f9fe0"/>
         <text x="20" y="27" fill="#e9ddcf" font-size="13.5" font-weight="600">Resume: pricing research</text>
         <text x="20" y="46" fill="#8a7d70" font-size="12">11 tabs threaded, sources kept and citable</text>
       </g>
-      <g transform="translate(628 438)">
+      <g transform="translate(628 428)">
         <rect width="316" height="54" rx="12" fill="#1d1714" stroke="#e07a2f" stroke-opacity="0.35"/>
         <circle cx="26" cy="27" r="9" fill="#e07a2f" fill-opacity="0.16"/>
         <path d="M21 27l3 3 6-6" fill="none" stroke="#f4a35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -140,23 +136,23 @@
 
     <!-- AGENT PANEL -->
     <g>
-      <rect x="960" y="142" width="264" height="406" fill="#161210"/>
-      <g transform="translate(976 166) scale(0.15)">
+      <rect x="960" y="132" width="264" height="416" fill="#161210"/>
+      <g transform="translate(976 156) scale(0.15)">
         <path fill="#f6efe7" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
         <rect x="66" y="66" width="24" height="24" fill="#e07a2f"/>
       </g>
-      <text x="998" y="178" fill="#cdbfb0" font-size="13" font-weight="600">Pane</text>
-      <circle cx="1196" cy="172" r="4" fill="#5fb872"/>
-      <text x="1108" y="178" fill="#6b5e51" font-size="11">on this tab</text>
+      <text x="998" y="168" fill="#cdbfb0" font-size="13" font-weight="600">Pane</text>
+      <circle cx="1196" cy="162" r="4" fill="#5fb872"/>
+      <text x="1108" y="168" fill="#6b5e51" font-size="11">on this tab</text>
 
       <!-- user bubble: right-aligned, padded from panel edge -->
-      <g transform="translate(1002 204)">
+      <g transform="translate(1002 194)">
         <rect x="0" y="0" width="198" height="48" rx="13" fill="url(#accent)" fill-opacity="0.92"/>
         <text x="18" y="20" fill="#2a1606" font-size="11.5">What did I decide in</text>
         <text x="18" y="36" fill="#2a1606" font-size="11.5">yesterday's vendor call?</text>
       </g>
       <!-- agent bubble: left-aligned -->
-      <g transform="translate(976 270)">
+      <g transform="translate(976 260)">
         <rect x="0" y="0" width="216" height="92" rx="13" fill="#241d18"/>
         <text x="16" y="22" fill="#c2b4a4" font-size="11.5">You picked the annual plan,</text>
         <text x="16" y="40" fill="#c2b4a4" font-size="11.5">flagged the SLA clause, and</text>
