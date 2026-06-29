@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineWebExtConfig } from 'wxt'
+
+const configDir = dirname(fileURLToPath(import.meta.url))
 
 // biome-ignore lint/style/noProcessEnv: config file needs env access
 const env = process.env
@@ -11,9 +13,41 @@ const legacySharedProfiles = new Set([
   '/tmp/browseros-dev',
   '/private/tmp/browseros-dev',
 ])
-const configDir = dirname(fileURLToPath(import.meta.url))
 
-/** Returns a worktree-scoped Chromium profile for local BrowserOS dev runs. */
+const paneDevCandidates = [
+  env.CHROMIUM_OUT
+    ? join(env.CHROMIUM_OUT, 'Pane Dev.app/Contents/MacOS/Pane Dev')
+    : '',
+  join(
+    env.HOME ?? '',
+    'chromium/src/out/Default_arm64/Pane Dev.app/Contents/MacOS/Pane Dev',
+  ),
+  join(
+    env.HOME ?? '',
+    'chromium/src/out/Default/Pane Dev.app/Contents/MacOS/Pane Dev',
+  ),
+].filter(Boolean)
+
+/** Pane Dev binary for WXT; override with PANE_BINARY or BROWSEROS_BINARY. */
+function resolvePaneBinary(): string {
+  for (const key of ['PANE_BINARY', 'BROWSEROS_BINARY'] as const) {
+    const value = env[key]?.trim()
+    if (value) {
+      return value
+    }
+  }
+  for (const candidate of paneDevCandidates) {
+    if (candidate && existsSync(candidate)) {
+      return candidate
+    }
+  }
+  return join(
+    env.HOME ?? '',
+    'chromium/src/out/Default_arm64/Pane Dev.app/Contents/MacOS/Pane Dev',
+  )
+}
+
+/** Returns a worktree-scoped Chromium profile for this checkout. */
 function defaultChromiumProfile(): string {
   const agentRoot = resolve(configDir, '../..')
   const worktreeRoot = resolve(agentRoot, '../..')
@@ -56,7 +90,6 @@ if (env.BROWSEROS_CDP_PORT) {
 if (env.BROWSEROS_SERVER_PORT) {
   chromiumArgs.push(`--browseros-mcp-port=${env.BROWSEROS_SERVER_PORT}`)
   chromiumArgs.push(`--browseros-server-port=${env.BROWSEROS_SERVER_PORT}`)
-  // --disable-browseros-server means no proxy is running, so proxy port falls back to server port
   chromiumArgs.push(`--browseros-proxy-port=${env.BROWSEROS_SERVER_PORT}`)
 }
 if (env.BROWSEROS_EXTENSION_PORT) {
@@ -67,9 +100,7 @@ if (env.BROWSEROS_EXTENSION_PORT) {
 
 export default defineWebExtConfig({
   binaries: {
-    chrome:
-      env.BROWSEROS_BINARY ||
-      '/Applications/BrowserOS.app/Contents/MacOS/BrowserOS',
+    chrome: resolvePaneBinary(),
   },
   chromiumArgs,
   chromiumProfile: chromiumProfile(),

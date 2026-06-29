@@ -1,3 +1,7 @@
+import {
+  cloudAccountEnabled,
+  productFeatures,
+} from '@/lib/constants/product-features'
 import { StepConnectApps } from './StepConnectApps'
 import { StepOne } from './StepOne'
 import { StepTwo } from './StepTwo'
@@ -8,14 +12,22 @@ export const steps = [
     name: 'About You',
     component: StepOne,
   },
-  {
-    id: 2,
-    name: 'Connect Apps',
-    component: StepConnectApps,
-  },
-  {
-    id: 3,
-    name: 'Sign In',
-    component: StepTwo,
-  },
+  ...(productFeatures.klavisIntegrations
+    ? [
+        {
+          id: 2,
+          name: 'Connect Apps',
+          component: StepConnectApps,
+        },
+      ]
+    : []),
+  ...(cloudAccountEnabled
+    ? [
+        {
+          id: 3,
+          name: 'Sign In',
+          component: StepTwo,
+        },
+      ]
+    : []),
 ]

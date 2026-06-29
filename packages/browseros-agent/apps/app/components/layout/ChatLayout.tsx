@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { Outlet } from 'react-router'
+import { NoProviderConfigured } from '@/components/chat/NoProviderConfigured'
 import {
   ChatSessionProvider,
   useChatSessionContext,
@@ -16,12 +17,16 @@ const ChatLayoutContent: FC = () => {
     isLoading,
   } = useChatSessionContext()
 
-  if (isLoading || !selectedProvider) {
+  if (isLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
       </div>
     )
+  }
+
+  if (providers.length === 0 || !selectedProvider) {
+    return <NoProviderConfigured />
   }
 
   return (

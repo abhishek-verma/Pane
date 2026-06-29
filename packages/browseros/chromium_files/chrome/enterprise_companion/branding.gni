@@ -23,12 +23,12 @@ if (is_chrome_branded) {
   enterprise_companion_crash_upload_url =
       "https://clients2.google.com/cr/staging_report"
   enterprise_companion_appid = "{d6acc642-8982-441d-949b-312d5ccb559f}"
-  enterprise_companion_company_short_name = "BrowserOS"
-  enterprise_companion_company_short_name_lowercase = "browseros"
-  enterprise_companion_company_short_name_uppercase = "BROWSEROS"
-  enterprise_companion_product_full_name = "BrowserOSEnterpriseCompanion"
+  enterprise_companion_company_short_name = "Pane"
+  enterprise_companion_company_short_name_lowercase = "pane"
+  enterprise_companion_company_short_name_uppercase = "PANE"
+  enterprise_companion_product_full_name = "PaneEnterpriseCompanion"
   enterprise_companion_product_full_name_dashed_lowercase =
-      "browseros-enterprise-companion"
+      "pane-enterprise-companion"
   enterprise_companion_keystone_app_name = "BrowserOSSoftwareUpdate"
   mac_enterprise_companion_bundle_identifier =
       "com.browseros.BrowserOSEnterpriseCompanion"

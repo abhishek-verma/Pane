@@ -17,7 +17,7 @@ export function ReadyStep({ onDone }: ReadyStepProps) {
         You&rsquo;re <Em>set</Em>.
       </DisplayHeading>
       <StepCopy>
-        Open Claude and try one of these. The task runs here, in BrowserOS. You
+        Open Claude and try one of these. The task runs here, in Pane. You
         watch, approve, and audit.
       </StepCopy>
       <div className="mb-6 flex flex-col gap-2.5">
@@ -27,7 +27,7 @@ export function ReadyStep({ onDone }: ReadyStepProps) {
       </div>
       <Button type="button" size="lg" onClick={onDone}>
         <Sparkles className="size-4" />
-        Open BrowserOS
+        Open Pane
       </Button>
     </StepWrap>
   )

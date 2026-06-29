@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import {
+  getInitialDefaultProviderId,
+  isProtectedHostedProviderId,
   resolveDefaultProviderId,
   resolveSelectedProvider,
 } from '../../lib/llm-providers/provider-selection'
 import {
   createDefaultProvidersConfig,
-  DEFAULT_PROVIDER_ID,
   defaultProviderIdStorage,
   loadProviders,
   providersStorage,
@@ -101,8 +102,9 @@ function upsertSingleInstanceProvider(
 /** Hook for managing LLM provider configurations. */
 export function useLlmProviders(): UseLlmProvidersReturn {
   const [providers, setProviders] = useState<LlmProviderConfig[]>([])
-  const [defaultProviderId, setDefaultProviderId] =
-    useState<string>(DEFAULT_PROVIDER_ID)
+  const [defaultProviderId, setDefaultProviderId] = useState<string>(
+    getInitialDefaultProviderId(),
+  )
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -116,7 +118,9 @@ export function useLlmProviders(): UseLlmProvidersReturn {
 
         if (!loadedProviders || loadedProviders.length === 0) {
           loadedProviders = createDefaultProvidersConfig()
-          await providersStorage.setValue(loadedProviders)
+          if (loadedProviders.length > 0) {
+            await providersStorage.setValue(loadedProviders)
+          }
         }
 
         const resolvedDefaultId = resolveDefaultProviderId(
@@ -171,7 +175,7 @@ export function useLlmProviders(): UseLlmProvidersReturn {
   }
 
   const deleteProvider = async (providerId: string) => {
-    if (providerId === DEFAULT_PROVIDER_ID) {
+    if (isProtectedHostedProviderId(providerId)) {
       return
     }
 
@@ -179,7 +183,8 @@ export function useLlmProviders(): UseLlmProvidersReturn {
     const updatedProviders = currentProviders.filter((p) => p.id !== providerId)
 
     if (defaultProviderId === providerId) {
-      const newDefaultId = updatedProviders[0]?.id || DEFAULT_PROVIDER_ID
+      const newDefaultId =
+        updatedProviders[0]?.id ?? getInitialDefaultProviderId()
       await defaultProviderIdStorage.setValue(newDefaultId)
     }
 

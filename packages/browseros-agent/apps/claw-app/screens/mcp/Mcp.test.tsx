@@ -38,7 +38,7 @@ mock.module('@/modules/api/connections.hooks', () => ({
             harness: 'Hermes',
             installed: true,
             agentId: null,
-            message: 'Runs inside BrowserOS.',
+            message: 'Runs inside Pane.',
           },
         ],
       },
@@ -106,7 +106,7 @@ describe('Mcp (v2)', () => {
 
   it('renders the internal-harness note at the bottom', () => {
     const html = renderApp()
-    expect(html).toContain('Hermes and OpenClaw run inside BrowserOS')
+    expect(html).toContain('Hermes and OpenClaw run inside Pane')
   })
 
   it('does NOT render the legacy McpRow / RegenerateUrlDialog / "Add agent" CTA', () => {

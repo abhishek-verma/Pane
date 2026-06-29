@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { productFeatures } from '@/lib/constants/product-features'
 import { type McpServer, mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
 import { useGetMCPServersList } from '@/modules/mcp/managed-mcp-servers.hooks'
 import { useGetUserMCPIntegrations } from '@/modules/mcp/user-integrations.hooks'
@@ -23,6 +24,7 @@ export interface SyncStatus {
  * Returns sync status so consumers can gate behavior on sync completion.
  */
 export function useSyncRemoteIntegrations(): SyncStatus {
+  const klavisEnabled = productFeatures.klavisIntegrations
   const { data: userMCPIntegrations, isLoading: isIntegrationsLoading } =
     useGetUserMCPIntegrations()
   const { data: serversList } = useGetMCPServersList()
@@ -31,14 +33,17 @@ export function useSyncRemoteIntegrations(): SyncStatus {
   integrationsRef.current = userMCPIntegrations
   serversListRef.current = serversList
   const hasSyncedRef = useRef(false)
-  const [syncState, setSyncState] = useState<SyncStatus>({
-    isSyncing: true,
-    hasSynced: false,
-  })
+  const [syncState, setSyncState] = useState<SyncStatus>(() =>
+    klavisEnabled
+      ? { isSyncing: true, hasSynced: false }
+      : { isSyncing: false, hasSynced: true },
+  )
 
   const integrationCount = userMCPIntegrations?.integrations?.length ?? 0
 
   useEffect(() => {
+    if (!klavisEnabled) return
+
     // Still loading data — keep isSyncing: true
     if (isIntegrationsLoading) return
 

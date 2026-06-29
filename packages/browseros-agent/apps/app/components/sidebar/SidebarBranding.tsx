@@ -1,7 +1,7 @@
 import { ChevronDown, LogIn, LogOut, User } from 'lucide-react'
 import type { FC } from 'react'
 import { useNavigate } from 'react-router'
-import ProductLogo from '@/assets/product_logo.svg'
+import { PaneMark } from '@/components/branding/PaneMark'
 import { ThemeToggle } from '@/components/elements/theme-toggle'
 import {
   DropdownMenu,
@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
+import { PRODUCT_NAME } from '@/lib/constants/product'
+import { cloudAccountEnabled } from '@/lib/constants/product-features'
 import { cn } from '@/lib/utils'
 import { useGraphqlQuery } from '@/modules/graphql/graphql-query.hooks'
 import { useWorkspace } from '@/modules/workspace/workspace.hooks'
@@ -68,7 +70,12 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
       </div>
     )
   ) : (
-    <img src={ProductLogo} alt="BrowserOS" className="size-8" />
+    <PaneMark
+      size={32}
+      className="text-foreground"
+      aria-label={PRODUCT_NAME}
+      role="img"
+    />
   )
 
   return (
@@ -93,7 +100,7 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
                 <span className="truncate font-semibold">
                   {isLoggedIn
                     ? displayName
-                    : selectedFolder?.name || 'BrowserOS'}
+                    : selectedFolder?.name || PRODUCT_NAME}
                 </span>
                 <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
               </div>
@@ -102,10 +109,16 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
                   'truncate text-xs',
                   isLoggedIn
                     ? 'text-muted-foreground'
-                    : 'font-medium text-primary',
+                    : cloudAccountEnabled
+                      ? 'font-medium text-primary'
+                      : 'text-muted-foreground',
                 )}
               >
-                {isLoggedIn ? 'Personal' : 'Sign in'}
+                {isLoggedIn
+                  ? 'Personal'
+                  : cloudAccountEnabled
+                    ? 'Sign in'
+                    : PRODUCT_NAME}
               </span>
             </div>
           </button>
@@ -141,12 +154,12 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
                 Sign out
               </DropdownMenuItem>
             </>
-          ) : (
+          ) : cloudAccountEnabled ? (
             <DropdownMenuItem onClick={() => navigate('/login')}>
               <LogIn className="mr-2 size-4" />
               Sign in
             </DropdownMenuItem>
-          )}
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
       <div

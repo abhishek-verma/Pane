@@ -43,7 +43,7 @@ export function ConnectStep({ onContinue }: ConnectStepProps) {
         .
       </h1>
       <p className="mb-5 max-w-[470px] text-ink-2 text-sm leading-relaxed">
-        BrowserOS shows up inside Claude as a connector. One click, no extension
+        Pane shows up inside Claude as a connector. One click, no extension
         handshake to fail.
       </p>
 

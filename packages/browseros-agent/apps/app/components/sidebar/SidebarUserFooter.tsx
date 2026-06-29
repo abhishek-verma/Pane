@@ -7,6 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { productRepositoryUrl } from '@/lib/constants/productUrls'
 import { cn } from '@/lib/utils'
 
 export interface SidebarUserFooterProps {
@@ -31,14 +32,14 @@ export const SidebarUserFooter: FC<SidebarUserFooterProps> = ({
   //         expanded ? 'opacity-100' : 'opacity-0',
   //       )}
   //     >
-  //       Sign in to BrowserOS
+  //       Sign in to Pane
   //     </span>
   //   </Button>
   // )
 
   const aboutLink = (
     <a
-      href="https://docs.browseros.com/"
+      href={productRepositoryUrl}
       target="_blank"
       rel="noopener noreferrer"
       className="flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -50,7 +51,7 @@ export const SidebarUserFooter: FC<SidebarUserFooterProps> = ({
           expanded ? 'opacity-100' : 'opacity-0',
         )}
       >
-        About BrowserOS
+        About Pane
       </span>
     </a>
   )
@@ -90,7 +91,7 @@ export const SidebarUserFooter: FC<SidebarUserFooterProps> = ({
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>{aboutLink}</TooltipTrigger>
-            <TooltipContent side="right">About BrowserOS</TooltipContent>
+            <TooltipContent side="right">About Pane</TooltipContent>
           </Tooltip>
         )}
       </div>

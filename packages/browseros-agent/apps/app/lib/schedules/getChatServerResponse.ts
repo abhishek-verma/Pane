@@ -1,18 +1,10 @@
 import { createParser, type EventSourceMessage } from 'eventsource-parser'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
-import {
-  createDefaultBrowserOSProvider,
-  defaultProviderIdStorage,
-  providersStorage,
-} from '@/lib/llm-providers/storage'
+import { resolveStoredChatProvider } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
 import { buildChatRequestBody } from '@/lib/messaging/server/buildChatRequestBody'
 import type { ChatMode } from '@/modules/chat/chat-types'
-import {
-  findCloudChatProviderById,
-  resolveCloudChatProvider,
-} from '../llm-providers/provider-runtime'
 import { personalizationStorage } from '../personalization/personalizationStorage'
 import { scheduleSystemPrompt } from './scheduleSystemPrompt'
 import type { ToolCallExecution } from './scheduleTypes'
@@ -72,23 +64,16 @@ interface StreamParseState {
   receivedFinish: boolean
 }
 
-const getDefaultProvider = async (): Promise<LlmProviderConfig | null> => {
-  const providers = await providersStorage.getValue()
-  if (!providers?.length) return null
-
-  const defaultProviderId = await defaultProviderIdStorage.getValue()
-  return resolveCloudChatProvider(providers, defaultProviderId)
-}
-
 const resolveProvider = async (
   providerId?: string,
 ): Promise<LlmProviderConfig> => {
-  if (providerId) {
-    const providers = await providersStorage.getValue()
-    const match = findCloudChatProviderById(providers ?? [], providerId)
-    if (match) return match
+  const provider = await resolveStoredChatProvider(providerId, true)
+  if (!provider) {
+    throw new Error(
+      'No AI provider configured. Add one in Settings → AI & Agents.',
+    )
   }
-  return (await getDefaultProvider()) ?? createDefaultBrowserOSProvider()
+  return provider
 }
 
 export async function getChatServerResponse(

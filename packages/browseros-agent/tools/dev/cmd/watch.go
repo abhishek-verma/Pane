@@ -245,16 +245,21 @@ func startBrowserOSWatch(ctx context.Context, wg *sync.WaitGroup, root string, e
 		proc.LogMsg(proc.TagBuild, "agent built")
 
 		reservations.ReleaseCDP()
+		browserArgs, err := browser.BuildArgs(browser.ArgsConfig{
+			Root:              root,
+			Ports:             p,
+			UserDataDir:       userDataDir,
+			LoadDevExtensions: true,
+			PreferDevBuild:    true,
+		})
+		if err != nil {
+			return nil, err
+		}
 		procs = append(procs, proc.StartManaged(ctx, wg, proc.ProcConfig{
 			Tag:     proc.TagBrowser,
 			Dir:     root,
 			Restart: false,
-			Cmd: browser.BuildArgs(browser.ArgsConfig{
-				Root:              root,
-				Ports:             p,
-				UserDataDir:       userDataDir,
-				LoadDevExtensions: true,
-			}),
+			Cmd:     browserArgs,
 		}))
 	} else {
 		reservations.ReleaseCDP()

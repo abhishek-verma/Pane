@@ -6,6 +6,7 @@ import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { Capabilities, Feature } from '@/lib/browseros/capabilities'
 import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 import { sidePanelPerWindowStorage } from '@/lib/browseros/sidePanelOpenStateStorage'
+import { PRODUCT_CHAT_NAME } from '@/lib/constants/product'
 import {
   RuntimeMessageType,
   sendRuntimeMessage,
@@ -145,10 +146,10 @@ export const ToolbarSettingsCard: FC = () => {
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
             <Label htmlFor="show-llm-chat" className="font-medium text-sm">
-              Show Chat Button
+              Show {PRODUCT_CHAT_NAME} Button
             </Label>
             <p className="text-muted-foreground text-xs">
-              Display the Chat button in the browser toolbar
+              Display {PRODUCT_CHAT_NAME} in the browser toolbar
             </p>
           </div>
           <Switch

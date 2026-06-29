@@ -410,8 +410,13 @@ func isDevBrowserProcess(command string) bool {
 	return isBrowserProcessForUserDataDir(command, []string{"/tmp/browseros-dev"}, true)
 }
 
+func isPaneOrBrowserOSBinary(command string) bool {
+	return strings.Contains(command, "Pane Dev.app/Contents/MacOS/Pane Dev") ||
+		strings.Contains(command, "BrowserOS.app/Contents/MacOS/BrowserOS")
+}
+
 func isBrowserProcessForUserDataDir(command string, userDataDirs []string, includeDevTempProfiles bool) bool {
-	if !strings.Contains(command, "BrowserOS.app/Contents/MacOS/BrowserOS") {
+	if !isPaneOrBrowserOSBinary(command) {
 		return false
 	}
 	for _, dir := range userDataDirs {

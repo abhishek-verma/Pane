@@ -1,3 +1,4 @@
+import { productFeatures } from '@/lib/constants/product-features'
 import { execute } from '@/lib/graphql/execute'
 import { UpdateProfileByUserIdDocument } from '@/screens/profile/graphql/profileDocument'
 import { onboardingProfileStorage } from './onboardingStorage'
@@ -11,6 +12,8 @@ function splitName(name: string): { firstName: string; lastName: string } {
 }
 
 export async function syncOnboardingProfile(userId: string): Promise<void> {
+  if (!productFeatures.cloudSync) return
+
   const profile = await onboardingProfileStorage.getValue()
   if (!profile) return
 

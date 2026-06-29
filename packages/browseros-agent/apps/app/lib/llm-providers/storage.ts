@@ -2,13 +2,19 @@ import { storage } from '@wxt-dev/storage'
 import { sessionStorage } from '@/lib/auth/sessionStorage'
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
+import { productFeatures } from '@/lib/constants/product-features'
 import {
   migrateLlmProvidersToV3,
   normalizeProviderNames,
 } from './provider-name-normalization'
 import {
+  resolveChatProvider,
+  resolveCloudChatProvider,
+} from './provider-runtime'
+import {
   DEFAULT_PROVIDER_ID,
   DEFAULT_PROVIDER_NAME,
+  getInitialDefaultProviderId,
 } from './provider-selection'
 import type { LlmProviderConfig, LlmProvidersBackup } from './types'
 import { uploadLlmProvidersToGraphql } from './uploadLlmProvidersToGraphql'
@@ -64,8 +70,10 @@ export function setupLlmProvidersBackupToBrowserOS(): () => void {
   return unsubscribe
 }
 
-/** Uploads provider metadata for signed-in users. */
+/** Uploads provider metadata for signed-in users when cloud sync is enabled. */
 export async function syncLlmProviders(): Promise<void> {
+  if (!productFeatures.cloudSync) return
+
   const providers = await providersStorage.getValue()
   if (!providers || providers.length === 0) return
 
@@ -78,6 +86,10 @@ export async function syncLlmProviders(): Promise<void> {
 
 /** Sets up one-way sync of LLM providers to the GraphQL backend. */
 export function setupLlmProvidersSyncToBackend(): () => void {
+  if (!productFeatures.cloudSync) {
+    return () => {}
+  }
+
   syncLlmProviders().catch(() => {})
 
   const unsubscribe = providersStorage.watch(async () => {
@@ -93,7 +105,13 @@ export function setupLlmProvidersSyncToBackend(): () => void {
 /** Returns provider configs after applying display-name compatibility fixes. */
 export async function loadProviders(): Promise<LlmProviderConfig[]> {
   const providers = (await providersStorage.getValue()) || []
-  const normalizedProviders = normalizeProviderNames(providers)
+  let normalizedProviders = normalizeProviderNames(providers)
+
+  if (!productFeatures.hostedInference) {
+    normalizedProviders = normalizedProviders.filter(
+      (provider) => provider.type !== 'browseros',
+    )
+  }
 
   // Keep storage consistent so every consumer sees the same provider name.
   if (
@@ -122,14 +140,30 @@ export function createDefaultBrowserOSProvider(): LlmProviderConfig {
   }
 }
 
-/** Creates the default providers configuration. Only call when storage is empty. */
+/** Creates the default providers configuration. */
 export function createDefaultProvidersConfig(): LlmProviderConfig[] {
-  return [createDefaultBrowserOSProvider()]
+  return productFeatures.hostedInference
+    ? [createDefaultBrowserOSProvider()]
+    : []
+}
+
+/** Resolves the active chat provider from local storage. */
+export async function resolveStoredChatProvider(
+  preferredProviderId?: string | null,
+  cloudOnly = false,
+): Promise<LlmProviderConfig | null> {
+  const providers = await loadProviders()
+  const defaultProviderId = await defaultProviderIdStorage.getValue()
+  const preferredId = preferredProviderId ?? defaultProviderId
+
+  return cloudOnly
+    ? resolveCloudChatProvider(providers, preferredId)
+    : resolveChatProvider(providers, preferredId)
 }
 
 export const defaultProviderIdStorage = storage.defineItem<string>(
   'local:default-provider-id',
   {
-    fallback: DEFAULT_PROVIDER_ID,
+    fallback: getInitialDefaultProviderId(),
   },
 )

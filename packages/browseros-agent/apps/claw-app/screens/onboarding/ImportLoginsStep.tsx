@@ -74,8 +74,8 @@ export function ImportLoginsStep({
         .
       </Headline>
       <p className="mb-5 max-w-[470px] text-ink-2 text-sm leading-relaxed">
-        BrowserOS copies your saved Chrome sessions so the agent never has to
-        log in again. Sessions stay in a local vault on this Mac.
+        Pane copies your saved Chrome sessions so the agent never has to log in
+        again. Sessions stay in a local vault on this Mac.
       </p>
 
       {stage === 'chrome-open' && (

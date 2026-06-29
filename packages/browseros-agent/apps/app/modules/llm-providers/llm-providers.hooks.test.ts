@@ -47,7 +47,7 @@ const MockBrowserOSAdapter = {
 const createBrowserOSProvider = () => ({
   id: 'browseros',
   type: 'browseros',
-  name: 'BrowserOS',
+  name: 'Pane',
   modelId: 'browseros-auto',
   supportsImages: true,
   contextWindow: 200000,
@@ -117,7 +117,7 @@ const providers: LlmProviderConfig[] = [
   {
     id: 'browseros',
     type: 'browseros',
-    name: 'BrowserOS',
+    name: 'Pane',
     modelId: 'browseros-auto',
     supportsImages: true,
     contextWindow: 200000,

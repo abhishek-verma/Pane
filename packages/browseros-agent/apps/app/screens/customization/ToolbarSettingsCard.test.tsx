@@ -283,7 +283,7 @@ describe('ToolbarSettingsCard', () => {
   it('renders supported toolbar settings without the unsupported Hub control', () => {
     const html = renderCard()
 
-    expect(html).toContain('Show Chat Button')
+    expect(html).toContain('Show Pane Chat Button')
     expect(html).toContain('Show Button Labels')
     expect(html).not.toContain('Show Hub Button')
     expect(html).not.toContain('show-llm-hub')

@@ -1,6 +1,8 @@
-import { Bolt, Lock, ShieldCheck, Sparkles } from 'lucide-react'
+import { Bolt, Lock, ShieldCheck } from 'lucide-react'
 import { type ComponentType, type SVGProps, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { PaneMark } from '@/components/branding/PaneMark'
+import { PaneWordmark } from '@/components/branding/PaneWordmark'
 import { cn } from '@/lib/utils'
 import { ConnectStep } from './ConnectStep'
 import { ImportLoginsStep } from './ImportLoginsStep'
@@ -80,12 +82,13 @@ function BrandColumn() {
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(420px_300px_at_30%_12%,rgba(242,107,42,0.16),transparent_70%)]"
       />
       <div className="relative flex items-center gap-2.5">
-        <span className="flex size-9 items-center justify-center rounded-xl bg-accent text-white">
-          <Sparkles className="size-5" />
-        </span>
-        <div className="font-extrabold text-[17px] text-ink tracking-tight">
-          BrowserOS
-        </div>
+        <PaneMark
+          size={36}
+          className="text-accent"
+          aria-label="Pane"
+          role="img"
+        />
+        <PaneWordmark />
       </div>
       <div className="relative">
         <blockquote className="mb-4 font-['Newsreader',serif] text-[21px] text-ink italic leading-snug">

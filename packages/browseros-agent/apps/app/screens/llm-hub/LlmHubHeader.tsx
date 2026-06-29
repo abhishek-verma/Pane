@@ -1,5 +1,6 @@
 import { MessageSquare } from 'lucide-react'
 import type { FC } from 'react'
+import { PRODUCT_CHAT_NAME } from '@/lib/constants/product'
 
 export const LlmHubHeader: FC = () => {
   return (
@@ -9,7 +10,9 @@ export const LlmHubHeader: FC = () => {
           <MessageSquare className="h-6 w-6 text-[var(--accent-orange)]" />
         </div>
         <div>
-          <h2 className="mb-1 font-semibold text-xl">LLM Chat & Hub</h2>
+          <h2 className="mb-1 font-semibold text-xl">
+            {PRODUCT_CHAT_NAME} & Hub
+          </h2>
           <p className="text-muted-foreground text-sm">
             Curate and configure your favourite LLM chat providers
           </p>

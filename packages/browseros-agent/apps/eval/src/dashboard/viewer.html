@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BrowserOS Eval Viewer</title>
+<title>Pane Eval Viewer</title>
 <style>
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -967,7 +967,7 @@
 <body>
 
 <div class="header" id="header">
-  <div class="header-brand">BrowserOS <span>Eval</span></div>
+  <div class="header-brand">Pane <span>Eval</span></div>
   <div class="header-sep"></div>
   <span class="header-run" id="header-run"></span>
   <span class="header-date" id="header-date"></span>
@@ -1048,7 +1048,7 @@
   }
 
   document.getElementById('header-run').textContent = runId;
-  document.title = `BrowserOS Eval \u00B7 ${runId}`;
+  document.title = `Pane Eval \u00B7 ${runId}`;
 
   let manifest = null;
   let selectedTask = null;

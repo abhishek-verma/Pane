@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { type FC, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router'
+import { NoProviderConfigured } from '@/components/chat/NoProviderConfigured'
 import {
   createAITabAction,
   createBrowserOSAction,
@@ -145,7 +146,13 @@ export const NewTabChat: FC = () => {
     resetConversation()
   }
 
-  if (!selectedProvider) return null
+  if (!selectedProvider) {
+    return (
+      <div className="absolute inset-0">
+        <NoProviderConfigured />
+      </div>
+    )
+  }
 
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden">

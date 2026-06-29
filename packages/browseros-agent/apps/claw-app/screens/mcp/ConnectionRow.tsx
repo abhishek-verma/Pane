@@ -11,12 +11,12 @@ interface ConnectionRowProps {
 }
 
 /**
- * One row per supported harness. Click "Connect" to write BrowserOS
+ * One row per supported harness. Click "Connect" to write Pane
  * into the harness's MCP config file; the row flips to a green
  * "Connected" pill on success. Click "Disconnect" to remove it.
  * Errors render below the row in a small red strip.
  *
- * BrowserOS-internal harnesses (Hermes, OpenClaw) ship `installed:
+ * Pane-internal harnesses (Hermes, OpenClaw) ship `installed:
  * true` from the server and render a non-interactive "Built-in" pill.
  */
 export function ConnectionRow({
@@ -42,9 +42,7 @@ export function ConnectionRow({
             </div>
           )}
           {internal && (
-            <div className="text-[11.5px] text-ink-3">
-              Runs inside BrowserOS
-            </div>
+            <div className="text-[11.5px] text-ink-3">Runs inside Pane</div>
           )}
         </div>
         {internal ? (

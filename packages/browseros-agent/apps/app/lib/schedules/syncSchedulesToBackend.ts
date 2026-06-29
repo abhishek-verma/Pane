@@ -1,5 +1,6 @@
 import { isEqual, omit } from 'es-toolkit'
 import { sessionStorage } from '@/lib/auth/sessionStorage'
+import { productFeatures } from '@/lib/constants/product-features'
 import { GetProfileIdByUserIdDocument } from '@/lib/conversations/graphql/uploadConversationDocument'
 import { execute } from '@/lib/graphql/execute'
 import { sentry } from '@/lib/sentry/sentry'
@@ -237,6 +238,8 @@ async function syncSchedulesToBackend(
 }
 
 export async function syncScheduledJobs(): Promise<void> {
+  if (!productFeatures.cloudSync) return
+
   const jobs = await scheduledJobStorage.getValue()
   if (!jobs) return
 
@@ -248,6 +251,10 @@ export async function syncScheduledJobs(): Promise<void> {
 }
 
 export function setupScheduledJobsSyncToBackend(): () => void {
+  if (!productFeatures.cloudSync) {
+    return () => {}
+  }
+
   syncScheduledJobs().catch(() => {})
 
   const unsubscribe = scheduledJobStorage.watch(async () => {

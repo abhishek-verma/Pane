@@ -1,5 +1,6 @@
 import { type FC, useCallback, useEffect, useState } from 'react'
 import { getMcpServerUrl } from '@/lib/browseros/helpers'
+import { productFeatures } from '@/lib/constants/product-features'
 import type { McpTool } from '@/lib/mcp/client'
 import { sendServerMessage } from '@/lib/messaging/server/serverMessages'
 import { IntegrationsSection } from './IntegrationsSection'
@@ -83,7 +84,9 @@ export const MCPSettingsPage: FC = () => {
         onServerRestart={loadServerUrlAndTools}
       />
 
-      <IntegrationsSection serverUrl={serverUrl} />
+      {productFeatures.klavisIntegrations ? (
+        <IntegrationsSection serverUrl={serverUrl} />
+      ) : null}
 
       <MCPToolsSection
         tools={tools}

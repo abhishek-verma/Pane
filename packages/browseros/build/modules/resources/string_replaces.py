@@ -27,23 +27,27 @@ class StringReplacesModule(CommandModule):
 branding_replacements = [
     (
         r"The Chromium Authors. All rights reserved.",
-        r"The BrowserOS Authors. All rights reserved.",
+        r"Pane. All rights reserved.",
     ),
     (
         r"Google LLC. All rights reserved.",
-        r"The BrowserOS Authors. All rights reserved.",
+        r"Pane. All rights reserved.",
     ),
-    (r"The Chromium Authors", r"BrowserOS Software Inc"),
-    (r"Google Chrome", r"BrowserOS"),
-    (r"(Google)(?! Play)", r"BrowserOS"),
-    (r"Chromium", r"BrowserOS"),
-    (r"Chrome", r"BrowserOS"),
+    (r"The Chromium Authors", r"Pane"),
+    (r"Google Chrome", r"Pane"),
+    (r"(Google)(?! Play)", r"Pane"),
+    (r"Chromium", r"Pane"),
+    (r"Assistant", r"Pane"),
+    (r"BrowserOS Feedback", r"Pane Feedback"),
+    (r"BrowserOS", r"Pane"),
+    (r"Chrome", r"Pane"),
 ]
 
 # List of files to apply replacements to
 target_files = [
     "chrome/app/chromium_strings.grd",
     "chrome/app/settings_chromium_strings.grdp",
+    "chrome/app/generated_resources.grd",
 ]
 
 
