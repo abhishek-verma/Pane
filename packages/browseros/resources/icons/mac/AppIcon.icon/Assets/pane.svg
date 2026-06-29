@@ -1,0 +1,11 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" rx="205" fill="#E8570A"/>
+  <g transform="translate(184 184) scale(6.5536)">
+    <path
+      fill="#FFFFFF"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="M0 0h100v100H0V0zm66 66h24v24H66V66z"
+    />
+  </g>
+</svg>

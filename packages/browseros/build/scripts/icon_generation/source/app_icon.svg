@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Pane">
+  <rect width="100" height="100" rx="20" fill="#E8570A"/>
+  <g transform="translate(18 18) scale(0.64)">
+    <path
+      fill="#FFFFFF"
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      d="M0 0h100v100H0V0zm66 66h24v24H66V66z"
+    />
+  </g>
+</svg>

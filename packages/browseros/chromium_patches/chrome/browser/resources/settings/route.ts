@@ -6,7 +6,7 @@ index 1503074a46519..6bfcc19577dd9 100644
  
    // Root page.
    r.BASIC = new Route('/');
-+  r.BROWSEROS_PREFS = new Route('/browseros-settings', 'BrowserOS Settings');
++  r.BROWSEROS_PREFS = new Route('/browseros-settings', 'Pane Settings');
  
    r.ABOUT = r.BASIC.createSection(
        '/help', 'about', loadTimeData.getString('aboutPageTitle'));

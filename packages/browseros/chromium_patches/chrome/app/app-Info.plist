@@ -17,6 +17,6 @@ index 6fada0a2b1a1f..703744625728c 100644
 +  <key>SUAutomaticallyUpdate</key>
 +  <true/>
 +	<key>CrProductDirName</key>
-+	<string>BrowserOS</string>
++	<string>Pane</string>
  </dict>
  </plist>

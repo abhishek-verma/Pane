@@ -18,6 +18,8 @@ index cb5f33a2c5f4c..d3708615bf897 100644
 @@ -30,6 +36,7 @@
  #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
  #include "chrome/browser/ui/web_applications/app_browser_controller.h"
++#include "chrome/app/vector_icons/vector_icons.h"
++#include "components/vector_icons/vector_icons.h"
  #include "chrome/grit/generated_resources.h"
 +#include "third_party/skia/include/core/SkColor.h"
  #include "ui/actions/action_id.h"
@@ -97,10 +99,10 @@ index cb5f33a2c5f4c..d3708615bf897 100644
                                      : icons->icon;
  
 -  if (is_icon_visible_ && action_engaged_) {
-+  // Special case for Third Party LLM - use custom orange color
-+  if (action_id_ == kActionSidePanelShowThirdPartyLlm) {
++  if (action_id_ == kActionSidePanelShowThirdPartyLlm ||
++      action_id_ == kActionBrowserOSAgent) {
 +    const SkColor orange = SkColorSetRGB(0xFB, 0x65, 0x18);
-+    UpdateIconsWithColors(icon, orange, orange, orange, 
++    UpdateIconsWithColors(vector_icons::kPaneMarkIcon, orange, orange, orange,
 +                          GetForegroundColor(ButtonState::STATE_DISABLED));
 +  } else if (is_icon_visible_ && action_engaged_) {
      UpdateIconsWithColors(

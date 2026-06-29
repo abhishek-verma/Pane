@@ -15,6 +15,7 @@ Usage:
     python generate_icons.py [--config generate_icons.txt]
 """
 
+import os
 import shutil
 import subprocess
 import sys
@@ -246,41 +247,41 @@ def generate_xcassets(img: Image.Image, output_dir: Path) -> bool:
 
 
 def generate_assets_car(output_dir: Path) -> bool:
-    """Generate Assets.car from Assets.xcassets using actool."""
+    """Generate Assets.car from Assets.xcassets and AppIcon.icon via compile_car.py."""
     try:
         xcassets_dir = output_dir / "Assets.xcassets"
+        appicon_dir = output_dir / "AppIcon.icon"
         if not xcassets_dir.exists():
             print("  ✗ Assets.xcassets not found")
             return False
+        if not appicon_dir.exists():
+            print("  ✗ AppIcon.icon not found (required for macOS 26+ Finder icons)")
+            return False
+
+        compile_car = None
+        chromium_src = os.environ.get("CHROMIUM_SRC")
+        if chromium_src:
+            candidate = Path(chromium_src) / "tools" / "mac" / "icons" / "compile_car.py"
+            if candidate.exists():
+                compile_car = candidate
+        if compile_car is None:
+            candidate = Path.home() / "chromium" / "src" / "tools" / "mac" / "icons" / "compile_car.py"
+            if candidate.exists():
+                compile_car = candidate
+        if compile_car is None:
+            print("  ✗ compile_car.py not found; set CHROMIUM_SRC to your chromium checkout")
+            return False
 
         result = subprocess.run(
-            [
-                "xcrun",
-                "actool",
-                "--compile",
-                str(output_dir),
-                str(xcassets_dir),
-                "--platform",
-                "macosx",
-                "--minimum-deployment-target",
-                "10.15",
-                "--app-icon",
-                "AppIcon",
-                "--output-partial-info-plist",
-                "/dev/null",
-            ],
+            ["python3", str(compile_car), str(xcassets_dir)],
             capture_output=True,
             text=True,
         )
-
         if result.returncode != 0:
-            print(f"  ✗ actool error: {result.stderr}")
+            print(f"  ✗ compile_car.py error: {result.stderr or result.stdout}")
             return False
 
         return True
-    except FileNotFoundError:
-        print("  ✗ actool not found. This script must run on macOS with Xcode.")
-        return False
     except Exception as e:
         print(f"  ✗ Failed to generate Assets.car: {e}")
         return False

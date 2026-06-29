@@ -20,7 +20,7 @@ index 1d85aa0d8410f..975c964d2aec9 100644
    GetProductNameAndVersion(exe_file, &product_name, &version, &special_build,
                             &channel_name);
 -  product_info->product_name = base::WideToUTF8(product_name);
-+  product_info->product_name = "BrowserOS";
++  product_info->product_name = "Pane";
    product_info->version = base::WideToUTF8(version);
    product_info->channel = base::WideToUTF8(channel_name);
  }

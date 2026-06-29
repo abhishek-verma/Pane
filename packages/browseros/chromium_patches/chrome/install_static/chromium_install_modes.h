@@ -27,12 +27,12 @@ index ee62888f89705..7ec72d302bc4b 100644
 -            L"Chromium HTML Document",  // Browser ProgID description.
 -        .direct_launch_url_scheme = "chromium",
 -        .pdf_prog_id_prefix = L"ChromiumPDF",  // PDF ProgID prefix.
-+            L"BrowserOS HTML Document",  // Browser ProgID description.
++            L"Pane HTML Document",  // Browser ProgID description.
 +        .direct_launch_url_scheme = "browseros",
 +        .pdf_prog_id_prefix = L"BOSPDF",  // PDF ProgID prefix.
          .pdf_prog_id_description =
 -            L"Chromium PDF Document",  // PDF ProgID description.
-+            L"BrowserOS PDF Document",  // PDF ProgID description.
++            L"Pane PDF Document",  // PDF ProgID description.
          .active_setup_guid =
 -            L"{7D2B3E1D-D096-4594-9D8F-A6667F12E0AC}",  // Active Setup
 +            L"{0EF5669B-7FD7-4138-A91F-E466631ADE97}",  // Active Setup

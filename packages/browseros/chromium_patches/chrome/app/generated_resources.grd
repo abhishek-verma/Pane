@@ -7,7 +7,7 @@ index 33c0b42d826b5..cbcfa8836f052 100644
          Collapse <ph name="HEADER">$1<ex>Unread</ex></ph>
        </message>
 +      <message name="IDS_THIRD_PARTY_LLM_TITLE" desc="Title for 3rd party LLM side panel">
-+        Chat 
++        Pane Chat 
 +      </message>
        <message name="IDS_READ_LATER_MENU_UNREAD_HEADER" desc="Header for section of unread Read later items.">
          Unread

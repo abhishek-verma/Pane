@@ -278,7 +278,7 @@ index 0000000000000..869ed71be8869
 +  // sparkle:version (same scheme as CFBundleVersion on macOS).
 +  const std::wstring display_version =
 +      base::UTF8ToWide(version_info::GetVersionNumber());
-+  win_sparkle_set_app_details(L"BrowserOS", L"BrowserOS",
++  win_sparkle_set_app_details(L"Pane", L"Pane",
 +                              display_version.c_str());
 +
 +  const std::vector<uint32_t>& components =
