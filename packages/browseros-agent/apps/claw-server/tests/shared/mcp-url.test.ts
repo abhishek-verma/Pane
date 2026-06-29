@@ -20,7 +20,7 @@ describe('canonicalMcpUrlForPort', () => {
 })
 
 describe('BROWSEROS_MCP_SERVER_NAME', () => {
-  it('is the canonical "browseros" key written into harness configs', () => {
-    expect(BROWSEROS_MCP_SERVER_NAME).toBe('browseros')
+  it('is the canonical "pane" key written into harness configs', () => {
+    expect(BROWSEROS_MCP_SERVER_NAME).toBe('pane')
   })
 })

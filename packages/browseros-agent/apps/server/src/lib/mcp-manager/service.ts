@@ -22,8 +22,10 @@ import {
 } from 'agent-mcp-manager'
 import { logger } from '../logger'
 import {
+  BROWSEROS_MCP_COMPAT_ALIASES,
   BROWSEROS_MCP_SERVER_NAME,
   BROWSEROS_MCP_STDIO_SERVER_NAME,
+  browserosMcpAllManagedServerNames,
   getMcpManager,
 } from './manager'
 import type {
@@ -62,10 +64,7 @@ const HIDDEN_AGENTS: ReadonlySet<string> = new Set(['gemini', 'claude-desktop'])
  * The two server-names BrowserOS manages in the manifest. Iterating
  * both is what `listAgents` + `reconcileUrl` need to do.
  */
-const BROWSEROS_SERVER_NAMES: readonly string[] = [
-  BROWSEROS_MCP_SERVER_NAME,
-  BROWSEROS_MCP_STDIO_SERVER_NAME,
-]
+const BROWSEROS_SERVER_NAMES = browserosMcpAllManagedServerNames()
 
 interface AgentServerPlan {
   serverName: string
@@ -159,8 +158,13 @@ export async function installInto(
   // unconditionally on every install click so a URL drift gets
   // caught even outside the boot-time reconciler.
   await mgr.add({ name: serverName, spec })
+  if (serverName === BROWSEROS_MCP_SERVER_NAME) {
+    for (const alias of BROWSEROS_MCP_COMPAT_ALIASES) {
+      await mgr.add({ name: alias, spec })
+    }
+  }
   await mgr.link({ serverName, agent: agentId })
-  logger.info('Installed BrowserOS MCP into agent', {
+  logger.info('Installed Pane MCP into agent', {
     agent: agentId,
     serverName,
   })
@@ -192,7 +196,7 @@ export async function uninstallFrom(
   for (const serverName of BROWSEROS_SERVER_NAMES) {
     try {
       await mgr.unlink({ serverName, agent: agentId })
-      logger.info('Uninstalled BrowserOS MCP from agent', {
+      logger.info('Uninstalled Pane MCP from agent', {
         agent: agentId,
         serverName,
       })
@@ -208,7 +212,7 @@ export async function uninstallFrom(
     return {
       success: false,
       message:
-        'Cannot remove a user-edited entry. Please remove BrowserOS from this agent manually and try again.',
+        'Cannot remove a user-edited entry. Please remove Pane from this agent manually and try again.',
     }
   }
   return { success: true }
@@ -247,13 +251,13 @@ export function humaniseInstallError(err: unknown): {
   if (err instanceof ForeignEntryError) {
     return {
       message:
-        "Cannot replace a user-edited entry. Please remove BrowserOS from this agent's config manually and try again.",
+        "Cannot replace a user-edited entry. Please remove Pane from this agent's config manually and try again.",
       status: 409,
     }
   }
   if (err instanceof UnsupportedTransportError) {
     return {
-      message: `This agent does not support BrowserOS's MCP transport. ${err.message}`,
+      message: `This agent does not support Pane's MCP transport. ${err.message}`,
       status: 400,
     }
   }

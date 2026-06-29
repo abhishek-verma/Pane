@@ -28,8 +28,8 @@ import type {
 } from 'agent-mcp-manager'
 import { logger } from '../logger'
 import {
-  BROWSEROS_MCP_SERVER_NAME,
   BROWSEROS_MCP_STDIO_SERVER_NAME,
+  browserosMcpAllManagedServerNames,
   getMcpManager,
 } from './manager'
 import type { McpAgentId, ReconcileResult } from './types'
@@ -151,10 +151,7 @@ export async function reconcileUrl(
 ): Promise<ReconcileResult> {
   const mgr = getMcpManager()
   const servers = await mgr.listServers()
-  const managedNames = [
-    BROWSEROS_MCP_SERVER_NAME,
-    BROWSEROS_MCP_STDIO_SERVER_NAME,
-  ]
+  const managedNames = browserosMcpAllManagedServerNames()
   const affected: McpAgentId[] = []
   let didAnything = false
 
@@ -174,7 +171,7 @@ export async function reconcileUrl(
     return { action: 'noop', affectedAgents: [] }
   }
 
-  logger.info('MCP manager reconciled BrowserOS URL', {
+  logger.info('MCP manager reconciled Pane MCP URL', {
     newUrl: input.currentUrl,
     relinked: affected,
   })

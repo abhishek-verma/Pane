@@ -21,19 +21,20 @@ describe('connectBrowserosToHarness', () => {
   beforeEach(() => resetMcpManagerForTesting())
   afterEach(() => resetMcpManagerForTesting())
 
-  it('writes a "browseros" entry with the canonical URL and links it to the right agent id', async () => {
+  it('writes a "pane" entry with compat alias, canonical URL, and links it to the right agent id', async () => {
     const stub = createStubMcpManager()
     setMcpManagerForTesting(stub)
     const result = await connectBrowserosToHarness('Claude Code')
     expect(result.installed).toBe(true)
     expect(result.agentId).toBe('claude-code')
-    const add = stub.calls.find((c) => c.method === 'add')
-    expect(add).toBeDefined()
-    const addPayload = add?.payload as {
+    const adds = stub.calls.filter((c) => c.method === 'add')
+    expect(adds).toHaveLength(2)
+    const addPayload = adds[0]?.payload as {
       name: string
       spec: { transport: string; url?: string }
     }
-    expect(addPayload.name).toBe('browseros')
+    expect(addPayload.name).toBe('pane')
+    expect((adds[1]?.payload as { name: string }).name).toBe('browseros')
     expect(addPayload.spec.transport).toBe('http')
     expect(addPayload.spec.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/mcp$/)
     expect(addPayload.spec.url).not.toContain('/cockpit')
@@ -46,8 +47,8 @@ describe('connectBrowserosToHarness', () => {
     const stub = createStubMcpManager()
     setMcpManagerForTesting(stub)
     await connectBrowserosToHarness('Codex')
-    const add = stub.calls.find((c) => c.method === 'add')
-    const payload = add?.payload as {
+    const adds = stub.calls.filter((c) => c.method === 'add')
+    const payload = adds[0]?.payload as {
       spec: { transport: string; url?: string }
     }
     expect(payload.spec.transport).toBe('http')
@@ -85,7 +86,7 @@ describe('disconnectBrowserosFromHarness', () => {
       serverName: string
       agent: string
     }
-    expect(unlinkPayload.serverName).toBe('browseros')
+    expect(unlinkPayload.serverName).toBe('pane')
     expect(unlinkPayload.agent).toBe('cursor')
     expect(stub.calls.find((c) => c.method === 'remove')).toBeDefined()
   })

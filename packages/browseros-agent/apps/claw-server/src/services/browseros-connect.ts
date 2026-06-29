@@ -27,6 +27,7 @@ import { logger } from '../lib/logger'
 import { getMcpManager } from '../lib/mcp-manager'
 import { type Harness, harnessEnum } from '../routes/agents/schemas'
 import {
+  BROWSEROS_MCP_COMPAT_ALIASES,
   BROWSEROS_MCP_SERVER_NAME,
   canonicalMcpUrlForPort,
 } from '../shared/mcp-url'
@@ -71,10 +72,14 @@ export async function connectBrowserosToHarness(
   const mgr = getMcpManager()
   const url = canonicalMcpUrl()
   try {
+    const spec = specFor(agentId, url)
     await mgr.add({
       name: BROWSEROS_MCP_SERVER_NAME,
-      spec: specFor(agentId, url),
+      spec,
     })
+    for (const alias of BROWSEROS_MCP_COMPAT_ALIASES) {
+      await mgr.add({ name: alias, spec })
+    }
     const link = await mgr.link({
       serverName: BROWSEROS_MCP_SERVER_NAME,
       agent: agentId,
@@ -89,7 +94,7 @@ export async function connectBrowserosToHarness(
       installed: true,
       agentId,
       configPath: link.configPath,
-      message: `BrowserOS registered as an MCP server in ${harness}.`,
+      message: `Pane registered as an MCP server in ${harness}.`,
     }
   } catch (err) {
     return failure(harness, agentId, err, 'connect')
@@ -122,6 +127,13 @@ export async function disconnectBrowserosFromHarness(
         serverName: BROWSEROS_MCP_SERVER_NAME,
         unlinkFirst: false,
       })
+      for (const alias of BROWSEROS_MCP_COMPAT_ALIASES) {
+        try {
+          await mgr.remove({ serverName: alias, unlinkFirst: false })
+        } catch {
+          // Best-effort alias cleanup.
+        }
+      }
     } catch {
       // ServerNotFoundError, etc. Safe to ignore: the link is gone,
       // which is the user-visible state we care about.
@@ -136,7 +148,7 @@ export async function disconnectBrowserosFromHarness(
       installed: false,
       agentId,
       configPath: unlink.configPath,
-      message: `BrowserOS unregistered from ${harness}.`,
+      message: `Pane unregistered from ${harness}.`,
     }
   } catch (err) {
     return failure(harness, agentId, err, 'disconnect')
@@ -155,7 +167,7 @@ export async function listBrowserosConnections(): Promise<ConnectionState[]> {
   let links: Awaited<ReturnType<typeof mgr.listLinks>> = []
   try {
     links = await mgr.listLinks({
-      serverNames: [BROWSEROS_MCP_SERVER_NAME],
+      serverNames: [BROWSEROS_MCP_SERVER_NAME, ...BROWSEROS_MCP_COMPAT_ALIASES],
     })
   } catch (err) {
     logger.warn('listBrowserosConnections failed', {

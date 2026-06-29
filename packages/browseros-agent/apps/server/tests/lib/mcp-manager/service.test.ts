@@ -249,21 +249,22 @@ describe('listAgents', () => {
 })
 
 describe('installInto', () => {
-  it('adds the browseros entry with the current url and links the agent', async () => {
+  it('adds the pane entry with the current url, compat alias, and links the agent', async () => {
     const { manager, calls } = makeManagerStub()
     setMcpManagerForTesting(manager)
 
     const result = await installInto('claude-code', 'http://127.0.0.1:9100/mcp')
     expect(result.success).toBe(true)
-    expect(calls.add).toHaveLength(1)
-    expect(calls.add[0].name).toBe('browseros')
+    expect(calls.add).toHaveLength(2)
+    expect(calls.add[0].name).toBe('pane')
+    expect(calls.add[1].name).toBe('browseros')
     expect(calls.add[0].spec).toEqual({
       transport: 'http',
       url: 'http://127.0.0.1:9100/mcp',
     })
     expect(calls.link).toHaveLength(1)
     expect(calls.link[0].agent).toBe('claude-code')
-    expect(calls.link[0].serverName).toBe('browseros')
+    expect(calls.link[0].serverName).toBe('pane')
   })
 
   it('uses an http spec under the http server name for codex', async () => {
@@ -276,15 +277,15 @@ describe('installInto', () => {
 
     const result = await installInto('codex', 'http://127.0.0.1:9100/mcp')
     expect(result.success).toBe(true)
-    expect(calls.add).toHaveLength(1)
-    expect(calls.add[0].name).toBe('browseros')
+    expect(calls.add).toHaveLength(2)
+    expect(calls.add[0].name).toBe('pane')
     expect(calls.add[0].spec).toEqual({
       transport: 'http',
       url: 'http://127.0.0.1:9100/mcp',
     })
     expect(calls.link).toHaveLength(1)
     expect(calls.link[0].agent).toBe('codex')
-    expect(calls.link[0].serverName).toBe('browseros')
+    expect(calls.link[0].serverName).toBe('pane')
   })
 
   it('uses a stdio mcp-remote spec under the stdio server name for claude-desktop', async () => {
@@ -325,9 +326,11 @@ describe('installInto', () => {
       'http://127.0.0.1:9100/mcp',
     )
     expect(result.success).toBe(true)
-    expect(calls.unlink).toHaveLength(1)
-    expect(calls.unlink[0].serverName).toBe('browseros')
-    expect(calls.unlink[0].agent).toBe('claude-desktop')
+    expect(calls.unlink).toHaveLength(2)
+    expect(calls.unlink.map((c) => c.serverName).sort()).toEqual([
+      'browseros',
+      'pane',
+    ])
     expect(calls.link).toHaveLength(1)
     expect(calls.link[0].serverName).toBe('browseros-stdio')
   })
@@ -352,10 +355,11 @@ describe('uninstallFrom', () => {
     setMcpManagerForTesting(manager)
     const out = await uninstallFrom('claude-code')
     expect(out.success).toBe(true)
-    expect(calls.unlink).toHaveLength(2)
+    expect(calls.unlink).toHaveLength(3)
     expect(calls.unlink.map((c) => c.serverName).sort()).toEqual([
       'browseros',
       'browseros-stdio',
+      'pane',
     ])
     for (const call of calls.unlink) {
       expect(call.agent).toBe('claude-code')
@@ -367,10 +371,11 @@ describe('uninstallFrom', () => {
     setMcpManagerForTesting(manager)
     const out = await uninstallFrom('codex')
     expect(out.success).toBe(true)
-    expect(calls.unlink).toHaveLength(2)
+    expect(calls.unlink).toHaveLength(3)
     expect(calls.unlink.map((c) => c.serverName).sort()).toEqual([
       'browseros',
       'browseros-stdio',
+      'pane',
     ])
   })
 
@@ -384,10 +389,11 @@ describe('uninstallFrom', () => {
     setMcpManagerForTesting(manager)
     const out = await uninstallFrom('claude-desktop')
     expect(out.success).toBe(true)
-    expect(calls.unlink).toHaveLength(2)
+    expect(calls.unlink).toHaveLength(3)
     expect(calls.unlink.map((c) => c.serverName).sort()).toEqual([
       'browseros',
       'browseros-stdio',
+      'pane',
     ])
   })
 

@@ -18,10 +18,13 @@ export const MCP_PATH = '/mcp'
 
 /**
  * Server name written into harness configs. One canonical name across
- * every harness so the user sees "browseros" in every `claude mcp list`
+ * every harness so the user sees "pane" in every `claude mcp list`
  * / Cursor settings page. Same name reused by the canonical CLI snippet.
  */
-export const BROWSEROS_MCP_SERVER_NAME = 'browseros'
+export const BROWSEROS_MCP_SERVER_NAME = 'pane'
+
+/** Legacy slug kept so existing `claude mcp add browseros …` configs keep working. */
+export const BROWSEROS_MCP_COMPAT_ALIASES = ['browseros'] as const
 
 /**
  * Builds the slugless canonical URL the v2 cockpit advertises. The
