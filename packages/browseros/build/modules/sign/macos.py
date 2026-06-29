@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Application signing and notarization module for BrowserOS (macOS)"""
+"""Application signing and notarization module for Pane (macOS)"""
 
 import os
 import sys
@@ -167,7 +167,7 @@ class MacOSSignModule(CommandModule):
 
     def execute(self, ctx: Context) -> None:
         log_info("=" * 70)
-        log_info("🚀 Starting signing process for BrowserOS...")
+        log_info("🚀 Starting signing process for Pane...")
         log_info("=" * 70)
 
         unlock_keychain(ctx.env)
@@ -958,7 +958,7 @@ def notarize_app(
 def sign_app(ctx: Context, create_dmg: bool = True) -> bool:
     """Main signing function that uses BuildContext from build.py"""
     log_info("=" * 70)
-    log_info("🚀 Starting signing process for BrowserOS...")
+    log_info("🚀 Starting signing process for Pane...")
     log_info("=" * 70)
 
     unlock_keychain(ctx.env if ctx else None)
@@ -1038,7 +1038,7 @@ def sign_app(ctx: Context, create_dmg: bool = True) -> bool:
                 app_path=app_path,
                 dmg_path=dmg_path,
                 certificate_name=env_vars["certificate_name"],
-                volume_name="BrowserOS",
+                volume_name="Pane",
                 pkg_dmg_path=pkg_dmg_path,
                 keychain_profile="notarytool-profile",
             ):

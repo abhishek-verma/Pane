@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react'
 import { type FC, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router'
+import { NoProviderConfigured } from '@/components/chat/NoProviderConfigured'
 import {
   createAITabAction,
   createBrowserOSAction,
@@ -46,6 +47,7 @@ export const NewTabChat: FC = () => {
     disliked,
     onClickDislike,
     isRestoringConversation,
+    isLoading,
     providers,
     selectedProvider,
     handleSelectProvider,
@@ -145,7 +147,21 @@ export const NewTabChat: FC = () => {
     resetConversation()
   }
 
-  if (!selectedProvider) return null
+  if (isLoading) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!selectedProvider) {
+    return (
+      <div className="absolute inset-0">
+        <NoProviderConfigured />
+      </div>
+    )
+  }
 
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden">

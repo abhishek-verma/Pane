@@ -23,9 +23,9 @@ class ExtensionInfo(NamedTuple):
 
 
 REQUIRED_BUNDLED_EXTENSION_IDS: Dict[str, str] = {
-    "adlpneommgkgeanpaekgoaolcpncohkf": "BrowserOS bug reporter",
-    "bflpfmnmnokmjhmgnolecpppdbdophmk": "BrowserOS agent",
-    "pjimfkbpehlcllblajnpfamdfjhhlgkc": "BrowserOS Claw app",
+    "adlpneommgkgeanpaekgoaolcpncohkf": "Pane bug reporter",
+    "bflpfmnmnokmjhmgnolecpppdbdophmk": "Pane agent",
+    "pjimfkbpehlcllblajnpfamdfjhhlgkc": "Pane Claw app",
 }
 
 

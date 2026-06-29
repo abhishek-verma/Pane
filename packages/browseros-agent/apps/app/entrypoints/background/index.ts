@@ -10,6 +10,7 @@ import {
   toggleSidePanel,
 } from '@/lib/browseros/toggleSidePanel'
 import { checkAndShowChangelog } from '@/lib/changelog/changelog-notifier'
+import { cloudAccountEnabled } from '@/lib/constants/product-features'
 import {
   setupLlmProvidersBackupToBrowserOS,
   setupLlmProvidersSyncToBackend,
@@ -148,17 +149,17 @@ export default defineBackground(() => {
   })
 
   sessionStorage.watch(async (newSession) => {
-    if (newSession?.user?.id) {
-      try {
-        await syncLlmProviders()
-      } catch {}
-      try {
-        await syncScheduledJobs()
-      } catch {}
-      try {
-        await syncOnboardingProfile(newSession.user.id)
-      } catch {}
-    }
+    if (!cloudAccountEnabled || !newSession?.user?.id) return
+
+    try {
+      await syncLlmProviders()
+    } catch {}
+    try {
+      await syncScheduledJobs()
+    } catch {}
+    try {
+      await syncOnboardingProfile(newSession.user.id)
+    } catch {}
   })
 
   onServerMessage('checkHealth', async () => {

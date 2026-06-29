@@ -7,7 +7,7 @@ import {
 
 const llm: Provider = {
   id: 'browseros',
-  name: 'BrowserOS',
+  name: 'Pane',
   type: 'browseros',
   kind: 'llm',
 }

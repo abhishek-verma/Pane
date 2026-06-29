@@ -5,6 +5,7 @@ import { sendServerMessage } from '@/lib/messaging/server/serverMessages'
 import { IntegrationsSection } from './IntegrationsSection'
 import { MCPServerHeader } from './MCPServerHeader'
 import { MCPToolsSection } from './MCPToolsSection'
+import { QuickSetupSection } from './QuickSetupSection'
 
 /** @public */
 export const MCPSettingsPage: FC = () => {
@@ -82,6 +83,8 @@ export const MCPSettingsPage: FC = () => {
         error={urlError}
         onServerRestart={loadServerUrlAndTools}
       />
+
+      <QuickSetupSection serverUrl={serverUrl} />
 
       <IntegrationsSection serverUrl={serverUrl} />
 

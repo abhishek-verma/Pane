@@ -2,6 +2,7 @@ import { Menu } from 'lucide-react'
 import type { FC } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router'
+import { PaneWordmark } from '@/components/branding/PaneWordmark'
 import { AppSidebar } from '@/components/sidebar/AppSidebar'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
@@ -62,7 +63,7 @@ export const SidebarLayout: FC = () => {
             >
               <Menu className="size-4" />
             </Button>
-            <span className="font-semibold">BrowserOS</span>
+            <PaneWordmark size="sm" />
           </header>
           <main className="flex-1 overflow-y-auto">
             <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">

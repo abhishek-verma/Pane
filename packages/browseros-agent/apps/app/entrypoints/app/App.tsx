@@ -3,6 +3,7 @@ import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router'
 import { AuthLayout } from '@/components/layout/AuthLayout'
 import { SettingsSidebarLayout } from '@/components/layout/SettingsSidebarLayout'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
+import { RouteDocumentTitle } from '@/lib/document-title/RouteDocumentTitle'
 import { AgentCommandConversation } from '@/screens/agent-command/AgentCommandConversation'
 import { AgentCommandHome } from '@/screens/agent-command/AgentCommandHome'
 import { AgentCommandLayout } from '@/screens/agent-command/AgentCommandLayout'
@@ -64,6 +65,7 @@ export const App: FC = () => {
 
   return (
     <HashRouter>
+      <RouteDocumentTitle />
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="login" element={<LoginPage />} />

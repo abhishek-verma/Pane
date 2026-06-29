@@ -59,7 +59,7 @@ describe('OnboardingV2 shell', () => {
 
   it('renders the visual rail with the v2 quote and three feature blocks', () => {
     const html = renderApp()
-    expect(html).toContain('BrowserOS')
+    expect(html).toContain('Pane')
     expect(html).toContain('Let the agent you already run')
     expect(html).toContain('Fast &amp; token-cheap')
     expect(html).toContain('Logged in as you')

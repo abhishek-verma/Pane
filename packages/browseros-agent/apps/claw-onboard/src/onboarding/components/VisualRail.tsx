@@ -1,6 +1,8 @@
 import { Lock, ShieldCheck, Zap } from 'lucide-react'
+import { PaneMark } from '@/components/branding/PaneMark'
+import { PaneWordmark } from '@/components/branding/PaneWordmark'
 
-/** Renders the persistent BrowserOS visual rail beside the onboarding steps. */
+/** Renders the persistent Pane visual rail beside the onboarding steps. */
 export function VisualRail() {
   return (
     <div
@@ -19,12 +21,13 @@ export function VisualRail() {
         }}
       />
       <div className="relative flex items-center gap-2.5">
-        <div className="flex size-[38px] items-center justify-center rounded-[11px] bg-accent font-extrabold text-card text-lg">
-          B
-        </div>
-        <div className="font-extrabold text-[17px] tracking-tight">
-          BrowserOS
-        </div>
+        <PaneMark
+          size={38}
+          className="text-accent"
+          aria-label="Pane"
+          role="img"
+        />
+        <PaneWordmark />
       </div>
       <div className="relative">
         <div className="mb-[18px] font-serif text-[23px] text-ink italic leading-snug">

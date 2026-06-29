@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Install browseros-cli — downloads the latest release binary for your platform.
+# Install Pane CLI (browseros-cli) — downloads the latest release binary for your platform.
 #
 # Usage:
 #   curl -fsSL https://cdn.browseros.com/cli/install.sh | bash
@@ -57,7 +57,7 @@ if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
   exit 1
 fi
 
-echo "Installing browseros-cli v${VERSION}..."
+echo "Installing Pane CLI (browseros-cli) v${VERSION}..."
 
 # ── Detect platform ──────────────────────────────────────────────────────────
 
@@ -138,7 +138,7 @@ echo "Installed bos alias to ${INSTALL_DIR}/bos"
 
 if ! echo "$PATH" | tr ':' '\n' | grep -qx "$INSTALL_DIR"; then
   echo ""
-  echo "Add browseros-cli to your PATH:"
+  echo "Add Pane CLI (browseros-cli) to your PATH:"
   echo ""
 
   SHELL_NAME=$(basename "${SHELL:-/bin/bash}")

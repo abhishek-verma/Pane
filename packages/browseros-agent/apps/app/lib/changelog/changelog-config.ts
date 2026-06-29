@@ -1,4 +1,4 @@
-const CHANGELOG_BASE_URL = 'https://docs.browseros.com/changelog'
+import { changelogUrl } from '@/lib/constants/productUrls'
 
 type ChangelogVersionConfig = {
   showChangelog: true
@@ -21,8 +21,8 @@ const CHANGELOG_VERSIONS: Record<string, ChangelogVersionConfig> = {
 
 export function getChangelogUrl(version: string): string {
   const config = CHANGELOG_VERSIONS[version]
-  if (!config?.anchor) return CHANGELOG_BASE_URL
-  return `${CHANGELOG_BASE_URL}#${config.anchor}`
+  if (!config?.anchor) return changelogUrl
+  return `${changelogUrl}#${config.anchor}`
 }
 
 export function shouldShowChangelog(version: string): boolean {

@@ -9,7 +9,7 @@ const originalFetch = globalThis.fetch
 const createBrowserOSProvider = () => ({
   id: 'browseros',
   type: 'browseros',
-  name: 'BrowserOS',
+  name: 'Pane',
   modelId: 'browseros-auto',
   supportsImages: true,
   contextWindow: 200000,
@@ -37,6 +37,36 @@ mock.module('@/lib/llm-providers/storage', () => ({
       storageValues.set('defaultProviderId', value)
     },
     watch: () => () => {},
+  },
+  resolveStoredChatProvider: async (
+    preferredProviderId?: string | null,
+    cloudOnly = false,
+  ) => {
+    const providers =
+      (storageValues.get('providers') as LlmProviderConfig[]) ?? []
+    const preferredId =
+      preferredProviderId ??
+      (storageValues.get('defaultProviderId') as string | undefined) ??
+      'browseros'
+
+    if (!cloudOnly) {
+      return providers.find((p) => p.id === preferredId) ?? providers[0] ?? null
+    }
+
+    const cloudProviders = providers.filter(
+      (provider) =>
+        provider.type !== 'browseros' &&
+        provider.type !== 'codex' &&
+        provider.type !== 'claude-code' &&
+        provider.type !== 'acp-custom',
+    )
+    if (preferredProviderId) {
+      const preferred = cloudProviders.find(
+        (provider) => provider.id === preferredProviderId,
+      )
+      if (preferred) return preferred
+    }
+    return cloudProviders[0] ?? null
   },
 }))
 
@@ -133,7 +163,7 @@ const providers: LlmProviderConfig[] = [
   {
     id: 'browseros',
     type: 'browseros',
-    name: 'BrowserOS',
+    name: 'Pane',
     modelId: 'browseros-auto',
     supportsImages: true,
     contextWindow: 200000,

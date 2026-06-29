@@ -33,8 +33,8 @@ class ApplyStringReplacementsTest(unittest.TestCase):
         ).read_text()
         self.assertNotIn("Google Chrome", content)
         self.assertNotIn("Chromium", content)
-        self.assertIn("BrowserOS", content)
-        self.assertIn("The BrowserOS Authors. All rights reserved.", content)
+        self.assertIn("Pane", content)
+        self.assertIn("Pane. All rights reserved.", content)
 
     def test_google_play_is_preserved(self):
         self.chromium.with_branding_files()
@@ -45,7 +45,7 @@ class ApplyStringReplacementsTest(unittest.TestCase):
             self.chromium.src / "chrome" / "app" / "chromium_strings.grd"
         ).read_text()
         self.assertIn("Google Play", content)
-        self.assertNotIn("BrowserOS Play", content)
+        self.assertNotIn("Pane Play", content)
 
     def test_both_target_files_are_processed(self):
         self.chromium.with_branding_files()
@@ -56,7 +56,7 @@ class ApplyStringReplacementsTest(unittest.TestCase):
             self.chromium.src / "chrome" / "app" / "settings_chromium_strings.grdp"
         ).read_text()
         self.assertNotIn("Google Chrome", grdp)
-        self.assertIn("BrowserOS", grdp)
+        self.assertIn("Pane", grdp)
 
     def test_missing_target_file_is_tolerated(self):
         self.chromium.add_file(
@@ -69,7 +69,7 @@ class ApplyStringReplacementsTest(unittest.TestCase):
         content = (
             self.chromium.src / "chrome" / "app" / "chromium_strings.grd"
         ).read_text()
-        self.assertIn("BrowserOS", content)
+        self.assertIn("Pane", content)
 
     def test_all_targets_missing_still_succeeds(self):
         self.assertTrue(apply_string_replacements_impl(self.ctx))

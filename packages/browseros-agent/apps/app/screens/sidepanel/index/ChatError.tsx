@@ -2,6 +2,10 @@ import { AlertCircle, RefreshCw } from 'lucide-react'
 import type { FC } from 'react'
 import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
+import {
+  connectionTroubleshootingUrl,
+  productRepositoryUrl,
+} from '@/lib/constants/productUrls'
 
 const SURVEY_DIRECTIONS = [
   'competitor',
@@ -32,17 +36,17 @@ function parseErrorMessage(
 } {
   const isBrowserosProvider = providerType === 'browseros'
 
-  // All chat requests go through the local BrowserOS agent server, so any
+  // All chat requests go through the local Pane agent server, so any
   // fetch failure is always a local connection issue.
   if (message.includes('Failed to fetch') || message.includes('fetch failed')) {
     return {
-      text: 'Unable to connect to BrowserOS agent. Follow below instructions.',
-      url: 'https://docs.browseros.com/troubleshooting/connection-issues',
+      text: 'Unable to connect to Pane agent. Follow below instructions.',
+      url: connectionTroubleshootingUrl,
       isConnectionError: true,
     }
   }
 
-  // Detect credit exhaustion from gateway (BrowserOS provider only)
+  // Detect credit exhaustion from gateway (Pane provider only)
   if (
     isBrowserosProvider &&
     (message.includes('CREDITS_EXHAUSTED') ||
@@ -57,14 +61,11 @@ function parseErrorMessage(
     }
   }
 
-  // Detect BrowserOS rate limit (BrowserOS provider only)
-  if (
-    isBrowserosProvider &&
-    message.includes('BrowserOS LLM daily limit reached')
-  ) {
+  // Detect Pane rate limit (Pane provider only)
+  if (isBrowserosProvider && message.includes('Pane LLM daily limit reached')) {
     return {
       text: 'Add your own API key for unlimited usage.',
-      url: 'https://dub.sh/browseros-usage-limit',
+      url: productRepositoryUrl,
       isRateLimit: true,
     }
   }
@@ -119,7 +120,7 @@ export const ChatError: FC<ChatErrorProps> = ({
           rel="noopener noreferrer"
           className="text-muted-foreground text-xs underline hover:text-foreground"
         >
-          View troubleshooting guide
+          View on GitHub
         </a>
       )}
       {isCreditsExhausted && url && (

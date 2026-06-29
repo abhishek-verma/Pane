@@ -13,7 +13,7 @@ export const SHORTCUTS_LIST = [
   },
   {
     key: 'K',
-    description: 'Toggle LLM Chat',
+    description: 'Toggle Pane Chat',
     modifier: {
       windows: 'Ctrl+Shift',
       mac: '⌘+Shift',
@@ -22,7 +22,7 @@ export const SHORTCUTS_LIST = [
   },
   {
     key: 'L',
-    description: 'Switch providers in LLM Chat',
+    description: 'Switch providers in Pane Chat',
     modifier: {
       windows: 'Ctrl+Shift',
       mac: '⌘+Shift',

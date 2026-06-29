@@ -30,7 +30,7 @@ export function ConnectStep({
         Connect to <Em>Claude</Em>.
       </DisplayHeading>
       <StepCopy>
-        BrowserOS shows up inside Claude as a connector. One click. No extension
+        Pane shows up inside Claude as a connector. One click. No extension
         handshake to fail.
       </StepCopy>
 

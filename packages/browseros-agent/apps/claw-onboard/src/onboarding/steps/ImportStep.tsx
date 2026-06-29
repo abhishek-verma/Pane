@@ -72,8 +72,8 @@ export function ImportStep({
         Import your <Em>logins</Em>.
       </DisplayHeading>
       <StepCopy>
-        BrowserOS copies your saved Chrome sessions so the agent never has to
-        log in again. Sessions stay in a local vault on this Mac.
+        Pane copies your saved Chrome sessions so the agent never has to log in
+        again. Sessions stay in a local vault on this Mac.
       </StepCopy>
 
       {phase === 'pre-quit' && <ChromeQuitNotice onQuitChrome={onQuitChrome} />}
@@ -163,7 +163,7 @@ export function ImportStep({
             </div>
             <div className="text-[12.5px] text-ink-2">
               {state.error?.message ??
-                'BrowserOS could not finish importing this profile.'}
+                'Pane could not finish importing this profile.'}
             </div>
           </div>
           <div className="flex flex-wrap gap-2.5">

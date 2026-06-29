@@ -1,7 +1,7 @@
 {
   "name": "browseros-monorepo",
   "version": "1.0.0",
-  "description": "BrowserOS monorepo - server, extension, and shared packages",
+  "description": "Pane monorepo - server, extension, and shared packages",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -54,13 +54,13 @@
     "gen:cdp": "bun scripts/codegen/cdp-protocol.ts",
     "generate:models": "bun scripts/generate-models.ts"
   },
-  "repository": "browseros-ai/BrowserOS-server",
-  "author": "BrowserOS",
+  "repository": "browseros-ai/Pane",
+  "author": "Pane",
   "license": "AGPL-3.0-or-later",
   "bugs": {
-    "url": "https://github.com/browseros-ai/BrowserOS/issues"
+    "url": "https://github.com/browseros-ai/Pane/issues"
   },
-  "homepage": "https://github.com/browseros-ai/BrowserOS#readme",
+  "homepage": "https://github.com/browseros-ai/Pane#readme",
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1068.0",
     "@biomejs/biome": "2.5.0",

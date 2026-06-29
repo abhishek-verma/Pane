@@ -1,7 +1,7 @@
 /**
  * Cockpit hero. Lifted verbatim from the design prototype's dashboard:
  * sans-serif title with a Newsreader italic accent on "working on"
- * sitting on the BrowserOS accent color. Subtitle anchors the IA
+ * sitting on the Pane accent color. Subtitle anchors the IA
  * ("watch, approve, audit") so the user doesn't expect the cockpit
  * to be the place they author tasks.
  */
@@ -16,7 +16,7 @@ export function CockpitHero() {
         right now?
       </h1>
       <p className="text-ink-3 text-sm">
-        Tasks start in Claude Code &amp; Codex. BrowserOS is where you watch,
+        Tasks start in Claude Code &amp; Codex. Pane is where you watch,
         approve, and audit them.
       </p>
     </header>

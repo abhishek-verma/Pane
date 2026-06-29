@@ -19,7 +19,18 @@ import { getBrowserosDir } from '../browseros-dir'
  * Stdio-only agents — when supported — get a separate entry under
  * `BROWSEROS_MCP_STDIO_SERVER_NAME` below.
  */
-export const BROWSEROS_MCP_SERVER_NAME = 'browseros'
+export const BROWSEROS_MCP_SERVER_NAME = 'pane'
+
+/** Legacy slug kept so existing `claude mcp add browseros …` configs keep working. */
+export const BROWSEROS_MCP_COMPAT_ALIASES = ['browseros'] as const
+
+export function browserosMcpHttpServerNames(): readonly string[] {
+  return [BROWSEROS_MCP_SERVER_NAME, ...BROWSEROS_MCP_COMPAT_ALIASES]
+}
+
+export function browserosMcpAllManagedServerNames(): readonly string[] {
+  return [...browserosMcpHttpServerNames(), BROWSEROS_MCP_STDIO_SERVER_NAME]
+}
 
 /**
  * Server-name BrowserOS registers itself under for stdio-only agents.

@@ -23,13 +23,13 @@ const browserOSBundleID = "com.browseros.BrowserOS"
 func init() {
 	cmd := &cobra.Command{
 		Use:   "launch",
-		Short: "Launch the BrowserOS application",
-		Long: `Find and launch the BrowserOS application.
+		Short: "Launch the Pane application",
+		Long: `Find and launch the Pane application.
 
-Uses platform-native detection to find BrowserOS, launches it,
+Uses platform-native detection to find Pane, launches it,
 and waits for the server to become ready.
 
-If BrowserOS is already running, reports the server URL.`,
+If Pane is already running, reports the server URL.`,
 		Annotations: map[string]string{"group": "Setup:"},
 		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -38,17 +38,18 @@ If BrowserOS is already running, reports the server URL.`,
 			waitSecs, _ := cmd.Flags().GetInt("wait")
 
 			if url := probeRunningServer(); url != "" {
-				green.Printf("BrowserOS is already running at %s\n", url)
+				green.Printf("Pane is already running at %s\n", url)
 				dim.Printf("Next: browseros-cli init %s\n", mcpEndpointURL(url))
 				return
 			}
 
 			if !isBrowserOSInstalled() {
-				output.Error("BrowserOS is not installed.\n\n"+
+				// TODO(pane-infra): Pane download URL (currently https://browseros.com)
+				output.Error("Pane is not installed.\n\n"+
 					"  Download it from https://browseros.com", 1)
 			}
 
-			fmt.Println("Launching BrowserOS...")
+			fmt.Println("Launching Pane...")
 			if err := startBrowserOS(); err != nil {
 				output.Errorf(1, "failed to launch: %v", err)
 			}
@@ -58,12 +59,12 @@ If BrowserOS is already running, reports the server URL.`,
 			fmt.Println()
 
 			if !ok {
-				output.Error("BrowserOS launched but server didn't respond within "+
+				output.Error("Pane launched but server didn't respond within "+
 					fmt.Sprintf("%d seconds.\n", waitSecs)+
-					"  Check if BrowserOS is fully loaded, then retry.", 1)
+					"  Check if Pane is fully loaded, then retry.", 1)
 			}
 
-			green.Printf("BrowserOS is ready at %s\n", url)
+			green.Printf("Pane is ready at %s\n", url)
 			fmt.Println()
 			dim.Printf("Next: browseros-cli init %s\n", mcpEndpointURL(url))
 		},
@@ -231,7 +232,7 @@ func startBrowserOS() error {
 		if _, err := exec.LookPath("gtk-launch"); err == nil {
 			return exec.Command("gtk-launch", "browseros").Run()
 		}
-		return fmt.Errorf("BrowserOS found but could not determine how to launch it")
+		return fmt.Errorf("Pane found but could not determine how to launch it")
 
 	case "windows":
 		if exePath := windowsBrowserOSExe(); exePath != "" {
@@ -239,7 +240,7 @@ func startBrowserOS() error {
 				return startDetached(exePath)
 			}
 		}
-		return fmt.Errorf("BrowserOS.exe not found at expected location")
+		return fmt.Errorf("Pane.exe not found at expected location")
 
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)

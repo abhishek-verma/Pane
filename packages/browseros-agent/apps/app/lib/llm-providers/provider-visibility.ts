@@ -1,4 +1,5 @@
 import { Feature } from '../browseros/capabilities'
+import { productFeatures } from '../constants/product-features'
 import type { ProviderTemplate } from './providerTemplates'
 import { type ProviderType, REMOTE_HERMES_PROVIDER_TYPE } from './types'
 
@@ -8,8 +9,13 @@ function isProviderTypeVisible(
   type: ProviderType,
   supports: FeatureSupport,
 ): boolean {
+  if (type === 'browseros') {
+    return productFeatures.hostedInference
+  }
   if (type === REMOTE_HERMES_PROVIDER_TYPE) {
-    return supports(Feature.HERMES_AGENT_SUPPORT)
+    return (
+      productFeatures.remoteHermes && supports(Feature.HERMES_AGENT_SUPPORT)
+    )
   }
   return true
 }

@@ -35,7 +35,7 @@ index 8a43e7c2fcde5..505e079c15c5f 100644
 +        SidePanelAction(SidePanelEntryId::kThirdPartyLlm,
 +                        IDS_THIRD_PARTY_LLM_TITLE,
 +                        IDS_THIRD_PARTY_LLM_TITLE,
-+                        vector_icons::kChatOrangeIcon,
++                        vector_icons::kPaneMarkIcon,
 +                        kActionSidePanelShowThirdPartyLlm, bwi, true)
 +            .Build());
 +  }
@@ -72,7 +72,7 @@ index 8a43e7c2fcde5..505e079c15c5f 100644
 +                        infobars::InfoBarDelegate::
 +                            BROWSEROS_AGENT_INSTALLING_INFOBAR_DELEGATE,
 +                        nullptr,
-+                        u"BrowserOS Agent is installing/updating. Please try again shortly.",
++                        u"Pane Agent is installing/updating. Please try again shortly.",
 +                        /*auto_expire=*/true,
 +                        /*should_animate=*/true,
 +                        /*closeable=*/true);
@@ -106,9 +106,10 @@ index 8a43e7c2fcde5..505e079c15c5f 100644
 +              },
 +              bwi))
 +          .SetActionId(kActionBrowserOSAgent)
-+          .SetText(u"Assistant")
-+          .SetTooltipText(u"Ask BrowserOS")
-+          .SetImage(ui::ImageModel::FromResourceId(IDR_PRODUCT_LOGO_16))
++          .SetText(u"Pane")
++          .SetTooltipText(u"Ask Pane")
++          .SetImage(ui::ImageModel::FromVectorIcon(
++              vector_icons::kPaneMarkIcon, ui::kColorIcon, 16))
 +          .SetProperty(actions::kActionItemPinnableKey,
 +                       std::underlying_type_t<actions::ActionPinnableState>(
 +                           actions::ActionPinnableState::kEnterpriseControlled))
@@ -117,3 +118,9 @@ index 8a43e7c2fcde5..505e079c15c5f 100644
    if (HistorySidePanelCoordinator::IsSupported()) {
      root_action_item_->AddChild(
          SidePanelAction(SidePanelEntryId::kHistory, IDS_HISTORY_TITLE,
+                        IDS_HISTORY_SHOW_SIDE_PANEL,
+                        vector_icons::kHistoryChromeRefreshIcon,
+                        kActionSidePanelShowHistory, bwi, true)
+            .Build());
+  }
++

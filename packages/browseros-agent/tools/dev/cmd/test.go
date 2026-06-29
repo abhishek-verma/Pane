@@ -135,18 +135,23 @@ func runTest(cmd *cobra.Command, args []string) error {
 	}
 	proc.LogMsgf(proc.TagBrowser, "Created temp profile: %s", tempDir)
 
-	proc.LogMsg(proc.TagBrowser, "Starting BrowserOS...")
+	proc.LogMsg(proc.TagBrowser, "Starting Pane Dev...")
+	browserArgs, err := browser.BuildArgs(browser.ArgsConfig{
+		Root:              root,
+		Ports:             p,
+		UserDataDir:       tempDir,
+		Headless:          testHeadless,
+		LoadDevExtensions: false,
+	})
+	if err != nil {
+		cleanup()
+		return err
+	}
 	procs = append(procs, proc.StartManaged(ctx, &wg, proc.ProcConfig{
 		Tag:     proc.TagBrowser,
 		Dir:     root,
 		Restart: false,
-		Cmd: browser.BuildArgs(browser.ArgsConfig{
-			Root:              root,
-			Ports:             p,
-			UserDataDir:       tempDir,
-			Headless:          testHeadless,
-			LoadDevExtensions: false,
-		}),
+		Cmd:     browserArgs,
 	}))
 
 	proc.LogMsg(proc.TagBrowser, "Waiting for CDP...")

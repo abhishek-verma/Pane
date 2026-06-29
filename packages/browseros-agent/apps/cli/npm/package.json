@@ -1,7 +1,7 @@
 {
   "name": "browseros-cli",
   "version": "0.2.0",
-  "description": "Command-line interface for controlling BrowserOS — launch and automate the browser from the terminal",
+  "description": "Command-line interface for controlling Pane — launch and automate the browser from the terminal",
   "bin": {
     "browseros-cli": "bin/browseros-cli.js",
     "bos": "bin/browseros-cli.js"
@@ -10,7 +10,8 @@
     "postinstall": "node scripts/postinstall.js"
   },
   "keywords": [
-    "browseros",
+    "pane",
+    "browseros-cli",
     "cli",
     "browser",
     "automation",
@@ -20,11 +21,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/browseros-ai/BrowserOS.git",
+    "url": "git+https://github.com/browseros-ai/Pane.git",
     "directory": "packages/browseros-agent/apps/cli/npm"
   },
-  "homepage": "https://browseros.com",
-  "bugs": "https://github.com/browseros-ai/BrowserOS/issues",
+  "homepage": "https://github.com/browseros-ai/Pane",
+  "bugs": "https://github.com/browseros-ai/Pane/issues",
   "license": "MIT",
   "os": [
     "darwin",

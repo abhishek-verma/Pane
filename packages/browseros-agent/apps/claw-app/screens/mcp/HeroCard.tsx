@@ -27,7 +27,7 @@ export function HeroCard({ url, cli }: HeroCardProps) {
             </span>
           </div>
           <p className="mt-1 text-ink-2 text-sm leading-snug">
-            Add BrowserOS as an MCP server in your AI agent. One endpoint, every
+            Add Pane as an MCP server in your AI agent. One endpoint, every
             harness. Use the buttons below to install with one click, or copy
             the URL for CI configs and manual scripts.
           </p>

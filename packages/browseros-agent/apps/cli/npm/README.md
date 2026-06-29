@@ -1,6 +1,6 @@
 # browseros-cli
 
-Command-line interface for controlling BrowserOS -- launch and automate the browser from the terminal or AI agents. The package installs both `browseros-cli` and `bos`.
+Command-line interface for controlling Pane — launch and automate the browser from the terminal or AI agents. The package installs both `browseros-cli` and `bos`.
 
 ## Installation
 
@@ -25,12 +25,13 @@ curl -fsSL https://cdn.browseros.com/cli/install.sh | bash
 ## Quick Start
 
 ```bash
-# Download BrowserOS from https://browseros.com
+# Download Pane from https://browseros.com
+# TODO(pane-infra): Pane download URL
 
-# Start BrowserOS
+# Start Pane
 browseros-cli launch
 
-# Configure MCP settings with the Server URL from BrowserOS settings
+# Configure MCP settings with the Server URL from Pane settings
 browseros-cli init http://127.0.0.1:9000/mcp
 
 # Verify everything is working
@@ -55,7 +56,8 @@ browseros-cli -p "$page" close
 
 ## Documentation
 
-Full documentation is available at [browseros.com](https://browseros.com).
+Full Pane documentation is at [docs.browseros.com](https://docs.browseros.com).
+<!-- TODO(pane-infra): Pane docs URL -->
 
 ## License
 

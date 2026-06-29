@@ -1,6 +1,6 @@
 ## Reporting Security Issues
 
-If you believe you have found a security vulnerability in BrowserOS, please report it through coordinated disclosure.
+If you believe you have found a security vulnerability in Pane, please report it through coordinated disclosure.
 
 **Please do not report security vulnerabilities through the repository issues, discussions, or pull requests.**
 

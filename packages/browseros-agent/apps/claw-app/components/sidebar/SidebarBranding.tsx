@@ -1,28 +1,28 @@
+import { PaneMark } from '@/components/branding/PaneMark'
+import { PaneWordmark } from '@/components/branding/PaneWordmark'
 import { cn } from '@/lib/utils'
 
 export interface SidebarBrandingProps {
   expanded?: boolean
 }
 
-/**
- * Compact BrowserOS mark in the top of the sidebar. The orange square
- * with a "B" stays visible in the collapsed state; the full wordmark
- * appears as the sidebar expands. The wordmark fades rather than
- * sliding so the layout doesn't shift while the sidebar animates.
- */
+/** Compact Pane mark in the sidebar; wordmark fades in when expanded. */
 export function SidebarBranding({ expanded = false }: SidebarBrandingProps) {
   return (
     <div className="flex h-14 shrink-0 items-center gap-3 px-3">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent font-extrabold text-accent-foreground text-base shadow-card">
-        B
-      </span>
+      <PaneMark
+        size={32}
+        className="shrink-0 text-accent"
+        aria-label="Pane"
+        role="img"
+      />
       <span
         className={cn(
-          'truncate font-extrabold text-base tracking-tight transition-opacity duration-200',
+          'truncate transition-opacity duration-200',
           expanded ? 'opacity-100' : 'opacity-0',
         )}
       >
-        BrowserOS
+        <PaneWordmark size="sm" />
       </span>
     </div>
   )

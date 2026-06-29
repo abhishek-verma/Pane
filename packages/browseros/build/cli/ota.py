@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""OTA CLI - Over-The-Air update automation for BrowserOS"""
+"""OTA CLI - Over-The-Air update automation for Pane"""
 
 from pathlib import Path
 from typing import Optional
@@ -26,7 +26,7 @@ app = typer.Typer(
 )
 
 server_app = typer.Typer(
-    help="BrowserOS Server OTA commands",
+    help="Pane Server OTA commands",
     pretty_exceptions_enable=False,
     pretty_exceptions_show_locals=False,
 )
@@ -68,7 +68,7 @@ def server_release(
         help="Platform(s) to process, comma-separated (darwin_arm64, darwin_x64, linux_arm64, linux_x64, windows_x64)"
     ),
 ):
-    """Release BrowserOS Server OTA update
+    """Release Pane Server OTA update
 
     Downloads server binaries from R2 (artifacts/server/latest/),
     signs them, creates Sparkle update packages, and uploads to R2.
@@ -85,7 +85,7 @@ def server_release(
     Multiple Platforms:
       browseros ota server release --version 0.0.69 --platform darwin_arm64,darwin_x64
     """
-    log_info(f"🚀 BrowserOS Server OTA v{version}")
+    log_info(f"🚀 Pane Server OTA v{version}")
     log_info("=" * 70)
 
     ctx = create_ota_context()
@@ -229,7 +229,7 @@ def server_main(ctx: typer.Context):
 
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context):
-    """OTA update automation for BrowserOS
+    """OTA update automation for Pane
 
     \b
     Server OTA:

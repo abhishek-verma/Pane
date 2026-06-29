@@ -41,10 +41,10 @@ import {
   isChatProviderType,
   resolveChatProvider,
 } from '@/lib/llm-providers/provider-runtime'
-import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
+import { PaneIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import {
   defaultProviderIdStorage,
-  providersStorage,
+  loadProviders,
 } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig, ProviderType } from '@/lib/llm-providers/types'
 import { track } from '@/lib/metrics/track'
@@ -126,13 +126,12 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
 
   useEffect(() => {
     if (!open) return
-    Promise.all([
-      providersStorage.getValue(),
-      defaultProviderIdStorage.getValue(),
-    ]).then(([providerList, defId]) => {
-      setProviders(providerList ?? [])
-      setDefaultProviderId(defId ?? '')
-    })
+    Promise.all([loadProviders(), defaultProviderIdStorage.getValue()]).then(
+      ([providerList, defId]) => {
+        setProviders(providerList ?? [])
+        setDefaultProviderId(defId ?? '')
+      },
+    )
   }, [open])
 
   useEffect(() => {
@@ -373,7 +372,7 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
                     <span className="flex items-center gap-2">
                       <span className="text-muted-foreground">
                         {resolvedProvider.type === 'browseros' ? (
-                          <BrowserOSIcon size={16} />
+                          <PaneIcon size={16} />
                         ) : (
                           <ProviderIcon
                             type={resolvedProvider.type as ProviderType}

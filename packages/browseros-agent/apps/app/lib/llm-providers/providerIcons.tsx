@@ -14,7 +14,8 @@ import {
 } from '@lobehub/icons'
 import { Bot, Github, Sparkles } from 'lucide-react'
 import type { FC, SVGProps } from 'react'
-import ProductLogoSvg from '@/assets/product_logo.svg'
+import { PaneMark } from '@/components/branding/PaneMark'
+import { PRODUCT_NAME } from '@/lib/constants/product'
 import type { ProviderType } from './types'
 
 interface IconProps extends SVGProps<SVGSVGElement> {
@@ -71,20 +72,22 @@ export const ProviderIcon: FC<ProviderIconProps> = ({
 }
 
 /**
- * BrowserOS branded icon component
+ * Pane branded icon component
  * @public
  */
-export const BrowserOSIcon: FC<{ size?: number; className?: string }> = ({
+export const PaneIcon: FC<{ size?: number; className?: string }> = ({
   size = 20,
   className,
 }) => {
   return (
-    <img
-      src={ProductLogoSvg}
-      alt="BrowserOS"
-      width={size}
-      height={size}
+    <PaneMark
+      size={size}
       className={className}
+      aria-label={PRODUCT_NAME}
+      role="img"
     />
   )
 }
+
+/** @deprecated Use `PaneIcon` instead. */
+export const BrowserOSIcon = PaneIcon

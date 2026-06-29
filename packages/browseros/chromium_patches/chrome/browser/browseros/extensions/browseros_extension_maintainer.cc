@@ -47,18 +47,18 @@ index 0000000000000..5804d54696e8f
 +constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
 +    net::DefineNetworkTrafficAnnotation("browseros_extension_maintenance", R"(
 +        semantics {
-+          sender: "BrowserOS Extension Maintainer"
++          sender: "Pane Extension Maintainer"
 +          description:
-+            "Fetches JSON configuration for BrowserOS extension maintenance."
++            "Fetches JSON configuration for Pane extension maintenance."
 +          trigger: "Periodic maintenance cycle (every 15 minutes)."
 +          data: "No user data. GET request only."
 +          destination: OTHER
-+          destination_other: "BrowserOS configuration server."
++          destination_other: "Pane configuration server."
 +        }
 +        policy {
 +          cookies_allowed: NO
 +          setting: "Controlled via command-line flags or enterprise policies."
-+          policy_exception_justification: "BrowserOS feature."
++          policy_exception_justification: "Pane feature."
 +        })");
 +
 +}  // namespace

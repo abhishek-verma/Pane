@@ -7,7 +7,7 @@ index aa3f435d831b0..09bcb0efa074a 100644
  
    private onHelpClick_() {
 -    this.aboutBrowserProxy_.openHelpPage();
-+    window.open('http://docs.browseros.com/');
++    window.open('https://github.com/abhishek-verma/Pane');
    }
  
    private onRelaunchClick_() {

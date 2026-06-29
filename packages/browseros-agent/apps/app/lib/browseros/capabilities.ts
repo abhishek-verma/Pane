@@ -1,3 +1,4 @@
+import { productFeatures } from '../constants/product-features'
 import { env } from '../env'
 import { BrowserOSAdapter } from './adapter'
 
@@ -168,7 +169,20 @@ export type CapabilitiesState = {
 
 let initPromise: Promise<CapabilitiesState> | null = null
 
+function isDisabledByProductConfig(feature: Feature): boolean {
+  if (feature === Feature.CREDITS_SUPPORT) {
+    return !productFeatures.creditsBilling && !productFeatures.hostedInference
+  }
+  if (feature === Feature.HERMES_AGENT_SUPPORT) {
+    return !productFeatures.remoteHermes
+  }
+  return false
+}
+
 function getStaticFeatureSupport(feature: Feature): boolean | null {
+  if (isDisabledByProductConfig(feature)) {
+    return false
+  }
   return resolveFeatureStaticSupport({
     feature,
     isDevelopment: import.meta.env.DEV,

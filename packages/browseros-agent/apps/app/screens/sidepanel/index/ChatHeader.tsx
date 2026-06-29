@@ -1,13 +1,14 @@
 import { Bot, Github, History, Plus, SettingsIcon } from 'lucide-react'
 import type { FC } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
+import { PaneWordmark } from '@/components/branding/PaneWordmark'
 import { ChatProviderSelector } from '@/components/chat/ChatProviderSelector'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { CreditBadge } from '@/components/credits/CreditBadge'
 import { ThemeToggle } from '@/components/elements/theme-toggle'
 import { Feature } from '@/lib/browseros/capabilities'
 import { productRepositoryUrl } from '@/lib/constants/productUrls'
-import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
+import { ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
 import { useCapabilities } from '@/modules/browseros/capabilities.hooks'
 import { useCredits } from '@/modules/credits/credits.hooks'
@@ -65,18 +66,25 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
             title="Change AI Provider"
           >
             {selectedProvider.kind === 'acp' ? (
-              <Bot className="h-[18px] w-[18px]" />
+              <>
+                <Bot className="h-[18px] w-[18px]" />
+                <span className="font-semibold text-base">
+                  {selectedProvider.name}
+                </span>
+              </>
             ) : selectedProvider.type === 'browseros' ? (
-              <BrowserOSIcon size={18} />
+              <PaneWordmark size="sm" className="text-foreground" />
             ) : (
-              <ProviderIcon
-                type={selectedProvider.type as ProviderType}
-                size={18}
-              />
+              <>
+                <ProviderIcon
+                  type={selectedProvider.type as ProviderType}
+                  size={18}
+                />
+                <span className="font-semibold text-base">
+                  {selectedProvider.name}
+                </span>
+              </>
             )}
-            <span className="font-semibold text-base">
-              {selectedProvider.name}
-            </span>
           </button>
         </ChatProviderSelector>
         {selectedProvider.type === 'browseros' && <CreditsBadgeWrapper />}

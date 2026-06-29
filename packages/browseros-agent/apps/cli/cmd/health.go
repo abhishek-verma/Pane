@@ -13,7 +13,7 @@ func init() {
 	healthCmd := &cobra.Command{
 		Use:         "health",
 		Annotations: map[string]string{"group": "Setup:"},
-		Short:       "Check BrowserOS server health",
+		Short:       "Check Pane server health",
 		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
@@ -49,7 +49,7 @@ func init() {
 	statusCmd := &cobra.Command{
 		Use:         "status",
 		Annotations: map[string]string{"group": "Setup:"},
-		Short:       "Check BrowserOS runtime status",
+		Short:       "Check Pane runtime status",
 		Args:        cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()

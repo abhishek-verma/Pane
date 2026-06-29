@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 78 36" role="img" aria-label="Pane.">
+  <text
+    x="0"
+    y="28"
+    fill="currentColor"
+    font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="32"
+    font-weight="600"
+    letter-spacing="-0.03em"
+  >
+    Pane
+  </text>
+  <rect x="71" y="22" width="5" height="5" fill="currentColor" />
+</svg>

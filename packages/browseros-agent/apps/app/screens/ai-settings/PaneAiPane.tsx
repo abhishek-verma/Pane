@@ -23,6 +23,7 @@ import {
   QWEN_CODE_OAUTH_DISCONNECTED_EVENT,
   QWEN_CODE_OAUTH_STARTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
+import { productFeatures } from '@/lib/constants/product-features'
 import { GetProfileIdByUserIdDocument } from '@/lib/conversations/graphql/uploadConversationDocument'
 import { getQueryKeyFromDocument } from '@/lib/graphql/getQueryKeyFromDocument'
 import { CHATGPT_PROVIDER_DISPLAY_NAME } from '@/lib/llm-providers/provider-display-names'
@@ -97,9 +98,9 @@ const OAUTH_PROVIDERS_CONFIG: Record<string, OAuthProviderFlowConfig> = {
 }
 
 /**
- * BrowserOS AI pane — manage LLM providers and the default model.
+ * Pane AI pane — manage LLM providers and the default model.
  */
-export const BrowserOsAiPane: FC = () => {
+export const PaneAiPane: FC = () => {
   const {
     providers,
     defaultProviderId,
@@ -124,12 +125,13 @@ export const BrowserOsAiPane: FC = () => {
     effectiveTarget.kind === 'acp' ? effectiveTarget.id : null
 
   const userId = sessionInfo.user?.id
+  const cloudSyncEnabled = productFeatures.cloudSync
 
   const { data: profileData } = useGraphqlQuery(
     GetProfileIdByUserIdDocument,
     // biome-ignore lint/style/noNonNullAssertion: guarded by enabled
     { userId: userId! },
-    { enabled: !!userId },
+    { enabled: cloudSyncEnabled && !!userId },
   )
   const profileId = profileData?.profileByUserId?.rowId
 
@@ -137,7 +139,7 @@ export const BrowserOsAiPane: FC = () => {
     GetRemoteLlmProvidersDocument,
     // biome-ignore lint/style/noNonNullAssertion: guarded by enabled
     { profileId: profileId! },
-    { enabled: !!profileId },
+    { enabled: cloudSyncEnabled && !!profileId },
   )
 
   const deleteRemoteProviderMutation = useGraphqlMutation(
@@ -503,3 +505,6 @@ export const BrowserOsAiPane: FC = () => {
     </div>
   )
 }
+
+/** @deprecated Use `PaneAiPane` instead. */
+export const BrowserOsAiPane = PaneAiPane

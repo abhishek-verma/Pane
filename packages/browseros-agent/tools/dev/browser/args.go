@@ -2,7 +2,6 @@ package browser
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"browseros-dev/proc"
 )
@@ -13,10 +12,15 @@ type ArgsConfig struct {
 	UserDataDir       string
 	Headless          bool
 	LoadDevExtensions bool
+	// PreferDevBuild loads chrome-mv3-dev (WXT HMR) when true; otherwise chrome-mv3.
+	PreferDevBuild bool
 }
 
-func BuildArgs(cfg ArgsConfig) []string {
-	binary := "/Applications/BrowserOS.app/Contents/MacOS/BrowserOS"
+func BuildArgs(cfg ArgsConfig) ([]string, error) {
+	binary, err := ResolveBinary()
+	if err != nil {
+		return nil, err
+	}
 
 	args := []string{binary}
 
@@ -28,12 +32,11 @@ func BuildArgs(cfg ArgsConfig) []string {
 		"--use-mock-keychain",
 		"--show-component-extension-options",
 		"--disable-browseros-server",
+		"--disable-browseros-extensions",
 		"--browseros-dock-icon=dev",
 	)
 
-	if cfg.LoadDevExtensions {
-		args = append(args, "--disable-browseros-extensions")
-	} else {
+	if !cfg.LoadDevExtensions {
 		args = append(args, "--enable-logging=stderr")
 	}
 
@@ -49,10 +52,10 @@ func BuildArgs(cfg ArgsConfig) []string {
 	)
 
 	if cfg.LoadDevExtensions {
-		agentExtDir := filepath.Join(cfg.Root, "apps/app/dist/chrome-mv3-dev")
-		args = append(args, fmt.Sprintf("--load-extension=%s", agentExtDir))
+		extDir := ResolveExtensionDir(cfg.Root, cfg.PreferDevBuild)
+		args = append(args, fmt.Sprintf("--load-extension=%s", extDir))
 		args = append(args, "chrome://newtab")
 	}
 
-	return args
+	return args, nil
 }

@@ -1,9 +1,9 @@
 ---
 title: "Chrome DevTools MCP"
-description: "A developer-focused comparison of BrowserOS MCP and Chrome DevTools MCP for browser automation"
+description: "A developer-focused comparison of Pane MCP and Chrome DevTools MCP for browser automation"
 ---
 
-Both BrowserOS MCP and [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp) give AI agents control over a browser via the Model Context Protocol. But they're built for different scopes. Chrome DevTools MCP focuses on debugging and inspection, while BrowserOS MCP is a complete browser automation and app integration platform.
+Both Pane MCP and [Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp) give AI agents control over a browser via the Model Context Protocol. But they're built for different scopes. Chrome DevTools MCP focuses on debugging and inspection, while Pane MCP is a complete browser automation and app integration platform.
 
 This page breaks down the differences for developers evaluating which to use with Claude Code, Gemini CLI, Cursor, or any MCP client.
 
@@ -11,7 +11,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ## At a Glance
 
-| | **BrowserOS MCP** | **Chrome DevTools MCP** |
+| | **Pane MCP** | **Chrome DevTools MCP** |
 |---|---|---|
 | **Total MCP tools** | 53 | 29 |
 | **External app integrations** | 40+ (Gmail, Slack, GitHub, etc.) | None |
@@ -25,7 +25,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ### Navigation & Tab Management
 
-| Feature | BrowserOS MCP | Chrome DevTools MCP |
+| Feature | Pane MCP | Chrome DevTools MCP |
 |---------|:---:|:---:|
 | Navigate to URL / back / forward / reload | `navigate_page` | `navigate_page` |
 | Open new tab | `new_page` | `new_page` |
@@ -39,7 +39,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ### Content & Observation
 
-| Feature | BrowserOS MCP | Chrome DevTools MCP |
+| Feature | Pane MCP | Chrome DevTools MCP |
 |---------|:---:|:---:|
 | Accessibility tree snapshot | `take_snapshot` | `take_snapshot` |
 | Enhanced structural snapshot | `take_enhanced_snapshot` | - |
@@ -52,7 +52,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ### Interaction & Input
 
-| Feature | BrowserOS MCP | Chrome DevTools MCP |
+| Feature | Pane MCP | Chrome DevTools MCP |
 |---------|:---:|:---:|
 | Click element | `click` | `click` |
 | Click at coordinates | `click_at` | - |
@@ -72,7 +72,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ### File & Export
 
-| Feature | BrowserOS MCP | Chrome DevTools MCP |
+| Feature | Pane MCP | Chrome DevTools MCP |
 |---------|:---:|:---:|
 | Save page as PDF | `save_pdf` | - |
 | Save screenshot to disk | `save_screenshot` | - |
@@ -80,7 +80,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ### Window Management
 
-| Feature | BrowserOS MCP | Chrome DevTools MCP |
+| Feature | Pane MCP | Chrome DevTools MCP |
 |---------|:---:|:---:|
 | List windows | `list_windows` | - |
 | Create window | `create_window` | - |
@@ -90,7 +90,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ### Tab Groups
 
-| Feature | BrowserOS MCP | Chrome DevTools MCP |
+| Feature | Pane MCP | Chrome DevTools MCP |
 |---------|:---:|:---:|
 | List tab groups | `list_tab_groups` | - |
 | Create tab group | `group_tabs` | - |
@@ -100,7 +100,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ### Bookmarks
 
-| Feature | BrowserOS MCP | Chrome DevTools MCP |
+| Feature | Pane MCP | Chrome DevTools MCP |
 |---------|:---:|:---:|
 | List bookmarks | `get_bookmarks` | - |
 | Create bookmark / folder | `create_bookmark` | - |
@@ -111,7 +111,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ### History
 
-| Feature | BrowserOS MCP | Chrome DevTools MCP |
+| Feature | Pane MCP | Chrome DevTools MCP |
 |---------|:---:|:---:|
 | Search history | `search_history` | - |
 | Get recent history | `get_recent_history` | - |
@@ -120,7 +120,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ### Debugging & Performance
 
-| Feature | BrowserOS MCP | Chrome DevTools MCP |
+| Feature | Pane MCP | Chrome DevTools MCP |
 |---------|:---:|:---:|
 | Console messages | Coming soon | `get_console_message` / `list_console_messages` |
 | Network request inspection | Coming soon | `get_network_request` / `list_network_requests` |
@@ -133,7 +133,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ### External App Integrations
 
-| Feature | BrowserOS MCP | Chrome DevTools MCP |
+| Feature | Pane MCP | Chrome DevTools MCP |
 |---------|:---:|:---:|
 | Gmail, Outlook | Yes | - |
 | Google Calendar, Outlook Calendar | Yes | - |
@@ -151,8 +151,8 @@ This page breaks down the differences for developers evaluating which to use wit
 ## Setup Comparison
 
 <Tabs>
-  <Tab title="BrowserOS MCP">
-    BrowserOS MCP is built into the browser. No separate process, no debug flags.
+  <Tab title="Pane MCP">
+    Pane MCP is built into the browser. No separate process, no debug flags.
 
     ```bash
     # One command, done
@@ -182,7 +182,7 @@ This page breaks down the differences for developers evaluating which to use wit
 
 ## Summary
 
-| Dimension | BrowserOS MCP | Chrome DevTools MCP |
+| Dimension | Pane MCP | Chrome DevTools MCP |
 |-----------|:---:|:---:|
 | Browser automation tools | **54** | **29** |
 | External app integrations | **40+** | **0** |
@@ -198,4 +198,4 @@ This page breaks down the differences for developers evaluating which to use wit
 | Setup complexity | Copy URL | Debug port + Node server |
 | Browser session | Real (cookies, extensions) | Debug-attached (WebDriver flags) |
 
-BrowserOS MCP gives you a broader automation surface: browser control, content extraction, file operations, and 40+ app integrations through a single connection. Debugging and performance tools are coming soon to BrowserOS MCP, which will close the remaining gap with Chrome DevTools MCP. For most AI agent workflows, BrowserOS MCP already covers more ground out of the box.
+Pane MCP gives you a broader automation surface: browser control, content extraction, file operations, and 40+ app integrations through a single connection. Debugging and performance tools are coming soon to Pane MCP, which will close the remaining gap with Chrome DevTools MCP. For most AI agent workflows, Pane MCP already covers more ground out of the box.

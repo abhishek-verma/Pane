@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 BrowserOS
+ * Copyright 2025 Pane
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * Maps raw tool names + arguments to human-readable activity labels for
@@ -83,7 +83,7 @@ const VERB_OVERRIDES: Record<string, string> = {
   suggest_app_connection: 'Suggested app connect',
 
   // BrowserOS info
-  browseros_info: 'Read BrowserOS info',
+  browseros_info: 'Read Pane info',
 
   // Windows
   list_windows: 'Listed windows',

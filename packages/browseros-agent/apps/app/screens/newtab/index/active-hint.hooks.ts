@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
+import { cloudAccountEnabled } from '@/lib/constants/product-features'
 import {
   importHintDismissedAtStorage,
   signInHintDismissedAtStorage,
@@ -34,7 +35,7 @@ export function useActiveHint(): HintType | null {
         return
       }
 
-      if (sessionInfo?.user) return
+      if (!cloudAccountEnabled || sessionInfo?.user) return
 
       const signinDismissedAt = await signInHintDismissedAtStorage.getValue()
       if (cancelled) return

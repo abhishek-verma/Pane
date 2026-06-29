@@ -92,7 +92,7 @@ index 738696abf04fa..aa1a1a1ce6a85 100644
 +              infobars::InfoBarDelegate::
 +                  BROWSEROS_AGENT_INSTALLING_INFOBAR_DELEGATE,
 +              nullptr,
-+              u"BrowserOS Agent is installing/updating. Please try again shortly.",
++              u"Pane Agent is installing/updating. Please try again shortly.",
 +              /*auto_expire=*/true,
 +              /*should_animate=*/true,
 +              /*closeable=*/true);

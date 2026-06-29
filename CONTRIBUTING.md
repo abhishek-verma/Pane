@@ -1,8 +1,8 @@
-# Contributing to BrowserOS
+# Contributing to Pane
 
-Hey there! Thanks for your interest in BrowserOS. Whether you're fixing bugs, adding features, improving docs, or just poking around the code, we're glad you're here.
+Hey there! Thanks for your interest in Pane. Whether you're fixing bugs, adding features, improving docs, or just poking around the code, we're glad you're here.
 
-BrowserOS is a monorepo with two main parts:
+Pane is a monorepo with two main parts:
 - **Agent** - The Chrome extension with AI features (TypeScript/React)
 - **Browser** - The custom Chromium build (C++/Python)
 
@@ -76,7 +76,7 @@ cp .env.example .env
 yarn build:dev       # One-time build
 ```
 
-### Load in BrowserOS 
+### Load in Pane
 
 1. Open `chrome://extensions/`
 2. Enable **Developer mode** (top right toggle)
@@ -108,7 +108,7 @@ First, follow the official Chromium guide for your platform:
 
 This will set up `depot_tools` and fetch the ~100GB Chromium source tree. This typically takes 2-3 hours depending on your internet speed.
 
-**2. Build BrowserOS**
+**2. Build Pane**
 
 Once you have Chromium checked out, navigate to our build system:
 
@@ -234,7 +234,7 @@ Found a bug? [Open an issue](https://github.com/browseros-ai/BrowserOS/issues/ne
 - Steps to reproduce
 - Expected vs actual behavior
 - Screenshots/videos
-- Environment details (OS, browser version, BrowserOS version)
+- Environment details (OS, browser version, Pane version)
 
 ### 💡 Suggest Features
 

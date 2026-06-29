@@ -1,6 +1,6 @@
-# BrowserOS Agent contributor ground rules
+# Pane Agent contributor ground rules
 
-A Bun-workspaces monorepo for the BrowserOS MCP server, agent extension UI, CLI, eval harness, and shared packages.
+A Bun-workspaces monorepo for the Pane MCP server, agent extension UI, CLI, eval harness, and shared packages.
 
 ## Before you push
 
@@ -33,5 +33,5 @@ bun run test
 
 - For server-specific guidance, see `apps/server/CLAUDE.md`.
 - For extension/app UI specifics, see `apps/app/CLAUDE.md`.
-- For the BrowserOS CLI (Go module — Go idioms, not the TS rules above), see `apps/cli/CLAUDE.md`.
+- For the Pane CLI (Go module — Go idioms, not the TS rules above), see `apps/cli/CLAUDE.md`.
 - For the eval harness (benchmarks, graders, suites, runs), see `apps/eval/CLAUDE.md`.

@@ -21,6 +21,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { PaneWordmark } from '@/components/branding/PaneWordmark'
 import { ChatProviderSelector } from '@/components/chat/ChatProviderSelector'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { AppSelector } from '@/components/elements/AppSelector'
@@ -30,7 +31,7 @@ import { McpServerIcon } from '@/components/mcp/McpServerIcon'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { type StagedAttachment, stageAttachments } from '@/lib/attachments'
-import { BrowserOSIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
+import { PaneIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
 import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { cn } from '@/lib/utils'
@@ -251,10 +252,16 @@ function CalmContextControls({
                 'hover:border-border hover:bg-accent/70 data-[state=open]:border-border data-[state=open]:bg-accent/70',
               )}
             >
-              <TargetPillIcon provider={selectedProvider} />
-              <span className="truncate font-medium font-mono text-[11.5px] tracking-[-0.01em]">
-                {selectedProvider.name}
-              </span>
+              {selectedProvider.type === 'browseros' ? (
+                <PaneWordmark size="xs" />
+              ) : (
+                <>
+                  <TargetPillIcon provider={selectedProvider} />
+                  <span className="truncate font-medium font-mono text-[11.5px] tracking-[-0.01em]">
+                    {selectedProvider.name}
+                  </span>
+                </>
+              )}
               <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
             </button>
           </ChatProviderSelector>
@@ -745,6 +752,6 @@ function BotInputIcon({ variant }: { variant: 'home' | 'conversation' }) {
 
 function TargetPillIcon({ provider }: { provider: Provider }) {
   if (provider.kind === 'acp') return <Bot className="size-3" />
-  if (provider.type === 'browseros') return <BrowserOSIcon size={12} />
+  if (provider.type === 'browseros') return <PaneIcon size={12} />
   return <ProviderIcon type={provider.type as ProviderType} size={12} />
 }

@@ -3,9 +3,31 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>BrowserOS</title>
+        <title>Pane</title>
+        <link rel="icon" type="image/png" sizes="32x32" href="/icon/32.png" />
+        <link rel="icon" type="image/png" sizes="128x128" href="/icon/128.png" />
+        <link rel="apple-touch-icon" href="/icon/128.png" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
 
         <meta name="manifest.open_in_tab" content="true" />
+        <script>
+            (function setPaneFavicon() {
+                if (typeof chrome === 'undefined' || !chrome.runtime?.getURL) {
+                    return;
+                }
+                const href = chrome.runtime.getURL('icon/32.png');
+                for (const rel of ['icon', 'shortcut icon', 'apple-touch-icon']) {
+                    let link = document.querySelector('link[rel="' + rel + '"]');
+                    if (!link) {
+                        link = document.createElement('link');
+                        link.rel = rel;
+                        document.head.appendChild(link);
+                    }
+                    link.type = 'image/png';
+                    link.href = href;
+                }
+            })();
+        </script>
         <script type="module">
             import { themeStorage } from '@/lib/theme/theme-storage';
 

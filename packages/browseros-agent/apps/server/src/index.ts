@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
  * @license
- * Copyright 2025 BrowserOS
+ * Copyright 2025 Pane
  *
- * BrowserOS Server - Entry Point
+ * Pane Server - Entry Point
  */
 
 if (typeof Bun === 'undefined') {

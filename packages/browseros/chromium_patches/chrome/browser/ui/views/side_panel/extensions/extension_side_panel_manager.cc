@@ -9,10 +9,11 @@ index c2437bfc295a9..4b2971f34e108 100644
 +#include "base/logging.h"
  #include "base/memory/scoped_refptr.h"
  #include "base/strings/utf_string_conversions.h"
-+#include "chrome/browser/browseros/core/browseros_prefs.h"
++#include "components/vector_icons/vector_icons.h"
++#include "chrome/browser/browseros/core/browseros_constants.h"
+ #include "chrome/browser/browseros/core/browseros_prefs.h"
  #include "chrome/browser/profiles/profile.h"
  #include "chrome/browser/ui/actions/chrome_action_id.h"
- #include "chrome/browser/ui/actions/chrome_actions.h"
 @@ -15,11 +17,13 @@
  #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
  #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
@@ -27,24 +28,31 @@ index c2437bfc295a9..4b2971f34e108 100644
  #include "extensions/common/extension.h"
  #include "extensions/common/extension_features.h"
  #include "extensions/common/permissions/api_permission.h"
-@@ -120,6 +124,16 @@ void ExtensionSidePanelManager::MaybeCreateActionItemForExtension(
-                        std::underlying_type_t<actions::ActionPinnableState>(
++#include "ui/base/models/image_model.h"
+ #include "extensions/common/permissions/permissions_data.h"
+ #include "third_party/abseil-cpp/absl/memory/memory.h"
+ #include "ui/actions/actions.h"
+@@ -120,6 +127,22 @@ void ExtensionSidePanelManager::MaybeCreateActionItemForExtension(
                             actions::ActionPinnableState::kPinnable))
            .Build());
-+
-+  // Auto-pin BrowserOS extensions to the toolbar.
-+  if (browseros::ShouldPinBrowserOSExtension(extension->id(),
-+                                             profile_->GetPrefs())) {
-+    DVLOG(1) << "browseros: Auto-pinning BrowserOS extension: "
-+             << extension->id();
-+    if (auto* pinned_model = PinnedToolbarActionsModel::Get(profile_)) {
-+      pinned_model->UpdatePinnedState(extension_action_id, true);
+ 
++  // Use the Pane mark for BrowserOS extension side panel headers and toolbar.
++  if (browseros::IsBrowserOSExtension(extension->id())) {
++    if (actions::ActionItem* action_item =
++            actions::ActionManager::Get().FindAction(
++                extension_action_id, root_action_item)) {
++      action_item->SetImage(ui::ImageModel::FromVectorIcon(
++          vector_icons::kPaneMarkIcon, ui::kColorIcon, 16));
++      if (extension->id() == browseros::kAgentExtensionId) {
++        action_item->SetText(u"Pane");
++      }
 +    }
 +  }
- }
- 
- actions::ActionId ExtensionSidePanelManager::GetOrCreateActionIdForExtension(
-@@ -159,6 +173,7 @@ void ExtensionSidePanelManager::OnExtensionUnloaded(
++
+   // Auto-pin BrowserOS extensions to the toolbar.
+   if (browseros::ShouldPinBrowserOSExtension(extension->id(),
+                                              profile_->GetPrefs())) {
+@@ -159,6 +182,7 @@ void ExtensionSidePanelManager::OnExtensionUnloaded(
      it->second->DeregisterEntry();
      coordinators_.erase(extension->id());
    }

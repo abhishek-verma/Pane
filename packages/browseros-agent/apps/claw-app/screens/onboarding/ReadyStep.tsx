@@ -10,7 +10,7 @@ interface ReadyStepProps {
 
 /**
  * Step 3. Two starter prompts the user can copy into Claude plus the
- * "Open BrowserOS" CTA that finishes onboarding.
+ * "Open Pane" CTA that finishes onboarding.
  */
 export function ReadyStep({ onDone }: ReadyStepProps) {
   return (
@@ -23,7 +23,7 @@ export function ReadyStep({ onDone }: ReadyStepProps) {
         .
       </h1>
       <p className="mb-5 max-w-[470px] text-ink-2 text-sm leading-relaxed">
-        Open Claude and try one of these. The task runs here, in BrowserOS: you
+        Open Claude and try one of these. The task runs here, in Pane: you
         watch, approve, and audit.
       </p>
       <div className="mb-6 flex flex-col gap-2.5">
@@ -33,7 +33,7 @@ export function ReadyStep({ onDone }: ReadyStepProps) {
       </div>
       <Button type="button" size="lg" onClick={onDone} className="self-start">
         <Sparkles className="size-4" />
-        Open BrowserOS
+        Open Pane
       </Button>
     </div>
   )

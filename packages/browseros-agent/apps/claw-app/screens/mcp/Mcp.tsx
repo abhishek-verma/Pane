@@ -17,8 +17,8 @@ import { HeroCard } from './HeroCard'
 /**
  * v2 MCP page. Hero card with the single canonical endpoint plus a
  * per-harness "Connect" board that drives `agent-mcp-manager` so the
- * user installs BrowserOS into Claude Code / Cursor / VS Code / Codex
- * with one click. Hermes and OpenClaw are BrowserOS-internal and
+ * user installs Pane into Claude Code / Cursor / VS Code / Codex
+ * with one click. Hermes and OpenClaw are Pane-internal and
  * render as "Built-in" rows.
  *
  * Live MCP-session state (who is connected right now) is surfaced on
@@ -88,7 +88,7 @@ export function Mcp() {
           <div className="flex-1">
             <h2 className="font-bold text-base">Connected agents</h2>
             <p className="mt-0.5 text-ink-3 text-sm">
-              Add BrowserOS as an MCP server in your AI agents. No copy-paste
+              Add Pane as an MCP server in your AI agents. No copy-paste
               required.
             </p>
           </div>
@@ -123,7 +123,7 @@ export function Mcp() {
         )}
       </section>
       <p className="text-[12px] text-ink-3 leading-relaxed">
-        Hermes and OpenClaw run inside BrowserOS and don't need a config write.
+        Hermes and OpenClaw run inside Pane and don't need a config write.
       </p>
     </div>
   )
