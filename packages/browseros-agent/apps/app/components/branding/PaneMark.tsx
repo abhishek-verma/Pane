@@ -1,6 +1,6 @@
-import paneMarkSvg from '@pane/logo/pane-mark.svg?raw'
 import type { FC, SVGProps } from 'react'
 import { cn } from '@/lib/utils'
+import paneMarkSvg from '../../../../../../docs/logo/pane-mark.svg?raw'
 
 export interface PaneMarkProps extends SVGProps<SVGSVGElement> {
   size?: number | string

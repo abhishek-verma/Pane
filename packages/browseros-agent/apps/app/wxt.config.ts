@@ -9,7 +9,6 @@ import { PRODUCT_WEB_HOST } from './lib/constants/productWebHost'
 
 const appDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(appDir, '../../../..')
-const paneMarkSvg = path.join(repoRoot, 'docs/logo/pane-mark.svg')
 
 // biome-ignore lint/style/noProcessEnv: build config file needs env access
 const env = process.env
@@ -82,7 +81,7 @@ export default defineConfig({
     },
     resolve: {
       alias: {
-        '@pane/logo/pane-mark.svg': paneMarkSvg,
+        '@pane/logo': path.join(repoRoot, 'docs/logo'),
       },
     },
     server: {
