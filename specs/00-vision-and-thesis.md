@@ -138,6 +138,32 @@ flowchart LR
 
 ---
 
+## A browser that becomes yours (the shape-shifting thesis)
+
+The README's headline is **"a browser with a soul"** — and the product vision that follows from it is *one product that takes a shape that fits your life*, not the same chatbot for everyone. That is a product vision, separate from (and compatible with) the GTM wedge above. The wedge says *who we win first*; this says *what the product becomes for any one user over time*.
+
+The README names the shapes Pane should take:
+
+- **Chief of staff** — morning briefings, meetings captured and summarized, follow-ups tracked, investor updates drafted from the week you actually lived in tabs.
+- **Job search partner** — fit scores on listings against your background, applications organized, company research threaded, interview prep from pages you already read.
+- **Research & study buddy** — papers and threads that survive the tab close, citations back to sources, outlines from a week of browsing toward one question.
+- **Whatever else you need** — because Pane learns your workflows, writes skills when you repeat them, and scopes memory into buckets so work, job hunt, and personal life do not bleed into each other.
+
+This is not four products. It is **one product whose persona, context, and surface adapt to you** — and the adaptation is powered by intrinsic, local, no-server capabilities we already spec:
+
+| README vision | What makes it real in Pane | Spec |
+|---------------|----------------------------|------|
+| "A browser with a soul" | `soul.md` — the agent's identity and active persona, a plain editable file | [11](./11-personalization-skills-marketplace.md), [04](./04-memory-and-learning-loop.md) |
+| "Becomes whatever you need it to be" | Persona follows the active context bucket; the loop proposes persona shifts from your real activity | [11](./11-personalization-skills-marketplace.md), [14](./14-passive-capture-and-context-buckets.md) |
+| "A new tab that knows your day" — auto-evolving widgets | The adaptive home: widgets (next meeting w/ prior notes, pending PRs, resumed research, one-click recurring report, daily digest) that rearrange as Pane learns your rhythms | [15](./15-adaptive-home.md) |
+| "Pages reshaped for you" — fit scores, margin notes, feeds without the slop | Page reshape & overlays: Pane reads a page in the context of *your* goals and layers what you need on top of it (reversible, consented, clearly marked) | [16](./16-page-reshape-and-overlays.md) |
+| "Remembers you and improves itself" | Browser-grounded memory + auto-written skills + curation | [04](./04-memory-and-learning-loop.md) |
+| "Capture what you'd otherwise lose" | Meeting recordings/notes + browsing learnings + research buckets | [14](./14-passive-capture-and-context-buckets.md) |
+
+The shape-shifting is the *visible* payoff of the soul + memory + graph + capture system; without those, "becomes yours" is a marketing line. The adaptive home and page reshape are where the loop becomes something the user *feels* every time they open a tab or a page. We build the engine first (memory, graph, capture), then the surfaces that express it (adaptive home, page reshape) — see [13](./13-roadmap.md) and the [Implementation Plan](./IMPLEMENTATION-PLAN.md).
+
+---
+
 ## Positioning
 
 **One-line:** The open-source, local-first, self-improving personal agent — that is also your browser.
@@ -154,7 +180,7 @@ flowchart LR
 |-----------|------|--------|----------|---------------|---------------------|
 | Where the agent lives | **In the browser** | Server / VPS daemon | Daemon, messaged via chat apps | Claude Desktop VM | Cloud sidebar |
 | Browser context | **Native, full session** | CDP bolt-on (separate process) | CDP bolt-on (separate process) | None | Native, but closed + cloud |
-| Memory | 5-layer, browser-grounded | 5-layer, conversation-grounded | Manual skills + soul | Session-scoped | ChatGPT/Perplexity memory, cloud |
+| Memory | 5-layer, browser-grounded + `soul.md` persona | 5-layer, conversation-grounded | Manual skills + soul | Session-scoped | ChatGPT/Perplexity memory, cloud |
 | Self-improving skills | Yes (agentskills.io) | Yes (agentskills.io) | Hand-written only | No | Limited "skills" (Dia) |
 | Always-on / scheduled | Yes (in-browser + optional keep-alive) | Yes (24/7 daemon) | Yes (daemon + cron) | No (on-demand) | Limited (Atlas tasks) |
 | Multi-channel reach | Yes (later phases) | Yes (Telegram/Discord/Slack/…) | Yes (20+ channels) | No | No |

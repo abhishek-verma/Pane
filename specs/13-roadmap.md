@@ -26,6 +26,8 @@ We are not greenfield. BrowserOS already ships the substrate for most of this sp
 | Tasks | — | Tasks/inbox/executable-tasks + external sync |
 | Proactive / scheduled | Scheduled tasks (sidebar + nudge), smart nudges | Triggers (graph events), keep-alive, daily digest |
 | Reach | — | OS push + email + Telegram (all peer-to-peer, no Pane server) |
+| **Adaptive home** | New-tab/home entrypoint (`entrypoints/app`), personalize screen, `NewTabChat`/`AgentCommandHome` composer | Evolving widget host: widgets derived from graph + memory + soul + tasks + capture, ranked by activity rhythms, persona/bucket-shaped ([15](./15-adaptive-home.md)) |
+| **Page reshape & overlays** | Page DOM access (glow, content scripts, browser-mcp, native injection primitives) | Your-context overlays (fit scores, margin notes, calendar-fit) + feed de-slop; per-domain consent, reversible, never-silent-writes ([16](./16-page-reshape-and-overlays.md)) |
 | Integrations | Connect Apps (40+ via Klavis — a third-party server, not Pane's), custom MCPs, `/klavis` routes | Expose Context Graph over MCP; skill-installed MCPs |
 | Models | BYOK + OAuth (ChatGPT Pro/Copilot/Qwen) + local (Ollama/LM Studio) + default credits (Kimi, partnership) | Per-mode routing UI; weak-model nag |
 | Trust | (implicit) | Consequence classes, approval framework, Context panel, action log, injection defense, **capture consent** |
@@ -33,7 +35,7 @@ We are not greenfield. BrowserOS already ships the substrate for most of this sp
 | Eval | `apps/eval` (WebVoyager, Mind2Web, AGI SDK) | Add the "Pane thesis" eval (browser + workspace + context + capture) |
 | Parallel surface | BrowserClaw stack (`claw-server`/`claw-app`/`claw-onboard`) | May host some of these surfaces; out of scope for this spec set |
 
-**The headline:** the developer wedge — the first proof of the thesis — is *mostly already shipped*. The net-new intrinsic work is the Context Graph (with **context buckets**), the memory + auto-skills engine, **passive capture (meetings + browsing learnings)**, Workspaces (evolved from Cowork), Tasks, Triggers, Reach, and the Trust framework. That's the system to build.
+**The headline:** the developer wedge — the first proof of the thesis — is *mostly already shipped*. The net-new intrinsic work is the Context Graph (with **context buckets**), the memory + auto-skills engine, **passive capture (meetings + browsing learnings)**, Workspaces (evolved from Cowork), Tasks, Triggers, Reach, and the Trust framework. On top of that engine sit the two **expression surfaces** that make the "browser with a soul / becomes yours" vision something the user *feels*: the **adaptive home** (evolving new-tab widgets, [15](./15-adaptive-home.md)) and **page reshape & overlays** (your-context overlays + feed de-slop, [16](./16-page-reshape-and-overlays.md)). That's the system to build.
 
 ---
 
@@ -103,6 +105,8 @@ flowchart TB
         tasks[Tasks + executable tasks + triggers]
         reach[Reach: OS push + email + Telegram]
         soul[Personalization: soul.md + USER.md]
+        home[Adaptive home: evolving new-tab widgets]
+        reshape[Page reshape: your-context overlays + feed de-slop]
     end
 
     subgraph ext [State B extension points — optional servers]
@@ -129,6 +133,17 @@ flowchart TB
     sched --> tasks
     tasks --> reach
     cli --> graph
+    soul --> memory
+    graph --> home
+    memory --> home
+    soul --> home
+    tasks --> home
+    graph --> reshape
+    memory --> reshape
+    soul --> reshape
+    trust --> reshape
+    ws --> reshape
+    home --> reshape
 
     graph -.-> sync
     memory -.-> market

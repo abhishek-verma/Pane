@@ -25,15 +25,19 @@ This spec rebuilds the personalization surfaces v0.46 pulled back (Soul, Memory)
 
 ---
 
-## Personalization: Soul → `USER.md` + identity
+## Personalization: `soul.md` (identity & persona) + `USER.md`
 
-v0.46's "Soul" was Pane's persona/identity layer. We bring it back as a transparent, user-owned layer:
+v0.46's "Soul" was Pane's persona/identity layer. We bring it back as a transparent, user-owned layer — and make it the file that lets Pane *become whatever you need it to be* (see [00](./00-vision-and-thesis.md) "A browser that becomes yours"):
 
 - **`USER.md`** (from [04](./04-memory-and-learning-loop.md)) is the user profile — name, role, timezone, communication style, preferences. The user edits it directly; the agent proposes additions (gated).
-- **Agent identity ("Soul")**: a short, user-editable statement of *how Pane should behave* — voice, boundaries, defaults. Stored as a plain file (`~/.browseros/soul.md`), injected into the system prompt. This is the "personality" knob, kept simple and inspectable (the OpenClaw "heavy backpack" lesson: keep it short, don't pile settings in).
-- **No hidden persona**: the file is readable and editable; the user can share/clone it.
+- **`soul.md` — the agent's identity and active persona.** A short, user-editable file in `~/.browseros/memories/soul.md`, injected into the system prompt. It carries two things:
+  - **Persona/role** — *who Pane is for you right now*: a named mode like **chief of staff**, **job-search partner**, **research & study buddy**, or a custom one. Each persona is a small template (default voice, priorities, what it proactively watches for, which buckets it leans on) that the user can adopt, tweak, or write from scratch. This is what makes one product shape-shift per user instead of being the same chatbot for everyone.
+  - **Voice & boundaries** — *how Pane behaves*: tone, length, things it never does without asking, default approval posture. (The OpenClaw "heavy backpack" lesson: keep it short — don't pile settings in.)
+- **The active persona follows the active context bucket.** Switch to your "work" bucket → Pane is chief of staff; switch to "job hunt" → job-search partner; switch to "personal" → whatever you defined. Buckets don't leak into each other ([14](./14-passive-capture-and-context-buckets.md)); the persona just shifts to match the context you're in. The user can also pin a persona regardless of bucket.
+- **Persona shifts are suggested, not silent.** When the loop notices a sustained change in your work (you started job-hunting, you're heads-down on a research question), it proposes a persona shift in `soul.md` — gated by `write_approval` ([04](./04-memory-and-learning-loop.md)). The user always sees and approves who Pane is becoming.
+- **No hidden persona**: the file is readable, editable, shareable, and cloneable. Onboarding seeds an initial persona from your answers ([12](./12-onboarding-activation-metrics.md)); migration imports it from OpenClaw/Hermes.
 
-This replaces the pulled-back Soul/Memory surfaces with something simpler and open.
+This replaces the pulled-back Soul/Memory surfaces with something simpler, open, and load-bearing for the product vision — not just a "personality knob."
 
 ---
 
@@ -190,4 +194,5 @@ The hosted marketplace ships only when **both** are true: (a) the median active 
 - **Skill success rate** distribution and auto-flagged bad skills.
 - **Publish rate** (skills/user) and community install count.
 - **`soul.md` / `USER.md` edit rate** (personalization adoption).
+- **Persona adoption**: % of WAU with a non-default persona in `soul.md`; persona-switch frequency; persona-shift proposals accepted vs. dismissed (signal the loop is reading your life correctly).
 - **Self-installed skill adoption** (Hermes-style capability-on-demand).

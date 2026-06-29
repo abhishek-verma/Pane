@@ -203,7 +203,10 @@ This spec is the trust spine. It is referenced by every other spec's permission/
 - **07**: approval-when-away, cloud-headless isolation.
 - **08**: sender allowlist, pairing codes, channel credential isolation.
 - **09**: per-connection scopes, custom-MCP untrusted labeling, MCP session revoke.
-- **11**: marketplace skill trust levels.
+- **11**: marketplace skill trust levels; `soul.md` persona shifts are proposed (gated), never silent.
+- **14**: capture consent as untrusted input, bucket-scoped storage.
+- **15**: home widgets read only local, consented state; capture-dependent widgets respect capture consent.
+- **16**: page-reshape trust constraints — per-domain consent, always-marked/reversible overlays, never-silent-writes, injection-isolated overlays; untrusted page text is never trusted as context without the [04] injection-defense rules (applies double when reading a page *and* layering on it).
 
 ---
 

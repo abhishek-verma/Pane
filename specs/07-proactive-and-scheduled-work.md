@@ -156,6 +156,7 @@ This is the bridge between "always-on" and "always-in-control" (principle 7).
 - **08 — Reach & Channels**: approval requests and digests delivered out-of-browser.
 - **09 — Integrations & MCP**: integration events feed triggers; n8n can call Pane webhooks.
 - **10 — Trust**: approval gating for unattended runs; cloud-headless runs use isolated sessions.
+- **15 — Adaptive Home**: the daily digest is also the home's digest widget; the proactive engine pre-computes widget content on a cadence so the home renders without an LLM call at tab-open.
 
 ---
 

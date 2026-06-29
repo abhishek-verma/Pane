@@ -36,7 +36,7 @@ Adopted from the Hermes model, with a browser-grounded twist. Each layer is inde
 
 | Layer | Purpose | Load timing | Storage |
 |-------|---------|-------------|---------|
-| **1. Prompt memory** | Always-on facts: `MEMORY.md` (agent notes) + `USER.md` (user profile) | Every session, frozen snapshot at start | Plain files in `~/.browseros/memories/` |
+| **1. Prompt memory** | Always-on files: `SOUL.md` (agent identity/persona) + `USER.md` (user profile) + `MEMORY.md` (agent notes) | Every session, frozen snapshot at start | Plain files in `~/.browseros/memories/` |
 | **2. Skills** | Procedural "how I do X" recipes (`SKILL.md`) | On-demand, only the index in the prompt | Plain files in `~/.browseros/memories/skills/` |
 | **3. Session archive** | Episodic memory: every conversation + agent run | On retrieval (FTS5) | SQLite (`~/.browseros/db/`) |
 | **4. Activity memory** | Browser/file/terminal/app events from the Context Graph | On retrieval + feeds the review | The Context Graph (see [02](./02-the-context-graph.md)) |
@@ -44,19 +44,23 @@ Adopted from the Hermes model, with a browser-grounded twist. Each layer is inde
 
 **Layer 4 is Pane's addition over Hermes.** It is what "the agent is the browser" buys: the loop learns from what you *did* (you opened the same dashboard at 9am five days running, you always export the same report), not only from what you *said*.
 
+**`SOUL.md` is Pane's persona layer (the "browser with a soul").** Distinct from `USER.md` (who *you* are) and `MEMORY.md` (what the agent noticed), `SOUL.md` is who *Pane* is for you right now — its role, voice, boundaries, and active persona (e.g. "chief of staff" vs "job-search partner" vs "research buddy"). It is the file that makes Pane *become whatever you need it to be* (see [00](./00-vision-and-thesis.md) "A browser that becomes yours" and [11](./11-personalization-skills-marketplace.md)). The active persona is shaped in onboarding, switchable, and can shift with the active context bucket — but it is always a plain, readable, editable file, never a hidden knob.
+
 **Why this is strictly better (concrete):** In Hermes, a skill "export the Acme weekly report" can only be written from a conversation where the user described the steps, or from a terminal script. In Pane, the agent watches you open `acme.example.com/analytics`, click Export, choose CSV, rename it `weekly.csv`, and move it to `~/Documents/q3-launch` — across five Mondays — and writes a `SKILL.md` capturing the *exact* clicks, selector paths, file rename, and destination, with the source runs linked. The next Monday it offers to do the whole thing in one click. Hermes cannot write that skill because it never saw the clicks; it only heard you talk about them.
 
 ---
 
 ## Prompt memory (layer 1)
 
-Two files, injected into the system prompt as a frozen snapshot at session start (preserves prefix cache):
+Three files, injected into the system prompt as a frozen snapshot at session start (preserves prefix cache):
 
 | File | Purpose | Char limit (default) |
 |------|---------|----------------------|
+| `SOUL.md` | Agent identity/persona: the role Pane plays for you right now, its voice, boundaries, active persona (chief of staff / job-search partner / research buddy / custom) | 1,500 (~550 tokens) |
 | `MEMORY.md` | Agent's notes: environment, projects, conventions, lessons | 2,200 (~800 tokens) |
 | `USER.md` | User profile: name, role, timezone, communication style, preferences | 1,375 (~500 tokens) |
 
+- `SOUL.md` is the persona layer — see [11](./11-personalization-skills-marketplace.md). It is user-editable; the agent proposes persona shifts (e.g. "you're job-hunting now — switch to job-search partner?") gated by `write_approval`. The active persona can follow the active context bucket so Pane is one thing at work and another at home, without leaking buckets into each other.
 - The agent manages memory via a `memory` tool with `add`, `replace`, `remove` actions and substring matching (same shape as Hermes).
 - No `read` action — content is already in the prompt.
 - **Capacity management**: when an `add` would overflow, the tool returns an error with current entries and the agent consolidates in the same turn. No silent drops.
@@ -226,7 +230,7 @@ Commands (CLI + side panel + channels):
 ## Migration from Hermes / OpenClaw
 
 - **Hermes → Pane**: import `MEMORY.md`, `USER.md`, skills (`~/.hermes/memories/skills/*`), and session DB. Skills are agentskills.io-compatible, so they import directly. Map Hermes toolsets to Pane tools (e.g. `browser_*` → Pane browser tools).
-- **OpenClaw → Pane**: import persona (SOUL/IDENTITY → `USER.md`), hand-written skills (import as `provenance: migrated`), and API keys.
+- **OpenClaw → Pane**: import persona (SOUL/IDENTITY → `soul.md`), hand-written skills (import as `provenance: migrated`), and API keys.
 
 Migration is a one-time wizard in onboarding (see [12](./12-onboarding-activation-metrics.md)).
 
@@ -239,7 +243,7 @@ Migration is a one-time wizard in onboarding (see [12](./12-onboarding-activatio
 - **07 — Proactive & Scheduled Work**: activity patterns surfaced by the review become proactive nudges and proposed schedules.
 - **08 — Reach & Channels**: memory/skill notifications and `/memory` `/skills` commands work over channels.
 - **10 — Trust**: injection scanning on writes; memory is trusted context, page content is not — the loop must never let untrusted page text become a memory entry without review.
-- **11 — Personalization & Skills**: the marketplace for sharing and discovering skills; soul/identity feeds `USER.md`.
+- **11 — Personalization & Skills**: the marketplace for sharing and discovering skills; `soul.md` (the persona/identity layer) is defined there and feeds the system prompt alongside `USER.md`/`MEMORY.md`.
 
 ---
 

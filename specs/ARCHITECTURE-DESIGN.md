@@ -7,6 +7,8 @@
 > **v0.4 expert-architecture review.** Reviewed for desktop-system, browser, agentic, and cross-platform concerns. Additions: a real **process model & supervision** section (boot order, CDP-as-security-boundary, crash recovery, reconnect, update coordination); **keep-alive/headless precision** (a headless server still needs a browser process for browser work); **state-ownership boundary** between the SW's `chrome.storage` and the server's SQLite; **loop discipline** (prompt budget, consequence-class derived from `(tool, args)`, instruction channel never writable by captured data, one tool spec shared by loop + MCP); **streaming-ASR feasibility** for real-time meetings + a native tab-audio primitive; a **platform matrix** (macOS/Windows/Linux); and **degradation / local observability / testing** sections.
 >
 > **v0.4 disable & cleanup review.** Reviewed from product + tech perspectives for what BrowserOS ships by default that Pane doesn't need. Expanded §9 into a full **disable & cleanup register**: product rationale (account, usage/credits, cloud sync, Remote Hermes, hosted default provider, managed-Klavis catalog, JTBD survey, BrowserClaw cockpit, bug-reporter), the **not-flag-gated** surfaces that must be explicitly removed (auth routes + `AuthProvider` polling, JTBD survey, `/settings/usage`, managed-Klavis nav, remote chat-history branch), server routes to **dead-stripe** rather than 503, hardcoded Pane URLs to strip/repoint, the **native-telemetry hardcoded-key credibility blocker**, and the **don't-bundle-BrowserClaw** decision (fold useful surfaces into `apps/app` later).
+>
+> **v0.5 vision-alignment review (against README.md).** The README's headline is "a browser with a soul" that "becomes whatever you need it to be." Brought the design into alignment: **`soul.md` elevated to a first-class persona/identity file** in the memory subsystem (§4.2) — the active persona follows the active bucket and shifts are proposed, never silent; added **§4.10 Adaptive home** (the new-tab expression surface over graph+memory+soul+tasks+proactive+capture, <150 ms render, no LLM at tab-open) and **§4.11 Page reshape & overlays** (your-context overlays + feed de-slop, per-domain consent, reversible, never-silent-writes, injection-isolated) as the two expression surfaces where the engine becomes something the user feels; added a `ReshapeSource` extension point (§8). The engine (§4.1–4.8) is built first; §4.10/§4.11 ship on top. See specs [15](./15-adaptive-home.md) and [16](./16-page-reshape-and-overlays.md).
 
 ---
 
@@ -209,7 +211,7 @@ Before the subsystems, four rules that govern the agent loop and prevent the mos
 
 - **Substrate:** none direct — v0.46 pulled Skills/Soul/Memory back intentionally. This is the core net-new rebuild. It *consumes* the Context Graph (§4.1) and the model resolver.
 - **New code:** a `@browseros/memory` package + server module under `apps/server/src/memory/`. On-disk under `~/.browseros/memories/` (files) + a SQLite index.
-- **Data model:** memory = files (`MEMORY.md`, `USER.md`, per-topic) + a `memory_entries` SQLite table (id, layer, bucket, content, char-limit-bounded, `last_surfaced`, `usefulness`). Skills = `~/.browseros/memories/skills/*.md` (agentskills.io format) + a `skills` SQLite table (name, description, provenance, `source_run`, `uses`, `success_rate`, `status`). The skill **index** (names + one-line descriptions) loads into the prompt; bodies load on demand (the Hermes "no heavy backpack" lesson).
+- **Data model:** memory = files (`soul.md`, `MEMORY.md`, `USER.md`, per-topic) + a `memory_entries` SQLite table (id, layer, bucket, content, char-limit-bounded, `last_surfaced`, `usefulness`). `soul.md` is the **persona/identity layer** — who Pane is for you right now (chief of staff / job-search partner / research buddy / custom), its voice and boundaries, injected into the system prompt alongside `USER.md`/`MEMORY.md`; the active persona follows the active context bucket and persona shifts are proposed (gated), never silent (specs [11](./11-personalization-skills-marketplace.md), [00](./00-vision-and-thesis.md)). Skills = `~/.browseros/memories/skills/*.md` (agentskills.io format) + a `skills` SQLite table (name, description, provenance, `source_run`, `uses`, `success_rate`, `status`). The skill **index** (names + one-line descriptions) loads into the prompt; bodies load on demand (the Hermes "no heavy backpack" lesson).
 - **The loop:** a background review job (cheaper model, via the existing model resolver) reads recent graph events + agent runs + passive-capture feeds (§4.7), drafts `SKILL.md` patches and memory writes, and stages them per the `write_approval` default (conversation-derived writes free + verbose notify; inferred/capture-derived writes stage). Runs as a queued job on the server, cadenced, pause-on-battery.
 - **Curation half (anti-bloat):** use-tracking demotes then archives unused skills (`uses=0` after N days → archived; `success_rate` below threshold over K uses → flagged then archived); memory entries never recalled are demoted out of the always-on prompt (still searchable). A monthly curation digest is emitted via the proactive engine (§4.5).
 - **Loop integration:** register memory retrieval as context tools (§4.1); the review job reuses the scheduled-tasks runtime (§4.5) as its scheduler — don't build a second scheduler.
@@ -285,6 +287,25 @@ Before the subsystems, four rules that govern the agent loop and prevent the mos
 - **This is the wedge and it's mostly already there.** The design work is "wire the new intrinsic tools into the existing MCP surface," not "build a dev surface."
 - **Do not rebuild:** `/mcp`, the CLI, the harness adapters.
 
+### 4.10 Adaptive home (the new tab that knows your day — expression surface)
+
+- **Substrate:** the single `app` entrypoint (`entrypoints/app/App.tsx`, React Router `HashRouter`) already serves new tab + home + personalize; `NewTabBranding`/`NewTabChat` and `AgentCommandHome.tsx` are the existing composer surfaces. **No new entrypoint.**
+- **What it is:** the *presentation layer* over §4.1 (graph), §4.2 (memory + `soul.md`), §4.4 (tasks), §4.5 (proactive/digest), §4.7 (capture/buckets). Widgets (daily digest, next meeting w/ prior notes, resumed work, pending approvals, one-click recurring, research thread) are **derived** from local state and ranked by activity-memory rhythms (§4.2 layer 4) × `soul.md` persona + active bucket relevance, with hysteresis so the home doesn't jump. Spec [15](./15-adaptive-home.md).
+- **Performance is the hard rule:** the home renders **<150 ms** on open with **no LLM call at tab-open** — LLM content (digest summaries) is pre-computed by the proactive engine (§4.5) on a cadence and cached. Widget queries are SQLite/FTS5.
+- **State ownership:** the home reads only local, consented state; it owns no heavy state. Preferences (pin/hide/dismiss) are prefs (`chrome.storage`); dismissals also write a preference into `USER.md` (§4.2). Capture-dependent widgets respect capture consent (§4.7/§4.8).
+- **Day-1 fallback:** when the graph/persona have nothing yet, render the existing BrowserOS new-tab (most-visited from import + chat composer + "summarize this page"). No fake widgets.
+- **Do not rebuild:** the `app` entrypoint, the chat composer, the personalize screen.
+
+### 4.11 Page reshape & overlays (the web, reshaped for you — expression surface)
+
+- **Substrate:** the fork's native page access — the glow indicator, content scripts, `browser-mcp`'s 16 browser tools + page-markdown extraction, and Chromium content-injection primitives an extension is progressively denied. **Reuses that access; adds no new privileged path.**
+- **What it is:** Pane reads a page in the context of *your* goals (§4.2 `soul.md` persona + active bucket + `USER.md`/`MEMORY.md` + granted workspace files §4.3 + integrations §4.9) and layers your-context on top: annotation overlays (job-fit scores, calendar-fit highlights, margin notes tied to your project) and feed de-slop (collapse/dim noise, keep signal; original order one tap away). Spec [16](./16-page-reshape-and-overlays.md).
+- **Trust is load-bearing (§4.8):** per-domain consent (defaults off for banking/payments/health/government); overlays are Pane-branded, reversible, dismissible, isolated in a content-script world the page cannot read or impersonate; **reshape never edits submitted form values/posts** — any write goes through the §4.8 trust gate. Untrusted page text is never trusted as context (the §4.0 instruction-channel rule — applies double when reading a page *and* layering on it).
+- **No exfiltration:** page content does not leave the machine beyond the model call (local or BYOK); per-URL cache; lazy + rate-limited, pause on battery.
+- **Learning feed:** dismiss/hide/expand/pin signals flow back to §4.2 memory (gated) so the feed classifier and annotation ranking improve — another expression of "smarter from real activity."
+- **Extension point (interface only):** a future hosted "reshape rule/marketplace" source — **local default: the per-user learned classifier + built-in persona templates.**
+- **Do not rebuild:** the browser tools, the page extractors, the glow primitive (repurposed as the capture/reshape light).
+
 ---
 
 ## 5. The "no redundant work" map
@@ -294,7 +315,7 @@ The heart of this doc. For each net-new intrinsic subsystem: the substrate it ex
 | Subsystem | Extends (substrate, real path) | New code location | Extension-point interface (local default) | Must not rebuild |
 |-----------|--------------------------------|-------------------|--------------------------------------------|------------------|
 | Context Graph + buckets | `browser-mcp` extractors; `filesystem_*`; `lib/db/client.ts` (Drizzle/SQLite) | `packages/context-graph/` + `apps/server/src/context/` | `SyncAdapter` (no-op) | browser extraction, file ops, SQLite client |
-| Memory + skills | (none — v0.46 pulled back); consumes graph + model resolver | `packages/memory/` + `apps/server/src/memory/` | `MemoryProvider` (5 layers); `MarketplaceSource` (own + agentskills.io) | model resolver, loop, scheduler |
+| Memory + skills | (none — v0.46 pulled back); consumes graph + model resolver | `packages/memory/` + `apps/server/src/memory/` | `MemoryProvider` (5 layers + `soul.md`); `MarketplaceSource` (own + agentskills.io) | model resolver, loop, scheduler |
 | Workspaces + terminal | `tools/filesystem/*` + `path-boundary.ts`; `workspace-storage.ts` | extend `apps/server/src/tools/filesystem/` + `apps/app/screens/workspaces/` (new) | `WorkspaceSync` (no-op) | the 7 fs tools, path sandbox, folder picker |
 | Tasks | scheduled-tasks runtime (`chrome.alarms` + `/chat` isScheduledTask) | `apps/server/src/tasks/` + `apps/app/screens/tasks/` (new) | `TaskSync` (no-op; Klavis optional) | scheduled runtime, `chrome.alarms` |
 | Proactive + scheduled | `chrome.alarms` + nudge tools | extend `apps/server/src/scheduler/` + `entrypoints/background/` | `RunnerAdapter` (in-app + keep-alive) | `chrome.alarms`, nudge tools |
@@ -302,6 +323,8 @@ The heart of this doc. For each net-new intrinsic subsystem: the substrate it ex
 | Passive capture | `browser-mcp`/CDP; glow; Cowork; **the fork** | `packages/capture/` + `apps/server/src/capture/` + Chromium patch | `TranscriptionProvider` (local whisper; BYOK opt-in) | CDP extraction, glow, local-model host |
 | Trust | glow; tool transcript; loop `prepareStep`; SQLite | trust gate in `apps/server/src/agent/` (chokepoint) + `lib/db/` action log | action-log sync (no sync) | the loop, the glow, transcript UI |
 | Dev surface (wedge) | `/mcp`; `browseros-cli`; harness adapters | register new tools in MCP server; extend Go CLI; fix `#/mcp` route | — | `/mcp`, CLI, harness |
+| Adaptive home | `entrypoints/app` (new tab + home + personalize); `NewTabChat`/`AgentCommandHome` | `apps/app/screens/home/` widget host + home engine (server-side widget queries) | — (hosted widget source = State B) | the `app` entrypoint, the chat composer, personalize |
+| Page reshape & overlays | glow; content scripts; `browser-mcp` page extraction; **the fork's injection primitives** | `packages/reshape/` + `apps/server/src/reshape/` + content-script overlay root | `ReshapeSource` (per-user learned classifier + persona templates) | browser tools, page extractors, the glow primitive |
 
 ---
 
@@ -313,7 +336,7 @@ The heart of this doc. For each net-new intrinsic subsystem: the substrate it ex
 ~/.browseros/
 ├── db/browseros.sqlite      # existing + new tables (graph, memory index, skills, tasks, action_log, buckets)
 ├── sessions/                # existing (legacy) — migrate sidepanel sessions here from in-memory
-├── memories/                # NEW — MEMORY.md, USER.md, skills/*.md (files; SQLite holds the index)
+├── memories/                # NEW — soul.md, MEMORY.md, USER.md, skills/*.md (files; SQLite holds the index)
 ├── capture/                 # NEW — meeting recordings/transcripts, per bucket
 ├── agents/harness/          # existing — harness state
 ├── tool-output/             # existing
@@ -418,6 +441,7 @@ Every State B capability is behind one of these interfaces, each with a **local 
 | `TranscriptionProvider` | `transcribe(audio)` | local whisper.cpp | BYOK provider API (already supported as opt-in) |
 | `CreditsProvider` | `resolve(model)`, `spend(n)` | none (BYOK/OAuth/local only) | hosted credits / default-model on-ramp |
 | `TaskSync` | `pull()`, `push(task)` | no-op (Klavis optional for third-party) | cloud Linear/Jira |
+| `ReshapeSource` | `rulesFor(domain)`, `publish(rule)` | per-user learned classifier + built-in persona templates | hosted reshape-rule directory / shared overlay configs |
 
 The architecture rule: **the core never calls a Pane server directly.** It calls an interface whose default is local. A future server implements the interface; nothing in the core changes.
 

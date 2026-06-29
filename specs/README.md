@@ -4,9 +4,11 @@ This folder holds the product specification for Pane's next phase: **Pane as a H
 
 These specs are written from a product-manager lens: who the product serves, what it does, how the pieces fit together, and how we measure success. They are design intent, not implementation contracts. For current implementation reality, see [ARCHITECTURE.md](../ARCHITECTURE.md) and [PRODUCT.md](../PRODUCT.md). For the **engineering design** that realizes these specs (grounded in the current fork, extensible to State B via interfaces only), see [ARCHITECTURE-DESIGN.md](./ARCHITECTURE-DESIGN.md).
 
-> **Status: draft v0.4 — HoP review pass.** Two corrections from the user shape v0.3: (1) **think in systems, not implementation timelines** — the Pane fork starts as a pure open-source project with **no Pane-operated servers** (BrowserOS's sync/credits/Remote-Hermes/cloud-API surfaces are **disabled**); server-dependent things are *future, conditional extension points*; **auto-skill-creation is a day-one intrinsic local capability** that needs zero servers; (2) we **build on BrowserOS**, not from scratch — most of the wedge is already shipped. v0.3 added a flagship intrinsic capability: **passive capture & context buckets** ([14](./14-passive-capture-and-context-buckets.md)).
+> **Status: draft v0.5 — vision-alignment pass (against README.md).** Two corrections from the user shape v0.3: (1) **think in systems, not implementation timelines** — the Pane fork starts as a pure open-source project with **no Pane-operated servers** (BrowserOS's sync/credits/Remote-Hermes/cloud-API surfaces are **disabled**); server-dependent things are *future, conditional extension points*; **auto-skill-creation is a day-one intrinsic local capability** that needs zero servers; (2) we **build on BrowserOS**, not from scratch — most of the wedge is already shipped. v0.3 added a flagship intrinsic capability: **passive capture & context buckets** ([14](./14-passive-capture-and-context-buckets.md)).
 >
 > **v0.4 (holistic HoP review)** tightened the set across strategy, ICPs, retention, trust, distribution, and feasibility: added the **daily-habit/retention loop + a north-star metric** ([12](./12-onboarding-activation-metrics.md)); a **researcher/student flow** under the knowledge-worker ICP + a concrete research bucket ([00](./00-vision-and-thesis.md), [14](./14-passive-capture-and-context-buckets.md)); a **"why a fork, not an extension" defense** and the **no-default-model tension** ([00](./00-vision-and-thesis.md)); **training-wheels/dry-run** for the scary consequence classes ([10](./10-trust-privacy-security.md), [03](./03-agent-modes-and-the-loop.md)); the **curation/pruning half** of the learning loop so the system gets smarter, not heavier ([04](./04-memory-and-learning-loop.md)); a **distribution/packaging/auto-update** section and an expanded risk register ([13](./13-roadmap.md)); and **performance-budget** enforcement in the resource-heavy specs ([02](./02-the-context-graph.md), [04](./04-memory-and-learning-loop.md), [14](./14-passive-capture-and-context-buckets.md)). Also fixed stale v0.2 content in [12](./12-onboarding-activation-metrics.md) that contradicted the "no servers / credits disabled" decision.
+>
+> **v0.5 (vision-alignment pass against README.md).** The README's headline is **"a browser with a soul"** that **"becomes whatever you need it be."** This pass brings the specs into alignment: **elevated `soul.md` to a first-class persona/identity layer** (the active role Pane plays for you — chief of staff / job-search partner / research buddy / custom — that follows the active context bucket and is suggested, never silent) — reconciling [04](./04-memory-and-learning-loop.md) and [11](./11-personalization-skills-marketplace.md) which previously contradicted each other; added **[15 — Adaptive Home](./15-adaptive-home.md)** (the auto-evolving new-tab widgets the README calls "a new tab that knows your day"); added **[16 — Page Reshape & Overlays](./16-page-reshape-and-overlays.md)** (the README's "pages reshaped for you" + "feeds without the slop"); and added an **"A browser that becomes yours" shape-shifting thesis** to [00](./00-vision-and-thesis.md) that maps the README's role examples to the soul + buckets + adaptive home + page-reshape system. The engine (memory, graph, capture, soul) is built first; the two expression surfaces ship on top of it.
 
 ---
 
@@ -20,7 +22,7 @@ Most of your work already lives in your browser — your tabs, your logins, your
 
 We are not greenfield. BrowserOS already ships the Chromium fork, the agent server with 53+ MCP tools, Chat/Agent modes, Cowork (files), scheduled tasks, smart nudges, Connect Apps (Klavis), **Pane-as-MCP + `browseros-cli` + harness agents** (the dev wedge, mostly shipped), BYOK/OAuth/local models, vertical tabs, ad blocking, and the eval harness. v0.46 pulled Skills/Soul/Memory back to rebuild.
 
-The **net-new intrinsic work** is: the Context Graph (with **context buckets**), the Memory + **auto-skill-creation engine**, **passive capture (meeting recordings + browsing learnings)**, Workspaces (evolved from Cowork), Tasks, Triggers (evolved from scheduled tasks), Reach (peer-to-peer), and the Trust framework. Everything else extends what's there. See the capability map in [13 — System Architecture](./13-roadmap.md).
+The **net-new intrinsic work** is: the Context Graph (with **context buckets**), the Memory + **auto-skill-creation engine** (+ **`soul.md` persona layer**), **passive capture (meeting recordings + browsing learnings)**, Workspaces (evolved from Cowork), Tasks, Triggers (evolved from scheduled tasks), Reach (peer-to-peer), and the Trust framework. On top of that engine sit the two **expression surfaces** that make the "browser with a soul / becomes yours" vision visible: the **adaptive home** (evolving new-tab widgets, [15](./15-adaptive-home.md)) and **page reshape & overlays** (your-context overlays + feed de-slop, [16](./16-page-reshape-and-overlays.md)). Everything else extends what's there. See the capability map in [13 — System Architecture](./13-roadmap.md).
 
 ---
 
@@ -94,8 +96,10 @@ flowchart TB
     reach["08 · Reach & Channels<br/>(peer-to-peer; mobile = State B)"]
     integrations["09 · Integrations, MCP & Dev Surface<br/>(wedge; mostly shipped)"]
     trust["10 · Trust, Privacy & Security"]
-    skills["11 · Personalization & Skills<br/>(intrinsic skill system; marketplace = State B)"]
+    skills["11 · Personalization & Skills<br/>(soul.md persona + intrinsic skill system; marketplace = State B)"]
     activation["12 · Onboarding, Activation & Metrics"]
+    home["15 · Adaptive Home<br/>(evolving new-tab widgets; intrinsic)"]
+    reshape["16 · Page Reshape & Overlays<br/>(your-context overlays + feed de-slop; intrinsic)"]
 
     thesis --> principles
     thesis --> sys
@@ -112,11 +116,19 @@ flowchart TB
     context --> integrations
     trust --> loop
     trust --> work
+    trust --> reshape
     skills --> memory
+    memory --> home
+    skills --> home
+    proactive --> home
+    context --> reshape
+    memory --> reshape
+    skills --> reshape
+    work --> reshape
     activation --> sys
 ```
 
-The **Context Graph** (02) is the center of gravity, **partitioned into context buckets** (14). The **developer MCP + workspace surface** (09, 05) is the wedge that proves the thesis first — and it's mostly already shipped. **Passive capture** (14) is the purest "we are the browser" capability for the knowledge-worker ICP. Read 00, then 13 (system model), then 09 and 05 (the wedge), then 02 and 14 (the context system).
+The **Context Graph** (02) is the center of gravity, **partitioned into context buckets** (14). The **developer MCP + workspace surface** (09, 05) is the wedge that proves the thesis first — and it's mostly already shipped. **Passive capture** (14) is the purest "we are the browser" capability for the knowledge-worker ICP. The **adaptive home** (15) and **page reshape** (16) are the expression surfaces where the soul + memory + graph + capture system becomes something the user *feels* every time they open a tab or a page. Read 00, then 13 (system model), then 09 and 05 (the wedge), then 02 and 14 (the context system), then 11, 15 and 16 (the "becomes yours" surfaces).
 
 ---
 
@@ -128,17 +140,19 @@ The **Context Graph** (02) is the center of gravity, **partitioned into context 
 | 01 | [Product Principles](./01-product-principles.md) | Tenets every spec is judged against (incl. focus, performance, local-complete, build-on-substrate) |
 | 02 | [The Context Graph](./02-the-context-graph.md) | Local graph + index + context tools; sync is a State B extension interface |
 | 03 | [Agent Modes & The Loop](./03-agent-modes-and-the-loop.md) | Chat / Agent modes (Graph deferred), the tool loop, visibility, approvals, model routing |
-| 04 | [Memory & Learning Loop](./04-memory-and-learning-loop.md) | **Auto-skill-creation as an intrinsic zero-server capability**; memory layers; browser-grounded learning |
+| 04 | [Memory & Learning Loop](./04-memory-and-learning-loop.md) | **Auto-skill-creation as an intrinsic zero-server capability**; memory layers (incl. `soul.md`); browser-grounded learning |
 | 05 | [Workspace, Files & Terminal](./05-workspace-files-terminal.md) | Evolved from Cowork: workspaces, sandboxed terminal, trust bar |
 | 06 | [Task & Work Management](./06-task-and-work-management.md) | Executable tasks + inbox + triage (native kanban cut) |
 | 07 | [Proactive & Scheduled Work](./07-proactive-and-scheduled-work.md) | Local + OS keep-alive; cloud-headless = State B extension point |
 | 08 | [Reach & Channels](./08-reach-and-channels.md) | Peer-to-peer reach (OS push + email + Telegram); mobile companion = State B |
 | 09 | [Integrations, MCP & Developer Surface](./09-integrations-mcp-developer-surface.md) | The wedge — mostly shipped: Connect Apps, Pane-as-MCP, harness agents, CLI |
 | 10 | [Trust, Privacy & Security](./10-trust-privacy-security.md) | Local-first, prompt-injection defense, ICP-tunable approvals, fatigue guardrail |
-| 11 | [Personalization & Skills](./11-personalization-skills-marketplace.md) | Intrinsic skill system + agentskills.io peer import; hosted marketplace = State B |
+| 11 | [Personalization & Skills](./11-personalization-skills-marketplace.md) | **`soul.md` persona layer** + intrinsic skill system + agentskills.io peer import; hosted marketplace = State B |
 | 12 | [Onboarding, Activation & Metrics](./12-onboarding-activation-metrics.md) | ICP-specific paths, calibrated activation bars, success metrics |
 | 13 | [System Architecture & Build Order](./13-roadmap.md) | **Not a timeline** — capability map, State A/B, dependency layers |
 | 14 | [Passive Capture & Context Buckets](./14-passive-capture-and-context-buckets.md) | Meeting recordings + notes, browsing learnings, bucketed context — all intrinsic State A |
+| 15 | [Adaptive Home](./15-adaptive-home.md) | The new tab that knows your day — evolving widgets (digest, next meeting, resumed work, one-click recurring) ranked by activity rhythms, persona/bucket-shaped; intrinsic State A |
+| 16 | [Page Reshape & Overlays](./16-page-reshape-and-overlays.md) | The web, reshaped for you — your-context overlays (fit scores, margin notes, calendar-fit) + feed de-slop; per-domain consent, reversible, never-silent-writes; intrinsic State A |
 | — | [Architecture Design](./ARCHITECTURE-DESIGN.md) | **Engineering design** that realizes the specs, grounded in the current fork; intrinsic-only with State B extension-point interfaces. v0.4: expert-architecture review (process model & supervision, CDP-as-security-boundary, state-ownership boundary, loop discipline, platform matrix, degradation/observability/testing) + a full **disable & cleanup register** of BrowserOS defaults Pane doesn't need (product + tech). |
 | — | [Implementation Plan](./IMPLEMENTATION-PLAN.md) | **End-to-end OSS build plan (State A only).** 7 phases, each shipping a usable product (Pane v0.1 → v1.0); each phase split into independently implementable + testable modules (what / how to build / how to test). State B planned separately after v1.0. |
 | — | [Rebrand Plan (Step 0)](./REBRAND-PLAN.md) | **BrowserOS → Pane rebrand sweep.** Replaces every user-facing BrowserOS brand (icons from `assets/branding/pane-mark.svg` / `pane-wordmark.svg` + display text) across app, docs, CLI, native C++, Chromium icons, build/CI, and metadata. Splits product-brand (→ Pane) from substrate identifiers (tech debt) and infra (separate track), with a final ripgrep + visual QA gate. |
@@ -163,4 +177,4 @@ Each spec anchors on **what BrowserOS already has** and separates **intrinsic (S
 
 ## Status and ownership
 
-These specs are **draft for review (v0.3)**. They are meant to be challenged. Each one ends with open questions that need a product decision before implementation begins. Nothing here is committed until it appears in [13 — System Architecture](./13-roadmap.md) with an owner.
+These specs are **draft for review (v0.5)**. They are meant to be challenged. Each one ends with open questions that need a product decision before implementation begins. Nothing here is committed until it appears in [13 — System Architecture](./13-roadmap.md) with an owner.
