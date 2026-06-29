@@ -68,6 +68,17 @@ export function createChatRoutes(deps: ChatRouteDeps) {
 
       return service.processMessage(request, c.req.raw.signal)
     })
+    .get('/history', async (c) => {
+      try {
+        const history = await service.getHistory()
+        return c.json(history)
+      } catch (err) {
+        logger.error('Failed to get chat history', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+        return c.json({ error: 'Failed to fetch history' }, 500)
+      }
+    })
     .delete(
       '/:conversationId',
       zValidator('param', ConversationIdParamSchema),

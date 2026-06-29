@@ -405,6 +405,16 @@ export class ChatService {
           )
           session.agent.messages = filterValidMessages(restored)
         }
+
+        // Persist messages
+        this.deps.sessionStore
+          .persistMessages(request.conversationId, session.agent.messages)
+          .catch((err: unknown) => {
+            logger.error('Failed to persist messages', {
+              error: err instanceof Error ? err.message : String(err),
+            })
+          })
+
         logger.info('Agent execution complete', {
           conversationId: request.conversationId,
           totalMessages: session.agent.messages.length,
@@ -430,6 +440,63 @@ export class ChatService {
     }
     const deleted = await this.deps.sessionStore.delete(conversationId)
     return { deleted, sessionCount: this.deps.sessionStore.count() }
+  }
+
+  async getHistory(): Promise<
+    { id: string; lastMessagedAt: number; messages: unknown[] }[]
+  > {
+    const db = require('../../../lib/db').getDb()
+    const {
+      chatMessages,
+      chatSessions,
+    } = require('../../../lib/db/schema/chat-sessions')
+    const { asc, desc, eq } = require('drizzle-orm')
+
+    const sessions = await db
+      .select()
+      .from(chatSessions)
+      .orderBy(desc(chatSessions.updatedAt))
+      .all()
+
+    return Promise.all(
+      sessions.map(async (s: { id: string; updatedAt: number }) => {
+        const msgs = await db
+          .select()
+          .from(chatMessages)
+          .where(eq(chatMessages.sessionId, s.id))
+          .orderBy(asc(chatMessages.createdAt))
+          .all()
+
+        // Convert CoreMessage-like db rows to UIMessage-like objects for the client
+        const mappedMsgs = msgs.map(
+          (m: { id: string; role: string; content: string }) => {
+            let textContent = ''
+            try {
+              const content = JSON.parse(m.content)
+              if (typeof content === 'string') {
+                textContent = content
+              } else if (Array.isArray(content)) {
+                textContent = content
+                  .map((c: { text?: string }) => c.text || '')
+                  .join('')
+              }
+            } catch {}
+
+            return {
+              id: m.id,
+              role: m.role,
+              content: textContent,
+            }
+          },
+        )
+
+        return {
+          id: s.id,
+          lastMessagedAt: s.updatedAt,
+          messages: mappedMsgs,
+        }
+      }),
+    )
   }
 
   private closeHiddenPage(pageId: number, conversationId: string): void {
