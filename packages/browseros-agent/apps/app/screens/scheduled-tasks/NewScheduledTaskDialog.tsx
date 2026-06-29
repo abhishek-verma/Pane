@@ -44,7 +44,7 @@ import {
 import { PaneIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import {
   defaultProviderIdStorage,
-  providersStorage,
+  loadProviders,
 } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig, ProviderType } from '@/lib/llm-providers/types'
 import { track } from '@/lib/metrics/track'
@@ -126,13 +126,12 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
 
   useEffect(() => {
     if (!open) return
-    Promise.all([
-      providersStorage.getValue(),
-      defaultProviderIdStorage.getValue(),
-    ]).then(([providerList, defId]) => {
-      setProviders(providerList ?? [])
-      setDefaultProviderId(defId ?? '')
-    })
+    Promise.all([loadProviders(), defaultProviderIdStorage.getValue()]).then(
+      ([providerList, defId]) => {
+        setProviders(providerList ?? [])
+        setDefaultProviderId(defId ?? '')
+      },
+    )
   }, [open])
 
   useEffect(() => {
