@@ -36,9 +36,7 @@ func BuildArgs(cfg ArgsConfig) ([]string, error) {
 		"--browseros-dock-icon=dev",
 	)
 
-	if !cfg.LoadDevExtensions {
-		args = append(args, "--enable-logging=stderr")
-	}
+	args = append(args, "--enable-logging=stderr")
 
 	if cfg.Headless {
 		args = append(args, "--headless=new")
@@ -46,7 +44,7 @@ func BuildArgs(cfg ArgsConfig) ([]string, error) {
 
 	args = append(args,
 		fmt.Sprintf("--remote-debugging-port=%d", cfg.Ports.CDP),
-		fmt.Sprintf("--browseros-mcp-port=%d", cfg.Ports.Server),
+		fmt.Sprintf("--browseros-server-port=%d", cfg.Ports.Server),
 		fmt.Sprintf("--browseros-extension-port=%d", cfg.Ports.Extension),
 		fmt.Sprintf("--user-data-dir=%s", cfg.UserDataDir),
 	)
