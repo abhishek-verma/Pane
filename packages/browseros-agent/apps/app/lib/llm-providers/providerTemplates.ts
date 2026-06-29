@@ -148,7 +148,7 @@ export const providerTemplates: ProviderTemplate[] = [
     id: 'cerebras',
     name: 'Cerebras',
     defaultBaseUrl: 'https://api.cerebras.ai/v1',
-    defaultModelId: 'llama-3.3-70b',
+    defaultModelId: 'zai-glm-4.7',
     supportsImages: false,
     contextWindow: 128000,
     apiKeyUrl: 'https://cloud.cerebras.ai/platform/org/api-keys',

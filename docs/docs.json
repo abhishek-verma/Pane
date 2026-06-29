@@ -84,7 +84,7 @@
     "primary": {
       "type": "button",
       "label": "Download",
-      "href": "https://github.com/browseros-ai/Pane/releases"
+      "href": "https://github.com/abhishek-verma/Pane/releases"
     }
   },
   "contextual": {
@@ -101,8 +101,8 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/browseros_ai",
-      "github": "https://github.com/browseros-ai/Pane",
+      "x": "https://x.com/vrma_abhi",
+      "github": "https://github.com/abhishek-verma/Pane",
       "discord": "https://discord.gg/YKwjt5vuKr",
       "slack": "https://dub.sh/browserOS-slack"
     }

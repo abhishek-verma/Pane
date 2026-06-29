@@ -1,27 +1,35 @@
 ---
 title: "Pane"
-description: "The open-source AI browser that turns your words into actions"
+description: "The open-source agentic browser — your agent lives where your work lives"
 ---
 
 <Frame>
   <img src="/images/hero-dark.png" alt="Pane in action" />
 </Frame>
 
-Pane is an AI-native browser that lets you automate any web task by describing it in plain English. Built on Chromium, it runs AI agents locally on your machine—keeping your data private while giving you superpowers for browsing.
+Pane is an open-source, AI-native browser that puts the agent **inside** the browser, where your work already lives. Instead of copying URLs and screenshots into a separate chat window, Pane sees your tabs, your logins, and your context directly — and can click, type, read, and reason over them. It can also reach your files and terminal, so a single task can span the web and your machine.
 
-**Open source. Privacy-first. The browser for the AI era.**
+**Open source. Local-first. No servers. The browser for the AI era.**
 
-## Three Ways to Use AI
+> Pane is a fork of [BrowserOS](https://github.com/browseros-ai/BrowserOS) — an amazing open-source agentic-browser project. We forked to take a different product trajectory: agent-native, local-first, and server-free.
+
+## Why an agent inside the browser?
+
+Today's AI assistants live *outside* the browser. You paste context into ChatGPT or Claude; context gets lost and workflows break. Standalone agents try to fix this by driving a browser from the outside, through plugins or remote control — but they're always one step removed from your real session.
+
+Pane takes the other path: the agent *is* the browser. Same cookies, tabs, extensions, and logins you already use, plus an agent that can act on them directly. Because it's your browser, it can also learn from what you do and get smarter over time — something a standalone agent simply can't do.
+
+## Three ways to use Pane
 
 <Columns cols={3}>
-  <Card title="Chat Mode" icon="message">
-    Ask questions about the page you're viewing. Summarize articles, extract data, translate content—without leaving the page.
+  <Card title="Chat" icon="message">
+    Ask about the page you're viewing. Summarize articles, extract data, translate content — without leaving the page.
   </Card>
-  <Card title="Agent Mode" icon="robot">
-    Describe a task and watch AI execute it: clicking, typing, navigating. Automate form filling, data extraction, and multi-step workflows.
+  <Card title="Agent" icon="robot">
+    Describe a task and watch Pane execute it: clicking, typing, navigating, and working with your files. Automate forms, data extraction, and multi-step workflows.
   </Card>
-  <Card title="Graph Mode" icon="sitemap">
-    Build reliable, repeatable workflows as visual graphs. Edit steps, save, and run anytime. *Coming soon.*
+  <Card title="From your editor" icon="terminal">
+    Pane is an MCP server. Control the same browser from Claude Code, Cursor, Gemini CLI, or the terminal — one URL, your real session.
   </Card>
 </Columns>
 
@@ -29,16 +37,16 @@ Pane is an AI-native browser that lets you automate any web task by describing i
 
 <Steps>
   <Step title="Download Pane">
-    Get the latest release from [browseros.com](https://browseros.com) for macOS, Windows, or Linux.
+    Get the latest release from [GitHub releases](https://github.com/abhishek-verma/Pane/releases) for macOS, Windows, or Linux.
   </Step>
   <Step title="Import from Chrome">
     Navigate to `chrome://settings/importData` and import your bookmarks, passwords, and settings in one click.
   </Step>
-  <Step title="Configure your AI">
-    Pane includes a default AI model with limited daily usage for testing. For the full experience, bring your own API keys.
+  <Step title="Connect your AI">
+    Pane has no default vendor — you choose. Bring your own API keys, sign in with an OAuth subscription, or run models locally.
 
     <Card title="Set up your LLM provider" icon="key" href="/features/bring-your-own-llm">
-      Configure Gemini, Claude, OpenAI, or run models locally with Ollama
+      Configure Claude, OpenAI, Gemini, or run models locally with Ollama
     </Card>
   </Step>
   <Step title="Try it out">
@@ -46,19 +54,19 @@ Pane is an AI-native browser that lets you automate any web task by describing i
   </Step>
 </Steps>
 
-## Which AI Model Should I Use?
+## Which AI model should I use?
 
 <Tabs>
-  <Tab title="For Chat Mode">
+  <Tab title="For Chat">
     **Any model works great**, including local LLMs.
 
-    - **Ollama** or **LM Studio** — Free, runs locally, great for quick questions
-    - **Gemini Flash** — Fast and affordable
-    - **Claude or GPT-4** — Best quality responses
+    - **Ollama** or **LM Studio** — free, runs locally, great for quick questions
+    - **Gemini Flash** — fast and affordable
+    - **Claude or GPT-4** — best quality responses
 
-    Chat Mode just needs to understand the page and answer questions—local models handle this well.
+    Chat just needs to understand the page and answer questions — local models handle this well.
   </Tab>
-  <Tab title="For Agent Mode">
+  <Tab title="For Agent">
     **Use Claude Opus 4.5 for best results.**
 
     | Model | Speed | Quality |
@@ -69,24 +77,45 @@ Pane is an AI-native browser that lets you automate any web task by describing i
     | Gemini Flash | Fast | Good |
 
     <Warning>
-    Local LLMs are not yet powerful enough for Agent Mode. The model needs strong reasoning to click the right elements and handle multi-step tasks.
+    Local LLMs are not yet powerful enough for Agent mode. The model needs strong reasoning to click the right elements and handle multi-step tasks.
     </Warning>
   </Tab>
 </Tabs>
 
+## Where Pane is heading
+
+Because the agent lives in the browser, Pane can do things no standalone agent can. On the roadmap:
+
+<Columns cols={2}>
+  <Card title="Context Graph" icon="sitemap">
+    Pane indexes your browsing, files, terminal, and scheduled work into a local, queryable graph — so it actually knows what you're working on.
+  </Card>
+  <Card title="Memory & auto-skills" icon="brain">
+    Pane remembers you and writes its own skills from workflows you repeat — then prunes what goes stale. It gets smarter the more you use it.
+  </Card>
+  <Card title="Passive capture" icon="video">
+    Automatic meeting notes and learnings from your browsing, captured into scoped context buckets — no extra product required.
+  </Card>
+  <Card title="Proactive & reach" icon="bell">
+    Triggered runs, a daily digest, and out-of-browser reach (notifications, email, Telegram) so Pane can work for you even when you're away.
+  </Card>
+</Columns>
+
+See the [specs](https://github.com/abhishek-verma/Pane/tree/main/specs) for the full design.
+
 ## Why Pane?
 
 <Columns cols={2}>
-  <Card title="Privacy-First" icon="shield-check">
-    Run AI locally with Ollama, or bring your own API keys. Your browsing data never leaves your machine unless you choose.
+  <Card title="Local-First" icon="shield-check">
+    Run AI locally with Ollama, or bring your own API keys. Your browsing data and your agent's memory never leave your machine unless you choose.
   </Card>
   <Card title="Open Source" icon="code-branch">
     100% open source under AGPL-3.0. Inspect the code, contribute features, or fork it for your needs.
   </Card>
-  <Card title="Works with Your Tools" icon="plug">
-    Built-in MCP servers for Gmail, Calendar, Docs, Sheets, Notion. Connect to Claude Code or Gemini CLI for developer workflows.
+  <Card title="Works with your tools" icon="plug">
+    Pane is an MCP server, so Claude Code, Cursor, and Gemini CLI share your real browser session. Connect custom MCP servers for Gmail, Slack, GitHub, and more.
   </Card>
-  <Card title="Chrome Compatible" icon="chrome">
+  <Card title="Chrome compatible" icon="chrome">
     All your Chrome extensions work. Import bookmarks, passwords, and settings in one click.
   </Card>
 </Columns>
@@ -94,13 +123,15 @@ Pane is an AI-native browser that lets you automate any web task by describing i
 ## Community
 
 <Columns cols={3}>
+  <Card title="GitHub" icon="github" href="https://github.com/abhishek-verma/Pane">
+    Star us and contribute
+  </Card>
+  <Card title="X" icon="x-twitter" href="https://x.com/vrma_abhi">
+    Follow for updates
+  </Card>
   <Card title="Discord" icon="discord" href="https://discord.gg/YKwjt5vuKr">
     Get help and share feedback
   </Card>
-  <Card title="GitHub" icon="github" href="https://github.com/browseros-ai/BrowserOS">
-    Star us and contribute
-  </Card>
-  <Card title="Twitter" icon="x-twitter" href="https://x.com/browserOS_ai">
-    Follow for updates
-  </Card>
 </Columns>
+
+Pane is created by [Abhishek Verma](https://www.linkedin.com/in/abhi-vrma/).
