@@ -56,8 +56,8 @@ Wondering how Pane MCP compares to Chrome DevTools MCP or other browser automati
   <Tab title="Claude Code">
     Add Pane to Claude Code:
     ```bash
-    claude mcp add --transport http browseros <mcp_url> --scope user
-    # Example: claude mcp add --transport http browseros http://127.0.0.1:9239/mcp --scope user
+    claude mcp add --transport http pane <mcp_url> --scope user
+    # Example: claude mcp add --transport http pane http://127.0.0.1:9239/mcp --scope user
     ```
 
     Start Claude Code and try it:
@@ -72,7 +72,7 @@ Wondering how Pane MCP compares to Chrome DevTools MCP or other browser automati
 
     To remove later:
     ```bash
-    claude mcp remove browseros --scope user
+    claude mcp remove pane --scope user
     ```
   </Tab>
   <Tab title="Gemini CLI">
@@ -85,8 +85,8 @@ Wondering how Pane MCP compares to Chrome DevTools MCP or other browser automati
   <Tab title="Codex">
     Add Pane to OpenAI Codex CLI:
     ```bash
-    codex mcp add browseros <mcp_url> --transport http
-    # Example: codex mcp add browseros http://127.0.0.1:9239/mcp --transport http
+    codex mcp add pane <mcp_url> --transport http
+    # Example: codex mcp add pane http://127.0.0.1:9239/mcp --transport http
     ```
   </Tab>
   <Tab title="OpenClaw">
@@ -94,7 +94,7 @@ Wondering how Pane MCP compares to Chrome DevTools MCP or other browser automati
     ```json
     {
       "mcpServers": {
-        "browseros": {
+        "pane": {
           "url": "http://127.0.0.1:9239/mcp"
         }
       }
@@ -113,7 +113,7 @@ Wondering how Pane MCP compares to Chrome DevTools MCP or other browser automati
     ```json
     {
       "mcpServers": {
-        "browseros": {
+        "pane": {
           "command": "npx",
           "args": ["mcp-remote", "http://127.0.0.1:9239/mcp"]
         }
