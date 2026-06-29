@@ -1,17 +1,13 @@
 import { ChevronDown, Folder, Layers, PlugZap } from 'lucide-react'
 import type { FC, FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { AppSelector } from '@/components/elements/AppSelector'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
-import { McpServerIcon } from '@/components/mcp/McpServerIcon'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import {
   type SelectedTextData,
   selectedTextStorage,
 } from '@/lib/selected-text/selectedTextStorage'
 import { cn } from '@/lib/utils'
 import type { ChatMode } from '@/modules/chat/chat-types'
-import { useGetUserMCPIntegrations } from '@/modules/mcp/user-integrations.hooks'
 import type { VoiceInputState } from '@/modules/voice/voice.hooks'
 import type { VoiceLoopApi } from '@/modules/voice/voice-types'
 import { useWorkspace } from '@/modules/workspace/workspace.hooks'
@@ -55,8 +51,6 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   onOpenVoiceMode,
 }) => {
   const { selectedFolder } = useWorkspace()
-  const { servers: mcpServers } = useMcpServers()
-  const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
   const chatInputRef = useRef<ChatInputHandle>(null)
   const [selectionMap, setSelectionMap] = useState<
     Record<string, SelectedTextData>
@@ -107,13 +101,6 @@ export const ChatFooter: FC<ChatFooterProps> = ({
     window.addEventListener('focus', focusInput)
     return () => window.removeEventListener('focus', focusInput)
   }, [])
-
-  const connectedManagedServers = mcpServers.filter((s) => {
-    if (s.type !== 'managed' || !s.managedServerName) return false
-    return userMCPIntegrations?.integrations?.find(
-      (i) => i.name === s.managedServerName,
-    )?.is_authenticated
-  })
 
   return (
     <footer className="border-border/40 border-t bg-background/80 backdrop-blur-md">
@@ -183,39 +170,19 @@ export const ChatFooter: FC<ChatFooterProps> = ({
               </button>
             </WorkspaceSelector>
 
-            <AppSelector side="top">
-              <button
-                type="button"
-                className="flex cursor-pointer items-center gap-1 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
-                title="Connect apps"
-              >
-                {connectedManagedServers.length > 0 ? (
-                  <>
-                    <div className="flex items-center -space-x-1">
-                      {connectedManagedServers.slice(0, 3).map((s) => (
-                        <div
-                          key={s.id}
-                          className="rounded-full ring-2 ring-background"
-                        >
-                          <McpServerIcon
-                            serverName={s.managedServerName ?? ''}
-                            size={14}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    {connectedManagedServers.length > 3 && (
-                      <span className="font-medium text-xs">
-                        +{connectedManagedServers.length - 3}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <PlugZap className="h-4 w-4" />
-                )}
-                <ChevronDown className="h-3 w-3" />
-              </button>
-            </AppSelector>
+            <button
+              type="button"
+              onClick={() =>
+                window.open(
+                  chrome.runtime.getURL('/app.html#/settings/mcp'),
+                  '_blank',
+                )
+              }
+              className="flex cursor-pointer items-center gap-1 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              title="Connect apps"
+            >
+              <PlugZap className="h-4 w-4" />
+            </button>
           </div>
         </div>
 

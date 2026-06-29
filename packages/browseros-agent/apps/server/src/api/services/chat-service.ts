@@ -20,13 +20,11 @@ import type { ResolvedAgentConfig } from '../../agent/types'
 import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpServers'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
-import type { KlavisService } from '../services/klavis'
 import type { BrowserContext, ChatRequest } from '../types'
 import { resolveBrowserContextPageIds } from '../utils/resolve-browser-context-page-ids'
 
 export interface ChatServiceDeps {
   sessionStore: SessionStore
-  klavis?: KlavisService
   browser: Browser
   browserSession: BrowserSession
   browserosId?: string
@@ -115,7 +113,8 @@ export class ChatService {
         previous: session.mcpServerKey,
         current: mcpServerKey,
       })
-      const previousMcpKey = session.mcpServerKey
+
+      const previousMcpKey = session.mcpServerKey ?? ''
       session = await this.rebuildSession(
         session,
         request,
@@ -123,16 +122,10 @@ export class ChatService {
         mcpServerKey,
       )
 
-      const oldParts = (previousMcpKey ?? '').split(',').filter(Boolean)
+      const oldParts = previousMcpKey.split(',').filter(Boolean)
       const newParts = mcpServerKey.split(',').filter(Boolean)
-      const oldKlavisState = oldParts.find((s) => s.startsWith('klavis:'))
-      const newKlavisState = newParts.find((s) => s.startsWith('klavis:'))
-      const oldServers = new Set(
-        oldParts.filter((s) => !s.startsWith('klavis:')),
-      )
-      const newServers = new Set(
-        newParts.filter((s) => !s.startsWith('klavis:')),
-      )
+      const oldServers = new Set(oldParts)
+      const newServers = new Set(newParts)
       const added = [...newServers].filter((s) => !oldServers.has(s))
       const removed = [...oldServers].filter((s) => !newServers.has(s))
 
@@ -148,19 +141,9 @@ export class ChatService {
         )
       }
       if (parts.length === 0) {
-        if (
-          oldKlavisState !== 'klavis:ready' &&
-          newKlavisState === 'klavis:ready' &&
-          newServers.size > 0
-        ) {
-          parts.push(
-            `Klavis app integration tools are now available for the following connected apps: ${[...newServers].join(', ')}.`,
-          )
-        } else {
-          parts.push(
-            'Connected app integrations changed during this conversation. Use only tools that are currently registered.',
-          )
-        }
+        parts.push(
+          'Connected app integrations changed during this conversation. Use only tools that are currently registered.',
+        )
       }
       contextChanges.push(parts.join(' '))
     }
@@ -277,7 +260,6 @@ export class ChatService {
         resolvedConfig: agentConfig,
         browserSession: this.deps.browserSession,
         browserContext,
-        klavis: this.deps.klavis,
         browserosId: this.deps.browserosId,
         aiSdkDevtoolsEnabled: this.deps.aiSdkDevtoolsEnabled,
         outputFileAccess,
@@ -486,7 +468,6 @@ export class ChatService {
       resolvedConfig: agentConfig,
       browserSession: this.deps.browserSession,
       browserContext,
-      klavis: this.deps.klavis,
       browserosId: this.deps.browserosId,
       aiSdkDevtoolsEnabled: this.deps.aiSdkDevtoolsEnabled,
       outputFileAccess,
@@ -511,10 +492,6 @@ export class ChatService {
     const managed = browserContext?.enabledMcpServers?.slice().sort() ?? []
     const custom =
       browserContext?.customMcpServers?.map((s) => s.url).sort() ?? []
-    const klavisState =
-      managed.length > 0
-        ? `klavis:${this.deps.klavis?.getProxyStatus().state ?? 'disabled'}`
-        : null
-    return [klavisState, ...managed, ...custom].filter(Boolean).join(',')
+    return [...managed, ...custom].filter(Boolean).join(',')
   }
 }

@@ -15,9 +15,7 @@ import { useSessionInfo } from '@/lib/auth/sessionStorage'
 import { PRODUCT_NAME } from '@/lib/constants/product'
 import { cloudAccountEnabled } from '@/lib/constants/product-features'
 import { cn } from '@/lib/utils'
-import { useGraphqlQuery } from '@/modules/graphql/graphql-query.hooks'
 import { useWorkspace } from '@/modules/workspace/workspace.hooks'
-import { GetProfileByUserIdDocument } from '@/screens/profile/graphql/profileDocument'
 
 export interface SidebarBrandingProps {
   expanded?: boolean
@@ -33,19 +31,8 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
   const user = sessionInfo?.user
   const isLoggedIn = !!user
 
-  const { data: profileData } = useGraphqlQuery(
-    GetProfileByUserIdDocument,
-    { userId: user?.id ?? '' },
-    { enabled: !!user?.id },
-  )
-
-  const profile = profileData?.profileByUserId
-  const profileName =
-    profile?.firstName || profile?.lastName
-      ? [profile.firstName, profile.lastName].filter(Boolean).join(' ')
-      : null
-  const displayName = profileName || user?.name || 'User'
-  const displayImage = profile?.avatarUrl || user?.image
+  const displayName = user?.name || 'User'
+  const displayImage = user?.image
 
   const getInitials = (name?: string | null) => {
     if (!name) return '?'

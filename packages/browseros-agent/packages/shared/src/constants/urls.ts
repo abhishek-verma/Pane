@@ -7,7 +7,6 @@
  */
 
 export const EXTERNAL_URLS = {
-  KLAVIS_PROXY: 'https://llm.browseros.com/klavis',
   POSTHOG_DEFAULT: 'https://us.i.posthog.com',
   OPENAI_AUTH: 'https://auth.openai.com/oauth/authorize',
   OPENAI_TOKEN: 'https://auth.openai.com/oauth/token',
@@ -17,5 +16,4 @@ export const EXTERNAL_URLS = {
   QWEN_DEVICE_CODE: 'https://chat.qwen.ai/api/v1/oauth2/device/code',
   QWEN_OAUTH_TOKEN: 'https://chat.qwen.ai/api/v1/oauth2/token',
   QWEN_CODE_API: 'https://portal.qwen.ai/v1',
-  AGENT_CONTROL_WORKER: 'https://agent-control-worker.eng-6b4.workers.dev',
 } as const

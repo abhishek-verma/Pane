@@ -221,15 +221,15 @@ export function getTask(sessionId: string): TaskDetail | null {
     .orderBy(agentSessionStarts.id)
     .all()
 
-  const startedAt = dispatches[0]!.createdAt
-  const lastDispatchAt = dispatches[dispatches.length - 1]!.createdAt
+  const startedAt = dispatches[0]?.createdAt
+  const lastDispatchAt = dispatches[dispatches.length - 1]?.createdAt
   const errorCount = dispatches.reduce(
     (n, d) => n + (resultIsError(d.resultMeta) ? 1 : 0),
     0,
   )
   const summary = buildSummary({
     sessionId,
-    cursorId: dispatches[dispatches.length - 1]!.id,
+    cursorId: dispatches[dispatches.length - 1]?.id,
     startedAt,
     lastDispatchAt,
     dispatchCount: dispatches.length,

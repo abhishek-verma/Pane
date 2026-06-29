@@ -44,8 +44,8 @@ describe('session events', () => {
       .where(eq(agentSessionStarts.sessionId, 'sid-2'))
       .all()
     expect(rows).toHaveLength(1)
-    expect(rows[0]!.agentId).toBe('cursor')
-    expect(rows[0]!.clientVersion).toBe('1.0.0')
+    expect(rows[0]?.agentId).toBe('cursor')
+    expect(rows[0]?.clientVersion).toBe('1.0.0')
   })
 
   it('recordSessionEnd kind="closed" lands a row', () => {
@@ -57,8 +57,8 @@ describe('session events', () => {
       .where(eq(agentSessionEnds.sessionId, 'sid-3'))
       .all()
     expect(rows).toHaveLength(1)
-    expect(rows[0]!.kind).toBe('closed')
-    expect(rows[0]!.reason).toBeNull()
+    expect(rows[0]?.kind).toBe('closed')
+    expect(rows[0]?.reason).toBeNull()
   })
 
   it('recordSessionEnd kind="errored" carries the reason', () => {
@@ -74,7 +74,7 @@ describe('session events', () => {
       .where(eq(agentSessionEnds.sessionId, 'sid-4'))
       .all()
     expect(rows).toHaveLength(1)
-    expect(rows[0]!.kind).toBe('errored')
-    expect(rows[0]!.reason).toBe('transport broke')
+    expect(rows[0]?.kind).toBe('errored')
+    expect(rows[0]?.reason).toBe('transport broke')
   })
 })

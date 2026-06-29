@@ -7,14 +7,7 @@
  */
 
 import { LLM_PROVIDERS, type LLMConfig } from '@browseros/shared/schemas/llm'
-import { INLINED_ENV } from '../../../env'
-import { logger } from '../../logger'
-import { fetchBrowserOSConfig, getLLMConfigFromProvider } from '../gateway'
 import { getOAuthTokenManager } from '../oauth'
-import {
-  resolveMockBrowserOSConfig,
-  shouldUseMockBrowserOSLLM,
-} from './mock-language-model'
 import type { ResolvedLLMConfig } from './types'
 
 const CHATGPT_PROVIDER_DISPLAY_NAME = 'ChatGPT'
@@ -51,14 +44,6 @@ export async function resolveLLMConfig(
       defaultModel: 'coder-model',
       useRefresh: true,
     })
-  }
-
-  // BrowserOS gateway: fetch config from remote service
-  if (config.provider === LLM_PROVIDERS.BROWSEROS) {
-    if (shouldUseMockBrowserOSLLM(config)) {
-      return resolveMockBrowserOSConfig(config, browserosId)
-    }
-    return resolveBrowserOSConfig(config, browserosId)
   }
 
   // All other providers: passthrough with model validation
@@ -103,31 +88,5 @@ async function resolveOAuthConfig(
     model: config.model || opts.defaultModel,
     apiKey: tokens.accessToken,
     ...opts.extraFields?.(tokens),
-  }
-}
-
-async function resolveBrowserOSConfig(
-  config: LLMConfig,
-  browserosId?: string,
-): Promise<ResolvedLLMConfig> {
-  const configUrl = INLINED_ENV.BROWSEROS_CONFIG_URL
-  if (!configUrl) {
-    throw new Error(
-      'BROWSEROS_CONFIG_URL environment variable is required for BrowserOS provider',
-    )
-  }
-
-  logger.debug('Resolving BROWSEROS config', { configUrl, browserosId })
-
-  const browserosConfig = await fetchBrowserOSConfig(configUrl, browserosId)
-  const llmConfig = getLLMConfigFromProvider(browserosConfig, 'default')
-
-  return {
-    ...config,
-    model: llmConfig.modelName,
-    apiKey: llmConfig.apiKey,
-    baseUrl: llmConfig.baseUrl,
-    upstreamProvider: llmConfig.providerType,
-    browserosId,
   }
 }

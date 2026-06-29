@@ -27,6 +27,7 @@ import {
   removeServerConfigSync,
   writeServerConfig,
 } from './lib/browseros-dir'
+import { generateCdpToken } from './lib/cdp-token'
 import { initializeDb } from './lib/db'
 import { identity } from './lib/identity'
 import { logger } from './lib/logger'
@@ -59,7 +60,9 @@ export class Application {
       process.exit(EXIT_CODES.GENERAL_ERROR)
     }
 
-    const cdp = new CdpBackend({ port: this.config.cdpPort })
+    const cdpToken = generateCdpToken()
+
+    const cdp = new CdpBackend({ port: this.config.cdpPort, cdpToken })
     try {
       logger.debug(`Connecting to CDP on port ${this.config.cdpPort}`)
       await cdp.connect()
@@ -98,7 +101,9 @@ export class Application {
         browseros_version: this.config.instanceBrowserosVersion,
         chromium_version: this.config.instanceChromiumVersion,
         browseros_id: identity.getBrowserOSId(),
+        cdp_token: cdpToken,
       })
+      logger.debug('CDP token written to server.json')
     } catch (error) {
       logger.warn('Failed to write server config for auto-discovery', {
         error: error instanceof Error ? error.message : String(error),

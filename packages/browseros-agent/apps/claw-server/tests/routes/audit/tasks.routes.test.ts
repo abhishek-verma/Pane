@@ -63,7 +63,7 @@ describe('GET /audit/tasks', () => {
     )
     const body = (await res.json()) as { tasks: { sessionId: string }[] }
     expect(body.tasks).toHaveLength(1)
-    expect(body.tasks[0]!.sessionId).toBe('done-1')
+    expect(body.tasks[0]?.sessionId).toBe('done-1')
   })
 })
 

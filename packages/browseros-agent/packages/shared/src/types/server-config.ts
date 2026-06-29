@@ -15,4 +15,6 @@ export interface ServerDiscoveryConfig {
   browseros_version?: string
   chromium_version?: string
   browseros_id?: string
+  /** Opaque bearer token that must be presented to authenticate CDP connections. */
+  cdp_token?: string
 }

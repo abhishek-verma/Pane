@@ -26,6 +26,7 @@ type LoopbackDiscoveryHost = (typeof LOOPBACK_DISCOVERY_HOSTS)[number]
 export interface CdpBackendConfig {
   port: number
   exitOnReconnectFailure?: boolean
+  cdpToken?: string
 }
 
 // biome-ignore lint/correctness/noUnusedVariables: declaration merging adds ProtocolApi properties to the class
@@ -34,6 +35,7 @@ interface CdpBackend extends ProtocolApi {}
 class CdpBackend implements ICdpBackend {
   private port: number
   private exitOnReconnectFailure: boolean
+  private cdpToken?: string
   private ws: WebSocket | null = null
   private messageId = 0
   private pending = new Map<number, PendingRequest>()
@@ -54,6 +56,7 @@ class CdpBackend implements ICdpBackend {
   constructor(config: CdpBackendConfig) {
     this.port = config.port
     this.exitOnReconnectFailure = config.exitOnReconnectFailure ?? true
+    this.cdpToken = config.cdpToken
 
     const rawSend: RawSend = (method, params) => this.rawSend(method, params)
     const rawOn: RawOn = (event, handler) => this.rawOn(event, handler)
@@ -205,6 +208,9 @@ class CdpBackend implements ICdpBackend {
     try {
       const parsedUrl = new URL(wsUrl)
       parsedUrl.hostname = this.normalizeHost(host)
+      if (this.cdpToken) {
+        parsedUrl.searchParams.set('token', this.cdpToken)
+      }
       return parsedUrl.toString()
     } catch {
       return wsUrl

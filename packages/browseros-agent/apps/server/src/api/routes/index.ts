@@ -9,24 +9,19 @@ import { cors } from 'hono/cors'
 import type { TurnRegistry } from '../../lib/agents/turns/active-turn-registry'
 import type { OAuthTokenManager } from '../../lib/clients/oauth/token-manager'
 import { requireTrustedOrigin } from '../middleware/require-trusted-origin'
-import type { KlavisService } from '../services/klavis'
-import type { RemoteHermesService } from '../services/remote-hermes/remote-hermes-service'
 import type { Env, HttpServerConfig } from '../types'
 import { defaultCorsConfig } from '../utils/cors'
 import { requireTrustedAppOrigin } from '../utils/request-auth'
 import { createAcpxProbeRoutes } from './acpx-probe'
 import { createAgentRoutes } from './agents'
 import { createChatRoutes } from './chat'
-import { createCreditsRoutes } from './credits'
 import { createHealthRoute } from './health'
-import { createKlavisRoutes } from './klavis'
 import { createMcpRoutes } from './mcp'
 import { createMcpManagerRoutes } from './mcp-manager'
 import { createNudgeMcpRoute } from './nudge-mcp'
 import { createOAuthRoutes } from './oauth'
 import { createProviderRoutes } from './provider'
 import { createRefinePromptRoutes } from './refine-prompt'
-import { createRemoteHermesRoutes } from './remote-hermes'
 import { createScreencastRoute } from './screencast'
 import { createShutdownRoute } from './shutdown'
 import { createStatusRoute } from './status'
@@ -34,25 +29,14 @@ import { createStatusRoute } from './status'
 interface CreateApiRoutesDeps {
   agentRoutes?: Hono<Env>
   config: HttpServerConfig
-  gatewayBaseUrl?: string
-  klavis: KlavisService
   onShutdown: () => void
-  remoteHermes: RemoteHermesService | null
   tokenManager: OAuthTokenManager | null
   turnRegistry: TurnRegistry
 }
 
 /** Composes the BrowserOS HTTP API from the existing route factories. */
 export function createApiRoutes(deps: CreateApiRoutesDeps) {
-  const {
-    agentRoutes,
-    config,
-    gatewayBaseUrl,
-    klavis,
-    remoteHermes,
-    tokenManager,
-    turnRegistry,
-  } = deps
+  const { agentRoutes, config, tokenManager, turnRegistry } = deps
   const {
     browser,
     browserosId,
@@ -77,20 +61,11 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
       .route('/acpx/probe', createAcpxProbeRoutes({ resourcesDir }))
       .route('/refine-prompt', createRefinePromptRoutes({ browserosId }))
       .route('/oauth', oauthRoutes(tokenManager))
-      .route('/klavis', createKlavisRoutes({ klavis }))
-      .route(
-        '/credits',
-        createCreditsRoutes({
-          browserosId,
-          gatewayBaseUrl,
-        }),
-      )
       .route(
         '/mcp',
         createMcpRoutes({
           version,
           browserSession,
-          klavis,
           executionDir,
         }),
       )
@@ -111,19 +86,12 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
           browser,
           browserSession,
           browserosId,
-          klavis,
-          aiSdkDevtoolsEnabled: config.aiSdkDevtoolsEnabled,
           serverPort: port,
           resourcesDir,
-          remoteHermes,
         }),
       )
       .route('/screencast', createScreencastRoute({ browser }))
       .route('/agents', protectedAgentRoutes(config, turnRegistry, agentRoutes))
-      .route(
-        '/remote-hermes',
-        createRemoteHermesRoutes({ service: remoteHermes }),
-      )
   )
 }
 

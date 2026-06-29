@@ -1,6 +1,5 @@
 import type { FC } from 'react'
 import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router'
-import { AuthLayout } from '@/components/layout/AuthLayout'
 import { SettingsSidebarLayout } from '@/components/layout/SettingsSidebarLayout'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { RouteDocumentTitle } from '@/lib/document-title/RouteDocumentTitle'
@@ -8,11 +7,8 @@ import { AgentCommandConversation } from '@/screens/agent-command/AgentCommandCo
 import { AgentCommandHome } from '@/screens/agent-command/AgentCommandHome'
 import { AgentCommandLayout } from '@/screens/agent-command/AgentCommandLayout'
 import { AISettingsPage } from '@/screens/ai-settings/AISettingsPage'
-import { LoginPage } from '@/screens/auth/LoginPage'
-import { LogoutPage } from '@/screens/auth/LogoutPage'
 import { ConnectMCP } from '@/screens/connect-mcp/ConnectMCP'
 import { CustomizationPage } from '@/screens/customization/CustomizationPage'
-import { SurveyPage } from '@/screens/jtbd-agent/SurveyPage'
 import { LlmHubPage } from '@/screens/llm-hub/LlmHubPage'
 import { MCPSettingsPage } from '@/screens/mcp-settings/MCPSettingsPage'
 import { NewTabChat } from '@/screens/newtab/index/NewTabChat'
@@ -22,17 +18,7 @@ import { OnboardingDemo } from '@/screens/onboarding/demo/OnboardingDemo'
 import { FeaturesPage } from '@/screens/onboarding/features/Features'
 import { Onboarding } from '@/screens/onboarding/index/Onboarding'
 import { StepsLayout } from '@/screens/onboarding/steps/StepsLayout'
-import { ProfilePage } from '@/screens/profile/ProfilePage'
 import { ScheduledTasksPage } from '@/screens/scheduled-tasks/ScheduledTasksPage'
-import { UsagePage } from '@/screens/usage/UsagePage'
-
-function getSurveyParams(): { maxTurns?: number; experimentId?: string } {
-  const params = new URLSearchParams(window.location.search)
-  const maxTurnsStr = params.get('maxTurns')
-  const experimentId = params.get('experimentId') ?? 'default'
-  const maxTurns = maxTurnsStr ? Number.parseInt(maxTurnsStr, 10) : 7
-  return { maxTurns, experimentId }
-}
 
 // Agent management moved into AI & Agents settings; conversations live under
 // /home/agents. Keep old /agents links alive.
@@ -52,7 +38,6 @@ const OptionsRedirect: FC = () => {
     mcp: '/settings/mcp',
     customization: '/settings/customization',
     search: '/settings/ai',
-    'jtbd-agent': '/settings/survey',
     scheduled: '/scheduled',
   }
 
@@ -61,18 +46,10 @@ const OptionsRedirect: FC = () => {
 }
 
 export const App: FC = () => {
-  const surveyParams = getSurveyParams()
-
   return (
     <HashRouter>
       <RouteDocumentTitle />
       <Routes>
-        <Route element={<AuthLayout />}>
-          <Route path="login" element={<LoginPage />} />
-          <Route path="logout" element={<LogoutPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-        </Route>
-
         <Route element={<SidebarLayout />}>
           <Route path="home" element={<NewTabLayout />}>
             <Route element={<AgentCommandLayout />}>
@@ -105,8 +82,6 @@ export const App: FC = () => {
               path="search"
               element={<Navigate to="/settings/ai" replace />}
             />
-            <Route path="survey" element={<SurveyPage {...surveyParams} />} />
-            <Route path="usage" element={<UsagePage />} />
             <Route path="*" element={<Navigate to="/settings/ai" replace />} />
           </Route>
         </Route>
@@ -137,6 +112,7 @@ export const App: FC = () => {
           path="/agents"
           element={<Navigate to="/settings/ai" replace />}
         />
+        <Route path="/mcp" element={<Navigate to="/settings/mcp" replace />} />
         <Route path="/agents/:agentId" element={<LegacyAgentRedirect />} />
         <Route path="/options/*" element={<OptionsRedirect />} />
 

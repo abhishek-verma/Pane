@@ -79,25 +79,25 @@ describe('listTasks', () => {
     dispatch('cc-x', 'tabs', { url: 'https://e.com' })
     dispatch('cc-x', 'act', { isError: true })
     const r = listTasks({})
-    expect(r.tasks[0]!.status).toBe('failed')
-    expect(r.tasks[0]!.errorCount).toBe(1)
+    expect(r.tasks[0]?.status).toBe('failed')
+    expect(r.tasks[0]?.errorCount).toBe(1)
   })
 
   it('derives status: done when an end row is present', () => {
     dispatch('cc-y', 'tabs', { url: 'https://e.com' })
     recordSessionEnd({ sessionId: 'cc-y', kind: 'closed' })
-    expect(listTasks({}).tasks[0]!.status).toBe('done')
+    expect(listTasks({}).tasks[0]?.status).toBe('done')
   })
 
   it('derives status: failed when end row kind=errored', () => {
     dispatch('cc-z', 'tabs', { url: 'https://e.com' })
     recordSessionEnd({ sessionId: 'cc-z', kind: 'errored', reason: 'oops' })
-    expect(listTasks({}).tasks[0]!.status).toBe('failed')
+    expect(listTasks({}).tasks[0]?.status).toBe('failed')
   })
 
   it('derives status: live when no end row and recent dispatch', () => {
     dispatch('cc-live', 'tabs', { url: 'https://e.com' })
-    expect(listTasks({}).tasks[0]!.status).toBe('live')
+    expect(listTasks({}).tasks[0]?.status).toBe('live')
   })
 
   it('applies agentId filter at the SQL layer', () => {
@@ -105,7 +105,7 @@ describe('listTasks', () => {
     dispatch('cur-1', 'tabs', { url: 'https://e.com' })
     const r = listTasks({ agentId: 'claude-code' })
     expect(r.tasks).toHaveLength(1)
-    expect(r.tasks[0]!.sessionId).toBe('cc-1')
+    expect(r.tasks[0]?.sessionId).toBe('cc-1')
   })
 
   it('applies status filter in JS', () => {
@@ -115,7 +115,7 @@ describe('listTasks', () => {
     dispatch('cc-bad', 'act', { isError: true })
     const r = listTasks({ status: 'done' })
     expect(r.tasks).toHaveLength(1)
-    expect(r.tasks[0]!.sessionId).toBe('cc-ok')
+    expect(r.tasks[0]?.sessionId).toBe('cc-ok')
   })
 
   it('paginates via cursor', () => {

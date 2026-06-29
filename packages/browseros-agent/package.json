@@ -96,5 +96,9 @@
     "shiki": "^3.23.0",
     "@vitejs/plugin-react": "^5.0.0",
     "vite": "^7.0.0"
+  },
+  "dependencies": {
+    "chrome-remote-interface": "^0.34.0",
+    "puppeteer-core": "^25.2.1"
   }
 }
