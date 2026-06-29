@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'wxt'
 import { parseBrowserOSApiUrl } from './lib/browseros-api-url'
 import { LEGACY_AGENT_EXTENSION_ID } from './lib/constants/legacyAgentExtensionId'
+import { PRODUCT_TAGLINE } from './lib/constants/product'
 import { PRODUCT_WEB_HOST } from './lib/constants/productWebHost'
 
 const appDir = path.dirname(fileURLToPath(import.meta.url))
@@ -26,7 +27,7 @@ export default defineConfig({
   manifest: {
     name: 'Pane',
     short_name: 'Pane',
-    description: 'The agentic browser',
+    description: PRODUCT_TAGLINE,
     key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvBDAaDRvv61NpBeLR8etBRw82lv9VJO3sz/mA26gDzWKtVuzW4DXCl8Zfj5oWmoXLTfv3aiTigUXo/LHOoGpSucEVroMmAc7cgu2KuQ1fZPpMvYa0npD/m4h89360q8Oz0oKKaZGS905IJ04M2IkF4CuU3YEHFJBWb+cUyK9H8YVugelYbPD0IVs63T1SkGbh/t/Tfb2DpkinduSO8+x26sKydm30SRt+iZ2+7Nolcdum3LExInUiX2Pgb65Jb+mVw8NqyTVJyCEp8uq0cSHomWFQirSJ80tsDhISp4btwaRKHrXqovQx9XHQv4hCd+3LuB830eUEVMUNuCO+OyPxQIDAQAB',
     update_url: 'https://cdn.browseros.com/extensions/update-manifest.xml',
     externally_connectable: {

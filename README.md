@@ -1,204 +1,154 @@
-<div align="center">
 # Pane
 
-### Your browser, with an agent built in
+### A browser with a soul
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
-|[![Docs](https://img.shields.io/badge/Docs-GitHub-blue)](https://github.com/abhishek-verma/Pane/tree/main/docs)
-<br></br>
-<!-- TODO(pane-infra): replace with Pane download URLs when a Pane CDN/domain ships -->
-<a href="https://files.browseros.com/download/BrowserOS.dmg">
-  <img src="https://img.shields.io/badge/Download-macOS-black?style=flat&logo=apple&logoColor=white" alt="Download Pane for macOS (beta)" />
-</a>
-<a href="https://files.browseros.com/download/BrowserOS_installer.exe">
-  <img src="https://img.shields.io/badge/Download-Windows-0078D4?style=flat&logo=windows&logoColor=white" alt="Download Pane for Windows (beta)" />
-</a>
-<a href="https://files.browseros.com/download/BrowserOS.AppImage">
-  <img src="https://img.shields.io/badge/Download-Linux-FCC624?style=flat&logo=linux&logoColor=black" alt="Download Pane for Linux (beta)" />
-</a>
-<a href="https://cdn.browseros.com/download/BrowserOS.deb">
-  <img src="https://img.shields.io/badge/Download-Debian-D70A53?style=flat&logo=debian&logoColor=white" alt="Download Pane Debian package" />
-</a>
-<br /><br />
+[License: AGPL v3](LICENSE)
+|[Docs](https://github.com/abhishek-verma/Pane/tree/main/docs)
+  
+  
+
+
+
+
+  
+  
+
 
 Created by **Abhishek Verma**
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-abhi--vrma-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/abhi-vrma/)
-[![GitHub](https://img.shields.io/badge/GitHub-abhishek--verma-181717?style=flat&logo=github&logoColor=white)](http://github.com/abhishek-verma/)
-[![X](https://img.shields.io/badge/X-vrma__abhi-000000?style=flat&logo=x&logoColor=white)](https://x.com/vrma_abhi)
+[LinkedIn](https://www.linkedin.com/in/abhi-vrma/)
+[GitHub](http://github.com/abhishek-verma/)
+[X](https://x.com/vrma_abhi)
 
-</div>
 
-Pane is for people who live in their browser all day and wish their AI assistant understood what they were actually doing.
 
-You have tabs open, docs half-written, dashboards loaded, a meeting running, a task in your editor, and some research spread across five pages. A normal chatbot sees none of that unless you stop and explain it. Pane changes the default: the assistant lives in the browser, so it starts with the same context you already have.
+Most of your work already happens in a browser. Tabs, logins, docs, dashboards, tickets, research, meetings. But the AI that is supposed to help you still lives somewhere else — in a chat tab, a desktop app, or a daemon you have to wire up yourself. You stop, copy context over, explain what you were doing, and hope it understands.
 
-Use Pane when you want to ask about the page in front of you, automate a boring web workflow, research something across tabs, save work into a local folder, or let Claude Code / Cursor drive your real browser through MCP. It feels less like "copy this into AI" and more like "my browser can help."
+**Pane is a browser with a soul** — an open-source Chromium fork where the agent is native to your session, learns from how you work, and becomes whatever you need it to be.
 
-> **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[GitHub](https://github.com/abhishek-verma/Pane)** · **[Feature Requests](https://github.com/abhishek-verma/Pane/issues)**
+Not a sidebar glued onto Chrome. Not a remote agent driving your browser from the outside. Not the same chatbot for every user. Pane sees your real tabs, remembers your patterns, reaches your files and terminal, and grows more personal over time. All on your machine. No Pane account. No Pane cloud.
 
-## Why you'll want it
+## A browser that becomes yours
 
-**Pane keeps you in flow.** You do not need to describe every tab, copy every snippet, or switch between a browser, a chatbot, and an automation tool. Pane is already where the work is.
+Most software treats everyone the same. Pane is built to take a shape that fits *your* life:
 
-**Pane uses your real browser session.** Authenticated apps, extensions, cookies, local dev servers, dashboards, docs, and tabs are all part of the same environment. When the agent works, it works in the browser you use.
+- **Chief of staff** if you are building a company — morning briefings, meetings captured and summarized, follow-ups tracked, investor updates drafted from the week you actually lived in tabs.
+- **Job search partner** if you are looking for what's next — fit scores on listings against your background, applications organized, company research threaded, interview prep from pages you already read.
+- **Research and study buddy** if you are learning — papers and threads that do not evaporate when you close a tab, citations back to sources, outlines from a week of browsing toward one question.
+- **Whatever else you need** — because Pane learns your workflows, writes skills when you repeat them, and scopes memory into buckets so work, job hunt, and personal life do not bleed into each other.
 
-**Pane is useful even before the big future vision.** Chat with the current page. Ask it to click through a task. Save research into a folder. Run recurring jobs. Let coding agents inspect and operate your browser through MCP.
+The soul is not a gimmick. It is memory, capture, and context that compound — a browser that knows you well enough to stop feeling like generic software.
 
-**Pane is yours.** It is open source and local-first. Bring your own API keys, use OAuth subscriptions, or run local models. There is no Pane account or Pane cloud required.
+> **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[GitHub](https://github.com/abhishek-verma/Pane)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
 
-## Quick Start
+## The problem Pane is solving
 
-1. **Download and install** Pane — [macOS](https://files.browseros.com/download/BrowserOS.dmg) · [Windows](https://files.browseros.com/download/BrowserOS_installer.exe) · [Linux (AppImage)](https://files.browseros.com/download/BrowserOS.AppImage) · [Linux (Debian)](https://cdn.browseros.com/download/BrowserOS.deb) *(installers currently ship under the BrowserOS artifact names until the Pane infra migration lands)*
-2. **Import your Chrome data** (optional) — bookmarks, passwords, and extensions all carry over
-3. **Connect your AI provider** — bring your own API key (Claude, OpenAI, Gemini, …), sign in with ChatGPT Pro / GitHub Copilot / Qwen Code via OAuth, or run local models with Ollama or LM Studio
-4. **Try it out** — open any page and press the **Assistant** button in the toolbar, or describe a task from the new-tab home
+Personal agents like Hermes and OpenClaw are the real thing — persistent memory, self-written skills, scheduled work, files and terminal, reach on other channels. But they attach to your browser from the outside through plugins, CDP, or automation. They get a snapshot of your work, not the situation.
 
-## What Pane can do today
+AI browsers like Atlas, Comet, and Dia put AI inside the browser — but they are still mostly **chatbots with page context**. Summarize this tab. Answer a question. Maybe run a short task. They do not give you a personal agent that remembers you, writes skills from your workflows, runs work on a schedule, or compounds over time the way Hermes does.
 
-| Feature | Description | Docs |
-|---------|-------------|------|
-| **Chat with pages** | Ask questions, summarize, extract, translate, and reason about the page you are on | [Guide](docs/index.mdx) |
-| **Automate browser work** | Navigate, click, type, extract data, and complete multi-step web tasks from natural language | [Guide](docs/index.mdx) |
-| **Work with local files** | Give Pane a folder so it can read, write, search, and save outputs locally | [Docs](docs/features/cowork.mdx) |
-| **Use Pane from your editor** | Control your real browser from Claude Code, Cursor, Gemini CLI, or any MCP client | [Setup](docs/features/use-with-claude-code.mdx) |
-| **Run scheduled tasks** | Ask Pane to run something daily, hourly, or every few minutes | [Docs](docs/features/scheduled-tasks.mdx) |
-| **Bring your own model** | Use API keys, OAuth subscriptions, Ollama, or LM Studio | [Docs](docs/features/bring-your-own-llm.mdx) |
-| **Browse like Chrome** | Chrome extensions, imported data, vertical tabs, and strong ad blocking | [Docs](docs/features/vertical-tabs.mdx) |
+**Pane is trying to combine both.** Everything a Hermes-style agent does — but native to the browser, with better context, on your machine, open source.
 
-## Why Pane is different
+## What that makes possible
 
-Most AI tools ask you to bring your work to them. Pane brings the assistant to your work.
+Because the agent lives inside the browser — not beside it — Pane can do things bolt-on tools structurally cannot:
 
-- **It has better context.** Pane can see the page, the tab, the browser session, and optionally your files. You spend less time explaining the setup.
-- **It acts where the work happens.** It can use the web apps you are already logged into instead of a synthetic remote browser.
-- **It works with developer tools.** Pane is also an MCP server, so your coding agent can inspect localhost, reproduce UI bugs, and operate the browser directly.
-- **It can become personal.** The roadmap is built around local memory, context buckets, automatic skills, meeting capture, and learning from your browsing — all because Pane is the browser.
-- **It stays open and local-first.** No required Pane account. No required Pane server. You decide which models and services to connect.
+**It can know what you are working on.** Not just the current page, but the thread of tabs, files, terminal commands, and tasks that belong to one project. Pane is building a local context graph for this: your work, indexed on your machine, scoped into buckets so work does not leak into personal life.
 
-## What comes next
+**It can remember you and improve itself.** Memory that is grounded in real browsing and real workflows, not self-reported facts. Skills that Pane writes when it sees you repeat something successfully — then prunes when they go stale. The goal is a browser that gets more useful every week you use it.
 
-Pane's long-term direction is to become the browser that understands your work over time:
+**It can capture what you would otherwise lose.** Meetings run in tabs — Pane can record and transcribe them locally, without a bot joining your call. Research is a chain of pages — Pane can thread that chain and help you cite it later. Today you stitch this together with Otter, Granola, tab groups, and notes apps. Pane wants it in one place, because it already is the browser.
 
-- **Context buckets** for projects, topics, and workflows.
-- **Local memory** that remembers preferences and past work.
-- **Auto-created skills** from workflows you repeat.
-- **Meeting notes and browsing learnings** captured locally.
-- **Safer agent actions** with previews, approvals, and an action log.
+**It can act on your machine, safely.** Files, terminal, outbound actions — all with previews, approvals, and a replayable log. The agent should help you work, not surprise you.
 
-See the [specs](specs/README.md) for the current product and architecture plan.
+**It can reach you when you are away.** Scheduled and triggered runs, a daily digest of what matters, notifications and email when something needs your attention. Peer-to-peer, not through a Pane server.
 
-## Install `browseros-cli`
+Some of this is live today. Some is what we are building toward. The point is the direction: **a browser that understands your work and acts on your behalf**, not another chat box you paste into.
 
-Use **Pane CLI** (`browseros-cli`) to launch and control Pane from the terminal or from AI coding agents like Claude Code.
+## A glimpse of what's possible
 
-**macOS / Linux:**
+When the browser has a soul — memory, context, and the ability to change itself — it stops feeling like software you configure and starts feeling like something that knows you. A few examples of where Pane is headed:
 
-```bash
-curl -fsSL https://cdn.browseros.com/cli/install.sh | bash
-```
+**A new tab that knows your day.** Not the same static homepage for everyone. Open a tab in the morning and see what actually matters: the meeting in twenty minutes with notes from last time, the three PRs still waiting, the research thread you left off yesterday, one-click actions for the report you run every Friday. The homepage evolves because Pane learns your rhythms — widgets, digests, and shortcuts that rearrange themselves as your work changes.
 
-**Windows:**
+**Pages reshaped for you.** Pane can read a page in the context of *your* goals and rewrite how it appears. A job listing shows a fit score against your resume and skills — not a generic "AI summary," but *your* match probability, pulled from the workspace you granted. A flight search highlights the routes that fit your calendar. A long policy doc gets margin notes tied to the project you are working on. The web stays the web; Pane layers what you need on top of it.
 
-```powershell
-irm https://cdn.browseros.com/cli/install.ps1 | iex
-```
+**Feeds without the slop.** LinkedIn, but the engagement bait and recruiter spam fade out and the people you actually learn from stay. The same idea on X, Hacker News, or any feed you live in: Pane learns what you consider noise versus signal, and quietly hides the rest. You did not come to the internet to scroll past slop. The browser can help.
 
-After install, run `browseros-cli init` to connect the CLI to your running Pane instance.
+**Meetings that remember themselves.** Your standup runs in a tab. Pane captured last week's call locally — who said what, what was decided, what's still open. When you join again, the context is already there. No Otter bot. No separate notes app. The meeting lived in the browser; the browser kept the memory.
 
-## LLM Providers
+**Research that survives the tab close.** You spent four days chasing a question across papers, docs, and forum threads. Pane threaded that journey into a research bucket — pages in order, key quotes preserved, sources citable. Next week you ask for a draft outline and every claim links back to the tab it came from.
 
-Pane works with any LLM. Bring your own keys, use OAuth subscriptions, or run models locally. There's no default vendor — you choose.
+**Work that runs itself — with your approval.** Pane notices you do the same competitor scan every Monday. It writes a skill from the workflow. Next Monday it offers to run it. You approve once. It becomes part of how you work, not a cron job you maintain by hand.
 
-| Provider | Type | Auth |
-|----------|------|------|
-| ChatGPT Pro/Plus | Cloud | [OAuth](docs/features/chatgpt-pro-oauth.mdx) |
-| GitHub Copilot | Cloud | [OAuth](docs/features/github-copilot-oauth.mdx) |
-| Qwen Code | Cloud | [OAuth](docs/features/bring-your-own-llm.mdx) |
-| Claude (Anthropic) | Cloud | API key |
-| GPT-4o / o3 (OpenAI) | Cloud | API key |
-| Gemini (Google) | Cloud | API key |
-| Azure OpenAI | Cloud | API key |
-| AWS Bedrock | Cloud | IAM credentials |
-| OpenRouter | Cloud | API key |
-| Ollama | Local | [Setup](docs/features/local-models.mdx) |
-| LM Studio | Local | [Setup](docs/features/local-models.mdx) |
+**Shopping and decisions across sessions.** You compared laptops on three sites over two days but never booked. Pane remembers the candidates, the tradeoffs you cared about, and surfaces a comparison when you are ready — because it was watching the *work*, not just the last page.
 
-## Architecture
+**Your localhost, in context.** You are debugging a feature. Open a new tab on `localhost:3000` and Pane already knows the ticket, the branch, the last failing test — because the browser session, your workspace, and your terminal are one loop, not three apps you sync by hand.
 
-Pane is a monorepo with two main subsystems: the **browser** (a Chromium fork) and the **agent platform** (TypeScript + Go).
+These are not chatbot tricks. They are what becomes possible when the agent is the browser, has memory, captures your activity with consent, and can act on pages and files on your behalf. Most of this is still ahead of us. The foundation to build it is what we are shipping now.
 
-```
-Pane/
-├── packages/browseros/              # Chromium fork + build system (Python)
-│   ├── chromium_patches/            # Patches applied to Chromium source
-│   ├── build/                       # Build CLI and modules
-│   └── resources/                   # Icons, entitlements, signing
-│
-├── packages/browseros-agent/        # Agent platform (TypeScript/Go)
-│   ├── apps/
-│   │   ├── server/                  # Agent loop + MCP server (Bun/Hono)
-│   │   ├── app/                     # Browser extension UI (WXT + React)
-│   │   ├── cli/                     # CLI tool (Go)
-│   │   └── eval/                    # Benchmark framework
-│   │
-│   └── packages/
-│       ├── browser-mcp/             # Browser tools (CDP) + MCP registration
-│       ├── browser-core/            # Page content / extraction helpers
-│       ├── cdp-protocol/            # CDP type bindings
-│       └── shared/                  # Shared constants and types
-```
+## What you can use today
 
-| Package | What it does |
-|---------|-------------|
-| [`packages/browseros`](packages/browseros/) | Chromium fork — patches, build system, signing |
-| [`apps/server`](packages/browseros-agent/apps/server/) | Bun/Hono server that runs the agent loop and exposes the browser over MCP |
-| [`apps/app`](packages/browseros-agent/apps/app/) | Browser extension — new tab, side panel chat, onboarding, settings |
-| [`apps/cli`](packages/browseros-agent/apps/cli/) | Go CLI — control Pane from the terminal or AI coding agents |
-| [`apps/eval`](packages/browseros-agent/apps/eval/) | Benchmark framework for agent quality |
+Pane is early. The full vision is a multi-phase build ([see the plan](specs/IMPLEMENTATION-PLAN.md)). What ships now is the foundation — enough to be useful, honest about what is still coming.
 
-For the target architecture and the systems design behind the roadmap features (Context Graph, Memory, Capture, Trust, …), see [`specs/ARCHITECTURE-DESIGN.md`](specs/ARCHITECTURE-DESIGN.md).
+**For developers:** Pane is your real browser as an MCP server. Point Claude Code or Cursor at it, and your coding agent drives the same session you use — localhost, logged-in apps, console errors, the lot. One URL, no fake WebDriver session. Pair that with a local workspace folder and terminal access, and you have browser + repo + shell in one loop.
+
+**For everyone:** Chat with the page you are on. Ask Pane to automate a multi-step web task in your real session. Save output to a folder on disk. Schedule something to run again. Bring your own model — API key, OAuth subscription, or Ollama on your machine.
+
+That is the wedge: prove the agent-in-the-browser thesis works, then layer on memory, capture, and proactive work.
+
+## Why Pane is not BrowserOS
+
+Pane is a fork of [BrowserOS](https://github.com/browseros-ai/BrowserOS), and BrowserOS is a genuinely good project — if you want their vision, you should use it.
+
+We forked because we wanted a different product trajectory:
+
+
+|                       | BrowserOS                                                       | Pane                                                                    |
+| --------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Product shape**     | AI-native browser with cloud sync, credits, and hosted services | Personal agent that *is* the browser — no Pane servers                  |
+| **Memory & skills**   | Pulled back in v0.46; rebuilding                                | Core bet: local memory + auto-written skills from your real work        |
+| **Capture & context** | Not the focus                                                   | Meeting notes, browsing learnings, context buckets — native to the fork |
+| **Trust model**       | Implicit                                                        | Explicit: approvals, dry-run, action log                                |
+| **Business model**    | Hosted inference path                                           | BYOK / OAuth / local only; open source first                            |
+
+
+BrowserOS gave us a Chromium fork, an agent runtime, MCP tools, and a developer wedge. Pane takes that substrate and aims at something more personal: **a browser that becomes yours over time**.
+
+## Try it
+
+1. **Download** — [macOS](https://files.browseros.com/download/BrowserOS.dmg) · [Windows](https://files.browseros.com/download/BrowserOS_installer.exe) · [Linux](https://files.browseros.com/download/BrowserOS.AppImage) · [Debian](https://cdn.browseros.com/download/BrowserOS.deb) *(installers still use BrowserOS artifact names until Pane infra lands)*
+2. **Import from Chrome** (optional) — bookmarks, passwords, extensions carry over
+3. **Connect a model** — your API key, ChatGPT Pro / Copilot / Qwen via OAuth, or a local model ([setup guide](docs/features/bring-your-own-llm.mdx))
+4. **Open the assistant** — toolbar button on any page, or the new-tab home
+
+**Developer quick path:** Settings → Pane as MCP → copy the URL → `claude mcp add pane <url>`. Then from Claude Code: *"open localhost:3000, reproduce the signup bug, read the console, fix it."*
+
+## Built on trust
+
+- **Open source** (AGPL-3.0) — inspect the code, fork it, contribute
+- **Local-first** — your browsing, memory, and captures stay on your machine
+- **Your models** — no required vendor, no Pane account, no metering
+- **No Pane servers** — the product is complete without us running infrastructure for you
+
+
 
 ## Contributing
 
-We'd love your help making Pane better! See our [Contributing Guide](CONTRIBUTING.md) for details.
+Pane is early and moving fast. [Report bugs](https://github.com/abhishek-verma/Pane/issues), [suggest features](https://github.com/abhishek-verma/Pane/issues), or read the [contributing guide](CONTRIBUTING.md).
 
-- [Report bugs](https://github.com/abhishek-verma/Pane/issues)
-- [Suggest features](https://github.com/abhishek-verma/Pane/issues)
-
-**Agent development** (TypeScript/Go) — see the [agent monorepo README](packages/browseros-agent/README.md) for setup instructions.
-
-**Browser development** (C++/Python) — requires ~100GB disk space. See [`packages/browseros`](packages/browseros/) for build instructions.
+Product specs live in `[specs/](specs/README.md)`. Architecture in `[specs/ARCHITECTURE-DESIGN.md](specs/ARCHITECTURE-DESIGN.md)`.
 
 ## Credits
 
-- **[BrowserOS](https://github.com/browseros-ai/BrowserOS)** — Pane is a fork of BrowserOS, an amazing open-source browser-agent project in its own right. We forked because we wanted to take a different product trajectory: a more personal, local-first browser where the agent is part of the everyday browsing experience. If you are interested in the original project, definitely check out BrowserOS.
-- [ungoogled-chromium](https://github.com/ungoogled-software/ungoogled-chromium) — some patches for enhanced privacy. Thanks to everyone behind this project.
-- [The Chromium Project](https://www.chromium.org/) — at the core of Pane, making it possible to exist in the first place.
+- **[BrowserOS](https://github.com/browseros-ai/BrowserOS)** — Pane's Chromium fork, agent runtime, and MCP substrate. An excellent project; go check it out if Pane's direction is not what you need.
+- [ungoogled-chromium](https://github.com/ungoogled-software/ungoogled-chromium) — privacy patches
+- [The Chromium Project](https://www.chromium.org/)
 
-## Citation
 
-If you use Pane in your research or project, please cite:
-
-```bibtex
-@software{pane2026,
-  author = {Abhishek Verma and {Pane contributors}},
-  title = {Pane: The open-source agentic browser},
-  url = {https://github.com/abhishek-verma/Pane},
-  year = {2026},
-  publisher = {GitHub},
-  license = {AGPL-3.0},
-}
-```
 
 ## License
 
 Pane is open source under the [AGPL-3.0 license](LICENSE).
 
 Copyright &copy; 2026 Abhishek Verma and Pane contributors.
-
-## Stargazers
-
-Thank you to all our supporters!
-
-[![Star History Chart](https://api.star-history.com/svg?repos=abhishek-verma/Pane&type=Date)](https://www.star-history.com/#abhishek-verma/Pane&Date)

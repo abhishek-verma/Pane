@@ -18,7 +18,7 @@ export const PRODUCT_CHAT_NAME = 'Pane Chat'
 /**
  * @public
  */
-export const PRODUCT_TAGLINE = 'The agentic browser'
+export const PRODUCT_TAGLINE = 'A browser with a soul'
 
 /**
  * Default built-in LLM provider display name (internal id remains `browseros`).
