@@ -2,9 +2,9 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](../../../../LICENSE)
 
-Command-line interface for controlling BrowserOS — launch and automate the browser from the terminal or from AI coding agents like Claude Code and Gemini CLI. The installed `bos` command is a short alias for `browseros-cli`.
+Command-line interface for controlling Pane — launch and automate the browser from the terminal or from AI coding agents like Claude Code and Gemini CLI. The installed `bos` command is a short alias for `browseros-cli`.
 
-Communicates with the BrowserOS MCP server over JSON-RPC 2.0 / StreamableHTTP and maps the core BrowserOS automation tools to CLI commands.
+Communicates with the Pane MCP server over JSON-RPC 2.0 / StreamableHTTP and maps the core Pane automation tools to CLI commands.
 
 ## Install
 
@@ -32,12 +32,13 @@ make install    # Install to $GOPATH/bin
 ## Quick Start
 
 ```bash
-# If BrowserOS is not installed yet, download it from https://browseros.com
+# If Pane is not installed yet, download it from https://browseros.com
+# TODO(pane-infra): Pane download URL
 
-# If BrowserOS is installed but not running
-browseros-cli launch                 # opens BrowserOS, waits for server
+# If Pane is installed but not running
+browseros-cli launch                 # opens Pane, waits for server
 
-# Configure the CLI with the Server URL from BrowserOS settings
+# Configure the CLI with the Server URL from Pane settings
 browseros-cli init http://127.0.0.1:9000/mcp
 
 # Verify connection
@@ -68,11 +69,11 @@ browseros-cli init <url>             # non-interactive — pass URL directly
 browseros-cli init                   # interactive — prompts for URL
 ```
 
-Config is saved to `~/.config/browseros-cli/config.yaml`. If `browseros-cli health` cannot connect, copy the current Server URL from BrowserOS Settings > BrowserOS MCP and run `browseros-cli init <Server URL>` again.
+Config is saved to `~/.config/browseros-cli/config.yaml`. If `browseros-cli health` cannot connect, copy the current Server URL from Pane Settings > Pane MCP and run `browseros-cli init <Server URL>` again.
 
 ### CLI updates
 
-The CLI checks for a newer BrowserOS CLI release in the background about once per day and will suggest an update on a later run when one is available.
+The CLI checks for a newer Pane CLI release in the background about once per day and will suggest an update on a later run when one is available.
 
 ```bash
 browseros-cli update         # check and apply the latest CLI release
@@ -158,7 +159,7 @@ browseros-cli group list
 
 ## Use as MCP Server
 
-BrowserOS exposes an MCP server that AI coding agents can connect to directly. The CLI is the easiest way to verify the connection and interact with tools from the terminal.
+Pane exposes an MCP server that AI coding agents can connect to directly. The CLI is the easiest way to verify the connection and interact with tools from the terminal.
 
 To connect Claude Code, Gemini CLI, or any MCP client, see the [MCP setup guide](https://docs.browseros.com/features/use-with-claude-code).
 
@@ -178,7 +179,7 @@ If no server URL is configured, the CLI exits with setup instructions pointing t
 
 ## Testing
 
-Integration tests require a running BrowserOS server with the dev build (for structured content support).
+Integration tests require a running Pane server with the dev build (for structured content support).
 
 ```bash
 # 1. Start the dev server from the monorepo root
@@ -186,7 +187,7 @@ bun run dev:watch:new
 
 # 2. Configure the CLI to point at the dev server
 ./browseros-cli init
-# Enter the Server URL shown in BrowserOS settings
+# Enter the Server URL shown in Pane settings
 
 # 3. Run integration tests
 make test
@@ -195,7 +196,7 @@ make test
 BROWSEROS_URL=http://127.0.0.1:9105 go test -tags integration -v ./...
 ```
 
-Tests skip gracefully if no server is reachable — they won't fail in environments without BrowserOS.
+Tests skip gracefully if no server is reachable — they won't fail in environments without Pane.
 
 The integration tests (`integration_test.go`) cover:
 - Health check and version
@@ -226,7 +227,7 @@ apps/cli/
 ├── cmd/
 │   ├── root.go         # Root command, global flags
 │   ├── init.go         # Server URL configuration (URL arg or interactive)
-│   ├── launch.go       # launch (find and start BrowserOS, wait for server)
+│   ├── launch.go       # launch (find and start Pane, wait for server)
 │   ├── open.go         # open (new_page / new_hidden_page)
 │   ├── nav.go          # nav, back, forward, reload
 │   ├── tabs.go         # tabs/pages alias, active, close
@@ -259,6 +260,6 @@ Normal CLI commands initialize an MCP session, call the requested tool, and clos
 
 ## Links
 
-- [Documentation](https://docs.browseros.com)
+- [Documentation](https://docs.browseros.com) <!-- TODO(pane-infra): Pane docs URL -->
 - [MCP Setup Guide](https://docs.browseros.com/features/use-with-claude-code)
 - [Changelog](./CHANGELOG.md)

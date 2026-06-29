@@ -48,6 +48,6 @@ func Save(cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	header := "# browseros-cli configuration\n# Run: browseros-cli config --path\n\n"
+	header := "# Pane CLI (browseros-cli) configuration\n# Run: browseros-cli config --path\n\n"
 	return os.WriteFile(Path(), []byte(header+string(data)), 0644)
 }

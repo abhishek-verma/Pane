@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared production artifact tooling for BrowserOS server binaries",
+  "description": "Shared production artifact tooling for Pane server binaries",
   "exports": {
     ".": {
       "types": "./src/index.ts",

@@ -1,6 +1,6 @@
 {
   "name": "@browseros/app",
-  "description": "manifest.json description",
+  "description": "Pane extension app — side panel, settings, new tab, and onboarding UI",
   "private": true,
   "version": "0.0.100",
   "type": "module",

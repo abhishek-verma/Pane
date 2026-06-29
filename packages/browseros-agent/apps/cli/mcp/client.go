@@ -45,7 +45,7 @@ func (c *Client) connect(ctx context.Context) (*sdkmcp.ClientSession, error) {
 
 	session, err := sdkClient.Connect(ctx, transport, nil)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to BrowserOS at %s: %w%s", c.BaseURL, err, connectionSetupInstructions())
+		return nil, fmt.Errorf("cannot connect to Pane at %s: %w%s", c.BaseURL, err, connectionSetupInstructions())
 	}
 	return session, nil
 }
@@ -137,7 +137,7 @@ func convertResult(r *sdkmcp.CallToolResult) *ToolResult {
 	return result
 }
 
-// Health checks BrowserOS-compatible REST health endpoints.
+// Health checks Pane-compatible REST health endpoints.
 func (c *Client) Health() (map[string]any, error) {
 	data, err := c.restGET("/health")
 	if isHTTPStatus(err, http.StatusNotFound) {
@@ -154,7 +154,7 @@ func (c *Client) Status() (map[string]any, error) {
 func (c *Client) restGET(path string) (map[string]any, error) {
 	resp, err := c.HTTPClient.Get(c.BaseURL + path)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to BrowserOS at %s: %w%s", c.BaseURL, err, connectionSetupInstructions())
+		return nil, fmt.Errorf("cannot connect to Pane at %s: %w%s", c.BaseURL, err, connectionSetupInstructions())
 	}
 	defer resp.Body.Close()
 
@@ -187,10 +187,11 @@ func isHTTPStatus(err error, statusCode int) bool {
 // connectionSetupInstructions explains how to recover from a stale or missing server URL.
 func connectionSetupInstructions() string {
 	return "\n\n" +
-		"  Open BrowserOS Settings > BrowserOS MCP and copy the Server URL.\n" +
+		"  Open Pane Settings > Pane MCP and copy the Server URL.\n" +
 		"  Save it with:       browseros-cli init <Server URL>\n" +
 		"  Example:            browseros-cli init http://127.0.0.1:9000/mcp\n" +
 		"  Run once with:      browseros-cli --server <Server URL> health\n" +
-		"  If BrowserOS is closed:  browseros-cli launch\n" +
+		"  If Pane is closed:       browseros-cli launch\n" +
+		// TODO(pane-infra): Pane download URL (currently https://browseros.com)
 		"  If not installed:        download from https://browseros.com"
 }

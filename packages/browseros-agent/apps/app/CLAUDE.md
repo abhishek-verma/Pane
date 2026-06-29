@@ -1,4 +1,4 @@
-# BrowserOS App UI contributor ground rules
+# Pane App UI contributor ground rules
 
 The app UI is a WXT React extension: side panel chat, app/settings pages, new tab, onboarding, background workers, and content scripts.
 
@@ -27,13 +27,13 @@ apps/app/
 |- entrypoints/
 |  |- sidepanel/     Chat UI
 |  |- app/           Settings, AI providers, agents, MCP, usage
-|  |- newtab/        BrowserOS new tab UI
+|  |- newtab/        Pane new tab UI
 |  |- onboarding/    First-run flow
 |  |- background/    Extension background logic
 |  `- *.content*     Page/content integrations
 |- components/       Shared UI, including generated shadcn-style primitives
 |- generated/graphql GraphQL codegen output
-|- lib/              Auth, GraphQL, metrics, Sentry, BrowserOS clients, state
+|- lib/              Auth, GraphQL, metrics, Sentry, Pane clients, state
 |- schema/           Default GraphQL schema input
 `- wxt.config.ts     Manifest and WXT/Vite config
 ```
@@ -67,10 +67,10 @@ sentry.captureException(error, {
 
 All server state goes through **TanStack Query** (`@tanstack/react-query`) — don't fetch with `useEffect` + `useState`, and don't call the network from a component body. There are two lanes:
 
-- **GraphQL (BrowserOS API)** — the default for app data. Colocated `graphql()` documents + the `lib/graphql/` helpers; see *GraphQL and codegen* below.
+- **GraphQL (Pane API)** — the default for app data. Colocated `graphql()` documents + the `lib/graphql/` helpers; see *GraphQL and codegen* below.
 - **Local REST (agent harness, credits)** — endpoints on the dynamic agent server wrap a small `fetch` in `useQuery`/`useMutation`. Reference: `entrypoints/app/agents/useAgents.ts`, `lib/credits/useCredits.ts`.
 
-Either lane: keep query keys in one place — derive GraphQL keys with `getQueryKeyFromDocument(Document)`, give REST hooks a module-level query-key const (e.g. `AGENT_QUERY_KEYS`) — and invalidate through that, never a hand-written string literal (`BrowserOsAiPane.tsx` invalidates via `getQueryKeyFromDocument(...)`). For instant-feeling mutations, do optimistic updates with `onMutate` -> `cancelQueries` + `getQueryData` + `setQueryData`, rolling back in `onError` — worked example: `useUpdateHarnessAgent` in `entrypoints/app/agents/useAgents.ts`.
+Either lane: keep query keys in one place — derive GraphQL keys with `getQueryKeyFromDocument(Document)`, give REST hooks a module-level query-key const (e.g. `AGENT_QUERY_KEYS`) — and invalidate through that, never a hand-written string literal (`PaneAiPane.tsx` invalidates via `getQueryKeyFromDocument(...)`). For instant-feeling mutations, do optimistic updates with `onMutate` -> `cancelQueries` + `getQueryData` + `setQueryData`, rolling back in `onError` — worked example: `useUpdateHarnessAgent` in `entrypoints/app/agents/useAgents.ts`.
 
 ## GraphQL and codegen
 
@@ -143,4 +143,4 @@ The normal loop is `snapshot -> click/fill/press_key -> screenshot`. Element IDs
 
 ## When in doubt, read a sibling
 
-Most features are a vertical slice you can copy. The AI settings slice is the GraphQL template end to end: `entrypoints/app/ai-settings/graphql/aiSettingsDocument.ts` (documents) -> consumed via `lib/graphql` hooks in `ai-settings/BrowserOsAiPane.tsx` -> `ai-settings/NewProviderDialog.tsx` (the `zod` + shadcn `Form` dialog). For the REST lane plus optimistic mutations, `entrypoints/app/agents/useAgents.ts` is the worked example.
+Most features are a vertical slice you can copy. The AI settings slice is the GraphQL template end to end: `entrypoints/app/ai-settings/graphql/aiSettingsDocument.ts` (documents) -> consumed via `lib/graphql` hooks in `ai-settings/PaneAiPane.tsx` -> `ai-settings/NewProviderDialog.tsx` (the `zod` + shadcn `Form` dialog). For the REST lane plus optimistic mutations, `entrypoints/app/agents/useAgents.ts` is the worked example.

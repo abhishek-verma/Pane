@@ -19,10 +19,10 @@ import (
 func init() {
 	cmd := &cobra.Command{
 		Use:   "init [url]",
-		Short: "Configure the BrowserOS server connection",
-		Long: `Set up the CLI by providing the MCP server URL from BrowserOS.
+		Short: "Configure the Pane server connection",
+		Long: `Set up the CLI by providing the MCP server URL from Pane.
 
-Open BrowserOS → Settings → BrowserOS MCP to find your Server URL.
+Open Pane → Settings → Pane MCP to find your Server URL.
 The URL looks like: http://127.0.0.1:9000/mcp
 
 The port varies per installation, so this step is required on first use.
@@ -50,9 +50,9 @@ Modes:
 
 			default:
 				fmt.Println()
-				bold.Println("BrowserOS CLI Setup")
+				bold.Println("Pane CLI Setup")
 				fmt.Println()
-				fmt.Println("Open BrowserOS → Settings → BrowserOS MCP")
+				fmt.Println("Open Pane → Settings → Pane MCP")
 				fmt.Println("Copy the Server URL or port number shown there.")
 				fmt.Println()
 				dim.Println("Examples:  http://127.0.0.1:9000/mcp")

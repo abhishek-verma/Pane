@@ -1,5 +1,5 @@
 #
-# Install browseros-cli for Windows — downloads the latest release binary.
+# Install Pane CLI (browseros-cli) for Windows — downloads the latest release binary.
 #
 # Usage (PowerShell — save and run):
 #   Invoke-WebRequest -Uri "https://cdn.browseros.com/cli/install.ps1" -OutFile install.ps1
@@ -43,7 +43,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$') {
     exit 1
 }
 
-Write-Host "Installing browseros-cli v$Version..."
+Write-Host "Installing Pane CLI (browseros-cli) v$Version..."
 
 # ── Detect architecture ──────────────────────────────────────────────────────
 

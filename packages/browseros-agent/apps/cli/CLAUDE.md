@@ -1,6 +1,6 @@
-# BrowserOS CLI contributor ground rules
+# Pane CLI contributor ground rules
 
-`browseros-cli` is a Go (1.25+) Cobra CLI that drives BrowserOS by calling the `apps/server` MCP server over StreamableHTTP. Each command maps to one or more server MCP tools.
+`browseros-cli` is a Go (1.25+) Cobra CLI that drives Pane by calling the `apps/server` MCP server over StreamableHTTP. Each command maps to one or more server MCP tools.
 
 > This is the one Go module among the monorepo's TS apps. Go idioms win here: `gofmt`, lowercase/`snake_case` filenames (e.g. `file_actions.go`), `%w` error wrapping. The parent doc's extensionless-import, Bun, and kebab-case rules do **not** apply.
 
@@ -55,7 +55,7 @@ Pattern: see `cmd/open.go` and `cmd/snap.go`; grouped commands in `cmd/window.go
 
 Stateless per command: `CallTool` opens a fresh StreamableHTTP session (handshake → `tools/call` → close) via `github.com/modelcontextprotocol/go-sdk`. No pooling, no long-lived session. `ToolResult` (`mcp/types.go`) exposes `.TextContent()`, `.ImageContent()`, and `.StructuredContent` (`map[string]any`). `Health()` / `Status()` are plain REST GETs (`/health`, `/status`), **not** MCP.
 
-**Server-URL gotcha:** `normalizeServerURL` (`cmd/root.go`) strips a trailing `/mcp` and `/`, and expands a bare port (`9000` → `http://127.0.0.1:9000`). The stored base has **no** `/mcp`; the transport re-appends it in `mcp/client.go`. Store and compare the base without `/mcp`; never hand-append it. Resolution priority: `--server` flag > `BROWSEROS_URL` env > config file. BrowserOS writes a runtime discovery file, but commands intentionally ignore it (see the `defaultServerURL` doc comment) so a saved URL isn't silently overridden by another running server.
+**Server-URL gotcha:** `normalizeServerURL` (`cmd/root.go`) strips a trailing `/mcp` and `/`, and expands a bare port (`9000` → `http://127.0.0.1:9000`). The stored base has **no** `/mcp`; the transport re-appends it in `mcp/client.go`. Store and compare the base without `/mcp`; never hand-append it. Resolution priority: `--server` flag > `BROWSEROS_URL` env > config file. Pane writes a runtime discovery file, but commands intentionally ignore it (see the `defaultServerURL` doc comment) so a saved URL isn't silently overridden by another running server.
 
 ## Build, version & analytics injection
 
@@ -64,7 +64,7 @@ Stateless per command: `CallTool` opens a fresh StreamableHTTP session (handshak
 - `main.version` — defaults to `"dev"` under a plain `go build`. Self-update refuses to run on non-release (`dev`) versions (`update.IsReleaseVersion`).
 - `browseros-cli/analytics.posthogAPIKey` — empty in local/dev builds, so `analytics.Init` returns early and tracking is a **no-op**. It's injected only for production via `POSTHOG_API_KEY` (`.env.production.example`).
 
-Never hard-code the version or the key — they are build-time ldflags only. Analytics (`analytics/`) is fire-and-forget: `Init`/`Track`/`Close` run once in `cmd.Execute()`; commands never call it directly. The distinct id is the BrowserOS id (`~/.browseros/server.json`) or a generated per-install UUID under the config dir; no PII is sent.
+Never hard-code the version or the key — they are build-time ldflags only. Analytics (`analytics/`) is fire-and-forget: `Init`/`Track`/`Close` run once in `cmd.Execute()`; commands never call it directly. The distinct id is the Pane install id (`~/.browseros/server.json`) or a generated per-install UUID under the config dir; no PII is sent.
 
 ## Auto-update (`update/`)
 

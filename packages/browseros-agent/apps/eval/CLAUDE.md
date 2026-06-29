@@ -1,6 +1,6 @@
-# BrowserOS Eval contributor ground rules
+# Pane Eval contributor ground rules
 
-The eval harness (`@browseros/eval`) runs browser-automation benchmarks against BrowserOS: load a task dataset, drive an agent through the BrowserOS MCP/CDP loop, capture trajectories + screenshots, grade the results, and optionally publish a run to R2. `README.md` is the user-facing run guide — this file is the contributor map.
+The eval harness (`@browseros/eval`) runs browser-automation benchmarks against Pane: load a task dataset, drive an agent through the Pane MCP/CDP loop, capture trajectories + screenshots, grade the results, and optionally publish a run to R2. `README.md` is the user-facing run guide — this file is the contributor map.
 
 ## Before you push
 

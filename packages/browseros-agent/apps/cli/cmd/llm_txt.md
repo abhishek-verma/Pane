@@ -1,6 +1,6 @@
 # browseros-cli — agent guide
 
-`browseros-cli` (short alias `bos`) drives BrowserOS — a real Chromium browser — from the
+`browseros-cli` (short alias `bos`) drives Pane — a real Chromium browser — from the
 shell by calling its local MCP server. You snapshot the page's accessibility tree to get
 compact element refs (`@e5`), then act on those refs. One command is one browser action,
 and the browser persists between commands, so a sequence reads like a single session.
@@ -19,9 +19,9 @@ and the browser persists between commands, so a sequence reads like a single ses
 ## Setup (once)
 
 ```bash
-browseros-cli launch                 # start BrowserOS if it isn't running, then wait for the server
+browseros-cli launch                 # start Pane if it isn't running, then wait for the server
 browseros-cli init 9000              # save the Server URL (full URL or just the port) from
-                                     #   BrowserOS > Settings > BrowserOS MCP
+                                     #   Pane > Settings > Pane MCP
 browseros-cli health                 # verify the server and CDP are connected
 ```
 
@@ -142,7 +142,7 @@ validated up front. Supported steps: `nav`, `back`, `forward`, `reload`, `eval`,
 ## Resources & integrations
 
 `bookmark`, `history`, `window`, and `group` manage browser resources; `strata` manages connected
-MCP apps (Gmail, Slack, GitHub, …); `info [topic]` describes BrowserOS features. Run
+MCP apps (Gmail, Slack, GitHub, …); `info [topic]` describes Pane features. Run
 `browseros-cli <command> --help` for any command's flags.
 
 ## Troubleshooting
@@ -154,7 +154,7 @@ MCP apps (Gmail, Slack, GitHub, …); `info [topic]` describes BrowserOS feature
 - **Element missing from the snapshot** — it may be offscreen or not rendered yet: `scroll down`,
   or `wait --text "…"`, then re-snapshot.
 - **`server URL is not configured`** — run `browseros-cli launch`, then
-  `browseros-cli init <Server URL>` (from BrowserOS > Settings > BrowserOS MCP).
+  `browseros-cli init <Server URL>` (from Pane > Settings > Pane MCP).
 - **Click does nothing / intercepted** — a dialog or overlay may be on top; snapshot, dismiss it,
   then re-snapshot.
 

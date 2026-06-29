@@ -126,8 +126,8 @@ const usageTemplate = `{{helpHeader "Usage:"}}{{if .Runnable}}
 
 var rootCmd = &cobra.Command{
 	Use:           "browseros-cli",
-	Short:         "Browser control CLI for BrowserOS",
-	Long:          "browseros-cli — command-line interface for controlling BrowserOS via MCP",
+	Short:         "Browser control CLI for Pane",
+	Long:          "browseros-cli — command-line interface for controlling Pane via MCP",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	Run:           runRoot,
@@ -187,7 +187,7 @@ func init() {
 
 	rootCmd.SetUsageTemplate(usageTemplate)
 
-	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", defaultServerURL(), "BrowserOS server URL")
+	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", defaultServerURL(), "Pane server URL")
 	rootCmd.PersistentFlags().IntVarP(&pageFlag, "page", "p", 0, "Target page ID from open or tabs")
 	rootCmd.PersistentFlags().BoolVar(&jsonOut, "json", envBool("BOS_JSON"), "JSON output")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", envBool("BOS_DEBUG"), "Debug output")
@@ -343,7 +343,7 @@ func drainAutomaticUpdateCheckWithTimeout(done <-chan struct{}, timeout time.Dur
 
 // defaultServerURL returns the implicit target from user-controlled settings only.
 //
-// BrowserOS writes a discovery file at runtime, but normal commands intentionally
+// Pane writes a discovery file at runtime, but normal commands intentionally
 // ignore it so a saved URL is not silently overridden by another running server.
 func defaultServerURL() string {
 	if env := normalizeServerURL(os.Getenv("BROWSEROS_URL")); env != "" {
@@ -390,11 +390,12 @@ func validateServerURL(raw string) (string, error) {
 	}
 
 	return "", fmt.Errorf(
-		"BrowserOS server URL is not configured.\n\n" +
-			"  Open BrowserOS Settings > BrowserOS MCP and copy the Server URL.\n" +
+		"Pane server URL is not configured.\n\n" +
+			"  Open Pane Settings > Pane MCP and copy the Server URL.\n" +
 			"  Save it with:       browseros-cli init <Server URL>\n" +
 			"  Example:            browseros-cli init http://127.0.0.1:9000/mcp\n" +
-			"  If BrowserOS is closed:  browseros-cli launch\n" +
+			"  If Pane is closed:       browseros-cli launch\n" +
+			// TODO(pane-infra): Pane download URL (currently https://browseros.com)
 			"  If not installed:        download from https://browseros.com",
 	)
 }

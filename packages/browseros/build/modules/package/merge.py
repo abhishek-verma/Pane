@@ -208,7 +208,7 @@ def merge_sign_package(
                 log_error("Make sure you provided the correct --chromium-src path")
                 return False
 
-            if create_dmg(output_path, dmg_path, "BrowserOS", pkg_dmg_path):
+            if create_dmg(output_path, dmg_path, "Pane", pkg_dmg_path):
                 log_success(f"DMG created: {dmg_name}")
             else:
                 log_error("Failed to create DMG")

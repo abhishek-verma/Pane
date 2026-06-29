@@ -1,6 +1,6 @@
-# BrowserOS Server contributor ground rules
+# Pane Server contributor ground rules
 
-The Bun server is a Hono HTTP app that exposes MCP tools, drives BrowserOS through CDP, and runs the AI SDK agent loop.
+The Bun server is a Hono HTTP app that exposes MCP tools, drives Pane through CDP, and runs the AI SDK agent loop.
 
 ## Before you push
 
@@ -21,7 +21,7 @@ cd apps/server && bun run test:browser
 cd apps/server && bun run test:tools
 ```
 
-Tool, browser, and integration tests may require a running BrowserOS/CDP target. For local server artifact checks, prefer `bun run build:server:test`; use `bun scripts/build/server.ts --target=all --no-upload` when you need all targets without R2 upload.
+Tool, browser, and integration tests may require a running Pane/CDP target. For local server artifact checks, prefer `bun run build:server:test`; use `bun scripts/build/server.ts --target=all --no-upload` when you need all targets without R2 upload.
 
 ## Entry points
 
