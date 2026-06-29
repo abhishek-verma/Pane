@@ -1,6 +1,6 @@
 name: Nightly Release Build
 
-# Manual UNSIGNED release builds of BrowserOS for all three platforms on
+# Manual UNSIGNED release builds of Pane for all three platforms on
 # WarpBuild runners. Signing is intentionally not wired up yet; see
 # packages/browseros/build/docs/nightly-warpbuild-ci.md for the design and
 # the secret names that enable signing later.
@@ -228,7 +228,7 @@ jobs:
           uv run --project packages/browseros python scripts/ci/setup_chromium.py \
             --chromium-root "$CHROMIUM_ROOT" --step sync
 
-      # Save immediately after sync: the tree is pristine (no BrowserOS
+      # Save immediately after sync: the tree is pristine (no Pane
       # patches, no out/ dir), which keeps the cache deterministic and as
       # small as possible.
       - name: Save chromium checkout (WarpCache)
@@ -260,10 +260,10 @@ jobs:
           sudo apt-get install -y libfuse2
           "$CHROMIUM_SRC/build/install-build-deps.sh" --no-prompt
 
-      - name: Build BrowserOS (unsigned)
+      - name: Build Pane (unsigned)
         working-directory: packages/browseros
         env:
-          # download_resources pulls BrowserOS Server bundles from R2
+          # download_resources pulls Pane Server bundles from R2
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -342,6 +342,6 @@ jobs:
             --prerelease \
             --latest=false \
             --target "$GITHUB_SHA" \
-            --title "BrowserOS Nightly (unsigned) $(date -u +%Y-%m-%d)" \
+            --title "Pane Nightly (unsigned) $(date -u +%Y-%m-%d)" \
             --notes-file "$notes_file" \
             "${files[@]}"
