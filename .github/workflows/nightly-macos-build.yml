@@ -274,7 +274,7 @@ jobs:
             echo "No version changes to commit."
             exit 0
           fi
-          git -c user.name="BrowserOS CI" -c user.email="ci@browseros.com" \
+          git -c user.name="Pane CI" -c user.email="ci@browseros.com" \
             commit -m "chore(release): build v$VERSION [skip ci]"
 
           safe_target_ref="${TARGET_REF//[^A-Za-z0-9._-]/-}"
@@ -346,7 +346,7 @@ jobs:
             echo "::warning::Could not merge or enable auto-merge for version bump PR; leaving it open: $pr_url"
           fi
 
-      - name: Build BrowserOS (macOS arm64)
+      - name: Build Pane (macOS arm64)
         env:
           BROWSEROS_REPO: ${{ steps.build_inputs.outputs.browseros_repo }}
           CHROMIUM_SRC: ${{ steps.build_inputs.outputs.chromium_src }}

@@ -28,12 +28,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Install BrowserOS
+      - name: Install Pane
         run: |
           # Rolling stable channel — see https://cdn.browseros.com/download/BrowserOS.deb
           wget -q -O BrowserOS.deb https://cdn.browseros.com/download/BrowserOS.deb
           sudo dpkg -i BrowserOS.deb
-          browseros --version || echo "BrowserOS installed at $(which browseros)"
+          browseros --version || echo "Pane installed at $(which browseros)"
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
