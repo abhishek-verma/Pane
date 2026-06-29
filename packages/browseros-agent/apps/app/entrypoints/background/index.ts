@@ -1,4 +1,5 @@
 import { storage } from '@wxt-dev/storage'
+import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { Capabilities } from '@/lib/browseros/capabilities'
 import { getHealthCheckUrl, getMcpServerUrl } from '@/lib/browseros/helpers'
 import {
@@ -143,4 +144,40 @@ export default defineBackground(() => {
       }
     }
   })
+
+  // M1.7 Process supervision: SW health-checks + relaunch
+  const healthCheckLoop = async () => {
+    let failures = 0
+    while (true) {
+      // Check every 30 seconds
+      await new Promise((resolve) => setTimeout(resolve, 30_000))
+      try {
+        const url = await getHealthCheckUrl()
+        const res = await fetch(url)
+        if (res.ok) {
+          failures = 0
+        } else {
+          failures++
+        }
+      } catch (_err) {
+        failures++
+      }
+
+      if (failures >= 3) {
+        try {
+          // Setting the restart requested pref triggers the native Chromium process to relaunch the server
+          await getBrowserOSAdapter().setPref(
+            'browseros.server.restart_requested',
+            true,
+          )
+          failures = 0 // Reset to avoid constant restart requests
+        } catch (_e) {
+          // Native API may not be available
+        }
+      }
+    }
+  }
+
+  // Start the loop without awaiting it
+  healthCheckLoop().catch(() => null)
 })

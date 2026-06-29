@@ -30,6 +30,7 @@ import {
 import { generateCdpToken } from './lib/cdp-token'
 import { initializeDb } from './lib/db'
 import { identity } from './lib/identity'
+import { serverLock } from './lib/lock-file'
 import { logger } from './lib/logger'
 import { reconcileUrl } from './lib/mcp-manager'
 import { metrics } from './lib/metrics'
@@ -45,6 +46,13 @@ export class Application {
   }
 
   async start(): Promise<void> {
+    if (!serverLock.acquire()) {
+      logger.error(
+        'Failed to acquire server lock. Is another instance running?',
+      )
+      process.exit(EXIT_CODES.GENERAL_ERROR)
+    }
+
     logger.info(`Starting BrowserOS Server v${VERSION}`)
     logger.debug('Directory config', {
       executionDir: path.resolve(this.config.executionDir),
@@ -151,6 +159,7 @@ export class Application {
   stop(reason?: string): void {
     logger.info('Shutting down server...', { reason })
     removeServerConfigSync()
+    serverLock.release()
 
     // Immediate exit without graceful shutdown. Chromium may kill us on update/restart,
     // and we need to free the port instantly so the HTTP port doesn't keep switching.
