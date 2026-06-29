@@ -1,9 +1,9 @@
 ---
-title: "Contributing to BrowserOS"
-description: "Guide to contributing to BrowserOS"
+title: "Contributing to Pane"
+description: "Guide to contributing to Pane"
 ---
 
-BrowserOS has two main parts you can contribute to:
+Pane has two main parts you can contribute to:
 
 - **Agent** — The AI features, UI, and browser automation (TypeScript/React)
 - **Browser** — The custom Chromium build (C++/Python)
@@ -12,15 +12,15 @@ Most contributors work on the Agent since it's much easier to set up.
 
 ## Quick Links
 
-- [GitHub Repository](https://github.com/BrowserOS-ai/BrowserOS)
+- [GitHub Repository](https://github.com/browseros-ai/Pane)
 - [Discord Community](https://discord.gg/YKwjt5vuKr)
-- [Report Issues](https://github.com/BrowserOS-ai/BrowserOS/issues)
+- [Report Issues](https://github.com/browseros-ai/Pane/issues)
 
 ## Ways to Contribute
 
-**Report bugs** — [Open an issue](https://github.com/browseros-ai/BrowserOS/issues/new) with steps to reproduce, expected vs actual behavior, and screenshots.
+**Report bugs** — [Open an issue](https://github.com/browseros-ai/Pane/issues/new) with steps to reproduce, expected vs actual behavior, and screenshots.
 
-**Suggest features** — Share ideas on [GitHub](https://github.com/browseros-ai/BrowserOS/issues/99) or [Discord](https://discord.gg/YKwjt5vuKr).
+**Suggest features** — Share ideas on [GitHub](https://github.com/browseros-ai/Pane/issues/99) or [Discord](https://discord.gg/YKwjt5vuKr).
 
 **Improve docs** — Docs live in `docs/` and use Mintlify. Edit pages and update `docs/docs.json` for navigation.
 
@@ -38,14 +38,14 @@ The Agent is a monorepo with 3 components:
 
 ### Architecture
 
-<img src="/images/contributing--architecture.png" alt="BrowserOS Agent architecture diagram" />
+<img src="/images/contributing--architecture.png" alt="Pane Agent architecture diagram" />
 
 ### Setup
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR-USERNAME/BrowserOS.git
-cd BrowserOS/packages/browseros-agent
+git clone https://github.com/YOUR-USERNAME/Pane.git
+cd Pane/packages/browseros-agent
 
 # Install dependencies
 bun install
@@ -65,7 +65,7 @@ bun run start:server
 bun run start:agent
 ```
 
-Then load the extension in BrowserOS:
+Then load the extension in Pane:
 1. Go to `chrome://extensions/`
 2. Enable **Developer mode**
 3. Click **Load unpacked** and select the `apps/app/dist/` folder
@@ -157,12 +157,12 @@ The `--setup` and `--prep` flags are only needed for the first build. After that
 uv run browseros build --chromium-src <path> --build --build-type debug
 ```
 
-**4. Run BrowserOS**
+**4. Run Pane**
 
 <Tabs>
   <Tab title="macOS (ARM64)">
     ```bash
-    <chromium-src>/out/Default_arm64/BrowserOS\ Dev.app/Contents/MacOS/BrowserOS\ Dev \
+    <chromium-src>/out/Default_arm64/Pane\ Dev.app/Contents/MacOS/Pane\ Dev \
       --enable-logging=stderr \
       --use-mock-keychain \
       --user-data-dir=/tmp/test-profile
@@ -170,7 +170,7 @@ uv run browseros build --chromium-src <path> --build --build-type debug
   </Tab>
   <Tab title="macOS (x64)">
     ```bash
-    <chromium-src>/out/Default_x64/BrowserOS\ Dev.app/Contents/MacOS/BrowserOS\ Dev \
+    <chromium-src>/out/Default_x64/Pane\ Dev.app/Contents/MacOS/Pane\ Dev \
       --enable-logging=stderr \
       --use-mock-keychain \
       --user-data-dir=/tmp/test-profile
@@ -178,7 +178,7 @@ uv run browseros build --chromium-src <path> --build --build-type debug
   </Tab>
   <Tab title="Windows">
     ```bash
-    <chromium-src>\out\Default_x64\BrowserOS Dev.exe \
+    <chromium-src>\out\Default_x64\Pane Dev.exe \
       --enable-logging=stderr \
       --user-data-dir=%TEMP%\test-profile
     ```
@@ -259,8 +259,8 @@ I have read the CLA Document and I hereby sign the CLA
 ## Getting Help
 
 - **Discord** — [discord.gg/YKwjt5vuKr](https://discord.gg/YKwjt5vuKr)
-- **GitHub Issues** — [github.com/BrowserOS-ai/BrowserOS/issues](https://github.com/BrowserOS-ai/BrowserOS/issues)
-- **GitHub Discussions** — [github.com/BrowserOS-ai/BrowserOS/discussions](https://github.com/BrowserOS-ai/BrowserOS/discussions)
+- **GitHub Issues** — [github.com/browseros-ai/Pane/issues](https://github.com/browseros-ai/Pane/issues)
+- **GitHub Discussions** — [github.com/browseros-ai/Pane/discussions](https://github.com/browseros-ai/Pane/discussions)
 
 ---
 

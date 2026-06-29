@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "maple",
-  "name": "BrowserOS Documentation",
+  "name": "Pane Documentation",
   "colors": {
     "primary": "#f25e1a",
     "light": "#FF7A3D",
@@ -68,7 +68,7 @@
   ],
   "logo": {
     "light": "/logo/logo44.png",
-    "dark": "/logo/logo44.png"
+    "dark": "/logo/logo44-dark.png"
   },
   "navbar": {
     "links": [
@@ -84,7 +84,7 @@
     "primary": {
       "type": "button",
       "label": "Download",
-      "href": "https://browseros.com"
+      "href": "https://github.com/browseros-ai/Pane/releases"
     }
   },
   "contextual": {
@@ -102,7 +102,7 @@
   "footer": {
     "socials": {
       "x": "https://x.com/browseros_ai",
-      "github": "https://github.com/BrowserOS-ai/BrowserOS",
+      "github": "https://github.com/browseros-ai/Pane",
       "discord": "https://discord.gg/YKwjt5vuKr",
       "slack": "https://dub.sh/browserOS-slack"
     }

@@ -1,9 +1,9 @@
 ---
 title: "Connect Apps"
-description: "Connect 40+ apps to BrowserOS so the assistant can work with your email, calendar, projects, and more"
+description: "Connect 40+ apps to Pane so the assistant can work with your email, calendar, projects, and more"
 ---
 
-Connect your favorite apps to BrowserOS and let the assistant work across all of them. Read emails, check your calendar, create tasks, post messages, manage files, and more, all through natural conversation.
+Connect your favorite apps to Pane and let the assistant work across all of them. Read emails, check your calendar, create tasks, post messages, manage files, and more, all through natural conversation.
 
 <video
   controls
@@ -13,7 +13,7 @@ Connect your favorite apps to BrowserOS and let the assistant work across all of
 
 ## How It Works
 
-BrowserOS uses the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) to connect your apps. You do not need to install anything or manage API keys. Just sign in once and the assistant handles the rest.
+Pane uses the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) to connect your apps. You do not need to install anything or manage API keys. Just sign in once and the assistant handles the rest.
 
 
 ## Smart App Connection
@@ -64,7 +64,7 @@ You can also connect apps ahead of time from the sidebar if you prefer.
 
 ## 40+ Supported Apps
 
-BrowserOS connects to over 40 apps across every category you need.
+Pane connects to over 40 apps across every category you need.
 
 <AccordionGroup>
   <Accordion title="Email" icon="envelope">
@@ -269,10 +269,10 @@ Some remote MCP servers (like Atlassian Jira, GitHub, etc.) require OAuth authen
 npx -y supergateway --stdio "npx -y mcp-remote https://mcp.atlassian.com/v1/sse" --port 8000
 ```
 
-A browser window will open to sign in. Once authenticated, add `http://localhost:8000/sse` as a custom MCP in BrowserOS.
+A browser window will open to sign in. Once authenticated, add `http://localhost:8000/sse` as a custom MCP in Pane.
 
 <Note>
-Keep the terminal running while you use BrowserOS. The local server handles authentication and proxies requests to the remote MCP server.
+Keep the terminal running while you use Pane. The local server handles authentication and proxies requests to the remote MCP server.
 </Note>
 
 <AccordionGroup>
@@ -294,7 +294,7 @@ Keep the terminal running while you use BrowserOS. The local server handles auth
 
 <Columns cols={2}>
   <Card title="Secure OAuth" icon="shield-check">
-    All apps use OAuth sign-in. BrowserOS never sees or stores your passwords.
+    All apps use OAuth sign-in. Pane never sees or stores your passwords.
   </Card>
   <Card title="On-demand only" icon="clock">
     Apps are only accessed when you ask. Nothing runs in the background.
