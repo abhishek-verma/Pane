@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ASR Spike</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    #output { margin-top: 20px; padding: 15px; border: 1px solid #ccc; min-height: 100px; background: #f9f9f9; }
+    .interim { color: #888; }
+    .final { color: #000; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <h1>Native ASR Streaming Spike</h1>
+  <button type="button" id="startBtn">Start Listening</button>
+  <button type="button" id="stopBtn" disabled>Stop</button>
+  <div id="output"></div>
+
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const output = document.getElementById('output');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      output.innerHTML = '<span style="color:red">SpeechRecognition API not supported in this browser.</span>';
+    } else {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        output.innerHTML = '';
+      };
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        output.innerHTML = `<span class="final">${finalTranscript}</span><span class="interim">${interimTranscript}</span>`;
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        stopBtn.disabled = true;
+        startBtn.disabled = false;
+      };
+
+      recognition.onend = () => {
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      };
+
+      startBtn.addEventListener('click', () => {
+        recognition.start();
+      });
+
+      stopBtn.addEventListener('click', () => {
+        recognition.stop();
+      });
+    }
+  </script>
+</body>
+</html>

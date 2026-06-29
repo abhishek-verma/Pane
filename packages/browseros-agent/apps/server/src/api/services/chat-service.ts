@@ -15,6 +15,7 @@ import {
   filterValidMessages,
   sanitizeMessagesForToolset,
 } from '../../agent/message-validation'
+import { runTracker } from '../../agent/run-tracker'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
 import type { ResolvedAgentConfig } from '../../agent/types'
 import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpServers'
@@ -353,77 +354,64 @@ export class ChatService {
             : msg,
         )
 
+    const runId = crypto.randomUUID()
+    runTracker.startRun(runId)
+
     return createAgentUIStreamResponse({
       agent: session.agent.toolLoopAgent,
       uiMessages: promptUiMessages,
       abortSignal,
       onFinish: async ({ messages }: { messages: UIMessage[] }) => {
-        // The agent loop returns `messages` containing the prompt-
-        // wrapped user text. Restore the raw form before persisting
-        // so subsequent turns see the clean text and the client's
-        // local UIMessage matches what was originally typed.
-        //
-        // ACP path: `messages` is the single user msg we sent plus
-        // the assistant's new reply. The user msg already lives in
-        // session.agent.messages via appendUserMessage; we only need
-        // to restore its raw text and append the new assistant
-        // entries from this turn.
-        //
-        // LLM-API path: `messages` is the full conversation as the
-        // AI SDK reconstructed it. Restore the wrapped user message
-        // and replace the entire session history with the result.
-        if (isAcp) {
-          // Invariant: an id in both `messages` and session means the
-          // AI SDK handed us back something we already have. With the
-          // single-user-msg input shape that means our own user msg —
-          // the only collision we expect. Any new id is a fresh
-          // assistant entry from this turn. acpx never re-emits prior
-          // turns into the AI SDK stream, so this filter cannot drop a
-          // legitimately new message.
-          const existingIds = new Set(session.agent.messages.map((m) => m.id))
-          const newMessages = messages.filter((m) => !existingIds.has(m.id))
-          const updated = session.agent.messages.map((m) =>
-            m.id === wrappedUserMessageId && m.role === 'user'
-              ? {
-                  ...m,
-                  parts: [{ type: 'text' as const, text: request.message }],
-                }
-              : m,
-          )
-          session.agent.messages = filterValidMessages([
-            ...updated,
-            ...newMessages,
-          ])
-        } else {
-          const restored = messages.map((msg) =>
-            msg.id === wrappedUserMessageId && msg.role === 'user'
-              ? {
-                  ...msg,
-                  parts: [{ type: 'text' as const, text: request.message }],
-                }
-              : msg,
-          )
-          session.agent.messages = filterValidMessages(restored)
-        }
+        try {
+          if (!session) return
+          if (isAcp) {
+            const existingIds = new Set(session.agent.messages.map((m) => m.id))
+            const newMessages = messages.filter((m) => !existingIds.has(m.id))
+            const updated = session.agent.messages.map((m) =>
+              m.id === wrappedUserMessageId && m.role === 'user'
+                ? {
+                    ...m,
+                    parts: [{ type: 'text' as const, text: request.message }],
+                  }
+                : m,
+            )
+            session.agent.messages = filterValidMessages([
+              ...updated,
+              ...newMessages,
+            ])
+          } else {
+            const restored = messages.map((msg) =>
+              msg.id === wrappedUserMessageId && msg.role === 'user'
+                ? {
+                    ...msg,
+                    parts: [{ type: 'text' as const, text: request.message }],
+                  }
+                : msg,
+            )
+            session.agent.messages = filterValidMessages(restored)
+          }
 
-        // Persist messages
-        this.deps.sessionStore
-          .persistMessages(request.conversationId, session.agent.messages)
-          .catch((err: unknown) => {
-            logger.error('Failed to persist messages', {
-              error: err instanceof Error ? err.message : String(err),
+          // Persist messages
+          this.deps.sessionStore
+            .persistMessages(request.conversationId, session.agent.messages)
+            .catch((err: unknown) => {
+              logger.error('Failed to persist messages', {
+                error: err instanceof Error ? err.message : String(err),
+              })
             })
+
+          logger.info('Agent execution complete', {
+            conversationId: request.conversationId,
+            totalMessages: session.agent.messages.length,
           })
 
-        logger.info('Agent execution complete', {
-          conversationId: request.conversationId,
-          totalMessages: session.agent.messages.length,
-        })
-
-        if (session?.hiddenPageId) {
-          const pageId = session.hiddenPageId
-          session.hiddenPageId = undefined
-          this.closeHiddenPage(pageId, request.conversationId)
+          if (session.hiddenPageId) {
+            const pageId = session.hiddenPageId
+            session.hiddenPageId = undefined
+            this.closeHiddenPage(pageId, request.conversationId)
+          }
+        } finally {
+          runTracker.endRun(runId)
         }
       },
     })
