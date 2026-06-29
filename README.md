@@ -1,6 +1,4 @@
 <div align="center">
-<img width="693" height="379" alt="github-banner" src="https://github.com/user-attachments/assets/1e37941c-4dbc-4662-9c8c-3bbe9971301d" />
-
 <br></br>
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 |[![Docs](https://img.shields.io/badge/Docs-GitHub-blue)](https://github.com/abhishek-verma/Pane/tree/main/docs)
