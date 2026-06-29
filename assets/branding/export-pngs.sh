@@ -39,6 +39,7 @@ export_square_png "$ROOT/pane-mark-black.svg" "pane-mark-black"
 export_square_png "$ROOT/pane-mark-white.svg" "pane-mark-white"
 export_square_png "$ROOT/pane-extension-icon.svg" "pane-extension-icon"
 export_wordmark_png "$ROOT/pane-wordmark.svg" "pane-wordmark"
+resvg -w 1280 -h 640 "$ROOT/pane-poster.svg" "$OUT/pane-poster-1280.png"
 
 echo "Exported PNGs to $OUT"
 echo "Verifying transparency, proportions, and fill colors..."

@@ -1,26 +1,20 @@
-# Pane
+<p align="center">
+  <a href="https://github.com/abhishek-verma/Pane">
+    <img src="assets/branding/png/pane-poster-1280.png" alt="Pane — A browser with a soul" width="920" />
+  </a>
+</p>
 
-### A browser with a soul
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" alt="License: AGPL v3" /></a>
+  <a href="https://github.com/abhishek-verma/Pane/tree/main/docs"><img src="https://img.shields.io/badge/Docs-read%20me-orange" alt="Docs" /></a>
+</p>
 
-[License: AGPL v3](LICENSE)
-|[Docs](https://github.com/abhishek-verma/Pane/tree/main/docs)
-  
-  
-
-
-
-
-  
-  
-
-
-Created by **Abhishek Verma**
-
-[LinkedIn](https://www.linkedin.com/in/abhi-vrma/)
-[GitHub](http://github.com/abhishek-verma/)
-[X](https://x.com/vrma_abhi)
-
-
+<p align="center">
+  Created by <strong>Abhishek Verma</strong><br/>
+  <a href="https://www.linkedin.com/in/abhi-vrma/">LinkedIn</a> ·
+  <a href="http://github.com/abhishek-verma/">GitHub</a> ·
+  <a href="https://x.com/vrma_abhi">X</a>
+</p>
 
 Most of your work already happens in a browser. Tabs, logins, docs, dashboards, tickets, research, meetings. But the AI that is supposed to help you still lives somewhere else — in a chat tab, a desktop app, or a daemon you have to wire up yourself. You stop, copy context over, explain what you were doing, and hope it understands.
 

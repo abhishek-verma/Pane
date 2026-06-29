@@ -9,6 +9,7 @@ Minimal Pane mark: a square with a bottom-right cutout (negative space window).
 | `pane-mark.svg` | Default — `currentColor`, adapts to theme; use for app icons too |
 | `pane-mark-black.svg` | Light backgrounds |
 | `pane-mark-white.svg` | Dark backgrounds |
+| `pane-poster.svg` | README / social hero (1280×640) |
 | `png/` | Raster exports at common sizes |
 
 For app icons and favicons, use `pane-mark.svg` (or the black/white variant). Add padding in the consuming app if the platform clips rounded corners.
