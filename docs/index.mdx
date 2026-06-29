@@ -1,25 +1,45 @@
 ---
 title: "Pane"
-description: "The open-source agentic browser — your agent lives where your work lives"
+description: "Your browser, with an agent built in"
 ---
 
-<Frame>
-  <img src="/images/hero-dark.png" alt="Pane in action" />
-</Frame>
+Pane is your browser, with an agent built in.
 
-Pane is an open-source, AI-native browser that puts the agent **inside** the browser, where your work already lives. Instead of copying URLs and screenshots into a separate chat window, Pane sees your tabs, your logins, and your context directly — and can click, type, read, and reason over them. It can also reach your files and terminal, so a single task can span the web and your machine.
+It is for the work that already happens in tabs: research, docs, dashboards, meetings, tickets, local apps, and web tools you are signed into. Instead of copying context into a chatbot, you can ask Pane to help from the page you are already on.
 
-**Open source. Local-first. No servers. The browser for the AI era.**
+**Ask about the page. Automate the boring parts. Let your coding tools drive your real browser. Keep your data local.**
 
 > Pane is a fork of [BrowserOS](https://github.com/browseros-ai/BrowserOS) — an amazing open-source agentic-browser project. We forked to take a different product trajectory: agent-native, local-first, and server-free.
 
-## Why an agent inside the browser?
+## Why people use Pane
 
-Today's AI assistants live *outside* the browser. You paste context into ChatGPT or Claude; context gets lost and workflows break. Standalone agents try to fix this by driving a browser from the outside, through plugins or remote control — but they're always one step removed from your real session.
+<Columns cols={2}>
+  <Card title="It understands what you're looking at" icon="eye">
+    Ask questions about the current page, summarize long docs, extract details, or compare information across tabs without re-explaining everything.
+  </Card>
+  <Card title="It can do the browser work for you" icon="wand-magic-sparkles">
+    Tell Pane what you want done. It can navigate, click, type, extract data, and complete web tasks inside your real browser session.
+  </Card>
+  <Card title="It connects web work with local work" icon="folder-open">
+    Give Pane a folder and it can save research, update files, search locally, or run terminal commands as part of the same task.
+  </Card>
+  <Card title="It works with the tools you already use" icon="terminal">
+    Pane is an MCP server, so Claude Code, Cursor, Gemini CLI, and other tools can control the same browser you use every day.
+  </Card>
+</Columns>
 
-Pane takes the other path: the agent *is* the browser. Same cookies, tabs, extensions, and logins you already use, plus an agent that can act on them directly. Because it's your browser, it can also learn from what you do and get smarter over time — something a standalone agent simply can't do.
+## How Pane feels different
 
-## Three ways to use Pane
+Most AI tools make you stop working and explain the state of your work. Pane starts from the state you are already in.
+
+- You do not need to paste the page. Pane is on the page.
+- You do not need a fake browser session. Pane uses your real one.
+- You do not need a separate automation tool. Pane can click, type, read, and save.
+- You do not need to trust a hosted agent by default. Pane is open source and local-first.
+
+Over time, Pane should feel less like a chatbot beside your browser and more like a browser that can help.
+
+## What you can do today
 
 <Columns cols={3}>
   <Card title="Chat" icon="message">
@@ -84,7 +104,7 @@ Pane takes the other path: the agent *is* the browser. Same cookies, tabs, exten
 
 ## Where Pane is heading
 
-Because the agent lives in the browser, Pane can do things no standalone agent can. On the roadmap:
+The reason we are building Pane as a browser, not just an extension or another chat surface, is that the browser can become personal in a way outside tools cannot. On the roadmap:
 
 <Columns cols={2}>
   <Card title="Context Graph" icon="sitemap">
@@ -103,20 +123,20 @@ Because the agent lives in the browser, Pane can do things no standalone agent c
 
 See the [specs](https://github.com/abhishek-verma/Pane/tree/main/specs) for the full design.
 
-## Why Pane?
+## Why you'll love it
 
 <Columns cols={2}>
-  <Card title="Local-First" icon="shield-check">
+  <Card title="It keeps you in flow" icon="bolt">
+    Pane reduces the copy-paste loop between browser, chatbot, editor, and notes. The assistant is already in the workspace.
+  </Card>
+  <Card title="It uses your real context" icon="window-restore">
+    Your tabs, sessions, extensions, local apps, and project files can all become part of the same task.
+  </Card>
+  <Card title="It stays yours" icon="shield-check">
     Run AI locally with Ollama, or bring your own API keys. Your browsing data and your agent's memory never leave your machine unless you choose.
   </Card>
-  <Card title="Open Source" icon="code-branch">
-    100% open source under AGPL-3.0. Inspect the code, contribute features, or fork it for your needs.
-  </Card>
-  <Card title="Works with your tools" icon="plug">
-    Pane is an MCP server, so Claude Code, Cursor, and Gemini CLI share your real browser session. Connect custom MCP servers for Gmail, Slack, GitHub, and more.
-  </Card>
-  <Card title="Chrome compatible" icon="chrome">
-    All your Chrome extensions work. Import bookmarks, passwords, and settings in one click.
+  <Card title="It is open" icon="code-branch">
+    Pane is open source under AGPL-3.0, so you can inspect it, modify it, and help shape where it goes.
   </Card>
 </Columns>
 

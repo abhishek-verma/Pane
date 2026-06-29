@@ -37,14 +37,6 @@
         ]
       },
       {
-        "group": "Comparisons",
-        "pages": [
-          "comparisons/chrome-devtools-mcp",
-          "comparisons/claude-cowork",
-          "comparisons/openclaw"
-        ]
-      },
-      {
         "group": "Integrations",
         "pages": ["integrations/n8n"]
       },
