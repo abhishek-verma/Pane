@@ -40,6 +40,8 @@
     "start:server:test": "bun run build:server:test && set -a && . apps/server/.env.development && set +a && dist/prod/server/.tmp/binaries/browseros-server-darwin-arm64",
     "build:claw-onboard": "bun run --filter @browseros/claw-onboard build",
     "build:agent:dev": "FORCE_COLOR=1 bun run --filter @browseros/app --elide-lines=0 build:dev",
+    "build:agent:pane": "FORCE_COLOR=1 PANE_BUILD=true bun --env-file=apps/app/.env.pane run --filter @browseros/app --elide-lines=0 build",
+    "build:server:pane": "FORCE_COLOR=1 PANE_BUILD=true bun scripts/build/server.ts --target=all --no-upload",
     "build:agent": "bun run codegen:agent && bun run --filter @browseros/app build",
     "codegen:agent": "bun run --filter @browseros/app codegen",
     "test": "bun run test:all",

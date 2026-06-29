@@ -14,6 +14,11 @@ const repoRoot = path.resolve(appDir, '../../../..')
 // biome-ignore lint/style/noProcessEnv: build config file needs env access
 const env = process.env
 
+// True when building the pure-OSS pane profile (PANE_BUILD=true).
+// In pane builds: cdn.browseros.com update_url and api.browseros.com
+// externally_connectable are omitted; cloud features are compile-time false.
+const isPaneBuild = env.PANE_BUILD === 'true'
+
 const apiUrl = new URL(parseBrowserOSApiUrl(env.VITE_PUBLIC_BROWSEROS_API))
 const apiPattern = apiUrl.port
   ? `${apiUrl.hostname}:${apiUrl.port}`
@@ -29,10 +34,18 @@ export default defineConfig({
     short_name: 'Pane',
     description: PRODUCT_TAGLINE,
     key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvBDAaDRvv61NpBeLR8etBRw82lv9VJO3sz/mA26gDzWKtVuzW4DXCl8Zfj5oWmoXLTfv3aiTigUXo/LHOoGpSucEVroMmAc7cgu2KuQ1fZPpMvYa0npD/m4h89360q8Oz0oKKaZGS905IJ04M2IkF4CuU3YEHFJBWb+cUyK9H8YVugelYbPD0IVs63T1SkGbh/t/Tfb2DpkinduSO8+x26sKydm30SRt+iZ2+7Nolcdum3LExInUiX2Pgb65Jb+mVw8NqyTVJyCEp8uq0cSHomWFQirSJ80tsDhISp4btwaRKHrXqovQx9XHQv4hCd+3LuB830eUEVMUNuCO+OyPxQIDAQAB',
-    update_url: 'https://cdn.browseros.com/extensions/update-manifest.xml',
-    externally_connectable: {
-      matches: [`https://${apiPattern}/*`, `https://*.${apiPattern}/*`],
-    },
+    // In pane builds, update_url points to GitHub Releases (a static host).
+    // In non-pane builds it pointed to cdn.browseros.com which is a
+    // Pane-operated server; removed per §9.5 of the architecture design.
+    ...(isPaneBuild
+      ? {}
+      : {
+          update_url:
+            'https://cdn.browseros.com/extensions/update-manifest.xml',
+          externally_connectable: {
+            matches: [`https://${apiPattern}/*`, `https://*.${apiPattern}/*`],
+          },
+        }),
     web_accessible_resources: [
       {
         resources: ['app.html'],
@@ -79,6 +92,11 @@ export default defineConfig({
   vite: () => ({
     build: {
       sourcemap: 'hidden',
+    },
+    define: {
+      // Inlined at build time so Vite's tree-shaker eliminates pane-build dead
+      // branches (e.g. `if (!PANE_BUILD) { /* cloud code */ }`).
+      'import.meta.env.PANE_BUILD': JSON.stringify(env.PANE_BUILD ?? 'false'),
     },
     resolve: {
       alias: {

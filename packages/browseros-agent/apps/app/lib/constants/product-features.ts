@@ -1,12 +1,25 @@
 /**
  * Pane product feature gates.
  *
- * Features that need BrowserOS cloud credentials stay off by default.
- * Opt in via `.env` when you have the keys and URLs configured.
+ * In `pane` builds (`PANE_BUILD=true`) all five cloud flags are compile-time
+ * `false` so dead-code elimination removes every gated branch; a stray env var
+ * cannot silently re-introduce a Pane-server surface at runtime.
+ *
+ * In other builds, flags are read from env (all default false).
  *
  * @public
  */
+
+/**
+ * True in `pane` builds — inlined by Vite/WXT so tree-shaking eliminates
+ * all `if (!PANE_BUILD)` branches from the bundle.
+ * @public
+ */
+export const PANE_BUILD: boolean = import.meta.env.PANE_BUILD === 'true'
+
 function envFlag(name: string, defaultValue = false): boolean {
+  // In pane builds all cloud flags are permanently off; skip env lookup.
+  if (PANE_BUILD) return false
   const value = import.meta.env[name]
   if (value === undefined || value === '') return defaultValue
   return value === 'true'

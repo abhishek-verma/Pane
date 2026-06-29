@@ -16,6 +16,7 @@ lerna-debug.log*
 !**/.env.example
 !**/.env.sample
 !**/.env.production.example
+!**/.env.pane
 
 
 # sqlite database
