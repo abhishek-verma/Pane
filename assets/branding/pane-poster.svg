@@ -81,70 +81,55 @@
   <g clip-path="url(#winClip)" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
     <rect x="612" y="92" width="612" height="456" fill="#1b1613"/>
 
-    <!-- tab strip -->
-    <rect x="612" y="92" width="612" height="40" fill="#241d18"/>
-    <circle cx="634" cy="112" r="5.5" fill="#ff5f57"/>
-    <circle cx="652" cy="112" r="5.5" fill="#febc2e"/>
-    <circle cx="670" cy="112" r="5.5" fill="#28c840"/>
-    <!-- active tab: Today (connects into toolbar) -->
-    <path d="M700 132 L700 106 Q700 98 708 98 L828 98 Q836 98 836 106 L836 132 Z" fill="#1d1714"/>
-    <g transform="translate(714 107) scale(0.125)">
+    <!-- combined title + nav bar (tabs live in the sidebar) -->
+    <rect x="612" y="92" width="612" height="50" fill="#1d1714"/>
+    <line x1="612" y1="142" x2="1224" y2="142" stroke="#ffffff" stroke-opacity="0.05"/>
+    <circle cx="634" cy="117" r="5.5" fill="#ff5f57"/>
+    <circle cx="652" cy="117" r="5.5" fill="#febc2e"/>
+    <circle cx="670" cy="117" r="5.5" fill="#28c840"/>
+    <!-- expand sidebar tabs button -->
+    <g transform="translate(696 107)">
+      <rect x="0" y="0" width="20" height="20" rx="5" fill="none" stroke="#9a8c7e" stroke-opacity="0.85" stroke-width="1.4"/>
+      <line x1="7.5" y1="1" x2="7.5" y2="19" stroke="#9a8c7e" stroke-opacity="0.85" stroke-width="1.4"/>
+    </g>
+    <!-- back / forward -->
+    <path d="M740 111l-6 6 6 6" fill="none" stroke="#9a8c7e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M760 111l6 6-6 6" fill="none" stroke="#4a4138" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- address bar -->
+    <rect x="788" y="105" width="412" height="24" rx="12" fill="#15110e" stroke="#ffffff" stroke-opacity="0.05"/>
+    <g transform="translate(804 110) scale(0.13)">
       <path fill="#f6efe7" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
       <rect x="66" y="66" width="24" height="24" fill="#e07a2f"/>
     </g>
-    <text x="732" y="117" fill="#e9ddcf" font-size="13" font-weight="500">Today</text>
-    <!-- inactive tabs -->
-    <text x="864" y="117" fill="#7d7064" font-size="12.5">Research</text>
-    <text x="948" y="117" fill="#7d7064" font-size="12.5">Inbox</text>
-    <path d="M1004 110h12M1010 104v12" stroke="#5e5347" stroke-width="1.4" stroke-linecap="round"/>
-
-    <!-- toolbar -->
-    <rect x="612" y="132" width="612" height="42" fill="#1d1714"/>
-    <!-- nav chevrons -->
-    <path d="M637 147l-6 6 6 6" fill="none" stroke="#9a8c7e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M655 147l6 6-6 6" fill="none" stroke="#4a4138" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <!-- address bar -->
-    <rect x="680" y="141" width="464" height="24" rx="12" fill="#15110e" stroke="#ffffff" stroke-opacity="0.05"/>
-    <!-- clean lock glyph -->
-    <g transform="translate(696 148)">
-      <rect x="0" y="4" width="9" height="7" rx="1.6" fill="#9a8c7e"/>
-      <path d="M1.6 4 V2.4 A2.9 2.9 0 0 1 7.4 2.4 V4" fill="none" stroke="#9a8c7e" stroke-width="1.3"/>
-    </g>
-    <text x="714" y="158" fill="#a89a8c" font-size="11.5">pane://home</text>
-    <!-- omnibox agent spark -->
-    <path d="M1124 147 L1126.4 152 L1131 153.5 L1126.4 155 L1124 160 L1121.6 155 L1117 153.5 L1121.6 152 Z" fill="url(#accent)" opacity="0.9"/>
-    <!-- Local badge -->
-    <rect x="1150" y="143" width="60" height="20" rx="10" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>
-    <circle cx="1164" cy="153" r="3" fill="#5fb872"/>
-    <text x="1173" y="157" fill="#b3a596" font-size="10.5">Local</text>
+    <text x="824" y="121" fill="#a89a8c" font-size="11.5">Pane Home</text>
 
     <!-- body divider -->
-    <line x1="960" y1="174" x2="960" y2="548" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
+    <line x1="960" y1="142" x2="960" y2="548" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
 
     <!-- MAIN: a new tab that knows your day -->
     <g>
-      <text x="628" y="206" fill="#f1e7da" font-size="20" font-weight="600" letter-spacing="-0.02em">Good morning, Abhishek</text>
-      <text x="628" y="228" fill="#8a7d70" font-size="13">Here is what matters today.</text>
+      <text x="628" y="186" fill="#f1e7da" font-size="20" font-weight="600" letter-spacing="-0.02em">Good morning, Abhishek</text>
+      <text x="628" y="208" fill="#8a7d70" font-size="13">Here is what matters today.</text>
 
-      <g transform="translate(628 246)">
+      <g transform="translate(628 228)">
         <rect width="316" height="62" rx="12" fill="#221b17" stroke="#ffffff" stroke-opacity="0.05"/>
         <rect x="0" y="0" width="3" height="62" rx="1.5" fill="url(#accent)"/>
         <text x="20" y="27" fill="#e9ddcf" font-size="13.5" font-weight="600">Standup in 18 min</text>
         <text x="20" y="46" fill="#8a7d70" font-size="12">Notes and open items from last week ready</text>
       </g>
-      <g transform="translate(628 316)">
+      <g transform="translate(628 298)">
         <rect width="316" height="62" rx="12" fill="#221b17" stroke="#ffffff" stroke-opacity="0.05"/>
         <rect x="0" y="0" width="3" height="62" rx="1.5" fill="#5fb872"/>
         <text x="20" y="27" fill="#e9ddcf" font-size="13.5" font-weight="600">3 pull requests waiting on you</text>
         <text x="20" y="46" fill="#8a7d70" font-size="12">Reviewed across two repos since Friday</text>
       </g>
-      <g transform="translate(628 386)">
+      <g transform="translate(628 368)">
         <rect width="316" height="62" rx="12" fill="#221b17" stroke="#ffffff" stroke-opacity="0.05"/>
         <rect x="0" y="0" width="3" height="62" rx="1.5" fill="#6f9fe0"/>
         <text x="20" y="27" fill="#e9ddcf" font-size="13.5" font-weight="600">Resume: pricing research</text>
         <text x="20" y="46" fill="#8a7d70" font-size="12">11 tabs threaded, sources kept and citable</text>
       </g>
-      <g transform="translate(628 456)">
+      <g transform="translate(628 438)">
         <rect width="316" height="54" rx="12" fill="#1d1714" stroke="#e07a2f" stroke-opacity="0.35"/>
         <circle cx="26" cy="27" r="9" fill="#e07a2f" fill-opacity="0.16"/>
         <path d="M21 27l3 3 6-6" fill="none" stroke="#f4a35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -155,23 +140,23 @@
 
     <!-- AGENT PANEL -->
     <g>
-      <rect x="960" y="174" width="264" height="374" fill="#161210"/>
-      <g transform="translate(976 188) scale(0.15)">
+      <rect x="960" y="142" width="264" height="406" fill="#161210"/>
+      <g transform="translate(976 166) scale(0.15)">
         <path fill="#f6efe7" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
         <rect x="66" y="66" width="24" height="24" fill="#e07a2f"/>
       </g>
-      <text x="998" y="200" fill="#cdbfb0" font-size="13" font-weight="600">Pane</text>
-      <circle cx="1196" cy="194" r="4" fill="#5fb872"/>
-      <text x="1108" y="200" fill="#6b5e51" font-size="11">on this tab</text>
+      <text x="998" y="178" fill="#cdbfb0" font-size="13" font-weight="600">Pane</text>
+      <circle cx="1196" cy="172" r="4" fill="#5fb872"/>
+      <text x="1108" y="178" fill="#6b5e51" font-size="11">on this tab</text>
 
       <!-- user bubble: right-aligned, padded from panel edge -->
-      <g transform="translate(1002 226)">
+      <g transform="translate(1002 204)">
         <rect x="0" y="0" width="198" height="48" rx="13" fill="url(#accent)" fill-opacity="0.92"/>
         <text x="18" y="20" fill="#2a1606" font-size="11.5">What did I decide in</text>
         <text x="18" y="36" fill="#2a1606" font-size="11.5">yesterday's vendor call?</text>
       </g>
       <!-- agent bubble: left-aligned -->
-      <g transform="translate(976 292)">
+      <g transform="translate(976 270)">
         <rect x="0" y="0" width="216" height="92" rx="13" fill="#241d18"/>
         <text x="16" y="22" fill="#c2b4a4" font-size="11.5">You picked the annual plan,</text>
         <text x="16" y="40" fill="#c2b4a4" font-size="11.5">flagged the SLA clause, and</text>
