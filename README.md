@@ -43,7 +43,7 @@ AI browsers like Atlas, Comet, and Dia put AI inside the browser — but they ar
 
 **Pane is trying to combine both.** Everything a Hermes-style agent does — but native to the browser, with better context, on your machine, open source.
 
-## What that makes possible
+### What that makes possible
 
 Because the agent lives inside the browser — not beside it — Pane can do things bolt-on tools structurally cannot:
 
