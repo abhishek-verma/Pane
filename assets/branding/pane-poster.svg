@@ -82,35 +82,41 @@
     <rect x="612" y="92" width="612" height="456" fill="#1b1613"/>
 
     <!-- tab strip -->
-    <rect x="612" y="92" width="612" height="42" fill="#231c18"/>
-    <circle cx="634" cy="113" r="6" fill="#e06c5e"/>
-    <circle cx="654" cy="113" r="6" fill="#e0b24e"/>
-    <circle cx="674" cy="113" r="6" fill="#5fb872"/>
-    <!-- active tab: Today -->
-    <path d="M704 100 Q704 92 712 92 L822 92 Q830 92 830 100 L830 134 L704 134 Z" fill="#1b1613"/>
-    <g transform="translate(716 108) scale(0.13)">
+    <rect x="612" y="92" width="612" height="40" fill="#241d18"/>
+    <circle cx="634" cy="112" r="5.5" fill="#ff5f57"/>
+    <circle cx="652" cy="112" r="5.5" fill="#febc2e"/>
+    <circle cx="670" cy="112" r="5.5" fill="#28c840"/>
+    <!-- active tab: Today (connects into toolbar) -->
+    <path d="M700 132 L700 106 Q700 98 708 98 L828 98 Q836 98 836 106 L836 132 Z" fill="#1d1714"/>
+    <g transform="translate(714 107) scale(0.125)">
       <path fill="#f6efe7" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
       <rect x="66" y="66" width="24" height="24" fill="#e07a2f"/>
     </g>
-    <text x="734" y="121" fill="#d9ccbd" font-size="12.5" font-weight="500">Today</text>
-    <!-- inactive tab: Research -->
-    <text x="852" y="121" fill="#7d7064" font-size="12.5">Research</text>
-    <!-- inactive tab: Inbox -->
-    <text x="930" y="121" fill="#7d7064" font-size="12.5">Inbox</text>
-    <!-- new tab + -->
-    <text x="990" y="122" fill="#5e5347" font-size="16">+</text>
+    <text x="732" y="117" fill="#e9ddcf" font-size="13" font-weight="500">Today</text>
+    <!-- inactive tabs -->
+    <text x="864" y="117" fill="#7d7064" font-size="12.5">Research</text>
+    <text x="948" y="117" fill="#7d7064" font-size="12.5">Inbox</text>
+    <path d="M1004 110h12M1010 104v12" stroke="#5e5347" stroke-width="1.4" stroke-linecap="round"/>
 
     <!-- toolbar -->
-    <rect x="612" y="134" width="612" height="40" fill="#1d1714"/>
+    <rect x="612" y="132" width="612" height="42" fill="#1d1714"/>
     <!-- nav chevrons -->
-    <path d="M632 154l-6 6 6 6" fill="none" stroke="#6b5e51" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M648 154l6 6-6 6" fill="none" stroke="#3c342c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M637 147l-6 6 6 6" fill="none" stroke="#9a8c7e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M655 147l6 6-6 6" fill="none" stroke="#4a4138" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
     <!-- address bar -->
-    <rect x="666" y="144" width="524" height="22" rx="11" fill="#161210" stroke="#ffffff" stroke-opacity="0.05"/>
-    <path d="M680 155a3 3 0 1 0 0 .01" fill="none" stroke="#5fb872" stroke-width="1.4"/>
-    <rect x="684" y="150" width="7" height="9" rx="1.5" fill="none" stroke="#5fb872" stroke-width="1.4"/>
-    <text x="700" y="159" fill="#a89a8c" font-size="11.5">pane://home</text>
-    <text x="1170" y="159" fill="#6b5e51" font-size="11.5">Local</text>
+    <rect x="680" y="141" width="464" height="24" rx="12" fill="#15110e" stroke="#ffffff" stroke-opacity="0.05"/>
+    <!-- clean lock glyph -->
+    <g transform="translate(696 148)">
+      <rect x="0" y="4" width="9" height="7" rx="1.6" fill="#9a8c7e"/>
+      <path d="M1.6 4 V2.4 A2.9 2.9 0 0 1 7.4 2.4 V4" fill="none" stroke="#9a8c7e" stroke-width="1.3"/>
+    </g>
+    <text x="714" y="158" fill="#a89a8c" font-size="11.5">pane://home</text>
+    <!-- omnibox agent spark -->
+    <path d="M1124 147 L1126.4 152 L1131 153.5 L1126.4 155 L1124 160 L1121.6 155 L1117 153.5 L1121.6 152 Z" fill="url(#accent)" opacity="0.9"/>
+    <!-- Local badge -->
+    <rect x="1150" y="143" width="60" height="20" rx="10" fill="#ffffff" fill-opacity="0.05" stroke="#ffffff" stroke-opacity="0.08"/>
+    <circle cx="1164" cy="153" r="3" fill="#5fb872"/>
+    <text x="1173" y="157" fill="#b3a596" font-size="10.5">Local</text>
 
     <!-- body divider -->
     <line x1="960" y1="174" x2="960" y2="548" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
