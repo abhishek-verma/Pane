@@ -1,4 +1,4 @@
-name: Release Pane CLI
+name: Release BrowserOS CLI
 
 on:
   push:
@@ -145,7 +145,7 @@ jobs:
           irm https://cdn.browseros.com/cli/install.ps1 | iex
           ```
 
-          After install, run `browseros-cli init` to point the CLI at your Pane MCP server.
+          After install, run `browseros-cli init` to point the CLI at your BrowserOS MCP server.
           EOF
         working-directory: ${{ github.workspace }}
 
@@ -159,13 +159,13 @@ jobs:
           CLI_DIST="packages/browseros-agent/apps/cli/dist"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" \
-              --title "Pane CLI - v${VERSION}" \
+              --title "BrowserOS CLI - v${VERSION}" \
               --notes-file /tmp/release-notes.md
             gh release upload "$TAG" ${CLI_DIST}/* --clobber
           else
             gh release create "$TAG" \
               --verify-tag \
-              --title "Pane CLI - v${VERSION}" \
+              --title "BrowserOS CLI - v${VERSION}" \
               --notes-file /tmp/release-notes.md \
               ${CLI_DIST}/*
           fi
