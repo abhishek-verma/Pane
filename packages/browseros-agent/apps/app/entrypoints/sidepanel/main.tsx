@@ -4,9 +4,14 @@ import '@/styles/global.css'
 import { ThemeProvider } from '@/components/theme-provider.tsx'
 import { Toaster } from '@/components/ui/sonner'
 import { AnalyticsProvider } from '@/lib/analytics/AnalyticsProvider'
+import { initPostHog } from '@/lib/analytics/posthog'
 import { QueryProvider } from '@/lib/graphql/QueryProvider'
+import { initSentry } from '@/lib/sentry/sentry'
 import { sentryRootErrorHandler } from '@/lib/sentry/sentryRootErrorHandler'
 import { App } from './App'
+
+initPostHog().catch(() => {})
+initSentry().catch(() => {})
 
 const $root = document.getElementById('root')
 
