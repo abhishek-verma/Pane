@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createBashTool } from '../../../src/tools/filesystem/bash'
 import type { FilesystemToolResult } from '../../../src/tools/filesystem/utils'
+import { defaultWorkspace } from '../../../src/tools/filesystem/workspace'
 
 let tmpDir: string
 let exec: (params: Record<string, unknown>) => Promise<FilesystemToolResult>
@@ -14,7 +15,7 @@ beforeEach(async () => {
     `fs-bash-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   )
   await mkdir(tmpDir, { recursive: true })
-  const tool = createBashTool(tmpDir)
+  const tool = createBashTool(defaultWorkspace(tmpDir))
   // biome-ignore lint/suspicious/noExplicitAny: test helper
   exec = (params) => (tool as any).execute(params)
 })
@@ -83,7 +84,7 @@ describe('filesystem_bash', () => {
 
   it('uses cwd as working directory', async () => {
     await mkdir(join(tmpDir, 'subdir'))
-    const subTool = createBashTool(join(tmpDir, 'subdir'))
+    const subTool = createBashTool(defaultWorkspace(join(tmpDir, 'subdir')))
     const subExec = (params: Record<string, unknown>) =>
       // biome-ignore lint/suspicious/noExplicitAny: test helper
       (subTool as any).execute(params)
@@ -96,5 +97,11 @@ describe('filesystem_bash', () => {
     const result = await exec({ command: 'echo $HOME' })
     expect(result.isError).toBeUndefined()
     expect(result.text.trim().length).toBeGreaterThan(0)
+  })
+
+  it('blocks commands denied by terminal policy', async () => {
+    const result = await exec({ command: 'sudo rm -rf /' })
+    expect(result.isError).toBe(true)
+    expect(result.text).toContain('Blocked by terminal policy')
   })
 })

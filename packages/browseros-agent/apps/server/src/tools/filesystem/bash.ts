@@ -7,6 +7,7 @@ import {
   toModelOutput,
   truncateTail,
 } from './utils'
+import { isDenied, type Workspace } from './workspace'
 
 const TOOL_NAME = 'filesystem_bash'
 
@@ -15,7 +16,8 @@ function getShellArgs(): [string, string] {
   return [process.env.SHELL || '/bin/sh', '-c']
 }
 
-export function createBashTool(cwd: string) {
+export function createBashTool(workspace: Workspace) {
+  const cwd = workspace.root
   return tool({
     description:
       'Execute a shell command and return its output. Commands run in a shell (sh/bash on Unix, cmd on Windows). Output is truncated to the last 2000 lines if too large.',
@@ -28,6 +30,14 @@ export function createBashTool(cwd: string) {
     }),
     execute: (params) =>
       executeWithMetrics(TOOL_NAME, async () => {
+        const denial = isDenied(params.command, workspace.terminalPolicy)
+        if (denial.denied) {
+          return {
+            text: `Blocked by terminal policy: ${denial.reason}`,
+            isError: true,
+          }
+        }
+
         const [shell, flag] = getShellArgs()
         const timeoutMs = (params.timeout || DEFAULT_BASH_TIMEOUT) * 1000
         const resolvedCwd = resolve(cwd)
