@@ -14,6 +14,8 @@ export interface Workspace {
   scope: 'read' | 'write'
   terminalPolicy: TerminalPolicy
   bucketId: string
+  /** App-side workspace folder id; used for terminal session storage. */
+  workspaceId?: string
 }
 
 /**

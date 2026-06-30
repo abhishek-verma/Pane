@@ -5,6 +5,7 @@ import { createFindTool } from './find'
 import { createGrepTool } from './grep'
 import { createLsTool } from './ls'
 import { createReadTool, type ReadToolOptions } from './read'
+import { createTerminalSessionsTool } from './terminal-sessions-tool'
 import type { Workspace } from './workspace'
 import { createWriteTool } from './write'
 
@@ -25,5 +26,6 @@ export function buildFilesystemToolSet(
     filesystem_grep: createGrepTool(root),
     filesystem_find: createFindTool(root),
     filesystem_ls: createLsTool(root),
+    terminal_sessions: createTerminalSessionsTool(workspace),
   }
 }

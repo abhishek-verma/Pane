@@ -118,6 +118,7 @@ export class ChatService {
       workspace: request.userWorkingDir
         ? defaultWorkspace(request.userWorkingDir, {
             bucketId: request.bucketId ?? 'default',
+            workspaceId: request.workspaceId,
           })
         : undefined,
       workingDir: request.userWorkingDir,
