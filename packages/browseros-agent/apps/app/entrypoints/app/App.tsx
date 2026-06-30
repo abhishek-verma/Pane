@@ -20,6 +20,7 @@ import { FeaturesPage } from '@/screens/onboarding/features/Features'
 import { Onboarding } from '@/screens/onboarding/index/Onboarding'
 import { StepsLayout } from '@/screens/onboarding/steps/StepsLayout'
 import { ScheduledTasksPage } from '@/screens/scheduled-tasks/ScheduledTasksPage'
+import { WorkspacesPage } from '@/screens/workspaces/WorkspacesPage'
 
 // Agent management moved into AI & Agents settings; conversations live under
 // /home/agents. Keep old /agents links alive.
@@ -69,6 +70,10 @@ export const App: FC = () => {
           </Route>
 
           <Route path="connect-apps" element={<ConnectMCP />} />
+          <Route path="workspaces">
+            <Route index element={<WorkspacesPage />} />
+            <Route path=":id" element={<WorkspacesPage />} />
+          </Route>
           <Route path="scheduled" element={<ScheduledTasksPage />} />
         </Route>
 

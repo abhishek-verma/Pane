@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import { SidebarBranding } from './SidebarBranding'
 import { SidebarNavigation } from './SidebarNavigation'
 import { SidebarUserFooter } from './SidebarUserFooter'
+import { WorkspaceSidebarSwitcher } from './WorkspaceSidebarSwitcher'
 
 export interface AppSidebarProps {
   expanded?: boolean
@@ -22,6 +23,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
     >
       <SidebarBranding expanded={expanded} />
       <SidebarNavigation expanded={expanded} />
+      <WorkspaceSidebarSwitcher expanded={expanded} />
       <SidebarUserFooter
         expanded={expanded}
         onOpenShortcuts={onOpenShortcuts}

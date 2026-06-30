@@ -26,6 +26,7 @@ import { createRefinePromptRoutes } from './refine-prompt'
 import { createScreencastRoute } from './screencast'
 import { createShutdownRoute } from './shutdown'
 import { createStatusRoute } from './status'
+import { createWorkspaceRoutes } from './workspace'
 
 interface CreateApiRoutesDeps {
   agentRoutes?: Hono<Env>
@@ -56,6 +57,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
       .route('/shutdown', createShutdownRoute({ onShutdown: deps.onShutdown }))
       .route('/status', createStatusRoute({ browser }))
       .route('/action-log', createActionLogRoutes())
+      .route('/workspace', createWorkspaceRoutes())
       .route(
         '/test-provider',
         createProviderRoutes({ browserosId, resourcesDir }),

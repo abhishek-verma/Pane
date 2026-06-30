@@ -1,6 +1,6 @@
 # Phase 2 Report — Trust & Workspaces
 
-Status: **partial** — core server trust gate and workspace model landed; app UI partially complete. M2.5–M2.6 not started. Ship gate not met.
+Status: **partial** — M2.1–M2.5 and M2.6 landed; M2.4 Promote polish and full ship-gate verification remain.
 
 ## Module status
 
@@ -10,8 +10,8 @@ Status: **partial** — core server trust gate and workspace model landed; app U
 | M2.2 Trust gate | **done** | Single gate in `@browseros/shared/trust/consequence-class` + `apps/server/src/agent/trust/gate.ts`; applied at loop, filesystem MCP, browser MCP |
 | M2.3 Action log | **done** | SQLite `action_log`, gate writes, `GET /action-log`, settings screen `#/settings/action-log` |
 | M2.4 Approval UI + pins | **partial** | `ApprovalCard`, `addToolApprovalResponse` for write-local; dry-run preview + Promote sends follow-up message (not `__promoted` re-call yet); trust pins in Settings → Customize |
-| M2.5 Terminal sessions | **not started** | |
-| M2.6 Multi-workspace UI + file browser | **not started** | `WorkspaceFolder` extended with optional `scope`/`bucketId`; chat sends `workspaceId`/`bucketId` |
+| M2.5 Terminal sessions | **done** | `sessions.ts`, `sessionId` on `filesystem_bash`, `terminal_sessions` list tool, `onTerminalSession` hook |
+| M2.6 Multi-workspace UI + file browser | **done** | `#/workspaces`, sidebar switcher, `GET /workspace/files` + `GET /workspace/file`, TanStack Query file browser |
 | M2.7 Trust invariants | **partial** | `tests/agent/trust-invariants.test.ts` covers deriveClass, decideGate, pins, blast radius — not full fuzz suite |
 
 ## `deriveClass` table (shipped)
@@ -42,10 +42,10 @@ Escalation uses `ctx.browserContext.activeTab.url` and path heuristics only — 
 ## Tests run
 
 ```text
-bun run check                          # green (lint + typecheck + fallow warnings only)
-cd apps/server && bun run test:tools:filesystem  # 153 pass
+bun run check                          # green
+cd apps/server && bun run test:tools:filesystem  # includes sessions.test.ts
 cd apps/server && bun test tests/agent/trust-invariants.test.ts  # 13 pass
-cd apps/server && bun run test:agent   # 314+ pass (includes trust-invariants)
+cd apps/server && bun test tests/tools/filesystem/sessions.test.ts  # 5 pass
 ```
 
 Pre-existing failures: `tests/api/routes/index.test.ts` (`ChatService is not defined` in test helper) — unrelated to Phase 2.
@@ -57,21 +57,21 @@ Pre-existing failures: `tests/api/routes/index.test.ts` (`ChatService is not def
 3. Consequence classes + dry-run — **yes** (M2.2)
 4. Blast-radius cap + pins — **yes** server; pins UI in app
 5. Action log SQLite + settings — **yes** (M2.3)
-6. Approval UI — **partial** (M2.4)
-7. Multi-workspace switcher + file browser — **no** (M2.6)
-8. Full test green — **no** (API test helper broken; M2.7 incomplete)
+6. Approval UI — **partial** (M2.4 Promote)
+7. Multi-workspace switcher + file browser — **yes** (M2.6)
+8. Full test green — **no** (API test helper broken; M2.7 incomplete; no manual E2E)
 
 ## Deviations / follow-ups
 
 1. **Promote path:** Dry-run Promote in UI sends a user message instead of re-invoking the tool with `__promoted: true`. MCP clients use `__promoted` in args as specified.
 2. **MCP gate context:** Default empty pins per MCP request; no `trustPins` header yet.
-3. **M2.5/M2.6:** Deferred — terminal session reuse and workspace/file-browser screens not implemented.
-4. **Commits:** Changes are uncommitted in the working tree (dirty repo had pre-existing modifications).
+3. **M2.4 Promote:** Dry-run Promote in UI sends a user message instead of re-invoking the tool with `__promoted: true`.
+4. **Commits:** M2.1–M2.4 on `main`; M2.5/M2.6 in follow-up commits.
 
 ## BLOCKERS
 
-None for continuing M2.5/M2.6 — clear next steps:
+None for human review / ship-gate sign-off — remaining:
 
-- M2.5: `apps/server/src/tools/filesystem/sessions.ts` + `sessionId` on `filesystem_bash`
-- M2.6: `entrypoints/app/workspaces/Workspaces.tsx`, file list via `/action-log` or new `GET /workspace/files` route
-- M2.4 polish: wire Promote to `__promoted` via `prepareSendMessagesRequest` side-channel or tool-output replay
+- M2.4 polish: wire Promote to `__promoted` via tool replay or request side-channel
+- Manual E2E: boot `pane`, approval → promote, workspace switch, action log
+- Fix pre-existing `tests/api/routes/index.test.ts` helper
