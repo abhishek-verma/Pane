@@ -8,6 +8,8 @@ export interface WorkspaceFolder {
   name: string
   path: string
   addedAt: number
+  scope?: 'read' | 'write'
+  bucketId?: string
 }
 
 export const workspaceFoldersStorage = storage.defineItem<WorkspaceFolder[]>(

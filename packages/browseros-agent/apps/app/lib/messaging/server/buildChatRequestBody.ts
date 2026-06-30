@@ -33,6 +33,9 @@ export interface ChatRequestBodyParams {
   browserContext?: ChatRequestBrowserContext
   userSystemPrompt?: string
   userWorkingDir?: string
+  workspaceId?: string
+  bucketId?: string
+  trustPins?: Record<string, { pinned: boolean; expiresAt?: number }>
   supportsImages?: boolean
   previousConversation?: ChatHistoryEntry[] | string
   declinedApps?: string[]
@@ -52,6 +55,9 @@ export const buildChatRequestBody = ({
   browserContext,
   userSystemPrompt,
   userWorkingDir,
+  workspaceId,
+  bucketId,
+  trustPins,
   supportsImages,
   previousConversation,
   declinedApps,
@@ -88,6 +94,9 @@ export const buildChatRequestBody = ({
   browserContext,
   userSystemPrompt,
   userWorkingDir,
+  workspaceId,
+  bucketId,
+  trustPins,
   supportsImages: supportsImages ?? provider.supportsImages,
   previousConversation,
   declinedApps: declinedApps?.length ? declinedApps : undefined,

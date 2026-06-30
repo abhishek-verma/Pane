@@ -14,6 +14,7 @@ import {
   TaskItem,
   TaskTrigger,
 } from '@/components/ai-elements/task'
+import { ApprovalCard } from './ApprovalCard'
 import type {
   ToolInvocationInfo,
   ToolInvocationState,
@@ -24,6 +25,9 @@ export interface ToolBatchProps {
   isLastBatch: boolean
   isLastMessage: boolean
   isStreaming: boolean
+  onApprove?: (approvalId: string) => void
+  onDeny?: (approvalId: string) => void
+  onPromote?: (tool: ToolInvocationInfo) => void
 }
 
 export const ToolBatch: FC<ToolBatchProps> = ({
@@ -31,6 +35,9 @@ export const ToolBatch: FC<ToolBatchProps> = ({
   isLastBatch,
   isLastMessage,
   isStreaming,
+  onApprove,
+  onDeny,
+  onPromote,
 }) => {
   const shouldBeOpen = isLastMessage && isLastBatch && isStreaming
   const [isOpen, setIsOpen] = useState(shouldBeOpen)
@@ -64,6 +71,12 @@ export const ToolBatch: FC<ToolBatchProps> = ({
               <ToolStatusIcon state={tool.state} />
               <span className="flex-1">{formatToolName(tool.toolName)}</span>
             </TaskItem>
+            <ApprovalCard
+              tool={tool}
+              onApprove={onApprove}
+              onDeny={onDeny}
+              onPromote={onPromote}
+            />
           </div>
         ))}
       </TaskContent>

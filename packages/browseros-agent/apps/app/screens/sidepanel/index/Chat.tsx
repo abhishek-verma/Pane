@@ -47,6 +47,9 @@ export const Chat = () => {
     disliked,
     onClickDislike,
     isRestoringConversation,
+    approveTool,
+    denyTool,
+    promoteTool,
   } = useChatSessionContext()
 
   const voice = useVoiceInput()
@@ -199,6 +202,9 @@ export const Chat = () => {
             onClickLike={onClickLike}
             disliked={disliked}
             onClickDislike={onClickDislike}
+            onApprove={approveTool}
+            onDeny={denyTool}
+            onPromote={promoteTool}
           />
         )}
         {agentUrlError && (

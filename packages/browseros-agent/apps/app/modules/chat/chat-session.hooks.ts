@@ -31,6 +31,7 @@ import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
+import { trustPinsStorage } from '@/lib/trust/trust-pins-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { useInvalidateCredits } from '@/modules/credits/credits.hooks'
@@ -262,6 +263,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const modeRef = useRef<ChatMode>(mode)
   const textToActionRef = useRef<Map<string, ChatAction>>(textToAction)
   const workingDirRef = useRef<string | undefined>(undefined)
+  const workspaceIdRef = useRef<string | undefined>(undefined)
+  const bucketIdRef = useRef<string | undefined>(undefined)
+  const trustPinsRef = useRef<
+    Record<string, { pinned: boolean; expiresAt?: number }>
+  >({})
   const selectionMapRef = useRef<
     Record<string, { text: string; url: string; title: string }>
   >({})
@@ -293,12 +299,25 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   useEffect(() => {
     selectedWorkspaceStorage.getValue().then((folder) => {
       workingDirRef.current = folder?.path
+      workspaceIdRef.current = folder?.id
+      bucketIdRef.current = folder?.bucketId
+    })
+    trustPinsStorage.getValue().then((pins) => {
+      trustPinsRef.current = pins ?? {}
     })
 
     const unwatch = selectedWorkspaceStorage.watch((folder) => {
       workingDirRef.current = folder?.path
+      workspaceIdRef.current = folder?.id
+      bucketIdRef.current = folder?.bucketId
     })
-    return () => unwatch()
+    const unwatchPins = trustPinsStorage.watch((pins) => {
+      trustPinsRef.current = pins ?? {}
+    })
+    return () => {
+      unwatch()
+      unwatchPins()
+    }
   }, [])
 
   useDeepCompareEffect(() => {
@@ -317,6 +336,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     status,
     stop,
     error: chatError,
+    addToolApprovalResponse,
   } = useChat({
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
@@ -376,6 +396,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           browserContext: requestBrowserContext,
           userSystemPrompt,
           userWorkingDir: workingDirRef.current,
+          workspaceId: workspaceIdRef.current,
+          bucketId: bucketIdRef.current ?? 'default',
+          trustPins: trustPinsRef.current,
           previousConversation,
           declinedApps,
         }
@@ -768,6 +791,29 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     resetConversationState()
   }
 
+  const approveTool = useCallback(
+    (approvalId: string) => {
+      addToolApprovalResponse?.({ id: approvalId, approved: true })
+    },
+    [addToolApprovalResponse],
+  )
+
+  const denyTool = useCallback(
+    (approvalId: string) => {
+      addToolApprovalResponse?.({ id: approvalId, approved: false })
+    },
+    [addToolApprovalResponse],
+  )
+
+  const promoteTool = useCallback(
+    (tool: { toolName: string; input: Record<string, unknown> }) => {
+      baseSendMessage({
+        text: `Execute the pending ${tool.toolName} action with promotion.`,
+      })
+    },
+    [baseSendMessage],
+  )
+
   const isRestoringConversation =
     !!conversationIdParam && restoredConversationId !== conversationIdParam
 
@@ -795,5 +841,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     onClickDislike,
     conversationId,
     vmStatus,
+    addToolApprovalResponse,
+    approveTool,
+    denyTool,
+    promoteTool,
   }
 }

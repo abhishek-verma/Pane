@@ -20,6 +20,7 @@ import {
   NEWTAB_VOICE_TRANSCRIPTION_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import { VOICE_SUPPORTED } from '@/lib/voice/voice-supported'
 import { useChatActions } from '@/modules/chat-actions/chat-actions.hooks'
 import { ChatEmptyState } from '@/screens/sidepanel/index/ChatEmptyState'
 import { ChatError } from '@/screens/sidepanel/index/ChatError'
@@ -64,6 +65,9 @@ export const NewTabChat: FC = () => {
     removeTab,
     handleSubmit,
     handleSuggestionClick,
+    approveTool,
+    denyTool,
+    promoteTool,
   } = useChatActions({
     events: {
       modeChanged: NEWTAB_CHAT_MODE_CHANGED_EVENT,
@@ -130,10 +134,11 @@ export const NewTabChat: FC = () => {
 
   // Honour the `?voice=open` deep link from the home composer's voice-mode
   // entry button: open the voice loop once after mount and strip the param
-  // so a refresh doesn't reopen it.
+  // so a refresh doesn't reopen it. No-op in pane builds (voice unsupported).
   // biome-ignore lint/correctness/useExhaustiveDependencies: must only run once on mount
   useEffect(() => {
     if (hasOpenedVoiceRef.current) return
+    if (!VOICE_SUPPORTED) return
     if (searchParams.get('voice') !== 'open') return
     hasOpenedVoiceRef.current = true
     const next = new URLSearchParams(searchParams)
@@ -196,6 +201,9 @@ export const NewTabChat: FC = () => {
             onClickLike={onClickLike}
             disliked={disliked}
             onClickDislike={onClickDislike}
+            onApprove={approveTool}
+            onDeny={denyTool}
+            onPromote={promoteTool}
           />
         )}
         {agentUrlError && (
@@ -224,7 +232,7 @@ export const NewTabChat: FC = () => {
           onRemoveTab={removeTab}
           voice={voiceState}
           voiceLoop={voiceLoop}
-          onOpenVoiceMode={voiceLoop.open}
+          onOpenVoiceMode={VOICE_SUPPORTED ? voiceLoop.open : undefined}
         />
       </div>
     </div>

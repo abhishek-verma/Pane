@@ -8,6 +8,7 @@ import {
   Palette,
   RotateCcw,
   Server,
+  Shield,
 } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink } from 'react-router'
@@ -77,6 +78,7 @@ const primarySettingsSections: NavSection[] = [
         icon: Palette,
       },
       { name: 'Pane as MCP', to: '/settings/mcp', icon: Server },
+      { name: 'Action log', to: '/settings/action-log', icon: Shield },
       {
         name: 'Usage & Billing',
         to: '/settings/usage',

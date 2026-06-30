@@ -3,6 +3,7 @@ import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router'
 import { SettingsSidebarLayout } from '@/components/layout/SettingsSidebarLayout'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { RouteDocumentTitle } from '@/lib/document-title/RouteDocumentTitle'
+import { ActionLogPage } from '@/screens/action-log/ActionLogPage'
 import { AgentCommandConversation } from '@/screens/agent-command/AgentCommandConversation'
 import { AgentCommandHome } from '@/screens/agent-command/AgentCommandHome'
 import { AgentCommandLayout } from '@/screens/agent-command/AgentCommandLayout'
@@ -78,6 +79,7 @@ export const App: FC = () => {
             <Route path="chat" element={<LlmHubPage />} />
             <Route path="mcp" element={<MCPSettingsPage />} />
             <Route path="customization" element={<CustomizationPage />} />
+            <Route path="action-log" element={<ActionLogPage />} />
             <Route
               path="search"
               element={<Navigate to="/settings/ai" replace />}
