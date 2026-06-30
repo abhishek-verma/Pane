@@ -13,6 +13,7 @@ import type { Env, HttpServerConfig } from '../types'
 import { defaultCorsConfig } from '../utils/cors'
 import { requireTrustedAppOrigin } from '../utils/request-auth'
 import { createAcpxProbeRoutes } from './acpx-probe'
+import { createActionLogRoutes } from './action-log'
 import { createAgentRoutes } from './agents'
 import { createChatRoutes } from './chat'
 import { createHealthRoute } from './health'
@@ -54,6 +55,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
       .route('/health', createHealthRoute({ browser }))
       .route('/shutdown', createShutdownRoute({ onShutdown: deps.onShutdown }))
       .route('/status', createStatusRoute({ browser }))
+      .route('/action-log', createActionLogRoutes())
       .route(
         '/test-provider',
         createProviderRoutes({ browserosId, resourcesDir }),
