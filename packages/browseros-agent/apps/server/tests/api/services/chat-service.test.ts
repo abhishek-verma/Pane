@@ -1,5 +1,4 @@
 import { describe, expect, it, mock } from 'bun:test'
-import type { KlavisProxyStatus } from '../../../src/api/services/klavis'
 
 interface MockMessage {
   id: string
@@ -71,22 +70,11 @@ mock.module('../../../src/lib/logger', () => ({
     info: mock(() => {}),
     warn: mock(() => {}),
     debug: mock(() => {}),
+    error: mock(() => {}),
   },
 }))
 
 const { ChatService } = await import('../../../src/api/services/chat-service')
-
-function createKlavisStub(
-  getStatus: () => KlavisProxyStatus = () => ({
-    state: 'stopped',
-  }),
-) {
-  return {
-    getProxyStatus: getStatus,
-    buildAiSdkToolSet: mock(() => ({})),
-    registerMcpTools: mock(() => {}),
-  }
-}
 
 function createSessionStore() {
   const sessions = new Map<string, StoredSession>()
@@ -100,6 +88,7 @@ function createSessionStore() {
     remove(conversationId: string) {
       return sessions.delete(conversationId)
     },
+    async persistMessages() {},
     async delete(conversationId: string) {
       const session = sessions.get(conversationId)
       if (!session) return false
@@ -110,6 +99,29 @@ function createSessionStore() {
     count() {
       return sessions.size
     },
+  }
+}
+
+function createChatServiceDeps(
+  overrides: {
+    sessionStore?: ReturnType<typeof createSessionStore>
+    browser?: Record<string, unknown>
+    browserSession?: Record<string, unknown>
+    serverPort?: number
+  } = {},
+) {
+  return {
+    sessionStore: (overrides.sessionStore ?? createSessionStore()) as never,
+    browser: (overrides.browser ?? {
+      newPage: mock(async () => 0),
+      listPages: mock(async () => []),
+      closePage: mock(async () => {}),
+      createWindow: mock(async () => ({ windowId: 0 })),
+      closeWindow: mock(async () => {}),
+      resolveTabIds: mock(async () => new Map<number, number>()),
+    }) as never,
+    browserSession: (overrides.browserSession ?? {}) as never,
+    serverPort: overrides.serverPort ?? 9100,
   }
 }
 
@@ -156,12 +168,9 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
       resolveTabIds: mock(async () => new Map<number, number>()),
     }
     const sessionStore = createSessionStore()
-    const service = new ChatService({
-      sessionStore: sessionStore as never,
-      klavis: createKlavisStub() as never,
-      browser: browser as never,
-      registry: {} as never,
-    })
+    const service = new ChatService(
+      createChatServiceDeps({ sessionStore, browser }),
+    )
 
     await service.processMessage(
       {
@@ -229,12 +238,9 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
       hiddenPageId: 33,
     })
 
-    const service = new ChatService({
-      sessionStore: sessionStore as never,
-      klavis: createKlavisStub() as never,
-      browser: browser as never,
-      registry: {} as never,
-    })
+    const service = new ChatService(
+      createChatServiceDeps({ sessionStore, browser }),
+    )
 
     const result = await service.deleteSession(conversationId)
 
@@ -260,12 +266,9 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
       resolveTabIds: mock(async () => new Map<number, number>()),
     }
     const sessionStore = createSessionStore()
-    const service = new ChatService({
-      sessionStore: sessionStore as never,
-      klavis: createKlavisStub() as never,
-      browser: browser as never,
-      registry: {} as never,
-    })
+    const service = new ChatService(
+      createChatServiceDeps({ sessionStore, browser }),
+    )
 
     await service.processMessage(
       {
@@ -317,7 +320,6 @@ describe('ChatService browser tool config', () => {
       return new Response('ok')
     }
 
-    let klavisStatus: KlavisProxyStatus = { state: 'connecting' }
     const browser = {
       resolveTabIds: mock(
         async (tabIds: number[]) =>
@@ -325,12 +327,12 @@ describe('ChatService browser tool config', () => {
       ),
       closePage: mock(async () => {}),
     }
-    const service = new ChatService({
-      sessionStore: createSessionStore() as never,
-      klavis: createKlavisStub(() => klavisStatus) as never,
-      browser: browser as never,
-      browserSession: { pages: {} } as never,
-    })
+    const service = new ChatService(
+      createChatServiceDeps({
+        browser,
+        browserSession: { pages: {} },
+      }),
+    )
     const createCallsBefore = createAgentSpy.mock.calls.length
     const request = {
       conversationId: crypto.randomUUID(),
@@ -351,10 +353,16 @@ describe('ChatService browser tool config', () => {
     await service.processMessage(request, new AbortController().signal)
 
     agentToReturn = secondAgent
-    klavisStatus = { state: 'ready', toolCount: 0 }
 
     await service.processMessage(
-      { ...request, message: 'check integrations again' },
+      {
+        ...request,
+        message: 'check integrations again',
+        browserContext: {
+          ...request.browserContext,
+          enabledMcpServers: ['slack', 'github'],
+        },
+      },
       new AbortController().signal,
     )
 
@@ -365,151 +373,6 @@ describe('ChatService browser tool config', () => {
     }
   })
 })
-
-describe('ChatService Klavis session rebuilds', () => {
-  it('rebuilds a managed-app session when Klavis becomes ready', async () => {
-    const firstAgent = createFakeAgent()
-    const secondAgent = createFakeAgent()
-    agentToReturn = firstAgent
-    let lastPromptUiMessages: MockMessage[] | undefined
-    streamResponseHandler = async ({ onFinish, uiMessages }) => {
-      lastPromptUiMessages = uiMessages
-      await onFinish({ messages: uiMessages ?? [] })
-      return new Response('ok')
-    }
-
-    let klavisStatus: KlavisProxyStatus = { state: 'connecting' }
-    const browser = {
-      resolveTabIds: mock(
-        async (tabIds: number[]) =>
-          new Map(tabIds.map((tabId) => [tabId, tabId + 100])),
-      ),
-      closePage: mock(async () => {}),
-    }
-    const sessionStore = createSessionStore()
-    const service = new ChatService({
-      sessionStore: sessionStore as never,
-      klavis: createKlavisStub(() => klavisStatus) as never,
-      browser: browser as never,
-      registry: {} as never,
-    })
-    const createCallsBefore = createAgentSpy.mock.calls.length
-    const conversationId = crypto.randomUUID()
-    const request = {
-      conversationId,
-      message: 'check integrations',
-      isScheduledTask: false,
-      mode: 'agent',
-      origin: 'sidepanel',
-      browserContext: {
-        activeTab: {
-          id: 3,
-          url: 'https://example.com',
-          title: 'Example',
-        },
-        enabledMcpServers: ['slack'],
-      },
-    } as never
-
-    await service.processMessage(request, new AbortController().signal)
-
-    agentToReturn = secondAgent
-    klavisStatus = { state: 'ready', toolCount: 0 }
-
-    await service.processMessage(
-      { ...request, message: 'check integrations again' },
-      new AbortController().signal,
-    )
-
-    expect(createAgentSpy.mock.calls.length - createCallsBefore).toBe(2)
-    expect(firstAgent.dispose).toHaveBeenCalledTimes(1)
-    const firstCreateConfig = createAgentSpy.mock.calls[
-      createCallsBefore
-    ]?.[0] as { outputFileAccess?: unknown } | undefined
-    const secondCreateConfig = createAgentSpy.mock.calls[
-      createCallsBefore + 1
-    ]?.[0] as { outputFileAccess?: unknown } | undefined
-    expect(firstCreateConfig?.outputFileAccess).toBeDefined()
-    expect(secondCreateConfig?.outputFileAccess).toBe(
-      firstCreateConfig?.outputFileAccess,
-    )
-
-    // Persisted form stays the raw user text — TKT-774. The Klavis
-    // context-change notice and the formatted user envelope go only
-    // into the transient prompt copy fed to the LLM.
-    expect(secondAgent.messages).toHaveLength(2)
-    const persistedRebuiltMessage =
-      secondAgent.messages[1]?.parts[0]?.text ?? ''
-    expect(persistedRebuiltMessage).toBe('check integrations again')
-
-    // Prompt copy (what the agent loop actually saw) carries the
-    // context-change prefix so the model knows about the new tools.
-    const promptRebuiltMessage =
-      lastPromptUiMessages?.at(-1)?.parts[0]?.text ?? ''
-    expect(promptRebuiltMessage).toContain(
-      'Klavis app integration tools are now available for the following connected apps: slack.',
-    )
-    expect(promptRebuiltMessage).not.toContain('klavis:connecting')
-    expect(promptRebuiltMessage).not.toContain('klavis:ready')
-  })
-
-  it('does not rebuild a session with no enabled managed apps when Klavis connects', async () => {
-    const firstAgent = createFakeAgent()
-    const secondAgent = createFakeAgent()
-    agentToReturn = firstAgent
-    streamResponseHandler = async ({ onFinish, uiMessages }) => {
-      await onFinish({ messages: uiMessages ?? [] })
-      return new Response('ok')
-    }
-
-    let klavisStatus: KlavisProxyStatus = { state: 'connecting' }
-    const browser = {
-      resolveTabIds: mock(
-        async (tabIds: number[]) =>
-          new Map(tabIds.map((tabId) => [tabId, tabId + 200])),
-      ),
-      closePage: mock(async () => {}),
-    }
-    const sessionStore = createSessionStore()
-    const service = new ChatService({
-      sessionStore: sessionStore as never,
-      klavis: createKlavisStub(() => klavisStatus) as never,
-      browser: browser as never,
-      registry: {} as never,
-    })
-    const createCallsBefore = createAgentSpy.mock.calls.length
-    const conversationId = crypto.randomUUID()
-    const request = {
-      conversationId,
-      message: 'check browser only',
-      isScheduledTask: false,
-      mode: 'agent',
-      origin: 'sidepanel',
-      browserContext: {
-        activeTab: {
-          id: 5,
-          url: 'https://example.com',
-          title: 'Example',
-        },
-      },
-    } as never
-
-    await service.processMessage(request, new AbortController().signal)
-
-    agentToReturn = secondAgent
-    klavisStatus = { state: 'ready', toolCount: 0 }
-
-    await service.processMessage(
-      { ...request, message: 'check browser only again' },
-      new AbortController().signal,
-    )
-
-    expect(createAgentSpy.mock.calls.length - createCallsBefore).toBe(1)
-    expect(firstAgent.dispose).not.toHaveBeenCalled()
-    expect(firstAgent.messages).toHaveLength(2)
-  })
-})
-
 describe('ChatService ACP provider chat history handling', () => {
   // ACP-backed providers (claude-code, codex, acp-custom) run against
   // a persistent acpx session that owns the agent's conversation
@@ -547,7 +410,6 @@ describe('ChatService ACP provider chat history handling', () => {
     }
     return {
       browser,
-      klavis: createKlavisStub(),
       sessionStore: createSessionStore(),
     }
   }
@@ -577,12 +439,7 @@ describe('ChatService ACP provider chat history handling', () => {
       return new Response('ok')
     }
     const deps = baseDeps()
-    const service = new ChatService({
-      sessionStore: deps.sessionStore as never,
-      klavis: deps.klavis as never,
-      browser: deps.browser as never,
-      registry: {} as never,
-    })
+    const service = new ChatService(createChatServiceDeps(deps))
 
     await service.processMessage(
       chatRequest({
@@ -632,12 +489,7 @@ describe('ChatService ACP provider chat history handling', () => {
       return new Response('ok')
     }
     const deps = baseDeps()
-    const service = new ChatService({
-      sessionStore: deps.sessionStore as never,
-      klavis: deps.klavis as never,
-      browser: deps.browser as never,
-      registry: {} as never,
-    })
+    const service = new ChatService(createChatServiceDeps(deps))
 
     await service.processMessage(chatRequest(), new AbortController().signal)
 
@@ -683,12 +535,7 @@ describe('ChatService ACP provider chat history handling', () => {
       return new Response('ok')
     }
     const deps = baseDeps()
-    const service = new ChatService({
-      sessionStore: deps.sessionStore as never,
-      klavis: deps.klavis as never,
-      browser: deps.browser as never,
-      registry: {} as never,
-    })
+    const service = new ChatService(createChatServiceDeps(deps))
 
     await service.processMessage(
       chatRequest({ message: 'what about gaming' }),
@@ -731,12 +578,7 @@ describe('ChatService ACP provider chat history handling', () => {
       return new Response('ok')
     }
     const deps = baseDeps()
-    const service = new ChatService({
-      sessionStore: deps.sessionStore as never,
-      klavis: deps.klavis as never,
-      browser: deps.browser as never,
-      registry: {} as never,
-    })
+    const service = new ChatService(createChatServiceDeps(deps))
 
     await service.processMessage(
       chatRequest({ message: 'now read foo.md' }),

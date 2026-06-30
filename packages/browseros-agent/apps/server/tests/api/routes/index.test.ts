@@ -5,7 +5,6 @@
 
 import { describe, expect, it, mock } from 'bun:test'
 import { Hono } from 'hono'
-import { KlavisService } from '../../../src/api/services/klavis'
 import type { Env } from '../../../src/api/types'
 import { TurnRegistry } from '../../../src/lib/agents/turns/active-turn-registry'
 
@@ -39,8 +38,6 @@ function createTestApp(agentRoutes = new Hono<Env>()) {
   return createApiRoutes({
     agentRoutes,
     config: createTestConfig(),
-    klavis: new KlavisService({ browserosId: null }),
-    remoteHermes: null,
     tokenManager: null,
     turnRegistry: new TurnRegistry(),
     onShutdown: () => {},

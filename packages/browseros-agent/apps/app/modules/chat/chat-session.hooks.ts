@@ -31,11 +31,17 @@ import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
+import {
+  formatReplayOutputForTool,
+  patchToolInvocationOutput,
+} from '@/lib/trust/patch-tool-output'
+import { replayToolOnServer } from '@/lib/trust/replay-tool'
 import { trustPinsStorage } from '@/lib/trust/trust-pins-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { useInvalidateCredits } from '@/modules/credits/credits.hooks'
 import { useGraphqlQuery } from '@/modules/graphql/graphql-query.hooks'
+import type { ToolInvocationInfo } from '@/screens/sidepanel/index/getMessageSegments'
 import { useChatRefs } from './chat-refs.hooks'
 import { GetConversationWithMessagesDocument } from './chat-session-document'
 import {
@@ -791,11 +797,76 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     resetConversationState()
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: MCP server refs are stable containers read at call time
+  const executeToolReplay = useCallback(
+    async (
+      tool: ToolInvocationInfo,
+      args: Record<string, unknown>,
+      options?: { dismissApprovalId?: string },
+    ) => {
+      const baseUrl = agentUrlRef.current
+      if (!baseUrl) {
+        throw new Error('Agent server URL not configured.')
+      }
+
+      const activeTabsList = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      })
+      const activeTab = activeTabsList?.[0]
+      const browserContext = buildRequestBrowserContext({
+        activeTab,
+        action: undefined,
+        enabledMcpServers: enabledMcpServersRef.current,
+        customMcpServers: enabledCustomServersRef.current,
+      })
+
+      const result = await replayToolOnServer(baseUrl, {
+        toolName: tool.toolName,
+        args,
+        conversationId: conversationIdRef.current,
+        userWorkingDir: workingDirRef.current,
+        workspaceId: workspaceIdRef.current,
+        bucketId: bucketIdRef.current ?? 'default',
+        trustPins: trustPinsRef.current,
+        browserContext,
+      })
+
+      const formatted = formatReplayOutputForTool(tool, result.output)
+      setMessages((current) =>
+        patchToolInvocationOutput(
+          current,
+          tool.toolCallId,
+          formatted,
+          result.isError,
+        ),
+      )
+
+      if (options?.dismissApprovalId) {
+        addToolApprovalResponse?.({
+          id: options.dismissApprovalId,
+          approved: false,
+        })
+      }
+    },
+    [addToolApprovalResponse, setMessages],
+  )
+
   const approveTool = useCallback(
-    (approvalId: string) => {
+    async (
+      approvalId: string,
+      tool: ToolInvocationInfo,
+      args: Record<string, unknown>,
+    ) => {
+      const argsChanged =
+        JSON.stringify(args) !== JSON.stringify(tool.input ?? {})
+      if (argsChanged) {
+        await executeToolReplay(tool, args, { dismissApprovalId: approvalId })
+        return
+      }
       addToolApprovalResponse?.({ id: approvalId, approved: true })
     },
-    [addToolApprovalResponse],
+    [addToolApprovalResponse, executeToolReplay],
   )
 
   const denyTool = useCallback(
@@ -806,12 +877,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   )
 
   const promoteTool = useCallback(
-    (tool: { toolName: string; input: Record<string, unknown> }) => {
-      baseSendMessage({
-        text: `Execute the pending ${tool.toolName} action with promotion.`,
-      })
+    async (tool: ToolInvocationInfo, args: Record<string, unknown>) => {
+      await executeToolReplay(tool, args)
     },
-    [baseSendMessage],
+    [executeToolReplay],
   )
 
   const isRestoringConversation =

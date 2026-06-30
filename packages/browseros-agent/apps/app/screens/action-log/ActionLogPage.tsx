@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ActionLogReplayButton } from './ActionLogReplayButton'
 import { useActionLog } from './useActionLog'
 
 const CONSEQUENCE_CLASSES = [
@@ -102,6 +103,7 @@ export const ActionLogPage: FC = () => {
                 {entry.argsJson}
               </pre>
             </details>
+            <ActionLogReplayButton entry={entry} />
           </li>
         ))}
       </ul>

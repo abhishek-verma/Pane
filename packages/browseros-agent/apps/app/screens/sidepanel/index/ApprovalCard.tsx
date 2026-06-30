@@ -1,5 +1,7 @@
 import type { FC } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import type { ToolInvocationInfo } from './getMessageSegments'
 
 function extractOutputText(output: unknown): string {
@@ -38,11 +40,30 @@ export function isDryRunPreview(tool: ToolInvocationInfo): boolean {
   )
 }
 
+function parseEditedArgs(raw: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null
+    }
+    return parsed as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
 export interface ApprovalCardProps {
   tool: ToolInvocationInfo
-  onApprove?: (approvalId: string) => void
+  onApprove?: (
+    approvalId: string,
+    tool: ToolInvocationInfo,
+    args: Record<string, unknown>,
+  ) => void
   onDeny?: (approvalId: string) => void
-  onPromote?: (tool: ToolInvocationInfo) => void
+  onPromote?: (
+    tool: ToolInvocationInfo,
+    args: Record<string, unknown>,
+  ) => void | Promise<void>
 }
 
 export const ApprovalCard: FC<ApprovalCardProps> = ({
@@ -54,8 +75,41 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   const preview = extractOutputText(tool.output)
   const waitingApproval = tool.state === 'approval-requested'
   const dryRun = tool.state === 'output-available' && isDryRunPreview(tool)
+  const [editing, setEditing] = useState(false)
+  const [argsText, setArgsText] = useState('')
+  const [argsError, setArgsError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setArgsText(JSON.stringify(tool.input ?? {}, null, 2))
+    setArgsError(null)
+  }, [tool.input])
 
   if (!waitingApproval && !dryRun) return null
+
+  const resolveArgs = (): Record<string, unknown> | null => {
+    if (!editing) return tool.input
+    const parsed = parseEditedArgs(argsText)
+    if (!parsed) {
+      setArgsError('Args must be valid JSON object')
+      return null
+    }
+    setArgsError(null)
+    return parsed
+  }
+
+  const handleApprove = () => {
+    const id = tool.approval?.id
+    if (!id) return
+    const args = resolveArgs()
+    if (!args) return
+    onApprove?.(id, tool, args)
+  }
+
+  const handlePromote = () => {
+    const args = resolveArgs()
+    if (!args) return
+    void onPromote?.(tool, args)
+  }
 
   return (
     <div className="mt-2 rounded-md border border-yellow-500/30 bg-yellow-500/5 p-3 text-sm">
@@ -64,16 +118,36 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
           {preview}
         </pre>
       )}
+      <div className="mb-3 space-y-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2 text-xs"
+          onClick={() => setEditing((value) => !value)}
+        >
+          {editing ? 'Hide args' : 'Edit args'}
+        </Button>
+        {editing && (
+          <>
+            <Textarea
+              value={argsText}
+              onChange={(event) => {
+                setArgsText(event.target.value)
+                setArgsError(null)
+              }}
+              className="min-h-28 font-mono text-xs"
+              spellCheck={false}
+            />
+            {argsError && (
+              <p className="text-destructive text-xs">{argsError}</p>
+            )}
+          </>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">
         {waitingApproval && tool.approval?.id && (
           <>
-            <Button
-              size="sm"
-              onClick={() => {
-                const id = tool.approval?.id
-                if (id) onApprove?.(id)
-              }}
-            >
+            <Button size="sm" onClick={handleApprove}>
               Approve
             </Button>
             <Button
@@ -90,7 +164,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
         )}
         {dryRun && (
           <>
-            <Button size="sm" onClick={() => onPromote?.(tool)}>
+            <Button size="sm" onClick={handlePromote}>
               Promote
             </Button>
             <Button

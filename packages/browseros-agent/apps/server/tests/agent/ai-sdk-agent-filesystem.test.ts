@@ -32,6 +32,7 @@ describe('buildAgentFilesystemToolSet', () => {
       'filesystem_ls',
       'filesystem_read',
       'filesystem_write',
+      'terminal_sessions',
     ])
   })
 

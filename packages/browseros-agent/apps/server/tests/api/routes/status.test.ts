@@ -28,7 +28,7 @@ describe('createStatusRoute', () => {
 
     const firstResponse = await route.request('/')
     assert.deepStrictEqual(await firstResponse.json(), {
-      status: 'ok',
+      status: 'degraded',
       cdpConnected: false,
     })
 

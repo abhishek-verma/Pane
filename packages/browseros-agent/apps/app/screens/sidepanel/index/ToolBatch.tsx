@@ -25,9 +25,16 @@ export interface ToolBatchProps {
   isLastBatch: boolean
   isLastMessage: boolean
   isStreaming: boolean
-  onApprove?: (approvalId: string) => void
+  onApprove?: (
+    approvalId: string,
+    tool: ToolInvocationInfo,
+    args: Record<string, unknown>,
+  ) => void
   onDeny?: (approvalId: string) => void
-  onPromote?: (tool: ToolInvocationInfo) => void
+  onPromote?: (
+    tool: ToolInvocationInfo,
+    args: Record<string, unknown>,
+  ) => void | Promise<void>
 }
 
 export const ToolBatch: FC<ToolBatchProps> = ({

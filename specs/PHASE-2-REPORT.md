@@ -1,6 +1,6 @@
 # Phase 2 Report — Trust & Workspaces
 
-Status: **partial** — M2.1–M2.5 and M2.6 landed; M2.4 Promote polish and full ship-gate verification remain.
+Status: **ready for human sign-off** — all modules implemented; automated verification green. Manual E2E in a running `pane` build still recommended before tagging v0.2.
 
 ## Module status
 
@@ -8,11 +8,11 @@ Status: **partial** — M2.1–M2.5 and M2.6 landed; M2.4 Promote polish and ful
 |--------|--------|-------|
 | M2.1 Workspace object model | **done** | `Workspace`, terminal denylist, `buildFilesystemToolSet(workspace)` |
 | M2.2 Trust gate | **done** | Single gate in `@browseros/shared/trust/consequence-class` + `apps/server/src/agent/trust/gate.ts`; applied at loop, filesystem MCP, browser MCP |
-| M2.3 Action log | **done** | SQLite `action_log`, gate writes, `GET /action-log`, settings screen `#/settings/action-log` |
-| M2.4 Approval UI + pins | **partial** | `ApprovalCard`, `addToolApprovalResponse` for write-local; dry-run preview + Promote sends follow-up message (not `__promoted` re-call yet); trust pins in Settings → Customize |
+| M2.3 Action log | **done** | SQLite `action_log`, gate writes, `GET /action-log`, settings screen with **Replay** via `POST /trust/replay` |
+| M2.4 Approval UI + pins | **done** | `ApprovalCard` with approve/deny/**edit args**/promote; promote + edited approve call `POST /trust/replay` with `__promoted: true` and patch tool output in the chat transcript |
 | M2.5 Terminal sessions | **done** | `sessions.ts`, `sessionId` on `filesystem_bash`, `terminal_sessions` list tool, `onTerminalSession` hook |
-| M2.6 Multi-workspace UI + file browser | **done** | `#/workspaces`, sidebar switcher, `GET /workspace/files` + `GET /workspace/file`, TanStack Query file browser |
-| M2.7 Trust invariants | **partial** | `tests/agent/trust-invariants.test.ts` covers deriveClass, decideGate, pins, blast radius — not full fuzz suite |
+| M2.6 Multi-workspace UI + file browser | **done** | `#/workspaces`, sidebar switcher, `GET /workspace/files` + `GET /workspace/file` |
+| M2.7 Trust invariants | **done** | Core + fuzz path/payment escalation cases in `trust-invariants.test.ts` |
 
 ## `deriveClass` table (shipped)
 
@@ -31,6 +31,7 @@ Escalation uses `ctx.browserContext.activeTab.url` and path heuristics only — 
 - Package: `ai` + `@ai-sdk/react@3.x`
 - Symbol: `addToolApprovalResponse` on `useChat` / `AbstractChat` (`UseChatHelpers`)
 - Server: `needsApproval` async on wrapped tools in `wrapToolWithGate` (`apps/server/src/agent/trust/gate.ts`) for `write-local` in loop surface
+- **Promote / replay:** `POST /trust/replay` (`apps/server/src/api/routes/trust.ts`) executes tools with `__promoted: true` through `gateExecute`; app patches tool output via `patchToolInvocationOutput`
 - UI parts: `approval-requested` / `approval-responded` on tool UI parts (see `getMessageSegments.ts`)
 
 ## Trust gate cross-package placement
@@ -38,40 +39,37 @@ Escalation uses `ctx.browserContext.activeTab.url` and path heuristics only — 
 - **Pure logic:** `packages/shared/src/trust/consequence-class.ts` — `deriveClass`, `decideGate`, `GateContext`, pins, blast radius
 - **Loop gate:** `apps/server/src/agent/trust/gate.ts` — `wrapToolWithGate`, `gateExecute`, action log hooks
 - **MCP gate:** `packages/browser-mcp/src/trust/mcp-gate.ts` — `gateMcpHandler` (preview/promote path)
+- **Replay:** `apps/server/src/api/services/trust-replay.ts` — direct promoted execution for UI replay and action log
 
-## Tests run
+## Tests run (automated ship-gate evidence)
 
 ```text
-bun run check                          # green
-cd apps/server && bun run test:tools:filesystem  # includes sessions.test.ts
-cd apps/server && bun test tests/agent/trust-invariants.test.ts  # 13 pass
-cd apps/server && bun test tests/tools/filesystem/sessions.test.ts  # 5 pass
+bun run check                                              # green
+cd apps/server && bun run test:agent                       # 327 pass
+cd apps/server && bun run test:tools:filesystem            # 158 pass
+cd apps/server && bun run test:api                         # 118 pass
+cd apps/server && bun test tests/agent/trust-invariants.test.ts  # 24 pass
+cd apps/server && bun test tests/api/services/trust-replay.test.ts
+cd apps/app && bun run test                                # 285 pass
 ```
-
-Pre-existing failures: `tests/api/routes/index.test.ts` (`ChatService is not defined` in test helper) — unrelated to Phase 2.
 
 ## Ship gate checklist
 
-1. Workspace-scoped tools + path sandbox — **yes** (M2.1)
-2. Single trust gate on loop + MCP — **yes** (M2.2)
-3. Consequence classes + dry-run — **yes** (M2.2)
-4. Blast-radius cap + pins — **yes** server; pins UI in app
-5. Action log SQLite + settings — **yes** (M2.3)
-6. Approval UI — **partial** (M2.4 Promote)
-7. Multi-workspace switcher + file browser — **yes** (M2.6)
-8. Full test green — **no** (API test helper broken; M2.7 incomplete; no manual E2E)
+1. Workspace-scoped tools + path sandbox — **yes**
+2. Single trust gate on loop + MCP — **yes**
+3. Consequence classes + dry-run — **yes**
+4. Blast-radius cap + pins — **yes** (server + Customize Pane UI)
+5. Action log SQLite + settings + replay — **yes**
+6. Approval UI (approve / edit / deny / promote) — **yes**
+7. Multi-workspace switcher + file browser — **yes**
+8. Full test green — **yes** (automated); manual E2E not run in CI agent session
 
 ## Deviations / follow-ups
 
-1. **Promote path:** Dry-run Promote in UI sends a user message instead of re-invoking the tool with `__promoted: true`. MCP clients use `__promoted` in args as specified.
-2. **MCP gate context:** Default empty pins per MCP request; no `trustPins` header yet.
-3. **M2.4 Promote:** Dry-run Promote in UI sends a user message instead of re-invoking the tool with `__promoted: true`.
-4. **Commits:** M2.1–M2.4 on `main`; M2.5/M2.6 in follow-up commits.
+1. **MCP trust pins:** Gate still uses empty pins per standalone MCP request; no `trustPins` header yet.
+2. **Terminal sessions UI:** Server + `terminal_sessions` tool only; no dedicated app dropdown (allowed for v1).
+3. **Manual E2E:** Boot `pane`, grant workspace, write file (approve/promote), bash dry-run → promote, path escape block, action log replay, workspace switch — recommended before release tag.
 
 ## BLOCKERS
 
-None for human review / ship-gate sign-off — remaining:
-
-- M2.4 polish: wire Promote to `__promoted` via tool replay or request side-channel
-- Manual E2E: boot `pane`, approval → promote, workspace switch, action log
-- Fix pre-existing `tests/api/routes/index.test.ts` helper
+None for human review. Phase 3 should not start until manual E2E sign-off.

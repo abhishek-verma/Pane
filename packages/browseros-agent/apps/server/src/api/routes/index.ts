@@ -26,6 +26,7 @@ import { createRefinePromptRoutes } from './refine-prompt'
 import { createScreencastRoute } from './screencast'
 import { createShutdownRoute } from './shutdown'
 import { createStatusRoute } from './status'
+import { createTrustRoutes } from './trust'
 import { createWorkspaceRoutes } from './workspace'
 
 interface CreateApiRoutesDeps {
@@ -58,6 +59,14 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
       .route('/status', createStatusRoute({ browser }))
       .route('/action-log', createActionLogRoutes())
       .route('/workspace', createWorkspaceRoutes())
+      .route(
+        '/trust',
+        createTrustRoutes({
+          browser,
+          browserSession,
+          browserosId,
+        }),
+      )
       .route(
         '/test-provider',
         createProviderRoutes({ browserosId, resourcesDir }),

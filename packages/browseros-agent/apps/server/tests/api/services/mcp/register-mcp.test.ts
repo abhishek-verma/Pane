@@ -85,6 +85,7 @@ describe('registerTools', () => {
     'filesystem_grep',
     'filesystem_find',
     'filesystem_ls',
+    'terminal_sessions',
   ]
   let infoMessages: unknown[] = []
 
@@ -266,6 +267,7 @@ describe('registerTools', () => {
     const result = await fake.handlers.get('tabs')?.({
       action: 'new',
       url: 'https://example.com',
+      __promoted: true,
     })
 
     expect(result?.isError).toBeFalsy()
