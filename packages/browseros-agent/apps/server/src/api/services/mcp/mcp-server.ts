@@ -6,6 +6,7 @@
 
 import type { BrowserSession } from '@browseros/browser-core/core/session'
 import { createBrowserMcpServer } from '@browseros/browser-mcp/mcp-server'
+import { createDefaultMcpGateContext } from '@browseros/browser-mcp/trust/mcp-gate'
 import { logger } from '../../../lib/logger'
 import { metrics } from '../../../lib/metrics'
 import { registerFilesystemMcpTools } from '../../../tools/filesystem/register-mcp'
@@ -38,12 +39,19 @@ export function createMcpServer(deps: McpServiceDeps) {
       onToolExecuted: (event) => metrics.log('tool_executed', event),
       shouldLogToolRegistration,
       source: 'mcp',
+      gateContext: createDefaultMcpGateContext({
+        workspaceRoot: deps.executionDir,
+      }),
     },
   })
 
   if (deps.remoteAgentHarness) {
+    const gateContext = createDefaultMcpGateContext({
+      workspaceRoot: deps.executionDir,
+    })
     registerFilesystemMcpTools(server, deps.executionDir, {
       outputFileAccess: deps.remoteAgentHarness.outputFileAccess,
+      gateContext,
     })
   }
 

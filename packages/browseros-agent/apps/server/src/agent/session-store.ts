@@ -1,5 +1,6 @@
 import type { BrowserOutputFileAccess } from '@browseros/browser-mcp/output-file'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
+import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import { logger } from '../lib/logger'
 import type { AiSdkAgent } from './ai-sdk-agent'
 
@@ -14,6 +15,8 @@ export interface AgentSession {
   workingDir?: string
   /** Browser-generated output paths returned during this conversation. */
   outputFileAccess?: BrowserOutputFileAccess
+  /** Mutable per-run trust gate state; shared with wrapped tools. */
+  gateContext?: GateContext
 }
 
 import type { UIMessage } from 'ai'

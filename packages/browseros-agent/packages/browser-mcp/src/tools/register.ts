@@ -1,6 +1,8 @@
 import type { BrowserSession } from '@browseros/browser-core/core/session'
+import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ZodRawShape } from 'zod'
+import { gateMcpHandler } from '../trust/mcp-gate'
 import { executeTool } from './framework'
 import {
   type BrowserOutputFileAccess,
@@ -37,6 +39,7 @@ export interface BrowserToolRegistrationOptions {
   shouldLogToolRegistration?: () => boolean
   logger?: { info(message: string): void }
   source?: string
+  gateContext?: GateContext
 }
 
 export interface BrowserToolExecutionEvent extends Record<string, unknown> {
@@ -70,42 +73,51 @@ export function registerBrowserTools(
       async (args, extra) => {
         const startTime = performance.now()
         const duration = () => Math.round(performance.now() - startTime)
-        try {
-          const result = await withBrowserOutputFileAccess(
-            options.outputFileAccess,
-            () =>
-              executeTool(tool, args, {
-                session,
-                ...defaults,
-                signal: extra?.signal,
-              }),
-          )
-          options.onToolExecuted?.({
-            tool_name: tool.name,
-            duration_ms: duration(),
-            success: !result.isError,
-            source: options.source ?? 'mcp',
-          })
-          return {
-            content: result.content,
-            isError: result.isError,
-            structuredContent: result.structuredContent,
-          }
-        } catch (error) {
-          const errorText =
-            error instanceof Error ? error.message : String(error)
-          options.onToolExecuted?.({
-            tool_name: tool.name,
-            duration_ms: duration(),
-            success: false,
-            error_message: errorText,
-            source: options.source ?? 'mcp',
-          })
-          return {
-            content: [{ type: 'text' as const, text: errorText }],
-            isError: true,
+
+        const runTool = async (cleanArgs: Record<string, unknown>) => {
+          try {
+            const result = await withBrowserOutputFileAccess(
+              options.outputFileAccess,
+              () =>
+                executeTool(tool, cleanArgs, {
+                  session,
+                  ...defaults,
+                  signal: extra?.signal,
+                }),
+            )
+            options.onToolExecuted?.({
+              tool_name: tool.name,
+              duration_ms: duration(),
+              success: !result.isError,
+              source: options.source ?? 'mcp',
+            })
+            return {
+              content: result.content,
+              isError: result.isError,
+              structuredContent: result.structuredContent,
+            }
+          } catch (error) {
+            const errorText =
+              error instanceof Error ? error.message : String(error)
+            options.onToolExecuted?.({
+              tool_name: tool.name,
+              duration_ms: duration(),
+              success: false,
+              error_message: errorText,
+              source: options.source ?? 'mcp',
+            })
+            return {
+              content: [{ type: 'text' as const, text: errorText }],
+              isError: true,
+            }
           }
         }
+
+        if (options.gateContext) {
+          return gateMcpHandler(tool.name, args, options.gateContext, runTool)
+        }
+
+        return runTool(args)
       },
     )
   }
