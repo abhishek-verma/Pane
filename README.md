@@ -101,7 +101,7 @@ BrowserOS gave us a Chromium fork, an agent runtime, MCP tools, and a developer 
 
 ## Try it
 
-1. **Download** — [macOS](https://files.browseros.com/download/BrowserOS.dmg) · [Windows](https://files.browseros.com/download/BrowserOS_installer.exe) · [Linux](https://files.browseros.com/download/BrowserOS.AppImage) · [Debian](https://cdn.browseros.com/download/BrowserOS.deb) *(installers still use BrowserOS artifact names until Pane infra lands)*
+1. **Download** — TBA
 2. **Import from Chrome** (optional) — bookmarks, passwords, extensions carry over
 3. **Connect a model** — your API key, ChatGPT Pro / Copilot / Qwen via OAuth, or a local model ([setup guide](docs/features/bring-your-own-llm.mdx))
 4. **Open the assistant** — toolbar button on any page, or the new-tab home
