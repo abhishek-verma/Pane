@@ -93,19 +93,9 @@ That is the wedge: prove the agent-in-the-browser thesis works, then layer on me
 
 ## Why Pane is not BrowserOS
 
-Pane is a fork of [BrowserOS](https://github.com/browseros-ai/BrowserOS), and BrowserOS is a genuinely good project — if you want their vision, you should use it.
+Pane is a fork of [BrowserOS](https://github.com/browseros-ai/BrowserOS), and BrowserOS is a genuinely good project — and I would recommend trying out BrowserOS as well. 
 
-We forked because we wanted a different product trajectory:
-
-
-|                       | BrowserOS                                                       | Pane                                                                    |
-| --------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Product shape**     | AI-native browser with cloud sync, credits, and hosted services | Personal agent that *is* the browser — no Pane servers                  |
-| **Memory & skills**   | Pulled back in v0.46; rebuilding                                | Core bet: local memory + auto-written skills from your real work        |
-| **Capture & context** | Not the focus                                                   | Meeting notes, browsing learnings, context buckets — native to the fork |
-| **Trust model**       | Implicit                                                        | Explicit: approvals, dry-run, action log                                |
-| **Business model**    | Hosted inference path                                           | BYOK / OAuth / local only; open source first                            |
-
+We forked because we wanted a different product trajectory: Personal agent that *is* the browser, not the other way around.
 
 BrowserOS gave us a Chromium fork, an agent runtime, MCP tools, and a developer wedge. Pane takes that substrate and aims at something more personal: **a browser that becomes yours over time**.
 
