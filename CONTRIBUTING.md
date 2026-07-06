@@ -229,7 +229,7 @@ You don't need to write code to help out! Here are other ways:
 
 ### 🐛 Report Bugs
 
-Found a bug? [Open an issue](https://github.com/browseros-ai/BrowserOS/issues/new) with:
+Found a bug? [Open an issue](https://github.com/abhishek-verma/Pane/issues) with:
 - Clear description
 - Steps to reproduce
 - Expected vs actual behavior
@@ -238,7 +238,7 @@ Found a bug? [Open an issue](https://github.com/browseros-ai/BrowserOS/issues/ne
 
 ### 💡 Suggest Features
 
-Have an idea? [Share it here](https://github.com/browseros-ai/BrowserOS/issues/99) or chat with us on [Discord](https://discord.gg/YKwjt5vuKr).
+Have an idea? [Share it here](https://github.com/abhishek-verma/Pane/issues/) or chat with us on Discord(TBA).
 
 ### 📚 Improve Documentation
 
@@ -262,9 +262,8 @@ Have an idea? [Share it here](https://github.com/browseros-ai/BrowserOS/issues/9
 
 Stuck? Need clarification? We're here to help.
 
-- **[Discord](https://discord.gg/YKwjt5vuKr)** - Real-time chat and support
-- **[GitHub Issues](https://github.com/browseros-ai/BrowserOS/issues)** - Bug reports and features
-- **[GitHub Discussions](https://github.com/browseros-ai/BrowserOS/discussions)** - General questions
+- **Discord** - TBA
+- **[GitHub Issues](https://github.com/abhishek-verma/Pane/issues)** - Bug reports and features
 
 ## Recognition
 
@@ -278,6 +277,6 @@ By contributing, you agree that your contributions will be licensed under AGPL-3
 
 ---
 
-Built with ❤️ from San Francisco
+Built with ❤️ from India
 
-Questions? Hit us up on [Discord](https://discord.gg/YKwjt5vuKr) or [Twitter](https://twitter.com/browseros_ai).
+Questions? Hit us up on Discord(TBA) or [Twitter](https://x.com/vrma_abhi).
