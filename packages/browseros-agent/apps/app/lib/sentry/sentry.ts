@@ -17,46 +17,51 @@ function getExtensionPage(): string {
   }
 }
 
-if (env.VITE_PUBLIC_SENTRY_DSN) {
-  Sentry.init({
-    dsn: env.VITE_PUBLIC_SENTRY_DSN,
-    // Setting this option to true will send default PII data to Sentry.
-    // For example, automatic IP address collection on events
-    sendDefaultPii: true,
-    environment: env.PROD ? 'production' : 'development',
-    release: chrome.runtime.getManifest().version,
+import { telemetryStorage } from '../analytics/telemetryStorage'
 
-    beforeSend(event) {
-      const message = event.exception?.values?.[0]?.value ?? ''
-      if (SUPPRESSED_ERRORS.some((s) => message.includes(s))) {
-        return null
-      }
+export const initSentry = async () => {
+  const isOptedIn =
+    env.PANE_BUILD !== 'true' || (await telemetryStorage.getValue())
 
-      event.tags = {
-        ...event.tags,
-        extensionPage: getExtensionPage(),
-      }
+  if (isOptedIn && env.VITE_PUBLIC_SENTRY_DSN) {
+    Sentry.init({
+      dsn: env.VITE_PUBLIC_SENTRY_DSN,
+      // Setting this option to true will send default PII data to Sentry.
+      // For example, automatic IP address collection on events
+      sendDefaultPii: true,
+      environment: env.PROD ? 'production' : 'development',
+      release: chrome.runtime.getManifest().version,
 
-      return sanitizeEvent(event)
-    },
+      beforeSend(event) {
+        const message = event.exception?.values?.[0]?.value ?? ''
+        if (SUPPRESSED_ERRORS.some((s) => message.includes(s))) {
+          return null
+        }
 
-    integrations: [
-      Sentry.breadcrumbsIntegration({
-        console: true,
-        dom: true,
-        fetch: true,
-        xhr: true,
-      }),
-    ],
-  })
+        event.tags = {
+          ...event.tags,
+          extensionPage: getExtensionPage(),
+        }
 
-  ;(async () => {
+        return sanitizeEvent(event)
+      },
+
+      integrations: [
+        Sentry.breadcrumbsIntegration({
+          console: true,
+          dom: true,
+          fetch: true,
+          xhr: true,
+        }),
+      ],
+    })
+
     const adapter = getBrowserOSAdapter()
     const chromiumVersion = await adapter.getVersion()
     const browserOSVersion = await adapter.getBrowserosVersion()
     Sentry.setTag('chromiumVersion', chromiumVersion)
     Sentry.setTag('browserOSVersion', browserOSVersion)
-  })()
+  }
 }
 
 /**

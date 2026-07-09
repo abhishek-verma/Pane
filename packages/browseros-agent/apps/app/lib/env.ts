@@ -15,6 +15,7 @@ const EnvSchema = z.object({
     .optional()
     .transform(parseBrowserOSApiUrl),
   PROD: z.boolean().optional().default(false),
+  PANE_BUILD: z.string().optional(),
 })
 
 try {

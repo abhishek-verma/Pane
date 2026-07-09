@@ -9,6 +9,7 @@ import {
   Loader2,
   Mic,
   Paperclip,
+  PlugZap,
   Square,
   X,
 } from 'lucide-react'
@@ -24,18 +25,14 @@ import {
 import { PaneWordmark } from '@/components/branding/PaneWordmark'
 import { ChatProviderSelector } from '@/components/chat/ChatProviderSelector'
 import type { Provider } from '@/components/chat/chatComponentTypes'
-import { AppSelector } from '@/components/elements/AppSelector'
 import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
-import { McpServerIcon } from '@/components/mcp/McpServerIcon'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { type StagedAttachment, stageAttachments } from '@/lib/attachments'
 import { PaneIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
-import { useMcpServers } from '@/lib/mcp/mcpServerStorage'
 import { cn } from '@/lib/utils'
-import { useGetUserMCPIntegrations } from '@/modules/mcp/user-integrations.hooks'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
 import { useWorkspace } from '@/modules/workspace/workspace.hooks'
 
@@ -223,15 +220,6 @@ function CalmContextControls({
   attachmentsEnabled: boolean
 }) {
   const { selectedFolder } = useWorkspace()
-  const { servers: mcpServers } = useMcpServers()
-  const { data: userMCPIntegrations } = useGetUserMCPIntegrations()
-
-  const connectedManagedServers = mcpServers.filter((server) => {
-    if (server.type !== 'managed' || !server.managedServerName) return false
-    return userMCPIntegrations?.integrations?.find(
-      (integration) => integration.name === server.managedServerName,
-    )?.is_authenticated
-  })
 
   return (
     <div className="mx-3 flex items-center gap-1 border-border/60 border-t border-dashed py-2">
@@ -321,29 +309,19 @@ function CalmContextControls({
         <Paperclip className="size-3" />
         <span>Attach</span>
       </button>
-      <AppSelector side="bottom">
-        <button
-          type="button"
-          className="inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-        >
-          {connectedManagedServers.length > 0 ? (
-            <span className="flex items-center -space-x-1.5">
-              {connectedManagedServers.slice(0, 4).map((server) => (
-                <span key={server.id} className="rounded-full ring-2 ring-card">
-                  <McpServerIcon
-                    serverName={server.managedServerName ?? ''}
-                    size={12}
-                  />
-                </span>
-              ))}
-            </span>
-          ) : (
-            <FileText className="size-3" />
-          )}
-          <span>Apps</span>
-          <ChevronDown className="size-3" />
-        </button>
-      </AppSelector>
+      <button
+        type="button"
+        onClick={() =>
+          window.open(
+            chrome.runtime.getURL('/app.html#/settings/mcp'),
+            '_blank',
+          )
+        }
+        className="inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <PlugZap className="size-3" />
+        <span>Apps</span>
+      </button>
       <div className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground/70">
         <kbd className="inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-accent/30 px-1 font-mono text-[10px] text-muted-foreground">
           ↵

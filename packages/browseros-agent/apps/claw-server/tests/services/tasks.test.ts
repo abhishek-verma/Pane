@@ -67,7 +67,9 @@ describe('listTasks', () => {
 
     const r = listTasks({})
     expect(r.tasks).toHaveLength(2)
-    const a = r.tasks.find((t) => t.sessionId === 'cc-a')!
+    const a = r.tasks.find((t) => t.sessionId === 'cc-a')
+    expect(a).toBeDefined()
+    if (!a) throw new Error('Missing task a')
     expect(a.dispatchCount).toBe(3)
     expect(a.toolSequence).toEqual(['tabs', 'snapshot', 'read'])
     expect(a.title).toBe('Browsed news.example.com')
@@ -79,25 +81,25 @@ describe('listTasks', () => {
     dispatch('cc-x', 'tabs', { url: 'https://e.com' })
     dispatch('cc-x', 'act', { isError: true })
     const r = listTasks({})
-    expect(r.tasks[0]!.status).toBe('failed')
-    expect(r.tasks[0]!.errorCount).toBe(1)
+    expect(r.tasks[0]?.status).toBe('failed')
+    expect(r.tasks[0]?.errorCount).toBe(1)
   })
 
   it('derives status: done when an end row is present', () => {
     dispatch('cc-y', 'tabs', { url: 'https://e.com' })
     recordSessionEnd({ sessionId: 'cc-y', kind: 'closed' })
-    expect(listTasks({}).tasks[0]!.status).toBe('done')
+    expect(listTasks({}).tasks[0]?.status).toBe('done')
   })
 
   it('derives status: failed when end row kind=errored', () => {
     dispatch('cc-z', 'tabs', { url: 'https://e.com' })
     recordSessionEnd({ sessionId: 'cc-z', kind: 'errored', reason: 'oops' })
-    expect(listTasks({}).tasks[0]!.status).toBe('failed')
+    expect(listTasks({}).tasks[0]?.status).toBe('failed')
   })
 
   it('derives status: live when no end row and recent dispatch', () => {
     dispatch('cc-live', 'tabs', { url: 'https://e.com' })
-    expect(listTasks({}).tasks[0]!.status).toBe('live')
+    expect(listTasks({}).tasks[0]?.status).toBe('live')
   })
 
   it('applies agentId filter at the SQL layer', () => {
@@ -105,7 +107,7 @@ describe('listTasks', () => {
     dispatch('cur-1', 'tabs', { url: 'https://e.com' })
     const r = listTasks({ agentId: 'claude-code' })
     expect(r.tasks).toHaveLength(1)
-    expect(r.tasks[0]!.sessionId).toBe('cc-1')
+    expect(r.tasks[0]?.sessionId).toBe('cc-1')
   })
 
   it('applies status filter in JS', () => {
@@ -115,7 +117,7 @@ describe('listTasks', () => {
     dispatch('cc-bad', 'act', { isError: true })
     const r = listTasks({ status: 'done' })
     expect(r.tasks).toHaveLength(1)
-    expect(r.tasks[0]!.sessionId).toBe('cc-ok')
+    expect(r.tasks[0]?.sessionId).toBe('cc-ok')
   })
 
   it('paginates via cursor', () => {
@@ -125,7 +127,8 @@ describe('listTasks', () => {
     const page1 = listTasks({ limit: 3 })
     expect(page1.tasks).toHaveLength(3)
     expect(page1.nextCursor).not.toBeNull()
-    const page2 = listTasks({ limit: 3, cursor: page1.nextCursor! })
+    if (!page1.nextCursor) throw new Error('Missing cursor')
+    const page2 = listTasks({ limit: 3, cursor: page1.nextCursor })
     expect(page2.tasks).toHaveLength(3)
     expect(page2.nextCursor).toBeNull()
     const all = new Set([
@@ -152,9 +155,13 @@ describe('getTask', () => {
     const id2 = dispatch('cc-screens', 'screenshot')
     recordSessionEnd({ sessionId: 'cc-screens', kind: 'closed' })
 
-    const detail = getTask('cc-screens')!
+    const detail = getTask('cc-screens')
+    expect(detail).toBeDefined()
+    if (!detail) throw new Error('Missing detail')
     expect(detail.dispatches).toHaveLength(4)
-    expect(detail.screenshotDispatchIds).toEqual([id1!, id2!])
+    expect(id1).toBeDefined()
+    expect(id2).toBeDefined()
+    expect(detail.screenshotDispatchIds).toEqual([id1 as number, id2 as number])
     expect(detail.startEvent?.clientName).toBe('claude-code')
     expect(detail.endEvent?.kind).toBe('closed')
     expect(detail.status).toBe('done')
@@ -164,8 +171,10 @@ describe('getTask', () => {
     dispatch('cc-err', 'tabs', { url: 'https://e.com' })
     const ok = dispatch('cc-err', 'screenshot')
     dispatch('cc-err', 'screenshot', { isError: true })
-    const detail = getTask('cc-err')!
-    expect(detail.screenshotDispatchIds).toEqual([ok!])
+    const detail = getTask('cc-err')
+    expect(detail).toBeDefined()
+    expect(ok).toBeDefined()
+    expect(detail?.screenshotDispatchIds).toEqual([ok])
   })
 })
 
@@ -184,8 +193,11 @@ describe('listTasks / getTask consistency on double end rows', () => {
     })
     recordSessionEnd({ sessionId: 'cc-doubled', kind: 'closed' })
 
-    const list = listTasks({}).tasks[0]!
-    const detail = getTask('cc-doubled')!
+    const list = listTasks({}).tasks[0]
+    expect(list).toBeDefined()
+    if (!list) throw new Error('Missing list item')
+    const detail = getTask('cc-doubled')
+    expect(detail).toBeDefined()
 
     expect(list.sessionId).toBe('cc-doubled')
     expect(list.status).toBe(detail.status)
@@ -196,7 +208,9 @@ describe('listTasks / getTask consistency on double end rows', () => {
     dispatch('cc-last', 'tabs', { url: 'https://e.com' })
     const ok = dispatch('cc-last', 'screenshot')
     dispatch('cc-last', 'screenshot', { isError: true })
-    const list = listTasks({}).tasks[0]!
+    const list = listTasks({}).tasks[0]
+    expect(list).toBeDefined()
+    if (!list) throw new Error('Missing list item')
     expect(list.lastScreenshotDispatchId).toBe(ok)
   })
 })

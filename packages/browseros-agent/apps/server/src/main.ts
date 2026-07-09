@@ -27,8 +27,10 @@ import {
   removeServerConfigSync,
   writeServerConfig,
 } from './lib/browseros-dir'
+import { generateCdpToken } from './lib/cdp-token'
 import { initializeDb } from './lib/db'
 import { identity } from './lib/identity'
+import { serverLock } from './lib/lock-file'
 import { logger } from './lib/logger'
 import { reconcileUrl } from './lib/mcp-manager'
 import { metrics } from './lib/metrics'
@@ -44,6 +46,13 @@ export class Application {
   }
 
   async start(): Promise<void> {
+    if (!serverLock.acquire()) {
+      logger.error(
+        'Failed to acquire server lock. Is another instance running?',
+      )
+      process.exit(EXIT_CODES.GENERAL_ERROR)
+    }
+
     logger.info(`Starting BrowserOS Server v${VERSION}`)
     logger.debug('Directory config', {
       executionDir: path.resolve(this.config.executionDir),
@@ -59,7 +68,9 @@ export class Application {
       process.exit(EXIT_CODES.GENERAL_ERROR)
     }
 
-    const cdp = new CdpBackend({ port: this.config.cdpPort })
+    const cdpToken = generateCdpToken()
+
+    const cdp = new CdpBackend({ port: this.config.cdpPort, cdpToken })
     try {
       logger.debug(`Connecting to CDP on port ${this.config.cdpPort}`)
       await cdp.connect()
@@ -98,7 +109,9 @@ export class Application {
         browseros_version: this.config.instanceBrowserosVersion,
         chromium_version: this.config.instanceChromiumVersion,
         browseros_id: identity.getBrowserOSId(),
+        cdp_token: cdpToken,
       })
+      logger.debug('CDP token written to server.json')
     } catch (error) {
       logger.warn('Failed to write server config for auto-discovery', {
         error: error instanceof Error ? error.message : String(error),
@@ -146,6 +159,7 @@ export class Application {
   stop(reason?: string): void {
     logger.info('Shutting down server...', { reason })
     removeServerConfigSync()
+    serverLock.release()
 
     // Immediate exit without graceful shutdown. Chromium may kill us on update/restart,
     // and we need to free the port instantly so the HTTP port doesn't keep switching.

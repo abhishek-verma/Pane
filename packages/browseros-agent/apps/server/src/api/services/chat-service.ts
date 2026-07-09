@@ -15,18 +15,17 @@ import {
   filterValidMessages,
   sanitizeMessagesForToolset,
 } from '../../agent/message-validation'
+import { runTracker } from '../../agent/run-tracker'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
 import type { ResolvedAgentConfig } from '../../agent/types'
 import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpServers'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
-import type { KlavisService } from '../services/klavis'
 import type { BrowserContext, ChatRequest } from '../types'
 import { resolveBrowserContextPageIds } from '../utils/resolve-browser-context-page-ids'
 
 export interface ChatServiceDeps {
   sessionStore: SessionStore
-  klavis?: KlavisService
   browser: Browser
   browserSession: BrowserSession
   browserosId?: string
@@ -115,7 +114,8 @@ export class ChatService {
         previous: session.mcpServerKey,
         current: mcpServerKey,
       })
-      const previousMcpKey = session.mcpServerKey
+
+      const previousMcpKey = session.mcpServerKey ?? ''
       session = await this.rebuildSession(
         session,
         request,
@@ -123,16 +123,10 @@ export class ChatService {
         mcpServerKey,
       )
 
-      const oldParts = (previousMcpKey ?? '').split(',').filter(Boolean)
+      const oldParts = previousMcpKey.split(',').filter(Boolean)
       const newParts = mcpServerKey.split(',').filter(Boolean)
-      const oldKlavisState = oldParts.find((s) => s.startsWith('klavis:'))
-      const newKlavisState = newParts.find((s) => s.startsWith('klavis:'))
-      const oldServers = new Set(
-        oldParts.filter((s) => !s.startsWith('klavis:')),
-      )
-      const newServers = new Set(
-        newParts.filter((s) => !s.startsWith('klavis:')),
-      )
+      const oldServers = new Set(oldParts)
+      const newServers = new Set(newParts)
       const added = [...newServers].filter((s) => !oldServers.has(s))
       const removed = [...oldServers].filter((s) => !newServers.has(s))
 
@@ -148,19 +142,9 @@ export class ChatService {
         )
       }
       if (parts.length === 0) {
-        if (
-          oldKlavisState !== 'klavis:ready' &&
-          newKlavisState === 'klavis:ready' &&
-          newServers.size > 0
-        ) {
-          parts.push(
-            `Klavis app integration tools are now available for the following connected apps: ${[...newServers].join(', ')}.`,
-          )
-        } else {
-          parts.push(
-            'Connected app integrations changed during this conversation. Use only tools that are currently registered.',
-          )
-        }
+        parts.push(
+          'Connected app integrations changed during this conversation. Use only tools that are currently registered.',
+        )
       }
       contextChanges.push(parts.join(' '))
     }
@@ -277,7 +261,6 @@ export class ChatService {
         resolvedConfig: agentConfig,
         browserSession: this.deps.browserSession,
         browserContext,
-        klavis: this.deps.klavis,
         browserosId: this.deps.browserosId,
         aiSdkDevtoolsEnabled: this.deps.aiSdkDevtoolsEnabled,
         outputFileAccess,
@@ -371,67 +354,64 @@ export class ChatService {
             : msg,
         )
 
+    const runId = crypto.randomUUID()
+    runTracker.startRun(runId)
+
     return createAgentUIStreamResponse({
       agent: session.agent.toolLoopAgent,
       uiMessages: promptUiMessages,
       abortSignal,
       onFinish: async ({ messages }: { messages: UIMessage[] }) => {
-        // The agent loop returns `messages` containing the prompt-
-        // wrapped user text. Restore the raw form before persisting
-        // so subsequent turns see the clean text and the client's
-        // local UIMessage matches what was originally typed.
-        //
-        // ACP path: `messages` is the single user msg we sent plus
-        // the assistant's new reply. The user msg already lives in
-        // session.agent.messages via appendUserMessage; we only need
-        // to restore its raw text and append the new assistant
-        // entries from this turn.
-        //
-        // LLM-API path: `messages` is the full conversation as the
-        // AI SDK reconstructed it. Restore the wrapped user message
-        // and replace the entire session history with the result.
-        if (isAcp) {
-          // Invariant: an id in both `messages` and session means the
-          // AI SDK handed us back something we already have. With the
-          // single-user-msg input shape that means our own user msg —
-          // the only collision we expect. Any new id is a fresh
-          // assistant entry from this turn. acpx never re-emits prior
-          // turns into the AI SDK stream, so this filter cannot drop a
-          // legitimately new message.
-          const existingIds = new Set(session.agent.messages.map((m) => m.id))
-          const newMessages = messages.filter((m) => !existingIds.has(m.id))
-          const updated = session.agent.messages.map((m) =>
-            m.id === wrappedUserMessageId && m.role === 'user'
-              ? {
-                  ...m,
-                  parts: [{ type: 'text' as const, text: request.message }],
-                }
-              : m,
-          )
-          session.agent.messages = filterValidMessages([
-            ...updated,
-            ...newMessages,
-          ])
-        } else {
-          const restored = messages.map((msg) =>
-            msg.id === wrappedUserMessageId && msg.role === 'user'
-              ? {
-                  ...msg,
-                  parts: [{ type: 'text' as const, text: request.message }],
-                }
-              : msg,
-          )
-          session.agent.messages = filterValidMessages(restored)
-        }
-        logger.info('Agent execution complete', {
-          conversationId: request.conversationId,
-          totalMessages: session.agent.messages.length,
-        })
+        try {
+          if (!session) return
+          if (isAcp) {
+            const existingIds = new Set(session.agent.messages.map((m) => m.id))
+            const newMessages = messages.filter((m) => !existingIds.has(m.id))
+            const updated = session.agent.messages.map((m) =>
+              m.id === wrappedUserMessageId && m.role === 'user'
+                ? {
+                    ...m,
+                    parts: [{ type: 'text' as const, text: request.message }],
+                  }
+                : m,
+            )
+            session.agent.messages = filterValidMessages([
+              ...updated,
+              ...newMessages,
+            ])
+          } else {
+            const restored = messages.map((msg) =>
+              msg.id === wrappedUserMessageId && msg.role === 'user'
+                ? {
+                    ...msg,
+                    parts: [{ type: 'text' as const, text: request.message }],
+                  }
+                : msg,
+            )
+            session.agent.messages = filterValidMessages(restored)
+          }
 
-        if (session?.hiddenPageId) {
-          const pageId = session.hiddenPageId
-          session.hiddenPageId = undefined
-          this.closeHiddenPage(pageId, request.conversationId)
+          // Persist messages
+          this.deps.sessionStore
+            .persistMessages(request.conversationId, session.agent.messages)
+            .catch((err: unknown) => {
+              logger.error('Failed to persist messages', {
+                error: err instanceof Error ? err.message : String(err),
+              })
+            })
+
+          logger.info('Agent execution complete', {
+            conversationId: request.conversationId,
+            totalMessages: session.agent.messages.length,
+          })
+
+          if (session.hiddenPageId) {
+            const pageId = session.hiddenPageId
+            session.hiddenPageId = undefined
+            this.closeHiddenPage(pageId, request.conversationId)
+          }
+        } finally {
+          runTracker.endRun(runId)
         }
       },
     })
@@ -448,6 +428,63 @@ export class ChatService {
     }
     const deleted = await this.deps.sessionStore.delete(conversationId)
     return { deleted, sessionCount: this.deps.sessionStore.count() }
+  }
+
+  async getHistory(): Promise<
+    { id: string; lastMessagedAt: number; messages: unknown[] }[]
+  > {
+    const db = require('../../../lib/db').getDb()
+    const {
+      chatMessages,
+      chatSessions,
+    } = require('../../../lib/db/schema/chat-sessions')
+    const { asc, desc, eq } = require('drizzle-orm')
+
+    const sessions = await db
+      .select()
+      .from(chatSessions)
+      .orderBy(desc(chatSessions.updatedAt))
+      .all()
+
+    return Promise.all(
+      sessions.map(async (s: { id: string; updatedAt: number }) => {
+        const msgs = await db
+          .select()
+          .from(chatMessages)
+          .where(eq(chatMessages.sessionId, s.id))
+          .orderBy(asc(chatMessages.createdAt))
+          .all()
+
+        // Convert CoreMessage-like db rows to UIMessage-like objects for the client
+        const mappedMsgs = msgs.map(
+          (m: { id: string; role: string; content: string }) => {
+            let textContent = ''
+            try {
+              const content = JSON.parse(m.content)
+              if (typeof content === 'string') {
+                textContent = content
+              } else if (Array.isArray(content)) {
+                textContent = content
+                  .map((c: { text?: string }) => c.text || '')
+                  .join('')
+              }
+            } catch {}
+
+            return {
+              id: m.id,
+              role: m.role,
+              content: textContent,
+            }
+          },
+        )
+
+        return {
+          id: s.id,
+          lastMessagedAt: s.updatedAt,
+          messages: mappedMsgs,
+        }
+      }),
+    )
   }
 
   private closeHiddenPage(pageId: number, conversationId: string): void {
@@ -486,7 +523,6 @@ export class ChatService {
       resolvedConfig: agentConfig,
       browserSession: this.deps.browserSession,
       browserContext,
-      klavis: this.deps.klavis,
       browserosId: this.deps.browserosId,
       aiSdkDevtoolsEnabled: this.deps.aiSdkDevtoolsEnabled,
       outputFileAccess,
@@ -511,10 +547,6 @@ export class ChatService {
     const managed = browserContext?.enabledMcpServers?.slice().sort() ?? []
     const custom =
       browserContext?.customMcpServers?.map((s) => s.url).sort() ?? []
-    const klavisState =
-      managed.length > 0
-        ? `klavis:${this.deps.klavis?.getProxyStatus().state ?? 'disabled'}`
-        : null
-    return [klavisState, ...managed, ...custom].filter(Boolean).join(',')
+    return [...managed, ...custom].filter(Boolean).join(',')
   }
 }

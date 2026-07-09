@@ -90,24 +90,17 @@
       "indexes": {
         "agent_definitions_session_key_unique": {
           "name": "agent_definitions_session_key_unique",
-          "columns": [
-            "session_key"
-          ],
+          "columns": ["session_key"],
           "isUnique": true
         },
         "agent_definitions_updated_at_idx": {
           "name": "agent_definitions_updated_at_idx",
-          "columns": [
-            "updated_at"
-          ],
+          "columns": ["updated_at"],
           "isUnique": false
         },
         "agent_definitions_adapter_updated_at_idx": {
           "name": "agent_definitions_adapter_updated_at_idx",
-          "columns": [
-            "adapter",
-            "updated_at"
-          ],
+          "columns": ["adapter", "updated_at"],
           "isUnique": false
         }
       },
@@ -179,19 +172,14 @@
       "indexes": {
         "oauth_tokens_browseros_id_idx": {
           "name": "oauth_tokens_browseros_id_idx",
-          "columns": [
-            "browseros_id"
-          ],
+          "columns": ["browseros_id"],
           "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "oauth_tokens_browseros_id_provider_pk": {
-          "columns": [
-            "browseros_id",
-            "provider"
-          ],
+          "columns": ["browseros_id", "provider"],
           "name": "oauth_tokens_browseros_id_provider_pk"
         }
       },
@@ -276,32 +264,22 @@
       "indexes": {
         "produced_files_agent_path_unique": {
           "name": "produced_files_agent_path_unique",
-          "columns": [
-            "agent_definition_id",
-            "path"
-          ],
+          "columns": ["agent_definition_id", "path"],
           "isUnique": true
         },
         "produced_files_agent_created_idx": {
           "name": "produced_files_agent_created_idx",
-          "columns": [
-            "agent_definition_id",
-            "created_at"
-          ],
+          "columns": ["agent_definition_id", "created_at"],
           "isUnique": false
         },
         "produced_files_turn_idx": {
           "name": "produced_files_turn_idx",
-          "columns": [
-            "turn_id"
-          ],
+          "columns": ["turn_id"],
           "isUnique": false
         },
         "produced_files_session_idx": {
           "name": "produced_files_session_idx",
-          "columns": [
-            "session_key"
-          ],
+          "columns": ["session_key"],
           "isUnique": false
         }
       },
@@ -310,12 +288,8 @@
           "name": "produced_files_agent_definition_id_agent_definitions_id_fk",
           "tableFrom": "produced_files",
           "tableTo": "agent_definitions",
-          "columnsFrom": [
-            "agent_definition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["agent_definition_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

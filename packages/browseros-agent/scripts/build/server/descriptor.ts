@@ -5,13 +5,15 @@ import {
 
 export const SERVER_BUNDLE_ENTRYPOINT = 'apps/server/src/compiled-bootstrap.ts'
 
-const REQUIRED_PROD_VARS = [
+const isPaneBuild = process.env.PANE_BUILD === 'true'
+
+const REQUIRED_PROD_VARS = isPaneBuild
+  ? []
+  : ['BROWSEROS_CONFIG_URL', 'POSTHOG_API_KEY', 'SENTRY_DSN']
+const INLINED_ENV_VARS = [
   'BROWSEROS_CONFIG_URL',
   'POSTHOG_API_KEY',
   'SENTRY_DSN',
-]
-const INLINED_ENV_VARS = [
-  ...REQUIRED_PROD_VARS,
   'AGENT_RUNNER_JWT_SECRET',
   'NODE_ENV',
   'LOG_LEVEL',

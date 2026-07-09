@@ -1,5 +1,5 @@
 import { storage } from '@wxt-dev/storage'
-import { sessionStorage } from '@/lib/auth/sessionStorage'
+import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { Capabilities } from '@/lib/browseros/capabilities'
 import { getHealthCheckUrl, getMcpServerUrl } from '@/lib/browseros/helpers'
 import {
@@ -10,11 +10,9 @@ import {
   toggleSidePanel,
 } from '@/lib/browseros/toggleSidePanel'
 import { checkAndShowChangelog } from '@/lib/changelog/changelog-notifier'
-import { cloudAccountEnabled } from '@/lib/constants/product-features'
 import {
   setupLlmProvidersBackupToBrowserOS,
   setupLlmProvidersSyncToBackend,
-  syncLlmProviders,
 } from '@/lib/llm-providers/storage'
 import { fetchMcpTools } from '@/lib/mcp/client'
 import {
@@ -23,12 +21,7 @@ import {
 } from '@/lib/messaging/runtime/runtimeMessages'
 import { onServerMessage } from '@/lib/messaging/server/serverMessages'
 import { onOpenSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
-import { authRedirectPathStorage } from '@/lib/onboarding/onboardingStorage'
-import { syncOnboardingProfile } from '@/lib/onboarding/syncOnboardingProfile'
-import {
-  setupScheduledJobsSyncToBackend,
-  syncScheduledJobs,
-} from '@/lib/schedules/syncSchedulesToBackend'
+import { setupScheduledJobsSyncToBackend } from '@/lib/schedules/syncSchedulesToBackend'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
@@ -105,25 +98,6 @@ export default defineBackground(() => {
     return { tabId: sender.tab?.id }
   })
 
-  onRuntimeMessage(RuntimeMessageType.authSuccess, async ({ sender }) => {
-    if (!sender.tab?.id) return
-
-    const tabId = sender.tab.id
-
-    try {
-      const redirectPath = await authRedirectPathStorage.getValue()
-      const hash = redirectPath || '/home'
-      await chrome.tabs.update(tabId, {
-        url: chrome.runtime.getURL(`app.html#${hash}`),
-      })
-      if (redirectPath) await authRedirectPathStorage.removeValue()
-    } catch {
-      await chrome.tabs.update(tabId, {
-        url: chrome.runtime.getURL('app.html#/home'),
-      })
-    }
-  })
-
   onRuntimeMessage(RuntimeMessageType.stopAgent, async ({ data }) => {
     await stopAgentStorage.setValue({
       conversationId: data.conversationId,
@@ -148,20 +122,6 @@ export default defineBackground(() => {
     })
   })
 
-  sessionStorage.watch(async (newSession) => {
-    if (!cloudAccountEnabled || !newSession?.user?.id) return
-
-    try {
-      await syncLlmProviders()
-    } catch {}
-    try {
-      await syncScheduledJobs()
-    } catch {}
-    try {
-      await syncOnboardingProfile(newSession.user.id)
-    } catch {}
-  })
-
   onServerMessage('checkHealth', async () => {
     try {
       const url = await getHealthCheckUrl()
@@ -184,4 +144,40 @@ export default defineBackground(() => {
       }
     }
   })
+
+  // M1.7 Process supervision: SW health-checks + relaunch
+  const healthCheckLoop = async () => {
+    let failures = 0
+    while (true) {
+      // Check every 30 seconds
+      await new Promise((resolve) => setTimeout(resolve, 30_000))
+      try {
+        const url = await getHealthCheckUrl()
+        const res = await fetch(url)
+        if (res.ok) {
+          failures = 0
+        } else {
+          failures++
+        }
+      } catch (_err) {
+        failures++
+      }
+
+      if (failures >= 3) {
+        try {
+          // Setting the restart requested pref triggers the native Chromium process to relaunch the server
+          await getBrowserOSAdapter().setPref(
+            'browseros.server.restart_requested',
+            true,
+          )
+          failures = 0 // Reset to avoid constant restart requests
+        } catch (_e) {
+          // Native API may not be available
+        }
+      }
+    }
+  }
+
+  // Start the loop without awaiting it
+  healthCheckLoop().catch(() => null)
 })

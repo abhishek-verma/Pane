@@ -20,7 +20,6 @@ import {
   type UIMessage,
   wrapLanguageModel,
 } from 'ai'
-import type { KlavisService } from '../api/services/klavis'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
 import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
@@ -43,7 +42,6 @@ export interface AiSdkAgentConfig {
   resolvedConfig: ResolvedAgentConfig
   browserSession: BrowserSession
   browserContext?: BrowserContext
-  klavis?: KlavisService
   browserosId?: string
   aiSdkDevtoolsEnabled?: boolean
   outputFileAccess?: BrowserOutputFileAccess
@@ -146,34 +144,20 @@ export class AiSdkAgent {
       })
     }
 
-    const klavisTools =
-      !useMcpBoundaryOnly && config.klavis
-        ? config.klavis.buildAiSdkToolSet({
-            selectedServerNames: config.browserContext?.enabledMcpServers,
-          })
-        : {}
-
-    // Connect custom (non-Klavis) MCP servers per-session
+    // Connect custom MCP servers per-session
     const specs = useMcpBoundaryOnly
       ? []
       : await buildMcpServerSpecs({
           browserContext: config.browserContext,
         })
     const { clients, tools: customMcpTools } = await createMcpClients(specs)
-    const klavisCollidingToolNames = Object.keys(customMcpTools).filter(
-      (name) => name in klavisTools,
-    )
-    if (klavisCollidingToolNames.length > 0) {
-      logger.warn('Custom MCP tools override Klavis tools', {
-        toolNames: klavisCollidingToolNames,
-      })
-    }
+
     const rawExternalMcpTools = withoutReservedBrowserToolNames(
-      { ...klavisTools, ...customMcpTools },
+      customMcpTools,
       reservedBrowserToolNames,
     )
 
-    // Wrap external MCP tools (Klavis, custom) with metrics
+    // Wrap external MCP tools with metrics
     const externalMcpTools: ToolSet = {}
     for (const [name, t] of Object.entries(rawExternalMcpTools)) {
       const originalExecute = t.execute

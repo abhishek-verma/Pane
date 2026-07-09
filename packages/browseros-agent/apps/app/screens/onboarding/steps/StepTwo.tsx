@@ -1,15 +1,9 @@
-import { AlertCircle, Loader2 } from 'lucide-react'
-import { useState } from 'react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { signIn } from '@/lib/auth/auth-client'
 import {
-  ONBOARDING_SIGNIN_COMPLETED_EVENT,
   ONBOARDING_SIGNIN_SKIPPED_EVENT,
   ONBOARDING_STEP_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
-import { authRedirectPathStorage } from '@/lib/onboarding/onboardingStorage'
 import { type StepDirection, StepTransition } from './StepTransition'
 
 export interface StepTwoProps {
@@ -17,12 +11,7 @@ export interface StepTwoProps {
   onContinue: () => void
 }
 
-type SignInState = 'idle' | 'loading' | 'error'
-
 export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
-  const [state, setState] = useState<SignInState>('idle')
-  const [error, setError] = useState<string | null>(null)
-
   const handleSkip = () => {
     track(ONBOARDING_SIGNIN_SKIPPED_EVENT)
     track(ONBOARDING_STEP_COMPLETED_EVENT, {
@@ -33,25 +22,8 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
     onContinue()
   }
 
-  const handleGoogleSignIn = async () => {
-    setState('loading')
-    setError(null)
-
-    try {
-      track(ONBOARDING_SIGNIN_COMPLETED_EVENT, { method: 'google' })
-      track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 3, step_name: 'signin' })
-
-      await authRedirectPathStorage.setValue('/onboarding/demo')
-      await signIn.social({
-        provider: 'google',
-        callbackURL: '/home',
-      })
-    } catch (err) {
-      setState('error')
-      setError(
-        err instanceof Error ? err.message : 'Failed to sign in with Google',
-      )
-    }
+  const handleGoogleSignIn = () => {
+    handleSkip()
   }
 
   return (
@@ -67,24 +39,12 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
             </p>
           </div>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="size-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
           <Button
             variant="outline"
             className="w-full"
             onClick={handleGoogleSignIn}
-            disabled={state === 'loading'}
           >
-            {state === 'loading' ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <GoogleIcon />
-            )}
+            <GoogleIcon />
             Continue with Google
           </Button>
 

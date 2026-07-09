@@ -250,7 +250,7 @@ func startBrowserOSWatch(ctx context.Context, wg *sync.WaitGroup, root string, e
 			Ports:             p,
 			UserDataDir:       userDataDir,
 			LoadDevExtensions: true,
-			PreferDevBuild:    true,
+			PreferDevBuild:    !manual,
 		})
 		if err != nil {
 			return nil, err

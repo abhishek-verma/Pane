@@ -10,15 +10,12 @@ import { logger } from '../../../lib/logger'
 import { metrics } from '../../../lib/metrics'
 import { registerFilesystemMcpTools } from '../../../tools/filesystem/register-mcp'
 import { shouldLogToolRegistration } from '../../../tools/registration-log-sampling'
-import type { ConnectorToolScope, KlavisService } from '../klavis'
 import { MCP_INSTRUCTIONS } from './mcp-prompt'
 import type { RemoteAgentHarnessTools } from './register-mcp'
 
 export interface McpServiceDeps {
   version: string
   browserSession: BrowserSession
-  klavis?: KlavisService
-  connectorScope?: ConnectorToolScope
   defaultWindowId?: number
   defaultTabGroupId?: string
   executionDir: string
@@ -49,8 +46,6 @@ export function createMcpServer(deps: McpServiceDeps) {
       outputFileAccess: deps.remoteAgentHarness.outputFileAccess,
     })
   }
-
-  deps.klavis?.registerMcpTools(server, deps.connectorScope)
 
   return server
 }

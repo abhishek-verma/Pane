@@ -11,7 +11,6 @@ import { Hono } from 'hono'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
-import type { KlavisService } from '../services/klavis'
 import { createMcpServer } from '../services/mcp/mcp-server'
 import type { Env } from '../types'
 
@@ -26,7 +25,6 @@ type CreateMcpTransportFn = (
 interface McpRouteDeps {
   version: string
   browserSession: BrowserSession
-  klavis?: KlavisService
   executionDir: string
   createMcpServer?: CreateMcpServerFn
   createMcpTransport?: CreateMcpTransportFn
@@ -89,7 +87,7 @@ export function createMcpRoutes(deps: McpRouteDeps) {
     )
     const defaultTabGroupId =
       c.req.header('X-BrowserOS-Default-Tab-Group-Id') ?? undefined
-    const selectedServerNames = parseManagedMcpServersHeader(
+    const _selectedServerNames = parseManagedMcpServersHeader(
       c.req.header(MANAGED_MCP_SERVERS_HEADER),
     )
 
@@ -103,8 +101,7 @@ export function createMcpRoutes(deps: McpRouteDeps) {
     const mcpServer = makeMcpServer({
       version: deps.version,
       browserSession: deps.browserSession,
-      klavis: deps.klavis,
-      connectorScope: { selectedServerNames },
+
       defaultWindowId,
       defaultTabGroupId,
       executionDir: deps.executionDir,

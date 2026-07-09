@@ -4,26 +4,28 @@ import '@/styles/global.css'
 import { ThemeProvider } from '@/components/theme-provider.tsx'
 import { Toaster } from '@/components/ui/sonner'
 import { AnalyticsProvider } from '@/lib/analytics/AnalyticsProvider'
-import { AuthProvider } from '@/lib/auth/AuthProvider'
+import { initPostHog } from '@/lib/analytics/posthog'
 import { QueryProvider } from '@/lib/graphql/QueryProvider'
+import { initSentry } from '@/lib/sentry/sentry'
 import { sentryRootErrorHandler } from '@/lib/sentry/sentryRootErrorHandler'
 import { App } from './App'
+
+initPostHog().catch(() => {})
+initSentry().catch(() => {})
 
 const $root = document.getElementById('root')
 
 if ($root) {
   ReactDOM.createRoot($root, sentryRootErrorHandler).render(
     <React.StrictMode>
-      <AuthProvider>
-        <QueryProvider>
-          <AnalyticsProvider>
-            <ThemeProvider>
-              <App />
-              <Toaster />
-            </ThemeProvider>
-          </AnalyticsProvider>
-        </QueryProvider>
-      </AuthProvider>
+      <QueryProvider>
+        <AnalyticsProvider>
+          <ThemeProvider>
+            <App />
+            <Toaster />
+          </ThemeProvider>
+        </AnalyticsProvider>
+      </QueryProvider>
     </React.StrictMode>,
   )
 }
