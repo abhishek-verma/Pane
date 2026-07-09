@@ -20,6 +20,7 @@ import {
   type UIMessage,
   wrapLanguageModel,
 } from 'ai'
+import { buildContextToolSet, buildTasksToolSet } from '../context/tools'
 import { buildIngestGateHooks } from '../context/wire-ingest'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
@@ -212,6 +213,12 @@ export class AiSdkAgent {
       ...externalMcpTools,
       ...filesystemTools,
       ...buildNudgeToolSet(),
+      ...buildContextToolSet(
+        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
+      ),
+      ...buildTasksToolSet(
+        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
+      ),
     }
 
     if (

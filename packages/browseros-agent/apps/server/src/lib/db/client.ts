@@ -216,6 +216,11 @@ const currentMigrationHistory = [
     hash: 'eccaed1b3bd28eafbe06112d9f73786aa17fd0ee2cc985b13cc8827409dae9e9',
     createdAt: 1783592265849,
   },
+  {
+    tag: '0007_chemical_thunderball',
+    hash: '81781e98ed1635c87d22231f98c65aacdf7d93733694aa506f6383214d20d101',
+    createdAt: 1783592630922,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -443,6 +448,43 @@ const currentSchemaStatements = [
   `
     INSERT OR IGNORE INTO buckets (id, name, kind, created_at)
     VALUES ('default', 'Default', 'general', 0)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS domain_grants (
+      domain text NOT NULL,
+      bucket_id text NOT NULL,
+      allowed integer NOT NULL,
+      updated_at integer NOT NULL,
+      PRIMARY KEY (domain, bucket_id),
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id)
+        ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS tasks (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      title text NOT NULL,
+      status text NOT NULL,
+      notes text,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL,
+      scheduled_job_id text,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id)
+        ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS task_links (
+      id text PRIMARY KEY NOT NULL,
+      task_id text NOT NULL,
+      node_id text NOT NULL,
+      created_at integer NOT NULL,
+      FOREIGN KEY (task_id) REFERENCES tasks(id)
+        ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (node_id) REFERENCES graph_nodes(id)
+        ON UPDATE no action ON DELETE no action
+    )
   `,
   `
     CREATE TABLE IF NOT EXISTS __drizzle_migrations (

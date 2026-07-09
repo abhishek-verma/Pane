@@ -50,6 +50,13 @@
       "when": 1783592265849,
       "tag": "0006_low_white_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1783592630922,
+      "tag": "0007_chemical_thunderball",
+      "breakpoints": true
     }
   ]
 }

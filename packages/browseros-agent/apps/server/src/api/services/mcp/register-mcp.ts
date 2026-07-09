@@ -8,6 +8,7 @@ import { createDefaultMcpGateContext } from '@browseros/browser-mcp/trust/mcp-ga
 import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { ingestToolResult, summarizeToolResult } from '../../../context/ingest'
+import { registerContextMcpTools } from '../../../context/register-mcp'
 import { logger } from '../../../lib/logger'
 import { metrics } from '../../../lib/metrics'
 import { registerFilesystemMcpTools } from '../../../tools/filesystem/register-mcp'
@@ -75,4 +76,6 @@ export function registerTools(
       gateContext,
     })
   }
+
+  registerContextMcpTools(mcpServer, { bucketId, gateContext })
 }

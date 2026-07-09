@@ -226,6 +226,9 @@ describe('database initialization', () => {
               'graph_edges',
               'graph_events',
               'graph_index',
+              'domain_grants',
+              'tasks',
+              'task_links',
               '__drizzle_migrations'
             )
           ORDER BY name
@@ -239,12 +242,15 @@ describe('database initialization', () => {
       'action_log',
       'agent_definitions',
       'buckets',
+      'domain_grants',
       'graph_edges',
       'graph_events',
       'graph_index',
       'graph_nodes',
       'oauth_tokens',
       'produced_files',
+      'task_links',
+      'tasks',
     ])
     const migrations = handle.sqlite
       .query<{ hash: string; createdAt: number }, []>(
@@ -294,5 +300,9 @@ const expectedMigrationHistory = [
   {
     hash: 'eccaed1b3bd28eafbe06112d9f73786aa17fd0ee2cc985b13cc8827409dae9e9',
     createdAt: 1783592265849,
+  },
+  {
+    hash: '81781e98ed1635c87d22231f98c65aacdf7d93733694aa506f6383214d20d101',
+    createdAt: 1783592630922,
   },
 ]

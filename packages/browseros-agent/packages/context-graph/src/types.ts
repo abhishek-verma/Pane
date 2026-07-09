@@ -113,13 +113,18 @@ export interface AddEventInput {
 }
 
 /** Minimal SQLite surface used by the graph repository (Bun Database compatible). */
+export interface GraphSqlStatement<T = unknown> {
+  // Bun's prepare().run is contravariant on bindings; accept any for the interface.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  run: (...params: any[]) => unknown
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  all: (...params: any[]) => T[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  get: (...params: any[]) => T | null | undefined
+}
+
 export interface GraphSqlDatabase {
   exec(sql: string): void
-  prepare<T = unknown>(
-    sql: string,
-  ): {
-    run: (...params: unknown[]) => unknown
-    all: (...params: unknown[]) => T[]
-    get: (...params: unknown[]) => T | null | undefined
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prepare<T = unknown>(sql: string): GraphSqlStatement<T>
 }

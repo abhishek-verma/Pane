@@ -23,13 +23,14 @@ import type {
   GraphEdge,
   GraphEvent,
   GraphNode,
+  GraphSqlDatabase,
   SearchSnippet,
   UpsertNodeInput,
 } from '@browseros/context-graph/types'
 import { getDbHandle } from '../lib/db'
 
-function sqlite() {
-  return getDbHandle().sqlite
+function sqlite(): GraphSqlDatabase {
+  return getDbHandle().sqlite as unknown as GraphSqlDatabase
 }
 
 export function ensureGraphReady(): void {

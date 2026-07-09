@@ -54,6 +54,7 @@ export function useScheduledJobs() {
     if (newJob.enabled) {
       await createAlarmFromJob(newJob)
     }
+    return newJob
   }
 
   const removeJob = async (id: string) => {

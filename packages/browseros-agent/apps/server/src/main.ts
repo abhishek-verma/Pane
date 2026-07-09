@@ -15,6 +15,7 @@ import { Browser } from '@browseros/browser-core/browser'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
 import { createHttpServer } from './api/server'
 import type { ServerConfig } from './config'
+import { startBatteryIngestMonitor } from './context/battery'
 import { subscribeTerminalIngest } from './context/subscribe-terminal'
 import { INLINED_ENV } from './env'
 import {
@@ -183,6 +184,7 @@ export class Application {
       resourcesDir: this.config.resourcesDir,
     })
     subscribeTerminalIngest()
+    startBatteryIngestMonitor()
 
     identity.initialize({
       installId: this.config.instanceInstallId,
