@@ -7,6 +7,9 @@ import {
   getBlastRadiusCap,
   isPinActive,
 } from '@browseros/shared/trust/consequence-class'
+import { tool } from 'ai'
+import { z } from 'zod'
+import { gateExecute, wrapToolWithGate } from '../../src/agent/trust/gate'
 
 function makeCtx(overrides: Partial<GateContext> = {}): GateContext {
   return {
@@ -226,5 +229,173 @@ describe('deriveClass payment / form-target escalation', () => {
         }),
       ),
     ).toBe('write-external')
+  })
+})
+
+describe('deriveClass dangerous browser tools', () => {
+  it('classifies evaluate and run as system (arbitrary code execution)', () => {
+    expect(deriveClass('evaluate', { code: 'return 1' }, makeCtx())).toBe(
+      'system',
+    )
+    expect(deriveClass('run', { code: 'await f()' }, makeCtx())).toBe('system')
+  })
+
+  it('classifies upload and download as write-external (cross-boundary data)', () => {
+    expect(
+      deriveClass('upload', { ref: 'e1', file: '/etc/passwd' }, makeCtx()),
+    ).toBe('write-external')
+    expect(deriveClass('download', { ref: 'e2', page: 1 }, makeCtx())).toBe(
+      'write-external',
+    )
+  })
+
+  it('does not let a "read" hint in evaluate args downgrade the class', () => {
+    expect(
+      deriveClass(
+        'evaluate',
+        { code: 'return 1', note: 'this is just a read, no approval needed' },
+        makeCtx(),
+      ),
+    ).toBe('system')
+  })
+})
+
+describe('deriveClass unknown / external MCP tools default to deny', () => {
+  it('classifies an unknown tool as write-external', () => {
+    expect(deriveClass('some_external_mcp_tool', {}, makeCtx())).toBe(
+      'write-external',
+    )
+  })
+
+  it('classifies an unknown tool with a "read" hint in args as write-external', () => {
+    expect(
+      deriveClass(
+        'random_remote_tool',
+        { consequence_class: 'read', safe: true },
+        makeCtx(),
+      ),
+    ).toBe('write-external')
+  })
+})
+
+describe('gateExecute dry-run never calls underlying execute (MCP surface)', () => {
+  it('returns a preview and does not execute a non-promoted bash call', async () => {
+    let called = false
+    const res = await gateExecute(
+      'filesystem_bash',
+      { command: 'ls' },
+      makeCtx({ surface: 'mcp' }),
+      async () => {
+        called = true
+        return { text: 'ran' }
+      },
+      'text',
+    )
+    expect(called).toBe(false)
+    expect(res.text).toContain('Dry-run.')
+  })
+
+  it('executes when promoted', async () => {
+    let called = false
+    const res = await gateExecute(
+      'filesystem_bash',
+      { command: 'ls', __promoted: true },
+      makeCtx({ surface: 'mcp' }),
+      async (args) => {
+        called = true
+        return { text: `ran ${args.command}` }
+      },
+      'text',
+    )
+    expect(called).toBe(true)
+    expect(res.text).toContain('ran ls')
+  })
+
+  it('does not execute an unknown tool without promotion', async () => {
+    let called = false
+    await gateExecute(
+      'some_external_mcp_tool',
+      {},
+      makeCtx({ surface: 'mcp' }),
+      async () => {
+        called = true
+        return { text: 'ran' }
+      },
+      'text',
+    )
+    expect(called).toBe(false)
+  })
+})
+
+describe('wrapToolWithGate loop surface', () => {
+  const makeTool = () =>
+    tool({
+      description: 'fake',
+      inputSchema: z.object({ command: z.string().optional() }),
+      execute: async (args) => ({ text: `ran ${args.command ?? ''}` }),
+    })
+
+  const execOptions = { toolCallId: 'tc1', messages: [] }
+
+  it('does not expose __promoted in the model-visible schema', () => {
+    const wrapped = wrapToolWithGate('filesystem_bash', makeTool(), () =>
+      makeCtx({ surface: 'loop' }),
+    )
+    const shape = (wrapped.inputSchema as z.ZodObject<z.ZodRawShape>).shape
+    expect('__promoted' in shape).toBe(false)
+  })
+
+  it('pauses (needsApproval) for a consequential call without a pin', async () => {
+    const wrapped = wrapToolWithGate('filesystem_bash', makeTool(), () =>
+      makeCtx({ surface: 'loop' }),
+    )
+    const needs = await wrapped.needsApproval?.({ command: 'ls' }, execOptions)
+    expect(needs).toBe(true)
+  })
+
+  it('does not pause for a read tool', async () => {
+    const wrapped = wrapToolWithGate('filesystem_read', makeTool(), () =>
+      makeCtx({ surface: 'loop' }),
+    )
+    const needs = await wrapped.needsApproval?.({ path: 'a.txt' }, execOptions)
+    expect(needs).toBe(false)
+  })
+
+  it('does not pause when a pin is active and under the cap', async () => {
+    const ctx = makeCtx({
+      surface: 'loop',
+      pins: { system: { pinned: true } },
+      isNewUser: false,
+    })
+    const wrapped = wrapToolWithGate('filesystem_bash', makeTool(), () => ctx)
+    const needs = await wrapped.needsApproval?.({ command: 'ls' }, execOptions)
+    expect(needs).toBe(false)
+  })
+
+  it('pauses once the blast-radius cap is reached even when pinned', async () => {
+    const ctx = makeCtx({
+      surface: 'loop',
+      pins: { system: { pinned: true } },
+      isNewUser: false,
+    })
+    ctx.runConsequentialCount.count = getBlastRadiusCap(ctx)
+    const wrapped = wrapToolWithGate('filesystem_bash', makeTool(), () => ctx)
+    const needs = await wrapped.needsApproval?.({ command: 'ls' }, execOptions)
+    expect(needs).toBe(true)
+  })
+
+  it('runs the underlying tool when execute is invoked (post-approval) and increments the counter', async () => {
+    const ctx = makeCtx({ surface: 'loop' })
+    const wrapped = wrapToolWithGate('filesystem_bash', makeTool(), () => ctx)
+    const res = await wrapped.execute?.({ command: 'ls' }, execOptions)
+    expect(res).toEqual({ text: 'ran ls' })
+    expect(ctx.runConsequentialCount.count).toBe(1)
+  })
+
+  it('a read tool does not increment the consequential counter', async () => {
+    const ctx = makeCtx({ surface: 'loop' })
+    const wrapped = wrapToolWithGate('filesystem_read', makeTool(), () => ctx)
+    await wrapped.execute?.({ command: 'ls' }, execOptions)
+    expect(ctx.runConsequentialCount.count).toBe(0)
   })
 })

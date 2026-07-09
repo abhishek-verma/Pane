@@ -17,7 +17,7 @@ export function createStatusRoute(deps: StatusDeps = {}) {
     return c.json(
       cdpConnected === undefined
         ? { status: 'ok' }
-        : { status: 'ok', cdpConnected },
+        : { status: cdpConnected ? 'ok' : 'degraded', cdpConnected },
     )
   })
 }

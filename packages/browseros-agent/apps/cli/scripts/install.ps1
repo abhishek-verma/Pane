@@ -2,12 +2,12 @@
 # Install Pane CLI (browseros-cli) for Windows — downloads the latest release binary.
 #
 # Usage (PowerShell — save and run):
-#   Invoke-WebRequest -Uri "https://cdn.browseros.com/cli/install.ps1" -OutFile install.ps1
+#   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/abhishek-verma/Pane/main/packages/browseros-agent/apps/cli/scripts/install.ps1" -OutFile install.ps1
 #   .\install.ps1
 #   .\install.ps1 -Version "0.1.0" -Dir "C:\tools\browseros"
 #
 # Usage (one-liner, uses env vars for options):
-#   & { $env:BROWSEROS_VERSION="0.1.0"; irm https://cdn.browseros.com/cli/install.ps1 | iex }
+#   & { $env:BROWSEROS_VERSION="0.1.0"; irm https://raw.githubusercontent.com/abhishek-verma/Pane/main/packages/browseros-agent/apps/cli/scripts/install.ps1 | iex }
 #
 
 param(
@@ -20,7 +20,11 @@ $ErrorActionPreference = "Stop"
 # TLS 1.2 — older PS 5.1 defaults to TLS 1.0
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$CdnBase = "https://cdn.browseros.com/cli"
+# GitHub Releases hosts the CLI artifacts. /releases/latest/download/<asset>
+# redirects to that asset in the latest non-prerelease release; version-pinned
+# archives live under /releases/download/cli/v<version>/<asset>.
+$ReleasesBase = "https://github.com/abhishek-verma/Pane/releases"
+$LatestUrl = "$ReleasesBase/latest/download"
 $Binary = "browseros-cli"
 
 # When piped via irm | iex, param() is ignored — fall back to env vars
@@ -31,7 +35,7 @@ if (-not $Dir) { $Dir = if ($env:BROWSEROS_DIR) { $env:BROWSEROS_DIR } else { "$
 
 if (-not $Version) {
     Write-Host "Fetching latest version..."
-    $Version = (Invoke-WebRequest -Uri "$CdnBase/latest/version.txt" -UseBasicParsing).Content.Trim()
+    $Version = (Invoke-WebRequest -Uri "$LatestUrl/version.txt" -UseBasicParsing).Content.Trim()
     if (-not $Version) {
         Write-Error "Could not determine latest version. Try: -Version 0.1.0"
         exit 1
@@ -67,7 +71,7 @@ if (-not [Environment]::Is64BitOperatingSystem) {
 # ── Download and extract ─────────────────────────────────────────────────────
 
 $Filename = "${Binary}_${Version}_windows_${Arch}.zip"
-$Url = "$CdnBase/v$Version/$Filename"
+$Url = "$ReleasesBase/download/cli/v$Version/$Filename"
 $TmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("browseros-cli-install-" + [System.IO.Path]::GetRandomFileName())
 
 try {

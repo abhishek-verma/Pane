@@ -1,16 +1,22 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { LockFile } from '../../src/lib/lock-file'
 
 describe('LockFile Contention', () => {
-  const homeDir = os.homedir()
+  // Pin BROWSEROS_DIR to a per-test temp dir so the suite never touches the
+  // real ~/.browseros (or ~/.browseros-dev) and doesn't collide with other
+  // lib tests that share the home dir. getBrowserosDir() honors this env.
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pane-lock-'))
   const testLockName = 'test-server-pid.lock'
-  const lockFilePath = path.join(homeDir, '.browseros', testLockName)
+  const lockFilePath = path.join(tempRoot, testLockName)
   let testLock: LockFile
+  let previousBrowserosDir: string | undefined
 
   beforeEach(() => {
+    previousBrowserosDir = process.env.BROWSEROS_DIR
+    process.env.BROWSEROS_DIR = tempRoot
     testLock = new LockFile(testLockName)
   })
 
@@ -21,6 +27,17 @@ describe('LockFile Contention', () => {
       if (fs.existsSync(lockFilePath)) {
         fs.unlinkSync(lockFilePath)
       }
+    } catch {}
+    if (previousBrowserosDir === undefined) {
+      delete process.env.BROWSEROS_DIR
+    } else {
+      process.env.BROWSEROS_DIR = previousBrowserosDir
+    }
+  })
+
+  afterAll(() => {
+    try {
+      fs.rmSync(tempRoot, { recursive: true, force: true })
     } catch {}
   })
 

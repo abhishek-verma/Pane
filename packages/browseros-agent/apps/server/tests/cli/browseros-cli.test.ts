@@ -11,7 +11,9 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { cleanupBrowserOS, ensureBrowserOS } from '../__helpers__/index'
+import { hasBrowserOSBinary } from '../__helpers__/test-runtime'
 
+const describeIfNative = hasBrowserOSBinary() ? describe : describe.skip
 setDefaultTimeout(120000)
 
 const serverRoot = resolve(import.meta.dir, '..', '..')
@@ -83,7 +85,7 @@ function runJson(args: string[]): Record<string, unknown> {
   }
 }
 
-describe('browseros-cli runtime commands', () => {
+describeIfNative('browseros cli runtime commands', () => {
   beforeAll(async () => {
     buildCli()
     const config = await ensureBrowserOS()

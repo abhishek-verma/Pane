@@ -33,6 +33,7 @@ import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import {
   formatReplayOutputForTool,
+  patchToolInvocationInput,
   patchToolInvocationOutput,
 } from '@/lib/trust/patch-tool-output'
 import { replayToolOnServer } from '@/lib/trust/replay-tool'
@@ -49,6 +50,7 @@ import {
   toProviderOption,
 } from './chat-session-request'
 import type { ChatMode } from './chat-types'
+import { collectToolApprovalResponses } from './collect-tool-approval-responses'
 import { addContentFilterNotice } from './content-filter-notice'
 import { useExecutionHistoryTracker } from './execution-history-tracker.hooks'
 import { useNotifyActiveTab } from './notify-active-tab.hooks'
@@ -344,6 +346,24 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     error: chatError,
     addToolApprovalResponse,
   } = useChat({
+    // The AI SDK does not auto-resume after `addToolApprovalResponse` unless
+    // `sendAutomaticallyWhen` is configured. Without this, approving/denying a
+    // consequential tool only flips the local part to `approval-responded` and
+    // never sends the resume request, so the server never re-executes the
+    // approved tool (and the model never sees the result). Resume whenever the
+    // last message carries a tool part the user just responded to.
+    sendAutomaticallyWhen: ({ messages }) => {
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage?.role !== 'assistant' || !lastMessage.parts) return false
+      return lastMessage.parts.some((part) => {
+        if (!part.type) return false
+        const isTool =
+          part.type === 'dynamic-tool' || part.type.startsWith('tool-')
+        if (!isTool) return false
+        const toolPart = part as { state: string }
+        return toolPart.state === 'approval-responded'
+      })
+    },
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         const target = selectedChatTargetRef.current
@@ -386,6 +406,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             : undefined
         const previousConversation = history?.length ? history : undefined
 
+        // Approval decisions to replay on the server (see
+        // `collectToolApprovalResponses`). Sent on resume turns so the server
+        // can update its stored tool parts and re-run the loop.
+        const toolApprovalResponses = collectToolApprovalResponses(messages)
+        const isApprovalResume = toolApprovalResponses.length > 0
+
         const userSystemPrompt = getUserSystemPrompt(
           options?.origin,
           personalizationRef.current,
@@ -407,9 +433,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           trustPins: trustPinsRef.current,
           previousConversation,
           declinedApps,
+          toolApprovalResponses,
         }
 
-        const message = getLastMessageText(messages)
+        const message = isApprovalResume ? '' : getLastUserMessageText(messages)
 
         const currentAgentServerUrl = agentUrlRef.current
         if (!currentAgentServerUrl) {
@@ -861,12 +888,17 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       const argsChanged =
         JSON.stringify(args) !== JSON.stringify(tool.input ?? {})
       if (argsChanged) {
-        await executeToolReplay(tool, args, { dismissApprovalId: approvalId })
-        return
+        // Patch the edited args into the tool invocation before resuming the
+        // loop. The server re-executes the tool with the patched input and the
+        // model sees the real result — no side-channel replay, so the model's
+        // context never diverges from what actually happened.
+        setMessages((current) =>
+          patchToolInvocationInput(current, tool.toolCallId, args),
+        )
       }
       addToolApprovalResponse?.({ id: approvalId, approved: true })
     },
-    [addToolApprovalResponse, executeToolReplay],
+    [addToolApprovalResponse, setMessages],
   )
 
   const denyTool = useCallback(

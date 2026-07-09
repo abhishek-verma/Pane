@@ -22,6 +22,35 @@ function extractReplayText(output: unknown): string {
   return JSON.stringify(output, null, 2)
 }
 
+/** Patches a tool invocation's input before approving with edited args. */
+export function patchToolInvocationInput(
+  messages: UIMessage[],
+  toolCallId: string,
+  input: Record<string, unknown>,
+): UIMessage[] {
+  return messages.map((message) => {
+    if (!message.parts?.length) return message
+
+    let changed = false
+    const parts = message.parts.map((part) => {
+      if (!part.type?.startsWith('tool-') && part.type !== 'dynamic-tool') {
+        return part
+      }
+
+      const toolPart = part as {
+        toolCallId?: string
+        input?: unknown
+      }
+      if (toolPart.toolCallId !== toolCallId) return part
+
+      changed = true
+      return { ...part, input }
+    })
+
+    return changed ? ({ ...message, parts } as UIMessage) : message
+  })
+}
+
 /** Patches a tool invocation's output after a trust replay/promote. */
 export function patchToolInvocationOutput(
   messages: UIMessage[],

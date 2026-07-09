@@ -33,6 +33,7 @@ import { type StagedAttachment, stageAttachments } from '@/lib/attachments'
 import { PaneIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
 import { cn } from '@/lib/utils'
+import { VOICE_SUPPORTED } from '@/lib/voice/voice-supported'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
 import { useWorkspace } from '@/modules/workspace/workspace.hooks'
 
@@ -587,19 +588,21 @@ export const ConversationInput: FC<ConversationInputProps> = ({
             />
           </div>
           {streaming && onStop ? <StopButton onStop={onStop} /> : null}
-          {onOpenVoiceMode ? (
+          {VOICE_SUPPORTED && onOpenVoiceMode ? (
             <VoiceModeEntryButton onClick={onOpenVoiceMode} />
           ) : null}
-          <VoiceButton
-            isRecording={voice.isRecording}
-            isTranscribing={voice.isTranscribing}
-            onStart={() => {
-              void voice.startRecording()
-            }}
-            onStop={() => {
-              void voice.stopRecording()
-            }}
-          />
+          {VOICE_SUPPORTED ? (
+            <VoiceButton
+              isRecording={voice.isRecording}
+              isTranscribing={voice.isTranscribing}
+              onStart={() => {
+                void voice.startRecording()
+              }}
+              onStop={() => {
+                void voice.stopRecording()
+              }}
+            />
+          ) : null}
           <InputActionButton
             disabled={
               !hasContent ||

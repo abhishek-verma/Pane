@@ -1,14 +1,13 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import { getBrowserosDir } from './browseros-dir'
 
 export class LockFile {
   private lockFilePath: string
   private fd: number | null = null
 
   constructor(filename = 'server-pid.lock') {
-    const homeDir = os.homedir()
-    this.lockFilePath = path.join(homeDir, '.browseros', filename)
+    this.lockFilePath = path.join(getBrowserosDir(), filename)
   }
 
   public acquire(): boolean {

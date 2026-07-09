@@ -66,10 +66,12 @@ describe('compiled server native addon policy', () => {
         `import { installNativeAddonGuard } from ${JSON.stringify(nativeAddonGuardPath)}`,
         'installNativeAddonGuard()',
         'try {',
+        '  console.log("BEFORE REQUIRE")',
         '  require("./addon.node")',
+        '  console.log("AFTER REQUIRE")',
         '} catch (error) {',
         '  console.error(error?.message ?? String(error))',
-        '  setInterval(() => {}, 1000)',
+        '  setTimeout(() => {}, 500)',
         '}',
       ].join('\n'),
     )
@@ -97,7 +99,6 @@ describe('compiled server native addon policy', () => {
       stdout: 'pipe',
       stderr: 'pipe',
     })
-    await Bun.sleep(500)
 
     const openFiles = await collectProcess(
       Bun.spawn(['lsof', '-p', String(app.pid)], {
@@ -106,7 +107,6 @@ describe('compiled server native addon policy', () => {
       }),
     )
 
-    app.kill()
     const appResult = await collectProcess(app)
 
     expect(appResult.stderr).toContain(
@@ -124,11 +124,10 @@ interface CollectableProcess {
 }
 
 async function collectProcess(process: CollectableProcess) {
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(process.stdout).text(),
-    new Response(process.stderr).text(),
-    process.exited,
-  ])
+  const stdoutPromise = new Response(process.stdout).text()
+  const stderrPromise = new Response(process.stderr).text()
+  const exitCode = await process.exited
+  const [stdout, stderr] = await Promise.all([stdoutPromise, stderrPromise])
 
   return { stdout, stderr, exitCode }
 }

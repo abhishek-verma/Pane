@@ -1,4 +1,4 @@
-export const DEFAULT_BROWSEROS_API_URL = 'https://api.browseros.com'
+export const DEFAULT_BROWSEROS_API_URL = 'https://api.pane.com'
 
 /** Resolves and validates the BrowserOS API base URL for runtime and build config. */
 export function parseBrowserOSApiUrl(value: string | undefined): string {

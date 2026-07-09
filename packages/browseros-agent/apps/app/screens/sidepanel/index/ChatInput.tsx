@@ -17,6 +17,7 @@ import {
 } from 'react'
 import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
 import { cn } from '@/lib/utils'
+import { VOICE_SUPPORTED } from '@/lib/voice/voice-supported'
 import type { ChatMode } from '@/modules/chat/chat-types'
 import type { VoiceInputState } from '@/modules/voice/voice.hooks'
 
@@ -352,8 +353,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
     // padding on the input or text slides under the icons. Derive the
     // padding from the count of buttons that will actually render — the
     // cluster grows/shrinks with props and recording state.
-    const showVoiceMode = !!onOpenVoiceMode && !voice?.isRecording
-    const showDictation = !!voice
+    const showVoiceMode =
+      VOICE_SUPPORTED && !!onOpenVoiceMode && !voice?.isRecording
+    const showDictation = VOICE_SUPPORTED && !!voice
     const visibleButtonCount =
       1 + (showVoiceMode ? 1 : 0) + (showDictation ? 1 : 0)
     const inputPaddingRight =

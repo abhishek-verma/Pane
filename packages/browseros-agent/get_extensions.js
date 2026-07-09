@@ -1,4 +1,4 @@
-const http = require('http')
+const http = require('node:http')
 
 http.get('http://127.0.0.1:9222/json/list', (res) => {
   let data = ''

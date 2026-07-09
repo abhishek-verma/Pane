@@ -1,3 +1,4 @@
+import { describeToolCall } from '@browseros/shared/trust/consequence-class'
 import type { FC } from 'react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -75,6 +76,16 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   const preview = extractOutputText(tool.output)
   const waitingApproval = tool.state === 'approval-requested'
   const dryRun = tool.state === 'output-available' && isDryRunPreview(tool)
+  // Loop-surface consequential calls pause for approval instead of returning a
+  // dry-run preview as output, so render a preview from the tool input here.
+  const approvalPreview =
+    preview ||
+    (waitingApproval
+      ? describeToolCall(
+          tool.toolName,
+          (tool.input ?? {}) as Record<string, unknown>,
+        )
+      : '')
   const [editing, setEditing] = useState(false)
   const [argsText, setArgsText] = useState('')
   const [argsError, setArgsError] = useState<string | null>(null)
@@ -113,9 +124,9 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
 
   return (
     <div className="mt-2 rounded-md border border-yellow-500/30 bg-yellow-500/5 p-3 text-sm">
-      {preview && (
+      {approvalPreview && (
         <pre className="mb-3 max-h-40 overflow-auto whitespace-pre-wrap text-xs">
-          {preview}
+          {approvalPreview}
         </pre>
       )}
       <div className="mb-3 space-y-2">

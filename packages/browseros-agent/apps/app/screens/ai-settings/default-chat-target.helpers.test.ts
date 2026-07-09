@@ -13,7 +13,7 @@ const providers: LlmProviderConfig[] = [
     id: 'browseros',
     type: 'browseros',
     name: 'Pane',
-    baseUrl: 'https://api.browseros.com/v1',
+    baseUrl: 'https://api.pane.com/v1',
     modelId: 'browseros-auto',
     supportsImages: true,
     contextWindow: 200000,

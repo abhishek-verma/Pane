@@ -1,10 +1,16 @@
-import { describe, expect, it } from 'bun:test'
+import { describe, expect, it, mock } from 'bun:test'
 import { Feature } from '../browseros/capabilities'
 import {
   visibleProviderTemplates,
   visibleProviderTypeOptions,
 } from './provider-visibility'
 import { providerTemplates, providerTypeOptions } from './providerTemplates'
+
+mock.module('../constants/product-features', () => ({
+  productFeatures: {
+    remoteHermes: true,
+  },
+}))
 
 function supportsHermes(enabled: boolean) {
   return (feature: Feature) =>
