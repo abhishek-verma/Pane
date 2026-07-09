@@ -6,6 +6,10 @@
 
 export * from './action-log'
 export * from './agents'
+export * from './buckets'
 export * from './chat-sessions'
+export * from './graph-edges'
+export * from './graph-events'
+export * from './graph-nodes'
 export * from './oauth'
 export * from './produced-files'

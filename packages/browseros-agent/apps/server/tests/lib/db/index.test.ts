@@ -215,11 +215,17 @@ describe('database initialization', () => {
       .query<{ name: string }, []>(
         `
           SELECT name FROM sqlite_master
-          WHERE type = 'table'
+          WHERE type IN ('table', 'virtual')
             AND name IN (
               'agent_definitions',
               'oauth_tokens',
               'produced_files',
+              'action_log',
+              'buckets',
+              'graph_nodes',
+              'graph_edges',
+              'graph_events',
+              'graph_index',
               '__drizzle_migrations'
             )
           ORDER BY name
@@ -230,7 +236,13 @@ describe('database initialization', () => {
 
     expect(tables).toEqual([
       '__drizzle_migrations',
+      'action_log',
       'agent_definitions',
+      'buckets',
+      'graph_edges',
+      'graph_events',
+      'graph_index',
+      'graph_nodes',
       'oauth_tokens',
       'produced_files',
     ])
@@ -270,5 +282,17 @@ const expectedMigrationHistory = [
   {
     hash: '34387e59aa1f0d6dc44c95836d2363b72982663c50d05d0c67ee58c211209f52',
     createdAt: 1781916712443,
+  },
+  {
+    hash: '140343dccf85b6af747555794d50b87bef7be0de8dce4a233ac6f9d401dc487e',
+    createdAt: 1782739796116,
+  },
+  {
+    hash: '9441a9279c0e58e5ecf99a91bda81c541efee7254028261d9a3b852b2fb49508',
+    createdAt: 1782818741531,
+  },
+  {
+    hash: 'eccaed1b3bd28eafbe06112d9f73786aa17fd0ee2cc985b13cc8827409dae9e9',
+    createdAt: 1783592265849,
   },
 ]

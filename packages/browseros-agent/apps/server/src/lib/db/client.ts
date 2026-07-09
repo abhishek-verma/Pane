@@ -211,6 +211,11 @@ const currentMigrationHistory = [
     hash: '9441a9279c0e58e5ecf99a91bda81c541efee7254028261d9a3b852b2fb49508',
     createdAt: 1782818741531,
   },
+  {
+    tag: '0006_low_white_tiger',
+    hash: 'eccaed1b3bd28eafbe06112d9f73786aa17fd0ee2cc985b13cc8827409dae9e9',
+    createdAt: 1783592265849,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -343,6 +348,101 @@ const currentSchemaStatements = [
   `
     CREATE INDEX IF NOT EXISTS action_log_conv_idx
     ON action_log (conversation_id, created_at)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS buckets (
+      id text PRIMARY KEY NOT NULL,
+      name text NOT NULL,
+      kind text DEFAULT 'general' NOT NULL,
+      created_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS graph_nodes (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      kind text NOT NULL,
+      title text,
+      uri text,
+      summary text,
+      provenance text NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id)
+        ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_nodes_bucket_kind_idx
+    ON graph_nodes (bucket_id, kind)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_nodes_bucket_updated_idx
+    ON graph_nodes (bucket_id, updated_at)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_nodes_uri_idx
+    ON graph_nodes (uri)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS graph_edges (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      from_id text NOT NULL,
+      to_id text NOT NULL,
+      kind text NOT NULL,
+      created_at integer NOT NULL,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id)
+        ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (from_id) REFERENCES graph_nodes(id)
+        ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (to_id) REFERENCES graph_nodes(id)
+        ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_edges_bucket_from_idx
+    ON graph_edges (bucket_id, from_id)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_edges_bucket_to_idx
+    ON graph_edges (bucket_id, to_id)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS graph_events (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      run_id text,
+      tool_name text,
+      node_id text,
+      payload_json text NOT NULL,
+      created_at integer NOT NULL,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id)
+        ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (node_id) REFERENCES graph_nodes(id)
+        ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_events_bucket_created_idx
+    ON graph_events (bucket_id, created_at)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_events_run_idx
+    ON graph_events (run_id)
+  `,
+  `
+    CREATE VIRTUAL TABLE IF NOT EXISTS graph_index USING fts5(
+      node_id UNINDEXED,
+      bucket_id UNINDEXED,
+      title,
+      uri,
+      summary
+    )
+  `,
+  `
+    INSERT OR IGNORE INTO buckets (id, name, kind, created_at)
+    VALUES ('default', 'Default', 'general', 0)
   `,
   `
     CREATE TABLE IF NOT EXISTS __drizzle_migrations (
