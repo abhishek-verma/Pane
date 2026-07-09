@@ -48,7 +48,8 @@ func init() {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			bucket, _ := cmd.Flags().GetString("bucket")
-			toolArgs := map[string]any{"title": args[0]}
+			// CLI is an explicit user action — promote write-local past the MCP dry-run gate.
+			toolArgs := map[string]any{"title": args[0], "__promoted": true}
 			if bucket != "" {
 				toolArgs["bucketId"] = bucket
 			}
@@ -72,7 +73,10 @@ func init() {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			c := newClient()
-			result, err := c.CallTool("tasks_done", map[string]any{"id": args[0]})
+			result, err := c.CallTool("tasks_done", map[string]any{
+				"id":         args[0],
+				"__promoted": true,
+			})
 			if err != nil {
 				output.Error(err.Error(), 1)
 			}

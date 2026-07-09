@@ -8,11 +8,17 @@ import {
   SEARCH_DEFAULT_LIMIT,
   SEARCH_MAX_LIMIT,
 } from '@browseros/context-graph/constants'
+import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
 import { getDeniedHosts } from './grants'
 import { graphCurrentWork, graphSearch } from './repo'
 import { addTask, listTasks, markTaskDone, type TaskStatus } from './tasks-repo'
+
+/** Optional MCP promote flag — must be in the schema or the SDK strips it. */
+const promotedField = {
+  [PROMOTED_ARG]: z.boolean().optional(),
+} as const
 
 const RECALL_STUB =
   'Memory recall is not available yet (Phase 4). Use context_search for activity.'
@@ -120,6 +126,7 @@ export function buildTasksToolSet(getBucketId: () => string): ToolSet {
         title: z.string().min(1),
         bucketId: z.string().optional(),
         notes: z.string().optional(),
+        ...promotedField,
       }),
       execute: async ({ title, bucketId, notes }) => {
         const task = addTask({
@@ -134,6 +141,7 @@ export function buildTasksToolSet(getBucketId: () => string): ToolSet {
       description: 'Mark a task as done.',
       inputSchema: z.object({
         id: z.string().min(1),
+        ...promotedField,
       }),
       execute: async ({ id }) => {
         const task = markTaskDone(id)
