@@ -7,7 +7,7 @@ const { createHash } = require('node:crypto')
 
 const VERSION = require('../package.json').version
 const GITHUB_RELEASE_TAG = `cli/v${VERSION}`
-const GITHUB_RELEASE_BASE = `https://github.com/browseros-ai/BrowserOS/releases/download/${encodeURIComponent(GITHUB_RELEASE_TAG)}`
+const GITHUB_RELEASE_BASE = `https://github.com/abhishek-verma/Pane/releases/download/${encodeURIComponent(GITHUB_RELEASE_TAG)}`
 const BINARY_DIR = path.join(__dirname, '..', '.binary')
 const EXT = process.platform === 'win32' ? '.exe' : ''
 const BINARY_PATH = path.join(BINARY_DIR, `browseros-cli${EXT}`)
@@ -137,7 +137,7 @@ async function main() {
 main().catch((err) => {
   console.error(`browseros-cli: installation failed: ${err.message}`)
   console.error(
-    'You can install manually: curl -fsSL https://cdn.browseros.com/cli/install.sh | bash',
+    'You can install manually: curl -fsSL https://raw.githubusercontent.com/abhishek-verma/Pane/main/packages/browseros-agent/apps/cli/scripts/install.sh | bash',
   )
   process.exit(1)
 })

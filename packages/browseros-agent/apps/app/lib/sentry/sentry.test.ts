@@ -1,7 +1,13 @@
-import { describe, expect, it, mock } from 'bun:test'
+import { beforeAll, describe, expect, it, mock } from 'bun:test'
 import * as Sentry from '@sentry/react'
-import { telemetryStorage } from '../analytics/telemetryStorage'
-import { initSentry } from './sentry'
+
+mock.module('@wxt-dev/storage', () => ({
+  storage: {
+    defineItem: mock().mockReturnValue({
+      getValue: mock(),
+    }),
+  },
+}))
 
 mock.module('../env', () => ({
   env: {
@@ -16,6 +22,20 @@ mock.module('@sentry/react', () => {
     breadcrumbsIntegration: mock(),
     setTag: mock(),
   }
+})
+
+let telemetryStorage: any
+let initSentry: any
+
+beforeAll(async () => {
+  globalThis.chrome = {
+    runtime: {
+      getManifest: () => ({ version: '1.0' }),
+    },
+  } as any
+
+  ;({ telemetryStorage } = await import('../analytics/telemetryStorage'))
+  ;({ initSentry } = await import('./sentry'))
 })
 
 mock.module('../analytics/telemetryStorage', () => ({

@@ -4,9 +4,9 @@ import { execFileSync } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
 
 const DEFAULT_LATEST_VERSION_URL =
-  'https://cdn.browseros.com/cli/latest/version.txt'
+  'https://github.com/abhishek-verma/Pane/releases/latest/download/version.txt'
 const DEFAULT_LATEST_MANIFEST_URL =
-  'https://cdn.browseros.com/cli/latest/manifest.json'
+  'https://github.com/abhishek-verma/Pane/releases/latest/download/manifest.json'
 const STRICT_VERSION_SOURCE =
   '(?<version>(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*))'
 const CLI_TAG_PATTERN = new RegExp(`^cli/v${STRICT_VERSION_SOURCE}$`)

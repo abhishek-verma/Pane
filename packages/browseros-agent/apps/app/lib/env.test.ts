@@ -18,7 +18,7 @@ describe('parseAlphaFeaturesFlag', () => {
 
 describe('parseBrowserOSApiUrl', () => {
   it('defaults to the production BrowserOS API when unset', () => {
-    expect(parseBrowserOSApiUrl(undefined)).toBe('https://api.browseros.com')
+    expect(parseBrowserOSApiUrl(undefined)).toBe('https://api.pane.com')
   })
 
   it('preserves explicit overrides', () => {
@@ -27,8 +27,10 @@ describe('parseBrowserOSApiUrl', () => {
     )
   })
 
-  it('rejects overrides without a scheme', () => {
-    expect(() => parseBrowserOSApiUrl('api.browseros.com')).toThrow(
+  it('rejects bare hostnames without a protocol', () => {
+    // Validates that we enforce full URLs, which prevents accidental protocol mismatches (like hitting HTTP when HTTPS is expected)
+    // and catches config errors early at startup rather than during API requests.
+    expect(() => parseBrowserOSApiUrl('api.pane.com')).toThrow(
       'VITE_PUBLIC_BROWSEROS_API must be a valid URL including http:// or https://',
     )
   })

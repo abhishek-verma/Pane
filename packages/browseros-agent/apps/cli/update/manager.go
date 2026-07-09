@@ -10,7 +10,11 @@ import (
 )
 
 const (
-	DefaultManifestURL     = "https://cdn.browseros.com/cli/latest/manifest.json"
+	// DefaultManifestURL points at the manifest.json asset attached to the
+	// latest non-prerelease CLI release on GitHub. GitHub redirects
+	// /releases/latest/download/<asset> to that asset, so the URL is stable
+	// across releases without any CDN we operate.
+	DefaultManifestURL     = "https://github.com/abhishek-verma/Pane/releases/latest/download/manifest.json"
 	DefaultCheckTTL        = 24 * time.Hour
 	DefaultHTTPTimeout     = 2 * time.Second
 	DefaultDownloadTimeout = 5 * time.Minute

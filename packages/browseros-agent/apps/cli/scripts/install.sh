@@ -3,14 +3,18 @@
 # Install Pane CLI (browseros-cli) — downloads the latest release binary for your platform.
 #
 # Usage:
-#   curl -fsSL https://cdn.browseros.com/cli/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/abhishek-verma/Pane/main/packages/browseros-agent/apps/cli/scripts/install.sh | bash
 #
 #   # Or with options:
-#   curl -fsSL https://cdn.browseros.com/cli/install.sh | bash -s -- --version 0.1.0 --dir /usr/local/bin
+#   curl -fsSL https://raw.githubusercontent.com/abhishek-verma/Pane/main/packages/browseros-agent/apps/cli/scripts/install.sh | bash -s -- --version 0.1.0 --dir /usr/local/bin
 
 set -euo pipefail
 
-CDN_BASE="https://cdn.browseros.com/cli"
+# GitHub Releases hosts the CLI artifacts. /releases/latest/download/<asset>
+# redirects to that asset in the latest non-prerelease release; version-pinned
+# archives live under /releases/download/cli/v<version>/<asset>.
+RELEASES_BASE="https://github.com/abhishek-verma/Pane/releases"
+LATEST_URL="${RELEASES_BASE}/latest/download"
 BINARY="browseros-cli"
 INSTALL_DIR="${HOME}/.browseros/bin"
 
@@ -43,7 +47,7 @@ done
 # ── Resolve latest version ───────────────────────────────────────────────────
 
 if [[ -z "$VERSION" ]]; then
-  VERSION=$(curl -fsSL "${CDN_BASE}/latest/version.txt" | tr -d '[:space:]')
+  VERSION=$(curl -fsSL "${LATEST_URL}/version.txt" | tr -d '[:space:]')
 
   if [[ -z "$VERSION" ]]; then
     echo "Error: could not determine latest version." >&2
@@ -79,8 +83,8 @@ esac
 # ── Download and extract ─────────────────────────────────────────────────────
 
 FILENAME="${BINARY}_${VERSION}_${OS}_${ARCH}.tar.gz"
-URL="${CDN_BASE}/v${VERSION}/${FILENAME}"
-CHECKSUM_URL="${CDN_BASE}/v${VERSION}/checksums.txt"
+URL="${RELEASES_BASE}/download/cli/v${VERSION}/${FILENAME}"
+CHECKSUM_URL="${RELEASES_BASE}/download/cli/v${VERSION}/checksums.txt"
 
 TMPDIR_DL=$(mktemp -d)
 trap 'rm -rf "$TMPDIR_DL"' EXIT

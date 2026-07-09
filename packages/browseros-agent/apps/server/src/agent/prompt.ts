@@ -309,9 +309,46 @@ ${navTable}</tool_selection>`
 
 function getExternalIntegrations(
   _exclude: Set<string>,
-  _options?: BuildSystemPromptOptions,
+  options?: BuildSystemPromptOptions,
 ): string {
-  return ''
+  let content = `<external_integrations>
+## External Integrations
+
+You can execute actions on external apps (e.g. Gmail, Slack, Linear) via Strata.
+
+`
+
+  if (options?.connectedApps?.length) {
+    content += `**Connected apps** (use Strata tools for these): ${options.connectedApps.join(', ')}\n`
+  } else {
+    content += `No apps are currently connected via Strata.\n`
+  }
+
+  if (options?.declinedApps?.length) {
+    content += `**Declined apps** (user chose "do it manually" — use browser automation, NEVER Strata): ${options.declinedApps.join(', ')}\n`
+  }
+
+  content += `
+### Discovery Flow
+1. \`discover_server_categories_or_actions\`
+2. \`get_category_actions\`
+3. \`get_action_details\`
+4. \`execute_action\`
+(Fallback: \`search_documentation\`)
+
+### Side-effect awareness
+- Always confirm content with the user before sending
+- Always confirm details before executing destructive actions
+- Pause and always confirm before proceeding
+
+### Partial Failure
+If an action partially succeeds, report what you got and explain what's missing.
+
+<authentication_flow>
+If an app requires authentication, STOP and wait for the user to authenticate.
+</authentication_flow>
+</external_integrations>`
+  return content
 }
 
 // -----------------------------------------------------------------------------
@@ -337,6 +374,8 @@ function getErrorRecovery(
 - If \`run\` fails → simplify the page script or fall back to \`read\`/\`grep\`
 - If the page shows an error state → report the error, don't retry blindly
 
+### Strata error patterns
+- If Strata tools fail, report the error.
 
 ### Retry budget
 - If a site isn't cooperating after 3-4 attempts (form not filling, redirects, geo-blocks), stop trying.
@@ -391,7 +430,7 @@ function getNudges(): string {
   return `<nudge_tools>
 ## Nudge Tools
 
-You have two nudge tools that operate at **different times** during a conversation turn.
+You have one nudge tool that operates post-task.
 
 
 ### suggest_schedule — POST-TASK tool

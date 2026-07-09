@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -22,6 +22,7 @@ export interface TestRuntimePlan {
   headless: boolean
   extraArgs: string[]
   usesFixedPorts: boolean
+  hasBinary: boolean
 }
 
 function parseExtraArgs(value: string | undefined): string[] {
@@ -157,5 +158,10 @@ export async function createTestRuntimePlan(): Promise<TestRuntimePlan> {
     headless,
     extraArgs,
     usesFixedPorts: resolvedPorts.usesFixedPorts,
+    hasBinary: existsSync(DEFAULT_BINARY_PATH),
   }
+}
+
+export function hasBrowserOSBinary(): boolean {
+  return existsSync(DEFAULT_BINARY_PATH)
 }

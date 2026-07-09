@@ -1,4 +1,8 @@
 import { describe, it } from 'bun:test'
+import { hasBrowserOSBinary } from '../__helpers__/test-runtime'
+
+const describeIfNative = hasBrowserOSBinary() ? describe : describe.skip
+
 import assert from 'node:assert'
 import type { WSContext, WSReadyState } from 'hono/ws'
 import {
@@ -50,7 +54,7 @@ async function waitForFrame(
   return false
 }
 
-describe('ScreencastManager', () => {
+describeIfNative('ScreencastManager', () => {
   // Uses a visible window — bringToFront wakes the compositor reliably
   // there. Hidden-window subscribers get the connected status but
   // depend on subsequent invalidations for frames (Chromium pauses

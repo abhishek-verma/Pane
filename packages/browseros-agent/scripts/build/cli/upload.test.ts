@@ -97,4 +97,17 @@ describe('buildCliReleaseManifest', () => {
       }),
     ).toThrow('Missing checksum')
   })
+
+  test('defaults to GitHub Releases asset URLs when no base is provided', () => {
+    const manifest = buildCliReleaseManifest({
+      version: '1.2.3',
+      filenames: ['browseros-cli_1.2.3_darwin_arm64.tar.gz'],
+      checksumsContent:
+        'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  browseros-cli_1.2.3_darwin_arm64.tar.gz',
+    })
+
+    expect(manifest.assets['darwin/arm64'].url).toBe(
+      'https://github.com/abhishek-verma/Pane/releases/download/cli/v1.2.3/browseros-cli_1.2.3_darwin_arm64.tar.gz',
+    )
+  })
 })

@@ -130,7 +130,7 @@ export function createDefaultBrowserOSProvider(): LlmProviderConfig {
     id: DEFAULT_PROVIDER_ID,
     type: 'browseros',
     name: DEFAULT_PROVIDER_NAME,
-    baseUrl: 'https://api.browseros.com/v1',
+    baseUrl: 'https://api.pane.com/v1',
     modelId: 'browseros-auto',
     supportsImages: true,
     contextWindow: 200000,

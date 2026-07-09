@@ -1,18 +1,12 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import {
   createMcpRoutes,
-  MANAGED_MCP_SERVERS_HEADER,
   parseManagedMcpServersHeader,
 } from '../../../src/api/routes/mcp'
-import type {
-  ConnectorToolScope,
-  KlavisProxyStatus,
-} from '../../../src/api/services/klavis'
 
 interface McpServerCreation {
   executionDir: string | undefined
   remoteAgentHarness: { outputFileAccess?: unknown } | undefined
-  proxyStatus: KlavisProxyStatus | null
   selectedServerNames: readonly string[] | undefined
 }
 
@@ -34,16 +28,12 @@ const createMcpTransportSpy = mock((options: unknown) => {
 
 const createMcpServerSpy = mock(
   (deps: {
-    klavis?: { getProxyStatus(): KlavisProxyStatus }
-    connectorScope?: ConnectorToolScope
     executionDir?: string
     remoteAgentHarness?: { outputFileAccess?: unknown }
   }) => {
     serverCreations.push({
       executionDir: deps.executionDir,
       remoteAgentHarness: deps.remoteAgentHarness,
-      proxyStatus: deps.klavis?.getProxyStatus() ?? null,
-      selectedServerNames: deps.connectorScope?.selectedServerNames,
     })
 
     return {
@@ -111,42 +101,6 @@ describe('parseManagedMcpServersHeader', () => {
 })
 
 describe('createMcpRoutes', () => {
-  it('passes latest Klavis status and selected connector scope per request', async () => {
-    let status: KlavisProxyStatus = { state: 'connecting' }
-    const klavis = {
-      getProxyStatus: () => status,
-    }
-    const app = createTestMcpRoutes({
-      klavis: klavis as never,
-    })
-
-    const first = await postMcp(app)
-
-    status = { state: 'ready', toolCount: 3 }
-    const second = await postMcp(app, {
-      [MANAGED_MCP_SERVERS_HEADER]: 'Slack,Google%20Docs',
-    })
-
-    expect(first.status).toBe(200)
-    expect(second.status).toBe(200)
-    expect(serverCreations).toEqual([
-      {
-        executionDir: '/tmp/browseros-execution',
-        remoteAgentHarness: undefined,
-        proxyStatus: { state: 'connecting' },
-        selectedServerNames: [],
-      },
-      {
-        executionDir: '/tmp/browseros-execution',
-        remoteAgentHarness: undefined,
-        proxyStatus: { state: 'ready', toolCount: 3 },
-        selectedServerNames: ['Slack', 'Google Docs'],
-      },
-    ])
-    expect(transportInstances).toHaveLength(2)
-    expect(connectCalls).toEqual(transportInstances)
-  })
-
   it('sets the remote agent harness context only for the remote harness source', async () => {
     const app = createTestMcpRoutes()
 
@@ -163,14 +117,12 @@ describe('createMcpRoutes', () => {
       {
         executionDir: '/tmp/browseros-execution',
         remoteAgentHarness: undefined,
-        proxyStatus: null,
-        selectedServerNames: [],
       },
       {
         executionDir: '/tmp/browseros-execution',
-        remoteAgentHarness: { outputFileAccess: expect.any(Object) },
-        proxyStatus: null,
-        selectedServerNames: [],
+        remoteAgentHarness: {
+          outputFileAccess: expect.any(Object),
+        },
       },
     ])
   })

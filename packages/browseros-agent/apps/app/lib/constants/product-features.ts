@@ -26,7 +26,7 @@ function envFlag(name: string, defaultValue = false): boolean {
 }
 
 export const productFeatures = {
-  /** Built-in Pane/BrowserOS hosted inference (api.browseros.com gateway + credits). */
+  /** Built-in Pane/BrowserOS hosted inference (api.pane.com gateway + credits). */
   hostedInference: envFlag('VITE_HOSTED_INFERENCE', false),
   /** Cloud account: GraphQL sync for providers, conversations, schedules, profile. */
   cloudSync: envFlag('VITE_CLOUD_SYNC', false),
