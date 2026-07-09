@@ -13,8 +13,10 @@ import type { Env, HttpServerConfig } from '../types'
 import { defaultCorsConfig } from '../utils/cors'
 import { requireTrustedAppOrigin } from '../utils/request-auth'
 import { createAcpxProbeRoutes } from './acpx-probe'
+import { createActionLogRoutes } from './action-log'
 import { createAgentRoutes } from './agents'
 import { createChatRoutes } from './chat'
+import { createContextRoutes } from './context'
 import { createHealthRoute } from './health'
 import { createMcpRoutes } from './mcp'
 import { createMcpManagerRoutes } from './mcp-manager'
@@ -25,6 +27,9 @@ import { createRefinePromptRoutes } from './refine-prompt'
 import { createScreencastRoute } from './screencast'
 import { createShutdownRoute } from './shutdown'
 import { createStatusRoute } from './status'
+import { createTasksRoutes } from './tasks'
+import { createTrustRoutes } from './trust'
+import { createWorkspaceRoutes } from './workspace'
 
 interface CreateApiRoutesDeps {
   agentRoutes?: Hono<Env>
@@ -54,6 +59,18 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
       .route('/health', createHealthRoute({ browser }))
       .route('/shutdown', createShutdownRoute({ onShutdown: deps.onShutdown }))
       .route('/status', createStatusRoute({ browser }))
+      .route('/action-log', createActionLogRoutes())
+      .route('/context', createContextRoutes())
+      .route('/tasks', createTasksRoutes())
+      .route('/workspace', createWorkspaceRoutes())
+      .route(
+        '/trust',
+        createTrustRoutes({
+          browser,
+          browserSession,
+          browserosId,
+        }),
+      )
       .route(
         '/test-provider',
         createProviderRoutes({ browserosId, resourcesDir }),

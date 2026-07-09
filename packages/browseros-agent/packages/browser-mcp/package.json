@@ -34,6 +34,10 @@
       "types": "./src/register.ts",
       "default": "./src/register.ts"
     },
+    "./trust/mcp-gate": {
+      "types": "./src/trust/mcp-gate.ts",
+      "default": "./src/trust/mcp-gate.ts"
+    },
     "./registry": {
       "types": "./src/tools/registry.ts",
       "default": "./src/tools/registry.ts"

@@ -10,12 +10,17 @@
  */
 
 import type { BrowserOutputFileAccess } from '@browseros/browser-mcp/output-file'
+import { createDefaultMcpGateContext } from '@browseros/browser-mcp/trust/mcp-gate'
+import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { z } from 'zod'
+import { gateExecute } from '../../agent/trust/gate'
+import { buildIngestGateHooks } from '../../context/wire-ingest'
 import { logger } from '../../lib/logger'
 import { shouldLogToolRegistration } from '../registration-log-sampling'
 import { buildFilesystemToolSet } from './build-toolset'
 import type { FilesystemToolResult } from './utils'
+import { defaultWorkspace, type Workspace } from './workspace'
 
 // Shape we depend on from the AI-SDK `tool({...})` return value at
 // runtime. Asserted via a single cast so the rest of the file is typed.
@@ -45,20 +50,30 @@ type McpRegisterFn = (
 
 export interface RegisterFilesystemMcpToolsOptions {
   outputFileAccess?: BrowserOutputFileAccess
+  gateContext?: GateContext
 }
 
 export function registerFilesystemMcpTools(
   server: McpServer,
-  cwd: string,
+  workspaceOrCwd: Workspace | string,
   options: RegisterFilesystemMcpToolsOptions = {},
 ): void {
   const register = server.registerTool.bind(server) as unknown as McpRegisterFn
-  const tools = buildFilesystemToolSet(cwd, {
+  const workspace =
+    typeof workspaceOrCwd === 'string'
+      ? defaultWorkspace(workspaceOrCwd)
+      : workspaceOrCwd
+  const tools = buildFilesystemToolSet(workspace, {
     read: {
       allowedOutputPaths: options.outputFileAccess?.paths,
       requireAllowedOutputPath: Boolean(options.outputFileAccess),
     },
   }) as unknown as Record<string, AiSdkToolLike>
+
+  const ingestHooks = buildIngestGateHooks({
+    getBucketId: () => workspace.bucketId,
+    getWorkspace: () => workspace,
+  })
 
   for (const [name, tool] of Object.entries(tools)) {
     register(
@@ -68,7 +83,22 @@ export function registerFilesystemMcpTools(
         inputSchema: tool.inputSchema.shape,
       },
       async (args, extra) => {
-        const result = await tool.execute(args, { signal: extra?.signal })
+        const executeTool = async (
+          cleanArgs: Record<string, unknown>,
+        ): Promise<FilesystemToolResult> =>
+          tool.execute(cleanArgs, { signal: extra?.signal })
+
+        const result = await gateExecute(
+          name,
+          args,
+          {
+            ...(options.gateContext ?? createDefaultMcpGateContext()),
+            surface: 'mcp',
+          },
+          executeTool,
+          'text',
+          ingestHooks,
+        )
         if (result.isError) {
           return {
             content: [{ type: 'text', text: result.text }],
@@ -95,7 +125,7 @@ export function registerFilesystemMcpTools(
 
   if (shouldLogToolRegistration()) {
     logger.info(
-      `Registered ${Object.keys(tools).length} filesystem MCP tools scoped to ${cwd}`,
+      `Registered ${Object.keys(tools).length} filesystem MCP tools scoped to ${workspace.root}`,
     )
   }
 }

@@ -3,11 +3,13 @@ import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router'
 import { SettingsSidebarLayout } from '@/components/layout/SettingsSidebarLayout'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { RouteDocumentTitle } from '@/lib/document-title/RouteDocumentTitle'
+import { ActionLogPage } from '@/screens/action-log/ActionLogPage'
 import { AgentCommandConversation } from '@/screens/agent-command/AgentCommandConversation'
 import { AgentCommandHome } from '@/screens/agent-command/AgentCommandHome'
 import { AgentCommandLayout } from '@/screens/agent-command/AgentCommandLayout'
 import { AISettingsPage } from '@/screens/ai-settings/AISettingsPage'
 import { ConnectMCP } from '@/screens/connect-mcp/ConnectMCP'
+import { ContextPage } from '@/screens/context/ContextPage'
 import { CustomizationPage } from '@/screens/customization/CustomizationPage'
 import { LlmHubPage } from '@/screens/llm-hub/LlmHubPage'
 import { MCPSettingsPage } from '@/screens/mcp-settings/MCPSettingsPage'
@@ -19,6 +21,8 @@ import { FeaturesPage } from '@/screens/onboarding/features/Features'
 import { Onboarding } from '@/screens/onboarding/index/Onboarding'
 import { StepsLayout } from '@/screens/onboarding/steps/StepsLayout'
 import { ScheduledTasksPage } from '@/screens/scheduled-tasks/ScheduledTasksPage'
+import { TasksPage } from '@/screens/tasks/TasksPage'
+import { WorkspacesPage } from '@/screens/workspaces/WorkspacesPage'
 
 // Agent management moved into AI & Agents settings; conversations live under
 // /home/agents. Keep old /agents links alive.
@@ -68,6 +72,12 @@ export const App: FC = () => {
           </Route>
 
           <Route path="connect-apps" element={<ConnectMCP />} />
+          <Route path="workspaces">
+            <Route index element={<WorkspacesPage />} />
+            <Route path=":id" element={<WorkspacesPage />} />
+          </Route>
+          <Route path="context" element={<ContextPage />} />
+          <Route path="tasks" element={<TasksPage />} />
           <Route path="scheduled" element={<ScheduledTasksPage />} />
         </Route>
 
@@ -78,6 +88,7 @@ export const App: FC = () => {
             <Route path="chat" element={<LlmHubPage />} />
             <Route path="mcp" element={<MCPSettingsPage />} />
             <Route path="customization" element={<CustomizationPage />} />
+            <Route path="action-log" element={<ActionLogPage />} />
             <Route
               path="search"
               element={<Navigate to="/settings/ai" replace />}

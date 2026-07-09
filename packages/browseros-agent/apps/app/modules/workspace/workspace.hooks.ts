@@ -63,6 +63,20 @@ export function useWorkspace() {
     await selectedWorkspaceStorage.setValue(null)
   }
 
+  const updateFolder = async (
+    id: string,
+    patch: Partial<Pick<WorkspaceFolder, 'name' | 'scope' | 'bucketId'>>,
+  ) => {
+    const current = (await workspaceFoldersStorage.getValue()) ?? []
+    const updated = current.map((f) => (f.id === id ? { ...f, ...patch } : f))
+    await workspaceFoldersStorage.setValue(updated)
+
+    const selected = await selectedWorkspaceStorage.getValue()
+    if (selected?.id === id) {
+      await selectedWorkspaceStorage.setValue({ ...selected, ...patch })
+    }
+  }
+
   return {
     recentFolders,
     selectedFolder,
@@ -70,5 +84,6 @@ export function useWorkspace() {
     addFolder,
     removeFolder,
     clearSelection,
+    updateFolder,
   }
 }

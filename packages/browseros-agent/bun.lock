@@ -266,6 +266,7 @@
         "@browseros/browser-core": "workspace:*",
         "@browseros/browser-mcp": "workspace:*",
         "@browseros/cdp-protocol": "workspace:*",
+        "@browseros/context-graph": "workspace:*",
         "@browseros/shared": "workspace:*",
         "@hono/mcp": "^0.2.5",
         "@hono/zod-validator": "^0.4.3",
@@ -335,6 +336,10 @@
     },
     "packages/cdp-protocol": {
       "name": "@browseros/cdp-protocol",
+      "version": "0.0.1",
+    },
+    "packages/context-graph": {
+      "name": "@browseros/context-graph",
       "version": "0.0.1",
     },
     "packages/shared": {
@@ -592,6 +597,8 @@
     "@browseros/claw-onboard": ["@browseros/claw-onboard@workspace:apps/claw-onboard"],
 
     "@browseros/claw-server": ["@browseros/claw-server@workspace:apps/claw-server"],
+
+    "@browseros/context-graph": ["@browseros/context-graph@workspace:packages/context-graph"],
 
     "@browseros/eval": ["@browseros/eval@workspace:apps/eval"],
 

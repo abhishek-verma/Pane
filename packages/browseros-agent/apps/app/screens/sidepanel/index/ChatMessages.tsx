@@ -32,6 +32,16 @@ export interface ChatMessagesProps {
   onClickLike: (messageId: string) => void
   disliked: Record<string, boolean>
   onClickDislike: (messageId: string, comment?: string) => void
+  onApprove?: (
+    approvalId: string,
+    tool: import('./getMessageSegments').ToolInvocationInfo,
+    args: Record<string, unknown>,
+  ) => void
+  onDeny?: (approvalId: string) => void
+  onPromote?: (
+    tool: import('./getMessageSegments').ToolInvocationInfo,
+    args: Record<string, unknown>,
+  ) => void | Promise<void>
 }
 
 export const ChatMessages: FC<ChatMessagesProps> = ({
@@ -42,6 +52,9 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   disliked,
   onClickLike,
   onClickDislike,
+  onApprove,
+  onDeny,
+  onPromote,
 }) => {
   const isStreaming = status === 'streaming' || status === 'submitted'
 
@@ -105,6 +118,9 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                                 isLastBatch={segment.key === lastToolBatchKey}
                                 isLastMessage={isLastMessage}
                                 isStreaming={isStreaming}
+                                onApprove={onApprove}
+                                onDeny={onDeny}
+                                onPromote={onPromote}
                               />
                             )
                           case 'nudge':

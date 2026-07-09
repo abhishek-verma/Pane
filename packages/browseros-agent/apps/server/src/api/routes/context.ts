@@ -1,0 +1,124 @@
+/**
+ * @license
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
+import { ensureDefaultBucket } from '@browseros/context-graph/repo'
+import { Hono } from 'hono'
+import { z } from 'zod'
+import {
+  ensureImplicitAllow,
+  getDeniedHosts,
+  listGrants,
+  listVisitedDomains,
+  setGrant,
+} from '../../context/grants'
+import { getIngestPauseReason, isIngestPaused } from '../../context/ingest'
+import { graphCurrentWork, graphSearch } from '../../context/repo'
+import { getDbHandle } from '../../lib/db'
+import type { Env } from '../types'
+
+const PutGrantSchema = z.object({
+  domain: z.string().min(1),
+  allowed: z.boolean(),
+  bucketId: z.string().optional(),
+})
+
+const CreateBucketSchema = z.object({
+  name: z.string().min(1),
+  kind: z
+    .enum(['general', 'work', 'personal', 'project', 'research', 'meeting'])
+    .optional(),
+  id: z.string().optional(),
+})
+
+export function createContextRoutes() {
+  return new Hono<Env>()
+    .get('/current', (c) => {
+      const bucketId = c.req.query('bucketId') || DEFAULT_BUCKET_ID
+      ensureDefaultBucket(getDbHandle().sqlite as never)
+      const denied = getDeniedHosts(bucketId)
+      const work = graphCurrentWork(bucketId, { deniedHosts: denied })
+      return c.json({
+        bucketId,
+        work,
+        indexingPaused: isIngestPaused(),
+        pauseReason: getIngestPauseReason(),
+      })
+    })
+    .get('/search', (c) => {
+      const bucketId = c.req.query('bucketId') || DEFAULT_BUCKET_ID
+      const q = c.req.query('q') || ''
+      const limit = Number(c.req.query('limit') || '8')
+      ensureDefaultBucket(getDbHandle().sqlite as never)
+      const denied = getDeniedHosts(bucketId)
+      const snippets = graphSearch(bucketId, q, limit, { deniedHosts: denied })
+      return c.json({ bucketId, query: q, snippets })
+    })
+    .get('/grants', (c) => {
+      const bucketId = c.req.query('bucketId') || DEFAULT_BUCKET_ID
+      ensureDefaultBucket(getDbHandle().sqlite as never)
+      const visited = listVisitedDomains(bucketId)
+      for (const host of visited) {
+        ensureImplicitAllow(host, bucketId)
+      }
+      return c.json({
+        bucketId,
+        grants: listGrants(bucketId),
+        visitedDomains: visited,
+      })
+    })
+    .put('/grants', async (c) => {
+      const body = PutGrantSchema.parse(await c.req.json())
+      const grant = setGrant(
+        body.domain,
+        body.allowed,
+        body.bucketId || DEFAULT_BUCKET_ID,
+      )
+      return c.json({ grant })
+    })
+    .get('/buckets', (c) => {
+      ensureDefaultBucket(getDbHandle().sqlite as never)
+      const rows = getDbHandle()
+        .sqlite.query<
+          { id: string; name: string; kind: string; created_at: number },
+          []
+        >('SELECT id, name, kind, created_at FROM buckets ORDER BY name')
+        .all()
+      return c.json({
+        buckets: rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          kind: r.kind,
+          createdAt: r.created_at,
+        })),
+      })
+    })
+    .post('/buckets', async (c) => {
+      const body = CreateBucketSchema.parse(await c.req.json())
+      ensureDefaultBucket(getDbHandle().sqlite as never)
+      const id =
+        body.id ||
+        body.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '') ||
+        crypto.randomUUID()
+      const createdAt = Date.now()
+      getDbHandle()
+        .sqlite.prepare(
+          `INSERT INTO buckets (id, name, kind, created_at) VALUES (?, ?, ?, ?)`,
+        )
+        .run(id, body.name, body.kind ?? 'general', createdAt)
+      return c.json({
+        bucket: {
+          id,
+          name: body.name,
+          kind: body.kind ?? 'general',
+          createdAt,
+        },
+      })
+    })
+}

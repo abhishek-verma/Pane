@@ -20,10 +20,13 @@ import {
   type UIMessage,
   wrapLanguageModel,
 } from 'ai'
+import { buildContextToolSet, buildTasksToolSet } from '../context/tools'
+import { buildIngestGateHooks } from '../context/wire-ingest'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
 import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
 import { createReadTool } from '../tools/filesystem/read'
+import { defaultWorkspace } from '../tools/filesystem/workspace'
 import { isAcpProvider } from './acp-providers'
 import { CHAT_MODE_ALLOWED_TOOLS } from './chat-mode'
 import { createCompactionPrepareStep, type StepWithUsage } from './compaction'
@@ -36,6 +39,7 @@ import { buildNudgeToolSet } from './nudge-tools'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
 import { buildBrowserToolSet } from './tool-adapter'
+import { wrapToolSetWithGate } from './trust/gate'
 import type { ResolvedAgentConfig } from './types'
 
 export interface AiSdkAgentConfig {
@@ -62,7 +66,9 @@ export function buildAgentFilesystemToolSet(
       }),
     }
   }
-  return buildFilesystemToolSet(resolvedConfig.workingDir)
+  const workspace =
+    resolvedConfig.workspace ?? defaultWorkspace(resolvedConfig.workingDir)
+  return buildFilesystemToolSet(workspace)
 }
 
 export class AiSdkAgent {
@@ -202,20 +208,61 @@ export class AiSdkAgent {
       !config.resolvedConfig.chatMode && 'filesystem_write' in filesystemTools
         ? config.resolvedConfig.workingDir
         : undefined
-    const tools = {
+    const mergedTools = {
       ...browserTools,
       ...externalMcpTools,
       ...filesystemTools,
       ...buildNudgeToolSet(),
+      ...buildContextToolSet(
+        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
+      ),
+      ...buildTasksToolSet(
+        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
+      ),
     }
 
     if (
       config.resolvedConfig.isScheduledTask ||
       config.resolvedConfig.chatMode
     ) {
-      delete tools.suggest_schedule
-      delete tools.suggest_app_connection
+      delete mergedTools.suggest_schedule
+      delete mergedTools.suggest_app_connection
     }
+
+    const gateCtx = config.resolvedConfig.gateContext
+    const workspace = config.resolvedConfig.workspace
+    const ingestHooks = buildIngestGateHooks({
+      getBucketId: () => workspace?.bucketId ?? 'default',
+      getRunId: () => gateCtx?.runId ?? config.resolvedConfig.conversationId,
+      getBrowserContext: () =>
+        config.browserContext
+          ? {
+              activeTab: config.browserContext.activeTab
+                ? {
+                    url: config.browserContext.activeTab.url,
+                    title: config.browserContext.activeTab.title,
+                    pageId: config.browserContext.activeTab.pageId,
+                  }
+                : undefined,
+            }
+          : undefined,
+      getWorkspace: () => workspace,
+    })
+    // The gate is always applied. A missing gateContext is a misconfiguration;
+    // fall back to a deny-by-default context (empty pins, new-user cap) so a
+    // future caller that forgets to set gateContext can never run ungated.
+    const tools = wrapToolSetWithGate(
+      mergedTools,
+      () => ({
+        ...(gateCtx ?? {
+          pins: {},
+          runConsequentialCount: { count: 0 },
+          isNewUser: true,
+        }),
+        surface: 'loop',
+      }),
+      ingestHooks,
+    )
 
     // Build system prompt with optional section exclusions
     const excludeSections: string[] = []

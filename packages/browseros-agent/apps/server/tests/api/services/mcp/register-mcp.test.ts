@@ -85,6 +85,15 @@ describe('registerTools', () => {
     'filesystem_grep',
     'filesystem_find',
     'filesystem_ls',
+    'terminal_sessions',
+  ]
+  const contextToolNames = [
+    'context_current_work',
+    'context_search',
+    'context_recall',
+    'tasks_list',
+    'tasks_add',
+    'tasks_done',
   ]
   let infoMessages: unknown[] = []
 
@@ -111,8 +120,13 @@ describe('registerTools', () => {
       executionDir: '/tmp/browseros-execution',
     })
 
-    expect([...fake.handlers.keys()]).toEqual(BROWSER_TOOLS.map((t) => t.name))
-    expect(fake.handlers.size).toBe(BROWSER_TOOLS.length)
+    expect([...fake.handlers.keys()]).toEqual([
+      ...BROWSER_TOOLS.map((t) => t.name),
+      ...contextToolNames,
+    ])
+    expect(fake.handlers.size).toBe(
+      BROWSER_TOOLS.length + contextToolNames.length,
+    )
   })
 
   it('registers filesystem tools for remote agent harness requests', () => {
@@ -129,6 +143,7 @@ describe('registerTools', () => {
     expect([...fake.handlers.keys()]).toEqual([
       ...BROWSER_TOOLS.map((t) => t.name),
       ...filesystemToolNames,
+      ...contextToolNames,
     ])
   })
 
@@ -208,9 +223,10 @@ describe('registerTools', () => {
       })
 
       if (i === 1) {
-        expect([...fake.handlers.keys()]).toEqual(
-          BROWSER_TOOLS.map((t) => t.name),
-        )
+        expect([...fake.handlers.keys()]).toEqual([
+          ...BROWSER_TOOLS.map((t) => t.name),
+          ...contextToolNames,
+        ])
       }
       if (i === 2) {
         expect(fake.handlers.has('tabs')).toBe(true)
@@ -266,6 +282,7 @@ describe('registerTools', () => {
     const result = await fake.handlers.get('tabs')?.({
       action: 'new',
       url: 'https://example.com',
+      __promoted: true,
     })
 
     expect(result?.isError).toBeFalsy()

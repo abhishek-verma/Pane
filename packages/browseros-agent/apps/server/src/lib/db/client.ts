@@ -201,6 +201,26 @@ const currentMigrationHistory = [
     hash: '34387e59aa1f0d6dc44c95836d2363b72982663c50d05d0c67ee58c211209f52',
     createdAt: 1781916712443,
   },
+  {
+    tag: '0004_complete_emma_frost',
+    hash: '140343dccf85b6af747555794d50b87bef7be0de8dce4a233ac6f9d401dc487e',
+    createdAt: 1782739796116,
+  },
+  {
+    tag: '0005_loving_young_avengers',
+    hash: '9441a9279c0e58e5ecf99a91bda81c541efee7254028261d9a3b852b2fb49508',
+    createdAt: 1782818741531,
+  },
+  {
+    tag: '0006_low_white_tiger',
+    hash: 'eccaed1b3bd28eafbe06112d9f73786aa17fd0ee2cc985b13cc8827409dae9e9',
+    createdAt: 1783592265849,
+  },
+  {
+    tag: '0007_chemical_thunderball',
+    hash: '81781e98ed1635c87d22231f98c65aacdf7d93733694aa506f6383214d20d101',
+    createdAt: 1783592630922,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -287,6 +307,184 @@ const currentSchemaStatements = [
     UPDATE agent_definitions
     SET adapter_config_json = NULL
     WHERE adapter = 'hermes' AND adapter_config_json IS NOT NULL
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS chat_sessions (
+      id text PRIMARY KEY NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id text PRIMARY KEY NOT NULL,
+      session_id text NOT NULL,
+      role text NOT NULL,
+      content text NOT NULL,
+      created_at integer NOT NULL,
+      FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON UPDATE no action ON DELETE cascade
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS chat_messages_session_idx
+    ON chat_messages (session_id)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS chat_messages_created_idx
+    ON chat_messages (created_at)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS action_log (
+      id text PRIMARY KEY NOT NULL,
+      run_id text NOT NULL,
+      conversation_id text NOT NULL,
+      tool_name text NOT NULL,
+      args_json text NOT NULL,
+      consequence_class text NOT NULL,
+      decision text NOT NULL,
+      output_summary text,
+      created_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS action_log_run_idx
+    ON action_log (run_id)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS action_log_conv_idx
+    ON action_log (conversation_id, created_at)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS buckets (
+      id text PRIMARY KEY NOT NULL,
+      name text NOT NULL,
+      kind text DEFAULT 'general' NOT NULL,
+      created_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS graph_nodes (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      kind text NOT NULL,
+      title text,
+      uri text,
+      summary text,
+      provenance text NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id)
+        ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_nodes_bucket_kind_idx
+    ON graph_nodes (bucket_id, kind)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_nodes_bucket_updated_idx
+    ON graph_nodes (bucket_id, updated_at)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_nodes_uri_idx
+    ON graph_nodes (uri)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS graph_edges (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      from_id text NOT NULL,
+      to_id text NOT NULL,
+      kind text NOT NULL,
+      created_at integer NOT NULL,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id)
+        ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (from_id) REFERENCES graph_nodes(id)
+        ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (to_id) REFERENCES graph_nodes(id)
+        ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_edges_bucket_from_idx
+    ON graph_edges (bucket_id, from_id)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_edges_bucket_to_idx
+    ON graph_edges (bucket_id, to_id)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS graph_events (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      run_id text,
+      tool_name text,
+      node_id text,
+      payload_json text NOT NULL,
+      created_at integer NOT NULL,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id)
+        ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (node_id) REFERENCES graph_nodes(id)
+        ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_events_bucket_created_idx
+    ON graph_events (bucket_id, created_at)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS graph_events_run_idx
+    ON graph_events (run_id)
+  `,
+  `
+    CREATE VIRTUAL TABLE IF NOT EXISTS graph_index USING fts5(
+      node_id UNINDEXED,
+      bucket_id UNINDEXED,
+      title,
+      uri,
+      summary
+    )
+  `,
+  `
+    INSERT OR IGNORE INTO buckets (id, name, kind, created_at)
+    VALUES ('default', 'Default', 'general', 0)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS domain_grants (
+      domain text NOT NULL,
+      bucket_id text NOT NULL,
+      allowed integer NOT NULL,
+      updated_at integer NOT NULL,
+      PRIMARY KEY (domain, bucket_id),
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id)
+        ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS tasks (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      title text NOT NULL,
+      status text NOT NULL,
+      notes text,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL,
+      scheduled_job_id text,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id)
+        ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS task_links (
+      id text PRIMARY KEY NOT NULL,
+      task_id text NOT NULL,
+      node_id text NOT NULL,
+      created_at integer NOT NULL,
+      FOREIGN KEY (task_id) REFERENCES tasks(id)
+        ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (node_id) REFERENCES graph_nodes(id)
+        ON UPDATE no action ON DELETE no action
+    )
   `,
   `
     CREATE TABLE IF NOT EXISTS __drizzle_migrations (

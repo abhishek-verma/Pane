@@ -57,6 +57,10 @@
       "types": "./src/schemas/browser-context.ts",
       "default": "./src/schemas/browser-context.ts"
     },
+    "./trust/consequence-class": {
+      "types": "./src/trust/consequence-class.ts",
+      "default": "./src/trust/consequence-class.ts"
+    },
     "./sentry/sanitize": {
       "types": "./src/sentry/sanitize.ts",
       "default": "./src/sentry/sanitize.ts"

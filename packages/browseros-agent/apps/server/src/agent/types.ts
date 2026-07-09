@@ -4,7 +4,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import type { LLMProvider } from '@browseros/shared/schemas/llm'
+import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { McpServerSpec } from '../lib/agents/acpx-provider/buildAcpxProvider'
+import type { Workspace } from '../tools/filesystem/workspace'
 
 export interface ProviderConfig {
   provider: LLMProvider
@@ -44,6 +46,7 @@ export interface ResolvedAgentConfig {
   contextWindowSize?: number
   userSystemPrompt?: string
   workingDir?: string
+  workspace?: Workspace
   /** Whether the model supports image inputs (vision). Defaults to true. */
   supportsImages?: boolean
   /** Eval mode - enables window management tools. Defaults to false. */
@@ -83,4 +86,6 @@ export interface ResolvedAgentConfig {
    *  into the ACP factory so the bundled-Bun launcher at
    *  <resourcesDir>/bin/third_party/bun can be located. */
   resourcesDir?: string | null
+  /** Per-run trust gate context; mutable counter tracks blast radius. */
+  gateContext?: GateContext
 }

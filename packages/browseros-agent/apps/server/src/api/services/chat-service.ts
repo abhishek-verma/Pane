@@ -7,6 +7,11 @@
 import type { Browser } from '@browseros/browser-core/browser'
 import type { BrowserSession } from '@browseros/browser-core/core/session'
 import { createBrowserOutputFileAccess } from '@browseros/browser-mcp/output-file'
+import type {
+  ConsequenceClass,
+  GateContext,
+  TrustPin,
+} from '@browseros/shared/trust/consequence-class'
 import { createAgentUIStreamResponse, type UIMessage } from 'ai'
 import { isAcpProvider } from '../../agent/acp-providers'
 import { AiSdkAgent } from '../../agent/ai-sdk-agent'
@@ -21,6 +26,7 @@ import type { ResolvedAgentConfig } from '../../agent/types'
 import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpServers'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
+import { defaultWorkspace } from '../../tools/filesystem/workspace'
 import type { BrowserContext, ChatRequest } from '../types'
 import { resolveBrowserContextPageIds } from '../utils/resolve-browser-context-page-ids'
 
@@ -42,6 +48,35 @@ export interface ChatServiceDeps {
 export class ChatService {
   constructor(private deps: ChatServiceDeps) {}
 
+  private createGateContext(request: ChatRequest): GateContext {
+    const pins = (request.trustPins ?? {}) as Partial<
+      Record<ConsequenceClass, TrustPin>
+    >
+    return {
+      pins,
+      browserContext: request.browserContext,
+      workspaceRoot: request.userWorkingDir,
+      runConsequentialCount: { count: 0 },
+      isNewUser: Object.keys(pins).length === 0,
+      surface: 'loop',
+      conversationId: request.conversationId,
+    }
+  }
+
+  private refreshGateContext(
+    gateContext: GateContext,
+    request: ChatRequest,
+  ): void {
+    gateContext.pins = (request.trustPins ?? {}) as Partial<
+      Record<ConsequenceClass, TrustPin>
+    >
+    gateContext.browserContext = request.browserContext
+    gateContext.workspaceRoot = request.userWorkingDir
+    gateContext.isNewUser = Object.keys(gateContext.pins).length === 0
+    gateContext.runConsequentialCount.count = 0
+    gateContext.conversationId = request.conversationId
+  }
+
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: chat request orchestration; refactor tracked separately
   async processMessage(
     request: ChatRequest,
@@ -58,6 +93,9 @@ export class ChatService {
     // rest of the chat-service logic.
     let session = sessionStore.get(request.conversationId)
     const isFirstTurn = !session
+
+    const gateContext = session?.gateContext ?? this.createGateContext(request)
+    this.refreshGateContext(gateContext, request)
 
     const agentConfig: ResolvedAgentConfig = {
       conversationId: request.conversationId,
@@ -77,6 +115,12 @@ export class ChatService {
       reasoningSummary: request.reasoningSummary,
       contextWindowSize: request.contextWindowSize,
       userSystemPrompt: request.userSystemPrompt,
+      workspace: request.userWorkingDir
+        ? defaultWorkspace(request.userWorkingDir, {
+            bucketId: request.bucketId ?? 'default',
+            workspaceId: request.workspaceId,
+          })
+        : undefined,
       workingDir: request.userWorkingDir,
       supportsImages: request.supportsImages,
       chatMode: request.mode === 'chat',
@@ -99,6 +143,7 @@ export class ChatService {
         : undefined,
       isNewConversation: isFirstTurn,
       resourcesDir: this.deps.resourcesDir,
+      gateContext,
     }
 
     let isNewSession = false
@@ -272,6 +317,7 @@ export class ChatService {
         mcpServerKey,
         workingDir: request.userWorkingDir,
         outputFileAccess,
+        gateContext,
       }
       sessionStore.set(request.conversationId, session)
     }
@@ -355,6 +401,7 @@ export class ChatService {
         )
 
     const runId = crypto.randomUUID()
+    gateContext.runId = runId
     runTracker.startRun(runId)
 
     return createAgentUIStreamResponse({
@@ -433,11 +480,11 @@ export class ChatService {
   async getHistory(): Promise<
     { id: string; lastMessagedAt: number; messages: unknown[] }[]
   > {
-    const db = require('../../../lib/db').getDb()
+    const db = require('../../lib/db').getDb()
     const {
       chatMessages,
       chatSessions,
-    } = require('../../../lib/db/schema/chat-sessions')
+    } = require('../../lib/db/schema/chat-sessions')
     const { asc, desc, eq } = require('drizzle-orm')
 
     const sessions = await db
