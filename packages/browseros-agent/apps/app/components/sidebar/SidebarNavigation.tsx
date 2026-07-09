@@ -1,7 +1,9 @@
 import {
   CalendarClock,
+  CheckSquare,
   FolderKanban,
   Home,
+  Network,
   PlugZap,
   Settings,
 } from 'lucide-react'
@@ -33,6 +35,8 @@ const primaryNavItems: NavItem[] = [
     icon: PlugZap,
   },
   { name: 'Workspaces', to: '/workspaces', icon: FolderKanban },
+  { name: 'Context', to: '/context', icon: Network },
+  { name: 'Tasks', to: '/tasks', icon: CheckSquare },
   { name: 'Scheduled Tasks', to: '/scheduled', icon: CalendarClock },
   {
     name: 'Settings',

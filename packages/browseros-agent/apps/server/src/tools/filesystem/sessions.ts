@@ -13,6 +13,7 @@ export interface TerminalSessionRecord {
 
 export interface TerminalSessionEvent {
   workspaceKey: string
+  bucketId: string
   session: TerminalSessionRecord
   command: string
   exitCode: number
@@ -182,6 +183,7 @@ export function notifyTerminalSessionRun(
 ): void {
   emitTerminalSession({
     workspaceKey: workspaceKey(workspace),
+    bucketId: workspace.bucketId,
     session,
     command,
     exitCode,

@@ -2,11 +2,12 @@ import {
   type ConsequenceClass,
   decideGate,
   deriveClass,
+  describeToolCall,
   type GateContext,
+  getBlastRadiusCap,
   isConsequentialClass,
   isPinActive,
   isPromoted,
-  PROMOTED_ARG,
   recordConsequentialExecution,
   stripPromotedArg,
 } from '@browseros/shared/trust/consequence-class'
@@ -21,6 +22,20 @@ export type GateToolResult =
   | { content: Array<{ type: string; text?: string }>; isError?: boolean }
 
 export type GateContextProvider = () => GateContext
+
+/** Fired after a tool actually executes (post-gate). Server-only; used for graph ingest. */
+export interface ToolSettledInfo {
+  toolName: string
+  args: Record<string, unknown>
+  result: unknown
+  ctx: GateContext
+}
+
+export type OnToolSettled = (info: ToolSettledInfo) => void
+
+export interface GateHooks {
+  onToolSettled?: OnToolSettled
+}
 
 function toTextResult(preview: string, isError = false): GateToolResult {
   return { text: preview, isError }
@@ -50,6 +65,7 @@ export async function gateExecute<TResult extends GateToolResult>(
   ctx: GateContext,
   underlyingExecute: (args: Record<string, unknown>) => Promise<TResult>,
   resultShapeKind: 'text' | 'content' = 'text',
+  hooks?: GateHooks,
 ): Promise<TResult> {
   const decision = decideGate(toolName, args, ctx)
   const cls = deriveClass(toolName, args, ctx)
@@ -87,6 +103,7 @@ export async function gateExecute<TResult extends GateToolResult>(
       summary,
     )
   }
+  hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
   return result
 }
 
@@ -94,26 +111,32 @@ function buildLoopApprovalPreview(
   toolName: string,
   args: Record<string, unknown>,
 ): string {
-  if (toolName === 'filesystem_write' || toolName === 'filesystem_edit') {
-    const path = typeof args.path === 'string' ? args.path : '(unknown path)'
-    return `Needs approval: write ${path}.`
-  }
-  return 'Needs approval.'
+  return `Needs approval: ${describeToolCall(toolName, args)}`
 }
 
-/** Wraps an AI SDK tool with the trust gate. */
+/**
+ * Wraps an AI SDK tool with the trust gate for the in-process agent loop.
+ *
+ * Loop-surface semantics (the model is the caller):
+ * - `__promoted` is intentionally NOT exposed in the tool schema. The model
+ *   must never be able to self-promote, so promotion happens only through
+ *   user approval (the SDK re-invokes `execute` after approval) or pins.
+ * - Every consequential class pauses via `needsApproval` rather than
+ *   returning a dry-run preview to the model. This keeps the model's context
+ *   honest: it never continues on the assumption that an action ran.
+ * - The blast-radius cap is enforced here (auto-execution via a pin pauses
+ *   once the cap is reached). Explicit approvals bypass the cap.
+ */
 export function wrapToolWithGate<T extends Tool>(
   toolName: string,
   original: T,
   ctxProvider: GateContextProvider,
+  hooks?: GateHooks,
 ): T {
-  const shape = toolName.startsWith('filesystem_') ? 'text' : 'content'
   const inputSchema =
     'inputSchema' in original && original.inputSchema
-      ? (original.inputSchema as z.ZodObject<z.ZodRawShape>).extend({
-          [PROMOTED_ARG]: z.boolean().optional(),
-        })
-      : z.object({ [PROMOTED_ARG]: z.boolean().optional() })
+      ? (original.inputSchema as z.ZodObject<z.ZodRawShape>)
+      : z.object({})
 
   const wrapped = tool({
     description: original.description,
@@ -122,8 +145,14 @@ export function wrapToolWithGate<T extends Tool>(
       const ctx = { ...ctxProvider(), surface: 'loop' as const }
       const args = input as Record<string, unknown>
       const cls = deriveClass(toolName, args, ctx)
-      if (cls !== 'write-local') return false
-      if (isPromoted(args) || isPinActive(ctx, cls)) return false
+      if (!isConsequentialClass(cls)) return false
+      if (isPromoted(args)) return false
+      if (
+        isPinActive(ctx, cls) &&
+        ctx.runConsequentialCount.count < getBlastRadiusCap(ctx)
+      ) {
+        return false
+      }
       logGateDecision(
         toolName,
         args,
@@ -137,27 +166,15 @@ export function wrapToolWithGate<T extends Tool>(
     execute: async (input, options) => {
       const ctx = { ...ctxProvider(), surface: 'loop' as const }
       const args = input as Record<string, unknown>
-      const decision = decideGate(toolName, args, ctx)
       const cls = deriveClass(toolName, args, ctx)
-
-      if (decision.action === 'blast-radius-cap') {
-        logGateDecision(toolName, args, ctx, cls, 'denied', decision.preview)
-        return formatGateResult(decision.preview, shape) as Awaited<
-          ReturnType<NonNullable<T['execute']>>
-        >
-      }
-
-      if (decision.action === 'dry-run') {
-        logGateDecision(toolName, args, ctx, cls, 'dry-run', decision.preview)
-        return formatGateResult(decision.preview, shape) as Awaited<
-          ReturnType<NonNullable<T['execute']>>
-        >
-      }
 
       if (!original.execute) {
         throw new Error(`Tool ${toolName} has no execute function`)
       }
 
+      // A consequential call reaches execute only after the user approved
+      // (the SDK re-invokes us) or because a pin allowed auto-execution.
+      // Either way it is authorized — run it. Reads always run.
       const cleanArgs = stripPromotedArg(args)
       const result = await original.execute(cleanArgs, options)
       if (isConsequentialClass(cls)) {
@@ -181,6 +198,7 @@ export function wrapToolWithGate<T extends Tool>(
           summary,
         )
       }
+      hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
       return result
     },
     ...(original.toModelOutput
@@ -195,10 +213,11 @@ export function wrapToolWithGate<T extends Tool>(
 export function wrapToolSetWithGate(
   tools: Record<string, Tool>,
   ctxProvider: GateContextProvider,
+  hooks?: GateHooks,
 ): Record<string, Tool> {
   const wrapped: Record<string, Tool> = {}
   for (const [name, t] of Object.entries(tools)) {
-    wrapped[name] = wrapToolWithGate(name, t, ctxProvider)
+    wrapped[name] = wrapToolWithGate(name, t, ctxProvider, hooks)
   }
   return wrapped
 }

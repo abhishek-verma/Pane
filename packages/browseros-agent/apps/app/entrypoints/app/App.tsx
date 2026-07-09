@@ -9,6 +9,7 @@ import { AgentCommandHome } from '@/screens/agent-command/AgentCommandHome'
 import { AgentCommandLayout } from '@/screens/agent-command/AgentCommandLayout'
 import { AISettingsPage } from '@/screens/ai-settings/AISettingsPage'
 import { ConnectMCP } from '@/screens/connect-mcp/ConnectMCP'
+import { ContextPage } from '@/screens/context/ContextPage'
 import { CustomizationPage } from '@/screens/customization/CustomizationPage'
 import { LlmHubPage } from '@/screens/llm-hub/LlmHubPage'
 import { MCPSettingsPage } from '@/screens/mcp-settings/MCPSettingsPage'
@@ -20,6 +21,7 @@ import { FeaturesPage } from '@/screens/onboarding/features/Features'
 import { Onboarding } from '@/screens/onboarding/index/Onboarding'
 import { StepsLayout } from '@/screens/onboarding/steps/StepsLayout'
 import { ScheduledTasksPage } from '@/screens/scheduled-tasks/ScheduledTasksPage'
+import { TasksPage } from '@/screens/tasks/TasksPage'
 import { WorkspacesPage } from '@/screens/workspaces/WorkspacesPage'
 
 // Agent management moved into AI & Agents settings; conversations live under
@@ -74,6 +76,8 @@ export const App: FC = () => {
             <Route index element={<WorkspacesPage />} />
             <Route path=":id" element={<WorkspacesPage />} />
           </Route>
+          <Route path="context" element={<ContextPage />} />
+          <Route path="tasks" element={<TasksPage />} />
           <Route path="scheduled" element={<ScheduledTasksPage />} />
         </Route>
 

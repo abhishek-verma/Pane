@@ -82,6 +82,14 @@ const VERB_OVERRIDES: Record<string, string> = {
   suggest_schedule: 'Suggested schedule',
   suggest_app_connection: 'Suggested app connect',
 
+  // Context graph
+  context_current_work: 'Checked current work',
+  context_search: 'Searched context',
+  context_recall: 'Recalled memory',
+  tasks_list: 'Listed tasks',
+  tasks_add: 'Added task',
+  tasks_done: 'Completed task',
+
   // BrowserOS info
   browseros_info: 'Read Pane info',
 

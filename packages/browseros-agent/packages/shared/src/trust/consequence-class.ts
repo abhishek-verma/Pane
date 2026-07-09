@@ -37,12 +37,29 @@ const READ_BROWSER_TOOLS = new Set([
   'windows',
   'tab_groups',
   'navigate',
-  'download',
-  'upload',
-  'run',
 ])
 
+// Tools that execute arbitrary code (page-context JS or an async JS body).
+// These can mutate the page, exfiltrate credentials, and click elements, so
+// they must never auto-execute. Treat them like shell commands: `system`.
+const CODE_EXECUTION_TOOLS = new Set(['evaluate', 'run'])
+
+// Tools that move files across the local-disk / remote-site trust boundary.
+// `upload` reads arbitrary local files and sends them to a remote site
+// (exfiltration primitive); `download` writes a fetched file to disk. Both
+// are gated as `write-external`.
+const EXTERNAL_DATA_TOOLS = new Set(['upload', 'download'])
+
 const NUDGE_TOOLS = new Set(['suggest_schedule', 'suggest_app_connection'])
+
+const READ_CONTEXT_TOOLS = new Set([
+  'context_current_work',
+  'context_search',
+  'context_recall',
+  'tasks_list',
+])
+
+const WRITE_LOCAL_TASK_TOOLS = new Set(['tasks_add', 'tasks_done'])
 
 const PAYMENT_HOST_KEYWORDS = [
   'pay',
@@ -109,6 +126,8 @@ function baseClassForTool(
   args: Record<string, unknown>,
 ): ConsequenceClass {
   if (READ_FILESYSTEM_TOOLS.has(toolName)) return 'read'
+  if (READ_CONTEXT_TOOLS.has(toolName)) return 'read'
+  if (WRITE_LOCAL_TASK_TOOLS.has(toolName)) return 'write-local'
   if (toolName === 'filesystem_write' || toolName === 'filesystem_edit') {
     return 'write-local'
   }
@@ -121,11 +140,16 @@ function baseClassForTool(
     return 'write-external'
   }
 
-  if (toolName === 'evaluate') return 'read'
+  if (CODE_EXECUTION_TOOLS.has(toolName)) return 'system'
+  if (EXTERNAL_DATA_TOOLS.has(toolName)) return 'write-external'
   if (READ_BROWSER_TOOLS.has(toolName)) return 'read'
   if (toolName === 'act') return 'write-external'
 
-  return 'read'
+  // Unknown tools — including every third-party / external MCP tool — default
+  // to deny. We cannot infer what an arbitrary MCP server does, so it must
+  // never auto-execute. The caller (an external MCP client or the replay
+  // endpoint) can still promote it explicitly via `__promoted`.
+  return 'write-external'
 }
 
 function isPathOutsideWorkspace(
@@ -272,8 +296,16 @@ function buildPreview(
   cls: ConsequenceClass,
 ): string {
   if (cls === 'system' || toolName === 'filesystem_bash') {
-    const command = typeof args.command === 'string' ? args.command : ''
-    return `Dry-run. Command:\n\n$ ${command}\n\nRe-call with __promoted:true to run.`
+    if (toolName === 'filesystem_bash') {
+      const command = typeof args.command === 'string' ? args.command : ''
+      return `Dry-run. Command:\n\n$ ${command}\n\nRe-call with __promoted:true to run.`
+    }
+    if (toolName === 'evaluate' || toolName === 'run') {
+      const code = typeof args.code === 'string' ? args.code : ''
+      const label = toolName === 'evaluate' ? 'JS (page)' : 'JS (async)'
+      return `Dry-run. ${label} code:\n\n${code}\n\nRe-call with __promoted:true to run.`
+    }
+    return `Dry-run. Tool ${toolName} would execute. Re-call with __promoted:true to run.`
   }
 
   if (cls === 'spend') {
@@ -302,4 +334,51 @@ export function stripPromotedArg(
 ): Record<string, unknown> {
   const { [PROMOTED_ARG]: _promoted, ...rest } = args
   return rest
+}
+
+/**
+ * Short, ctx-free, human-readable description of what a tool call would do.
+ * Used by the approval UI to preview a paused consequential call (the loop
+ * surface no longer returns a dry-run preview as tool output, so the UI
+ * renders this from the tool input instead).
+ */
+export function describeToolCall(
+  toolName: string,
+  args: Record<string, unknown>,
+): string {
+  if (toolName === 'filesystem_bash') {
+    return `$ ${typeof args.command === 'string' ? args.command : ''}`
+  }
+  if (toolName === 'filesystem_write' || toolName === 'filesystem_edit') {
+    return `${toolName === 'filesystem_write' ? 'write' : 'edit'} ${
+      typeof args.path === 'string' ? args.path : '(unknown path)'
+    }`
+  }
+  if (toolName === 'evaluate' || toolName === 'run') {
+    const code = typeof args.code === 'string' ? args.code : ''
+    const label =
+      toolName === 'evaluate' ? 'evaluate (page JS)' : 'run (async JS)'
+    return `${label}:\n${code}`
+  }
+  if (toolName === 'upload') {
+    const file = typeof args.file === 'string' ? args.file : ''
+    const files = Array.isArray(args.files) ? args.files.join(', ') : ''
+    return `upload ${file || files || '(no file)'}`
+  }
+  if (toolName === 'download') {
+    return `download via ${typeof args.ref === 'string' ? args.ref : '(no ref)'}`
+  }
+  if (toolName === 'act') {
+    return `${typeof args.kind === 'string' ? args.kind : 'act'} ${
+      typeof args.ref === 'string'
+        ? args.ref
+        : typeof args.selector === 'string'
+          ? args.selector
+          : ''
+    }`
+  }
+  if (toolName === 'tabs') {
+    return `tabs ${typeof args.action === 'string' ? args.action : 'list'}`
+  }
+  return toolName
 }

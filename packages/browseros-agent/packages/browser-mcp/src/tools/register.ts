@@ -36,6 +36,12 @@ export interface BrowserToolDefaults {
 export interface BrowserToolRegistrationOptions {
   outputFileAccess?: BrowserOutputFileAccess
   onToolExecuted?: (event: BrowserToolExecutionEvent) => void
+  /** Called after a tool actually runs (post-gate). Used for context-graph ingest. */
+  onToolSettled?: (info: {
+    toolName: string
+    args: Record<string, unknown>
+    result: { content: unknown; isError?: boolean }
+  }) => void
   shouldLogToolRegistration?: () => boolean
   logger?: { info(message: string): void }
   source?: string
@@ -91,11 +97,17 @@ export function registerBrowserTools(
               success: !result.isError,
               source: options.source ?? 'mcp',
             })
-            return {
+            const settled = {
               content: result.content,
               isError: result.isError,
               structuredContent: result.structuredContent,
             }
+            options.onToolSettled?.({
+              toolName: tool.name,
+              args: cleanArgs,
+              result: settled,
+            })
+            return settled
           } catch (error) {
             const errorText =
               error instanceof Error ? error.message : String(error)

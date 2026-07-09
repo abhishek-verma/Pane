@@ -10,10 +10,12 @@
  */
 
 import type { BrowserOutputFileAccess } from '@browseros/browser-mcp/output-file'
+import { createDefaultMcpGateContext } from '@browseros/browser-mcp/trust/mcp-gate'
 import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { z } from 'zod'
 import { gateExecute } from '../../agent/trust/gate'
+import { buildIngestGateHooks } from '../../context/wire-ingest'
 import { logger } from '../../lib/logger'
 import { shouldLogToolRegistration } from '../registration-log-sampling'
 import { buildFilesystemToolSet } from './build-toolset'
@@ -68,6 +70,11 @@ export function registerFilesystemMcpTools(
     },
   }) as unknown as Record<string, AiSdkToolLike>
 
+  const ingestHooks = buildIngestGateHooks({
+    getBucketId: () => workspace.bucketId,
+    getWorkspace: () => workspace,
+  })
+
   for (const [name, tool] of Object.entries(tools)) {
     register(
       name,
@@ -81,15 +88,17 @@ export function registerFilesystemMcpTools(
         ): Promise<FilesystemToolResult> =>
           tool.execute(cleanArgs, { signal: extra?.signal })
 
-        const result = options.gateContext
-          ? await gateExecute(
-              name,
-              args,
-              { ...options.gateContext, surface: 'mcp' },
-              executeTool,
-              'text',
-            )
-          : await executeTool(args)
+        const result = await gateExecute(
+          name,
+          args,
+          {
+            ...(options.gateContext ?? createDefaultMcpGateContext()),
+            surface: 'mcp',
+          },
+          executeTool,
+          'text',
+          ingestHooks,
+        )
         if (result.isError) {
           return {
             content: [{ type: 'text', text: result.text }],

@@ -87,6 +87,14 @@ describe('registerTools', () => {
     'filesystem_ls',
     'terminal_sessions',
   ]
+  const contextToolNames = [
+    'context_current_work',
+    'context_search',
+    'context_recall',
+    'tasks_list',
+    'tasks_add',
+    'tasks_done',
+  ]
   let infoMessages: unknown[] = []
 
   beforeEach(() => {
@@ -112,8 +120,13 @@ describe('registerTools', () => {
       executionDir: '/tmp/browseros-execution',
     })
 
-    expect([...fake.handlers.keys()]).toEqual(BROWSER_TOOLS.map((t) => t.name))
-    expect(fake.handlers.size).toBe(BROWSER_TOOLS.length)
+    expect([...fake.handlers.keys()]).toEqual([
+      ...BROWSER_TOOLS.map((t) => t.name),
+      ...contextToolNames,
+    ])
+    expect(fake.handlers.size).toBe(
+      BROWSER_TOOLS.length + contextToolNames.length,
+    )
   })
 
   it('registers filesystem tools for remote agent harness requests', () => {
@@ -130,6 +143,7 @@ describe('registerTools', () => {
     expect([...fake.handlers.keys()]).toEqual([
       ...BROWSER_TOOLS.map((t) => t.name),
       ...filesystemToolNames,
+      ...contextToolNames,
     ])
   })
 
@@ -209,9 +223,10 @@ describe('registerTools', () => {
       })
 
       if (i === 1) {
-        expect([...fake.handlers.keys()]).toEqual(
-          BROWSER_TOOLS.map((t) => t.name),
-        )
+        expect([...fake.handlers.keys()]).toEqual([
+          ...BROWSER_TOOLS.map((t) => t.name),
+          ...contextToolNames,
+        ])
       }
       if (i === 2) {
         expect(fake.handlers.has('tabs')).toBe(true)
