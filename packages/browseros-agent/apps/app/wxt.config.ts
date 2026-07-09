@@ -15,7 +15,7 @@ const repoRoot = path.resolve(appDir, '../../../..')
 const env = process.env
 
 // True when building the pure-OSS pane profile (PANE_BUILD=true).
-// In pane builds: cdn.browseros.com update_url and api.browseros.com
+// In pane builds: cdn.browseros.com update_url and api.pane.com
 // externally_connectable are omitted; cloud features are compile-time false.
 const isPaneBuild = env.PANE_BUILD === 'true'
 
@@ -101,6 +101,10 @@ export default defineConfig({
     resolve: {
       alias: {
         '@pane/logo': path.join(repoRoot, 'docs/logo'),
+        '@browseros/shared': path.join(
+          repoRoot,
+          'packages/browseros-agent/packages/shared/src',
+        ),
       },
     },
     server: {

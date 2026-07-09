@@ -83,14 +83,45 @@ export function buildBrowserToolSet(
         const startTime = performance.now()
         const signal = withBrowserToolTimeout(executeOptions?.abortSignal)
         throwIfAborted(signal)
-        const result =
-          readOnlyGuard(def, params, options) ??
-          (await withBrowserOutputFileAccess(options.outputFileAccess, () =>
-            executeBrowserTool(def, params as Record<string, unknown>, {
-              session,
-              signal,
-            }),
-          ))
+
+        while (!session.isConnected()) {
+          throwIfAborted(signal)
+          await new Promise((resolve) => setTimeout(resolve, 500))
+        }
+
+        let result: BrowserToolResult | null = null
+        while (true) {
+          result =
+            readOnlyGuard(def, params, options) ??
+            (await withBrowserOutputFileAccess(options.outputFileAccess, () =>
+              executeBrowserTool(def, params as Record<string, unknown>, {
+                session,
+                signal,
+              }),
+            ))
+
+          // If the tool failed because the target crashed or disconnected, pause and retry
+          if (
+            result.isError &&
+            result.content.some(
+              (c) =>
+                c.type === 'text' &&
+                (c.text.includes('Target closed') ||
+                  c.text.includes('CDP connection lost') ||
+                  c.text.includes('Session closed')),
+            )
+          ) {
+            // Wait for reconnect
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+            while (!session.isConnected()) {
+              throwIfAborted(signal)
+              await new Promise((resolve) => setTimeout(resolve, 500))
+            }
+            continue
+          }
+          break
+        }
+
         metrics.log('tool_executed', {
           tool_name: def.name,
           duration_ms: Math.round(performance.now() - startTime),

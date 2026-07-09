@@ -19,7 +19,7 @@ npm install -g browseros-cli
 **Shell script fallback:**
 
 ```bash
-curl -fsSL https://cdn.browseros.com/cli/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/abhishek-verma/Pane/main/packages/browseros-agent/apps/cli/scripts/install.sh | bash
 ```
 
 ## Quick Start

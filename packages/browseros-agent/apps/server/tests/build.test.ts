@@ -61,14 +61,10 @@ describe('server build', () => {
   const rootDir = resolve(import.meta.dir, '../../..')
   const serverPkgPath = resolve(rootDir, 'apps/server/package.json')
   const prodEnvPath = resolve(rootDir, 'apps/server/.env.production')
-  const prodEnvTemplatePath = resolve(
-    rootDir,
-    'apps/server/.env.production.example',
-  )
   const originalProdEnv = existsSync(prodEnvPath)
     ? readFileSync(prodEnvPath, 'utf-8')
     : null
-  const prodEnvTemplate = readFileSync(prodEnvTemplatePath, 'utf-8')
+  const prodEnvTemplate = ''
   const buildScript = resolve(rootDir, 'scripts/build/server.ts')
   const target = getNativeTarget()
   const binaryPath = resolve(

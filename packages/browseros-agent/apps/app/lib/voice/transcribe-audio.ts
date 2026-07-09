@@ -1,4 +1,10 @@
-const GATEWAY_URL = 'https://llm.browseros.com'
+import { PANE_BUILD } from '@/lib/constants/product-features'
+
+// Pane-operated transcription gateway. Only referenced in non-pane builds;
+// under PANE_BUILD the branch is tree-shaken so the URL never enters the
+// bundle (M1.2: no Pane-server dead-end in pane builds). Phase 6 M6.2
+// replaces this with a local TranscriptionProvider.
+const GATEWAY_URL = PANE_BUILD ? null : 'https://llm.browseros.com'
 
 const BIAS_PROMPT =
   'Transcript of a user dictating a chat message. Do not describe non-speech sounds.'
@@ -21,6 +27,12 @@ interface TranscribeResponse {
 export async function transcribeAudio(
   audioBlob: Blob,
 ): Promise<TranscribeResult> {
+  if (PANE_BUILD || GATEWAY_URL === null) {
+    throw new Error(
+      'Voice dictation is disabled in Pane builds. Local transcription returns in v0.6.',
+    )
+  }
+
   const formData = new FormData()
   formData.append('file', audioBlob, 'recording.webm')
   // verbose_json gives us per-segment avg_logprob; if the gateway

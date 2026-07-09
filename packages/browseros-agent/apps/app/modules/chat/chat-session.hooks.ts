@@ -31,10 +31,18 @@ import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
+import {
+  formatReplayOutputForTool,
+  patchToolInvocationInput,
+  patchToolInvocationOutput,
+} from '@/lib/trust/patch-tool-output'
+import { replayToolOnServer } from '@/lib/trust/replay-tool'
+import { trustPinsStorage } from '@/lib/trust/trust-pins-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { useInvalidateCredits } from '@/modules/credits/credits.hooks'
 import { useGraphqlQuery } from '@/modules/graphql/graphql-query.hooks'
+import type { ToolInvocationInfo } from '@/screens/sidepanel/index/getMessageSegments'
 import { useChatRefs } from './chat-refs.hooks'
 import { GetConversationWithMessagesDocument } from './chat-session-document'
 import {
@@ -42,6 +50,7 @@ import {
   toProviderOption,
 } from './chat-session-request'
 import type { ChatMode } from './chat-types'
+import { collectToolApprovalResponses } from './collect-tool-approval-responses'
 import { addContentFilterNotice } from './content-filter-notice'
 import { useExecutionHistoryTracker } from './execution-history-tracker.hooks'
 import { useNotifyActiveTab } from './notify-active-tab.hooks'
@@ -262,6 +271,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const modeRef = useRef<ChatMode>(mode)
   const textToActionRef = useRef<Map<string, ChatAction>>(textToAction)
   const workingDirRef = useRef<string | undefined>(undefined)
+  const workspaceIdRef = useRef<string | undefined>(undefined)
+  const bucketIdRef = useRef<string | undefined>(undefined)
+  const trustPinsRef = useRef<
+    Record<string, { pinned: boolean; expiresAt?: number }>
+  >({})
   const selectionMapRef = useRef<
     Record<string, { text: string; url: string; title: string }>
   >({})
@@ -293,12 +307,25 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   useEffect(() => {
     selectedWorkspaceStorage.getValue().then((folder) => {
       workingDirRef.current = folder?.path
+      workspaceIdRef.current = folder?.id
+      bucketIdRef.current = folder?.bucketId
+    })
+    trustPinsStorage.getValue().then((pins) => {
+      trustPinsRef.current = pins ?? {}
     })
 
     const unwatch = selectedWorkspaceStorage.watch((folder) => {
       workingDirRef.current = folder?.path
+      workspaceIdRef.current = folder?.id
+      bucketIdRef.current = folder?.bucketId
     })
-    return () => unwatch()
+    const unwatchPins = trustPinsStorage.watch((pins) => {
+      trustPinsRef.current = pins ?? {}
+    })
+    return () => {
+      unwatch()
+      unwatchPins()
+    }
   }, [])
 
   useDeepCompareEffect(() => {
@@ -317,7 +344,26 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     status,
     stop,
     error: chatError,
+    addToolApprovalResponse,
   } = useChat({
+    // The AI SDK does not auto-resume after `addToolApprovalResponse` unless
+    // `sendAutomaticallyWhen` is configured. Without this, approving/denying a
+    // consequential tool only flips the local part to `approval-responded` and
+    // never sends the resume request, so the server never re-executes the
+    // approved tool (and the model never sees the result). Resume whenever the
+    // last message carries a tool part the user just responded to.
+    sendAutomaticallyWhen: ({ messages }) => {
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage?.role !== 'assistant' || !lastMessage.parts) return false
+      return lastMessage.parts.some((part) => {
+        if (!part.type) return false
+        const isTool =
+          part.type === 'dynamic-tool' || part.type.startsWith('tool-')
+        if (!isTool) return false
+        const toolPart = part as { state: string }
+        return toolPart.state === 'approval-responded'
+      })
+    },
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
         const target = selectedChatTargetRef.current
@@ -360,6 +406,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             : undefined
         const previousConversation = history?.length ? history : undefined
 
+        // Approval decisions to replay on the server (see
+        // `collectToolApprovalResponses`). Sent on resume turns so the server
+        // can update its stored tool parts and re-run the loop.
+        const toolApprovalResponses = collectToolApprovalResponses(messages)
+        const isApprovalResume = toolApprovalResponses.length > 0
+
         const userSystemPrompt = getUserSystemPrompt(
           options?.origin,
           personalizationRef.current,
@@ -376,11 +428,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           browserContext: requestBrowserContext,
           userSystemPrompt,
           userWorkingDir: workingDirRef.current,
+          workspaceId: workspaceIdRef.current,
+          bucketId: bucketIdRef.current ?? 'default',
+          trustPins: trustPinsRef.current,
           previousConversation,
           declinedApps,
+          toolApprovalResponses,
         }
 
-        const message = getLastMessageText(messages)
+        const message = isApprovalResume ? '' : getLastUserMessageText(messages)
 
         const currentAgentServerUrl = agentUrlRef.current
         if (!currentAgentServerUrl) {
@@ -768,6 +824,97 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     resetConversationState()
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: MCP server refs are stable containers read at call time
+  const executeToolReplay = useCallback(
+    async (
+      tool: ToolInvocationInfo,
+      args: Record<string, unknown>,
+      options?: { dismissApprovalId?: string },
+    ) => {
+      const baseUrl = agentUrlRef.current
+      if (!baseUrl) {
+        throw new Error('Agent server URL not configured.')
+      }
+
+      const activeTabsList = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      })
+      const activeTab = activeTabsList?.[0]
+      const browserContext = buildRequestBrowserContext({
+        activeTab,
+        action: undefined,
+        enabledMcpServers: enabledMcpServersRef.current,
+        customMcpServers: enabledCustomServersRef.current,
+      })
+
+      const result = await replayToolOnServer(baseUrl, {
+        toolName: tool.toolName,
+        args,
+        conversationId: conversationIdRef.current,
+        userWorkingDir: workingDirRef.current,
+        workspaceId: workspaceIdRef.current,
+        bucketId: bucketIdRef.current ?? 'default',
+        trustPins: trustPinsRef.current,
+        browserContext,
+      })
+
+      const formatted = formatReplayOutputForTool(tool, result.output)
+      setMessages((current) =>
+        patchToolInvocationOutput(
+          current,
+          tool.toolCallId,
+          formatted,
+          result.isError,
+        ),
+      )
+
+      if (options?.dismissApprovalId) {
+        addToolApprovalResponse?.({
+          id: options.dismissApprovalId,
+          approved: false,
+        })
+      }
+    },
+    [addToolApprovalResponse, setMessages],
+  )
+
+  const approveTool = useCallback(
+    async (
+      approvalId: string,
+      tool: ToolInvocationInfo,
+      args: Record<string, unknown>,
+    ) => {
+      const argsChanged =
+        JSON.stringify(args) !== JSON.stringify(tool.input ?? {})
+      if (argsChanged) {
+        // Patch the edited args into the tool invocation before resuming the
+        // loop. The server re-executes the tool with the patched input and the
+        // model sees the real result — no side-channel replay, so the model's
+        // context never diverges from what actually happened.
+        setMessages((current) =>
+          patchToolInvocationInput(current, tool.toolCallId, args),
+        )
+      }
+      addToolApprovalResponse?.({ id: approvalId, approved: true })
+    },
+    [addToolApprovalResponse, setMessages],
+  )
+
+  const denyTool = useCallback(
+    (approvalId: string) => {
+      addToolApprovalResponse?.({ id: approvalId, approved: false })
+    },
+    [addToolApprovalResponse],
+  )
+
+  const promoteTool = useCallback(
+    async (tool: ToolInvocationInfo, args: Record<string, unknown>) => {
+      await executeToolReplay(tool, args)
+    },
+    [executeToolReplay],
+  )
+
   const isRestoringConversation =
     !!conversationIdParam && restoredConversationId !== conversationIdParam
 
@@ -795,5 +942,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     onClickDislike,
     conversationId,
     vmStatus,
+    addToolApprovalResponse,
+    approveTool,
+    denyTool,
+    promoteTool,
   }
 }

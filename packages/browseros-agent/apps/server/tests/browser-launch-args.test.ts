@@ -26,7 +26,9 @@ async function waitForFile(path: string): Promise<void> {
   throw new Error(`timed out waiting for ${path}`)
 }
 
-describe('spawnBrowser', () => {
+import { hasBrowserOSBinary } from './__helpers__/test-runtime'
+
+describe.skipIf(!hasBrowserOSBinary())('spawnBrowser', () => {
   afterEach(async () => {
     await killBrowser()
   })

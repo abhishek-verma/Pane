@@ -11,13 +11,13 @@ Communicates with the Pane MCP server over JSON-RPC 2.0 / StreamableHTTP and map
 ### macOS / Linux
 
 ```bash
-curl -fsSL https://cdn.browseros.com/cli/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/abhishek-verma/Pane/main/packages/browseros-agent/apps/cli/scripts/install.sh | bash
 ```
 
 ### Windows
 
 ```powershell
-irm https://cdn.browseros.com/cli/install.ps1 | iex
+irm https://raw.githubusercontent.com/abhishek-verma/Pane/main/packages/browseros-agent/apps/cli/scripts/install.ps1 | iex
 ```
 
 ### Build from Source
@@ -98,8 +98,8 @@ Inspect versions with:
 
 ```bash
 browseros-cli --version
-curl -fsSL https://cdn.browseros.com/cli/latest/version.txt
-curl -fsSL https://cdn.browseros.com/cli/latest/manifest.json
+curl -fsSL https://github.com/abhishek-verma/Pane/releases/latest/download/version.txt
+curl -fsSL https://github.com/abhishek-verma/Pane/releases/latest/download/manifest.json
 git tag -l 'cli/v*' --sort=-v:refname
 git tag -l 'browseros-cli-v*' --sort=-v:refname
 ```

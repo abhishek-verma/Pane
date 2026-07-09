@@ -1,6 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -12,8 +10,13 @@ import {
 import { log } from '../log'
 import { type CliUploadConfig, loadCliUploadConfig } from './config'
 
-const CDN_BASE_URL = 'https://cdn.browseros.com'
+// Canonical release repo. CLI artifacts are hosted on GitHub Releases; no
+// Pane-operated CDN is required. Bump this one constant to move the
+// distribution repo.
+const GITHUB_REPO = 'abhishek-verma/Pane'
+const GITHUB_RELEASES_BASE = `https://github.com/${GITHUB_REPO}/releases/download`
 const JSON_CONTENT_TYPE = 'application/json; charset=utf-8'
+const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8'
 const CLI_ARCHIVE_PATTERN =
   /^browseros-cli_(?<version>[^_]+)_(?<os>darwin|linux|windows)_(?<arch>amd64|arm64)\.(?<ext>tar\.gz|zip)$/
 
@@ -71,9 +74,25 @@ export async function runCliRelease(options: CliReleaseOptions): Promise<void> {
   await uploadCliRelease(resolveRootDir(), options)
 }
 
+/** Returns the R2 upload config, or null when no R2 credentials are present (e.g. a fork without a CDN). */
+function tryLoadR2Config(rootDir: string): CliUploadConfig | null {
+  try {
+    return loadCliUploadConfig(rootDir)
+  } catch {
+    return null
+  }
+}
+
 async function uploadCliInstallers(rootDir: string): Promise<void> {
-  const { r2 } = loadCliUploadConfig(rootDir)
-  const client = createR2Client(r2)
+  const config = tryLoadR2Config(rootDir)
+  if (config === null) {
+    log.info(
+      'R2 credentials not configured — skipping installer CDN upload (installers are fetched via raw GitHub URLs)',
+    )
+    return
+  }
+
+  const client = createR2Client(config.r2)
 
   log.header('Uploading BrowserOS CLI installer scripts')
 
@@ -84,13 +103,15 @@ async function uploadCliInstallers(rootDir: string): Promise<void> {
         throw new Error(`Installer script not found: ${installer.filePath}`)
       }
 
-      const objectKey = joinObjectKey(r2.uploadPrefix, installer.objectName)
+      const objectKey = joinObjectKey(
+        config.r2.uploadPrefix,
+        installer.objectName,
+      )
       log.step(`Uploading ${installer.filePath}`)
-      await uploadFileToObject(client, r2, objectKey, absolutePath, {
+      await uploadFileToObject(client, config.r2, objectKey, absolutePath, {
         contentType: installer.contentType,
       })
       log.success(`Uploaded ${objectKey}`)
-      log.info(`${CDN_BASE_URL}/${objectKey}`)
     }
 
     log.done('CLI installer upload completed')
@@ -143,7 +164,7 @@ export function buildCliReleaseManifest(options: {
   const checksumByFilename = parseCliChecksums(options.checksumsContent)
   const assets: Record<string, CliReleaseAsset> = {}
   const filenames = [...options.filenames].sort()
-  const cdnBaseURL = options.cdnBaseURL ?? CDN_BASE_URL
+  const cdnBaseURL = options.cdnBaseURL ?? GITHUB_RELEASES_BASE
   const uploadPrefix = options.uploadPrefix ?? 'cli'
 
   for (const filename of filenames) {
@@ -179,13 +200,17 @@ export function buildCliReleaseManifest(options: {
   }
 }
 
-async function uploadCliManifest(
-  client: ReturnType<typeof createR2Client>,
+/**
+ * Writes manifest.json + version.txt into the binaries dir so they ship as
+ * GitHub Release assets (the CLI self-update fetches them via the
+ * /releases/latest/download/<asset> redirect). When R2 credentials are
+ * present, also mirrors them to the CDN.
+ */
+async function writeReleaseMetadata(
+  absoluteBinariesDir: string,
   version: string,
   releaseArchives: string[],
-  uploadPrefix: string,
-  absoluteBinariesDir: string,
-  r2: CliUploadConfig['r2'],
+  config: CliUploadConfig | null,
 ): Promise<void> {
   const checksumsPath = join(absoluteBinariesDir, 'checksums.txt')
   if (!existsSync(checksumsPath)) {
@@ -196,31 +221,67 @@ async function uploadCliManifest(
     version,
     filenames: releaseArchives,
     checksumsContent: readFileSync(checksumsPath, 'utf-8'),
-    uploadPrefix,
   })
-  const manifestPath = join(tmpdir(), `browseros-cli-manifest-${version}.json`)
-  await writeFile(
-    manifestPath,
-    `${JSON.stringify(manifest, null, 2)}\n`,
-    'utf-8',
+
+  const manifestPath = join(absoluteBinariesDir, 'manifest.json')
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8')
+  log.success(`Wrote ${manifestPath}`)
+  log.info(
+    `manifest asset URL: ${GITHUB_RELEASES_BASE}/cli/v${version}/manifest.json`,
   )
 
-  const versionedKey = joinObjectKey(
-    uploadPrefix,
-    `v${version}`,
-    'manifest.json',
-  )
-  const latestKey = joinObjectKey(uploadPrefix, 'latest', 'manifest.json')
+  const versionPath = join(absoluteBinariesDir, 'version.txt')
+  writeFileSync(versionPath, version, 'utf-8')
+  log.success(`Wrote ${versionPath}`)
 
-  log.step('Uploading manifest.json')
-  await uploadFileToObject(client, r2, versionedKey, manifestPath, {
-    contentType: JSON_CONTENT_TYPE,
-  })
-  await uploadFileToObject(client, r2, latestKey, manifestPath, {
-    contentType: JSON_CONTENT_TYPE,
-  })
-  log.success(`Uploaded ${latestKey}`)
-  log.info(`${CDN_BASE_URL}/${latestKey}`)
+  if (config === null) {
+    return
+  }
+
+  const client = createR2Client(config.r2)
+  try {
+    const versionedManifestKey = joinObjectKey(
+      config.r2.uploadPrefix,
+      `v${version}`,
+      'manifest.json',
+    )
+    const latestManifestKey = joinObjectKey(
+      config.r2.uploadPrefix,
+      'latest',
+      'manifest.json',
+    )
+    const latestVersionKey = joinObjectKey(
+      config.r2.uploadPrefix,
+      'latest',
+      'version.txt',
+    )
+
+    log.step('Mirroring manifest.json + version.txt to R2')
+    await uploadFileToObject(
+      client,
+      config.r2,
+      versionedManifestKey,
+      manifestPath,
+      {
+        contentType: JSON_CONTENT_TYPE,
+      },
+    )
+    await uploadFileToObject(
+      client,
+      config.r2,
+      latestManifestKey,
+      manifestPath,
+      {
+        contentType: JSON_CONTENT_TYPE,
+      },
+    )
+    await uploadFileToObject(client, config.r2, latestVersionKey, versionPath, {
+      contentType: TEXT_CONTENT_TYPE,
+    })
+    log.success('Mirrored manifest + version to R2')
+  } finally {
+    client.destroy()
+  }
 }
 
 async function uploadCliRelease(
@@ -242,50 +303,51 @@ async function uploadCliRelease(
   }
   const releaseArchives = archives.filter((f) => f !== 'checksums.txt')
 
-  const { r2 } = loadCliUploadConfig(rootDir)
-  const client = createR2Client(r2)
+  const config = tryLoadR2Config(rootDir)
 
-  log.header(`Uploading BrowserOS CLI v${version} release`)
+  log.header(`Publishing BrowserOS CLI v${version} release`)
 
-  try {
-    for (const filename of archives) {
-      const filePath = join(absoluteBinariesDir, filename)
-      const versionedKey = joinObjectKey(
-        r2.uploadPrefix,
-        `v${version}`,
-        filename,
-      )
-      const latestKey = joinObjectKey(r2.uploadPrefix, 'latest', filename)
-
-      log.step(`Uploading ${filename}`)
-      await uploadFileToObject(client, r2, versionedKey, filePath)
-      await uploadFileToObject(client, r2, latestKey, filePath)
-      log.success(`Uploaded ${filename}`)
-      log.info(`${CDN_BASE_URL}/${versionedKey}`)
-    }
-
-    await uploadCliManifest(
-      client,
-      version,
-      releaseArchives,
-      r2.uploadPrefix,
-      absoluteBinariesDir,
-      r2,
+  if (config === null) {
+    log.info(
+      'R2 credentials not configured — GitHub Release will host all artifacts (manifest.json, version.txt, archives, checksums.txt)',
     )
-
-    const versionTxtPath = join(tmpdir(), 'browseros-cli-version.txt')
-    await writeFile(versionTxtPath, version, 'utf-8')
-    const versionKey = joinObjectKey(r2.uploadPrefix, 'latest', 'version.txt')
-    await uploadFileToObject(client, r2, versionKey, versionTxtPath, {
-      contentType: 'text/plain; charset=utf-8',
-    })
-    log.success(`Uploaded ${versionKey}`)
-    log.info(`${CDN_BASE_URL}/${versionKey}`)
-
-    log.done('CLI binary upload completed')
-  } finally {
-    client.destroy()
   }
 
-  await uploadCliInstallers(rootDir)
+  if (config !== null) {
+    const client = createR2Client(config.r2)
+    try {
+      for (const filename of archives) {
+        const filePath = join(absoluteBinariesDir, filename)
+        const versionedKey = joinObjectKey(
+          config.r2.uploadPrefix,
+          `v${version}`,
+          filename,
+        )
+        const latestKey = joinObjectKey(
+          config.r2.uploadPrefix,
+          'latest',
+          filename,
+        )
+
+        log.step(`Uploading ${filename} to R2`)
+        await uploadFileToObject(client, config.r2, versionedKey, filePath)
+        await uploadFileToObject(client, config.r2, latestKey, filePath)
+        log.success(`Uploaded ${filename}`)
+      }
+    } finally {
+      client.destroy()
+    }
+  }
+
+  await writeReleaseMetadata(
+    absoluteBinariesDir,
+    version,
+    releaseArchives,
+    config,
+  )
+
+  log.done('CLI release artifacts ready (GitHub Release hosts distribution)')
 }
+
+// Re-exported for callers that historically imported it alongside the runner.
+export { GITHUB_RELEASES_BASE, GITHUB_REPO }

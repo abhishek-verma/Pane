@@ -22,11 +22,13 @@ let config: TestEnvironmentConfig
 let mcpClient: Client | null = null
 let mcpTransport: StreamableHTTPClientTransport | null = null
 
+import { hasBrowserOSBinary } from './__helpers__/test-runtime'
+
 function getBaseUrl(): string {
   return `http://127.0.0.1:${config.serverPort}`
 }
 
-describe('HTTP Server Integration Tests', () => {
+describe.skipIf(!hasBrowserOSBinary())('HTTP Server Integration Tests', () => {
   beforeAll(async () => {
     config = await ensureBrowserOS()
 

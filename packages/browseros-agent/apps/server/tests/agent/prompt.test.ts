@@ -362,11 +362,10 @@ describe('mode-aware framing', () => {
 // ---------------------------------------------------------------------------
 
 describe('security boundaries', () => {
-  it('lists all 5 untrusted data sources', () => {
+  it('lists all 4 untrusted data sources', () => {
     const prompt = buildRegular()
     expect(prompt).toContain('Web page text, images, and DOM content')
     expect(prompt).toContain('JavaScript execution results')
-    expect(prompt).toContain('External API responses')
     expect(prompt).toContain('File contents read from the filesystem')
     expect(prompt).toContain('Browser history and bookmark content')
   })
@@ -415,7 +414,6 @@ describe('security boundaries', () => {
     expect(prompt).toContain('1. **MANDATORY**')
     expect(prompt).toContain('2. **MANDATORY**')
     expect(prompt).toContain('3. **MANDATORY**')
-    expect(prompt).toContain('4. **MANDATORY**')
   })
 
   it('includes security reminder as the final section', () => {
@@ -512,13 +510,6 @@ describe('tool selection', () => {
     expect(prompt).toContain('Prefer `act` with refs over coordinate actions')
     expect(prompt).toContain('Prefer `act` kind="fill" for text input')
     expect(prompt).toContain('Prefer clicking visible links with `act`')
-  })
-
-  it('includes Strata-over-browser preference', () => {
-    // Why: when an app is connected, Strata is faster and more reliable
-    // than navigating to the app's website. The agent must know this.
-    const prompt = buildRegular()
-    expect(prompt).toContain('prefer Strata tools over browser automation')
   })
 })
 
@@ -821,9 +812,8 @@ describe('error recovery', () => {
     // Why: new in v6. Strata actions can fail with auth errors, not-found,
     // or partial failures. Each needs a different recovery strategy.
     const prompt = buildRegular()
-    expect(prompt).toContain('### Strata errors')
-    expect(prompt).toContain('Authentication error')
-    expect(prompt).toContain('Partial failure')
+    expect(prompt).toContain('### Strata error patterns')
+    expect(prompt).toContain('report the error')
   })
 
   it('does not include retired memory error patterns in regular mode', () => {
@@ -1018,14 +1008,6 @@ describe('nudges', () => {
       prompt.indexOf('</nudge_tools>'),
     )
     expect(nudgeSection).not.toContain('tab grouping')
-    expect(nudgeSection).toContain('before any browser work')
-  })
-
-  it('includes zero-text instruction for suggest_app_connection', () => {
-    const prompt = buildRegular()
-    expect(prompt).toContain(
-      'ONLY the `suggest_app_connection` tool call and nothing else',
-    )
   })
 
   it('includes zero-text instruction for suggest_schedule', () => {

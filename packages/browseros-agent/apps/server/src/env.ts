@@ -20,7 +20,7 @@ export const INLINED_ENV = {
   SENTRY_DSN: isPaneBuild ? undefined : process.env.SENTRY_DSN,
   POSTHOG_API_KEY: isPaneBuild ? undefined : process.env.POSTHOG_API_KEY,
   // Pane-operated config endpoint: forced unset in pane builds so the server
-  // cannot reach api.browseros.com / llm.browseros.com inadvertently.
+  // cannot reach api.pane.com / llm.browseros.com inadvertently.
   BROWSEROS_CONFIG_URL: isPaneBuild
     ? undefined
     : process.env.BROWSEROS_CONFIG_URL,
