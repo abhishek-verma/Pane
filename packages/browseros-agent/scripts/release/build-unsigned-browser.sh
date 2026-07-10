@@ -70,6 +70,12 @@ esac
 cd "$BROWSEROS"
 "$ROOT/packages/browseros-agent/scripts/release/stage-pane-browser-resources.sh" darwin-arm64
 uv sync
+
+# gn/ninja need the full Xcode SDK, not Command Line Tools alone.
+if [ -d /Applications/Xcode.app/Contents/Developer ]; then
+  export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+fi
+
 uv run browseros build --config "$CONFIG" --chromium-src "$CHROMIUM_SRC"
 
 VERSION="$(python3 - <<'PY'
