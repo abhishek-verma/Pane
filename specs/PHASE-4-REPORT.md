@@ -105,6 +105,14 @@ Applied on `fix/phase-4-memory-trust-hardening` before Phase 5:
 2. **Skill URL SSRF:** `redirect: 'manual'` with per-hop host checks; private / link-local / reserved hosts rejected (`@browseros/memory/skill-url`).
 3. **Path install jail:** agent/MCP `skills_install` path must resolve under home or memories; Settings REST import may pass `allowAnyLocalPath` for user-picked files.
 
+## Release blockers follow-up
+
+Applied on `fix/phase-4-memory-sot-and-skill-quality`:
+
+1. **Files stay SoT for recall:** Settings / persona writes use `writePromptFileAndReindex` so SQLite `memory_entries` rebuilds from files after wholesale edits.
+2. **Review success filter:** runs with `action_log` `denied` or non-zero `exitCode` / `isError` payloads are excluded before staging.
+3. **`success_rate` wired:** `skills_load` notes the skill on the run; chat `onFinish` finalizes outcomes (abort → failure); MCP one-shot records success immediately. Curation low-success path can fire.
+
 ## Tests run (automated)
 
 ```text

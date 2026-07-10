@@ -9,7 +9,11 @@
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { ensureMemoriesLayout, readPromptFiles, writePromptFile } from './files'
+import {
+  ensureMemoriesLayout,
+  readPromptFiles,
+  writePromptFileAndReindex,
+} from './files'
 
 export type PersonaId =
   | 'default'
@@ -157,7 +161,7 @@ export async function applyPersonaTemplate(
 ): Promise<void> {
   const template = getPersonaTemplate(personaId)
   if (!template) throw new Error(`Unknown persona: ${personaId}`)
-  await writePromptFile('soul', template.body, options.memoriesRoot)
+  await writePromptFileAndReindex('soul', template.body, options.memoriesRoot)
   const map = await readPersonaMap(options.memoriesRoot)
   if (options.pin) {
     map.pinned = personaId

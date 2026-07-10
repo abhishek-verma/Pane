@@ -8,6 +8,7 @@ import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
 import { PromptBudgetExceededError } from './prompt-budget'
+import { noteSkillLoaded } from './skill-outcomes'
 import {
   archiveSkill,
   checkMemoryAddBudget,
@@ -20,6 +21,7 @@ import {
   listEntries,
   listSkills,
   MemoryWriteRejectedError,
+  recordSkillOutcome,
   writeMemoryEntry,
 } from './store'
 
@@ -27,7 +29,10 @@ const promotedField = {
   [PROMOTED_ARG]: z.boolean().optional(),
 } as const
 
-export function buildMemoryToolSet(getBucketId: () => string): ToolSet {
+export function buildMemoryToolSet(
+  getBucketId: () => string,
+  getRunId?: () => string | undefined,
+): ToolSet {
   return {
     memory_add: tool({
       description:
@@ -133,6 +138,13 @@ export function buildMemoryToolSet(getBucketId: () => string): ToolSet {
       execute: async ({ id }) => {
         const body = await loadSkillBody(id)
         if (!body) return { text: `Skill not found: ${id}`, isError: true }
+        const runId = getRunId?.()
+        if (runId) {
+          noteSkillLoaded(runId, id)
+        } else {
+          // MCP / one-shot: no run lifecycle — count as successful use.
+          recordSkillOutcome(id, true)
+        }
         return { text: body }
       },
     }),
@@ -191,3 +203,5 @@ export function buildMemoryToolSet(getBucketId: () => string): ToolSet {
 export function debugListMemory(bucketId = 'default') {
   return listEntries({ bucketId })
 }
+
+export { finalizeSkillOutcomesForRun } from './skill-outcomes'

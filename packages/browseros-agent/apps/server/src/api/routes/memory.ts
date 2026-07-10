@@ -11,7 +11,7 @@ import {
   readPromptFiles,
   readStagedSkill,
   seedPromptFilesIfMissing,
-  writePromptFile,
+  writePromptFileAndReindex,
 } from '../../memory/files'
 import {
   applyPersonaTemplate,
@@ -74,7 +74,7 @@ export function createMemoryRoutes() {
       }
       const body = PutFileSchema.parse(await c.req.json())
       try {
-        await writePromptFile(which, body.content)
+        await writePromptFileAndReindex(which, body.content)
       } catch (err) {
         if (err instanceof MemoryWriteRejectedError) {
           return c.json({ error: err.message, reason: err.reason }, 400)

@@ -210,6 +210,8 @@ export class AiSdkAgent {
       !config.resolvedConfig.chatMode && 'filesystem_write' in filesystemTools
         ? config.resolvedConfig.workingDir
         : undefined
+    const gateCtx = config.resolvedConfig.gateContext
+    const workspace = config.resolvedConfig.workspace
     const mergedTools = {
       ...browserTools,
       ...externalMcpTools,
@@ -223,6 +225,7 @@ export class AiSdkAgent {
       ),
       ...buildMemoryToolSet(
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
+        () => gateCtx?.runId ?? config.resolvedConfig.conversationId,
       ),
     }
 
@@ -234,8 +237,6 @@ export class AiSdkAgent {
       delete mergedTools.suggest_app_connection
     }
 
-    const gateCtx = config.resolvedConfig.gateContext
-    const workspace = config.resolvedConfig.workspace
     const ingestHooks = buildIngestGateHooks({
       getBucketId: () => workspace?.bucketId ?? 'default',
       getRunId: () => gateCtx?.runId ?? config.resolvedConfig.conversationId,
