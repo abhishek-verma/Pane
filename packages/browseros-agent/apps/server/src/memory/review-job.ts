@@ -10,6 +10,7 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 import { DEFAULT_BUCKET_ID } from '@browseros/memory/constants'
+import { MemoryWriteRejectedError } from '@browseros/memory/scan'
 import { detectOnBattery, getPauseOnBatteryPref } from '../context/battery'
 import { getDbHandle } from '../lib/db'
 import { logger } from '../lib/logger'
@@ -190,7 +191,18 @@ export async function runSkillReviewJob(
       body.match(/^name:\s*(.+)$/m)?.[1]?.trim() ??
       `staged-${randomUUID().slice(0, 8)}`
     const safeId = skillId.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase()
-    await writeStagedSkill(safeId, body, options.memoriesRoot)
+    try {
+      await writeStagedSkill(safeId, body, options.memoriesRoot)
+    } catch (err) {
+      if (err instanceof MemoryWriteRejectedError) {
+        logger.warn('skill review draft blocked by injection scan', {
+          skillId: safeId,
+          reason: err.reason,
+        })
+        continue
+      }
+      throw err
+    }
     upsertSkillRecord({
       id: safeId,
       name: safeId,

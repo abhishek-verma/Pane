@@ -76,13 +76,14 @@ On demo complete: `seedMemoryFromOnboarding` applies persona (if map empty) and 
 3. **Prompt budget:** allocator evicts lowest usefulness / oldest `last_surfaced`; over-budget add throws `PromptBudgetExceededError`.
 4. **Skill bodies not in prompt:** index-only; body via `skills_load` after activate.
 5. **Inferred writes stage:** review job + `source:'inferred'` → staged.
-6. **Injection scan:** rejects "Ignore previous instructions" (memory writes + URL install).
+6. **Injection scan:** rejects "Ignore previous instructions" on memory writes, URL install, Settings file PUT, staged skill write, and staged→active approve.
 7. **Trust classification:** memory/skill tools classified; trust-invariants green.
 8. **No Phase 5/6 leakage:** digest is a local file stub only.
 9. **ACP SOUL tests:** `provider-factory-acp` + `acp-instructions` pass.
 10. **`0008` mirrored** in `client.ts` `currentMigrationHistory` + `currentSchemaStatements`.
 11. **ICP seed:** onboarding step + `personaIdForIcp` + server `applyPersonaTemplate` covered by tests.
-12. **URL install:** mocked fetch install + reject oversized / non-https / injection.
+12. **URL install:** mocked fetch install + reject oversized / non-https / injection / private-host redirect.
+13. **Path jail:** agent path install outside home/memories rejected; UI import may unrestricted-path.
 
 ## Phase 1–3 debt included on this branch
 
@@ -95,6 +96,14 @@ On demo complete: `seedMemoryFromOnboarding` applies persona (if map empty) and 
 1. Review drafter uses a deterministic template when no cheaper model is configured (logs + stages; no crash). Inject `draftSkill` in tests / `POST /memory/review/run`.
 2. `userSystemPrompt` is outside the memory budget (budget applies to soul/USER/MEMORY/skill-index only).
 3. Soul-patch proposals from the review job are not yet a separate UI surface (persona changes go through Memory page / ICP seed).
+
+## Trust hardening follow-up (post ship-gate review)
+
+Applied on `fix/phase-4-memory-trust-hardening` before Phase 5:
+
+1. **Scan on all write paths:** `writePromptFile`, `writeStagedSkill`, and `activateStagedSkill` run `assertMemoryContent` (same injection/credential scan as `memory_add` / URL install). Review job skips drafts that fail the scan.
+2. **Skill URL SSRF:** `redirect: 'manual'` with per-hop host checks; private / link-local / reserved hosts rejected (`@browseros/memory/skill-url`).
+3. **Path install jail:** agent/MCP `skills_install` path must resolve under home or memories; Settings REST import may pass `allowAnyLocalPath` for user-picked files.
 
 ## Tests run (automated)
 

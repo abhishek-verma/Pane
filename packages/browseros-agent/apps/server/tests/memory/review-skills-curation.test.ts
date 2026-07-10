@@ -172,9 +172,9 @@ description: Demo
   })
 
   it('install skill from local fixture path', async () => {
-    const { memoriesRoot, dir } = setup()
+    const { memoriesRoot } = setup()
     await seedPromptFilesIfMissing(memoriesRoot)
-    const fixture = join(dir, 'fixture-skill.md')
+    const fixture = join(memoriesRoot, 'fixture-skill.md')
     writeFileSync(
       fixture,
       `---
@@ -188,6 +188,14 @@ Body here
     const id = await installSkillFromPath(fixture, { memoriesRoot })
     expect(id).toBe('fixture-skill')
     expect(getSkill(id)?.status).toBe('active')
+  })
+
+  it('rejects agent path install outside home/memories', async () => {
+    const { memoriesRoot } = setup()
+    await seedPromptFilesIfMissing(memoriesRoot)
+    await expect(
+      installSkillFromPath('/etc/pane-not-a-skill.md', { memoriesRoot }),
+    ).rejects.toThrow(/home directory|memories/i)
   })
 
   it('curation demotes unrecalled memory; demoted still recallable', async () => {
