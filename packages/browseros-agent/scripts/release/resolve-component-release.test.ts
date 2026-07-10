@@ -10,8 +10,8 @@ type Component = 'agent-extension' | 'agent-server'
 
 function packagePath(component: Component): string {
   return component === 'agent-extension'
-    ? 'apps/app/package.json'
-    : 'apps/server/package.json'
+    ? 'packages/browseros-agent/apps/app/package.json'
+    : 'packages/browseros-agent/apps/server/package.json'
 }
 
 function scopedTag(component: Component, version: string): string {
@@ -220,7 +220,7 @@ describe('resolve-component-release', () => {
 
       expect(result.code).toBe(1)
       expect(result.stderr).toContain(
-        'Tag version 0.0.100 does not match apps/app/package.json version 0.0.99',
+        'Tag version 0.0.100 does not match packages/browseros-agent/apps/app/package.json version 0.0.99',
       )
     } finally {
       rmSync(dir, { recursive: true, force: true })
@@ -238,7 +238,7 @@ describe('resolve-component-release', () => {
 
       expect(result.code).toBe(1)
       expect(result.stderr).toContain(
-        'Tag version 0.0.100 does not match apps/app/package.json version 0.0.99',
+        'Tag version 0.0.100 does not match packages/browseros-agent/apps/app/package.json version 0.0.99',
       )
     } finally {
       rmSync(dir, { recursive: true, force: true })

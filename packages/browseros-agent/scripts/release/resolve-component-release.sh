@@ -46,18 +46,18 @@ case "$component" in
   agent-extension)
     new_prefix="agent-extension/v"
     legacy_prefix="agent-extension-v"
-    package_json="apps/app/package.json"
+    package_json="packages/browseros-agent/apps/app/package.json"
     ;;
   agent-server)
     new_prefix="agent-server/v"
     legacy_prefix="browseros-server-v"
-    package_json="apps/server/package.json"
+    package_json="packages/browseros-agent/apps/server/package.json"
     version_file=""
     ;;
   claw-extension)
     new_prefix="claw-extension/v"
     legacy_prefix="claw-extension-v"
-    package_json="apps/claw-app/package.json"
+    package_json="packages/browseros-agent/apps/claw-app/package.json"
     version_file=""
     ;;
   browser)
