@@ -1,0 +1,28 @@
+# Pane macOS arm64 unsigned release when Chromium is already synced locally.
+#
+# Skips clean + git_setup (run gclient sync yourself after a clean if needed).
+# Use release.macos.arm64.unsigned.yaml for a from-scratch maintainer build.
+
+build:
+  type: release
+  architecture: arm64
+
+gn_flags:
+  file: build/config/gn/flags.macos.release.gn
+
+modules:
+  - sparkle_setup
+  - download_resources
+  - resources
+  - bundled_extensions
+  - chromium_replace
+  - string_replaces
+  - series_patches
+  - patches
+  - configure
+  - compile
+  - package_macos
+  - sparkle_sign
+
+notifications:
+  slack: false

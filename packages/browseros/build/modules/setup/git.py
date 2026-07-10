@@ -41,10 +41,7 @@ class GitSetupModule(CommandModule):
     def execute(self, ctx: Context) -> None:
         log_info(f"\n🔀 Setting up Chromium {ctx.chromium_version}...")
 
-        log_info("📥 Fetching all tags from remote...")
-        run_command(["git", "fetch", "--tags", "--force"], cwd=ctx.chromium_src)
-
-        self._verify_tag_exists(ctx)
+        self._ensure_tag_available(ctx)
 
         self._checkout_browseros_branch(ctx)
 
@@ -67,6 +64,31 @@ class GitSetupModule(CommandModule):
             )
 
         log_success("Git setup complete")
+
+    def _ensure_tag_available(self, ctx: Context) -> None:
+        """Fetch only the pinned tag instead of all Chromium tags (~70k)."""
+        result = subprocess.run(
+            ["git", "tag", "-l", ctx.chromium_version],
+            text=True,
+            capture_output=True,
+            cwd=ctx.chromium_src,
+        )
+        if result.stdout and ctx.chromium_version in result.stdout.splitlines():
+            log_info(f"✓ Tag {ctx.chromium_version} already present locally")
+            return
+
+        log_info(f"📥 Fetching tag {ctx.chromium_version}...")
+        run_command(
+            [
+                "git",
+                "fetch",
+                "--depth=1",
+                "origin",
+                f"refs/tags/{ctx.chromium_version}:refs/tags/{ctx.chromium_version}",
+            ],
+            cwd=ctx.chromium_src,
+        )
+        self._verify_tag_exists(ctx)
 
     def _checkout_browseros_branch(self, ctx: Context) -> None:
         """Create/reset local `browseros` branch at the pinned tag, not detached HEAD."""
