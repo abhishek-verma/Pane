@@ -21,6 +21,13 @@ export interface ToolCallExecution {
   timestamp: string
 }
 
+export interface CompletedStepRecord {
+  toolCallId: string
+  toolName: string
+  class: string
+  fingerprint: string
+}
+
 export interface ScheduledJobRun {
   id: string
   jobId: string
@@ -32,4 +39,8 @@ export interface ScheduledJobRun {
   executionLog?: string
   toolCalls?: ToolCallExecution[]
   error?: string
+  /** Stable per scheduled fire: jobId + scheduledSlot or jobId + runId */
+  idempotencyKey?: string
+  /** Consequential steps completed before crash — used on resume */
+  completedSteps?: CompletedStepRecord[]
 }

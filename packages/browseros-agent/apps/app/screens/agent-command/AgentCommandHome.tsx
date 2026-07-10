@@ -16,6 +16,7 @@ import {
   resolveSidepanelChatTarget,
 } from '@/modules/chat/sidepanel-chat-targets'
 import { useLlmProviders } from '@/modules/llm-providers/llm-providers.hooks'
+import { AdaptiveHomeWidgets } from '@/screens/newtab/home/AdaptiveHomeWidgets'
 import { useActiveHint } from '@/screens/newtab/index/active-hint.hooks'
 import { ImportDataHint } from '@/screens/newtab/index/ImportDataHint'
 import { RecentSites } from '@/screens/newtab/index/RecentSites'
@@ -172,6 +173,7 @@ export const AgentCommandHome: FC = () => {
         </div>
 
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-12">
+          <AdaptiveHomeWidgets />
           <RecentSites />
           <ScheduleResults />
         </div>

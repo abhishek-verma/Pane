@@ -5,7 +5,6 @@
  */
 
 import type { GraphEvent } from '@browseros/context-graph/types'
-import { detectOnBattery, getPauseOnBatteryPref } from '../context/battery'
 import { logger } from '../lib/logger'
 import {
   listTriggerRules,
@@ -73,11 +72,16 @@ export async function onGraphEvent(
   }
 
   try {
-    if (!options?.skipBatteryCheck && getPauseOnBatteryPref()) {
-      const onBattery = await detectOnBattery()
-      if (onBattery === true) {
-        logger.info('trigger fan-out paused on battery')
-        return result
+    if (!options?.skipBatteryCheck) {
+      const { detectOnBattery, getPauseOnBatteryPref } = await import(
+        '../context/battery'
+      )
+      if (getPauseOnBatteryPref()) {
+        const onBattery = await detectOnBattery()
+        if (onBattery === true) {
+          logger.info('trigger fan-out paused on battery')
+          return result
+        }
       }
     }
 

@@ -106,6 +106,8 @@ export interface GateContext {
   surface: 'loop' | 'mcp'
   runId?: string
   conversationId?: string
+  /** Scheduled / trigger / keep-alive runs — approval goes over reach. */
+  unattended?: boolean
 }
 
 export function isConsequentialClass(cls: ConsequenceClass): boolean {

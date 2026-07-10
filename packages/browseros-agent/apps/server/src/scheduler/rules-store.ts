@@ -104,7 +104,7 @@ export function updateTriggerRule(
     enabled: patch.enabled ?? existing.enabled,
     matchJson: JSON.stringify(patch.match ?? existing.match),
     prompt: patch.prompt ?? existing.prompt,
-    jobId: patch.jobId !== undefined ? (patch.jobId ?? null) : existing.jobId,
+    jobId: patch.jobId === undefined ? (existing.jobId ?? null) : patch.jobId,
     bucketId: patch.bucketId ?? existing.bucketId,
     cooldownMs: patch.cooldownMs ?? existing.cooldownMs,
     lastFiredAt: existing.lastFiredAt,
@@ -130,11 +130,9 @@ export function updateTriggerRule(
 }
 
 export function deleteTriggerRule(id: string): boolean {
-  const result = getDb()
-    .delete(triggerRules)
-    .where(eq(triggerRules.id, id))
-    .run()
-  return result.changes > 0
+  if (!getTriggerRule(id)) return false
+  getDb().delete(triggerRules).where(eq(triggerRules.id, id)).run()
+  return true
 }
 
 export function recordTriggerMatch(id: string): TriggerRule | null {

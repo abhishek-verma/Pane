@@ -7,6 +7,14 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import {
+  handleApprovalInboundText,
+  listPendingApprovals,
+  resolveByToken,
+  signalApprovalResolved,
+} from '../../scheduler/approvals'
+import { runDailyDigest } from '../../scheduler/digest'
+import { createKeepAliveService } from '../../scheduler/keep-alive'
+import {
   createTriggerRule,
   deleteTriggerRule,
   getTriggerRule,
@@ -47,6 +55,8 @@ const patchSchema = z.object({
 })
 
 export function createSchedulerRoutes() {
+  const keepAlive = createKeepAliveService()
+
   return new Hono<Env>()
     .get('/triggers', (c) => c.json({ rules: listTriggerRules() }))
     .get('/triggers/:id', (c) => {
@@ -74,5 +84,68 @@ export function createSchedulerRoutes() {
       const run = getScheduledRun(c.req.param('id'))
       if (!run) return c.json({ error: 'not found' }, 404)
       return c.json({ run })
+    })
+    .post('/digest/run', async (c) => {
+      const result = await runDailyDigest({
+        skipBatteryCheck: true,
+        skipQuietHours: true,
+        force: true,
+      })
+      return c.json(result)
+    })
+    .get('/keep-alive', async (c) => c.json(await keepAlive.status()))
+    .post('/keep-alive/install', async (c) => {
+      try {
+        return c.json(await keepAlive.install())
+      } catch (err) {
+        return c.json(
+          { error: err instanceof Error ? err.message : String(err) },
+          501,
+        )
+      }
+    })
+    .post('/keep-alive/uninstall', async (c) =>
+      c.json(await keepAlive.uninstall()),
+    )
+    .get('/approvals', (c) => c.json({ approvals: listPendingApprovals() }))
+    .post('/approvals/resolve', async (c) => {
+      const body = z
+        .object({ token: z.string().min(1) })
+        .parse(await c.req.json())
+      const result = resolveByToken(body.token)
+      if (!result) return c.json({ error: 'unknown token' }, 404)
+      signalApprovalResolved(result.approval.id, result.resolution)
+      return c.json(result)
+    })
+    .post('/approvals/inbound', async (c) => {
+      const body = z.object({ text: z.string() }).parse(await c.req.json())
+      return c.json(handleApprovalInboundText(body.text))
+    })
+    .get('/home', async (c) => {
+      const { loadHomeWidgets } = await import('../../scheduler/home')
+      const data = await loadHomeWidgets()
+      return c.json(data)
+    })
+    .post('/home/prefs', async (c) => {
+      const body = z
+        .object({
+          kind: z.enum(['pin', 'hide', 'dismiss']),
+          widget: z.enum([
+            'daily-digest',
+            'pending-approvals',
+            'resumed-work',
+            'one-click-recurring',
+            'recent-sites-fallback',
+          ]),
+        })
+        .parse(await c.req.json())
+      const { appendHomePrefLine } = await import('../../scheduler/home')
+      const { readPromptFiles, writePromptFileAndReindex } = await import(
+        '../../memory/files'
+      )
+      const files = await readPromptFiles()
+      const next = appendHomePrefLine(files.user, body.kind, body.widget)
+      await writePromptFileAndReindex('user', next)
+      return c.json({ ok: true })
     })
 }

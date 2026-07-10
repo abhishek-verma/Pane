@@ -13,6 +13,13 @@ import {
 } from '@browseros/shared/trust/consequence-class'
 import { type Tool, tool } from 'ai'
 import { z } from 'zod'
+import {
+  channelOutcomeKey,
+  getChannelOutcome,
+  requestChannelApproval,
+  setChannelOutcome,
+} from '../../scheduler/approvals'
+import { stepFingerprint } from '../../scheduler/run-executor'
 import { logGateDecision } from './action-log'
 
 export type { ConsequenceClass, GateContext }
@@ -153,14 +160,38 @@ export function wrapToolWithGate<T extends Tool>(
       ) {
         return false
       }
-      logGateDecision(
-        toolName,
-        args,
-        ctx,
-        cls,
-        'approval-requested',
-        buildLoopApprovalPreview(toolName, args),
-      )
+
+      const preview = buildLoopApprovalPreview(toolName, args)
+
+      // Unattended: pause via channel, never auto-approve on silence.
+      if (ctx.unattended) {
+        const runId = ctx.runId ?? 'unattended'
+        const fp = stepFingerprint(toolName, args, runId)
+        const { resolution } = await requestChannelApproval({
+          runId,
+          conversationId: ctx.conversationId,
+          toolCallId: fp,
+          toolName,
+          consequenceClass: cls,
+          preview,
+        })
+        setChannelOutcome(channelOutcomeKey(runId, toolName, fp), resolution)
+        logGateDecision(
+          toolName,
+          args,
+          ctx,
+          cls,
+          resolution === 'approved' ? 'approval-requested' : 'denied',
+          resolution === 'approved'
+            ? preview
+            : `Channel ${resolution}: ${preview}`,
+        )
+        // Return false so execute runs; execute checks channel outcome.
+        // Approved → execute; denied/timeout → execute returns error (no side effect).
+        return false
+      }
+
+      logGateDecision(toolName, args, ctx, cls, 'approval-requested', preview)
       return true
     },
     execute: async (input, options) => {
@@ -170,6 +201,35 @@ export function wrapToolWithGate<T extends Tool>(
 
       if (!original.execute) {
         throw new Error(`Tool ${toolName} has no execute function`)
+      }
+
+      if (ctx.unattended && isConsequentialClass(cls) && !isPromoted(args)) {
+        const runId = ctx.runId ?? 'unattended'
+        const fp = stepFingerprint(toolName, args, runId)
+        const outcome = getChannelOutcome(
+          channelOutcomeKey(runId, toolName, fp),
+        )
+        if (outcome === 'denied' || outcome === 'timeout') {
+          const msg =
+            outcome === 'denied'
+              ? 'Denied via reach channel. Run cancelled for this action.'
+              : 'Approval timed out. Action skipped (never auto-approved).'
+          logGateDecision(toolName, args, ctx, cls, 'denied', msg)
+          return { text: msg, isError: true }
+        }
+        if (outcome === 'approved') {
+          // Channel approve resumes through the same execute path as pin/promote.
+          // We do not set __promoted on the schema — outcome map is the proof.
+        } else if (
+          !isPinActive(ctx, cls) ||
+          ctx.runConsequentialCount.count >= getBlastRadiusCap(ctx)
+        ) {
+          // Unattended without a resolved channel outcome and no pin — refuse.
+          const msg =
+            'Unattended consequential action blocked (no channel approval).'
+          logGateDecision(toolName, args, ctx, cls, 'denied', msg)
+          return { text: msg, isError: true }
+        }
       }
 
       // A consequential call reaches execute only after the user approved
@@ -189,12 +249,17 @@ export function wrapToolWithGate<T extends Tool>(
             ?.filter((c) => c.type === 'text')
             .map((c) => c.text)
             .join('\n')
+        const runId = ctx.runId ?? 'unattended'
+        const fp = stepFingerprint(toolName, args, runId)
+        const channelApproved =
+          getChannelOutcome(channelOutcomeKey(runId, toolName, fp)) ===
+          'approved'
         logGateDecision(
           toolName,
           args,
           ctx,
           cls,
-          isPromoted(args) ? 'promoted' : 'executed',
+          isPromoted(args) || channelApproved ? 'promoted' : 'executed',
           summary,
         )
       }

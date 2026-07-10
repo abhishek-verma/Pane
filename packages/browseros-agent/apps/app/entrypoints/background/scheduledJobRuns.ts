@@ -28,6 +28,8 @@ export const scheduledJobRuns = async () => {
           status: 'failed' as const,
           completedAt: new Date().toISOString(),
           result: 'Job timed out!',
+          // Keep completedSteps so a resume can skip consequential work.
+          completedSteps: run.completedSteps ?? [],
         }
       }
       return run
@@ -56,14 +58,29 @@ export const scheduledJobRuns = async () => {
     jobId: string,
     status: ScheduledJobRun['status'],
   ): Promise<ScheduledJobRun> => {
+    const id = crypto.randomUUID()
+    // Slot = calendar minute of fire — stable across crash/retry in the same minute.
+    const slot = new Date().toISOString().slice(0, 16)
+    const idempotencyKey = `${jobId}:${slot}`
+
+    const current = (await scheduledJobRunStorage.getValue()) ?? []
+    const prior = current.find(
+      (r) =>
+        r.jobId === jobId &&
+        r.idempotencyKey === idempotencyKey &&
+        r.status === 'failed' &&
+        (r.completedSteps?.length ?? 0) > 0,
+    )
+
     const jobRun: ScheduledJobRun = {
-      id: crypto.randomUUID(),
+      id,
       jobId,
       startedAt: new Date().toISOString(),
       status,
+      idempotencyKey,
+      completedSteps: prior?.completedSteps ?? [],
     }
 
-    const current = (await scheduledJobRunStorage.getValue()) ?? []
     const otherJobRuns = current.filter((r) => r.jobId !== jobId)
     const thisJobRuns = current
       .filter((r) => r.jobId === jobId)

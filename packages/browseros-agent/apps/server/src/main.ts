@@ -39,6 +39,7 @@ import { metrics } from './lib/metrics'
 import { isPortInUseError } from './lib/port-binding'
 import { Sentry } from './lib/sentry'
 import { startMemoryReviewMonitor } from './memory/review-job'
+import { startDailyDigestMonitor } from './scheduler/digest'
 import { VERSION } from './version'
 
 export class Application {
@@ -187,6 +188,7 @@ export class Application {
     subscribeTerminalIngest()
     startBatteryIngestMonitor()
     startMemoryReviewMonitor()
+    startDailyDigestMonitor()
 
     identity.initialize({
       installId: this.config.instanceInstallId,
