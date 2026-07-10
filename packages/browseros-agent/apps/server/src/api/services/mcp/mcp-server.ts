@@ -61,6 +61,7 @@ export function createMcpServer(deps: McpServiceDeps) {
                       pageId: gateContext.browserContext.activeTab.pageId,
                     }
                   : undefined,
+                isPrivate: gateContext.browserContext.isPrivate,
               }
             : undefined,
           workspace: gateContext.workspaceRoot

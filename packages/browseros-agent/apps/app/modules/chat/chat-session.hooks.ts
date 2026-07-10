@@ -361,6 +361,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     // approved tool (and the model never sees the result). Resume whenever the
     // last message carries a tool part the user just responded to.
     sendAutomaticallyWhen: ({ messages }) => {
+      // ACP harness chat does not apply Pane toolApprovalResponses; auto-resume
+      // would POST an empty message and 400. Approvals only resume on LLM /chat.
+      if (selectedChatTargetRef.current?.kind === 'acp') return false
       const lastMessage = messages[messages.length - 1]
       if (lastMessage?.role !== 'assistant' || !lastMessage.parts) return false
       return lastMessage.parts.some((part) => {
@@ -579,7 +582,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const restoreFromServer = async () => {
       try {
         const baseUrl = agentUrlRef.current
-        if (!baseUrl) return
+        if (!baseUrl) {
+          // Keep conversationId in the URL until the agent URL resolves so the
+          // effect can retry; do not mark restored or clear the query param.
+          return
+        }
         const conversation = await fetchChatConversation(
           conversationIdParam,
           baseUrl,
@@ -588,11 +595,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           conversation.id as ReturnType<typeof crypto.randomUUID>,
         )
         setMessages(conversation.messages)
-      } catch (error) {
-        sentry.captureException(error)
-      } finally {
         setRestoredConversationId(conversationIdParam)
         setSearchParams({}, { replace: true })
+      } catch (error) {
+        sentry.captureException(error)
+        // Leave conversationId in the URL so the user can retry; do not pretend
+        // restore succeeded with an empty thread.
       }
     }
     void restoreFromServer()
@@ -601,6 +609,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     remoteConversationData,
     useCloudHistory,
     isRemoteConversationFetched,
+    agentServerUrl,
   ])
 
   // Per-window scope: resume this window's conversation when the panel
@@ -894,6 +903,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         toolName: tool.toolName,
         args,
         conversationId: conversationIdRef.current,
+        toolCallId: tool.toolCallId,
         userWorkingDir: workingDirRef.current,
         workspaceId: workspaceIdRef.current,
         bucketId: bucketIdRef.current ?? 'default',

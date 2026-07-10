@@ -7,15 +7,26 @@
 | Gate criterion | Status | Evidence |
 |----------------|--------|---------|
 | `pane` build profile | **Pass** | `PANE_BUILD` hard-falses cloud flags |
-| Sidepanel + new-tab chat (BYOK / OAuth / local) | **Pass (automated)** | Routes + provider plumbing; manual click-through still recommended |
+| Sidepanel + new-tab chat (BYOK / OAuth / local) | **Pass** | DeepSeek BYOK live 2026-07-10 (CDP=9699); sidepanel history + chat restore |
 | Pane-as-MCP wedge | **Pass (code)** | `/mcp` alias + ungated QuickSetup + shared tool spec; `claude mcp add` E2E optional |
-| Chat survives a server restart | **Pass** | Server SQLite is transcript SoT; `GET /chat/history` + `GET /chat/:id`; `loadMessages` hydrates new live sessions; one-time chrome.storage migration |
+| Chat survives a server restart | **Pass** | Live: killed server PID on :9223; watch respawned; `GET /chat/:id` restored 2 msgs + `tool-filesystem_write` parts; sidepanel history opened same thread |
 | Telemetry honest + off-by-default | **Pass (code)** | Native pref-read; app/server gated |
 | CDP secured to loopback + token | **Pass** | Token validation tests green |
 | No Pane-server dead-end | **Pass** | Voice gateway + CLI CDN blockers resolved earlier |
 | `bun run check` / tests | **Pass** | Typecheck green; history + migration tests green |
 
-**Gate verdict:** Phase 1 **passed** for engineering ship. Remaining polish is manual click-through evidence (optional before a public v0.1 tag).
+**Gate verdict:** Phase 1 **passed** for engineering ship. Live DeepSeek + restart hydrate smoke recorded 2026-07-10.
+
+## Manual E2E notes (2026-07-10)
+
+| Check | Result |
+|-------|--------|
+| DeepSeek provider setup + `/test-provider` | **pass** |
+| Live `POST /chat` + `GET /chat/history` / `GET /chat/:id` | **pass** |
+| Sidepanel `#/history` lists server transcripts | **pass** |
+| Open history item restores tool/action UI | **pass** (`1/1 actions completed` on write thread) |
+| Kill server → watch restart → same conversation detail | **pass** (tool parts intact) |
+| MCP settings `#/settings/mcp` QuickSetup | **pass** (earlier in session) |
 
 ---
 
@@ -51,7 +62,7 @@ See [`ASR-BENCHMARK.md`](./ASR-BENCHMARK.md). Local `faster-whisper` chunked ASR
 
 ## Follow-ups (non-blocking)
 
-- Manual UI click-through + `claude mcp add` smoke before a public tag
+- `claude mcp add` smoke when `claude` is on PATH
 - Intel mid-range + 30-min real meeting fixture before Phase 6 packaging
 - CDP Unix-socket transport (plan-allowed fallback already shipped)
 

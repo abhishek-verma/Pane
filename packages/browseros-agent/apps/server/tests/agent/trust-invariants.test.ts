@@ -353,6 +353,24 @@ describe('wrapToolWithGate loop surface', () => {
     expect(needs).toBe(true)
   })
 
+  it('gates unknown/external tool names as write-external (needsApproval)', async () => {
+    const underlying = tool({
+      description: 'external mcp tool',
+      inputSchema: z.object({ x: z.string() }),
+      execute: async () => ({ text: 'ran' }),
+    })
+    const wrapped = wrapToolWithGate(
+      'some_third_party_connector',
+      underlying,
+      () => makeCtx({ surface: 'loop' }),
+    )
+    const needs = await wrapped.needsApproval?.({ x: '1' }, execOptions)
+    expect(needs).toBe(true)
+    expect(deriveClass('some_third_party_connector', {}, makeCtx())).toBe(
+      'write-external',
+    )
+  })
+
   it('does not pause for a read tool', async () => {
     const wrapped = wrapToolWithGate('filesystem_read', makeTool(), () =>
       makeCtx({ surface: 'loop' }),

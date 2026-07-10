@@ -62,11 +62,50 @@ describe('buildSidepanelPreparedSendMessagesRequest', () => {
       },
       userSystemPrompt: 'Be concise',
       userWorkingDir: '/tmp/work',
+      workspaceId: undefined,
+      bucketId: undefined,
+      trustPins: undefined,
+      toolApprovalResponses: undefined,
       selectedText: 'selected text',
       selectedTextSource: {
         url: 'https://example.com',
         title: 'Example',
       },
+    })
+  })
+
+  it('forwards trust and approval fields on ACP targets', () => {
+    const request = buildSidepanelPreparedSendMessagesRequest({
+      agentServerUrl: 'http://127.0.0.1:5151',
+      target: acpTarget,
+      fallbackProvider,
+      message: 'hi',
+      ...commonRequestInput(),
+      workspaceId: 'ws-1',
+      bucketId: 'default',
+      trustPins: { 'write-local': { pinned: true } },
+      toolApprovalResponses: [
+        {
+          approvalId: 'a1',
+          toolCallId: 'c1',
+          toolName: 'filesystem_write',
+          approved: true,
+        },
+      ],
+    })
+
+    expect(request.body).toMatchObject({
+      workspaceId: 'ws-1',
+      bucketId: 'default',
+      trustPins: { 'write-local': { pinned: true } },
+      toolApprovalResponses: [
+        {
+          approvalId: 'a1',
+          toolCallId: 'c1',
+          toolName: 'filesystem_write',
+          approved: true,
+        },
+      ],
     })
   })
 

@@ -6,6 +6,7 @@
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { SessionStore } from '../../agent/session-store'
 import type { TurnRegistry } from '../../lib/agents/turns/active-turn-registry'
 import type { OAuthTokenManager } from '../../lib/clients/oauth/token-manager'
 import { requireTrustedOrigin } from '../middleware/require-trusted-origin'
@@ -53,6 +54,9 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
     version,
   } = config
 
+  // Shared so /chat and /trust/replay update the same live + SQLite transcript.
+  const sessionStore = new SessionStore()
+
   return (
     new Hono<Env>()
       .use('/*', cors(defaultCorsConfig))
@@ -71,6 +75,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
           browser,
           browserSession,
           browserosId,
+          sessionStore,
         }),
       )
       .route(
@@ -107,6 +112,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
           browserosId,
           serverPort: port,
           resourcesDir,
+          sessionStore,
         }),
       )
       .route('/screencast', createScreencastRoute({ browser }))

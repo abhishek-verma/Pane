@@ -4,6 +4,7 @@ export interface ReplayToolParams {
   toolName: string
   args: Record<string, unknown>
   conversationId?: string
+  toolCallId?: string
   userWorkingDir?: string
   workspaceId?: string
   bucketId?: string

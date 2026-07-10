@@ -181,7 +181,10 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onDeny?.(tool.toolCallId)}
+              onClick={() => {
+                const id = tool.approval?.id
+                if (id) onDeny?.(id)
+              }}
             >
               Deny
             </Button>

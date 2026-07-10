@@ -122,6 +122,9 @@ type SidepanelAgentChatRequest = {
   selectedTextSource?: { url: string; title: string }
   userSystemPrompt?: string
   userWorkingDir?: string
+  workspaceId?: string
+  bucketId?: string
+  trustPins?: Record<string, { pinned: boolean; expiresAt?: number }>
 }
 
 export function createAgentRoutes(deps: AgentRouteDeps = {}) {
@@ -823,6 +826,12 @@ async function parseSidepanelAgentChatBody(
   }
 
   const message = readOptionalTrimmedString(record, 'message')
+  if (hasToolApprovalResponses(record.toolApprovalResponses)) {
+    return {
+      error:
+        'Tool approvals are not supported for ACP agent chat. Switch to an LLM provider.',
+    }
+  }
   if (!message) return { error: 'Message is required' }
 
   const browserContext = parseBrowserContext(record.browserContext)
@@ -841,7 +850,34 @@ async function parseSidepanelAgentChatBody(
     selectedTextSource: selectedTextSource.value,
     userSystemPrompt: readOptionalString(record, 'userSystemPrompt'),
     userWorkingDir: readOptionalTrimmedString(record, 'userWorkingDir'),
+    workspaceId: readOptionalTrimmedString(record, 'workspaceId'),
+    bucketId: readOptionalTrimmedString(record, 'bucketId'),
+    trustPins: parseTrustPins(record.trustPins),
   }
+}
+
+function hasToolApprovalResponses(value: unknown): boolean {
+  return Array.isArray(value) && value.length > 0
+}
+
+function parseTrustPins(
+  value: unknown,
+): Record<string, { pinned: boolean; expiresAt?: number }> | undefined {
+  if (value === undefined || value === null) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return undefined
+  const out: Record<string, { pinned: boolean; expiresAt?: number }> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue
+    const record = entry as Record<string, unknown>
+    if (typeof record.pinned !== 'boolean') continue
+    out[key] = {
+      pinned: record.pinned,
+      expiresAt:
+        typeof record.expiresAt === 'number' ? record.expiresAt : undefined,
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined
 }
 
 function parseBrowserContext(

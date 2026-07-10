@@ -28,6 +28,15 @@ export interface IngestWireOptions {
 export function buildIngestGateHooks(options: IngestWireOptions): GateHooks {
   return {
     onToolSettled: ({ toolName, args, result, ctx }) => {
+      if (
+        result &&
+        typeof result === 'object' &&
+        'isError' in result &&
+        (result as { isError?: boolean }).isError === true
+      ) {
+        return
+      }
+
       const fromOptions = options.getBrowserContext?.()
       const fromCtx = ctx.browserContext
         ? {
