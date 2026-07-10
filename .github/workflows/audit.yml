@@ -8,8 +8,6 @@ on:
 
 jobs:
   security-audit:
-    # Posts to BrowserOS Slack webhook. Org-only.
-    if: github.repository == 'browseros-ai/BrowserOS'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -178,11 +176,11 @@ jobs:
           bun run parse-audit.ts > slack-payload.json
 
       - name: Send to Slack
-        if: always()
+        if: ${{ always() && secrets.SLACK_WEBHOOK_URL != '' }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           curl -X POST \
             -H 'Content-Type: application/json' \
             -d @slack-payload.json \
-            $SLACK_WEBHOOK_URL
+            "$SLACK_WEBHOOK_URL"

@@ -14,9 +14,9 @@ on:
 
 jobs:
   claude:
-    # Needs CLAUDE_CODE_OAUTH_TOKEN. Org-only until Pane has its own token.
+    # Skip until CLAUDE_CODE_OAUTH_TOKEN is set on this repo.
     if: |
-      github.repository == 'browseros-ai/BrowserOS' && (
+      secrets.CLAUDE_CODE_OAUTH_TOKEN != '' && (
         github.event_name == 'pull_request' ||
         (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
         (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
