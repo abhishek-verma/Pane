@@ -1,0 +1,23 @@
+{
+  "name": "@browseros/memory",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "exports": {
+    "./types": {
+      "types": "./src/types.ts",
+      "default": "./src/types.ts"
+    },
+    "./constants": {
+      "types": "./src/constants.ts",
+      "default": "./src/constants.ts"
+    },
+    "./scan": {
+      "types": "./src/scan.ts",
+      "default": "./src/scan.ts"
+    }
+  }
+}

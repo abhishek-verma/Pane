@@ -15,6 +15,7 @@ export const PATHS = {
   DB_FILE_NAME: 'browseros.sqlite',
   SESSIONS_DIR_NAME: 'sessions',
   TOOL_OUTPUT_DIR_NAME: 'tool-output',
+  MEMORIES_DIR_NAME: 'memories',
   SOUL_FILE_NAME: 'SOUL.md',
   SERVER_CONFIG_FILE_NAME: 'server.json',
   SESSION_RETENTION_DAYS: 30,

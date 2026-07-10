@@ -30,6 +30,7 @@
     { "path": "./packages/browser-mcp" },
     { "path": "./packages/build-server-tools" },
     { "path": "./packages/context-graph" },
+    { "path": "./packages/memory" },
     { "path": "./apps/server" },
     { "path": "./apps/claw-server" }
   ],

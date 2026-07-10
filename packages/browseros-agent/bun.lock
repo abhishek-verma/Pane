@@ -267,6 +267,7 @@
         "@browseros/browser-mcp": "workspace:*",
         "@browseros/cdp-protocol": "workspace:*",
         "@browseros/context-graph": "workspace:*",
+        "@browseros/memory": "workspace:*",
         "@browseros/shared": "workspace:*",
         "@hono/mcp": "^0.2.5",
         "@hono/zod-validator": "^0.4.3",
@@ -340,6 +341,10 @@
     },
     "packages/context-graph": {
       "name": "@browseros/context-graph",
+      "version": "0.0.1",
+    },
+    "packages/memory": {
+      "name": "@browseros/memory",
       "version": "0.0.1",
     },
     "packages/shared": {
@@ -601,6 +606,8 @@
     "@browseros/context-graph": ["@browseros/context-graph@workspace:packages/context-graph"],
 
     "@browseros/eval": ["@browseros/eval@workspace:apps/eval"],
+
+    "@browseros/memory": ["@browseros/memory@workspace:packages/memory"],
 
     "@browseros/server": ["@browseros/server@workspace:apps/server"],
 
