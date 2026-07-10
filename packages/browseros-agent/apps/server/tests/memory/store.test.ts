@@ -121,6 +121,30 @@ describe('memory store (M4.1)', () => {
     expect(hits.length).toBe(0)
   })
 
+  it('writePromptFileAndReindex keeps recall in sync with MEMORY.md', async () => {
+    const { memoriesRoot } = setup()
+    await seedPromptFilesIfMissing(memoriesRoot)
+    await writeMemoryEntry({
+      content: 'old fact about tabs',
+      source: 'user',
+      memoriesRoot,
+    })
+    const { writePromptFileAndReindex } = await import('../../src/memory/files')
+    await writePromptFileAndReindex(
+      'memory',
+      `# Memory\n\n- prefers spaces over tabs\n`,
+      memoriesRoot,
+    )
+    expect(
+      listEntries({ query: 'tabs' }).some((e) => e.content.includes('old')),
+    ).toBe(false)
+    expect(
+      listEntries({ query: 'spaces' }).some((e) =>
+        e.content.includes('prefers spaces'),
+      ),
+    ).toBe(true)
+  })
+
   it('injection scan rejects ignore-previous-instructions', async () => {
     const { memoriesRoot } = setup()
     await seedPromptFilesIfMissing(memoriesRoot)

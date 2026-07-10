@@ -500,6 +500,24 @@ export function incrementSkillUses(id: string): void {
     .run(now(), id)
 }
 
+/**
+ * Rolling success rate for a skill (EMA). Call after a run that loaded the
+ * skill finishes (success) or aborts/errors (failure).
+ */
+export function recordSkillOutcome(id: string, success: boolean): void {
+  const skill = getSkill(id)
+  if (!skill) return
+  const alpha = 0.3
+  const sample = success ? 1 : 0
+  const next =
+    skill.successRate == null
+      ? sample
+      : skill.successRate * (1 - alpha) + sample * alpha
+  sqlite()
+    .prepare(`UPDATE skills SET success_rate = ?, updated_at = ? WHERE id = ?`)
+    .run(next, now(), id)
+}
+
 export function setSkillStatus(id: string, status: SkillStatus): void {
   sqlite()
     .prepare(`UPDATE skills SET status = ?, updated_at = ? WHERE id = ?`)

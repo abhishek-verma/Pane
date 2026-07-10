@@ -105,6 +105,120 @@ Steps: ${c.toolNames.join(', ')}
     expect(skill?.status).not.toBe('active')
   })
 
+  it('skips runs with denied actions or failed exit codes', async () => {
+    const { memoriesRoot } = setup()
+    await seedPromptFilesIfMissing(memoriesRoot)
+    const now = Date.now()
+    const tools = ['navigate', 'snapshot', 'click', 'type', 'tabs', 'read']
+    const insert = getDbHandle().sqlite.prepare(
+      `INSERT INTO graph_events (id, bucket_id, run_id, tool_name, node_id, payload_json, created_at)
+       VALUES (?, 'default', ?, ?, NULL, ?, ?)`,
+    )
+    for (const runId of ['ok-a', 'ok-b', 'denied-run', 'bash-fail']) {
+      tools.forEach((t, i) => {
+        const payload =
+          runId === 'bash-fail' && t === 'read'
+            ? JSON.stringify({ exitCode: 1 })
+            : '{}'
+        insert.run(`${runId}-${i}`, runId, t, payload, now - i * 1000)
+      })
+    }
+    getDbHandle()
+      .sqlite.prepare(
+        `INSERT INTO action_log (
+          id, run_id, conversation_id, tool_name, args_json,
+          consequence_class, decision, output_summary, created_at
+        ) VALUES (?, 'denied-run', 'c1', 'filesystem_write', '{}', 'write-local', 'denied', NULL, ?)`,
+      )
+      .run('al-1', now)
+
+    const result = await runSkillReviewJob({
+      memoriesRoot,
+      skipBatteryCheck: true,
+      now,
+      draftSkill: async (c) => `---
+name: only-ok-runs
+description: From successful runs
+---
+
+# only-ok-runs
+${c.runIds.join(',')}
+`,
+    })
+    expect(result.staged).toContain('only-ok-runs')
+    // denied-run and bash-fail must not satisfy repeatCount alone with ok-a/ok-b
+    // signature is the same for all — only ok-a + ok-b should count (2), still stages
+    const skill = getSkill('only-ok-runs')
+    expect(skill?.status).toBe('staged')
+  })
+
+  it('does not stage when only failed runs match the signature', async () => {
+    const { memoriesRoot } = setup()
+    await seedPromptFilesIfMissing(memoriesRoot)
+    const now = Date.now()
+    const tools = ['navigate', 'snapshot', 'click', 'type', 'tabs', 'read']
+    const insert = getDbHandle().sqlite.prepare(
+      `INSERT INTO graph_events (id, bucket_id, run_id, tool_name, node_id, payload_json, created_at)
+       VALUES (?, 'default', ?, ?, NULL, ?, ?)`,
+    )
+    for (const runId of ['fail-a', 'fail-b']) {
+      tools.forEach((t, i) => {
+        insert.run(
+          `${runId}-${i}`,
+          runId,
+          t,
+          JSON.stringify({ exitCode: 2 }),
+          now - i * 1000,
+        )
+      })
+    }
+    const result = await runSkillReviewJob({
+      memoriesRoot,
+      skipBatteryCheck: true,
+      now,
+      draftSkill: async () => `---
+name: should-not-stage
+description: bad
+---
+
+# no
+`,
+    })
+    expect(result.staged).not.toContain('should-not-stage')
+    expect(result.considered).toBe(0)
+  })
+
+  it('recordSkillOutcome updates success_rate for curation', async () => {
+    const { memoriesRoot } = setup()
+    await seedPromptFilesIfMissing(memoriesRoot)
+    const { upsertSkillRecord, recordSkillOutcome, getSkill } = await import(
+      '../../src/memory/store'
+    )
+    upsertSkillRecord({
+      id: 'rated-skill',
+      name: 'rated-skill',
+      description: 'Rated',
+      provenance: 'user-written',
+      status: 'active',
+    })
+    // Simulate uses
+    const { incrementSkillUses } = await import('../../src/memory/store')
+    for (let i = 0; i < 5; i++) incrementSkillUses('rated-skill')
+    for (let i = 0; i < 5; i++) recordSkillOutcome('rated-skill', false)
+    const skill = getSkill('rated-skill')
+    expect(skill?.uses).toBe(5)
+    expect(skill?.successRate).not.toBeNull()
+    expect(skill!.successRate!).toBeLessThan(0.4)
+
+    const { runCurationPass } = await import('../../src/memory/skills')
+    const curation = await runCurationPass({
+      now: Date.now(),
+      memoriesRoot,
+      writeDigest: false,
+    })
+    expect(curation.flaggedSkills).toContain('rated-skill')
+  })
+
   it('bounded window never exceeds REVIEW_MAX_EVENTS', async () => {
     const { memoriesRoot } = setup()
     const now = Date.now()

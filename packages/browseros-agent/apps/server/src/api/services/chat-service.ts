@@ -26,6 +26,7 @@ import type { ResolvedAgentConfig } from '../../agent/types'
 import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpServers'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
+import { finalizeSkillOutcomesForRun } from '../../memory/skill-outcomes'
 import { defaultWorkspace } from '../../tools/filesystem/workspace'
 import type { BrowserContext, ChatRequest } from '../types'
 import { resolveBrowserContextPageIds } from '../utils/resolve-browser-context-page-ids'
@@ -389,6 +390,7 @@ export class ChatService {
               totalMessages: session.agent.messages.length,
             })
           } finally {
+            finalizeSkillOutcomesForRun(runId, !abortSignal.aborted)
             runTracker.endRun(runId)
           }
         },
@@ -516,6 +518,7 @@ export class ChatService {
             this.closeHiddenPage(pageId, request.conversationId)
           }
         } finally {
+          finalizeSkillOutcomesForRun(runId, !abortSignal.aborted)
           runTracker.endRun(runId)
         }
       },

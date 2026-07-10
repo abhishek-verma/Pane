@@ -75,14 +75,71 @@ function loadRecentEvents(
     .all(cutoff, maxEvents) as GraphEventRow[]
 }
 
+function loadDeniedRunIds(runIds: string[]): Set<string> {
+  if (runIds.length === 0) return new Set()
+  const denied = new Set<string>()
+  const stmt = getDbHandle().sqlite.prepare(
+    `SELECT DISTINCT run_id FROM action_log
+     WHERE decision = 'denied' AND run_id IN (${runIds.map(() => '?').join(',')})`,
+  )
+  const rows = stmt.all(...runIds) as Array<{ run_id: string }>
+  for (const row of rows) denied.add(row.run_id)
+  return denied
+}
+
+function payloadIndicatesFailure(payloadJson: string): boolean {
+  try {
+    const payload = JSON.parse(payloadJson) as {
+      exitCode?: number
+      isError?: boolean
+      ok?: boolean
+    }
+    if (typeof payload.exitCode === 'number' && payload.exitCode !== 0) {
+      return true
+    }
+    if (payload.isError === true || payload.ok === false) return true
+  } catch {
+    // Non-JSON payloads are treated as non-failing.
+  }
+  return false
+}
+
+/**
+ * A run counts as successful when:
+ * - no action_log `denied` decisions for that run
+ * - no graph event payload with non-zero exitCode / isError
+ *
+ * Failed tool settlements are already skipped at ingest, so graph events are
+ * mostly successes; this filters aborted/denied/bash-failure runs.
+ */
+export function isSuccessfulWorkflowRun(
+  runId: string,
+  runEvents: GraphEventRow[],
+  deniedRunIds: Set<string>,
+): boolean {
+  if (deniedRunIds.has(runId)) return false
+  for (const ev of runEvents) {
+    if (payloadIndicatesFailure(ev.payload_json)) return false
+  }
+  return true
+}
+
 /** Group events by run_id and build a tool-sequence signature. */
 export function extractWorkflowCandidates(
   events: GraphEventRow[],
-  options: { minToolCalls: number; repeatCount: number },
+  options: {
+    minToolCalls: number
+    repeatCount: number
+    /** When set, only runs in this set (or all if omitted) are considered. */
+    successfulRunIds?: Set<string>
+  },
 ): WorkflowCandidate[] {
   const byRun = new Map<string, GraphEventRow[]>()
   for (const ev of events) {
     if (!ev.run_id || !ev.tool_name) continue
+    if (options.successfulRunIds && !options.successfulRunIds.has(ev.run_id)) {
+      continue
+    }
     const list = byRun.get(ev.run_id) ?? []
     list.push(ev)
     byRun.set(ev.run_id, list)
@@ -169,9 +226,32 @@ export async function runSkillReviewJob(
     throw new Error('review window exceeded hard cap')
   }
 
+  const runIds = [
+    ...new Set(
+      events
+        .map((e) => e.run_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
+  ]
+  const deniedRunIds = loadDeniedRunIds(runIds)
+  const byRun = new Map<string, GraphEventRow[]>()
+  for (const ev of events) {
+    if (!ev.run_id) continue
+    const list = byRun.get(ev.run_id) ?? []
+    list.push(ev)
+    byRun.set(ev.run_id, list)
+  }
+  const successfulRunIds = new Set<string>()
+  for (const [runId, runEvents] of byRun) {
+    if (isSuccessfulWorkflowRun(runId, runEvents, deniedRunIds)) {
+      successfulRunIds.add(runId)
+    }
+  }
+
   const candidates = extractWorkflowCandidates(events, {
     minToolCalls,
     repeatCount,
+    successfulRunIds,
   })
 
   const draft =
