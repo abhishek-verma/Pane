@@ -1,6 +1,6 @@
 # Phase 3 Report — Context Graph & Tasks
 
-Status: **ship gate met** — M3.1–M3.7 on `feat/phase-3-context-graph-tasks`. Automated tests green; manual smoke completed (see below).
+Status: **ship gate met** — M3.1–M3.7 on `feat/phase-3-context-graph-tasks`, plus follow-up fixes for approval-resume, segment dedupe, and `isPrivate` wiring. Automated tests green (`bun run check`, focused Phase 3 + trust + chat-service suites, app unit suite, CLI).
 
 ## Module status
 
@@ -28,6 +28,7 @@ Status: **ship gate met** — M3.1–M3.7 on `feat/phase-3-context-graph-tasks`.
 - **Browser MCP:** `onToolSettled` on `registerBrowserTools` → `ingestToolResult`.
 - **Terminal:** `subscribeTerminalIngest()` in `Application.initCoreServices` after DB open; listens to Phase 2 `onTerminalSession`.
 - Ingest runs **after** successful settlement only — never instead of the gate; never calls `filesystem_write` itself.
+- Live gate `browserContext` (including `isPrivate`) is preferred over the session-create snapshot so private windows stay skipped across turns.
 
 ## Tool names (wire)
 
@@ -61,29 +62,39 @@ Status: **ship gate met** — M3.1–M3.7 on `feat/phase-3-context-graph-tasks`.
 
 1. **Trust classification:** `deriveClass('context_*')` → `read`; `tasks_add`/`tasks_done` → `write-local`; unknown → `write-external`. Covered in `context-tools.test.ts` + trust-invariants green.
 2. **Ingest cannot bypass gate:** hooks only after `underlyingExecute` / post-approval execute.
-3. **Incognito / chrome URLs:** unit tests — private creates none; `chrome://` skips page nodes.
+3. **Incognito / chrome URLs:** unit tests — private creates none; `chrome://` skips page nodes. App sets `browserContext.isPrivate` from `chrome.windows.get(...).incognito`; schema + ingest honor it.
 4. **Domain deny:** API + tool tests exclude denied hosts.
 5. **FTS injection:** `toFtsMatchQuery` sanitizes; MATCH uses bound parameter.
 6. **No memory system:** `context_recall` stub only; no `~/.browseros/memories/`.
 7. **Migration bootstrap:** `tests/lib/db/index.test.ts` expects graph + grants + tasks tables on bootstrap.
+8. **Approval resume (Phase 2 polish):** client collects `toolApprovalResponses`; `buildChatRequestBody` forwards them; server `ChatRequestSchema` + `applyToolApprovalResponses` patch stored `approval-requested` parts and re-run the loop without appending a user message. Covered by `chat-service` + `buildChatRequestBody` tests.
+9. **Resume UI dedupe:** `getMessageSegments` collapses duplicate reasoning and upgrades tool cards by `toolCallId` after resume.
 
 ## Deviations / limitations
 
-1. **Incognito detection:** server relies on `browserContext.isPrivate` when provided; if missing, still skips empty/`chrome://`/`chrome-extension://`/`about:` URLs. Honest gap if the extension does not set `isPrivate`.
-2. **Battery pause:** macOS `pmset -g batt` best-effort, cached 30s. Non-macOS: no auto-pause (pref exists). Context panel shows "Indexing paused (battery)" when paused.
-3. **Terminal bucketId:** uses `workspace.bucketId` from the session event (added in M3.2).
-4. **Eval latency grader:** scenario records budget metadata; no separate `latency-budget` grader class yet — absolute cap documented for CI operators.
-5. Live MCP `navigate` can hang under CDP in some local profiles; ingest for navigate is covered by unit tests. Manual smoke seeded a page node to verify Context UI + domain deny.
-6. MCP SDK strips unknown args (`additionalProperties: false`). `tasks_add` / `tasks_done` schemas include optional `__promoted`; CLI always sends it for mutations.
+1. **Battery pause:** macOS `pmset -g batt` best-effort, cached 30s. Non-macOS: no auto-pause (pref exists). Context panel shows "Indexing paused (battery)" when paused.
+2. **Terminal bucketId:** uses `workspace.bucketId` from the session event (added in M3.2).
+3. **Eval latency grader:** scenario records budget metadata; no separate `latency-budget` grader class yet — absolute cap documented for CI operators.
+4. Live MCP `navigate` can hang under CDP in some local profiles; ingest for navigate is covered by unit tests. Manual smoke seeded a page node to verify Context UI + domain deny.
+5. MCP SDK strips unknown args (`additionalProperties: false`). `tasks_add` / `tasks_done` schemas include optional `__promoted`; CLI always sends it for mutations.
 
 ## Tests run (automated)
 
 ```text
-cd apps/server && bun test tests/lib/context-graph.test.ts \
+cd packages/browseros-agent && bun run check
+# lint warnings only; typecheck green (incl. @browseros/app)
+
+cd apps/server && bun test \
+  tests/lib/context-graph.test.ts \
   tests/agent/context-ingest.test.ts tests/agent/context-tools.test.ts \
   tests/api/routes/context-tasks.test.ts \
-  tests/api/services/mcp/register-mcp.test.ts
-# 18 + register-mcp suite pass
+  tests/api/services/mcp/register-mcp.test.ts \
+  tests/agent/trust-invariants.test.ts \
+  tests/api/services/chat-service.test.ts
+# 73 pass
+
+cd apps/app && bun test
+# 290 pass
 
 cd apps/cli && gofmt -l . && go vet ./... && go test ./...
 ```
@@ -110,6 +121,7 @@ Boot: `PANE_BINARY=…/Pane Dev.app/…/Pane Dev bun run dev:watch -- --new` (CD
 - `feat: context panel, tasks, tools, CLI, and graph budget (M3.3–M3.7)`
 - `docs: add Phase 3 ship-gate report`
 - `fix(server): register context/tasks on /mcp + CLI promote`
+- Follow-up (this review): restore approval-resume end-to-end, segment dedupe, `isPrivate` wiring
 
 ## BLOCKERS
 
@@ -117,4 +129,4 @@ None.
 
 ## Stop
 
-Phase 3 complete. **Do not start Phase 4** (Memory / soul.md).
+Phase 3 complete. **Do not start Phase 4** (Memory / soul.md) until you explicitly ask for it.

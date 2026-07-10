@@ -234,18 +234,22 @@ export class AiSdkAgent {
     const ingestHooks = buildIngestGateHooks({
       getBucketId: () => workspace?.bucketId ?? 'default',
       getRunId: () => gateCtx?.runId ?? config.resolvedConfig.conversationId,
-      getBrowserContext: () =>
-        config.browserContext
-          ? {
-              activeTab: config.browserContext.activeTab
-                ? {
-                    url: config.browserContext.activeTab.url,
-                    title: config.browserContext.activeTab.title,
-                    pageId: config.browserContext.activeTab.pageId,
-                  }
-                : undefined,
-            }
-          : undefined,
+      // Prefer the live gate context (refreshed per chat request) so
+      // isPrivate / activeTab stay current across turns.
+      getBrowserContext: () => {
+        const bc = gateCtx?.browserContext ?? config.browserContext
+        if (!bc) return undefined
+        return {
+          activeTab: bc.activeTab
+            ? {
+                url: bc.activeTab.url,
+                title: bc.activeTab.title,
+                pageId: bc.activeTab.pageId,
+              }
+            : undefined,
+          isPrivate: bc.isPrivate,
+        }
+      },
       getWorkspace: () => workspace,
     })
     // The gate is always applied. A missing gateContext is a misconfiguration;

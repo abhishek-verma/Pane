@@ -337,6 +337,49 @@ export class ChatService {
       })
     }
 
+    // Approval resume: the custom transport drops AI SDK approval-response
+    // parts, so the client sends `toolApprovalResponses` and we patch the
+    // stored transcript before re-running the loop (no new user message).
+    if (request.toolApprovalResponses?.length) {
+      this.applyToolApprovalResponses(
+        session.agent.messages,
+        request.toolApprovalResponses,
+      )
+      logger.info('Applied tool approval responses', {
+        conversationId: request.conversationId,
+        count: request.toolApprovalResponses.length,
+      })
+
+      const runId = crypto.randomUUID()
+      gateContext.runId = runId
+      runTracker.startRun(runId)
+
+      return createAgentUIStreamResponse({
+        agent: session.agent.toolLoopAgent,
+        uiMessages: filterValidMessages(session.agent.messages),
+        abortSignal,
+        onFinish: async ({ messages }: { messages: UIMessage[] }) => {
+          try {
+            if (!session) return
+            session.agent.messages = filterValidMessages(messages)
+            this.deps.sessionStore
+              .persistMessages(request.conversationId, session.agent.messages)
+              .catch((err: unknown) => {
+                logger.error('Failed to persist messages', {
+                  error: err instanceof Error ? err.message : String(err),
+                })
+              })
+            logger.info('Agent execution complete', {
+              conversationId: request.conversationId,
+              totalMessages: session.agent.messages.length,
+            })
+          } finally {
+            runTracker.endRun(runId)
+          }
+        },
+      })
+    }
+
     const messageContext = request.isScheduledTask
       ? (session.browserContext ?? request.browserContext)
       : request.browserContext
@@ -581,6 +624,7 @@ export class ChatService {
       mcpServerKey,
       workingDir: request.userWorkingDir,
       outputFileAccess,
+      gateContext: session.gateContext,
     }
     newSession.agent.messages = sanitizeMessagesForToolset(
       previousMessages,
@@ -588,6 +632,55 @@ export class ChatService {
     )
     this.deps.sessionStore.set(request.conversationId, newSession)
     return newSession
+  }
+
+  /**
+   * Patches stored assistant tool parts with client approval decisions so the
+   * AI SDK can convert them to `tool-approval-response` model messages and
+   * re-execute approved tools (or surface denials).
+   */
+  private applyToolApprovalResponses(
+    messages: UIMessage[],
+    responses: Array<{
+      approvalId: string
+      toolCallId: string
+      toolName: string
+      approved: boolean
+      reason?: string
+      input?: Record<string, unknown>
+    }>,
+  ): void {
+    const responseMap = new Map(responses.map((r) => [r.approvalId, r]))
+    for (const msg of messages) {
+      if (msg.role !== 'assistant') continue
+      for (const part of msg.parts) {
+        const toolPart = part as {
+          state?: string
+          toolCallId?: string
+          input?: Record<string, unknown>
+          approval?: { id: string; approved?: boolean; reason?: string }
+        }
+        if (
+          toolPart.state !== 'approval-requested' ||
+          !toolPart.approval?.id ||
+          !responseMap.has(toolPart.approval.id)
+        ) {
+          continue
+        }
+        const resp = responseMap.get(toolPart.approval.id)
+        if (!resp) continue
+        toolPart.state = 'approval-responded'
+        toolPart.approval = {
+          ...toolPart.approval,
+          approved: resp.approved,
+          reason: resp.reason,
+        }
+        // Prefer the client-edited input when the user changed args before approve.
+        if (resp.input) {
+          toolPart.input = resp.input
+        }
+      }
+    }
   }
 
   private buildMcpServerKey(browserContext?: BrowserContext): string {

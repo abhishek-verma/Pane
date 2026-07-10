@@ -28,19 +28,26 @@ export interface IngestWireOptions {
 export function buildIngestGateHooks(options: IngestWireOptions): GateHooks {
   return {
     onToolSettled: ({ toolName, args, result, ctx }) => {
+      const fromOptions = options.getBrowserContext?.()
+      const fromCtx = ctx.browserContext
+        ? {
+            activeTab: ctx.browserContext.activeTab
+              ? {
+                  url: ctx.browserContext.activeTab.url,
+                  title: ctx.browserContext.activeTab.title,
+                  pageId: ctx.browserContext.activeTab.pageId,
+                }
+              : undefined,
+            isPrivate: ctx.browserContext.isPrivate,
+          }
+        : undefined
       const browserContext: IngestBrowserContext | undefined =
-        options.getBrowserContext?.() ??
-        (ctx.browserContext
+        fromOptions || fromCtx
           ? {
-              activeTab: ctx.browserContext.activeTab
-                ? {
-                    url: ctx.browserContext.activeTab.url,
-                    title: ctx.browserContext.activeTab.title,
-                    pageId: ctx.browserContext.activeTab.pageId,
-                  }
-                : undefined,
+              activeTab: fromOptions?.activeTab ?? fromCtx?.activeTab,
+              isPrivate: fromOptions?.isPrivate ?? fromCtx?.isPrivate,
             }
-          : undefined)
+          : undefined
 
       const workspace = options.getWorkspace?.()
       ingestToolResult({

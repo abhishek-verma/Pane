@@ -50,6 +50,18 @@ export const ChatRequestSchema = AgentLLMConfigSchema.extend({
       title: z.string(),
     })
     .optional(),
+  toolApprovalResponses: z
+    .array(
+      z.object({
+        approvalId: z.string(),
+        toolCallId: z.string(),
+        toolName: z.string(),
+        approved: z.boolean(),
+        reason: z.string().optional(),
+        input: z.record(z.unknown()).optional(),
+      }),
+    )
+    .optional(),
   previousConversation: z
     .union([
       z.array(

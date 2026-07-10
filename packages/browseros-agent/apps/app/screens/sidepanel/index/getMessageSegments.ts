@@ -70,6 +70,8 @@ export const getMessageSegments = (
   let currentToolBatch: ToolInvocationInfo[] = []
   let textSegmentCount = 0
   let reasoningSegmentCount = 0
+  const seenToolCallIds = new Set<string>()
+  const seenReasoningTexts = new Set<string>()
 
   const flushToolBatch = () => {
     if (currentToolBatch.length > 0) {
@@ -95,6 +97,12 @@ export const getMessageSegments = (
       textSegmentCount++
     } else if (part.type === 'reasoning') {
       flushToolBatch()
+      // Approval resume can re-emit the same reasoning block; keep the first.
+      const reasoningKey = part.text.trim()
+      if (reasoningKey && seenReasoningTexts.has(reasoningKey)) {
+        continue
+      }
+      if (reasoningKey) seenReasoningTexts.add(reasoningKey)
       segments.push({
         type: 'reasoning',
         key: `${message.id}-reasoning-${reasoningSegmentCount}`,
@@ -139,14 +147,39 @@ export const getMessageSegments = (
           })
         }
       } else if (!NUDGE_TOOLS.has(toolName)) {
-        currentToolBatch.push({
+        const nextTool: ToolInvocationInfo = {
           state: toolPart.state,
           toolCallId: toolPart.toolCallId,
           toolName,
           input: toolPart?.input ?? {},
           output: (toolPart?.output as unknown[]) ?? [],
           approval: toolPart?.approval,
-        })
+        }
+        // Prefer the latest part for a given toolCallId (e.g. approval-requested
+        // then output-available after resume) so the UI shows one card.
+        if (seenToolCallIds.has(toolPart.toolCallId)) {
+          const existingIdx = currentToolBatch.findIndex(
+            (t) => t.toolCallId === toolPart.toolCallId,
+          )
+          if (existingIdx >= 0) {
+            currentToolBatch[existingIdx] = nextTool
+            continue
+          }
+          // Already flushed in an earlier batch — upgrade that card in place.
+          for (const segment of segments) {
+            if (segment.type !== 'tool-batch') continue
+            const idx = segment.tools.findIndex(
+              (t) => t.toolCallId === toolPart.toolCallId,
+            )
+            if (idx >= 0) {
+              segment.tools[idx] = nextTool
+              break
+            }
+          }
+          continue
+        }
+        seenToolCallIds.add(toolPart.toolCallId)
+        currentToolBatch.push(nextTool)
       }
     }
   }

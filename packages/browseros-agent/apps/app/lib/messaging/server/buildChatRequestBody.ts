@@ -23,6 +23,18 @@ export interface ChatRequestBrowserContext {
     name: string
     url?: string
   }[]
+  /** True when the active window is an incognito/private profile. */
+  isPrivate?: boolean
+}
+
+/** Approval decision replayed on resume so the server can patch its transcript. */
+export interface ToolApprovalResponseEntry {
+  approvalId: string
+  toolCallId: string
+  toolName: string
+  approved: boolean
+  reason?: string
+  input?: Record<string, unknown>
 }
 
 export interface ChatRequestBodyParams {
@@ -44,6 +56,7 @@ export interface ChatRequestBodyParams {
     url: string
     title: string
   }
+  toolApprovalResponses?: ToolApprovalResponseEntry[]
   isScheduledTask?: boolean
 }
 
@@ -63,6 +76,7 @@ export const buildChatRequestBody = ({
   declinedApps,
   selectedText,
   selectedTextSource,
+  toolApprovalResponses,
   isScheduledTask,
 }: ChatRequestBodyParams) => ({
   message,
@@ -102,5 +116,8 @@ export const buildChatRequestBody = ({
   declinedApps: declinedApps?.length ? declinedApps : undefined,
   selectedText,
   selectedTextSource,
+  toolApprovalResponses: toolApprovalResponses?.length
+    ? toolApprovalResponses
+    : undefined,
   isScheduledTask,
 })
