@@ -12,6 +12,8 @@ import {
   onboardingCompletedStorage,
   onboardingProfileStorage,
 } from '@/lib/onboarding/onboardingStorage'
+import { seedMemoryFromOnboarding } from '@/lib/onboarding/seedMemoryFromOnboarding'
+import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 interface DemoSuggestion {
   label: string
@@ -52,6 +54,7 @@ export const OnboardingDemo = () => {
   const [demoSuggestions, setDemoSuggestions] = useState<DemoSuggestion[]>(() =>
     buildDefaultSuggestions(),
   )
+  const { baseUrl } = useAgentServerUrl()
   useEffect(() => {
     onboardingProfileStorage.getValue().then((profile) => {
       setDemoSuggestions(buildDefaultSuggestions(profile?.company))
@@ -59,6 +62,9 @@ export const OnboardingDemo = () => {
   }, [])
 
   const completeOnboarding = async () => {
+    if (baseUrl) {
+      await seedMemoryFromOnboarding(baseUrl as string)
+    }
     await onboardingCompletedStorage.setValue(true)
     track(ONBOARDING_COMPLETED_EVENT)
   }

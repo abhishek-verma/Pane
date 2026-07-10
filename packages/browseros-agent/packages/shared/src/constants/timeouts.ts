@@ -32,6 +32,8 @@ export const TIMEOUTS = {
 
   // External API calls
   KLAVIS_FETCH: 30_000,
+  /** Fetch a remote SKILL.md for skills_install. */
+  SKILL_FETCH: 15_000,
 
   // Navigation/DOM
   NAVIGATION: 10_000,

@@ -9,6 +9,8 @@ timeout = 30000
 
 # Run tests serially to avoid port conflicts and race conditions
 # (Note: Tests already use mutex for browser access)
+# Singleton SQLite + BROWSEROS_DIR env must not be shared across concurrent tests.
+concurrent = false
 # preload = []
 
 [install]

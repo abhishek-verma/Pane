@@ -88,6 +88,9 @@ function createSessionStore() {
     remove(conversationId: string) {
       return sessions.delete(conversationId)
     },
+    async loadMessages(_conversationId: string) {
+      return [] as StoredSession['agent']['messages']
+    },
     async persistMessages() {},
     async delete(conversationId: string) {
       const session = sessions.get(conversationId)

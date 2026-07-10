@@ -6,6 +6,7 @@
 
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { SessionStore } from '../../agent/session-store'
 import type { TurnRegistry } from '../../lib/agents/turns/active-turn-registry'
 import type { OAuthTokenManager } from '../../lib/clients/oauth/token-manager'
 import { requireTrustedOrigin } from '../middleware/require-trusted-origin'
@@ -20,6 +21,7 @@ import { createContextRoutes } from './context'
 import { createHealthRoute } from './health'
 import { createMcpRoutes } from './mcp'
 import { createMcpManagerRoutes } from './mcp-manager'
+import { createMemoryRoutes } from './memory'
 import { createNudgeMcpRoute } from './nudge-mcp'
 import { createOAuthRoutes } from './oauth'
 import { createProviderRoutes } from './provider'
@@ -52,6 +54,9 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
     version,
   } = config
 
+  // Shared so /chat and /trust/replay update the same live + SQLite transcript.
+  const sessionStore = new SessionStore()
+
   return (
     new Hono<Env>()
       .use('/*', cors(defaultCorsConfig))
@@ -62,6 +67,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
       .route('/action-log', createActionLogRoutes())
       .route('/context', createContextRoutes())
       .route('/tasks', createTasksRoutes())
+      .route('/memory', createMemoryRoutes())
       .route('/workspace', createWorkspaceRoutes())
       .route(
         '/trust',
@@ -69,6 +75,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
           browser,
           browserSession,
           browserosId,
+          sessionStore,
         }),
       )
       .route(
@@ -105,6 +112,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
           browserosId,
           serverPort: port,
           resourcesDir,
+          sessionStore,
         }),
       )
       .route('/screencast', createScreencastRoute({ browser }))

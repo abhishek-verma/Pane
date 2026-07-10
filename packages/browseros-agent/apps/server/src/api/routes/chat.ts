@@ -10,7 +10,7 @@ import { zValidator } from '@hono/zod-validator'
 import type { UIMessage } from 'ai'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { SessionStore } from '../../agent/session-store'
+import type { SessionStore } from '../../agent/session-store'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
@@ -23,6 +23,8 @@ interface ChatRouteDeps {
   browserSession: BrowserSession
   browserosId?: string
   serverPort: number
+  /** Shared with trust replay so promote patches the same live transcript. */
+  sessionStore: SessionStore
   /** BrowserOS resources directory. Threaded to ACP providers so the
    *  bundled-Bun launcher under <resourcesDir>/bin/third_party/bun
    *  can be located for built-in adapters (claude / codex). */
@@ -41,7 +43,7 @@ const ImportConversationsSchema = z.object({
 })
 
 export function createChatRoutes(deps: ChatRouteDeps) {
-  const sessionStore = new SessionStore()
+  const sessionStore = deps.sessionStore
   const service = new ChatService({
     sessionStore,
     browser: deps.browser,

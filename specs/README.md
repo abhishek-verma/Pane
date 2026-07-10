@@ -156,6 +156,11 @@ The **Context Graph** (02) is the center of gravity, **partitioned into context 
 | — | [Architecture Design](./ARCHITECTURE-DESIGN.md) | **Engineering design** that realizes the specs, grounded in the current fork; intrinsic-only with State B extension-point interfaces. v0.4: expert-architecture review (process model & supervision, CDP-as-security-boundary, state-ownership boundary, loop discipline, platform matrix, degradation/observability/testing) + a full **disable & cleanup register** of BrowserOS defaults Pane doesn't need (product + tech). |
 | — | [Implementation Plan](./IMPLEMENTATION-PLAN.md) | **End-to-end OSS build plan (State A only).** 7 phases, each shipping a usable product (Pane v0.1 → v1.0); each phase split into independently implementable + testable modules (what / how to build / how to test). State B planned separately after v1.0. |
 | — | [Rebrand Plan (Step 0)](./REBRAND-PLAN.md) | **BrowserOS → Pane rebrand sweep.** Replaces every user-facing BrowserOS brand (icons from `assets/branding/pane-mark.svg` / `pane-wordmark.svg` + display text) across app, docs, CLI, native C++, Chromium icons, build/CI, and metadata. Splits product-brand (→ Pane) from substrate identifiers (tech debt) and infra (separate track), with a final ripgrep + visual QA gate. |
+| — | [Phase 1 Prompt](./PHASE-1-PROMPT.md) | Self-contained execution prompt for Phase 1 (Bedrock). |
+| — | [Phase 2 Prompt](./PHASE-2-PROMPT.md) | Self-contained execution prompt for Phase 2 (Trust & Workspaces). Small-model detailed. |
+| — | [Phase 3 Prompt](./PHASE-3-PROMPT.md) | Self-contained execution prompt for Phase 3 (Context Graph & Tasks). Grounded in Phase 2 as-shipped. |
+| — | [Phase 4 Prompt](./PHASE-4-PROMPT.md) | Self-contained execution prompt for Phase 4 (Memory & Skills). Grounded in Phase 3 as-shipped: replace `context_recall` stub, memories files + index, prompt budget, auto-skill staging, curation, `soul.md` personas, UI + CLI. Stops at Pane v0.4. |
+| — | [Phase 4 Report](./PHASE-4-REPORT.md) | As-shipped Phase 4 (Memory & Skills). Ship gate met; stop before Phase 5. |
 
 ---
 

@@ -1,15 +1,22 @@
 # Phase 3 Report — Context Graph & Tasks
 
-Status: **ship gate met** — M3.1–M3.7 plus approval-resume / `isPrivate` / segment dedupe (PR #10). Phase 1–3 debt clear also wires chat history to server SQLite (M1.5) so Phase 4 session archive is unblocked.
+Status: **ship gate met** — M3.1–M3.7 plus approval-resume / `isPrivate` / segment dedupe (PR #10). Phase 1–3 debt clear also wires chat history to server SQLite (M1.5) so Phase 4 session archive is unblocked. Live Pane UI smoke (context/tasks/promote-schedule) recorded 2026-07-10; live navigate ingest still hangs under CDP (known).
 
 ## Manual E2E notes (2026-07-10)
+
+Boot: CDP=9699, Server=9223, DeepSeek BYOK. Follow-up to the 2026-07-09 API smoke below.
 
 | Check | Result |
 |-------|--------|
 | Context/tools/tasks automated suites | **pass** |
 | `isPrivate` unit skip | **pass** |
-| Approval-resume (PR #10) | **pass** |
-| Live Pane UI navigate → `#/context` / `#/tasks` / private window | **recommended before public tag** (CDP unavailable in this session) |
+| Approval-resume (PR #10) live with DeepSeek | **pass** (write + bash) |
+| `#/context` UI (pages + domain grants + battery pause) | **pass** (Example Domain + allow/deny list) |
+| `#/tasks` UI + **Save as scheduled** dialog | **pass** (opens Edit Scheduled Task with DeepSeek provider) |
+| `POST /tasks` + `promote-schedule` API | **pass** |
+| Domain deny toggle via `PUT /context/grants` | **pass** |
+| Live `navigate` → ingest | **blocked** (MCP navigate still hangs under this CDP profile; Context UI already shows prior/seeded page nodes; unit ingest coverage unchanged) |
+| Live private-window create via extension | **blocked** (`chrome.windows.create({incognito:true})` returned null in this profile); client still sets `browserContext.isPrivate` from `chrome.windows.get(...).incognito` |
 
 ## Module status
 

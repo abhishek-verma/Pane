@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   BookOpen,
   Bot,
+  Brain,
   Compass,
   CreditCard,
   MessageSquare,
@@ -79,6 +80,7 @@ const primarySettingsSections: NavSection[] = [
       },
       { name: 'Pane as MCP', to: '/settings/mcp', icon: Server },
       { name: 'Action log', to: '/settings/action-log', icon: Shield },
+      { name: 'Memory & Skills', to: '/settings/memory', icon: Brain },
       {
         name: 'Usage & Billing',
         to: '/settings/usage',

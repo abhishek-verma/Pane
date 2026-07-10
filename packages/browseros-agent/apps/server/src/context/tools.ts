@@ -8,9 +8,15 @@ import {
   SEARCH_DEFAULT_LIMIT,
   SEARCH_MAX_LIMIT,
 } from '@browseros/context-graph/constants'
+import {
+  RECALL_DEFAULT_LIMIT,
+  RECALL_MAX_LIMIT,
+  RECALL_SNIPPET_MAX_CHARS,
+} from '@browseros/memory/constants'
 import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
+import { bumpSurfaced, listEntries } from '../memory/store'
 import { getDeniedHosts } from './grants'
 import { graphCurrentWork, graphSearch } from './repo'
 import { addTask, listTasks, markTaskDone, type TaskStatus } from './tasks-repo'
@@ -19,9 +25,6 @@ import { addTask, listTasks, markTaskDone, type TaskStatus } from './tasks-repo'
 const promotedField = {
   [PROMOTED_ARG]: z.boolean().optional(),
 } as const
-
-const RECALL_STUB =
-  'Memory recall is not available yet (Phase 4). Use context_search for activity.'
 
 function formatCurrentWork(bucketId: string): string {
   const denied = getDeniedHosts(bucketId)
@@ -87,11 +90,36 @@ export function buildContextToolSet(getBucketId: () => string): ToolSet {
     }),
     context_recall: tool({
       description:
-        'Recall long-term memory (Phase 4). Currently a stub — use context_search for activity.',
+        'Recall long-term memory notes (soul/user/memory layers). Returns short snippets. Use context_search for browsing/activity.',
       inputSchema: z.object({
         query: z.string().min(1),
+        bucketId: z.string().optional(),
+        limit: z.number().int().min(1).max(RECALL_MAX_LIMIT).optional(),
       }),
-      execute: async () => ({ text: RECALL_STUB }),
+      execute: async ({ query, bucketId, limit }) => {
+        const id = bucketId || getBucketId()
+        const hits = listEntries({
+          bucketId: id,
+          query,
+          status: ['active', 'demoted'],
+          limit: limit ?? RECALL_DEFAULT_LIMIT,
+        })
+        if (hits.length === 0) {
+          return { text: `No memory matches for "${query}".` }
+        }
+        bumpSurfaced(
+          hits.map((h) => h.id),
+          1,
+        )
+        const lines = hits.map((h, i) => {
+          const snippet =
+            h.content.length > RECALL_SNIPPET_MAX_CHARS
+              ? `${h.content.slice(0, RECALL_SNIPPET_MAX_CHARS)}…`
+              : h.content
+          return `${i + 1}. [${h.layer}/${h.status}] ${snippet}`
+        })
+        return { text: lines.join('\n') }
+      },
     }),
   }
 }
@@ -151,5 +179,3 @@ export function buildTasksToolSet(getBucketId: () => string): ToolSet {
     }),
   }
 }
-
-export { RECALL_STUB }

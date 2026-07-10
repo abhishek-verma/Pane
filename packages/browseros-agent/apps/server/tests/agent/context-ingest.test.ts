@@ -143,5 +143,54 @@ describe('context graph ingest', () => {
   }
 })
 
+describe('buildIngestGateHooks', () => {
+  const tempDirs: string[] = []
+
+  beforeEach(() => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-wire-ingest-'))
+    tempDirs.push(dir)
+    closeDb()
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
+    setIngestPaused(false)
+  })
+
+  afterEach(() => {
+    flushIngestQueue()
+    closeDb()
+    setIngestPaused(false)
+  })
+
+  it('does not ingest when tool result isError', async () => {
+    const { buildIngestGateHooks } = await import(
+      '../../src/context/wire-ingest'
+    )
+    const hooks = buildIngestGateHooks({
+      getBucketId: () => DEFAULT_BUCKET_ID,
+    })
+    hooks.onToolSettled?.({
+      toolName: 'filesystem_write',
+      args: { path: 'fail.txt', content: 'x' },
+      result: { text: 'Path must be relative', isError: true },
+      ctx: {
+        pins: {},
+        runConsequentialCount: { count: 0 },
+        isNewUser: true,
+        surface: 'loop',
+        workspaceRoot: '/tmp/ws',
+      },
+    })
+    flushIngestQueue()
+    const handle = initializeDb({
+      dbPath: join(tempDirs[tempDirs.length - 1]!, 'browseros.sqlite'),
+    })
+    const files = handle.sqlite
+      .query<{ kind: string }, []>(
+        `SELECT kind FROM graph_nodes WHERE kind = 'file'`,
+      )
+      .all()
+    expect(files.length).toBe(0)
+  })
+})
+
 // Silence unused BunDatabase import if tree-shaken oddly in some runners
 void BunDatabase

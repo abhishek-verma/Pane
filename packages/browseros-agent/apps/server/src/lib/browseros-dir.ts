@@ -43,6 +43,11 @@ export function getCacheDir(): string {
   return join(getBrowserosDir(), PATHS.CACHE_DIR_NAME)
 }
 
+/** Pane memory/skills root: ~/.browseros/memories (or ~/.browseros-dev in dev). */
+export function getMemoriesDir(): string {
+  return join(getBrowserosDir(), PATHS.MEMORIES_DIR_NAME)
+}
+
 /** Returns the ready-to-use directory for large generated tool outputs. */
 export async function getToolOutputDir(): Promise<string> {
   const outputDirPath = join(getBrowserosDir(), 'tool-output')

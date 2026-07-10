@@ -221,6 +221,11 @@ const currentMigrationHistory = [
     hash: '81781e98ed1635c87d22231f98c65aacdf7d93733694aa506f6383214d20d101',
     createdAt: 1783592630922,
   },
+  {
+    tag: '0008_bored_karen_page',
+    hash: '8bf55dfe9e69b6cbd0886a38ab4a5276f4352a2ac25882fe76f198cb3438f4de',
+    createdAt: 1783682207926,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -484,6 +489,43 @@ const currentSchemaStatements = [
         ON UPDATE no action ON DELETE no action,
       FOREIGN KEY (node_id) REFERENCES graph_nodes(id)
         ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS memory_entries (
+      id text PRIMARY KEY NOT NULL,
+      layer text NOT NULL,
+      bucket_id text NOT NULL,
+      content text NOT NULL,
+      source text NOT NULL,
+      status text NOT NULL,
+      last_surfaced integer,
+      usefulness real DEFAULT 0 NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS memory_entries_bucket_layer_status_idx
+      ON memory_entries (bucket_id, layer, status)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS memory_entries_last_surfaced_idx
+      ON memory_entries (last_surfaced)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS skills (
+      id text PRIMARY KEY NOT NULL,
+      name text NOT NULL,
+      description text NOT NULL,
+      provenance text NOT NULL,
+      source_run text,
+      bucket_id text NOT NULL,
+      uses integer DEFAULT 0 NOT NULL,
+      success_rate real,
+      status text NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL
     )
   `,
   `

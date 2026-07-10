@@ -229,6 +229,8 @@ describe('database initialization', () => {
               'domain_grants',
               'tasks',
               'task_links',
+              'memory_entries',
+              'skills',
               '__drizzle_migrations'
             )
           ORDER BY name
@@ -247,8 +249,10 @@ describe('database initialization', () => {
       'graph_events',
       'graph_index',
       'graph_nodes',
+      'memory_entries',
       'oauth_tokens',
       'produced_files',
+      'skills',
       'task_links',
       'tasks',
     ])
@@ -304,5 +308,9 @@ const expectedMigrationHistory = [
   {
     hash: '81781e98ed1635c87d22231f98c65aacdf7d93733694aa506f6383214d20d101',
     createdAt: 1783592630922,
+  },
+  {
+    hash: '8bf55dfe9e69b6cbd0886a38ab4a5276f4352a2ac25882fe76f198cb3438f4de',
+    createdAt: 1783682207926,
   },
 ]

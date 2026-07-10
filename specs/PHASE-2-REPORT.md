@@ -1,6 +1,6 @@
 # Phase 2 Report — Trust & Workspaces
 
-Status: **ship gate met** — all modules implemented; automated verification green. Manual E2E checklist below recorded 2026-07-10 (API/unit evidence; full Pane UI pass still recommended before a public v0.2 tag).
+Status: **ship gate met** — all modules implemented; automated verification green. Manual E2E against live Pane Dev + DeepSeek recorded 2026-07-10 (CDP=9699, Server=9223).
 
 ## Module status
 
@@ -27,11 +27,19 @@ Status: **ship gate met** — all modules implemented; automated verification gr
 
 ## Manual E2E notes (2026-07-10)
 
+Boot: `PANE_BINARY=…/Pane Dev.app/…/Pane Dev bun run dev:watch -- --new` (CDP=9699, Server=9223). Provider: DeepSeek BYOK (`deepseek-v4-flash`).
+
 | Check | Result |
 |-------|--------|
 | Approval-resume unit (`chat-service` patches `approval-requested` → `approval-responded`) | **pass** |
 | Trust invariants suite | **pass** |
-| Full Pane UI: workspace grant → write approve/edit/promote → bash dry-run → path escape → action log replay → workspace switch | **recommended before public tag** (dev watch CDP was unavailable in this session) |
+| Workspace-scoped write via `POST /trust/replay` | **pass** (`hello.txt` written under `/tmp/pane-smoke-ws`) |
+| Path escape (`filesystem_write` → `/etc/passwd`) | **pass** (tool rejects absolute/outside path after promote) |
+| Bash `filesystem_bash` → `tool-approval-request` → approve resume | **pass** (`bash-out.txt` created with `smoke-bash-ok`) |
+| Write approve + edit-on-approve resume | **pass** (`edit-me.txt` content `EDITED_ON_APPROVE`) |
+| Action log list + Settings `#/settings/action-log` UI | **pass** (entries + Replay affordance) |
+| Workspace switch (second `userWorkingDir` write) | **pass** (`/tmp/pane-smoke-ws-2/switched.txt`) |
+| Workspaces UI `#/workspaces` | **pass** (grant/browse shell renders) |
 
 ## Deviations / follow-ups
 
