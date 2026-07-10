@@ -1,7 +1,15 @@
+/**
+ * @license
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 import type { Browser } from '@browseros/browser-core/browser'
 import type { BrowserSession } from '@browseros/browser-core/core/session'
 import { zValidator } from '@hono/zod-validator'
+import type { UIMessage } from 'ai'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { SessionStore } from '../../agent/session-store'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
@@ -20,6 +28,17 @@ interface ChatRouteDeps {
    *  can be located for built-in adapters (claude / codex). */
   resourcesDir?: string | null
 }
+
+const ImportConversationsSchema = z.object({
+  conversations: z.array(
+    z.object({
+      id: z.string().uuid(),
+      lastMessagedAt: z.number().optional(),
+      // UIMessage parts are heterogeneous; validate shape lightly and cast.
+      messages: z.array(z.any()),
+    }),
+  ),
+})
 
 export function createChatRoutes(deps: ChatRouteDeps) {
   const sessionStore = new SessionStore()
@@ -79,6 +98,54 @@ export function createChatRoutes(deps: ChatRouteDeps) {
         return c.json({ error: 'Failed to fetch history' }, 500)
       }
     })
+    .post('/import', async (c) => {
+      try {
+        const body = ImportConversationsSchema.parse(await c.req.json())
+        const result = await service.importConversations(
+          body.conversations.map((conversation) => ({
+            id: conversation.id,
+            lastMessagedAt: conversation.lastMessagedAt,
+            messages: conversation.messages as UIMessage[],
+          })),
+        )
+        return c.json(result)
+      } catch (err) {
+        if (err instanceof z.ZodError) {
+          return c.json(
+            { error: 'Invalid import payload', details: err.issues },
+            400,
+          )
+        }
+        logger.error('Failed to import conversations', {
+          error: err instanceof Error ? err.message : String(err),
+        })
+        return c.json({ error: 'Failed to import conversations' }, 500)
+      }
+    })
+    .get(
+      '/:conversationId',
+      zValidator('param', ConversationIdParamSchema),
+      async (c) => {
+        const { conversationId } = c.req.valid('param')
+        try {
+          const conversation = await service.getConversation(conversationId)
+          if (!conversation) {
+            return c.json({ error: 'Conversation not found' }, 404)
+          }
+          // Cast away AI SDK UIMessage depth so Hono client inference stays finite.
+          return c.json({
+            id: conversation.id,
+            messages: conversation.messages as unknown[],
+          })
+        } catch (err) {
+          logger.error('Failed to get conversation', {
+            conversationId,
+            error: err instanceof Error ? err.message : String(err),
+          })
+          return c.json({ error: 'Failed to fetch conversation' }, 500)
+        }
+      },
+    )
     .delete(
       '/:conversationId',
       zValidator('param', ConversationIdParamSchema),

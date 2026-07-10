@@ -1,4 +1,5 @@
 import { useChat } from '@ai-sdk/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 import { compact } from 'es-toolkit/array'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -19,9 +20,9 @@ import {
   MESSAGE_SENT_EVENT,
   PROVIDER_SELECTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { conversationStorage } from '@/lib/conversations/conversationStorage'
+import { productFeatures } from '@/lib/constants/product-features'
 import { formatConversationHistory } from '@/lib/conversations/formatConversationHistory'
-import { useConversations } from '@/lib/conversations/useConversations'
+import { fetchChatConversation } from '@/lib/conversations/server-chat-history'
 import { declinedAppsStorage } from '@/lib/declined-apps/storage'
 import { resolveChatProvider } from '@/lib/llm-providers/provider-runtime'
 import { resolveStoredChatProvider } from '@/lib/llm-providers/storage'
@@ -195,13 +196,14 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     error: agentUrlError,
   } = useAgentServerUrl()
 
-  const { saveConversation: saveLocalConversation } = useConversations()
+  const queryClient = useQueryClient()
   const {
     isLoggedIn,
     saveConversation: saveRemoteConversation,
     resetConversation: resetRemoteConversation,
     markMessagesAsSaved,
   } = useRemoteConversationSave()
+  const useCloudHistory = productFeatures.cloudSync && isLoggedIn
   const [searchParams, setSearchParams] = useSearchParams()
   const conversationIdParam = searchParams.get('conversationId')
 
@@ -541,7 +543,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     GetConversationWithMessagesDocument,
     { conversationId: conversationIdParam ?? '' },
     {
-      enabled: !!conversationIdParam && isLoggedIn,
+      enabled: !!conversationIdParam && useCloudHistory,
     },
   )
 
@@ -554,7 +556,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     if (!conversationIdParam) return
     if (restoredConversationId === conversationIdParam) return
 
-    if (isLoggedIn) {
+    if (useCloudHistory) {
       if (!isRemoteConversationFetched) return
 
       if (remoteConversationData?.conversation) {
@@ -571,25 +573,35 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       }
       setRestoredConversationId(conversationIdParam)
       setSearchParams({}, { replace: true })
-    } else {
-      const restoreLocal = async () => {
-        const conversations = await conversationStorage.getValue()
-        const conversation = conversations?.find(
-          (c) => c.id === conversationIdParam,
-        )
+      return
+    }
 
-        if (conversation) {
-          setConversationId(
-            conversation.id as ReturnType<typeof crypto.randomUUID>,
-          )
-          setMessages(conversation.messages)
-        }
+    const restoreFromServer = async () => {
+      try {
+        const baseUrl = agentUrlRef.current
+        if (!baseUrl) return
+        const conversation = await fetchChatConversation(
+          conversationIdParam,
+          baseUrl,
+        )
+        setConversationId(
+          conversation.id as ReturnType<typeof crypto.randomUUID>,
+        )
+        setMessages(conversation.messages)
+      } catch (error) {
+        sentry.captureException(error)
+      } finally {
         setRestoredConversationId(conversationIdParam)
         setSearchParams({}, { replace: true })
       }
-      restoreLocal()
     }
-  }, [conversationIdParam, remoteConversationData, isLoggedIn])
+    void restoreFromServer()
+  }, [
+    conversationIdParam,
+    remoteConversationData,
+    useCloudHistory,
+    isRemoteConversationFetched,
+  ])
 
   // Per-window scope: resume this window's conversation when the panel
   // (re)mounts (e.g. closed + reopened) instead of starting a blank chat.
@@ -664,11 +676,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const messagesToSave = messages.filter((m) => m.parts?.length > 0)
     if (messagesToSave.length === 0) return
 
-    if (isLoggedIn) {
+    // Server SQLite already persists on turn finish. Only dual-write to
+    // GraphQL when cloud sync is enabled; never write transcripts to
+    // chrome.storage (M1.5 source-of-truth).
+    if (useCloudHistory) {
       saveRemoteConversation(conversationIdRef.current, messagesToSave)
-    } else {
-      saveLocalConversation(conversationIdRef.current, messagesToSave)
     }
+    void queryClient.invalidateQueries({
+      queryKey: ['sidepanel-chat-history'],
+    })
 
     invalidateCredits()
   }, [status])

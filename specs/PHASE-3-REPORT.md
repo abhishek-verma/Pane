@@ -1,6 +1,15 @@
 # Phase 3 Report — Context Graph & Tasks
 
-Status: **ship gate met** — M3.1–M3.7 on `feat/phase-3-context-graph-tasks`, plus follow-up fixes for approval-resume, segment dedupe, and `isPrivate` wiring. Automated tests green (`bun run check`, focused Phase 3 + trust + chat-service suites, app unit suite, CLI).
+Status: **ship gate met** — M3.1–M3.7 plus approval-resume / `isPrivate` / segment dedupe (PR #10). Phase 1–3 debt clear also wires chat history to server SQLite (M1.5) so Phase 4 session archive is unblocked.
+
+## Manual E2E notes (2026-07-10)
+
+| Check | Result |
+|-------|--------|
+| Context/tools/tasks automated suites | **pass** |
+| `isPrivate` unit skip | **pass** |
+| Approval-resume (PR #10) | **pass** |
+| Live Pane UI navigate → `#/context` / `#/tasks` / private window | **recommended before public tag** (CDP unavailable in this session) |
 
 ## Module status
 

@@ -56,21 +56,41 @@ export class SessionStore {
 
   async delete(conversationId: string): Promise<boolean> {
     const session = this.sessions.get(conversationId)
-
-    // Also delete from DB
-    await getDb()
-      .delete(chatSessions)
+    const db = getDb()
+    const existing = await db
+      .select({ id: chatSessions.id })
+      .from(chatSessions)
       .where(eq(chatSessions.id, conversationId))
+      .get()
 
-    if (!session) return false
+    if (existing) {
+      await db.delete(chatSessions).where(eq(chatSessions.id, conversationId))
+    }
 
-    await session.agent.dispose()
-    this.sessions.delete(conversationId)
-    logger.info('Session deleted', {
-      conversationId,
-      remainingSessions: this.sessions.size,
-    })
-    return true
+    if (session) {
+      await session.agent.dispose()
+      this.sessions.delete(conversationId)
+    }
+
+    const deleted = Boolean(existing || session)
+    if (deleted) {
+      logger.info('Session deleted', {
+        conversationId,
+        remainingSessions: this.sessions.size,
+        hadLiveSession: Boolean(session),
+        hadPersistedSession: Boolean(existing),
+      })
+    }
+    return deleted
+  }
+
+  async hasPersistedSession(conversationId: string): Promise<boolean> {
+    const row = await getDb()
+      .select({ id: chatSessions.id })
+      .from(chatSessions)
+      .where(eq(chatSessions.id, conversationId))
+      .get()
+    return Boolean(row)
   }
 
   count(): number {
