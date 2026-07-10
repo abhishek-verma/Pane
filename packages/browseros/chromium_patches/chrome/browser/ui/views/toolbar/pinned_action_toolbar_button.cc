@@ -15,7 +15,7 @@ index cb5f33a2c5f4c..d3708615bf897 100644
  #include "base/metrics/user_metrics.h"
  #include "base/notreached.h"
  #include "base/strings/strcat.h"
-@@ -30,6 +36,7 @@
+@@ -30,6 +36,9 @@
  #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
  #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 +#include "chrome/app/vector_icons/vector_icons.h"

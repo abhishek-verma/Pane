@@ -21,7 +21,7 @@ index 1111111111111..2222222222222 100644
  #include "ui/color/color_provider_manager.h"
  #include "ui/gfx/image/image_skia.h"
  #include "ui/gfx/native_ui_types.h"
-@@ -199,6 +204,13 @@ ExtensionActionViewModel::GetIcon(
+@@ -199,6 +204,12 @@ ExtensionActionViewModel::GetIcon(
    if (!ExtensionIsValid()) {
      return ui::ImageModel();
    }

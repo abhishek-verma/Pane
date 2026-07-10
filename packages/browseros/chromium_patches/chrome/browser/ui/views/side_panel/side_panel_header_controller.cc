@@ -1,17 +1,17 @@
 diff --git a/chrome/browser/ui/views/side_panel/side_panel_header_controller.cc b/chrome/browser/ui/views/side_panel/side_panel_header_controller.cc
-index 1111111111111..2222222222222 100644
+index 4660ed893a..525ddbb5b5 100644
 --- a/chrome/browser/ui/views/side_panel/side_panel_header_controller.cc
 +++ b/chrome/browser/ui/views/side_panel/side_panel_header_controller.cc
-@@ -14,6 +14,7 @@
+@@ -13,6 +13,8 @@
  #include "base/memory/weak_ptr.h"
  #include "base/metrics/field_trial_params.h"
  #include "base/time/time.h"
 +#include "components/vector_icons/vector_icons.h"
- #include "chrome/browser/browseros/core/browseros_constants.h"
++#include "chrome/browser/browseros/core/browseros_constants.h"
  #include "chrome/app/vector_icons/vector_icons.h"
  #include "chrome/browser/profiles/profile.h"
  #include "chrome/browser/ui/browser.h"
-@@ -284,6 +285,16 @@ void SidePanelHeaderController::UpdatePinButton() {
+@@ -284,6 +286,15 @@ void SidePanelHeaderController::UpdatePinButton() {
  
  ui::ImageModel SidePanelHeaderController::GetIconImage() {
    CHECK(side_panel_entry_);
