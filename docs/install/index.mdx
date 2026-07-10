@@ -1,0 +1,45 @@
+---
+title: "Install Pane"
+description: "Download and install Pane without building from source"
+---
+
+Pane ships as a normal desktop app. You do **not** need Xcode, Chromium, or a compiler.
+
+<Card
+  title="Download latest release"
+  icon="download"
+  href="https://github.com/abhishek-verma/Pane/releases"
+>
+  Pick the **Pane Browser** release for your platform (not the extension-only zip).
+</Card>
+
+## Pick your platform
+
+<CardGroup cols={3}>
+  <Card title="macOS" icon="apple" href="/install/macos">
+    DMG download (unsigned builds show a one-time security prompt)
+  </Card>
+  <Card title="Windows" icon="windows" href="/update/windows">
+    Installer from GitHub Releases
+  </Card>
+  <Card title="Linux" icon="linux" href="/install/linux">
+    AppImage or .deb from GitHub Releases
+  </Card>
+</CardGroup>
+
+## Which release asset?
+
+On [GitHub Releases](https://github.com/abhishek-verma/Pane/releases), look for tags like **`browser/v0.47.0.1`**.
+
+| Asset | For |
+|-------|-----|
+| `Pane_v*_arm64.dmg` | Mac with Apple Silicon (M1/M2/M3/M4) |
+| `Pane_v*_x64.dmg` | Intel Mac |
+| `Pane_v*_x64_installer.exe` | Windows |
+| `Pane_v*_x64.AppImage` | Linux (most distros) |
+
+Do **not** download `pane-agent-*.crx` unless you are developing the extension. That file is for updates inside an already-installed browser.
+
+## After install
+
+Follow the [onboarding guide](/onboarding) to connect an LLM and finish setup.

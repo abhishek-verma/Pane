@@ -1,0 +1,36 @@
+# Pane Linux x64 unsigned release (no upload to R2/CDN)
+#
+# Publish artifacts to GitHub Releases instead of BrowserOS CDN.
+#
+# Run from packages/browseros:
+#   uv run browseros build \
+#     --config build/config/release.linux.noupload.yaml \
+#     --chromium-src "$CHROMIUM_SRC"
+#
+# Output:
+#   releases/<version>/Pane_v<version>_x64.AppImage
+#   releases/<version>/Pane_v<version>_amd64.deb
+
+build:
+  type: release
+  architecture: x64
+
+gn_flags:
+  file: build/config/gn/flags.linux.release.gn
+
+modules:
+  - clean
+  - git_setup
+  - download_resources
+  - resources
+  - bundled_extensions
+  - chromium_replace
+  - string_replaces
+  - series_patches
+  - patches
+  - configure
+  - compile
+  - package_linux
+
+notifications:
+  slack: false

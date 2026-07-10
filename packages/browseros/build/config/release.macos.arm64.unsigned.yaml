@@ -1,0 +1,49 @@
+# Pane macOS arm64 unsigned release (no Apple Developer account required)
+#
+# Produces an unsigned DMG suitable for GitHub Releases. Users see a one-time
+# Gatekeeper warning on first launch (see docs/install/macos.mdx).
+#
+# Requires only CHROMIUM_SRC (and optionally SPARKLE_PRIVATE_KEY for appcasts).
+#
+# Run from packages/browseros:
+#   uv run browseros build \
+#     --config build/config/release.macos.arm64.unsigned.yaml \
+#     --chromium-src "$CHROMIUM_SRC"
+#
+# Output:
+#   releases/<version>/Pane_v<version>_arm64.dmg
+
+build:
+  type: release
+  architecture: arm64
+
+gn_flags:
+  file: build/config/gn/flags.macos.release.gn
+
+modules:
+  # Phase 1: Setup
+  - clean
+  - git_setup
+  - sparkle_setup
+
+  # Phase 2: Patches & Resources
+  - download_resources
+  - resources
+  - bundled_extensions
+  - chromium_replace
+  - string_replaces
+  - series_patches
+  - patches
+
+  # Phase 3: Build
+  - configure
+  - compile
+
+  # Phase 4: Package (unsigned DMG when sign_macos is omitted)
+  - package_macos
+
+  # Optional: Sparkle Ed25519 signature for auto-update feeds (not Apple code signing)
+  - sparkle_sign
+
+notifications:
+  slack: false

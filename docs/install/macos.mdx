@@ -1,0 +1,60 @@
+---
+title: "Install on macOS"
+description: "Download and open Pane on Mac without building from source"
+---
+
+Early Pane builds are **unsigned** (no Apple Developer certificate yet). macOS will show a security warning the first time you open the app. That is expected.
+
+<Steps>
+  <Step title="Download the DMG">
+    Go to [GitHub Releases](https://github.com/abhishek-verma/Pane/releases) and open the latest **`browser/v*`** release.
+
+    Download **`Pane_v*_arm64.dmg`** if you have Apple Silicon (M1/M2/M3/M4).
+
+    Download **`Pane_v*_x64.dmg`** if you have an Intel Mac.
+  </Step>
+
+  <Step title="Open the disk image">
+    Double-click the downloaded `.dmg` file. A Finder window opens with the Pane app.
+  </Step>
+
+  <Step title="Drag Pane to Applications">
+    Drag **Pane** into your **Applications** folder. Wait for the copy to finish, then eject the disk image.
+  </Step>
+
+  <Step title="Open Pane the first time">
+    Open **Applications** and double-click **Pane**.
+
+    macOS may say the app cannot be opened because it is from an unidentified developer. That is normal for unsigned builds.
+
+    **Option A (easiest):** Right-click (or Control-click) **Pane** → **Open** → click **Open** again in the dialog.
+
+    **Option B:** If you do not see an Open button, open **System Settings** → **Privacy & Security**, scroll down, and click **Open Anyway** next to the Pane message. Then open Pane again.
+  </Step>
+
+  <Step title="Allow local network (if prompted)">
+    Pane may ask to accept incoming network connections for the built-in agent server. Click **Allow**.
+  </Step>
+</Steps>
+
+## Updates
+
+Once Pane is installed, it checks for updates automatically. You can also download a newer DMG from [GitHub Releases](https://github.com/abhishek-verma/Pane/releases) and repeat the steps above.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Pane will not open at all">
+    Make sure you used **Right-click → Open**, not only double-click, on the first launch.
+
+    Check **System Settings → Privacy & Security** for an **Open Anyway** button.
+  </Accordion>
+
+  <Accordion title="I downloaded pane-agent-*.crx or a zip">
+    Those are extension update files for developers. Install the **browser** release (`Pane_v*_arm64.dmg`) instead.
+  </Accordion>
+
+  <Accordion title="Wrong chip type">
+    Apple Silicon Macs need `arm64`. Intel Macs need `x64`. Check **Apple menu → About This Mac**.
+  </Accordion>
+</AccordionGroup>

@@ -79,3 +79,38 @@ python3 packages/browseros-agent/scripts/release/verify_release_secrets.py
 ## Extension IDs
 
 See `apps/app/lib/constants/paneExtensionIds.ts` (generated). Agent ID changes whenever you rotate the agent `manifest.key`.
+
+## Unsigned browser releases (no Apple Developer account)
+
+Until Apple code signing is set up, ship the browser as an **unsigned DMG** on GitHub Releases.
+Users see a one-time Gatekeeper warning on first launch. Install steps: `docs/install/macos.mdx`.
+
+### Build (maintainer)
+
+```bash
+# 1. Fetch Chromium once (see docs/contributing.mdx)
+# 2. Set CHROMIUM_SRC in packages/browseros/.env
+
+packages/browseros-agent/scripts/release/build-unsigned-browser.sh
+# or: packages/browseros-agent/scripts/release/build-unsigned-browser.sh --platform linux
+```
+
+Output: `packages/browseros/releases/<version>/Pane_v<version>_arm64.dmg`
+
+### Publish
+
+```bash
+git tag -a browser/v0.47.0.1 -m "browser v0.47.0.1"
+git push origin browser/v0.47.0.1
+
+packages/browseros-agent/scripts/release/upload-browser-release.sh \
+  browser/v0.47.0.1 \
+  packages/browseros/releases/0.47.0.1/Pane_v0.47.0.1_arm64.dmg \
+  packages/browseros/releases/0.47.0.1/pane-browser-release-metadata.json
+
+# Re-run Release Pane Browser workflow (workflow_dispatch) to refresh appcasts
+```
+
+Config: `packages/browseros/build/config/release.macos.arm64.unsigned.yaml`
+
+Signed releases later: use `release.macos.arm64.yaml` once Apple certs are in `.env`.

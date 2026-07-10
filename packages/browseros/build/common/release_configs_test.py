@@ -14,7 +14,9 @@ class ReleaseResourceConfigTest(unittest.TestCase):
         configs = [
             "release.macos.arm64.yaml",
             "release.macos.arm64.noupload.yaml",
+            "release.macos.arm64.unsigned.yaml",
             "release.macos.arm64.ci.yaml",
+            "release.linux.noupload.yaml",
             "release.windows.yaml",
             "release.windows.ci.yaml",
             "release.linux.yaml",

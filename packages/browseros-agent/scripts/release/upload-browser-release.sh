@@ -3,8 +3,8 @@
 #
 # Usage:
 #   ./scripts/release/upload-browser-release.sh browser/v0.47.0.1 \
-#     packages/browseros/dist/BrowserOS_v0.47.0.1_arm64.dmg \
-#     packages/browseros/dist/pane-browser-release-metadata.json
+#     packages/browseros/releases/0.47.0.1/Pane_v0.47.0.1_arm64.dmg \
+#     packages/browseros/releases/0.47.0.1/pane-browser-release-metadata.json
 set -euo pipefail
 
 if [ "$#" -lt 2 ]; then

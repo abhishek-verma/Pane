@@ -53,12 +53,13 @@ jobs:
 
           VERSION="${RELEASE_TAG#browser/v}"
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-          Maintainer browser release flow:
-          1. Build signed browser artifacts locally (\`uv run browseros build …\` — see packages/browseros/build/docs).
+          Maintainer browser release flow (unsigned builds are OK for early releases):
+          1. Build locally: \`packages/browseros-agent/scripts/release/build-unsigned-browser.sh\`
           2. Bump browser version in a PR and merge to \`$DEFAULT_BRANCH\`.
           3. \`git tag -a browser/v${VERSION} -m "browser v${VERSION}"\` and push the tag.
-          4. Upload DMG/installer/AppImage assets to the GitHub release created by this workflow.
-          5. Run the OTA signing flow to refresh \`updates/browser/appcast*.xml\` on \`main\`.
+          4. Upload \`Pane_v${VERSION}_arm64.dmg\` (and metadata JSON) to the GitHub release.
+          5. Re-run this workflow to refresh \`updates/browser/appcast*.xml\` on \`main\`.
+          Install guide for users: docs/install/macos.mdx
           EOF
         working-directory: ${{ github.workspace }}
 
@@ -105,12 +106,12 @@ jobs:
 
           Upload signed artifacts to this release after the workflow completes:
 
-          - macOS arm64: `Pane-arm64.dmg` (or project-standard DMG name)
-          - macOS x86_64: `Pane-x86_64.dmg`
-          - Windows: `Pane_installer.exe`
-          - Linux: `Pane.AppImage` / `Pane.deb`
+          - macOS arm64: `Pane_v{version}_arm64.dmg`
+          - macOS x86_64: `Pane_v{version}_x64.dmg`
+          - Windows: `Pane_v{version}_x64_installer.exe`
+          - Linux: `Pane_v{version}_x64.AppImage` / `Pane_v{version}_amd64.deb`
 
-          Auto-update feeds are served from `updates/browser/appcast*.xml` on the default branch.
+          Unsigned macOS builds: users follow docs/install/macos.mdx (Right-click → Open on first launch).
           EOF
         working-directory: ${{ github.workspace }}
 

@@ -1,0 +1,28 @@
+---
+title: "Install on Linux"
+description: "Download and run Pane on Linux without building from source"
+---
+
+<Steps>
+  <Step title="Download">
+    Go to [GitHub Releases](https://github.com/abhishek-verma/Pane/releases) and open the latest **`browser/v*`** release.
+
+    - **AppImage** works on most distributions.
+    - **.deb** works on Debian/Ubuntu-based systems.
+  </Step>
+
+  <Step title="AppImage">
+    ```bash
+    chmod +x Pane_v*_x64.AppImage
+    ./Pane_v*_x64.AppImage
+    ```
+  </Step>
+
+  <Step title="Debian package">
+    ```bash
+    sudo dpkg -i Pane_v*_amd64.deb
+    ```
+  </Step>
+</Steps>
+
+Linux builds are unsigned by default and do not need extra Gatekeeper-style steps.
