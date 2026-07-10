@@ -170,7 +170,7 @@ export const MemoryPage: FC = () => {
         </ul>
         <div className="flex gap-2">
           <Input
-            placeholder="Local path to SKILL.md"
+            placeholder="Local path or https URL to SKILL.md"
             value={importPath}
             onChange={(e) => setImportPath(e.target.value)}
           />

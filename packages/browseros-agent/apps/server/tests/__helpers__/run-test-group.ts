@@ -120,6 +120,8 @@ export function buildTestCommand(
     '--env-file=.env.development',
     'test',
     `--preload=${testPreloadPath}`,
+    // Singleton DB + BROWSEROS_DIR races if files run concurrently.
+    '--max-concurrency=1',
   ]
   if (junitPath) {
     const outputPath = resolve(projectRoot, junitPath)

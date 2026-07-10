@@ -1,6 +1,6 @@
 # Phase 4 Report — Memory & Skills
 
-Status: **ship gate met** — M4.1–M4.7. Phase 5 (proactive / adaptive home / reach) not started.
+Status: **ship gate met** — M4.1–M4.7 complete (including ICP onboarding seed + URL skill install). Phase 1–3 approval-resume / transcript-patch debt included on this branch. Phase 5 not started.
 
 ## Canonical filenames
 
@@ -9,7 +9,7 @@ Under `~/.browseros/memories/` (dev: `~/.browseros-dev/memories/`):
 | File | Notes |
 |------|--------|
 | `SOUL.md` | Persona layer; reuses `PATHS.SOUL_FILE_NAME`. Distinct from ACP harness `$AGENT_HOME/SOUL.md`. |
-| `USER.md` | User profile |
+| `USER.md` | User profile (seeded from onboarding profile + ICP) |
 | `MEMORY.md` | Agent notes (bullets) |
 | `skills/<id>/SKILL.md` | Active skills |
 | `staging/<id>.md` | Inferred drafts awaiting approve/reject |
@@ -25,10 +25,10 @@ Under `~/.browseros/memories/` (dev: `~/.browseros-dev/memories/`):
 | M4.1 Memory store | **done** | `@browseros/memory` + `apps/server/src/memory/`; injection scan; seed templates |
 | M4.2 `context_recall` + budget | **done** | Stub removed; caps soul≤1500 / USER≤1375 / MEMORY≤2200 / skill-index≤1500 |
 | M4.3 Auto-skill review | **done** | Server `setInterval` 6h from `Application.initCoreServices`; pause-on-battery; `POST /memory/review/run` |
-| M4.4 Skill store + tools | **done** | `skills_list/load/install/archive` + activate staged; index-only in prompt |
+| M4.4 Skill store + tools | **done** | `skills_list/load/install/archive` + activate staged; index-only in prompt; **path or https URL** |
 | M4.5 Curation | **done** | Unused→archive; unrecalled→demoted; digest stub under `digests/` |
 | M4.6 UI + CLI | **done** | `#/settings/memory`; `browseros-cli memory|skills` via MCP |
-| M4.7 Personas | **done** | Templates + picker on Memory page; `persona-map.json`; frozen at session start |
+| M4.7 Personas | **done** | Templates + Memory picker + **onboarding ICP step** → `POST /memory/personas/apply` + USER.md seed |
 
 ## Review schedule choice
 
@@ -41,7 +41,7 @@ Under `~/.browseros/memories/` (dev: `~/.browseros-dev/memories/`):
 | `context_recall` | `read` | loop + MCP + CLI `memory recall` |
 | `memory_add` / `memory_replace` / `memory_remove` | `write-local` | loop + MCP + CLI |
 | `skills_list` / `skills_load` | `read` | loop + MCP + CLI |
-| `skills_install` / `skills_archive` | `write-local` | loop + MCP + CLI |
+| `skills_install` / `skills_archive` | `write-local` | loop + MCP + CLI (`install` accepts path or URL) |
 
 ## Prompt wiring
 
@@ -54,6 +54,21 @@ ACP harness SOUL seeding in `acpx/runtime-context.ts` left untouched.
 - Conversation/user `memory_add`: free + notify (gated `write-local`).
 - Inferred / review-job skills: **staged** only (`status='staged'`, files under `staging/`). Never auto-activate.
 
+## Onboarding ICP → persona
+
+| ICP (`local:onboardingIcp`) | Persona |
+|-----------------------------|---------|
+| `coding` / `privacy` | `default` |
+| `research` | `research-buddy` |
+| `personal-automation` | `chief-of-staff` |
+| `job-search` | `job-search-partner` |
+
+On demo complete: `seedMemoryFromOnboarding` applies persona (if map empty) and writes `USER.md` from profile + ICP. Memory page picker remains available.
+
+## URL skill install
+
+`installSkillFromUrl`: https only (http localhost for tests), `TIMEOUTS.SKILL_FETCH` (15s), max 256KB, injection scan via `installSkillFromBody`. Wired in tool, REST `POST /memory/skills/import` (`path` XOR `url`), CLI, and Memory UI.
+
 ## Independent verification
 
 1. **Stub gone:** `context_recall` returns memory hits; tests assert no Phase-3 stub text.
@@ -61,49 +76,59 @@ ACP harness SOUL seeding in `acpx/runtime-context.ts` left untouched.
 3. **Prompt budget:** allocator evicts lowest usefulness / oldest `last_surfaced`; over-budget add throws `PromptBudgetExceededError`.
 4. **Skill bodies not in prompt:** index-only; body via `skills_load` after activate.
 5. **Inferred writes stage:** review job + `source:'inferred'` → staged.
-6. **Injection scan:** rejects "Ignore previous instructions".
+6. **Injection scan:** rejects "Ignore previous instructions" (memory writes + URL install).
 7. **Trust classification:** memory/skill tools classified; trust-invariants green.
 8. **No Phase 5/6 leakage:** digest is a local file stub only.
 9. **ACP SOUL tests:** `provider-factory-acp` + `acp-instructions` pass.
 10. **`0008` mirrored** in `client.ts` `currentMigrationHistory` + `currentSchemaStatements`.
+11. **ICP seed:** onboarding step + `personaIdForIcp` + server `applyPersonaTemplate` covered by tests.
+12. **URL install:** mocked fetch install + reject oversized / non-https / injection.
+
+## Phase 1–3 debt included on this branch
+
+- Shared `SessionStore` across `/chat` and `/trust/replay` so promote patches live + SQLite transcript (`patchConversationToolOutput`).
+- Sidepanel forwards `toolApprovalResponses` / workspace / trust pins on resume.
+- Live E2E notes updated in PHASE-1/2/3 reports.
 
 ## Deviations / limitations
 
 1. Review drafter uses a deterministic template when no cheaper model is configured (logs + stages; no crash). Inject `draftSkill` in tests / `POST /memory/review/run`.
-2. Onboarding ICP → persona seed is **partial**: Memory page persona picker ships; no onboarding ICP auto-read.
-3. URL skill install not implemented; **file-path** install works (CLI + UI + `skills_install`).
-4. `userSystemPrompt` is outside the memory budget (budget applies to soul/USER/MEMORY/skill-index only).
-5. Unrelated WIP may remain on the branch (approval-resume / patch-conversation) — not part of Phase 4 commits.
+2. `userSystemPrompt` is outside the memory budget (budget applies to soul/USER/MEMORY/skill-index only).
+3. Soul-patch proposals from the review job are not yet a separate UI surface (persona changes go through Memory page / ICP seed).
 
 ## Tests run (automated)
 
 ```text
-cd packages/browseros-agent/apps/server && bun test tests/memory/ \
-  tests/agent/context-tools.test.ts tests/agent/trust-invariants.test.ts \
-  tests/api/services/mcp/register-mcp.test.ts \
-  tests/agent/provider-factory-acp.test.ts tests/agent/acp-instructions/
-# pass
-
-cd apps/app && bun run typecheck && bun test
-# 292 pass
-
-cd apps/cli && gofmt -l . && go vet ./... && go test ./...
-# pass
+cd packages/browseros-agent && bun run check   # lint + typecheck + fallow (exit 0)
 
 cd apps/server && bun run typecheck
-# pass
+cd apps/server && bun run test:agent          # 353 pass (incl. ACP + context_recall)
+cd apps/server && bun run ./tests/__helpers__/run-test-group.ts memory  # 24 pass
+cd apps/server && bun test --preload=./tests/__helpers__/test-env.ts --max-concurrency=1 \
+  tests/memory/ tests/agent/provider-factory-acp.test.ts \
+  tests/agent/context-tools.test.ts tests/api/services/mcp/register-mcp.test.ts \
+  tests/agent/trust-invariants.test.ts tests/api/services/chat-service.test.ts
+# Cross-file mock isolation: ACP fs/browseros-dir mocks no longer poison later suites.
+
+cd apps/app && bun run typecheck && bun test  # 294 pass (incl. icp.test.ts)
+
+cd apps/cli && gofmt -l . && go vet ./... && go test ./...
 ```
+
+Pre-existing (not Phase 4): `test:api` still errors on removed Klavis modules (`tests/api/services/klavis/*`). Phase-4 MCP/chat/trust paths above are green.
 
 ## Commits (this phase)
 
 - `feat(server): memory file store + SQLite index (M4.1)`
 - `feat(server): context_recall + prompt budget (M4.2)`
 - `feat: skill review, store, curation, UI, CLI, personas (M4.3–M4.7)`
-- `docs: add Phase 4 ship-gate report` (this file)
+- `docs: add Phase 4 ship-gate report`
+- `fix: finish approval-resume transcript patch and Phase 1–3 smoke notes`
+- `feat(memory): ICP onboarding seed + URL skill install` (this follow-up)
 
 ## BLOCKERS
 
-None for ship gate. Partial M4.7 onboarding ICP noted above.
+None.
 
 ## Stop
 

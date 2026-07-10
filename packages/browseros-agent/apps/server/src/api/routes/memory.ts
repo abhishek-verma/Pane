@@ -24,7 +24,7 @@ import { runSkillReviewJob } from '../../memory/review-job'
 import {
   activateStagedSkill,
   archiveSkill,
-  installSkillFromPath,
+  installSkillFromSource,
   rejectStagedSkill,
   runCurationPass,
 } from '../../memory/skills'
@@ -44,10 +44,15 @@ const ApproveSchema = z.object({
   id: z.string().min(1),
 })
 
-const ImportSchema = z.object({
-  path: z.string().min(1),
-  id: z.string().optional(),
-})
+const ImportSchema = z
+  .object({
+    path: z.string().min(1).optional(),
+    url: z.string().url().optional(),
+    id: z.string().optional(),
+  })
+  .refine((v) => Boolean(v.path) !== Boolean(v.url), {
+    message: 'Provide exactly one of path or url',
+  })
 
 const PersonaMapSchema = z.object({
   bucketPersonas: z.record(z.string()).optional(),
@@ -127,7 +132,10 @@ export function createMemoryRoutes() {
     })
     .post('/skills/import', async (c) => {
       const body = ImportSchema.parse(await c.req.json())
-      const id = await installSkillFromPath(body.path, { id: body.id })
+      const id = await installSkillFromSource(
+        { path: body.path, url: body.url },
+        { id: body.id },
+      )
       return c.json({ id })
     })
     .post('/skills/:id/archive', async (c) => {

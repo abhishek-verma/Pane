@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"browseros-cli/output"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -38,14 +39,19 @@ func init() {
 	listCmd.Flags().String("bucket", "", "Context bucket id")
 
 	installCmd := &cobra.Command{
-		Use:   "install <path>",
-		Short: "Install a skill from a local SKILL.md path",
+		Use:   "install <path-or-url>",
+		Short: "Install a skill from a local SKILL.md path or https URL",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			bucket, _ := cmd.Flags().GetString("bucket")
+			source := args[0]
 			toolArgs := map[string]any{
-				"path":       args[0],
 				"__promoted": true,
+			}
+			if strings.HasPrefix(source, "https://") || strings.HasPrefix(source, "http://") {
+				toolArgs["url"] = source
+			} else {
+				toolArgs["path"] = source
 			}
 			if bucket != "" {
 				toolArgs["bucketId"] = bucket

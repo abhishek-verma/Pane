@@ -11,8 +11,9 @@ import { PromptBudgetExceededError } from './prompt-budget'
 import {
   archiveSkill,
   checkMemoryAddBudget,
-  installSkillFromPath,
+  installSkillFromSource,
   loadSkillBody,
+  SkillFetchError,
 } from './skills'
 import {
   forgetMemoryEntry,
@@ -137,25 +138,34 @@ export function buildMemoryToolSet(getBucketId: () => string): ToolSet {
     }),
     skills_install: tool({
       description:
-        'Install a skill from a local file path (agentskills.io SKILL.md).',
-      inputSchema: z.object({
-        path: z.string().min(1),
-        id: z.string().optional(),
-        bucketId: z.string().optional(),
-        ...promotedField,
-      }),
-      execute: async ({ path, id, bucketId }) => {
+        'Install a skill from a local SKILL.md path or https URL (agentskills.io). Provide path XOR url.',
+      inputSchema: z
+        .object({
+          path: z.string().min(1).optional(),
+          url: z.string().url().optional(),
+          id: z.string().optional(),
+          bucketId: z.string().optional(),
+          ...promotedField,
+        })
+        .refine((v) => Boolean(v.path) !== Boolean(v.url), {
+          message: 'Provide exactly one of path or url',
+        }),
+      execute: async ({ path, url, id, bucketId }) => {
         try {
-          const installedId = await installSkillFromPath(path, {
-            id,
-            bucketId: bucketId || getBucketId(),
-          })
+          const installedId = await installSkillFromSource(
+            { path, url },
+            {
+              id,
+              bucketId: bucketId || getBucketId(),
+            },
+          )
           return { text: `Installed skill: ${installedId}` }
         } catch (err) {
-          return {
-            text: err instanceof Error ? err.message : String(err),
-            isError: true,
-          }
+          const message =
+            err instanceof SkillFetchError || err instanceof Error
+              ? err.message
+              : String(err)
+          return { text: message, isError: true }
         }
       },
     }),

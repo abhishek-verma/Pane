@@ -132,13 +132,17 @@ export function useMemorySkills() {
   })
 
   const importPath = useMutation({
-    mutationFn: async (path: string) => {
+    mutationFn: async (source: string) => {
+      const payload =
+        source.startsWith('https://') || source.startsWith('http://')
+          ? { url: source }
+          : { path: source }
       const res = await fetch(
         `${base(baseUrl as string)}/memory/skills/import`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path }),
+          body: JSON.stringify(payload),
         },
       )
       if (!res.ok) throw new Error('Import failed')

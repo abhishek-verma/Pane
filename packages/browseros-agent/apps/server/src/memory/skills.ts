@@ -194,3 +194,99 @@ export async function installSkillFromPath(
   })
   return id
 }
+
+export const SKILL_FETCH_MAX_BYTES = 256 * 1024
+
+export class SkillFetchError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SkillFetchError'
+  }
+}
+
+/** Download a SKILL.md from https (or http localhost) with size/timeout caps. */
+export async function installSkillFromUrl(
+  url: string,
+  options: {
+    id?: string
+    bucketId?: string
+    memoriesRoot?: string
+    fetchImpl?: typeof fetch
+    timeoutMs?: number
+    maxBytes?: number
+  } = {},
+): Promise<string> {
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(url)
+  } catch {
+    throw new SkillFetchError(`Invalid skill URL: ${url}`)
+  }
+  const isLocalHttp =
+    parsedUrl.protocol === 'http:' &&
+    (parsedUrl.hostname === '127.0.0.1' || parsedUrl.hostname === 'localhost')
+  if (parsedUrl.protocol !== 'https:' && !isLocalHttp) {
+    throw new SkillFetchError(
+      'Skill URL must be https:// (or http://localhost for tests)',
+    )
+  }
+
+  const { TIMEOUTS } = await import('@browseros/shared/constants/timeouts')
+  const timeoutMs = options.timeoutMs ?? TIMEOUTS.SKILL_FETCH
+  const maxBytes = options.maxBytes ?? SKILL_FETCH_MAX_BYTES
+  const fetchFn = options.fetchImpl ?? fetch
+
+  const res = await fetchFn(parsedUrl.toString(), {
+    signal: AbortSignal.timeout(timeoutMs),
+    redirect: 'follow',
+    headers: { Accept: 'text/plain, text/markdown, */*' },
+  })
+  if (!res.ok) {
+    throw new SkillFetchError(
+      `Failed to fetch skill (${res.status} ${res.statusText})`,
+    )
+  }
+
+  const contentType = res.headers.get('content-type') ?? ''
+  if (contentType && !/text\/|markdown|octet-stream|json/i.test(contentType)) {
+    throw new SkillFetchError(
+      `Unexpected Content-Type for skill: ${contentType}`,
+    )
+  }
+
+  const buf = new Uint8Array(await res.arrayBuffer())
+  if (buf.byteLength > maxBytes) {
+    throw new SkillFetchError(
+      `Skill body exceeds ${maxBytes} bytes (${buf.byteLength})`,
+    )
+  }
+  const body = new TextDecoder('utf-8').decode(buf)
+  const parsed = parseSkillFrontmatter(body, 'imported-skill')
+  const id =
+    options.id ?? parsed.name.toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
+  await installSkillFromBody({
+    id,
+    body,
+    provenance: 'imported',
+    bucketId: options.bucketId ?? DEFAULT_BUCKET_ID,
+    memoriesRoot: options.memoriesRoot,
+  })
+  return id
+}
+
+/** Install from a local path or remote URL. */
+export async function installSkillFromSource(
+  source: { path?: string; url?: string },
+  options: { id?: string; bucketId?: string; memoriesRoot?: string } = {},
+): Promise<string> {
+  if (source.path && source.url) {
+    throw new SkillFetchError('Provide either path or url, not both')
+  }
+  if (source.url) {
+    return installSkillFromUrl(source.url, options)
+  }
+  if (source.path) {
+    return installSkillFromPath(source.path, options)
+  }
+  throw new SkillFetchError('Provide a local path or https URL')
+}

@@ -4,6 +4,7 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -37,15 +38,48 @@ const fakeProvider = {
 
 const mkdirCalls: Array<{ path: string; opts: { recursive?: boolean } }> = []
 let lastInstructionArgs: Record<string, unknown> | null = null
+/** When true, mocked mkdir throws (ACP workspace ensure failure path). */
+let mkdirShouldThrow = false
+/**
+ * When true, getBrowserosDir returns the ACP test fixture path. Flipped off in
+ * afterAll so later suites in the same process keep respecting BROWSEROS_DIR.
+ */
+let useAcpBrowserosDirMock = true
+
+const requireFromHere = createRequire(import.meta.url)
+
+// CJS require snapshots — not ESM live bindings — so call-through / afterAll
+// restore cannot recurse when mock.module replaces these modules.
+const realFsPromises = requireFromHere(
+  'node:fs/promises',
+) as typeof import('node:fs/promises')
+const realBrowserosDir = requireFromHere(
+  '../../src/lib/browseros-dir.ts',
+) as typeof import('../../src/lib/browseros-dir')
+const realGetBrowserosDir = realBrowserosDir.getBrowserosDir
 
 mock.module('node:fs/promises', () => ({
-  mkdir: async (path: string, opts: { recursive?: boolean }) => {
+  ...realFsPromises,
+  mkdir: async (
+    path: string,
+    opts: { recursive?: boolean; mode?: number } = {},
+  ) => {
+    if (mkdirShouldThrow) {
+      throw new Error('permission denied')
+    }
     mkdirCalls.push({ path, opts })
+    return realFsPromises.mkdir(path, opts)
   },
 }))
 
 mock.module('../../src/lib/browseros-dir', () => ({
-  getBrowserosDir: () => join(homedir(), '.browseros-test'),
+  ...realBrowserosDir,
+  getBrowserosDir: () => {
+    if (!useAcpBrowserosDirMock) {
+      return realGetBrowserosDir()
+    }
+    return join(homedir(), '.browseros-test')
+  },
 }))
 
 mock.module('../../src/lib/agents/acpx-provider/buildAcpxProvider', () => ({
@@ -60,7 +94,13 @@ const { createLanguageModel, setEnsureWorkspaceInstructionFileForTesting } = mod
 
 afterAll(() => {
   setEnsureWorkspaceInstructionFileForTesting(null)
+  mkdirShouldThrow = false
+  useAcpBrowserosDirMock = false
   mock.restore()
+  // mock.restore() does not always clear mock.module; re-bind real modules so
+  // later suites are not poisoned by this file's process-global mocks.
+  mock.module('node:fs/promises', () => realFsPromises)
+  mock.module('../../src/lib/browseros-dir', () => realBrowserosDir)
 })
 
 function baseConfig(): Record<string, unknown> {
@@ -79,6 +119,8 @@ beforeEach(() => {
   setModeCalls.length = 0
   rejectModes = []
   omitRuntimeSetMode = false
+  mkdirShouldThrow = false
+  useAcpBrowserosDirMock = true
   mkdirCalls.length = 0
   lastInstructionArgs = null
   setEnsureWorkspaceInstructionFileForTesting(async (opts) => {
@@ -279,19 +321,16 @@ describe('createLanguageModel — ACP providers', () => {
   })
 
   it('survives mkdir failures with a warn log and still spawns', async () => {
-    mock.module('node:fs/promises', () => ({
-      mkdir: async () => {
-        throw new Error('permission denied')
-      },
-    }))
-    // Re-import the factory so the mkdir mock is picked up.
-    delete require.cache[require.resolve('../../src/agent/provider-factory')]
-    const reloaded = await import('../../src/agent/provider-factory')
-    await reloaded.createLanguageModel(baseConfig() as never)
-    // buildAcpxProvider still called even though mkdir threw.
-    expect(lastBuildArgs?.workspacePath).toBe(
-      join(homedir(), '.browseros-test', 'workspaces', 'claude-code'),
-    )
+    mkdirShouldThrow = true
+    try {
+      await createLanguageModel(baseConfig() as never)
+      // buildAcpxProvider still called even though mkdir threw.
+      expect(lastBuildArgs?.workspacePath).toBe(
+        join(homedir(), '.browseros-test', 'workspaces', 'claude-code'),
+      )
+    } finally {
+      mkdirShouldThrow = false
+    }
   })
 
   it('expands a leading $HOME token in acpFixedWorkspacePath', async () => {

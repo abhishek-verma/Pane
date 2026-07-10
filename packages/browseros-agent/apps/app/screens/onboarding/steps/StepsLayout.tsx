@@ -15,8 +15,9 @@ export const StepsLayout = () => {
   const [direction, setDirection] = useState<StepDirection>(1)
 
   const currentStep = Number(stepId)
-  const isLastStep = currentStep >= steps.length
-  const canGoPrevious = currentStep > 1
+  const stepIndex = steps.findIndex((each) => each.id === currentStep)
+  const isLastStep = stepIndex >= 0 && stepIndex === steps.length - 1
+  const canGoPrevious = stepIndex > 0
 
   const stepEntry = steps.find((each) => each.id === currentStep)
   const ActiveStep = stepEntry?.component ?? (() => null)
@@ -33,11 +34,16 @@ export const StepsLayout = () => {
 
   const onContinue = () => {
     setDirection(1)
-    if (isLastStep) {
+    if (isLastStep || stepIndex < 0) {
       navigate('/onboarding/demo')
-    } else {
-      navigate(`/onboarding/steps/${currentStep + 1}`)
+      return
     }
+    const next = steps[stepIndex + 1]
+    if (!next) {
+      navigate('/onboarding/demo')
+      return
+    }
+    navigate(`/onboarding/steps/${next.id}`)
   }
 
   return (

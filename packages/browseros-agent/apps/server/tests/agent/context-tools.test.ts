@@ -40,7 +40,11 @@ describe('context tools + trust class', () => {
   })
 
   it('context_recall returns real memory hits (not Phase-3 stub)', async () => {
+    // Re-bind the singleton DB inside this test so concurrent suites cannot
+    // swap the handle between write and recall.
     const dir = mkdtempSync(join(tmpdir(), 'browseros-recall-'))
+    closeDb()
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
     const memoriesRoot = join(dir, 'memories')
     await seedPromptFilesIfMissing(memoriesRoot)
     await writeMemoryEntry({
@@ -50,7 +54,9 @@ describe('context tools + trust class', () => {
     })
 
     const tools = buildContextToolSet(() => 'default')
-    const result = await tools.context_recall!.execute!(
+    const execute = tools.context_recall?.execute
+    expect(execute).toBeDefined()
+    const result = await execute!(
       { query: 'tabs' },
       { toolCallId: 't1', messages: [] },
     )
