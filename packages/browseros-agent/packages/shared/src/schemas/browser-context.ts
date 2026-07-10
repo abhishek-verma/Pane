@@ -50,6 +50,7 @@ export const BrowserContextSchema: z.ZodObject<{
   tabs: z.ZodOptional<z.ZodArray<typeof TabSchema>>
   enabledMcpServers: z.ZodOptional<z.ZodArray<z.ZodString>>
   customMcpServers: z.ZodOptional<z.ZodArray<typeof CustomMcpServerSchema>>
+  isPrivate: z.ZodOptional<z.ZodBoolean>
 }> = z.object({
   windowId: z.number().optional(),
   activeTab: TabSchema.optional(),
@@ -57,6 +58,8 @@ export const BrowserContextSchema: z.ZodObject<{
   tabs: z.array(TabSchema).optional(),
   enabledMcpServers: z.array(z.string()).optional(),
   customMcpServers: z.array(CustomMcpServerSchema).optional(),
+  /** True when the active window is an incognito/private profile. */
+  isPrivate: z.boolean().optional(),
 })
 
 export type BrowserContext = z.infer<typeof BrowserContextSchema>

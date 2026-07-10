@@ -597,3 +597,98 @@ describe('ChatService ACP provider chat history handling', () => {
     expect(agent.messages.at(-2)?.parts[0]?.text).toBe('now read foo.md')
   })
 })
+
+describe('ChatService tool approval resume', () => {
+  it('patches approval-requested parts and resumes without appending a user message', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const agent = createFakeAgent()
+    agent.toolNames = new Set(['filesystem_write'])
+    agent.messages.push(
+      {
+        id: 'user-1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'write hello.txt' }],
+      },
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-filesystem_write',
+            toolCallId: 'call-1',
+            state: 'approval-requested',
+            input: { path: 'hello.txt', content: 'hi' },
+            approval: { id: 'approval-1' },
+          } as never,
+        ],
+      },
+    )
+
+    let patchedAtStreamStart: {
+      state?: string
+      input?: Record<string, unknown>
+      approval?: { approved?: boolean }
+    } | null = null
+    let capturedUiMessages: MockMessage[] | undefined
+    agentToReturn = agent
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      // Capture patch state before onFinish may rewrite session messages.
+      patchedAtStreamStart = (agent.messages[1]?.parts[0] ?? null) as never
+      capturedUiMessages = uiMessages
+      await onFinish({
+        messages: (uiMessages ?? agent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent,
+      mcpServerKey: '',
+    } as never)
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: '',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+        toolApprovalResponses: [
+          {
+            approvalId: 'approval-1',
+            toolCallId: 'call-1',
+            toolName: 'filesystem_write',
+            approved: true,
+            input: { path: 'hello.txt', content: 'edited' },
+          },
+        ],
+      } as never,
+      new AbortController().signal,
+    )
+
+    expect(patchedAtStreamStart?.state).toBe('approval-responded')
+    expect(patchedAtStreamStart?.approval?.approved).toBe(true)
+    expect(patchedAtStreamStart?.input).toEqual({
+      path: 'hello.txt',
+      content: 'edited',
+    })
+    // No new user message appended on approval resume.
+    expect(agent.messages.map((m) => m.role)).toEqual(['user', 'assistant'])
+    expect(capturedUiMessages?.map((m) => m.role)).toEqual([
+      'user',
+      'assistant',
+    ])
+    const streamedTool = capturedUiMessages?.[1]?.parts[0] as unknown as {
+      state?: string
+    }
+    expect(streamedTool.state).toBe('approval-responded')
+  })
+})

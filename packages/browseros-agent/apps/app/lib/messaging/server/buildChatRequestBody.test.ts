@@ -83,4 +83,34 @@ describe('buildChatRequestBody', () => {
     expect(body.acpCommand).toBeUndefined()
     expect(body.acpFixedWorkspacePath).toBeUndefined()
   })
+
+  it('forwards toolApprovalResponses on approval resume', () => {
+    const responses = [
+      {
+        approvalId: 'approval-1',
+        toolCallId: 'call-1',
+        toolName: 'filesystem_write',
+        approved: true,
+        input: { path: 'hello.txt', content: 'hi' },
+      },
+    ]
+    const body = buildChatRequestBody({
+      conversationId: '6ff46e3b-e45a-40a4-9157-ca520e800f43',
+      provider,
+      message: '',
+      toolApprovalResponses: responses,
+      browserContext: { isPrivate: true },
+    })
+    expect(body.toolApprovalResponses).toEqual(responses)
+    expect(body.browserContext?.isPrivate).toBe(true)
+  })
+
+  it('omits empty toolApprovalResponses', () => {
+    const body = buildChatRequestBody({
+      conversationId: '6ff46e3b-e45a-40a4-9157-ca520e800f43',
+      provider,
+      toolApprovalResponses: [],
+    })
+    expect(body.toolApprovalResponses).toBeUndefined()
+  })
 })

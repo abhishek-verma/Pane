@@ -123,6 +123,7 @@ const buildRequestBrowserContext = ({
   action,
   enabledMcpServers,
   customMcpServers,
+  isPrivate,
 }: {
   activeTab?: chrome.tabs.Tab
   action?: ChatAction
@@ -131,6 +132,7 @@ const buildRequestBrowserContext = ({
     name: string
     url?: string
   }[]
+  isPrivate?: boolean
 }): ChatRequestBrowserContext | undefined => {
   const browserContext: ChatRequestBrowserContext = {}
 
@@ -158,6 +160,10 @@ const buildRequestBrowserContext = ({
 
   if (customMcpServers.length) {
     browserContext.customMcpServers = customMcpServers
+  }
+
+  if (isPrivate === true) {
+    browserContext.isPrivate = true
   }
 
   return Object.keys(browserContext).length ? browserContext : undefined
@@ -386,6 +392,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         const activeTabSelection = activeTab?.id
           ? (selectionMapRef.current[String(activeTab.id)] ?? null)
           : null
+        let isPrivate: boolean | undefined
+        if (activeTab?.windowId != null) {
+          try {
+            const win = await chrome.windows.get(activeTab.windowId)
+            isPrivate = win.incognito === true
+          } catch {
+            // Window may have closed between query and get; omit the flag.
+          }
+        }
         const currentMode = modeRef.current
         const enabledMcpServers = enabledMcpServersRef.current
         const customMcpServers = enabledCustomServersRef.current
@@ -396,6 +411,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           action,
           enabledMcpServers,
           customMcpServers,
+          isPrivate,
         })
 
         const declinedApps = await declinedAppsStorage.getValue()
@@ -841,11 +857,21 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         currentWindow: true,
       })
       const activeTab = activeTabsList?.[0]
+      let isPrivate: boolean | undefined
+      if (activeTab?.windowId != null) {
+        try {
+          const win = await chrome.windows.get(activeTab.windowId)
+          isPrivate = win.incognito === true
+        } catch {
+          // Window may have closed between query and get; omit the flag.
+        }
+      }
       const browserContext = buildRequestBrowserContext({
         activeTab,
         action: undefined,
         enabledMcpServers: enabledMcpServersRef.current,
         customMcpServers: enabledCustomServersRef.current,
+        isPrivate,
       })
 
       const result = await replayToolOnServer(baseUrl, {

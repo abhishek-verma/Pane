@@ -88,7 +88,8 @@ export interface TrustPin {
 
 export interface GateContext {
   pins: Partial<Record<ConsequenceClass, TrustPin>>
-  browserContext?: Pick<BrowserContext, 'activeTab'>
+  browserContext?: Pick<BrowserContext, 'activeTab' | 'isPrivate'>
+
   workspaceRoot?: string
   runConsequentialCount: { count: number }
   isNewUser: boolean
