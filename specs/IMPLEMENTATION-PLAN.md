@@ -177,6 +177,8 @@ Cloud sync, hosted credits/default-model, hosted skills marketplace, cloud-headl
 
 **Ship gate (Pane v0.4):** Pane persists memory (5 layers, files + SQLite index), recalls it in-loop, and auto-creates skills from repeated successful workflows (staged per the approval default), with a curation loop that prunes unused skills and stale memory. The prompt budget is enforced.
 
+> **Status:** ship gate met — see [`PHASE-4-REPORT.md`](./PHASE-4-REPORT.md).
+
 > **M4.1 — Memory store** `[seq]`
 > **What:** Files under `~/.browseros/memories/` (`soul.md`, `MEMORY.md`, `USER.md`, per-topic) + a `memory_entries` SQLite table (id, layer, bucket, content char-bounded, `last_surfaced`, `usefulness`).
 > **How to build:** New `@browseros/memory` package + `apps/server/src/memory/`. Files keep memory inspectable/editable; the index gives fast prompt loading. `soul.md` is the persona/identity layer (see M4.7). Memory survives DB corruption (files are the source of truth, index is rebuildable — §6.2).
@@ -416,5 +418,12 @@ Plan complete and saved to `specs/IMPLEMENTATION-PLAN.md`. Two execution options
 
 1. **Parallel Execution** — split independent (`[par]`) modules across workers within a phase, with review between modules; phases run sequentially.
 2. **Inline Execution** — execute modules in this session with checkpoints at each phase's Ship Gate.
+
+**Phase prompts (paste into a fresh agent):**
+- Phase 0: [`REBRAND-PLAN.md`](./REBRAND-PLAN.md)
+- Phase 1: [`PHASE-1-PROMPT.md`](./PHASE-1-PROMPT.md)
+- Phase 2: [`PHASE-2-PROMPT.md`](./PHASE-2-PROMPT.md)
+- Phase 3: [`PHASE-3-PROMPT.md`](./PHASE-3-PROMPT.md)
+- Phase 4: [`PHASE-4-PROMPT.md`](./PHASE-4-PROMPT.md)
 
 Which approach?
