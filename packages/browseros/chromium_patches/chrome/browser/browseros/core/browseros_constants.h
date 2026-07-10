@@ -28,13 +28,13 @@ index 0000000000000..550550ce68436
 +
 +// BrowserOS extension config URLs
 +inline constexpr char kBrowserOSConfigUrl[] =
-+    "https://cdn.browseros.com/extensions/extensions.json";
++    "https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/extensions/extensions.json";
 +inline constexpr char kBrowserOSAlphaConfigUrl[] =
-+    "https://cdn.browseros.com/extensions/extensions.alpha.json";
++    "https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/extensions/extensions.alpha.json";
 +
 +// Agent Extension ID
 +inline constexpr char kAgentExtensionId[] =
-+    "bflpfmnmnokmjhmgnolecpppdbdophmk";
++    "biedncddmddkpapdplhcnkhhplnfgbif";
 +
 +// Bug Reporter Extension ID
 +inline constexpr char kBugReporterExtensionId[] =
@@ -42,7 +42,7 @@ index 0000000000000..550550ce68436
 +
 +// BrowserClaw Extension ID
 +inline constexpr char kBrowserClawExtensionId[] =
-+    "pjimfkbpehlcllblajnpfamdfjhhlgkc";
++    "cmlhocfcmfhegcblpkphkcnoiglonenf";
 +
 +// uBlock Origin Extension ID (Chrome Web Store)
 +// inline constexpr char kUBlockOriginExtensionId[] =
@@ -52,9 +52,9 @@ index 0000000000000..550550ce68436
 +// Used for extensions installed from local .crx files that don't have
 +// an update_url in their manifest
 +inline constexpr char kBrowserOSUpdateUrl[] =
-+    "https://cdn.browseros.com/extensions/update-manifest.xml";
++    "https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/extensions/update-manifest.xml";
 +inline constexpr char kBrowserOSAlphaUpdateUrl[] =
-+    "https://cdn.browseros.com/extensions/update-manifest.alpha.xml";
++    "https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/extensions/update-manifest.alpha.xml";
 +
 +// chrome://browseros host constant
 +inline constexpr char kBrowserOSHost[] = "browseros";

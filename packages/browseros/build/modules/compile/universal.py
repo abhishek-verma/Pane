@@ -160,6 +160,16 @@ class UniversalBuildModule(CommandModule):
             MacOSPackageModule().execute(arch_ctx)
             log_success(f"✅ {arch} packaging complete")
 
+            # === SPARKLE SIGN PHASE ===
+            from ..sign.sparkle import SparkleSignModule
+
+            log_info(f"\n🔐 Sparkle-signing {arch} update artifacts...")
+            try:
+                SparkleSignModule().execute(arch_ctx)
+                log_success(f"✅ {arch} Sparkle signing complete")
+            except Exception as e:
+                log_warning(f"⚠️  {arch} Sparkle signing skipped: {e}")
+
             # === UPLOAD PHASE ===
             log_info(f"\n☁️  Uploading {arch} artifacts...")
             try:
@@ -198,6 +208,16 @@ class UniversalBuildModule(CommandModule):
         log_info("\n📦 Packaging universal build...")
         MacOSPackageModule().execute(universal_ctx)
         log_success("✅ Universal packaging complete")
+
+        # Sparkle-sign universal DMG
+        from ..sign.sparkle import SparkleSignModule
+
+        log_info("\n🔐 Sparkle-signing universal update artifacts...")
+        try:
+            SparkleSignModule().execute(universal_ctx)
+            log_success("✅ Universal Sparkle signing complete")
+        except Exception as e:
+            log_warning(f"⚠️  Universal Sparkle signing skipped: {e}")
 
         # Upload universal
         log_info("\n☁️  Uploading universal artifacts...")

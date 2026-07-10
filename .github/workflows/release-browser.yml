@@ -1,0 +1,173 @@
+name: Release Pane Browser
+
+on:
+  push:
+    tags:
+      - "browser/v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish, e.g. browser/v0.31.0
+        required: true
+        type: string
+
+concurrency:
+  group: release-browser
+  cancel-in-progress: false
+
+jobs:
+  authorize_manual_dispatch:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: release-core
+    steps:
+      - run: echo "Manual dispatch approved through release-core."
+
+  release:
+    needs: authorize_manual_dispatch
+    if: |
+      always() &&
+      (github.event_name != 'workflow_dispatch' || needs.authorize_manual_dispatch.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch || 'main' }}
+
+      - name: Resolve release metadata
+        id: release
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          ./packages/browseros-agent/scripts/release/resolve-component-release.sh \
+            --component browser \
+            --tag "$RELEASE_TAG" \
+            --default-branch "$DEFAULT_BRANCH"
+
+          VERSION="${RELEASE_TAG#browser/v}"
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          Maintainer browser release flow:
+          1. Build signed browser artifacts locally (\`uv run browseros build …\` — see packages/browseros/build/docs).
+          2. Bump browser version in a PR and merge to \`$DEFAULT_BRANCH\`.
+          3. \`git tag -a browser/v${VERSION} -m "browser v${VERSION}"\` and push the tag.
+          4. Upload DMG/installer/AppImage assets to the GitHub release created by this workflow.
+          5. Run the OTA signing flow to refresh \`updates/browser/appcast*.xml\` on \`main\`.
+          EOF
+        working-directory: ${{ github.workspace }}
+
+      - name: Checkout release commit
+        run: git checkout --detach "${{ steps.release.outputs.release_sha }}"
+        working-directory: ${{ github.workspace }}
+
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BROWSER_PATH="packages/browseros"
+          RELEASE_SHA="${{ steps.release.outputs.release_sha }}"
+          PREV_TAG="${{ steps.release.outputs.previous_tag }}"
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "Initial Pane browser release." > /tmp/release-notes.md
+          else
+            COMMITS=$(git log "$PREV_TAG..$RELEASE_SHA" --pretty=format:"%H" -- "$BROWSER_PATH")
+
+            if [ -z "$COMMITS" ]; then
+              echo "No notable changes." > /tmp/release-notes.md
+            else
+              echo "## What's Changed" > /tmp/release-notes.md
+              echo "" >> /tmp/release-notes.md
+
+              while IFS= read -r SHA; do
+                SUBJECT=$(git log -1 --pretty=format:"%s" "$SHA")
+                PR_NUM=$(gh api "/repos/${{ github.repository }}/commits/${SHA}/pulls" --jq '.[0].number // empty' 2>/dev/null)
+
+                if [ -n "$PR_NUM" ] && ! echo "$SUBJECT" | grep -qF "(#${PR_NUM})"; then
+                  echo "- ${SUBJECT} (#${PR_NUM})" >> /tmp/release-notes.md
+                else
+                  echo "- ${SUBJECT}" >> /tmp/release-notes.md
+                fi
+              done <<< "$COMMITS"
+            fi
+          fi
+
+          cat >> /tmp/release-notes.md <<'EOF'
+
+          ## Downloads
+
+          Upload signed artifacts to this release after the workflow completes:
+
+          - macOS arm64: `Pane-arm64.dmg` (or project-standard DMG name)
+          - macOS x86_64: `Pane-x86_64.dmg`
+          - Windows: `Pane_installer.exe`
+          - Linux: `Pane.AppImage` / `Pane.deb`
+
+          Auto-update feeds are served from `updates/browser/appcast*.xml` on the default branch.
+          EOF
+        working-directory: ${{ github.workspace }}
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.release.outputs.tag }}"
+          TITLE="Pane Browser - v${{ steps.release.outputs.version }}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes-file /tmp/release-notes.md
+          else
+            gh release create "$TAG" \
+              --verify-tag \
+              --title "$TITLE" \
+              --notes-file /tmp/release-notes.md
+          fi
+
+          if [ "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = "true" ]; then
+            gh release edit "$TAG" --draft=false
+          fi
+        working-directory: ${{ github.workspace }}
+
+      - name: Publish browser appcasts
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SPARKLE_PRIVATE_KEY:-}" ]; then
+            echo "::warning::SPARKLE_PRIVATE_KEY not set; skipping appcast generation"
+            exit 0
+          fi
+
+          VERSION="${{ steps.release.outputs.version }}"
+          TAG="${{ steps.release.outputs.tag }}"
+          ASSET_COUNT="$(gh release view "$TAG" --json assets --jq '.assets | length')"
+          if [ "$ASSET_COUNT" = "0" ]; then
+            echo "::warning::No release assets yet. Upload DMG/installer files, then re-run workflow_dispatch to publish appcasts."
+            exit 0
+          fi
+
+          python3 -m pip install -q -e packages/browseros
+          browseros ota browser appcast \
+            --version "$VERSION" \
+            --tag "$TAG" \
+            --output-dir "${GITHUB_WORKSPACE}/updates/browser"
+
+          "${GITHUB_WORKSPACE}/packages/browseros-agent/scripts/release/commit-updates-via-pr.sh" \
+            "$DEFAULT_BRANCH" \
+            "chore/browser-appcast-v${VERSION}" \
+            "chore: update browser appcasts for v${VERSION}" \
+            updates/browser/appcast.xml \
+            updates/browser/appcast-x86_64.xml \
+            updates/browser/appcast-win.xml \
+            updates/browser/appcast-win-arm64.xml
+        working-directory: ${{ github.workspace }}

@@ -12,7 +12,8 @@ from ..common.module import ValidationError
 from ..common.sparkle import sparkle_sign_file
 from ..common.utils import log_info, log_error, log_success
 
-from ..modules.ota import ServerOTAModule
+from ..modules.ota.browser_appcast import generate_browser_appcasts
+from ..modules.ota.github_server_appcast import generate_server_appcasts_from_github
 from ..modules.ota.common import (
     get_appcast_path,
     SERVER_PLATFORMS,
@@ -31,6 +32,13 @@ server_app = typer.Typer(
     pretty_exceptions_show_locals=False,
 )
 app.add_typer(server_app, name="server")
+
+browser_app = typer.Typer(
+    help="Pane Browser OTA commands (GitHub Releases)",
+    pretty_exceptions_enable=False,
+    pretty_exceptions_show_locals=False,
+)
+app.add_typer(browser_app, name="browser")
 
 
 def create_ota_context() -> Context:
@@ -205,6 +213,66 @@ def test_signing(
     log_info(f"   Length: {length}")
 
 
+@browser_app.command("appcast")
+def browser_appcast(
+    version: str = typer.Option(..., "--version", "-v", help="Browser semantic version"),
+    tag: Optional[str] = typer.Option(
+        None, "--tag", help="GitHub release tag (default: browser/v{version})"
+    ),
+    repo: str = typer.Option(
+        "abhishek-verma/Pane", "--repo", help="GitHub repository (owner/name)"
+    ),
+    output_dir: Path = typer.Option(
+        Path("updates/browser"),
+        "--output-dir",
+        help="Directory for appcast XML files",
+    ),
+):
+    """Generate signed browser appcasts from a GitHub browser release."""
+    release_tag = tag or f"browser/v{version}"
+    package_root = Path(__file__).resolve().parents[2]
+
+    log_info(f"Generating browser appcasts for {release_tag}")
+    written = generate_browser_appcasts(
+        version=version,
+        tag=release_tag,
+        repo=repo,
+        package_root=package_root,
+        output_dir=output_dir,
+    )
+    log_success(f"Wrote {len(written)} appcast file(s) to {output_dir}")
+
+
+@server_app.command("github-appcast")
+def server_github_appcast(
+    version: str = typer.Option(..., "--version", "-v", help="Server semantic version"),
+    tag: Optional[str] = typer.Option(
+        None, "--tag", help="GitHub release tag (default: agent-server/v{version})"
+    ),
+    repo: str = typer.Option(
+        "abhishek-verma/Pane", "--repo", help="GitHub repository (owner/name)"
+    ),
+    channel: str = typer.Option(
+        "prod", "--channel", "-c", help="Release channel: alpha or prod"
+    ),
+    output_dir: Path = typer.Option(
+        Path("updates/server"),
+        "--output-dir",
+        help="Directory for server appcast XML",
+    ),
+):
+    """Generate signed server appcasts from a GitHub agent-server release."""
+    release_tag = tag or f"agent-server/v{version}"
+    output_path = generate_server_appcasts_from_github(
+        version=version,
+        tag=release_tag,
+        repo=repo,
+        channel=channel,
+        output_dir=output_dir,
+    )
+    log_success(f"Wrote {output_path}")
+
+
 @server_app.callback(invoke_without_command=True)
 def server_main(ctx: typer.Context):
     """BrowserOS Server OTA commands
@@ -236,10 +304,17 @@ def main(ctx: typer.Context):
       browseros ota server release --version 0.0.36
       browseros ota server release-appcast --channel alpha
       browseros ota server list-platforms
+    \b
+    Browser appcasts (GitHub Releases):
+      browseros ota browser appcast --version 0.47.0.1
+
+    \b
+    Server appcasts (GitHub Releases):
+      browseros ota server github-appcast --version 0.0.97
     """
     if ctx.invoked_subcommand is None:
         typer.echo("Use --help for usage information")
-        typer.echo("Available subcommands: server")
+        typer.echo("Available subcommands: server, browser")
         raise typer.Exit(0)
 
 

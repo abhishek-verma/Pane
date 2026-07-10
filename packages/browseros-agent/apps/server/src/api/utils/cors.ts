@@ -10,7 +10,7 @@ import { logger } from '../../lib/logger'
 export type CorsOptions = Parameters<typeof cors>[0]
 
 const STATIC_ALLOWED_ORIGINS = new Set<string>([
-  'chrome-extension://bflpfmnmnokmjhmgnolecpppdbdophmk',
+  'chrome-extension://biedncddmddkpapdplhcnkhhplnfgbif',
 ])
 const EXTENSION_PROTOCOLS = new Set(['chrome-extension:', 'moz-extension:'])
 

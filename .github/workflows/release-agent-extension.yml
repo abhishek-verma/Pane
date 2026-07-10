@@ -76,19 +76,53 @@ jobs:
       - name: Build and zip extension
         run: bun run codegen && bun run zip
         env:
-          VITE_PUBLIC_BROWSEROS_API: https://api.browseros.com
+          PANE_BUILD: "true"
 
-      - name: Get zip path
+      - name: Prepare release artifacts
         id: artifact
+        env:
+          AGENT_EXTENSION_PRIVATE_KEY: ${{ secrets.AGENT_EXTENSION_PRIVATE_KEY }}
         run: |
           set -euo pipefail
+          VERSION="${{ steps.release.outputs.version }}"
           ZIP_FILE=$(find "$(pwd)/dist" -maxdepth 1 -type f -name '*-chrome.zip' | sort | sed -n '1p')
           if [ -z "$ZIP_FILE" ]; then
             echo "::error::No Chrome extension zip found in $(pwd)/dist"
             exit 1
           fi
-          echo "zip_path=$ZIP_FILE" >> "$GITHUB_OUTPUT"
-          echo "zip_name=$(basename "$ZIP_FILE")" >> "$GITHUB_OUTPUT"
+          RELEASE_ZIP="pane-agent-${VERSION}-chrome.zip"
+          cp "$ZIP_FILE" "$RELEASE_ZIP"
+          echo "zip_path=$(pwd)/$RELEASE_ZIP" >> "$GITHUB_OUTPUT"
+
+          if [ -n "${AGENT_EXTENSION_PRIVATE_KEY:-}" ]; then
+            bun run ../../scripts/release/pack-extension-crx.ts \
+              --zip "$(pwd)/$RELEASE_ZIP" \
+              --output "$(pwd)/pane-agent-${VERSION}.crx" \
+              --private-key-env AGENT_EXTENSION_PRIVATE_KEY
+            echo "crx_path=$(pwd)/pane-agent-${VERSION}.crx" >> "$GITHUB_OUTPUT"
+            echo "codebase_asset=pane-agent-${VERSION}.crx" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::AGENT_EXTENSION_PRIVATE_KEY not set; publishing zip only (browser bundling requires CRX)"
+            echo "codebase_asset=$RELEASE_ZIP" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: packages/browseros-agent/apps/app
+
+      - name: Generate update manifest
+        id: update_manifest
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.release.outputs.version }}"
+          TAG="${{ steps.release.outputs.tag }}"
+          CODEBASE="https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.codebase_asset }}"
+          MANIFEST_PATH="${GITHUB_WORKSPACE}/updates/extensions/update-manifest.xml"
+          bun run scripts/release/generate-extension-update-manifest.ts \
+            --app-id biedncddmddkpapdplhcnkhhplnfgbif \
+            --version "$VERSION" \
+            --codebase "$CODEBASE" \
+            --output "$MANIFEST_PATH" \
+            --merge-from "$MANIFEST_PATH"
+          echo "manifest_path=$MANIFEST_PATH" >> "$GITHUB_OUTPUT"
+        working-directory: packages/browseros-agent
 
       - name: Generate release notes
         env:
@@ -131,18 +165,48 @@ jobs:
           set -euo pipefail
           TAG="${{ steps.release.outputs.tag }}"
           TITLE="Pane Extension - v${{ steps.release.outputs.version }}"
+          ASSETS=("${{ steps.artifact.outputs.zip_path }}")
+          if [ -n "${{ steps.artifact.outputs.crx_path }}" ]; then
+            ASSETS+=("${{ steps.artifact.outputs.crx_path }}")
+          fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists, updating"
             gh release edit "$TAG" --title "$TITLE" --notes-file /tmp/release-notes.md
-            gh release upload "$TAG" "${{ steps.artifact.outputs.zip_path }}" --clobber
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
           else
             gh release create "$TAG" \
               --verify-tag \
               --title "$TITLE" \
               --notes-file /tmp/release-notes.md \
-              "${{ steps.artifact.outputs.zip_path }}"
+              "${ASSETS[@]}"
           fi
+        working-directory: ${{ github.workspace }}
+
+      - name: Update extension manifests via PR
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.release.outputs.version }}"
+          cp "${{ steps.update_manifest.outputs.manifest_path }}" /tmp/update-manifest.xml
+          cp /tmp/update-manifest.xml /tmp/bundled-manifest.xml
+          bun -e "
+          const fs = require('node:fs');
+          const xml = fs.readFileSync('/tmp/bundled-manifest.xml', 'utf8');
+          const agentBlock = xml.match(/<app appid=\\\"biedncddmddkpapdplhcnkhhplnfgbif\\\">[\\s\\S]*?<\\/app>/);
+          if (!agentBlock) throw new Error('agent extension block missing');
+          fs.writeFileSync('/tmp/bundled-manifest.xml', \`<?xml version='1.0' encoding='UTF-8'?>\\n<gupdate xmlns=\\\"http://www.google.com/update2/response\\\" protocol=\\\"2.0\\\">\\n\${agentBlock[0]}\\n</gupdate>\\n\`);
+          "
+          cp /tmp/update-manifest.xml updates/extensions/update-manifest.xml
+          cp /tmp/bundled-manifest.xml updates/extensions/bundled-manifest.xml
+          packages/browseros-agent/scripts/release/commit-updates-via-pr.sh \
+            "$DEFAULT_BRANCH" \
+            "chore/extension-update-manifest-v${VERSION}" \
+            "chore: update extension manifests for v${VERSION}" \
+            updates/extensions/update-manifest.xml \
+            updates/extensions/bundled-manifest.xml
         working-directory: ${{ github.workspace }}
 
       - name: Update CHANGELOG.md via PR

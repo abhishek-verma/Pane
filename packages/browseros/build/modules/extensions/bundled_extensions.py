@@ -24,9 +24,23 @@ class ExtensionInfo(NamedTuple):
 
 REQUIRED_BUNDLED_EXTENSION_IDS: Dict[str, str] = {
     "adlpneommgkgeanpaekgoaolcpncohkf": "Pane bug reporter",
-    "bflpfmnmnokmjhmgnolecpppdbdophmk": "Pane agent",
-    "pjimfkbpehlcllblajnpfamdfjhhlgkc": "Pane Claw app",
+    "biedncddmddkpapdplhcnkhhplnfgbif": "Pane agent",
+    "cmlhocfcmfhegcblpkphkcnoiglonenf": "Pane Claw app",
 }
+
+PANE_BUNDLED_EXTENSION_IDS: Dict[str, str] = {
+    "biedncddmddkpapdplhcnkhhplnfgbif": "Pane agent",
+}
+
+
+def get_required_bundled_extension_ids() -> Dict[str, str]:
+    """Pane builds bundle only the agent extension (§9.7)."""
+    import os
+
+    pane_build = os.environ.get("PANE_BUILD", "true").lower()
+    if pane_build in ("1", "true", "yes"):
+        return PANE_BUNDLED_EXTENSION_IDS
+    return REQUIRED_BUNDLED_EXTENSION_IDS
 
 
 class BundledExtensionsModule(CommandModule):
@@ -127,7 +141,7 @@ class BundledExtensionsModule(CommandModule):
         extension_ids = {ext.id for ext in extensions}
         missing = [
             f"{name} ({extension_id})"
-            for extension_id, name in REQUIRED_BUNDLED_EXTENSION_IDS.items()
+            for extension_id, name in get_required_bundled_extension_ids().items()
             if extension_id not in extension_ids
         ]
         if missing:
@@ -137,7 +151,13 @@ class BundledExtensionsModule(CommandModule):
             )
 
     def _download_extension(self, ext: ExtensionInfo, output_dir: Path) -> None:
-        """Download a single extension .crx file"""
+        """Download a single extension .crx file."""
+        if not ext.codebase.lower().endswith(".crx"):
+            raise RuntimeError(
+                f"Bundled extension {ext.id} must use a .crx codebase URL (got {ext.codebase}). "
+                "Pack CRX in the extension release workflow before browser builds."
+            )
+
         dest_filename = f"{ext.id}.crx"
         dest_path = output_dir / dest_filename
 

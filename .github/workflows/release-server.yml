@@ -314,3 +314,31 @@ jobs:
               "${ZIP_FILES[@]}"
           fi
         working-directory: ${{ github.workspace }}
+
+      - name: Publish server appcast
+        if: ${{ steps.options.outputs.publish_github_release == 'true' }}
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SPARKLE_PRIVATE_KEY:-}" ]; then
+            echo "::warning::SPARKLE_PRIVATE_KEY not set; skipping server appcast generation"
+            exit 0
+          fi
+
+          python3 -m pip install -q -e packages/browseros
+          browseros ota server github-appcast \
+            --version "$PACKAGE_VERSION" \
+            --tag "$RELEASE_TAG" \
+            --output-dir "${GITHUB_WORKSPACE}/updates/server"
+
+          "${GITHUB_WORKSPACE}/packages/browseros-agent/scripts/release/commit-updates-via-pr.sh" \
+            "$DEFAULT_BRANCH" \
+            "chore/server-appcast-v${PACKAGE_VERSION}" \
+            "chore: update server appcast for v${PACKAGE_VERSION}" \
+            updates/server/appcast-server.xml
+        working-directory: ${{ github.workspace }}

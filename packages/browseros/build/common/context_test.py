@@ -18,7 +18,7 @@ class GetAppPathTest(unittest.TestCase):
 
         self.assertEqual(
             ctx.get_extensions_manifest_url(),
-            "https://cdn.browseros.com/extensions/bundled-manifest.xml",
+            "https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/extensions/bundled-manifest.xml",
         )
 
     def test_arch_build_ignores_stale_universal_app(self):

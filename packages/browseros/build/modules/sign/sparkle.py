@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Sparkle/WinSparkle Ed25519 signing module for auto-update"""
 
+import json
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Tuple
 
 from ...common.module import CommandModule, ValidationError
 from ...common.context import Context
@@ -58,6 +60,7 @@ class SparkleSignModule(CommandModule):
 
         # Store signatures for upload module to access via ctx.artifacts
         ctx.artifacts["sparkle_signatures"] = signatures
+        _write_browser_release_metadata(ctx, signatures)
 
         log_success(f"✅ Signed {len(signatures)} artifact(s) with Sparkle")
 
@@ -97,3 +100,35 @@ def get_sparkle_signatures(ctx: Context) -> Dict[str, Tuple[str, int]]:
         Dict mapping filename to (signature, length) tuple
     """
     return ctx.artifacts.get("sparkle_signatures", {})
+
+
+def _write_browser_release_metadata(
+    ctx: Context, signatures: Dict[str, Tuple[str, int]]
+) -> None:
+    """Write release metadata for GitHub appcast generation workflows."""
+    if not signatures or not ctx.semantic_version:
+        return
+
+    try:
+        sparkle_version = ctx.get_sparkle_version()
+    except ValueError:
+        sparkle_version = ""
+
+    metadata = {
+        "version": ctx.get_semantic_version(),
+        "sparkle_version": sparkle_version,
+        "build_date": datetime.now(timezone.utc).isoformat(),
+        "artifacts": {
+            filename: {
+                "sparkle_signature": signature,
+                "sparkle_length": length,
+            }
+            for filename, (signature, length) in signatures.items()
+        },
+    }
+
+    dist_dir = ctx.get_dist_dir()
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    metadata_path = dist_dir / "pane-browser-release-metadata.json"
+    metadata_path.write_text(json.dumps(metadata, indent=2) + "\n")
+    log_info(f"  Wrote {metadata_path.name}")

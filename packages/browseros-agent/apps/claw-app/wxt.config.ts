@@ -12,7 +12,7 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'Pane Agents',
-    key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyXbY2XVCs1/yJqGd53ei1rHdoUGIvZ8uq+x9YKmUc+jnb6NogIrq0USPeRNb6uzszio45GR8BW0O0pgbFKmhlhrCwgs9gEW8mufksE29E1g8Q2ug1sowzj38X6jmitO4I9cBbQMx7+gJZJS8pS5DZ+V7Bl8Uka2LWHMTP/Pf10YjbeNNCA0wj6kQkkTb8lg80r5Vm+gFqyo2xDFaxj8lN2kE73yFBjCt6B4ycntXvnnUTPX4IJqH+eQuwsFWPuqdYEwdvaaIOQ+lCxcYyZusX58zhxr0pkMxQjnEoJqAk6Av5O/JiNIOZYzbwUjm6aA+p9j9/6xzvmG+Lvp74Dk9pwIDAQAB',
+    key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp9yMXtJyQ2p3TN+aY+tjFEYVPrNMduM9fSPa0ukmt0oAPU73UENUw2ePpZgJh1j6FS5Q6nJjiJWwTr3oz4cxiFtb3ZtCAzTtG/emHktUoNEeaX+ANjXSmSqe223I1Yr60tcIK1EcwJeBjoZFahQoMaANli5bFaokIEgCfFLvU+gEg4Qi/azDoAMe8gvQrvA40nsSxxI5Emw3A1uoSb2pwAtIF3sJ4cmpY/jYtjxkLR5KKMROBh3UDDMLRUxvuat1A4pjjJfMjYduW5NROP+xepQyZYOhmC+0+YxRCXukxDNKYx4A/OkxlvhGNrAn+tny7G8YZIde9FOAACkwD41UIQIDAQAB',
     permissions: [
       'browserOS',
       'storage',

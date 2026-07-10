@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>Pane (macOS arm64)</title>
+    <link>https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/browser/appcast.xml</link>
+    <description>Pane browser updates for Apple Silicon Macs</description>
+    <language>en</language>
+  </channel>
+</rss>

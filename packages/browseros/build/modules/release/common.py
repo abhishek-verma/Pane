@@ -149,13 +149,13 @@ def generate_appcast_item(
     type="application/octet-stream" />"""
 
     return f"""<item>
-  <title>BrowserOS - {version}</title>
+  <title>Pane - {version}</title>
   <description sparkle:format="plain-text">
   </description>
   <sparkle:version>{sparkle_version}</sparkle:version>
   <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
   <pubDate>{pub_date}</pubDate>
-  <link>https://browseros.com</link>
+  <link>https://github.com/abhishek-verma/Pane/releases</link>
   {enclosure}{footer}
 </item>"""
 
@@ -168,7 +168,7 @@ def generate_release_notes(version: str, metadata: Dict[str, Dict]) -> str:
             chromium_version = metadata[platform].get("chromium_version", "unknown")
             break
 
-    notes = f"""## BrowserOS v{version}
+    notes = f"""## Pane v{version}
 
 Chromium version: {chromium_version}
 

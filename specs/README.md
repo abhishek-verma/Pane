@@ -161,6 +161,7 @@ The **Context Graph** (02) is the center of gravity, **partitioned into context 
 | — | [Phase 3 Prompt](./PHASE-3-PROMPT.md) | Self-contained execution prompt for Phase 3 (Context Graph & Tasks). Grounded in Phase 2 as-shipped. |
 | — | [Phase 4 Prompt](./PHASE-4-PROMPT.md) | Self-contained execution prompt for Phase 4 (Memory & Skills). Grounded in Phase 3 as-shipped: replace `context_recall` stub, memories files + index, prompt budget, auto-skill staging, curation, `soul.md` personas, UI + CLI. Stops at Pane v0.4. |
 | — | [Phase 4 Report](./PHASE-4-REPORT.md) | As-shipped Phase 4 (Memory & Skills). Ship gate met; stop before Phase 5. |
+| — | [Phase 5 Prompt](./PHASE-5-PROMPT.md) | Self-contained execution prompt for Phase 5 (Proactive & Reach). Grounded in Phase 4 as-shipped: trigger engine, daily digest, macOS keep-alive, reach (OS push / SMTP / Telegram), approval-over-channel, run idempotency, adaptive home. Stops at Pane v0.5. |
 
 ---
 

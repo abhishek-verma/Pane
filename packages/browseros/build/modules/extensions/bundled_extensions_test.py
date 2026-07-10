@@ -7,12 +7,14 @@ import unittest
 from pathlib import Path
 
 from build.modules.extensions.bundled_extensions import (
+    PANE_BUNDLED_EXTENSION_IDS,
     REQUIRED_BUNDLED_EXTENSION_IDS,
     BundledExtensionsModule,
     ExtensionInfo,
+    get_required_bundled_extension_ids,
 )
 
-CLAW_EXTENSION_ID = "pjimfkbpehlcllblajnpfamdfjhhlgkc"
+CLAW_EXTENSION_ID = "cmlhocfcmfhegcblpkphkcnoiglonenf"
 
 
 class BundledExtensionsManifestTest(unittest.TestCase):
@@ -27,20 +29,10 @@ class BundledExtensionsManifestTest(unittest.TestCase):
         self.assertEqual(
             extensions,
             [
-                (
-                    "adlpneommgkgeanpaekgoaolcpncohkf",
-                    "52.0.0.0",
-                    "https://cdn.browseros.com/extensions/bugreporter-52.0.0.0.crx",
-                ),
-                (
-                    "bflpfmnmnokmjhmgnolecpppdbdophmk",
-                    "0.0.115.0",
-                    "https://cdn.browseros.com/extensions/agent-0.0.115.0.crx",
-                ),
-                (
-                    CLAW_EXTENSION_ID,
-                    "0.0.1",
-                    "https://cdn.browseros.com/extensions/browserclaw-0.0.1.crx",
+                ExtensionInfo(
+                    id="biedncddmddkpapdplhcnkhhplnfgbif",
+                    version="0.0.100",
+                    codebase="https://github.com/abhishek-verma/Pane/releases/download/agent-extension/v0.0.100/pane-agent-0.0.100.crx",
                 ),
             ],
         )
@@ -49,10 +41,20 @@ class BundledExtensionsManifestTest(unittest.TestCase):
         self.assertEqual(
             REQUIRED_BUNDLED_EXTENSION_IDS,
             {
-                "adlpneommgkgeanpaekgoaolcpncohkf": "BrowserOS bug reporter",
-                "bflpfmnmnokmjhmgnolecpppdbdophmk": "BrowserOS agent",
-                CLAW_EXTENSION_ID: "BrowserOS Claw app",
+                "adlpneommgkgeanpaekgoaolcpncohkf": "Pane bug reporter",
+                "biedncddmddkpapdplhcnkhhplnfgbif": "Pane agent",
+                CLAW_EXTENSION_ID: "Pane Claw app",
             },
+        )
+
+    def test_pane_build_requires_agent_only(self) -> None:
+        self.assertEqual(
+            PANE_BUNDLED_EXTENSION_IDS,
+            {"biedncddmddkpapdplhcnkhhplnfgbif": "Pane agent"},
+        )
+        self.assertEqual(
+            get_required_bundled_extension_ids(),
+            PANE_BUNDLED_EXTENSION_IDS,
         )
 
     def test_generated_json_maps_claw_id_to_crx(self) -> None:
@@ -82,7 +84,9 @@ class BundledExtensionsManifestTest(unittest.TestCase):
             },
         )
 
-    def test_missing_claw_app_fails_validation(self) -> None:
+    def test_missing_claw_app_fails_validation_when_not_pane_build(self) -> None:
+        import os
+
         extensions = [
             ExtensionInfo(
                 id="adlpneommgkgeanpaekgoaolcpncohkf",
@@ -90,17 +94,35 @@ class BundledExtensionsManifestTest(unittest.TestCase):
                 codebase="https://cdn.browseros.com/extensions/bugreporter.crx",
             ),
             ExtensionInfo(
-                id="bflpfmnmnokmjhmgnolecpppdbdophmk",
+                id="biedncddmddkpapdplhcnkhhplnfgbif",
                 version="0.0.115.0",
                 codebase="https://cdn.browseros.com/extensions/agent.crx",
             ),
         ]
 
-        with self.assertRaisesRegex(
-            RuntimeError,
-            f"BrowserOS Claw app \\({CLAW_EXTENSION_ID}\\)",
-        ):
-            BundledExtensionsModule()._validate_required_extensions(extensions)
+        old = os.environ.get("PANE_BUILD")
+        os.environ["PANE_BUILD"] = "false"
+        try:
+            with self.assertRaisesRegex(
+                RuntimeError,
+                f"Pane Claw app \\({CLAW_EXTENSION_ID}\\)",
+            ):
+                BundledExtensionsModule()._validate_required_extensions(extensions)
+        finally:
+            if old is None:
+                os.environ.pop("PANE_BUILD", None)
+            else:
+                os.environ["PANE_BUILD"] = old
+
+    def test_pane_build_allows_agent_only_manifest(self) -> None:
+        extensions = [
+            ExtensionInfo(
+                id="biedncddmddkpapdplhcnkhhplnfgbif",
+                version="0.0.100",
+                codebase="https://github.com/abhishek-verma/Pane/releases/download/agent-extension/v0.0.100/pane-agent-0.0.100.crx",
+            ),
+        ]
+        BundledExtensionsModule()._validate_required_extensions(extensions)
 
 
 if __name__ == "__main__":

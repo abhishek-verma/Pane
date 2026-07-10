@@ -61,7 +61,7 @@ bun scripts/dev/inspect-ui.ts targets
 
 You will see targets like:
 - `[service_worker]` — extension background scripts (not directly testable for UI)
-- `[page] chrome-extension://bflpfmnmnokmjhmgnolecpppdbdophmk/app.html#/...` — **New tab page (left sidebar)**
+- `[page] chrome-extension://biedncddmddkpapdplhcnkhhplnfgbif/app.html#/...` — **New tab page (left sidebar)**
 - `[page] sidepanel.html` — **Right side panel (chat)**
 
 The two main testable surfaces:

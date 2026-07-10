@@ -425,5 +425,6 @@ Plan complete and saved to `specs/IMPLEMENTATION-PLAN.md`. Two execution options
 - Phase 2: [`PHASE-2-PROMPT.md`](./PHASE-2-PROMPT.md)
 - Phase 3: [`PHASE-3-PROMPT.md`](./PHASE-3-PROMPT.md)
 - Phase 4: [`PHASE-4-PROMPT.md`](./PHASE-4-PROMPT.md)
+- Phase 5: [`PHASE-5-PROMPT.md`](./PHASE-5-PROMPT.md)
 
 Which approach?

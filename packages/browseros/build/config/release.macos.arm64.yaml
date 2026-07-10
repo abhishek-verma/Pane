@@ -38,6 +38,7 @@ modules:
   # Phase 4: Sign & Package
   - sign_macos
   - package_macos
+  - sparkle_sign
 
   # Phase 5: Upload
   - upload
@@ -49,6 +50,7 @@ required_envs:
   - PROD_MACOS_NOTARIZATION_APPLE_ID
   - PROD_MACOS_NOTARIZATION_TEAM_ID
   - PROD_MACOS_NOTARIZATION_PWD
+  - SPARKLE_PRIVATE_KEY
 
 # Notification settings
 notifications:

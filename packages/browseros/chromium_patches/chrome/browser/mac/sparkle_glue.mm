@@ -32,12 +32,10 @@ index 0000000000000..25c4843095e4f
 +namespace {
 +
 +NSString* GetArchitectureSpecificFeedURL() {
-+  const char* kBaseURL = "https://cdn.browseros.com/";
-+
 +  if (base::SysInfo::OperatingSystemArchitecture() == "x86_64") {
-+    return [NSString stringWithFormat:@"%sappcast-x86_64.xml", kBaseURL];
++    return @"https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/browser/appcast-x86_64.xml";
 +  }
-+  return [NSString stringWithFormat:@"%sappcast.xml", kBaseURL];
++  return @"https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/browser/appcast.xml";
 +}
 +
 +bool IsOnReadOnlyFilesystem(NSString* path) {

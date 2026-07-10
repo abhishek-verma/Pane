@@ -1,0 +1,157 @@
+name: Release Pane Claw Extension
+
+on:
+  push:
+    tags:
+      - "claw-extension/v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish, e.g. claw-extension/v0.0.1
+        required: true
+        type: string
+
+concurrency:
+  group: release-claw-extension
+  cancel-in-progress: false
+
+jobs:
+  authorize_manual_dispatch:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: release-core
+    steps:
+      - run: echo "Manual dispatch approved through release-core."
+
+  release:
+    needs: authorize_manual_dispatch
+    if: |
+      always() &&
+      (github.event_name != 'workflow_dispatch' || needs.authorize_manual_dispatch.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: packages/browseros-agent/apps/claw-app
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch || 'main' }}
+
+      - name: Resolve release metadata
+        id: release
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          ./scripts/release/resolve-component-release.sh \
+            --component claw-extension \
+            --tag "$RELEASE_TAG" \
+            --default-branch "$DEFAULT_BRANCH"
+        working-directory: packages/browseros-agent
+
+      - name: Checkout release commit
+        run: git checkout --detach "${{ steps.release.outputs.release_sha }}"
+        working-directory: ${{ github.workspace }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun ci
+        working-directory: packages/browseros-agent
+
+      - name: Build and zip extension
+        run: bun run zip
+
+      - name: Prepare release artifacts
+        id: artifact
+        env:
+          CLAW_EXTENSION_PRIVATE_KEY: ${{ secrets.CLAW_EXTENSION_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.release.outputs.version }}"
+          ZIP_FILE=$(find "$(pwd)/dist" -maxdepth 1 -type f -name '*-chrome.zip' | sort | sed -n '1p')
+          if [ -z "$ZIP_FILE" ]; then
+            echo "::error::No Chrome extension zip found in $(pwd)/dist"
+            exit 1
+          fi
+          RELEASE_ZIP="pane-claw-${VERSION}-chrome.zip"
+          cp "$ZIP_FILE" "$RELEASE_ZIP"
+          echo "zip_path=$(pwd)/$RELEASE_ZIP" >> "$GITHUB_OUTPUT"
+
+          if [ -n "${CLAW_EXTENSION_PRIVATE_KEY:-}" ]; then
+            bun run ../../scripts/release/pack-extension-crx.ts \
+              --zip "$(pwd)/$RELEASE_ZIP" \
+              --output "$(pwd)/pane-claw-${VERSION}.crx" \
+              --private-key-env CLAW_EXTENSION_PRIVATE_KEY
+            echo "crx_path=$(pwd)/pane-claw-${VERSION}.crx" >> "$GITHUB_OUTPUT"
+            echo "codebase_asset=pane-claw-${VERSION}.crx" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::CLAW_EXTENSION_PRIVATE_KEY not set; publishing zip only"
+            echo "codebase_asset=$RELEASE_ZIP" >> "$GITHUB_OUTPUT"
+          fi
+        working-directory: packages/browseros-agent
+
+      - name: Generate update manifest
+        id: update_manifest
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.release.outputs.version }}"
+          TAG="${{ steps.release.outputs.tag }}"
+          CODEBASE="https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.codebase_asset }}"
+          MANIFEST_PATH="${GITHUB_WORKSPACE}/updates/extensions/update-manifest.xml"
+          bun run scripts/release/generate-extension-update-manifest.ts \
+            --app-id cmlhocfcmfhegcblpkphkcnoiglonenf \
+            --version "$VERSION" \
+            --codebase "$CODEBASE" \
+            --output "$MANIFEST_PATH" \
+            --merge-from "$MANIFEST_PATH"
+          echo "manifest_path=$MANIFEST_PATH" >> "$GITHUB_OUTPUT"
+        working-directory: packages/browseros-agent
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.release.outputs.tag }}"
+          TITLE="Pane Claw Extension - v${{ steps.release.outputs.version }}"
+          ASSETS=("${{ steps.artifact.outputs.zip_path }}")
+          if [ -n "${{ steps.artifact.outputs.crx_path }}" ]; then
+            ASSETS+=("${{ steps.artifact.outputs.crx_path }}")
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes "Pane Claw extension release v${{ steps.release.outputs.version }}"
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+          else
+            gh release create "$TAG" \
+              --verify-tag \
+              --title "$TITLE" \
+              --notes "Pane Claw extension release v${{ steps.release.outputs.version }}" \
+              "${ASSETS[@]}"
+          fi
+        working-directory: ${{ github.workspace }}
+
+      - name: Update extension manifests via PR
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.release.outputs.version }}"
+          cp "${{ steps.update_manifest.outputs.manifest_path }}" /tmp/update-manifest.xml
+          git fetch origin "$DEFAULT_BRANCH" --no-tags
+          git checkout -B "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH"
+          cp /tmp/update-manifest.xml updates/extensions/update-manifest.xml
+          packages/browseros-agent/scripts/release/commit-updates-via-pr.sh \
+            "$DEFAULT_BRANCH" \
+            "chore/claw-extension-update-manifest-v${VERSION}" \
+            "chore: update extension manifests for claw v${VERSION}" \
+            updates/extensions/update-manifest.xml
+        working-directory: ${{ github.workspace }}

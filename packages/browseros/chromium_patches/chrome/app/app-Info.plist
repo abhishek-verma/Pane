@@ -7,7 +7,7 @@ index 6fada0a2b1a1f..703744625728c 100644
  		<string>_googlecast._tcp</string>
  	</array>
 +  <key>SUPublicEDKey</key>
-+  <string>LzQmcNuTsdB3/dsivo0eeN+jPfDoriRHAkkEJcfFs2A=</string>
++  <string>PkPTXm78PHsXS0nHkUp5R9EyQWxmPMOBm8JYqVt444s=</string>
 +  <key>SUEnableAutomaticChecks</key>
 +  <true/>
 +  <key>SUScheduledCheckInterval</key>

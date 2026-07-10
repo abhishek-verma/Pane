@@ -136,13 +136,13 @@ jobs:
           ### macOS / Linux
 
           ```bash
-          curl -fsSL https://cdn.browseros.com/cli/install.sh | bash
+          curl -fsSL https://raw.githubusercontent.com/abhishek-verma/Pane/main/packages/browseros-agent/apps/cli/scripts/install.sh | bash
           ```
 
           ### Windows
 
           ```powershell
-          irm https://cdn.browseros.com/cli/install.ps1 | iex
+          irm https://raw.githubusercontent.com/abhishek-verma/Pane/main/packages/browseros-agent/apps/cli/scripts/install.ps1 | iex
           ```
 
           After install, run `browseros-cli init` to point the CLI at your Pane MCP server.

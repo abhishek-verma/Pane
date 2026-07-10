@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'EOF'
-Usage: resolve-component-release.sh --component agent-extension|agent-server --tag <tag> --default-branch <branch>
+Usage: resolve-component-release.sh --component agent-extension|agent-server|claw-extension|browser --tag <tag> --default-branch <branch>
 EOF
 }
 
@@ -52,6 +52,19 @@ case "$component" in
     new_prefix="agent-server/v"
     legacy_prefix="browseros-server-v"
     package_json="apps/server/package.json"
+    version_file=""
+    ;;
+  claw-extension)
+    new_prefix="claw-extension/v"
+    legacy_prefix="claw-extension-v"
+    package_json="apps/claw-app/package.json"
+    version_file=""
+    ;;
+  browser)
+    new_prefix="browser/v"
+    legacy_prefix="BrowserOS-v"
+    package_json=""
+    version_file="packages/browseros/resources/BROWSEROS_VERSION"
     ;;
   *)
     echo "Unsupported component: $component" >&2
@@ -61,7 +74,7 @@ case "$component" in
 esac
 
 is_semver() {
-  [[ "$1" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+  [[ "$1" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))?$ ]]
 }
 
 extract_version() {
@@ -135,14 +148,44 @@ fi
 release_sha="$(git rev-list -n 1 "$tag")"
 
 if ! package_version="$(
-  git show "$release_sha:$package_json" 2>/dev/null | python3 -c '
+  if [ -n "$package_json" ]; then
+    git show "$release_sha:$package_json" 2>/dev/null | python3 -c '
 import json
 import sys
 
 print(json.load(sys.stdin)["version"])
 '
+  else
+    git show "$release_sha:$version_file" 2>/dev/null | python3 -c '
+import re
+import sys
+
+text = sys.stdin.read()
+
+def read_int(key: str) -> int:
+    match = re.search(rf"^{re.escape(key)}=(\\d+)$", text, re.MULTILINE)
+    if match is None:
+        raise SystemExit(f"Missing {key}")
+    return int(match.group(1))
+
+major = read_int("BROWSEROS_MAJOR")
+minor = read_int("BROWSEROS_MINOR")
+build = read_int("BROWSEROS_BUILD")
+patch = read_int("BROWSEROS_PATCH")
+if patch != 0:
+    print(f"{major}.{minor}.{build}.{patch}")
+elif build != 0:
+    print(f"{major}.{minor}.{build}")
+else:
+    print(f"{major}.{minor}.0")
+'
+  fi
 )"; then
-  echo "Could not read $package_json version from $tag ($release_sha)" >&2
+  if [ -n "$package_json" ]; then
+    echo "Could not read $package_json version from $tag ($release_sha)" >&2
+  else
+    echo "Could not read $version_file version from $tag ($release_sha)" >&2
+  fi
   exit 1
 fi
 

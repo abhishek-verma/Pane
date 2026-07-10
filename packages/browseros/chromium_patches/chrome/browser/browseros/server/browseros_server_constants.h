@@ -17,9 +17,9 @@ index 0000000000000..d2c8229f8c805
 +
 +// Appcast URLs for checking server updates
 +inline constexpr char kDefaultAppcastUrl[] =
-+    "https://cdn.browseros.com/appcast-server.xml";
++    "https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/server/appcast-server.xml";
 +inline constexpr char kAlphaAppcastUrl[] =
-+    "https://cdn.browseros.com/appcast-server.alpha.xml";
++    "https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/server/appcast-server.alpha.xml";
 +
 +// Interval between update checks
 +inline constexpr base::TimeDelta kUpdateCheckInterval = base::Minutes(15);
@@ -27,7 +27,7 @@ index 0000000000000..d2c8229f8c805
 +// Ed25519 public key for signature verification (base64-encoded)
 +// This key verifies the authenticity of downloaded server binaries.
 +inline constexpr char kServerUpdatePublicKey[] =
-+    "LzQmcNuTsdB3/dsivo0eeN+jPfDoriRHAkkEJcfFs2A=";
++    "PkPTXm78PHsXS0nHkUp5R9EyQWxmPMOBm8JYqVt444s=";
 +
 +// Maximum number of old versions to keep in the versions directory
 +inline constexpr int kMaxVersionsToKeep = 2;

@@ -1,0 +1,18 @@
+{
+  "generatedAt": "2026-07-10T15:35:47.882699+00:00",
+  "product": "Pane",
+  "sparkle": {
+    "publicKeyBase64": "PkPTXm78PHsXS0nHkUp5R9EyQWxmPMOBm8JYqVt444s=",
+    "note": "SUPublicEDKey / WinSparkle / server OTA verification"
+  },
+  "extensions": {
+    "agent": {
+      "id": "biedncddmddkpapdplhcnkhhplnfgbif",
+      "manifestKeyBase64": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlY1Gvw+23owlqrSryUIiEChBhPpL4tZW8H4wYfu1PSQ8m8gR7ufXropxqGmR4EzSIlOI7ojivzeapdB2GoHyx5sfZgd23pecLdddPqKVMONGU2cx3ZgCu4jujcT43DNuGJRg026qIaPo4nbRpO8JAAyJKApCtrXUpr+1SzPFHQYdWhACSadWF/jc2JVjfgXY75izBwe/cJ6PRXS6IUOqwk99wQY9pJtXLp0yX7xU/Y03aByrnIJrz3T5BnQsA/1JMvWOYBtqJzVD6F3TBE8xEqGBGB+AGKHBrP65BpaM16A3wm3t8X76P1hkYiD2ZywuPD+n1ZfFvUVyTA3AjQjjMwIDAQAB"
+    },
+    "claw": {
+      "id": "cmlhocfcmfhegcblpkphkcnoiglonenf",
+      "manifestKeyBase64": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp9yMXtJyQ2p3TN+aY+tjFEYVPrNMduM9fSPa0ukmt0oAPU73UENUw2ePpZgJh1j6FS5Q6nJjiJWwTr3oz4cxiFtb3ZtCAzTtG/emHktUoNEeaX+ANjXSmSqe223I1Yr60tcIK1EcwJeBjoZFahQoMaANli5bFaokIEgCfFLvU+gEg4Qi/azDoAMe8gvQrvA40nsSxxI5Emw3A1uoSb2pwAtIF3sJ4cmpY/jYtjxkLR5KKMROBh3UDDMLRUxvuat1A4pjjJfMjYduW5NROP+xepQyZYOhmC+0+YxRCXukxDNKYx4A/OkxlvhGNrAn+tny7G8YZIde9FOAACkwD41UIQIDAQAB"
+    }
+  }
+}

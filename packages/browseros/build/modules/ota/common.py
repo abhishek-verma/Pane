@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
+from ...common.pane_releases import (
+    PANE_SERVER_APPCAST_ALPHA_URL,
+    PANE_SERVER_APPCAST_URL,
+    github_release_download_url,
+)
 from ...common.utils import log_error, log_info, log_success
 
 # Re-exported so callers (and ota/__init__.py) can get sparkle_sign_file
@@ -182,11 +187,11 @@ def generate_server_appcast(
         - If existing has different version or is None: use only new artifacts
     """
     if channel == "alpha":
-        title = "BrowserOS Server (Alpha)"
-        appcast_url = "https://cdn.browseros.com/appcast-server.alpha.xml"
+        title = "Pane Server (Alpha)"
+        appcast_url = PANE_SERVER_APPCAST_ALPHA_URL
     else:
-        title = "BrowserOS Server"
-        appcast_url = "https://cdn.browseros.com/appcast-server.xml"
+        title = "Pane Server"
+        appcast_url = PANE_SERVER_APPCAST_URL
 
     # Determine pubDate and merged artifacts
     if existing is not None and existing.version == version:
@@ -214,7 +219,10 @@ def generate_server_appcast(
             comment = f"macOS {artifact.arch}"
 
         zip_filename = f"browseros_server_{version}_{artifact.platform}.zip"
-        url = f"https://cdn.browseros.com/server/{zip_filename}"
+        url = github_release_download_url(
+            f"agent-server/v{version}",
+            zip_filename,
+        )
 
         enclosure = ENCLOSURE_TEMPLATE.format(
             comment=comment,

@@ -45,15 +45,16 @@ index 0000000000000..869ed71be8869
 +// chrome/app/app-Info.plist); the BrowserOS release pipeline signs all
 +// platforms' artifacts with the one key.
 +constexpr char kEdDSAPublicKey[] =
-+    "LzQmcNuTsdB3/dsivo0eeN+jPfDoriRHAkkEJcfFs2A=";
++    "PkPTXm78PHsXS0nHkUp5R9EyQWxmPMOBm8JYqVt444s=";
 +
 +// Windows builds are single-arch, so the feed is chosen at compile time
 +// (macOS picks at runtime because of universal binaries).
 +#if defined(ARCH_CPU_ARM64)
 +constexpr char kAppcastURL[] =
-+    "https://cdn.browseros.com/appcast-win-arm64.xml";
++    "https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/browser/appcast-win-arm64.xml";
 +#else
-+constexpr char kAppcastURL[] = "https://cdn.browseros.com/appcast-win.xml";
++constexpr char kAppcastURL[] =
++    "https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/browser/appcast-win.xml";
 +#endif
 +
 +// Matches SUScheduledCheckInterval on macOS; also WinSparkle's minimum.

@@ -28,7 +28,7 @@ gclient.json
 AGENTS.md
 **/resources/binaries/
 
-packages/browseros/build/tools/
+secrets/pane-release/
 
 # AI SDK DevTools traces
 .devtools/
