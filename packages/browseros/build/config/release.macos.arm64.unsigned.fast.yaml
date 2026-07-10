@@ -12,7 +12,6 @@ gn_flags:
 
 modules:
   - sparkle_setup
-  - download_resources
   - resources
   - bundled_extensions
   - chromium_replace

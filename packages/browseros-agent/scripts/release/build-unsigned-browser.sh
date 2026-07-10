@@ -68,6 +68,7 @@ case "$PLATFORM" in
 esac
 
 cd "$BROWSEROS"
+"$ROOT/packages/browseros-agent/scripts/release/stage-pane-browser-resources.sh" darwin-arm64
 uv sync
 uv run browseros build --config "$CONFIG" --chromium-src "$CHROMIUM_SRC"
 
