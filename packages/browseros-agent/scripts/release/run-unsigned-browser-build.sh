@@ -25,6 +25,7 @@ cd "$BROWSEROS"
 
 # Fresh Chromium tree required when using the fast config (no clean step).
 if [ -d "$CHROMIUM_SRC/.git" ]; then
+  rm -f "$CHROMIUM_SRC/.git/index.lock"
   git -C "$CHROMIUM_SRC" reset --hard tags/148.0.7778.97
   git -C "$CHROMIUM_SRC" clean -fdq
 fi
@@ -34,4 +35,15 @@ echo "=== Pane unsigned browser build started $(date) ==="
 uv run browseros build \
   --config build/config/release.macos.arm64.unsigned.fast.yaml \
   --chromium-src "$CHROMIUM_SRC"
-echo "=== Pane unsigned browser build finished $(date) exit=$? ==="
+BUILD_EXIT=$?
+echo "=== Pane unsigned browser build finished $(date) exit=$BUILD_EXIT ==="
+
+if [ "$BUILD_EXIT" -ne 0 ]; then
+  exit "$BUILD_EXIT"
+fi
+
+# package_macos + sparkle_sign are in the yaml config; log DMG path when present.
+VERSION_DIR="$BROWSEROS/releases"
+if [ -d "$VERSION_DIR" ]; then
+  find "$VERSION_DIR" -maxdepth 2 -name '*.dmg' -print
+fi
