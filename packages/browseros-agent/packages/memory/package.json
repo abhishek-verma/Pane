@@ -18,6 +18,10 @@
     "./scan": {
       "types": "./src/scan.ts",
       "default": "./src/scan.ts"
+    },
+    "./skill-url": {
+      "types": "./src/skill-url.ts",
+      "default": "./src/skill-url.ts"
     }
   }
 }

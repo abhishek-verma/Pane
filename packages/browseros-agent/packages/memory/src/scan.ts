@@ -39,6 +39,13 @@ const INJECTION_PATTERNS: Array<{ reason: string; re: RegExp }> = [
 const INVISIBLE_UNICODE =
   /[\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/
 
+export class MemoryWriteRejectedError extends Error {
+  constructor(public readonly reason: string) {
+    super(`Memory write rejected: ${reason}`)
+    this.name = 'MemoryWriteRejectedError'
+  }
+}
+
 export function scanMemoryContent(content: string): InjectionScanResult {
   if (!content || !content.trim()) {
     return { ok: false, reason: 'empty content' }
@@ -52,4 +59,12 @@ export function scanMemoryContent(content: string): InjectionScanResult {
     }
   }
   return { ok: true }
+}
+
+/** Throw if content fails the injection / credential scan. */
+export function assertMemoryContent(content: string): void {
+  const scan = scanMemoryContent(content)
+  if (!scan.ok) {
+    throw new MemoryWriteRejectedError(scan.reason ?? 'scan failed')
+  }
 }

@@ -94,4 +94,33 @@ Do the remote thing.
       }),
     ).rejects.toThrow(/rejected|scan|injection/i)
   })
+
+  it('rejects redirect to private host', async () => {
+    const { memoriesRoot } = setup()
+    let calls = 0
+    const fetchImpl = (async () => {
+      calls += 1
+      if (calls === 1) {
+        return new Response(null, {
+          status: 302,
+          headers: { Location: 'https://169.254.169.254/latest/meta-data' },
+        })
+      }
+      return new Response('should-not-fetch', { status: 200 })
+    }) as typeof fetch
+    await expect(
+      installSkillFromUrl('https://example.com/SKILL.md', {
+        memoriesRoot,
+        fetchImpl,
+      }),
+    ).rejects.toThrow(/private|reserved|not allowed/i)
+    expect(calls).toBe(1)
+  })
+
+  it('rejects direct private https host', async () => {
+    const { memoriesRoot } = setup()
+    await expect(
+      installSkillFromUrl('https://192.168.1.1/SKILL.md', { memoriesRoot }),
+    ).rejects.toThrow(/private|reserved|not allowed/i)
+  })
 })

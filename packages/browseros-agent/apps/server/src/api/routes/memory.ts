@@ -32,6 +32,7 @@ import {
   forgetMemoryEntry,
   listEntries,
   listSkills,
+  MemoryWriteRejectedError,
   writeMemoryEntry,
 } from '../../memory/store'
 import type { Env } from '../types'
@@ -72,7 +73,14 @@ export function createMemoryRoutes() {
         return c.json({ error: 'which must be soul|user|memory' }, 400)
       }
       const body = PutFileSchema.parse(await c.req.json())
-      await writePromptFile(which, body.content)
+      try {
+        await writePromptFile(which, body.content)
+      } catch (err) {
+        if (err instanceof MemoryWriteRejectedError) {
+          return c.json({ error: err.message, reason: err.reason }, 400)
+        }
+        throw err
+      }
       return c.json({ ok: true })
     })
     .get('/entries', (c) => {
@@ -132,11 +140,25 @@ export function createMemoryRoutes() {
     })
     .post('/skills/import', async (c) => {
       const body = ImportSchema.parse(await c.req.json())
-      const id = await installSkillFromSource(
-        { path: body.path, url: body.url },
-        { id: body.id },
-      )
-      return c.json({ id })
+      try {
+        const id = await installSkillFromSource(
+          { path: body.path, url: body.url },
+          {
+            id: body.id,
+            // User-picked path via Settings UI — not agent-controlled.
+            allowAnyLocalPath: Boolean(body.path),
+          },
+        )
+        return c.json({ id })
+      } catch (err) {
+        if (
+          err instanceof MemoryWriteRejectedError ||
+          (err instanceof Error && err.name === 'SkillFetchError')
+        ) {
+          return c.json({ error: err.message }, 400)
+        }
+        throw err
+      }
     })
     .post('/skills/:id/archive', async (c) => {
       await archiveSkill(c.req.param('id'))

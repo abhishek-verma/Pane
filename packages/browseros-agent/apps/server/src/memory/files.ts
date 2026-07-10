@@ -20,6 +20,7 @@ import {
   STAGING_DIR,
   USER_FILE,
 } from '@browseros/memory/constants'
+import { assertMemoryContent } from '@browseros/memory/scan'
 import type { PromptFiles } from '@browseros/memory/types'
 import { getMemoriesDir } from '../lib/browseros-dir'
 
@@ -77,6 +78,7 @@ export async function writePromptFile(
   content: string,
   root?: string,
 ): Promise<void> {
+  assertMemoryContent(content)
   const base = await ensureMemoriesLayout(root)
   const name =
     which === 'soul' ? SOUL_FILE : which === 'user' ? USER_FILE : MEMORY_FILE
@@ -166,6 +168,7 @@ export async function writeStagedSkill(
   body: string,
   root?: string,
 ): Promise<string> {
+  assertMemoryContent(body)
   const base = await ensureMemoriesLayout(root)
   const path = join(base, STAGING_DIR, `${skillId}.md`)
   await writeFile(path, body, 'utf-8')

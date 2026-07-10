@@ -14,7 +14,7 @@ import {
   SOUL_FILE,
   USER_FILE,
 } from '@browseros/memory/constants'
-import { scanMemoryContent } from '@browseros/memory/scan'
+import { assertMemoryContent } from '@browseros/memory/scan'
 import type {
   MemoryEntry,
   MemoryLayer,
@@ -25,7 +25,6 @@ import type {
   SkillStatus,
 } from '@browseros/memory/types'
 import { getDbHandle } from '../lib/db'
-import { logger } from '../lib/logger'
 import {
   appendMemoryFileLine,
   listSkillIdsOnDisk,
@@ -36,12 +35,7 @@ import {
   writeSkillFile,
 } from './files'
 
-export class MemoryWriteRejectedError extends Error {
-  constructor(public readonly reason: string) {
-    super(`Memory write rejected: ${reason}`)
-    this.name = 'MemoryWriteRejectedError'
-  }
-}
+export { MemoryWriteRejectedError } from '@browseros/memory/scan'
 
 function now(): number {
   return Date.now()
@@ -82,16 +76,6 @@ function rowToSkill(row: Record<string, unknown>): SkillRecord {
   }
 }
 
-function assertScanned(content: string): void {
-  const scan = scanMemoryContent(content)
-  if (!scan.ok) {
-    logger.warn('memory write blocked by injection scan', {
-      reason: scan.reason,
-    })
-    throw new MemoryWriteRejectedError(scan.reason ?? 'scan failed')
-  }
-}
-
 export interface WriteMemoryEntryInput {
   content: string
   layer?: MemoryLayer
@@ -108,7 +92,7 @@ export async function writeMemoryEntry(
   input: WriteMemoryEntryInput,
 ): Promise<MemoryEntry> {
   const content = input.content.trim().slice(0, ENTRY_MAX_CHARS)
-  assertScanned(content)
+  assertMemoryContent(content)
 
   const layer = input.layer ?? 'memory'
   const bucketId = input.bucketId ?? DEFAULT_BUCKET_ID
@@ -271,7 +255,7 @@ export async function rebuildIndexFromFiles(
         const body = line.replace(/^-+\s*/, '').trim()
         if (!body) continue
         try {
-          assertScanned(body)
+          assertMemoryContent(body)
         } catch {
           continue
         }
@@ -497,7 +481,7 @@ export async function installSkillFromBody(input: {
   bucketId?: string
   memoriesRoot?: string
 }): Promise<SkillRecord> {
-  assertScanned(input.body)
+  assertMemoryContent(input.body)
   const { name, description } = parseSkillFrontmatter(input.body, input.id)
   await writeSkillFile(input.id, input.body, input.memoriesRoot)
   return upsertSkillRecord({

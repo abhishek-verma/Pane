@@ -4,13 +4,19 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { readFile, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join, resolve, sep } from 'node:path'
 import {
   DEFAULT_BUCKET_ID,
   DIGESTS_DIR,
   MEMORY_MAX_CHARS,
 } from '@browseros/memory/constants'
+import {
+  assertMemoryContent,
+  MemoryWriteRejectedError,
+} from '@browseros/memory/scan'
+import { assertSkillFetchUrlAllowed } from '@browseros/memory/skill-url'
 import { logger } from '../lib/logger'
 import {
   ensureMemoriesLayout,
@@ -35,6 +41,7 @@ const UNUSED_SKILL_DAYS = 30
 const LOW_SUCCESS_THRESHOLD = 0.4
 const LOW_SUCCESS_MIN_USES = 5
 const UNRECALLED_MEMORY_DAYS = 30
+const SKILL_FETCH_MAX_REDIRECTS = 3
 
 export async function activateStagedSkill(
   id: string,
@@ -51,6 +58,13 @@ export async function activateStagedSkill(
     body = await readFile(stagedPath, 'utf-8')
   } catch {
     return { ok: false, error: `Staged file missing: ${id}` }
+  }
+  try {
+    assertMemoryContent(body)
+  } catch (err) {
+    const reason =
+      err instanceof MemoryWriteRejectedError ? err.reason : String(err)
+    return { ok: false, error: `Staged skill failed scan: ${reason}` }
   }
   await writeSkillFile(id, body, options.memoriesRoot)
   const { name, description } = parseSkillFrontmatter(body, id)
@@ -177,10 +191,53 @@ export function checkMemoryAddBudget(addition: string): void {
   assertMemoryAddFits(current, addition.length, MEMORY_MAX_CHARS)
 }
 
+function isPathInside(root: string, candidate: string): boolean {
+  const normalizedRoot = root.endsWith(sep) ? root : `${root}${sep}`
+  return candidate === root || candidate.startsWith(normalizedRoot)
+}
+
+/** Agent path installs are jailed; REST/UI may pass allowAnyLocalPath. */
+export async function assertSkillInstallPathAllowed(
+  filePath: string,
+  options: { memoriesRoot?: string; allowAnyLocalPath?: boolean } = {},
+): Promise<void> {
+  if (options.allowAnyLocalPath) return
+
+  const resolved = resolve(filePath)
+  let real = resolved
+  try {
+    real = await realpath(resolved)
+  } catch {
+    // File may be missing; still jail on the resolved path.
+  }
+
+  const candidateRoots = [memoriesRoot(options.memoriesRoot), homedir()]
+  const allowedRoots: string[] = []
+  for (const root of candidateRoots) {
+    const resolvedRoot = resolve(root)
+    try {
+      allowedRoots.push(await realpath(resolvedRoot))
+    } catch {
+      allowedRoots.push(resolvedRoot)
+    }
+  }
+  if (!allowedRoots.some((root) => isPathInside(root, real))) {
+    throw new SkillFetchError(
+      'Skill path must be under your home directory or memories folder',
+    )
+  }
+}
+
 export async function installSkillFromPath(
   filePath: string,
-  options: { id?: string; bucketId?: string; memoriesRoot?: string } = {},
+  options: {
+    id?: string
+    bucketId?: string
+    memoriesRoot?: string
+    allowAnyLocalPath?: boolean
+  } = {},
 ): Promise<string> {
+  await assertSkillInstallPathAllowed(filePath, options)
   const body = await readFile(filePath, 'utf-8')
   const parsed = parseSkillFrontmatter(body, 'imported-skill')
   const id =
@@ -204,6 +261,47 @@ export class SkillFetchError extends Error {
   }
 }
 
+async function fetchSkillWithRedirectGuard(
+  startUrl: URL,
+  fetchFn: typeof fetch,
+  timeoutMs: number,
+): Promise<Response> {
+  let current = startUrl
+  for (let hop = 0; hop <= SKILL_FETCH_MAX_REDIRECTS; hop++) {
+    try {
+      assertSkillFetchUrlAllowed(current)
+    } catch (err) {
+      throw new SkillFetchError(
+        err instanceof Error ? err.message : String(err),
+      )
+    }
+
+    const res = await fetchFn(current.toString(), {
+      signal: AbortSignal.timeout(timeoutMs),
+      redirect: 'manual',
+      headers: { Accept: 'text/plain, text/markdown, */*' },
+    })
+
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get('location')
+      if (!location) {
+        throw new SkillFetchError(
+          `Skill fetch redirect missing Location (${res.status})`,
+        )
+      }
+      if (hop === SKILL_FETCH_MAX_REDIRECTS) {
+        throw new SkillFetchError('Skill fetch exceeded redirect limit')
+      }
+      current = new URL(location, current)
+      continue
+    }
+
+    return res
+  }
+
+  throw new SkillFetchError('Skill fetch exceeded redirect limit')
+}
+
 /** Download a SKILL.md from https (or http localhost) with size/timeout caps. */
 export async function installSkillFromUrl(
   url: string,
@@ -222,25 +320,13 @@ export async function installSkillFromUrl(
   } catch {
     throw new SkillFetchError(`Invalid skill URL: ${url}`)
   }
-  const isLocalHttp =
-    parsedUrl.protocol === 'http:' &&
-    (parsedUrl.hostname === '127.0.0.1' || parsedUrl.hostname === 'localhost')
-  if (parsedUrl.protocol !== 'https:' && !isLocalHttp) {
-    throw new SkillFetchError(
-      'Skill URL must be https:// (or http://localhost for tests)',
-    )
-  }
 
   const { TIMEOUTS } = await import('@browseros/shared/constants/timeouts')
   const timeoutMs = options.timeoutMs ?? TIMEOUTS.SKILL_FETCH
   const maxBytes = options.maxBytes ?? SKILL_FETCH_MAX_BYTES
   const fetchFn = options.fetchImpl ?? fetch
 
-  const res = await fetchFn(parsedUrl.toString(), {
-    signal: AbortSignal.timeout(timeoutMs),
-    redirect: 'follow',
-    headers: { Accept: 'text/plain, text/markdown, */*' },
-  })
+  const res = await fetchSkillWithRedirectGuard(parsedUrl, fetchFn, timeoutMs)
   if (!res.ok) {
     throw new SkillFetchError(
       `Failed to fetch skill (${res.status} ${res.statusText})`,
@@ -277,7 +363,12 @@ export async function installSkillFromUrl(
 /** Install from a local path or remote URL. */
 export async function installSkillFromSource(
   source: { path?: string; url?: string },
-  options: { id?: string; bucketId?: string; memoriesRoot?: string } = {},
+  options: {
+    id?: string
+    bucketId?: string
+    memoriesRoot?: string
+    allowAnyLocalPath?: boolean
+  } = {},
 ): Promise<string> {
   if (source.path && source.url) {
     throw new SkillFetchError('Provide either path or url, not both')
