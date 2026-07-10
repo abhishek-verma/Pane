@@ -320,9 +320,24 @@ export class ChatService {
         gateContext,
       }
       sessionStore.set(request.conversationId, session)
+
+      // Prefer durable SQLite transcript over the client's text-only
+      // previousConversation summary (tool parts survive a server restart).
+      const persisted = await sessionStore.loadMessages(request.conversationId)
+      if (persisted.length > 0) {
+        session.agent.messages = filterValidMessages(persisted)
+        logger.info('Hydrated session from persisted messages', {
+          conversationId: request.conversationId,
+          messageCount: session.agent.messages.length,
+        })
+      }
     }
 
-    if (isNewSession && request.previousConversation?.length) {
+    if (
+      isNewSession &&
+      session.agent.messages.length === 0 &&
+      request.previousConversation?.length
+    ) {
       for (const msg of request.previousConversation) {
         if (!msg.content.trim()) continue
         session.agent.messages.push({
@@ -520,8 +535,12 @@ export class ChatService {
     return { deleted, sessionCount: this.deps.sessionStore.count() }
   }
 
+  /**
+   * Slim history list for the sidepanel. Full transcripts come from
+   * `getConversation` so tool parts are not degraded to text.
+   */
   async getHistory(): Promise<
-    { id: string; lastMessagedAt: number; messages: unknown[] }[]
+    { id: string; lastMessagedAt: number; previewText: string }[]
   > {
     const db = require('../../lib/db').getDb()
     const {
@@ -545,36 +564,68 @@ export class ChatService {
           .orderBy(asc(chatMessages.createdAt))
           .all()
 
-        // Convert CoreMessage-like db rows to UIMessage-like objects for the client
-        const mappedMsgs = msgs.map(
-          (m: { id: string; role: string; content: string }) => {
-            let textContent = ''
-            try {
-              const content = JSON.parse(m.content)
-              if (typeof content === 'string') {
-                textContent = content
-              } else if (Array.isArray(content)) {
-                textContent = content
-                  .map((c: { text?: string }) => c.text || '')
-                  .join('')
-              }
-            } catch {}
-
-            return {
-              id: m.id,
-              role: m.role,
-              content: textContent,
-            }
-          },
-        )
+        let previewText = ''
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          const m = msgs[i] as { role: string; content: string }
+          if (m.role !== 'user') continue
+          previewText = extractPreviewText(m.content)
+          if (previewText) break
+        }
 
         return {
           id: s.id,
           lastMessagedAt: s.updatedAt,
-          messages: mappedMsgs,
+          previewText,
         }
       }),
     )
+  }
+
+  async getConversation(
+    conversationId: string,
+  ): Promise<{ id: string; messages: UIMessage[] } | null> {
+    const exists =
+      await this.deps.sessionStore.hasPersistedSession(conversationId)
+    if (!exists) {
+      const live = this.deps.sessionStore.get(conversationId)
+      if (!live) return null
+      return {
+        id: conversationId,
+        messages: filterValidMessages(live.agent.messages),
+      }
+    }
+    const messages = await this.deps.sessionStore.loadMessages(conversationId)
+    return { id: conversationId, messages: filterValidMessages(messages) }
+  }
+
+  async importConversations(
+    conversations: Array<{
+      id: string
+      messages: UIMessage[]
+      lastMessagedAt?: number
+    }>,
+  ): Promise<{ imported: number; skipped: number }> {
+    let imported = 0
+    let skipped = 0
+    for (const conversation of conversations) {
+      if (!conversation.id || !Array.isArray(conversation.messages)) {
+        skipped++
+        continue
+      }
+      const exists = await this.deps.sessionStore.hasPersistedSession(
+        conversation.id,
+      )
+      if (exists) {
+        skipped++
+        continue
+      }
+      await this.deps.sessionStore.persistMessages(
+        conversation.id,
+        filterValidMessages(conversation.messages),
+      )
+      imported++
+    }
+    return { imported, skipped }
   }
 
   private closeHiddenPage(pageId: number, conversationId: string): void {
@@ -689,4 +740,25 @@ export class ChatService {
       browserContext?.customMcpServers?.map((s) => s.url).sort() ?? []
     return [...managed, ...custom].filter(Boolean).join(',')
   }
+}
+
+function extractPreviewText(rawContent: string): string {
+  try {
+    const content = JSON.parse(rawContent)
+    if (typeof content === 'string') return content.trim()
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => {
+          if (part && typeof part === 'object' && 'text' in part) {
+            return String((part as { text?: string }).text ?? '')
+          }
+          return ''
+        })
+        .join('')
+        .trim()
+    }
+  } catch {
+    return rawContent.trim()
+  }
+  return ''
 }
