@@ -50,7 +50,7 @@ FEED_SPECS = [
         "filename": "appcast-win.xml",
         "link": PANE_BROWSER_APPCAST_WIN_URL,
         "title": "Pane (Windows x64)",
-        "matcher": re.compile(r"(?i)x64.*installer\.exe$|(?i)installer\.exe$"),
+        "matcher": re.compile(r"(?i)(x64.*installer\.exe$|installer\.exe$)"),
         "platform": "win",
     },
     {
