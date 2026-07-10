@@ -57,9 +57,19 @@ const READ_CONTEXT_TOOLS = new Set([
   'context_search',
   'context_recall',
   'tasks_list',
+  'skills_load',
+  'skills_list',
 ])
 
-const WRITE_LOCAL_TASK_TOOLS = new Set(['tasks_add', 'tasks_done'])
+const WRITE_LOCAL_TASK_TOOLS = new Set([
+  'tasks_add',
+  'tasks_done',
+  'memory_add',
+  'memory_replace',
+  'memory_remove',
+  'skills_install',
+  'skills_archive',
+])
 
 const PAYMENT_HOST_KEYWORDS = [
   'pay',

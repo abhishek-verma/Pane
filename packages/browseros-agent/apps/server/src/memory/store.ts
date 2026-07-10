@@ -192,7 +192,7 @@ export function listEntries(options: ListEntriesOptions = {}): MemoryEntry[] {
       : [options.status]
     : (['active', 'demoted', 'staged'] as MemoryStatus[])
 
-  const params: unknown[] = [bucketId]
+  const params: Array<string | number> = [bucketId]
   let sql = `SELECT * FROM memory_entries WHERE bucket_id = ?`
   if (options.layer) {
     sql += ` AND layer = ?`
@@ -470,7 +470,7 @@ export function listSkills(
       : [options.status]
     : (['active', 'staged'] as SkillStatus[])
 
-  const params: unknown[] = [bucketId, ...statuses, limit]
+  const params: Array<string | number> = [bucketId, ...statuses, limit]
   const rows = sqlite()
     .prepare(
       `SELECT * FROM skills

@@ -25,6 +25,7 @@ import { buildIngestGateHooks } from '../context/wire-ingest'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
 import { loadPromptMemorySnapshot } from '../memory/load-prompt'
+import { buildMemoryToolSet } from '../memory/tools'
 import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
 import { createReadTool } from '../tools/filesystem/read'
 import { defaultWorkspace } from '../tools/filesystem/workspace'
@@ -218,6 +219,9 @@ export class AiSdkAgent {
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
       ),
       ...buildTasksToolSet(
+        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
+      ),
+      ...buildMemoryToolSet(
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
       ),
     }

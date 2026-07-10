@@ -94,6 +94,13 @@ describe('registerTools', () => {
     'tasks_list',
     'tasks_add',
     'tasks_done',
+    'memory_add',
+    'memory_replace',
+    'memory_remove',
+    'skills_list',
+    'skills_load',
+    'skills_install',
+    'skills_archive',
   ]
   let infoMessages: unknown[] = []
 

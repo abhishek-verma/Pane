@@ -8,6 +8,7 @@
 
 import { DEFAULT_BUCKET_ID } from '@browseros/memory/constants'
 import { readPromptFiles, seedPromptFilesIfMissing } from './files'
+import { resolveSoulForBucket } from './personas'
 import { allocatePromptMemory, type PromptBudgetResult } from './prompt-budget'
 import { bumpSurfaced, listEntries, listSkills } from './store'
 
@@ -18,6 +19,10 @@ export async function loadPromptMemorySnapshot(options: {
   const bucketId = options.bucketId ?? DEFAULT_BUCKET_ID
   await seedPromptFilesIfMissing(options.memoriesRoot)
   const files = await readPromptFiles(options.memoriesRoot)
+  const soulResolved = await resolveSoulForBucket(
+    bucketId,
+    options.memoriesRoot,
+  )
 
   const memoryEntries = listEntries({
     bucketId,
@@ -32,7 +37,6 @@ export async function loadPromptMemorySnapshot(options: {
     createdAt: e.createdAt,
   }))
 
-  // If index empty but MEMORY.md has content, use the file as a single slot.
   if (memoryEntries.length === 0 && files.memory.trim()) {
     memoryEntries.push({
       id: 'file:MEMORY.md',
@@ -49,7 +53,7 @@ export async function loadPromptMemorySnapshot(options: {
   )
 
   const allocated = allocatePromptMemory({
-    soul: files.soul,
+    soul: soulResolved.soul || files.soul,
     user: files.user,
     memoryEntries,
     skillIndexLines,

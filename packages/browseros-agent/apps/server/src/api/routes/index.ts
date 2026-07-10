@@ -20,6 +20,7 @@ import { createContextRoutes } from './context'
 import { createHealthRoute } from './health'
 import { createMcpRoutes } from './mcp'
 import { createMcpManagerRoutes } from './mcp-manager'
+import { createMemoryRoutes } from './memory'
 import { createNudgeMcpRoute } from './nudge-mcp'
 import { createOAuthRoutes } from './oauth'
 import { createProviderRoutes } from './provider'
@@ -62,6 +63,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
       .route('/action-log', createActionLogRoutes())
       .route('/context', createContextRoutes())
       .route('/tasks', createTasksRoutes())
+      .route('/memory', createMemoryRoutes())
       .route('/workspace', createWorkspaceRoutes())
       .route(
         '/trust',

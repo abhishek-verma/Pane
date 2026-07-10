@@ -13,6 +13,7 @@ import { ContextPage } from '@/screens/context/ContextPage'
 import { CustomizationPage } from '@/screens/customization/CustomizationPage'
 import { LlmHubPage } from '@/screens/llm-hub/LlmHubPage'
 import { MCPSettingsPage } from '@/screens/mcp-settings/MCPSettingsPage'
+import { MemoryPage } from '@/screens/memory/MemoryPage'
 import { NewTabChat } from '@/screens/newtab/index/NewTabChat'
 import { NewTabLayout } from '@/screens/newtab/layout/NewTabLayout'
 import { Personalize } from '@/screens/newtab/personalize/Personalize'
@@ -89,6 +90,7 @@ export const App: FC = () => {
             <Route path="mcp" element={<MCPSettingsPage />} />
             <Route path="customization" element={<CustomizationPage />} />
             <Route path="action-log" element={<ActionLogPage />} />
+            <Route path="memory" element={<MemoryPage />} />
             <Route
               path="search"
               element={<Navigate to="/settings/ai" replace />}

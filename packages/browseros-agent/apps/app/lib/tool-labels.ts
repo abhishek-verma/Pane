@@ -89,6 +89,13 @@ const VERB_OVERRIDES: Record<string, string> = {
   tasks_list: 'Listed tasks',
   tasks_add: 'Added task',
   tasks_done: 'Completed task',
+  memory_add: 'Added memory',
+  memory_replace: 'Updated memory',
+  memory_remove: 'Forgot memory',
+  skills_list: 'Listed skills',
+  skills_load: 'Loaded skill',
+  skills_install: 'Installed skill',
+  skills_archive: 'Archived skill',
 
   // BrowserOS info
   browseros_info: 'Read Pane info',
