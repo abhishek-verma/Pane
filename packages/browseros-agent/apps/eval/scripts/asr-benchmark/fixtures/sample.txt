@@ -1,0 +1,8 @@
+Good morning everyone. Let's start with the deploy status.
+The staging rollout finished last night without errors.
+Abhishek will own the follow-up on the context graph latency budget.
+We still need to decide whether local transcription is good enough for meeting notes.
+If the laptop stays usable under load, we ship a local default.
+Otherwise meeting capture stays bring-your-own-key only.
+Action items: publish the benchmark report, wire chat history to the server, and do not start phase four until history is durable.
+Any questions before we move on?

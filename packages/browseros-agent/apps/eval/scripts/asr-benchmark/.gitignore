@@ -1,0 +1,7 @@
+# M1.9 ASR de-risk harness (local only; not shipped in product builds)
+.venv/
+fixtures/*.wav
+fixtures/*.aiff
+results/
+__pycache__/
+*.pyc

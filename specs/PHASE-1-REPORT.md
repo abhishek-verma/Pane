@@ -31,7 +31,7 @@
 | M1.6 MCP + tool spec | **Done** | |
 | M1.7 process supervision | **Done** | |
 | M1.8 rebrand pass | **Done** | Screenshot sweep optional |
-| M1.9 ASR spike | **In follow-up** | Local faster-whisper harness + `ASR-BENCHMARK.md` (separate PR) |
+| M1.9 ASR spike | **Done** | [`ASR-BENCHMARK.md`](./ASR-BENCHMARK.md) — **Go: local default + BYOK fast path** for M6.2 |
 | M1.10 eval scaffold | **Done** | |
 
 ---
@@ -47,14 +47,14 @@
 
 ## M1.9 decision
 
-Tracked in a follow-up PR (`specs/ASR-BENCHMARK.md`). Web Speech remains rejected for the gate.
+See [`ASR-BENCHMARK.md`](./ASR-BENCHMARK.md). Local `faster-whisper` chunked ASR meets latency/CPU bars on Apple M3 Pro; Phase 6 ships local default with BYOK opt-in. Web Speech is rejected for this gate.
 
 ## Follow-ups (non-blocking)
 
-- Land M1.9 ASR benchmark report (local faster-whisper go/no-go)
 - Manual UI click-through + `claude mcp add` smoke before a public tag
+- Intel mid-range + 30-min real meeting fixture before Phase 6 packaging
 - CDP Unix-socket transport (plan-allowed fallback already shipped)
 
 ## Stop
 
-Phase 1 M1.5 complete. Do not start Phase 4 until this history SoT PR is merged.
+Phase 1 complete. Phase 4 may proceed after history SoT (merged) and this ASR decision.
