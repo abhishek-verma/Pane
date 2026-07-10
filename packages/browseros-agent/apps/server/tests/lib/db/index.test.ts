@@ -10,6 +10,7 @@ import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeDb, initializeDb } from '../../../src/lib/db'
+import { currentMigrationHistory } from '../../../src/lib/db/client'
 import { agentDefinitions } from '../../../src/lib/db/schema'
 
 describe('database initialization', () => {
@@ -122,7 +123,7 @@ describe('database initialization', () => {
         created_at numeric
       );
     `)
-    for (const migration of expectedMigrationHistory.slice(0, 3)) {
+    for (const migration of currentMigrationHistory.slice(0, 3)) {
       sqlite
         .prepare(
           'INSERT INTO __drizzle_migrations ("hash", "created_at") VALUES (?, ?)',
@@ -266,7 +267,12 @@ describe('database initialization', () => {
       )
       .all()
 
-    expect(migrations).toEqual(expectedMigrationHistory)
+    expect(migrations).toEqual(
+      currentMigrationHistory.map(({ hash, createdAt }) => ({
+        hash,
+        createdAt,
+      })),
+    )
   }
 
   function mkTempDir(): string {
@@ -275,42 +281,3 @@ describe('database initialization', () => {
     return dir
   }
 })
-
-const expectedMigrationHistory = [
-  {
-    hash: 'aadfc2e86410febb11a974d25d99d5f7196aa797d9635ced9a18cd4eeb503b61',
-    createdAt: 1777750582590,
-  },
-  {
-    hash: '19e693f7b1adcd1d932fa6cf5638b5b158c66ea5de4f154bc59311f4d6f71261',
-    createdAt: 1777752799806,
-  },
-  {
-    hash: '02b11bf1dc34a5a289efd216233a48f0b7b950cfc33eaa7ebe6dcbb15d07f75c',
-    createdAt: 1777902205667,
-  },
-  {
-    hash: '34387e59aa1f0d6dc44c95836d2363b72982663c50d05d0c67ee58c211209f52',
-    createdAt: 1781916712443,
-  },
-  {
-    hash: '140343dccf85b6af747555794d50b87bef7be0de8dce4a233ac6f9d401dc487e',
-    createdAt: 1782739796116,
-  },
-  {
-    hash: '9441a9279c0e58e5ecf99a91bda81c541efee7254028261d9a3b852b2fb49508',
-    createdAt: 1782818741531,
-  },
-  {
-    hash: 'eccaed1b3bd28eafbe06112d9f73786aa17fd0ee2cc985b13cc8827409dae9e9',
-    createdAt: 1783592265849,
-  },
-  {
-    hash: '81781e98ed1635c87d22231f98c65aacdf7d93733694aa506f6383214d20d101',
-    createdAt: 1783592630922,
-  },
-  {
-    hash: '8bf55dfe9e69b6cbd0886a38ab4a5276f4352a2ac25882fe76f198cb3438f4de',
-    createdAt: 1783682207926,
-  },
-]

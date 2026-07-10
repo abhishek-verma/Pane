@@ -59,6 +59,14 @@ function createFakeServer() {
   }
 }
 
+function makeSession(partial: Record<string, unknown> = {}): BrowserSession {
+  return {
+    isConnected: () => true,
+    pages: {},
+    ...partial,
+  } as unknown as BrowserSession
+}
+
 function textOf(result: { content?: unknown } | undefined): string {
   if (!Array.isArray(result?.content)) return ''
   return result.content
@@ -1851,7 +1859,7 @@ return 'late'
 
 describe('buildBrowserToolSet', () => {
   it('builds the compact browser tool surface', () => {
-    const session = { pages: {} } as unknown as BrowserSession
+    const session = makeSession()
     const tools = buildBrowserToolSet(session)
 
     expect(tools.tabs).toBeDefined()
@@ -1865,7 +1873,7 @@ describe('buildBrowserToolSet', () => {
       const largeText = 'x'.repeat(
         TOOL_LIMITS.INLINE_PAGE_CONTENT_MAX_CHARS + 1,
       )
-      const session = {
+      const session = makeSession({
         pages: {
           getSession: async () => ({
             session: {
@@ -1876,7 +1884,7 @@ describe('buildBrowserToolSet', () => {
           }),
           getInfo: () => ({ url: 'https://example.com' }),
         },
-      } as unknown as BrowserSession
+      })
       const tools = buildBrowserToolSet(session, { outputFileAccess })
 
       const result = await tools.read.execute?.({ page: 1, format: 'text' }, {
@@ -1903,7 +1911,7 @@ describe('buildBrowserToolSet', () => {
       let downloadDir = ''
       type DownloadHandler = (params: Record<string, unknown>) => void
       const handlers: Record<string, DownloadHandler> = {}
-      const session = {
+      const session = makeSession({
         input: () => ({
           click: async (ref: string) => {
             clicks.push(ref)
@@ -1939,7 +1947,7 @@ describe('buildBrowserToolSet', () => {
             },
           }),
         },
-      } as unknown as BrowserSession
+      })
       const tools = buildBrowserToolSet(session, { outputFileAccess })
       const readTool = createReadTool(undefined, {
         allowedOutputPaths: outputFileAccess.paths,
@@ -1986,7 +1994,7 @@ describe('buildBrowserToolSet', () => {
       isPinned: false,
       isHidden: false,
     }
-    const session = {
+    const session = makeSession({
       pages: {
         list: async () => [activePage],
         getActive: async () => activePage,
@@ -1995,7 +2003,7 @@ describe('buildBrowserToolSet', () => {
           return 2
         },
       },
-    } as unknown as BrowserSession
+    })
     const tools = buildBrowserToolSet(session, { readOnly: true })
 
     const listResult = await tools.tabs.execute?.({ action: 'list' }, {
@@ -2016,7 +2024,7 @@ describe('buildBrowserToolSet', () => {
   })
 
   it('propagates AI SDK abort signals into browser tools', async () => {
-    const session = { pages: {} } as unknown as BrowserSession
+    const session = makeSession()
     const tools = buildBrowserToolSet(session)
     const controller = new AbortController()
     controller.abort(new Error('cancelled'))

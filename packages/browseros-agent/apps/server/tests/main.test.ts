@@ -96,9 +96,14 @@ async function setupApplicationTest() {
   const browserosDir = await import('../src/lib/browseros-dir')
   const dbModule = await import('../src/lib/db')
   const identityModule = await import('../src/lib/identity')
+  const lockModule = await import('../src/lib/lock-file')
   const loggerModule = await import('../src/lib/logger')
   const metricsModule = await import('../src/lib/metrics')
   const sentryModule = await import('../src/lib/sentry')
+  const batteryModule = await import('../src/context/battery')
+  const terminalModule = await import('../src/context/subscribe-terminal')
+  const memoryReviewModule = await import('../src/memory/review-job')
+  const digestModule = await import('../src/scheduler/digest')
 
   const createHttpServer = spyOn(apiServer, 'createHttpServer')
   createHttpServer.mockImplementation(async () => ({}) as never)
@@ -112,6 +117,15 @@ async function setupApplicationTest() {
   spyOn(browserosDir, 'ensureBrowserosDir').mockImplementation(async () => {})
   spyOn(browserosDir, 'writeServerConfig').mockImplementation(async () => {})
   spyOn(browserosDir, 'removeServerConfigSync').mockImplementation(() => {})
+
+  spyOn(lockModule.serverLock, 'acquire').mockImplementation(() => true)
+  spyOn(lockModule.serverLock, 'release').mockImplementation(() => {})
+  spyOn(terminalModule, 'subscribeTerminalIngest').mockImplementation(() => {})
+  spyOn(batteryModule, 'startBatteryIngestMonitor').mockImplementation(() => {})
+  spyOn(memoryReviewModule, 'startMemoryReviewMonitor').mockImplementation(
+    () => {},
+  )
+  spyOn(digestModule, 'startDailyDigestMonitor').mockImplementation(() => {})
 
   const initializeDb = spyOn(dbModule, 'initializeDb').mockImplementation(
     () =>

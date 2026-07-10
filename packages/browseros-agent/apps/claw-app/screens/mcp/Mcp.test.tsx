@@ -82,7 +82,7 @@ describe('Mcp (v2)', () => {
     expect(html).toContain('/mcp')
     expect(html).not.toContain('/mcp/claude-code')
     expect(html).not.toContain('/cockpit')
-    expect(html).toContain('claude mcp add browseros')
+    expect(html).toContain('claude mcp add pane')
     expect(html).toContain('--transport http')
   })
 

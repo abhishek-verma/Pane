@@ -176,10 +176,14 @@ jobs:
           bun run parse-audit.ts > slack-payload.json
 
       - name: Send to Slack
-        if: ${{ always() && secrets.SLACK_WEBHOOK_URL != '' }}
+        if: always()
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "No Slack webhook configured; skipping notification."
+            exit 0
+          fi
           curl -X POST \
             -H 'Content-Type: application/json' \
             -d @slack-payload.json \

@@ -28,6 +28,7 @@ describe('buildTestCommand', () => {
       '--env-file=.env.development',
       'test',
       '--preload=./tests/__helpers__/test-env.ts',
+      '--max-concurrency=1',
       './tests/api',
     ])
   })

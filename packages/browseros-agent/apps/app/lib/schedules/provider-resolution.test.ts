@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from 'bun:test'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { buildChatRequestBody } from '../messaging/server/buildChatRequestBody'
 
@@ -118,6 +126,11 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch
+})
+
+afterAll(() => {
+  // Bun mock.module leaks across files in the same process; restore after this suite.
+  mock.restore()
 })
 
 describe('scheduled provider resolution', () => {

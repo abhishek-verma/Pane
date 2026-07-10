@@ -180,7 +180,7 @@ function bootstrapCurrentSchema(sqlite: BunDatabase): void {
   }
 }
 
-const currentMigrationHistory = [
+export const currentMigrationHistory = [
   {
     tag: '0000_zippy_psylocke',
     hash: 'aadfc2e86410febb11a974d25d99d5f7196aa797d9635ced9a18cd4eeb503b61',

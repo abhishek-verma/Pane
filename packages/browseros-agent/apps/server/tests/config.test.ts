@@ -283,12 +283,12 @@ describe('loadServerConfig', () => {
   })
 
   describe('error handling (Result type)', () => {
-    it('returns error for missing required ports', () => {
+    it('defaults serverPort when no CLI flags or env are provided', () => {
       const result = loadServerConfig(['bun', 'src/index.ts'])
 
-      assert.strictEqual(result.ok, false)
-      if (result.ok) return
-      assert.ok(result.error.includes('serverPort'))
+      assert.strictEqual(result.ok, true)
+      if (!result.ok) return
+      assert.strictEqual(result.value.serverPort, 9100)
     })
 
     it('returns error for missing config file', () => {

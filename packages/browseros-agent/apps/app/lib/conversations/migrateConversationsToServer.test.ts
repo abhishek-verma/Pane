@@ -8,7 +8,6 @@ const importChatConversations = mock(
       skipped: number
     },
 )
-const getAgentServerUrl = mock(async () => 'http://127.0.0.1:9100')
 
 let migratedFlag = false
 let localConversations: Array<{
@@ -16,10 +15,6 @@ let localConversations: Array<{
   messages: UIMessage[]
   lastMessagedAt: number
 }> = []
-
-mock.module('@/lib/browseros/helpers', () => ({
-  getAgentServerUrl,
-}))
 
 mock.module('./server-chat-history', () => ({
   importChatConversations,
