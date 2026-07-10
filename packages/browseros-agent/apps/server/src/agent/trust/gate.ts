@@ -19,8 +19,57 @@ import {
   requestChannelApproval,
   setChannelOutcome,
 } from '../../scheduler/approvals'
-import { stepFingerprint } from '../../scheduler/run-executor'
+import {
+  appendCompletedStep,
+  getScheduledRun,
+  shouldSkipCompletedStep,
+  stepFingerprint,
+} from '../../scheduler/run-executor'
 import { logGateDecision } from './action-log'
+
+/** Prefer run idempotency key so retries with a new chat runId still dedupe. */
+export function resolveStepIdempotencyKey(ctx: GateContext): string {
+  if (ctx.idempotencyKey) return ctx.idempotencyKey
+  if (ctx.scheduledRunId) {
+    const run = getScheduledRun(ctx.scheduledRunId)
+    if (run?.idempotencyKey) return run.idempotencyKey
+  }
+  return ctx.runId ?? 'unattended'
+}
+
+function skipIfCompletedStep(
+  toolName: string,
+  args: Record<string, unknown>,
+  ctx: GateContext,
+  cls: ConsequenceClass,
+  resultShapeKind: 'text' | 'content',
+): GateToolResult | null {
+  if (!ctx.scheduledRunId || !isConsequentialClass(cls)) return null
+  const run = getScheduledRun(ctx.scheduledRunId)
+  if (!run) return null
+  const fp = stepFingerprint(toolName, args, resolveStepIdempotencyKey(ctx))
+  if (!shouldSkipCompletedStep(run, fp, cls)) return null
+  const preview = `Skipped (already completed): ${describeToolCall(toolName, args)}`
+  logGateDecision(toolName, args, ctx, cls, 'executed', preview)
+  return formatGateResult(preview, resultShapeKind)
+}
+
+function recordCompletedStep(
+  toolName: string,
+  args: Record<string, unknown>,
+  ctx: GateContext,
+  cls: ConsequenceClass,
+  toolCallId?: string,
+): void {
+  if (!ctx.scheduledRunId || !isConsequentialClass(cls)) return
+  const fp = stepFingerprint(toolName, args, resolveStepIdempotencyKey(ctx))
+  appendCompletedStep(ctx.scheduledRunId, {
+    toolCallId: toolCallId ?? fp,
+    toolName,
+    class: cls,
+    fingerprint: fp,
+  })
+}
 
 export type { ConsequenceClass, GateContext }
 
@@ -93,6 +142,9 @@ export async function gateExecute<TResult extends GateToolResult>(
     return formatGateResult(preview, resultShapeKind) as TResult
   }
 
+  const skipped = skipIfCompletedStep(toolName, args, ctx, cls, resultShapeKind)
+  if (skipped) return skipped as TResult
+
   const cleanArgs = stripPromotedArg(args)
   const result = await underlyingExecute(cleanArgs)
   recordConsequentialExecution(ctx, cls)
@@ -109,6 +161,7 @@ export async function gateExecute<TResult extends GateToolResult>(
       isPromoted(args) ? 'promoted' : 'executed',
       summary,
     )
+    recordCompletedStep(toolName, args, ctx, cls)
   }
   hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
   return result
@@ -166,7 +219,11 @@ export function wrapToolWithGate<T extends Tool>(
       // Unattended: pause via channel, never auto-approve on silence.
       if (ctx.unattended) {
         const runId = ctx.runId ?? 'unattended'
-        const fp = stepFingerprint(toolName, args, runId)
+        const fp = stepFingerprint(
+          toolName,
+          args,
+          resolveStepIdempotencyKey(ctx),
+        )
         const { resolution } = await requestChannelApproval({
           runId,
           conversationId: ctx.conversationId,
@@ -205,7 +262,11 @@ export function wrapToolWithGate<T extends Tool>(
 
       if (ctx.unattended && isConsequentialClass(cls) && !isPromoted(args)) {
         const runId = ctx.runId ?? 'unattended'
-        const fp = stepFingerprint(toolName, args, runId)
+        const fp = stepFingerprint(
+          toolName,
+          args,
+          resolveStepIdempotencyKey(ctx),
+        )
         const outcome = getChannelOutcome(
           channelOutcomeKey(runId, toolName, fp),
         )
@@ -232,6 +293,9 @@ export function wrapToolWithGate<T extends Tool>(
         }
       }
 
+      const skipped = skipIfCompletedStep(toolName, args, ctx, cls, 'text')
+      if (skipped) return skipped
+
       // A consequential call reaches execute only after the user approved
       // (the SDK re-invokes us) or because a pin allowed auto-execution.
       // Either way it is authorized — run it. Reads always run.
@@ -250,7 +314,11 @@ export function wrapToolWithGate<T extends Tool>(
             .map((c) => c.text)
             .join('\n')
         const runId = ctx.runId ?? 'unattended'
-        const fp = stepFingerprint(toolName, args, runId)
+        const fp = stepFingerprint(
+          toolName,
+          args,
+          resolveStepIdempotencyKey(ctx),
+        )
         const channelApproved =
           getChannelOutcome(channelOutcomeKey(runId, toolName, fp)) ===
           'approved'
@@ -261,6 +329,15 @@ export function wrapToolWithGate<T extends Tool>(
           cls,
           isPromoted(args) || channelApproved ? 'promoted' : 'executed',
           summary,
+        )
+        recordCompletedStep(
+          toolName,
+          args,
+          ctx,
+          cls,
+          typeof options?.toolCallId === 'string'
+            ? options.toolCallId
+            : undefined,
         )
       }
       hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })

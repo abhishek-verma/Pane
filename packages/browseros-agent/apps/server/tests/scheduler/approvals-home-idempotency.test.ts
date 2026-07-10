@@ -28,7 +28,10 @@ import {
 } from '../../src/scheduler/home'
 import {
   appendCompletedStep,
+  claimScheduledRun,
+  completeScheduledRun,
   createRunRecord,
+  listScheduledRuns,
   shouldSkipCompletedStep,
   stepFingerprint,
 } from '../../src/scheduler/run-executor'
@@ -189,6 +192,32 @@ describe('idempotency (M5.6)', () => {
         'write-external',
       ),
     ).toBe(true)
+  })
+
+  it('list → claim → complete advances pending runs', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-runs-'))
+    tempDirs.push(dir)
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
+
+    const run = createRunRecord({
+      source: 'trigger',
+      prompt: 'summarize tabs',
+      idempotencyKey: 'trigger:r1:e1',
+    })
+    expect(listScheduledRuns({ status: 'pending' }).map((r) => r.id)).toContain(
+      run.id,
+    )
+
+    const claimed = claimScheduledRun(run.id)
+    expect(claimed?.status).toBe('running')
+    expect(claimScheduledRun(run.id)).toBeNull()
+
+    const done = completeScheduledRun(run.id, {
+      status: 'completed',
+      result: 'ok',
+    })
+    expect(done?.status).toBe('completed')
+    expect(listScheduledRuns({ status: 'pending' }).length).toBe(0)
   })
 })
 

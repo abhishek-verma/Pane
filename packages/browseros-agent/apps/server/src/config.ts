@@ -7,12 +7,14 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
-
+import { DEFAULT_PORTS } from '@browseros/shared/constants/ports'
 import { Command, InvalidArgumentError } from 'commander'
 import { z } from 'zod'
-
 import { INLINED_ENV, REQUIRED_FOR_PRODUCTION } from './env'
 import { VERSION } from './version'
+
+/** Default HTTP port for keep-alive LaunchAgent when none is configured. */
+export const KEEP_ALIVE_DEFAULT_SERVER_PORT = DEFAULT_PORTS.server
 
 const portSchema = z.number().int()
 
@@ -24,6 +26,8 @@ const ServerConfigSchema = z.object({
   resourcesDir: z.string(),
   executionDir: z.string(),
   mcpAllowRemote: z.boolean(),
+  /** Keep-alive / headless: HTTP + digest + reach without CDP. */
+  serverOnly: z.boolean(),
   instanceClientId: z.string().optional(),
   instanceInstallId: z.string().optional(),
   instanceBrowserosVersion: z.string().optional(),
@@ -128,6 +132,11 @@ function parseCliArgs(argv: string[]): ConfigResult<ParsedCliArgs> {
         '--disable-mcp-server',
         '[DEPRECATED] No-op, kept for backwards compatibility',
       )
+      .option(
+        '--server-only',
+        'Run HTTP/digest/reach without CDP (keep-alive / headless)',
+        false,
+      )
       .exitOverride((err) => {
         if (err.exitCode === 0) {
           process.exit(0)
@@ -174,6 +183,7 @@ function parseCliArgs(argv: string[]): ConfigResult<ParsedCliArgs> {
           ? toAbsolutePath(opts.executionDir, cwd)
           : undefined,
         mcpAllowRemote: opts.allowRemoteInMcp || undefined,
+        serverOnly: opts.serverOnly === true ? true : undefined,
       }),
     },
   }
@@ -295,10 +305,12 @@ function validateInlinedEnv(): ConfigResult<void> {
 function getDefaults(cwd: string): PartialConfig {
   return {
     cdpPort: null,
+    serverPort: KEEP_ALIVE_DEFAULT_SERVER_PORT,
     extensionPort: null,
     resourcesDir: cwd,
     executionDir: cwd,
     mcpAllowRemote: false,
+    serverOnly: false,
     aiSdkDevtoolsEnabled: false,
   }
 }

@@ -135,6 +135,7 @@ export const scheduledJobRuns = async () => {
         message: job.query,
         signal: abortController.signal,
         providerId: job.providerId,
+        idempotencyKey: jobRun.idempotencyKey,
       })
 
       await updateJobRun(jobRun.id, {

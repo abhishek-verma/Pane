@@ -105,7 +105,7 @@ export async function onGraphEvent(
       }
 
       const idempotencyKey = `trigger:${rule.id}:${event.id}`
-      await executeRun({
+      const record = await executeRun({
         source: 'trigger',
         sourceId: rule.id,
         prompt: rule.prompt,
@@ -119,7 +119,23 @@ export async function onGraphEvent(
         ruleId: rule.id,
         eventId: event.id,
         toolName: event.toolName,
+        runId: record.id,
       })
+      // Nudge the user / extension so pending runs get drained via /chat.
+      void import('../reach/os-push')
+        .then(({ createOsPushTransport }) =>
+          createOsPushTransport().send({
+            type: 'trigger',
+            title: 'Pane trigger ready',
+            body: `“${rule.name}” matched — open Pane to run it.`,
+            deepLink: `browseros://scheduled-runs/${record.id}`,
+          }),
+        )
+        .catch((err) => {
+          logger.warn('trigger os-push failed', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+        })
     }
   } catch (err) {
     logger.warn('onGraphEvent failed', {

@@ -30,12 +30,15 @@ describe('macOS keep-alive (M5.3)', () => {
       bunPath: '/usr/local/bin/bun',
       serverEntry: '/app/server/src/index.ts',
       serverOnlyFlag: '--server-only',
+      serverPort: 9100,
     })
     const plist = buildLaunchAgentPlist(args)
     expect(plist).toContain(`<string>${LAUNCH_AGENT_LABEL}</string>`)
     expect(plist).toContain('<key>ProgramArguments</key>')
     expect(plist).toContain('<string>/usr/local/bin/bun</string>')
     expect(plist).toContain('<string>--server-only</string>')
+    expect(plist).toContain('<string>--server-port</string>')
+    expect(plist).toContain('<string>9100</string>')
     expect(plist).toContain('<key>KeepAlive</key>')
     expect(plist).toContain('<true/>')
     expect(plist).toContain('<key>RunAtLoad</key>')

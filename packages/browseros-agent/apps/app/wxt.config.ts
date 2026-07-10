@@ -84,6 +84,7 @@ export default defineConfig({
       'history',
       'browserOS',
       'alarms',
+      'notifications',
       'webNavigation',
       'downloads',
     ],

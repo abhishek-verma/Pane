@@ -38,6 +38,7 @@ import { reconcileUrl } from './lib/mcp-manager'
 import { metrics } from './lib/metrics'
 import { isPortInUseError } from './lib/port-binding'
 import { Sentry } from './lib/sentry'
+import { createUnavailableBrowser } from './lib/unavailable-browser'
 import { startMemoryReviewMonitor } from './memory/review-job'
 import { startDailyDigestMonitor } from './scheduler/digest'
 import { VERSION } from './version'
@@ -67,23 +68,36 @@ export class Application {
     configureCodexRuntime()
     await this.initCoreServices()
 
-    if (!this.config.cdpPort) {
-      logger.error('CDP port is required (--cdp-port)')
-      process.exit(EXIT_CODES.GENERAL_ERROR)
+    const serverOnly = this.config.serverOnly === true
+    let browser: Browser
+    let cdpToken: string | undefined
+
+    if (serverOnly && !this.config.cdpPort) {
+      logger.info(
+        'Starting in --server-only mode (no CDP). Browser tools unavailable.',
+      )
+      browser = createUnavailableBrowser()
+    } else {
+      if (!this.config.cdpPort) {
+        logger.error('CDP port is required (--cdp-port), or pass --server-only')
+        process.exit(EXIT_CODES.GENERAL_ERROR)
+      }
+
+      cdpToken = generateCdpToken()
+      const cdp = new CdpBackend({
+        port: this.config.cdpPort,
+        cdpToken,
+      })
+      try {
+        logger.debug(`Connecting to CDP on port ${this.config.cdpPort}`)
+        await cdp.connect()
+        logger.info(`Connected to CDP on port ${this.config.cdpPort}`)
+      } catch (error) {
+        return this.handleStartupError('CDP', this.config.cdpPort, error)
+      }
+      browser = new Browser(cdp)
     }
 
-    const cdpToken = generateCdpToken()
-
-    const cdp = new CdpBackend({ port: this.config.cdpPort, cdpToken })
-    try {
-      logger.debug(`Connecting to CDP on port ${this.config.cdpPort}`)
-      await cdp.connect()
-      logger.info(`Connected to CDP on port ${this.config.cdpPort}`)
-    } catch (error) {
-      return this.handleStartupError('CDP', this.config.cdpPort, error)
-    }
-
-    const browser = new Browser(cdp)
     const browserSession = browser.session
 
     try {
@@ -115,7 +129,7 @@ export class Application {
         browseros_id: identity.getBrowserOSId(),
         cdp_token: cdpToken,
       })
-      logger.debug('CDP token written to server.json')
+      logger.debug('Server config written to server.json')
     } catch (error) {
       logger.warn('Failed to write server config for auto-discovery', {
         error: error instanceof Error ? error.message : String(error),

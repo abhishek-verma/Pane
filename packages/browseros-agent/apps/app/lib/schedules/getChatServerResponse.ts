@@ -23,6 +23,10 @@ export interface ChatServerRequest {
   activeTab?: ActiveTab
   signal?: AbortSignal
   providerId?: string
+  /** Server scheduled_runs id for trigger/keep-alive drain. */
+  scheduledRunId?: string
+  /** Stable key for consequential step dedupe across retries. */
+  idempotencyKey?: string
 }
 
 export interface ChatServerResponse {
@@ -124,6 +128,8 @@ export async function getChatServerResponse(
         userSystemPrompt: `${personalization}\n${scheduleSystemPrompt}`,
         supportsImages: provider.supportsImages,
         isScheduledTask: true,
+        scheduledRunId: request.scheduledRunId,
+        idempotencyKey: request.idempotencyKey,
       }),
     }),
   })

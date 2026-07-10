@@ -31,6 +31,10 @@ export const ChatRequestSchema = AgentLLMConfigSchema.extend({
   userWorkingDir: z.string().min(1).optional(),
   workspaceId: z.string().optional(),
   bucketId: z.string().optional(),
+  /** Server scheduled_runs row for trigger/keep-alive drain. */
+  scheduledRunId: z.string().optional(),
+  /** Stable key for consequential step dedupe across retries. */
+  idempotencyKey: z.string().optional(),
   trustPins: z
     .record(
       z.object({

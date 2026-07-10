@@ -61,6 +61,9 @@ export class ChatService {
       isNewUser: Object.keys(pins).length === 0,
       surface: 'loop',
       conversationId: request.conversationId,
+      unattended: Boolean(request.isScheduledTask),
+      scheduledRunId: request.scheduledRunId,
+      idempotencyKey: request.idempotencyKey,
     }
   }
 
@@ -76,6 +79,9 @@ export class ChatService {
     gateContext.isNewUser = Object.keys(gateContext.pins).length === 0
     gateContext.runConsequentialCount.count = 0
     gateContext.conversationId = request.conversationId
+    gateContext.unattended = Boolean(request.isScheduledTask)
+    gateContext.scheduledRunId = request.scheduledRunId
+    gateContext.idempotencyKey = request.idempotencyKey
   }
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: chat request orchestration; refactor tracked separately

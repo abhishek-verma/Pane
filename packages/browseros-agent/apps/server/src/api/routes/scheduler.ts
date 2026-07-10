@@ -21,7 +21,12 @@ import {
   listTriggerRules,
   updateTriggerRule,
 } from '../../scheduler/rules-store'
-import { getScheduledRun } from '../../scheduler/run-executor'
+import {
+  claimScheduledRun,
+  completeScheduledRun,
+  getScheduledRun,
+  listScheduledRuns,
+} from '../../scheduler/run-executor'
 import type { Env } from '../types'
 
 const createSchema = z.object({
@@ -80,8 +85,46 @@ export function createSchedulerRoutes() {
       if (!ok) return c.json({ error: 'not found' }, 404)
       return c.json({ ok: true })
     })
+    .get('/runs', (c) => {
+      const status = c.req.query('status')
+      const runs = listScheduledRuns({
+        status: status
+          ? (status.split(',') as Array<
+              | 'pending'
+              | 'running'
+              | 'completed'
+              | 'failed'
+              | 'skipped'
+              | 'cancelled'
+              | 'awaiting-approval'
+            >)
+          : undefined,
+        limit: 50,
+      })
+      return c.json({ runs })
+    })
     .get('/runs/:id', (c) => {
       const run = getScheduledRun(c.req.param('id'))
+      if (!run) return c.json({ error: 'not found' }, 404)
+      return c.json({ run })
+    })
+    .post('/runs/:id/claim', (c) => {
+      const run = claimScheduledRun(c.req.param('id'))
+      if (!run) {
+        return c.json({ error: 'not claimable (missing or not pending)' }, 409)
+      }
+      return c.json({ run })
+    })
+    .post('/runs/:id/complete', async (c) => {
+      const body = z
+        .object({
+          status: z.enum(['completed', 'failed', 'cancelled', 'skipped']),
+          result: z.string().nullable().optional(),
+          error: z.string().nullable().optional(),
+          conversationId: z.string().nullable().optional(),
+        })
+        .parse(await c.req.json())
+      const run = completeScheduledRun(c.req.param('id'), body)
       if (!run) return c.json({ error: 'not found' }, 404)
       return c.json({ run })
     })

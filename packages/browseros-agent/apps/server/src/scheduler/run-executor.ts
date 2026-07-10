@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { getDb } from '../lib/db'
 import {
   type ScheduledRunRow,
@@ -14,6 +14,7 @@ import { logger } from '../lib/logger'
 import type {
   CompletedStep,
   RunExecutor,
+  RunStatus,
   ScheduledRunRecord,
   StartRunInput,
 } from './types'
@@ -56,6 +57,77 @@ export function getScheduledRun(id: string): ScheduledRunRecord | null {
     .where(eq(scheduledRuns.id, id))
     .get()
   return row ? rowToRecord(row) : null
+}
+
+export function listScheduledRuns(options?: {
+  status?: RunStatus | RunStatus[]
+  limit?: number
+}): ScheduledRunRecord[] {
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200)
+  const statuses = options?.status
+    ? Array.isArray(options.status)
+      ? options.status
+      : [options.status]
+    : null
+
+  let rows: ScheduledRunRow[]
+  if (statuses && statuses.length > 0) {
+    rows = getDb()
+      .select()
+      .from(scheduledRuns)
+      .where(inArray(scheduledRuns.status, statuses))
+      .orderBy(scheduledRuns.createdAt)
+      .limit(limit)
+      .all()
+  } else {
+    rows = getDb()
+      .select()
+      .from(scheduledRuns)
+      .orderBy(scheduledRuns.createdAt)
+      .limit(limit)
+      .all()
+  }
+  return rows.map(rowToRecord)
+}
+
+/** Atomically claim a pending run for execution (pending → running). */
+export function claimScheduledRun(id: string): ScheduledRunRecord | null {
+  const existing = getScheduledRun(id)
+  if (!existing || existing.status !== 'pending') return null
+  const now = Date.now()
+  getDb()
+    .update(scheduledRuns)
+    .set({ status: 'running', startedAt: now })
+    .where(eq(scheduledRuns.id, id))
+    .run()
+  const claimed = getScheduledRun(id)
+  if (!claimed || claimed.status !== 'running') return null
+  return claimed
+}
+
+export function completeScheduledRun(
+  id: string,
+  outcome: {
+    status: 'completed' | 'failed' | 'cancelled' | 'skipped'
+    result?: string | null
+    error?: string | null
+    conversationId?: string | null
+  },
+): ScheduledRunRecord | null {
+  const existing = getScheduledRun(id)
+  if (!existing) return null
+  const now = Date.now()
+  return updateRunStatus(id, {
+    status: outcome.status,
+    result: outcome.result ?? existing.result,
+    error: outcome.error ?? null,
+    conversationId:
+      outcome.conversationId !== undefined
+        ? outcome.conversationId
+        : existing.conversationId,
+    completedAt: now,
+    startedAt: existing.startedAt ?? now,
+  })
 }
 
 export function findRunByIdempotencyKey(

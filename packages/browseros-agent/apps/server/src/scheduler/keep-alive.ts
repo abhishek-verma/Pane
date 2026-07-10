@@ -10,6 +10,7 @@
 import { chmod, mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { KEEP_ALIVE_DEFAULT_SERVER_PORT } from '../config'
 import { logger } from '../lib/logger'
 
 export const LAUNCH_AGENT_LABEL = 'com.browseros.agent-server'
@@ -54,6 +55,7 @@ export function resolveServerProgramArguments(options?: {
   bunPath?: string
   serverEntry?: string
   serverOnlyFlag?: string
+  serverPort?: number
 }): string[] {
   const bunPath = options?.bunPath ?? process.execPath
   const serverEntry =
@@ -64,7 +66,14 @@ export function resolveServerProgramArguments(options?: {
       '..',
       'index.ts',
     )
-  return [bunPath, serverEntry, options?.serverOnlyFlag ?? '--server-only']
+  const serverPort = options?.serverPort ?? KEEP_ALIVE_DEFAULT_SERVER_PORT
+  return [
+    bunPath,
+    serverEntry,
+    options?.serverOnlyFlag ?? '--server-only',
+    '--server-port',
+    String(serverPort),
+  ]
 }
 
 export function buildLaunchAgentPlist(programArguments: string[]): string {

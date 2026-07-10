@@ -25,6 +25,8 @@ import { setupScheduledJobsSyncToBackend } from '@/lib/schedules/syncSchedulesTo
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
+import { drainOsPush } from './drainOsPush'
+import { drainServerRuns } from './drainServerRuns'
 import { scheduledJobRuns } from './scheduledJobRuns'
 
 const LEGACY_TOOL_APPROVAL_STORAGE_KEYS = [
@@ -51,6 +53,8 @@ export default defineBackground(() => {
   setupScheduledJobsSyncToBackend()
 
   scheduledJobRuns()
+  drainServerRuns()
+  drainOsPush()
 
   chrome.action.onClicked.addListener(async (tab) => {
     if (typeof tab.id === 'number' && typeof tab.windowId === 'number') {

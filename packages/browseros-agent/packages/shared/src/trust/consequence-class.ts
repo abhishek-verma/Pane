@@ -108,6 +108,10 @@ export interface GateContext {
   conversationId?: string
   /** Scheduled / trigger / keep-alive runs — approval goes over reach. */
   unattended?: boolean
+  /** Server scheduled_runs id when executing a drained trigger/keep-alive run. */
+  scheduledRunId?: string
+  /** Stable key for consequential step dedupe (prefer over chat runId). */
+  idempotencyKey?: string
 }
 
 export function isConsequentialClass(cls: ConsequenceClass): boolean {
