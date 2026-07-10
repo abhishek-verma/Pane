@@ -306,7 +306,7 @@ function writeIngest(
 
   // Always record an event for tools we care about (thin-edge set).
   if (shouldRecordEvent(toolName)) {
-    graphAddEvent({
+    const event = graphAddEvent({
       bucketId,
       runId: input.runId ?? null,
       toolName,
@@ -316,6 +316,10 @@ function writeIngest(
         result: truncate(resultSummary, 800),
       },
     })
+    // Best-effort trigger fan-out — never fail the tool/ingest path.
+    void import('../scheduler/engine')
+      .then(({ onGraphEvent }) => onGraphEvent(event))
+      .catch(() => {})
   }
 }
 

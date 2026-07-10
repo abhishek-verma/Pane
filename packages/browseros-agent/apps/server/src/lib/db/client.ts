@@ -226,6 +226,11 @@ const currentMigrationHistory = [
     hash: '8bf55dfe9e69b6cbd0886a38ab4a5276f4352a2ac25882fe76f198cb3438f4de',
     createdAt: 1783682207926,
   },
+  {
+    tag: '0009_curvy_bucky',
+    hash: '7a97736e4dec5d9c374f70f4ca91c10dfb209bfe725c255a161df1117878f1ac',
+    createdAt: 1783689148142,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -524,6 +529,66 @@ const currentSchemaStatements = [
       uses integer DEFAULT 0 NOT NULL,
       success_rate real,
       status text NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS pending_approvals (
+      id text PRIMARY KEY NOT NULL,
+      run_id text NOT NULL,
+      conversation_id text,
+      tool_call_id text NOT NULL,
+      tool_name text NOT NULL,
+      consequence_class text NOT NULL,
+      preview_json text NOT NULL,
+      approve_token text NOT NULL,
+      deny_token text NOT NULL,
+      status text DEFAULT 'pending' NOT NULL,
+      created_at integer NOT NULL,
+      expires_at integer NOT NULL,
+      resolved_at integer
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS reach_secrets (
+      transport text NOT NULL,
+      key text NOT NULL,
+      value text NOT NULL,
+      updated_at integer NOT NULL,
+      PRIMARY KEY (transport, key)
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS scheduled_runs (
+      id text PRIMARY KEY NOT NULL,
+      source text NOT NULL,
+      source_id text,
+      idempotency_key text NOT NULL,
+      prompt text NOT NULL,
+      bucket_id text,
+      status text DEFAULT 'pending' NOT NULL,
+      completed_steps_json text DEFAULT '[]' NOT NULL,
+      conversation_id text,
+      result text,
+      error text,
+      started_at integer,
+      completed_at integer,
+      created_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS trigger_rules (
+      id text PRIMARY KEY NOT NULL,
+      name text NOT NULL,
+      enabled integer DEFAULT true NOT NULL,
+      match_json text NOT NULL,
+      prompt text NOT NULL,
+      job_id text,
+      bucket_id text NOT NULL,
+      cooldown_ms integer DEFAULT 300000 NOT NULL,
+      last_fired_at integer,
+      match_count integer DEFAULT 0 NOT NULL,
       created_at integer NOT NULL,
       updated_at integer NOT NULL
     )

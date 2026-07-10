@@ -26,6 +26,7 @@ import { createNudgeMcpRoute } from './nudge-mcp'
 import { createOAuthRoutes } from './oauth'
 import { createProviderRoutes } from './provider'
 import { createRefinePromptRoutes } from './refine-prompt'
+import { createSchedulerRoutes } from './scheduler'
 import { createScreencastRoute } from './screencast'
 import { createShutdownRoute } from './shutdown'
 import { createStatusRoute } from './status'
@@ -68,6 +69,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
       .route('/context', createContextRoutes())
       .route('/tasks', createTasksRoutes())
       .route('/memory', createMemoryRoutes())
+      .route('/scheduler', createSchedulerRoutes())
       .route('/workspace', createWorkspaceRoutes())
       .route(
         '/trust',

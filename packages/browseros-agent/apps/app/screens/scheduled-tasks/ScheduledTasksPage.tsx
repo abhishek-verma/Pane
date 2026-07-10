@@ -33,6 +33,7 @@ import { NewScheduledTaskDialog } from './NewScheduledTaskDialog'
 import { ScheduledTaskResults } from './ScheduledTaskResults'
 import { ScheduledTasksHeader } from './ScheduledTasksHeader'
 import { ScheduledTasksList } from './ScheduledTasksList'
+import { TriggersPanel } from './TriggersPanel'
 import type { ScheduledJob } from './types'
 
 /**
@@ -168,6 +169,7 @@ export const ScheduledTasksPage: FC = () => {
           <TabsList>
             <TabsTrigger value="results">Results</TabsTrigger>
             <TabsTrigger value="tasks">Scheduled Tasks</TabsTrigger>
+            <TabsTrigger value="triggers">Triggers</TabsTrigger>
           </TabsList>
 
           <TabsContent value="results">
@@ -189,6 +191,10 @@ export const ScheduledTasksPage: FC = () => {
               onCancelRun={handleCancelRun}
               onRetryRun={handleRetryRun}
             />
+          </TabsContent>
+
+          <TabsContent value="triggers">
+            <TriggersPanel />
           </TabsContent>
         </Tabs>
       )}
