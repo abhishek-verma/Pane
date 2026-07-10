@@ -37,6 +37,8 @@ concurrency:
 
 jobs:
   resolve_inputs:
+    # Self-hosted browseros-builder + BROWSEROS_* vars. Org-only.
+    if: github.repository == 'browseros-ai/BrowserOS'
     runs-on: ubuntu-latest
     outputs:
       target_ref: ${{ steps.workflow_inputs.outputs.target_ref }}
@@ -119,7 +121,7 @@ jobs:
           PY
 
   authorize_manual_dispatch:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.repository == 'browseros-ai/BrowserOS' && github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, macOS, ARM64, browseros-builder]
     environment: release-core
     steps:

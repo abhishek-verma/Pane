@@ -12,6 +12,8 @@ concurrency:
 jobs:
   sync:
     name: Bump internal-docs submodule pointer on dev
+    # Needs INTERNAL_DOCS_SYNC_TOKEN and the private submodule. Org-only.
+    if: github.repository == 'browseros-ai/BrowserOS'
     runs-on: ubuntu-latest
     permissions:
       contents: read

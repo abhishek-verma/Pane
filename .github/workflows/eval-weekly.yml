@@ -21,6 +21,8 @@ permissions:
 
 jobs:
   eval:
+    # Needs BrowserOS eval secrets (R2, model keys). Skip on standalone Pane.
+    if: github.repository == 'browseros-ai/BrowserOS'
     runs-on: ubuntu-latest
     timeout-minutes: 360
 

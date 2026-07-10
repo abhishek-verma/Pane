@@ -37,6 +37,8 @@ concurrency:
 
 jobs:
   plan:
+    # WarpBuild / R2 nightly infra. Org-only.
+    if: github.repository == 'browseros-ai/BrowserOS'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}

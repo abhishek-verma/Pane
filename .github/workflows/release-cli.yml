@@ -11,6 +11,8 @@ concurrency:
 
 jobs:
   release:
+    # Needs NPM/R2/PostHog release secrets. Org-only until Pane has its own.
+    if: github.repository == 'browseros-ai/BrowserOS'
     runs-on: ubuntu-latest
     environment: release-core
     permissions:

@@ -8,6 +8,8 @@ on:
 
 jobs:
   security-audit:
+    # Posts to BrowserOS Slack webhook. Org-only.
+    if: github.repository == 'browseros-ai/BrowserOS'
     runs-on: ubuntu-latest
     defaults:
       run:
