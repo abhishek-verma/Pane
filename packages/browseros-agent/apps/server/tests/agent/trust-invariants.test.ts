@@ -538,4 +538,37 @@ describe('wrapToolWithGate scheduled-run idempotency', () => {
       'already completed',
     )
   })
+
+  it('does not append completed step when tool returns isError', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-gate-err-'))
+    tempDirs.push(dir)
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
+
+    const run = createRunRecord({
+      source: 'trigger',
+      prompt: 'write',
+      idempotencyKey: 'trigger:err:1',
+    })
+    const args = { command: 'fail' }
+    let calls = 0
+    const underlying = tool({
+      description: 'fake',
+      inputSchema: z.object({ command: z.string().optional() }),
+      execute: async () => {
+        calls += 1
+        return { text: 'boom', isError: true }
+      },
+    })
+    const ctx = makeCtx({
+      surface: 'loop',
+      scheduledRunId: run.id,
+      idempotencyKey: run.idempotencyKey,
+      pins: { system: { pinned: true } },
+      isNewUser: false,
+    })
+    const wrapped = wrapToolWithGate('filesystem_bash', underlying, () => ctx)
+    await wrapped.execute?.(args, { toolCallId: 'tc-err', messages: [] })
+    await wrapped.execute?.(args, { toolCallId: 'tc-err-2', messages: [] })
+    expect(calls).toBe(2)
+  })
 })

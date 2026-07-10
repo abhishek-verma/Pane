@@ -31,9 +31,13 @@ import {
   claimScheduledRun,
   completeScheduledRun,
   createRunRecord,
+  getScheduledRun,
   listScheduledRuns,
+  reclaimStaleRunningRuns,
+  STALE_RUNNING_MS,
   shouldSkipCompletedStep,
   stepFingerprint,
+  updateRunStatus,
 } from '../../src/scheduler/run-executor'
 
 describe('approval-over-channel (M5.5)', () => {
@@ -218,6 +222,28 @@ describe('idempotency (M5.6)', () => {
     })
     expect(done?.status).toBe('completed')
     expect(listScheduledRuns({ status: 'pending' }).length).toBe(0)
+  })
+
+  it('rejects complete unless running; reclaims stale running to pending', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-reclaim-'))
+    tempDirs.push(dir)
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
+
+    const run = createRunRecord({
+      source: 'trigger',
+      prompt: 'x',
+      idempotencyKey: 'trigger:stale:1',
+    })
+    expect(
+      completeScheduledRun(run.id, { status: 'completed', result: 'nope' }),
+    ).toBeNull()
+
+    claimScheduledRun(run.id)
+    updateRunStatus(run.id, {
+      startedAt: Date.now() - STALE_RUNNING_MS - 1000,
+    })
+    expect(reclaimStaleRunningRuns()).toBe(1)
+    expect(getScheduledRun(run.id)?.status).toBe('pending')
   })
 })
 

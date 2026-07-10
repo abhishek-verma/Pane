@@ -16,7 +16,11 @@ const PERIOD_MINUTES = 1
 export { drainPendingRunsOnce } from '@/lib/schedules/drainPendingRuns'
 
 export function drainServerRuns(): void {
+  let draining = false
+
   const tick = async () => {
+    if (draining) return
+    draining = true
     try {
       await drainPendingRunsOnce({
         getBaseUrl: getAgentServerUrl,
@@ -35,6 +39,8 @@ export function drainServerRuns(): void {
       })
     } catch {
       // Server may be down while the extension is up — retry next alarm.
+    } finally {
+      draining = false
     }
   }
 

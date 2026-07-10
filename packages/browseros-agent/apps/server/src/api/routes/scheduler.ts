@@ -26,6 +26,7 @@ import {
   completeScheduledRun,
   getScheduledRun,
   listScheduledRuns,
+  reclaimStaleRunningRuns,
 } from '../../scheduler/run-executor'
 import type { Env } from '../types'
 
@@ -87,6 +88,10 @@ export function createSchedulerRoutes() {
     })
     .get('/runs', (c) => {
       const status = c.req.query('status')
+      // Before listing pending, reclaim abandoned running rows so drains retry.
+      if (!status || status.split(',').includes('pending')) {
+        reclaimStaleRunningRuns()
+      }
       const runs = listScheduledRuns({
         status: status
           ? (status.split(',') as Array<
@@ -125,7 +130,12 @@ export function createSchedulerRoutes() {
         })
         .parse(await c.req.json())
       const run = completeScheduledRun(c.req.param('id'), body)
-      if (!run) return c.json({ error: 'not found' }, 404)
+      if (!run) {
+        return c.json(
+          { error: 'not completable (missing or not running)' },
+          409,
+        )
+      }
       return c.json({ run })
     })
     .post('/digest/run', async (c) => {

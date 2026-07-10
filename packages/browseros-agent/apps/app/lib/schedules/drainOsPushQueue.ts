@@ -33,6 +33,27 @@ export function toChromeNotificationOptions(
   }
 }
 
+/**
+ * Resolve a reach deepLink into something chrome.tabs / newtab can open.
+ * Returns `{ kind: 'url', url }` for absolute http(s), or `{ kind: 'hash', hash }`
+ * for in-extension navigation (caller prefixes with newtab.html).
+ */
+export function resolveNotificationClickTarget(
+  deepLink: string,
+): { kind: 'url'; url: string } | { kind: 'hash'; hash: string } | null {
+  if (deepLink.startsWith('http://') || deepLink.startsWith('https://')) {
+    return { kind: 'url', url: deepLink }
+  }
+  if (deepLink.startsWith('#')) {
+    return { kind: 'hash', hash: deepLink }
+  }
+  // Legacy custom scheme from early Phase 5 — map to home.
+  if (deepLink.startsWith('browseros://')) {
+    return { kind: 'hash', hash: '#/home' }
+  }
+  return null
+}
+
 export interface DrainOsPushDeps {
   getBaseUrl: () => Promise<string>
   fetchFn: typeof fetch

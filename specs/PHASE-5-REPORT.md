@@ -95,10 +95,11 @@ cd packages/browseros-agent/apps/app && bun test \
 
 1. Trigger/keep-alive runs enqueue on the server; **app drain** drives `/chat` (providers in extension). No server-side LLM provider store in v0.5.
 2. Email IMAP inbound not shipped; Telegram + deep-link cover channel approve/deny.
-3. Release keep-alive binary path documented as TODO; Dev path works.
+3. Release keep-alive binary path documented as TODO; Dev path works. Keep-alive and Chromium-launched server share one PID lock — opening Pane while keep-alive holds the lock needs a handoff (follow-up; not required for trigger/digest/reach with keep-alive off).
 4. Digest is template-only (LLM polish optional / not required for ship gate).
 5. App ↔ server run-store sync is best-effort; server SQLite is SoT for keep-alive/trigger idempotency.
 6. Keep-alive without CDP cannot run browser tools until a full browser session attaches.
+7. Stale `running` rows (drain killed mid-chat) are reclaimed to `pending` after 10 minutes on the next pending list.
 
 ## BLOCKERS
 

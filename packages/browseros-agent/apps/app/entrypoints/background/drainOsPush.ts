@@ -10,6 +10,7 @@ import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import {
   type ChromeNotificationOptions,
   drainOsPushQueueOnce,
+  resolveNotificationClickTarget,
 } from '@/lib/schedules/drainOsPushQueue'
 
 const ALARM_NAME = 'drain-os-push'
@@ -21,6 +22,7 @@ export type {
 } from '@/lib/schedules/drainOsPushQueue'
 export {
   drainOsPushQueueOnce,
+  resolveNotificationClickTarget,
   toChromeNotificationOptions,
 } from '@/lib/schedules/drainOsPushQueue'
 
@@ -41,8 +43,11 @@ function defaultCreateNotification(
 
 export function drainOsPush(): void {
   const deepLinkById = new Map<string, string>()
+  let draining = false
 
   const tick = async () => {
+    if (draining) return
+    draining = true
     try {
       const { deepLinks } = await drainOsPushQueueOnce({
         getBaseUrl: getAgentServerUrl,
@@ -54,6 +59,8 @@ export function drainOsPush(): void {
       }
     } catch {
       // Server may be down — retry next alarm.
+    } finally {
+      draining = false
     }
   }
 
@@ -67,17 +74,15 @@ export function drainOsPush(): void {
     const deepLink = deepLinkById.get(notificationId)
     deepLinkById.delete(notificationId)
     if (!deepLink) return
-    if (deepLink.startsWith('http://') || deepLink.startsWith('https://')) {
-      void chrome.tabs.create({ url: deepLink })
+    const target = resolveNotificationClickTarget(deepLink)
+    if (!target) return
+    if (target.kind === 'url') {
+      void chrome.tabs.create({ url: target.url })
       return
     }
-    if (deepLink.startsWith('#')) {
-      void chrome.tabs.create({
-        url: chrome.runtime.getURL(`newtab.html${deepLink}`),
-      })
-      return
-    }
-    void chrome.tabs.create({ url: deepLink }).catch(() => null)
+    void chrome.tabs.create({
+      url: chrome.runtime.getURL(`newtab.html${target.hash}`),
+    })
   })
 
   chrome.runtime.onStartup.addListener(() => {

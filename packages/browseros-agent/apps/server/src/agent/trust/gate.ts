@@ -54,6 +54,15 @@ function skipIfCompletedStep(
   return formatGateResult(preview, resultShapeKind)
 }
 
+function isToolErrorResult(result: unknown): boolean {
+  return Boolean(
+    result &&
+      typeof result === 'object' &&
+      'isError' in result &&
+      (result as { isError?: boolean }).isError === true,
+  )
+}
+
 function recordCompletedStep(
   toolName: string,
   args: Record<string, unknown>,
@@ -161,7 +170,9 @@ export async function gateExecute<TResult extends GateToolResult>(
       isPromoted(args) ? 'promoted' : 'executed',
       summary,
     )
-    recordCompletedStep(toolName, args, ctx, cls)
+    if (!isToolErrorResult(result)) {
+      recordCompletedStep(toolName, args, ctx, cls)
+    }
   }
   hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
   return result
@@ -330,15 +341,17 @@ export function wrapToolWithGate<T extends Tool>(
           isPromoted(args) || channelApproved ? 'promoted' : 'executed',
           summary,
         )
-        recordCompletedStep(
-          toolName,
-          args,
-          ctx,
-          cls,
-          typeof options?.toolCallId === 'string'
-            ? options.toolCallId
-            : undefined,
-        )
+        if (!isToolErrorResult(result)) {
+          recordCompletedStep(
+            toolName,
+            args,
+            ctx,
+            cls,
+            typeof options?.toolCallId === 'string'
+              ? options.toolCallId
+              : undefined,
+          )
+        }
       }
       hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
       return result

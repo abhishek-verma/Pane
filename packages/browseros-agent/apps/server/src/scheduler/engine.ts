@@ -128,7 +128,7 @@ export async function onGraphEvent(
             type: 'trigger',
             title: 'Pane trigger ready',
             body: `“${rule.name}” matched — open Pane to run it.`,
-            deepLink: `browseros://scheduled-runs/${record.id}`,
+            deepLink: `#/home`,
           }),
         )
         .catch((err) => {

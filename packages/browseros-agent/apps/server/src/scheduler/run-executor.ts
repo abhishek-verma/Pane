@@ -5,7 +5,7 @@
  */
 
 import { eq, inArray } from 'drizzle-orm'
-import { getDb } from '../lib/db'
+import { getDb, getDbHandle } from '../lib/db'
 import {
   type ScheduledRunRow,
   scheduledRuns,
@@ -18,6 +18,9 @@ import type {
   ScheduledRunRecord,
   StartRunInput,
 } from './types'
+
+/** Running runs older than this are reclaimed to pending for retry. */
+export const STALE_RUNNING_MS = 10 * 60 * 1000
 
 function newRunId(): string {
   return `run_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`
@@ -92,17 +95,38 @@ export function listScheduledRuns(options?: {
 
 /** Atomically claim a pending run for execution (pending → running). */
 export function claimScheduledRun(id: string): ScheduledRunRecord | null {
-  const existing = getScheduledRun(id)
-  if (!existing || existing.status !== 'pending') return null
   const now = Date.now()
-  getDb()
-    .update(scheduledRuns)
-    .set({ status: 'running', startedAt: now })
-    .where(eq(scheduledRuns.id, id))
-    .run()
+  const result = getDbHandle()
+    .sqlite.prepare(
+      `UPDATE scheduled_runs SET status = ?, started_at = ? WHERE id = ? AND status = ?`,
+    )
+    .run('running', now, id, 'pending')
+  if (result.changes === 0) return null
   const claimed = getScheduledRun(id)
-  if (!claimed || claimed.status !== 'running') return null
-  return claimed
+  return claimed?.status === 'running' ? claimed : null
+}
+
+/**
+ * Reclaim stale `running` rows back to `pending` so a killed drain can retry.
+ * Preserves `completedSteps` for gate idempotency on resume.
+ */
+export function reclaimStaleRunningRuns(
+  olderThanMs: number = STALE_RUNNING_MS,
+): number {
+  const cutoff = Date.now() - olderThanMs
+  const result = getDbHandle()
+    .sqlite.prepare(
+      `UPDATE scheduled_runs SET status = ?, started_at = NULL
+       WHERE status = ? AND started_at IS NOT NULL AND started_at < ?`,
+    )
+    .run('pending', 'running', cutoff)
+  if (result.changes > 0) {
+    logger.info('reclaimed stale running scheduled_runs', {
+      count: result.changes,
+      olderThanMs,
+    })
+  }
+  return result.changes
 }
 
 export function completeScheduledRun(
@@ -116,6 +140,7 @@ export function completeScheduledRun(
 ): ScheduledRunRecord | null {
   const existing = getScheduledRun(id)
   if (!existing) return null
+  if (existing.status !== 'running') return null
   const now = Date.now()
   return updateRunStatus(id, {
     status: outcome.status,
