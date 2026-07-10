@@ -30,6 +30,9 @@ AGENTS.md
 
 secrets/pane-release/
 
+# Bun compile scratch artifacts
+**/*.bun-build
+
 # AI SDK DevTools traces
 .devtools/
 .omc/
