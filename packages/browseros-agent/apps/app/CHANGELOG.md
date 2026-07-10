@@ -1,5 +1,9 @@
 # BrowserOS Agent Extension
 
+## v0.0.100 (2026-07-10)
+
+Initial release
+
 ## v0.0.99 (2026-04-08)
 
 ## What's Changed

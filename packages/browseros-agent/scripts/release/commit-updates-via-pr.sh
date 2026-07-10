@@ -20,8 +20,12 @@ git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
 git checkout -b "$BRANCH"
 git add "${FILES[@]}"
+if git diff --cached --quiet; then
+  echo "No manifest changes to commit"
+  exit 0
+fi
 git commit -m "$COMMIT_MESSAGE"
-git push origin "$BRANCH"
+git push --force-with-lease origin "$BRANCH"
 
 gh pr create \
   --title "$COMMIT_MESSAGE" \
