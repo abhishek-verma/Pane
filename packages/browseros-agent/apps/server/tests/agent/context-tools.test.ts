@@ -12,8 +12,10 @@ import { deriveClass } from '@browseros/shared/trust/consequence-class'
 import { setGrant } from '../../src/context/grants'
 import { flushIngestQueue, ingestToolResult } from '../../src/context/ingest'
 import { graphUpsertNode } from '../../src/context/repo'
-import { buildContextToolSet, RECALL_STUB } from '../../src/context/tools'
+import { buildContextToolSet } from '../../src/context/tools'
 import { closeDb, initializeDb } from '../../src/lib/db'
+import { seedPromptFilesIfMissing } from '../../src/memory/files'
+import { writeMemoryEntry } from '../../src/memory/store'
 
 describe('context tools + trust class', () => {
   beforeEach(() => {
@@ -37,13 +39,25 @@ describe('context tools + trust class', () => {
     expect(deriveClass('some_unknown_mcp', {})).toBe('write-external')
   })
 
-  it('context_recall returns the Phase 4 stub', async () => {
+  it('context_recall returns real memory hits (not Phase-3 stub)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-recall-'))
+    const memoriesRoot = join(dir, 'memories')
+    await seedPromptFilesIfMissing(memoriesRoot)
+    await writeMemoryEntry({
+      content: 'prefers tabs over spaces',
+      source: 'user',
+      memoriesRoot,
+    })
+
     const tools = buildContextToolSet(() => 'default')
     const result = await tools.context_recall!.execute!(
-      { query: 'who am I' },
+      { query: 'tabs' },
       { toolCallId: 't1', messages: [] },
     )
-    expect((result as { text: string }).text).toBe(RECALL_STUB)
+    const text = (result as { text: string }).text
+    expect(text).toContain('prefers tabs over spaces')
+    expect(text).not.toContain('Phase 4')
+    expect(text).not.toContain('not available yet')
   })
 
   it('context_search returns snippets and respects domain deny', async () => {

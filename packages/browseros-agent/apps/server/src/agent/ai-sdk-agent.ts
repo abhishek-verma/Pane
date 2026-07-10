@@ -24,6 +24,7 @@ import { buildContextToolSet, buildTasksToolSet } from '../context/tools'
 import { buildIngestGateHooks } from '../context/wire-ingest'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
+import { loadPromptMemorySnapshot } from '../memory/load-prompt'
 import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
 import { createReadTool } from '../tools/filesystem/read'
 import { defaultWorkspace } from '../tools/filesystem/workspace'
@@ -276,12 +277,35 @@ export class AiSdkAgent {
     ) {
       excludeSections.push('nudges')
     }
+
+    let soulContent: string | undefined
+    let userProfileContent: string | undefined
+    let agentMemoryContent: string | undefined
+    let skillIndexContent: string | undefined
+    try {
+      const snapshot = await loadPromptMemorySnapshot({
+        bucketId: config.resolvedConfig.workspace?.bucketId ?? 'default',
+      })
+      soulContent = snapshot.soulContent || undefined
+      userProfileContent = snapshot.userProfileContent || undefined
+      agentMemoryContent = snapshot.agentMemoryContent || undefined
+      skillIndexContent = snapshot.skillIndexContent || undefined
+    } catch (err) {
+      logger.warn('Failed to load prompt memory snapshot; continuing without', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+
     const instructions = buildSystemPrompt({
       userSystemPrompt: config.resolvedConfig.userSystemPrompt,
       exclude: excludeSections,
       isScheduledTask: config.resolvedConfig.isScheduledTask,
       scheduledTaskPageId: config.browserContext?.activeTab?.pageId,
       workspaceDir: workspaceDirForPrompt,
+      soulContent,
+      userProfileContent,
+      agentMemoryContent,
+      skillIndexContent,
       chatMode: config.resolvedConfig.chatMode,
       connectedApps: config.browserContext?.enabledMcpServers,
       declinedApps: config.resolvedConfig.declinedApps,

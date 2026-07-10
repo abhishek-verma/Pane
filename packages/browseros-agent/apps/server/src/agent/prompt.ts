@@ -558,6 +558,35 @@ function getSoul(
   return `<soul>\n${soulContent}\n</soul>`
 }
 
+function getUserProfile(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  const content = options?.userProfileContent?.trim()
+  if (!content) return ''
+  return `<user_profile>\n${content}\n</user_profile>`
+}
+
+function getAgentMemory(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  const content = options?.agentMemoryContent?.trim()
+  if (!content) return ''
+  return `<agent_memory>\n${content}\n</agent_memory>`
+}
+
+function getSkillIndex(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  const content = options?.skillIndexContent?.trim()
+  if (!content) return ''
+  // Already wrapped by allocator when non-empty; accept raw lines too.
+  if (content.startsWith('<skill_index>')) return content
+  return `<skill_index>\n${content}\n</skill_index>`
+}
+
 // -----------------------------------------------------------------------------
 // section: security-reminder
 // -----------------------------------------------------------------------------
@@ -601,6 +630,9 @@ const promptSections: Record<string, PromptSectionFn> = {
   style: getStyle,
   'user-context': getUserContext,
   soul: getSoul,
+  'user-profile': getUserProfile,
+  'agent-memory': getAgentMemory,
+  'skill-index': getSkillIndex,
   'security-reminder': getSecurityReminder,
 }
 
@@ -611,6 +643,12 @@ export interface BuildSystemPromptOptions {
   scheduledTaskPageId?: number
   workspaceDir?: string
   soulContent?: string
+  /** USER.md snapshot (within prompt budget). */
+  userProfileContent?: string
+  /** MEMORY.md / curated notes snapshot (within prompt budget). */
+  agentMemoryContent?: string
+  /** Skill names + one-liners only — never full SKILL.md bodies. */
+  skillIndexContent?: string
   chatMode?: boolean
   /** Apps the user has connected and authenticated via Strata (from enabledMcpServers). */
   connectedApps?: string[]
