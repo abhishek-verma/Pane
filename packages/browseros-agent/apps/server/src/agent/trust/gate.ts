@@ -13,7 +13,72 @@ import {
 } from '@browseros/shared/trust/consequence-class'
 import { type Tool, tool } from 'ai'
 import { z } from 'zod'
+import {
+  channelOutcomeKey,
+  getChannelOutcome,
+  requestChannelApproval,
+  setChannelOutcome,
+} from '../../scheduler/approvals'
+import {
+  appendCompletedStep,
+  getScheduledRun,
+  shouldSkipCompletedStep,
+  stepFingerprint,
+} from '../../scheduler/run-executor'
 import { logGateDecision } from './action-log'
+
+/** Prefer run idempotency key so retries with a new chat runId still dedupe. */
+export function resolveStepIdempotencyKey(ctx: GateContext): string {
+  if (ctx.idempotencyKey) return ctx.idempotencyKey
+  if (ctx.scheduledRunId) {
+    const run = getScheduledRun(ctx.scheduledRunId)
+    if (run?.idempotencyKey) return run.idempotencyKey
+  }
+  return ctx.runId ?? 'unattended'
+}
+
+function skipIfCompletedStep(
+  toolName: string,
+  args: Record<string, unknown>,
+  ctx: GateContext,
+  cls: ConsequenceClass,
+  resultShapeKind: 'text' | 'content',
+): GateToolResult | null {
+  if (!ctx.scheduledRunId || !isConsequentialClass(cls)) return null
+  const run = getScheduledRun(ctx.scheduledRunId)
+  if (!run) return null
+  const fp = stepFingerprint(toolName, args, resolveStepIdempotencyKey(ctx))
+  if (!shouldSkipCompletedStep(run, fp, cls)) return null
+  const preview = `Skipped (already completed): ${describeToolCall(toolName, args)}`
+  logGateDecision(toolName, args, ctx, cls, 'executed', preview)
+  return formatGateResult(preview, resultShapeKind)
+}
+
+function isToolErrorResult(result: unknown): boolean {
+  return Boolean(
+    result &&
+      typeof result === 'object' &&
+      'isError' in result &&
+      (result as { isError?: boolean }).isError === true,
+  )
+}
+
+function recordCompletedStep(
+  toolName: string,
+  args: Record<string, unknown>,
+  ctx: GateContext,
+  cls: ConsequenceClass,
+  toolCallId?: string,
+): void {
+  if (!ctx.scheduledRunId || !isConsequentialClass(cls)) return
+  const fp = stepFingerprint(toolName, args, resolveStepIdempotencyKey(ctx))
+  appendCompletedStep(ctx.scheduledRunId, {
+    toolCallId: toolCallId ?? fp,
+    toolName,
+    class: cls,
+    fingerprint: fp,
+  })
+}
 
 export type { ConsequenceClass, GateContext }
 
@@ -86,6 +151,9 @@ export async function gateExecute<TResult extends GateToolResult>(
     return formatGateResult(preview, resultShapeKind) as TResult
   }
 
+  const skipped = skipIfCompletedStep(toolName, args, ctx, cls, resultShapeKind)
+  if (skipped) return skipped as TResult
+
   const cleanArgs = stripPromotedArg(args)
   const result = await underlyingExecute(cleanArgs)
   recordConsequentialExecution(ctx, cls)
@@ -102,6 +170,9 @@ export async function gateExecute<TResult extends GateToolResult>(
       isPromoted(args) ? 'promoted' : 'executed',
       summary,
     )
+    if (!isToolErrorResult(result)) {
+      recordCompletedStep(toolName, args, ctx, cls)
+    }
   }
   hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
   return result
@@ -153,14 +224,42 @@ export function wrapToolWithGate<T extends Tool>(
       ) {
         return false
       }
-      logGateDecision(
-        toolName,
-        args,
-        ctx,
-        cls,
-        'approval-requested',
-        buildLoopApprovalPreview(toolName, args),
-      )
+
+      const preview = buildLoopApprovalPreview(toolName, args)
+
+      // Unattended: pause via channel, never auto-approve on silence.
+      if (ctx.unattended) {
+        const runId = ctx.runId ?? 'unattended'
+        const fp = stepFingerprint(
+          toolName,
+          args,
+          resolveStepIdempotencyKey(ctx),
+        )
+        const { resolution } = await requestChannelApproval({
+          runId,
+          conversationId: ctx.conversationId,
+          toolCallId: fp,
+          toolName,
+          consequenceClass: cls,
+          preview,
+        })
+        setChannelOutcome(channelOutcomeKey(runId, toolName, fp), resolution)
+        logGateDecision(
+          toolName,
+          args,
+          ctx,
+          cls,
+          resolution === 'approved' ? 'approval-requested' : 'denied',
+          resolution === 'approved'
+            ? preview
+            : `Channel ${resolution}: ${preview}`,
+        )
+        // Return false so execute runs; execute checks channel outcome.
+        // Approved → execute; denied/timeout → execute returns error (no side effect).
+        return false
+      }
+
+      logGateDecision(toolName, args, ctx, cls, 'approval-requested', preview)
       return true
     },
     execute: async (input, options) => {
@@ -171,6 +270,42 @@ export function wrapToolWithGate<T extends Tool>(
       if (!original.execute) {
         throw new Error(`Tool ${toolName} has no execute function`)
       }
+
+      if (ctx.unattended && isConsequentialClass(cls) && !isPromoted(args)) {
+        const runId = ctx.runId ?? 'unattended'
+        const fp = stepFingerprint(
+          toolName,
+          args,
+          resolveStepIdempotencyKey(ctx),
+        )
+        const outcome = getChannelOutcome(
+          channelOutcomeKey(runId, toolName, fp),
+        )
+        if (outcome === 'denied' || outcome === 'timeout') {
+          const msg =
+            outcome === 'denied'
+              ? 'Denied via reach channel. Run cancelled for this action.'
+              : 'Approval timed out. Action skipped (never auto-approved).'
+          logGateDecision(toolName, args, ctx, cls, 'denied', msg)
+          return { text: msg, isError: true }
+        }
+        if (outcome === 'approved') {
+          // Channel approve resumes through the same execute path as pin/promote.
+          // We do not set __promoted on the schema — outcome map is the proof.
+        } else if (
+          !isPinActive(ctx, cls) ||
+          ctx.runConsequentialCount.count >= getBlastRadiusCap(ctx)
+        ) {
+          // Unattended without a resolved channel outcome and no pin — refuse.
+          const msg =
+            'Unattended consequential action blocked (no channel approval).'
+          logGateDecision(toolName, args, ctx, cls, 'denied', msg)
+          return { text: msg, isError: true }
+        }
+      }
+
+      const skipped = skipIfCompletedStep(toolName, args, ctx, cls, 'text')
+      if (skipped) return skipped
 
       // A consequential call reaches execute only after the user approved
       // (the SDK re-invokes us) or because a pin allowed auto-execution.
@@ -189,14 +324,34 @@ export function wrapToolWithGate<T extends Tool>(
             ?.filter((c) => c.type === 'text')
             .map((c) => c.text)
             .join('\n')
+        const runId = ctx.runId ?? 'unattended'
+        const fp = stepFingerprint(
+          toolName,
+          args,
+          resolveStepIdempotencyKey(ctx),
+        )
+        const channelApproved =
+          getChannelOutcome(channelOutcomeKey(runId, toolName, fp)) ===
+          'approved'
         logGateDecision(
           toolName,
           args,
           ctx,
           cls,
-          isPromoted(args) ? 'promoted' : 'executed',
+          isPromoted(args) || channelApproved ? 'promoted' : 'executed',
           summary,
         )
+        if (!isToolErrorResult(result)) {
+          recordCompletedStep(
+            toolName,
+            args,
+            ctx,
+            cls,
+            typeof options?.toolCallId === 'string'
+              ? options.toolCallId
+              : undefined,
+          )
+        }
       }
       hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
       return result

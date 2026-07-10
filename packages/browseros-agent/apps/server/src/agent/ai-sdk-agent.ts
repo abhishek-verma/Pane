@@ -270,6 +270,8 @@ export class AiSdkAgent {
           isNewUser: true,
         }),
         surface: 'loop',
+        unattended:
+          gateCtx?.unattended ?? Boolean(config.resolvedConfig.isScheduledTask),
       }),
       ingestHooks,
     )

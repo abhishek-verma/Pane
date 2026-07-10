@@ -82,6 +82,11 @@ const primarySettingsSections: NavSection[] = [
       { name: 'Action log', to: '/settings/action-log', icon: Shield },
       { name: 'Memory & Skills', to: '/settings/memory', icon: Brain },
       {
+        name: 'Reach & Keep-alive',
+        to: '/settings/reach',
+        icon: MessageSquare,
+      },
+      {
         name: 'Usage & Billing',
         to: '/settings/usage',
         icon: CreditCard,

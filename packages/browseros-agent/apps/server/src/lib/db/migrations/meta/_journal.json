@@ -64,6 +64,13 @@
       "when": 1783682207926,
       "tag": "0008_bored_karen_page",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1783689148142,
+      "tag": "0009_curvy_bucky",
+      "breakpoints": true
     }
   ]
 }

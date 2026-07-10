@@ -58,6 +58,10 @@ export interface ChatRequestBodyParams {
   }
   toolApprovalResponses?: ToolApprovalResponseEntry[]
   isScheduledTask?: boolean
+  /** Server scheduled_runs id for trigger/keep-alive drain. */
+  scheduledRunId?: string
+  /** Stable key for consequential step dedupe across retries. */
+  idempotencyKey?: string
 }
 
 export const buildChatRequestBody = ({
@@ -78,6 +82,8 @@ export const buildChatRequestBody = ({
   selectedTextSource,
   toolApprovalResponses,
   isScheduledTask,
+  scheduledRunId,
+  idempotencyKey,
 }: ChatRequestBodyParams) => ({
   message,
   provider: provider.type,
@@ -120,4 +126,6 @@ export const buildChatRequestBody = ({
     ? toolApprovalResponses
     : undefined,
   isScheduledTask,
+  scheduledRunId,
+  idempotencyKey,
 })

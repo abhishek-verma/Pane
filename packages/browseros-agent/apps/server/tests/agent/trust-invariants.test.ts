@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'bun:test'
+import { afterEach, describe, expect, it } from 'bun:test'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   BLAST_RADIUS_CAP_NEW_USER,
   decideGate,
@@ -10,6 +13,12 @@ import {
 import { tool } from 'ai'
 import { z } from 'zod'
 import { gateExecute, wrapToolWithGate } from '../../src/agent/trust/gate'
+import { closeDb, initializeDb } from '../../src/lib/db'
+import {
+  appendCompletedStep,
+  createRunRecord,
+  stepFingerprint,
+} from '../../src/scheduler/run-executor'
 
 function makeCtx(overrides: Partial<GateContext> = {}): GateContext {
   return {
@@ -415,5 +424,151 @@ describe('wrapToolWithGate loop surface', () => {
     const wrapped = wrapToolWithGate('filesystem_read', makeTool(), () => ctx)
     await wrapped.execute?.({ command: 'ls' }, execOptions)
     expect(ctx.runConsequentialCount.count).toBe(0)
+  })
+})
+
+describe('wrapToolWithGate scheduled-run idempotency', () => {
+  const tempDirs: string[] = []
+
+  afterEach(() => {
+    closeDb()
+    for (const dir of tempDirs) {
+      rmSync(dir, { recursive: true, force: true })
+    }
+    tempDirs.length = 0
+  })
+
+  it('skips consequential execute when fingerprint already completed', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-gate-idem-'))
+    tempDirs.push(dir)
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
+
+    const run = createRunRecord({
+      source: 'trigger',
+      prompt: 'write',
+      idempotencyKey: 'trigger:r1:e1',
+    })
+    const args = { command: 'echo hi' }
+    const fp = stepFingerprint('filesystem_bash', args, run.idempotencyKey)
+    appendCompletedStep(run.id, {
+      toolCallId: 'tc1',
+      toolName: 'filesystem_bash',
+      class: 'system',
+      fingerprint: fp,
+    })
+
+    let called = false
+    const underlying = tool({
+      description: 'fake',
+      inputSchema: z.object({ command: z.string().optional() }),
+      execute: async () => {
+        called = true
+        return { text: 'should not run' }
+      },
+    })
+    const ctx = makeCtx({
+      surface: 'loop',
+      scheduledRunId: run.id,
+      idempotencyKey: run.idempotencyKey,
+      pins: { system: { pinned: true } },
+      isNewUser: false,
+    })
+    const wrapped = wrapToolWithGate('filesystem_bash', underlying, () => ctx)
+    const res = await wrapped.execute?.(args, {
+      toolCallId: 'tc2',
+      messages: [],
+    })
+    expect(called).toBe(false)
+    expect(String((res as { text?: string })?.text ?? '')).toContain(
+      'already completed',
+    )
+  })
+
+  it('appends completed step after successful consequential execute', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-gate-append-'))
+    tempDirs.push(dir)
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
+
+    const run = createRunRecord({
+      source: 'trigger',
+      prompt: 'write',
+      idempotencyKey: 'trigger:r2:e2',
+    })
+    const args = { command: 'echo once' }
+    const underlying = tool({
+      description: 'fake',
+      inputSchema: z.object({ command: z.string().optional() }),
+      execute: async () => ({ text: 'ran' }),
+    })
+    const ctx = makeCtx({
+      surface: 'loop',
+      scheduledRunId: run.id,
+      idempotencyKey: run.idempotencyKey,
+      pins: { system: { pinned: true } },
+      isNewUser: false,
+    })
+    const wrapped = wrapToolWithGate('filesystem_bash', underlying, () => ctx)
+    await wrapped.execute?.(args, { toolCallId: 'tc3', messages: [] })
+
+    let called = false
+    const again = tool({
+      description: 'fake',
+      inputSchema: z.object({ command: z.string().optional() }),
+      execute: async () => {
+        called = true
+        return { text: 'again' }
+      },
+    })
+    // New chat runId, same scheduled run + idempotency key — still skips.
+    const ctx2 = makeCtx({
+      surface: 'loop',
+      runId: 'chat-retry-uuid',
+      scheduledRunId: run.id,
+      idempotencyKey: run.idempotencyKey,
+      pins: { system: { pinned: true } },
+      isNewUser: false,
+    })
+    const wrapped2 = wrapToolWithGate('filesystem_bash', again, () => ctx2)
+    const res = await wrapped2.execute?.(args, {
+      toolCallId: 'tc4',
+      messages: [],
+    })
+    expect(called).toBe(false)
+    expect(String((res as { text?: string })?.text ?? '')).toContain(
+      'already completed',
+    )
+  })
+
+  it('does not append completed step when tool returns isError', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-gate-err-'))
+    tempDirs.push(dir)
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
+
+    const run = createRunRecord({
+      source: 'trigger',
+      prompt: 'write',
+      idempotencyKey: 'trigger:err:1',
+    })
+    const args = { command: 'fail' }
+    let calls = 0
+    const underlying = tool({
+      description: 'fake',
+      inputSchema: z.object({ command: z.string().optional() }),
+      execute: async () => {
+        calls += 1
+        return { text: 'boom', isError: true }
+      },
+    })
+    const ctx = makeCtx({
+      surface: 'loop',
+      scheduledRunId: run.id,
+      idempotencyKey: run.idempotencyKey,
+      pins: { system: { pinned: true } },
+      isNewUser: false,
+    })
+    const wrapped = wrapToolWithGate('filesystem_bash', underlying, () => ctx)
+    await wrapped.execute?.(args, { toolCallId: 'tc-err', messages: [] })
+    await wrapped.execute?.(args, { toolCallId: 'tc-err-2', messages: [] })
+    expect(calls).toBe(2)
   })
 })

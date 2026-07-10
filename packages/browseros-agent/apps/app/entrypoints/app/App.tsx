@@ -21,6 +21,7 @@ import { OnboardingDemo } from '@/screens/onboarding/demo/OnboardingDemo'
 import { FeaturesPage } from '@/screens/onboarding/features/Features'
 import { Onboarding } from '@/screens/onboarding/index/Onboarding'
 import { StepsLayout } from '@/screens/onboarding/steps/StepsLayout'
+import { ReachSettingsPage } from '@/screens/reach/ReachSettingsPage'
 import { ScheduledTasksPage } from '@/screens/scheduled-tasks/ScheduledTasksPage'
 import { TasksPage } from '@/screens/tasks/TasksPage'
 import { WorkspacesPage } from '@/screens/workspaces/WorkspacesPage'
@@ -91,6 +92,7 @@ export const App: FC = () => {
             <Route path="customization" element={<CustomizationPage />} />
             <Route path="action-log" element={<ActionLogPage />} />
             <Route path="memory" element={<MemoryPage />} />
+            <Route path="reach" element={<ReachSettingsPage />} />
             <Route
               path="search"
               element={<Navigate to="/settings/ai" replace />}
