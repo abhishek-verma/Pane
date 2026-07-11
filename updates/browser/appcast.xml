@@ -3,7 +3,23 @@
   <channel>
     <title>Pane (macOS arm64)</title>
     <link>https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/browser/appcast.xml</link>
-    <description>Pane browser updates for Apple Silicon Macs</description>
+    <description>Pane browser updates</description>
     <language>en</language>
+
+<item>
+  <title>Pane - 0.47.0.1</title>
+  <description sparkle:format="plain-text">
+  </description>
+  <sparkle:version>7949.97</sparkle:version>
+  <sparkle:shortVersionString>0.47.0.1</sparkle:shortVersionString>
+  <pubDate>Sat, 11 Jul 2026 10:54:01 +0000</pubDate>
+  <link>https://github.com/abhishek-verma/Pane/releases</link>
+  <enclosure
+    url="https://github.com/abhishek-verma/Pane/releases/download/browser/v0.47.0.1/Pane_v0.47.0.1_arm64.dmg"
+    sparkle:edSignature="Dv8dL2o07dqljI5p/nbc5dgGlz42iQf2gv/HxCYfM8wclWMmpA3RSUkqYmcpyyXIRPOSUcBqN7VZcssxMEhfAQ=="
+    length="170069985"
+    type="application/octet-stream" />
+  <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
+</item>
   </channel>
 </rss>
