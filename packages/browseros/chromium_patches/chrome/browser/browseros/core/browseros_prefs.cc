@@ -103,3 +103,9 @@ index 0000000000..e7040892b0
 +bool ShouldPinBrowserOSExtension(const std::string& extension_id,
 +                                 PrefService* pref_service) {
 +  if (extension_id == kAgentExtensionId) {
++    return false;
++  }
++  return IsBrowserOSPinnedExtension(extension_id);
++}
++
++}  // namespace browseros

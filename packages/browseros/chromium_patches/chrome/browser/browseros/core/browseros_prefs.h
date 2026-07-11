@@ -93,3 +93,7 @@ index 0000000000..45e6701105
 +
 +// Get the visibility pref key for an action, or nullptr if none exists.
 +const char* GetVisibilityPrefForAction(actions::ActionId id);
++
++}  // namespace browseros
++
++#endif  // CHROME_BROWSER_BROWSEROS_CORE_BROWSEROS_PREFS_H_
