@@ -163,7 +163,7 @@ import sys
 text = sys.stdin.read()
 
 def read_int(key: str) -> int:
-    match = re.search(rf"^{re.escape(key)}=(\\d+)$", text, re.MULTILINE)
+    match = re.search(rf"^{re.escape(key)}=(\d+)$", text, re.MULTILINE)
     if match is None:
         raise SystemExit(f"Missing {key}")
     return int(match.group(1))
