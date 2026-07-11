@@ -12,7 +12,7 @@
  *       --output pane-agent-0.0.100.crx
  */
 
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { $ } from 'bun'
@@ -22,17 +22,40 @@ async function packDirectory(
   directory: string,
   privateKey: string,
   outputPath: string,
-): Promise<void> {
-  await crx3([directory], {
-    privateKey,
-    crxPath: outputPath,
-  })
+  expectedAppId?: string,
+): Promise<string> {
+  // crx3 signs with `keyPath` (file path), not a `privateKey` string.
+  const keyDir = mkdtempSync(join(tmpdir(), 'pane-crx-key-'))
+  const keyPath = join(keyDir, 'extension.pem')
+  writeFileSync(keyPath, privateKey, 'utf8')
+
+  try {
+    const info = (await crx3([directory], {
+      keyPath,
+      crxPath: outputPath,
+    })) as { appId?: string }
+
+    const appId = info.appId
+    if (!appId) {
+      throw new Error('crx3 did not return an app id')
+    }
+    if (expectedAppId && appId !== expectedAppId) {
+      throw new Error(
+        `CRX app id ${appId} does not match expected ${expectedAppId}`,
+      )
+    }
+
+    return appId
+  } finally {
+    rmSync(keyDir, { recursive: true, force: true })
+  }
 }
 
 function parseArgs(argv: string[]): {
   zipPath: string
   outputPath: string
   privateKeyEnv: string
+  expectedAppId?: string
 } {
   const values = new Map<string, string>()
   for (let i = 0; i < argv.length; i++) {
@@ -55,7 +78,12 @@ function parseArgs(argv: string[]): {
     throw new Error('Required: --zip, --output (optional: --private-key-env)')
   }
 
-  return { zipPath, outputPath, privateKeyEnv }
+  return {
+    zipPath,
+    outputPath,
+    privateKeyEnv,
+    expectedAppId: values.get('expected-app-id'),
+  }
 }
 
 function normalizePrivateKey(raw: string): string {
@@ -86,9 +114,14 @@ async function main(): Promise<void> {
 
   try {
     await $`unzip -q -o ${zipPath} -d ${workDir}`.quiet()
-    await packDirectory(workDir, privateKey, outputPath)
+    const appId = await packDirectory(
+      workDir,
+      privateKey,
+      outputPath,
+      args.expectedAppId,
+    )
     process.stderr.write(
-      `Packed ${basename(outputPath)} from ${basename(zipPath)}\n`,
+      `Packed ${basename(outputPath)} from ${basename(zipPath)} (app id ${appId})\n`,
     )
   } finally {
     rmSync(workDir, { recursive: true, force: true })

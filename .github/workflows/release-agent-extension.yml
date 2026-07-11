@@ -73,6 +73,18 @@ jobs:
         run: bun ci
         working-directory: packages/browseros-agent
 
+      - name: Verify release signing secrets
+        env:
+          AGENT_EXTENSION_PRIVATE_KEY: ${{ secrets.AGENT_EXTENSION_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${AGENT_EXTENSION_PRIVATE_KEY:-}" ]; then
+            echo "::warning::AGENT_EXTENSION_PRIVATE_KEY not set; CRX will not be published"
+            exit 0
+          fi
+          python3 scripts/release/verify_release_secrets.py
+        working-directory: packages/browseros-agent
+
       - name: Build and zip extension
         run: bun run codegen && bun run zip
         env:
@@ -98,7 +110,8 @@ jobs:
             bun run ../../scripts/release/pack-extension-crx.ts \
               --zip "$(pwd)/$RELEASE_ZIP" \
               --output "$(pwd)/pane-agent-${VERSION}.crx" \
-              --private-key-env AGENT_EXTENSION_PRIVATE_KEY
+              --private-key-env AGENT_EXTENSION_PRIVATE_KEY \
+              --expected-app-id biedncddmddkpapdplhcnkhhplnfgbif
             echo "crx_path=$(pwd)/pane-agent-${VERSION}.crx" >> "$GITHUB_OUTPUT"
             echo "codebase_asset=pane-agent-${VERSION}.crx" >> "$GITHUB_OUTPUT"
           else
