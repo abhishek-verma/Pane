@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000000..1111111111111
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_display_names.h
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,43 @@
 +// Copyright 2026 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
