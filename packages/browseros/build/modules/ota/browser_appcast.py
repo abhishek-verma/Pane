@@ -8,6 +8,7 @@ import re
 import subprocess
 import tempfile
 import urllib.parse
+import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -117,8 +118,6 @@ def _load_metadata_asset(
     encoded_tag = urllib.parse.quote(tag, safe="")
     url = github_release_download_url(tag, metadata_name)
     try:
-        import urllib.request
-
         with urllib.request.urlopen(url, timeout=120) as response:
             return json.loads(response.read().decode("utf-8"))
     except Exception as exc:
