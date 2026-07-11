@@ -7,6 +7,7 @@ index d4f8091fffc0e..beb80932418cb 100644
  #include "base/strings/utf_string_conversions.h"
  #include "base/task/single_thread_task_runner.h"
 +#include "chrome/browser/browseros/core/browseros_prefs.h"
++#include "chrome/browser/browseros/core/browseros_constants.h"
  #include "chrome/browser/extensions/extension_management.h"
  #include "chrome/browser/extensions/extension_tab_util.h"
  #include "chrome/browser/extensions/managed_toolbar_pin_mode.h"
@@ -21,3 +22,12 @@ index d4f8091fffc0e..beb80932418cb 100644
  }
  
  ToolbarActionsModel::~ToolbarActionsModel() = default;
+@@ -266,6 +271,10 @@ bool ToolbarActionsModel::ShouldAddExtension(
+     const extensions::Extension* extension) {
++  if (!browseros::ShouldExposeExtensionInToolbar(extension->id())) {
++    return false;
++  }
++
+   // In incognito mode, don't add any extensions that aren't incognito-enabled.
+   if (profile_->IsOffTheRecord() &&
+       !extensions::util::IsIncognitoEnabled(extension->id(), profile_)) {

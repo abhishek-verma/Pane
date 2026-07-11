@@ -51,13 +51,19 @@ index c2437bfc29..3f47d06526 100644
 +    }
 +  }
 +
-+  // Auto-pin BrowserOS extensions to the toolbar.
++  // Auto-pin other bundled BrowserOS extensions (not the agent).
 +  if (browseros::ShouldPinBrowserOSExtension(extension->id(),
 +                                             profile_->GetPrefs())) {
 +    DVLOG(1) << "browseros: Auto-pinning BrowserOS extension: "
 +             << extension->id();
 +    if (auto* pinned_model = PinnedToolbarActionsModel::Get(profile_)) {
 +      pinned_model->UpdatePinnedState(extension_action_id, true);
++    }
++  } else if (extension->id() == browseros::kAgentExtensionId) {
++    // The agent side panel is toggled via the native toolbar button. Ensure
++    // the extension action is not pinned for users upgrading from older builds.
++    if (auto* pinned_model = PinnedToolbarActionsModel::Get(profile_)) {
++      pinned_model->UpdatePinnedState(extension_action_id, false);
 +    }
 +  }
  }

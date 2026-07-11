@@ -25,13 +25,13 @@ index 0000000000000..fe576bc18a041
 +namespace prefs {
 +
 +// Toolbar visibility prefs
-+// Boolean: Show LLM Chat in toolbar (default: true)
++// Boolean: Show LLM Chat in toolbar (default: false)
 +inline constexpr char kShowLLMChat[] = "browseros.show_llm_chat";
 +
 +// Boolean: Show Assistant in toolbar (default: true)
 +inline constexpr char kShowAssistant[] = "browseros.show_assistant";
 +
-+// Boolean: Show labels on BrowserOS toolbar actions (default: true)
++// Boolean: Show labels on BrowserOS toolbar actions (default: false)
 +inline constexpr char kShowToolbarLabels[] = "browseros.show_toolbar_labels";
 +
 +// Boolean: Enable vertical tabs (default: true)
@@ -84,6 +84,10 @@ index 0000000000000..fe576bc18a041
 +//   - Action's visibility pref is true
 +// Returns false if action's visibility pref is false.
 +bool ShouldShowToolbarAction(actions::ActionId id, PrefService* pref_service);
++
++// Returns false for bundled Pane extensions that should not appear in the
++// extensions toolbar or extensions menu (e.g. the agent).
++bool ShouldExposeExtensionInToolbar(const std::string& extension_id);
 +
 +// Check if a BrowserOS extension should be pinned in the toolbar based on its
 +// extension metadata and visibility pref.

@@ -21,9 +21,9 @@ index 0000000000000..c47c0fad94dda
 +
 +void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 +  // Toolbar visibility prefs
-+  registry->RegisterBooleanPref(prefs::kShowLLMChat, true);
++  registry->RegisterBooleanPref(prefs::kShowLLMChat, false);
 +  registry->RegisterBooleanPref(prefs::kShowAssistant, true);
-+  registry->RegisterBooleanPref(prefs::kShowToolbarLabels, true);
++  registry->RegisterBooleanPref(prefs::kShowToolbarLabels, false);
 +
 +  // Vertical tabs pref
 +  registry->RegisterBooleanPref(prefs::kVerticalTabsEnabled, true);
@@ -101,10 +101,16 @@ index 0000000000000..c47c0fad94dda
 +  return pref_service->GetBoolean(pref_key);
 +}
 +
++bool ShouldExposeExtensionInToolbar(const std::string& extension_id) {
++  // The agent is toggled via the native sidebar button, not the extensions
++  // toolbar. Hide it so Pane does not look like a third-party extension.
++  return extension_id != kAgentExtensionId;
++}
++
 +bool ShouldPinBrowserOSExtension(const std::string& extension_id,
 +                                 PrefService* pref_service) {
 +  if (extension_id == kAgentExtensionId) {
-+    return ShouldShowAssistant(pref_service);
++    return false;
 +  }
 +  return IsBrowserOSPinnedExtension(extension_id);
 +}

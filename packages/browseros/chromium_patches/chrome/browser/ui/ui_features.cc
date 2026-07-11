@@ -8,7 +8,7 @@ index 6db423701529a..80ca4bca6e9f6 100644
  
 +BASE_FEATURE(kThirdPartyLlmPanel,
 +             "ThirdPartyLlmPanel",
-+             base::FEATURE_ENABLED_BY_DEFAULT);
++             base::FEATURE_DISABLED_BY_DEFAULT);
 +
  BASE_FEATURE(kTabDuplicateMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
  
