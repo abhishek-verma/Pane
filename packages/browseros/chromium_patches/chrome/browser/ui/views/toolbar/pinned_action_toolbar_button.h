@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h b/chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h
-index 5faebc2c5021d..8bb15d8b2e985 100644
+index 5faebc2c50..8bb15d8b2e 100644
 --- a/chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h
 +++ b/chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h
 @@ -52,11 +52,13 @@ class PinnedActionToolbarButton : public ToolbarButton {

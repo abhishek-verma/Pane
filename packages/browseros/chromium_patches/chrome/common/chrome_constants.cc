@@ -1,5 +1,5 @@
 diff --git a/chrome/common/chrome_constants.cc b/chrome/common/chrome_constants.cc
-index 6e30ef11474c4..0a6aaeb85d73b 100644
+index 6e30ef1147..0a6aaeb85d 100644
 --- a/chrome/common/chrome_constants.cc
 +++ b/chrome/common/chrome_constants.cc
 @@ -46,7 +46,7 @@ const base::FilePath::CharType kBrowserProcessExecutableName[] = FPL("chrome");

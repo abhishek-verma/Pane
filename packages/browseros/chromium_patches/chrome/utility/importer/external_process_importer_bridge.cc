@@ -1,5 +1,5 @@
 diff --git a/chrome/utility/importer/external_process_importer_bridge.cc b/chrome/utility/importer/external_process_importer_bridge.cc
-index 67092331c3801..df9cfc2576fd8 100644
+index 67092331c3..df9cfc2576 100644
 --- a/chrome/utility/importer/external_process_importer_bridge.cc
 +++ b/chrome/utility/importer/external_process_importer_bridge.cc
 @@ -15,8 +15,11 @@

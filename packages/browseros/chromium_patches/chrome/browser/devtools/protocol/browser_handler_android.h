@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/devtools/protocol/browser_handler_android.h b/chrome/browser/devtools/protocol/browser_handler_android.h
-index a80686d439110..b35c043695542 100644
+index a80686d439..b35c043695 100644
 --- a/chrome/browser/devtools/protocol/browser_handler_android.h
 +++ b/chrome/browser/devtools/protocol/browser_handler_android.h
 @@ -22,6 +22,14 @@ class BrowserHandlerAndroid : public protocol::Browser::Backend {

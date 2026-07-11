@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/importer/in_process_importer_bridge.cc b/chrome/browser/importer/in_process_importer_bridge.cc
-index 20e454416b8a9..ea76dce5206fa 100644
+index 20e454416b..ea76dce520 100644
 --- a/chrome/browser/importer/in_process_importer_bridge.cc
 +++ b/chrome/browser/importer/in_process_importer_bridge.cc
 @@ -20,11 +20,16 @@

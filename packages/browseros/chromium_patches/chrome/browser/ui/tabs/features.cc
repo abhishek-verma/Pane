@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/tabs/features.cc b/chrome/browser/ui/tabs/features.cc
-index faa16e19c872f..11db930e9341b 100644
+index faa16e19c8..11db930e93 100644
 --- a/chrome/browser/ui/tabs/features.cc
 +++ b/chrome/browser/ui/tabs/features.cc
 @@ -15,7 +15,7 @@ BASE_FEATURE(kTabGroupHome, base::FEATURE_DISABLED_BY_DEFAULT);

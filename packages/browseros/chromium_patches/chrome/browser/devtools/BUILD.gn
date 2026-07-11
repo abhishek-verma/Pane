@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/devtools/BUILD.gn b/chrome/browser/devtools/BUILD.gn
-index 47c0377453e1e..eb0dfb2891f5f 100644
+index 47c0377453..eb0dfb2891 100644
 --- a/chrome/browser/devtools/BUILD.gn
 +++ b/chrome/browser/devtools/BUILD.gn
 @@ -34,6 +34,10 @@ if (enable_devtools_frontend) {

@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/extensions/extension_context_menu_model.cc b/chrome/browser/extensions/extension_context_menu_model.cc
-index 1e3ccdabbab2a..ff720a438bbbf 100644
+index 1e3ccdabba..ff720a438b 100644
 --- a/chrome/browser/extensions/extension_context_menu_model.cc
 +++ b/chrome/browser/extensions/extension_context_menu_model.cc
 @@ -6,6 +6,7 @@

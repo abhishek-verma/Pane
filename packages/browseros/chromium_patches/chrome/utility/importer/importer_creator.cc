@@ -1,5 +1,5 @@
 diff --git a/chrome/utility/importer/importer_creator.cc b/chrome/utility/importer/importer_creator.cc
-index 5f8f27c70bafe..6b4107f376b5c 100644
+index 5f8f27c70b..6b4107f376 100644
 --- a/chrome/utility/importer/importer_creator.cc
 +++ b/chrome/utility/importer/importer_creator.cc
 @@ -8,6 +8,7 @@

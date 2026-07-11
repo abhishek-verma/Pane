@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/test/mock_process_controller.h b/chrome/browser/browseros/server/test/mock_process_controller.h
 new file mode 100644
-index 0000000000000..97fdf04282691
+index 0000000000..97fdf04282
 --- /dev/null
 +++ b/chrome/browser/browseros/server/test/mock_process_controller.h
 @@ -0,0 +1,38 @@

@@ -1,5 +1,5 @@
 diff --git a/chrome/common/pref_names.h b/chrome/common/pref_names.h
-index 831ef13b599e6..b291b3328955d 100644
+index 831ef13b59..b291b33289 100644
 --- a/chrome/common/pref_names.h
 +++ b/chrome/common/pref_names.h
 @@ -1135,6 +1135,9 @@ inline constexpr char kImportDialogSavedPasswords[] =

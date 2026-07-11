@@ -1,5 +1,5 @@
 diff --git a/chrome/common/importer/profile_import.mojom b/chrome/common/importer/profile_import.mojom
-index b28b7324629ae..f93563fe6c863 100644
+index b28b732462..f93563fe6c 100644
 --- a/chrome/common/importer/profile_import.mojom
 +++ b/chrome/common/importer/profile_import.mojom
 @@ -32,6 +32,49 @@ struct ImporterIE7PasswordInfo;

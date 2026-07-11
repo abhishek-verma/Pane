@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/about_flags.cc b/chrome/browser/about_flags.cc
-index 659379c7d74a1..a819194debde4 100644
+index 659379c7d7..a819194deb 100644
 --- a/chrome/browser/about_flags.cc
 +++ b/chrome/browser/about_flags.cc
 @@ -10898,6 +10898,16 @@ const FeatureEntry kFeatureEntries[] = {

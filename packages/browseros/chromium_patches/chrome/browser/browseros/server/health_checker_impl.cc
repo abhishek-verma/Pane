@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/health_checker_impl.cc b/chrome/browser/browseros/server/health_checker_impl.cc
 new file mode 100644
-index 0000000000000..73ef5eaf9e8e3
+index 0000000000..73ef5eaf9e
 --- /dev/null
 +++ b/chrome/browser/browseros/server/health_checker_impl.cc
 @@ -0,0 +1,145 @@

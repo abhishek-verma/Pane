@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/resources/settings/settings.ts b/chrome/browser/resources/settings/settings.ts
-index f221bf6cd2c42..f48c0f11cfcd3 100644
+index f221bf6cd2..f48c0f11cf 100644
 --- a/chrome/browser/resources/settings/settings.ts
 +++ b/chrome/browser/resources/settings/settings.ts
 @@ -41,6 +41,7 @@ export type {OpenWindowProxy} from 'chrome://resources/js/open_window_proxy.js';

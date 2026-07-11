@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/browseros_server_manager.h b/chrome/browser/browseros/server/browseros_server_manager.h
 new file mode 100644
-index 0000000000000..62e098b92b358
+index 0000000000..62e098b92b
 --- /dev/null
 +++ b/chrome/browser/browseros/server/browseros_server_manager.h
 @@ -0,0 +1,159 @@

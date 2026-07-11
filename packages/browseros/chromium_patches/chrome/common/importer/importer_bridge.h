@@ -1,5 +1,5 @@
 diff --git a/chrome/common/importer/importer_bridge.h b/chrome/common/importer/importer_bridge.h
-index 1738a3baff3e4..5f62d61cc7d08 100644
+index 1738a3baff..5f62d61cc7 100644
 --- a/chrome/common/importer/importer_bridge.h
 +++ b/chrome/common/importer/importer_bridge.h
 @@ -17,6 +17,10 @@

@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/importer/in_process_importer_bridge.h b/chrome/browser/importer/in_process_importer_bridge.h
-index 61190844025f0..08ce2bd965704 100644
+index 6119084402..08ce2bd965 100644
 --- a/chrome/browser/importer/in_process_importer_bridge.h
 +++ b/chrome/browser/importer/in_process_importer_bridge.h
 @@ -49,9 +49,14 @@ class InProcessImporterBridge : public ImporterBridge {

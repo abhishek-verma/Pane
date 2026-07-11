@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/extensions/api/debugger/debugger_api.cc b/chrome/browser/extensions/api/debugger/debugger_api.cc
-index 43449cdb81723..90af18743b2af 100644
+index 43449cdb81..90af18743b 100644
 --- a/chrome/browser/extensions/api/debugger/debugger_api.cc
 +++ b/chrome/browser/extensions/api/debugger/debugger_api.cc
 @@ -476,7 +476,7 @@ bool ExtensionDevToolsClientHost::Attach() {

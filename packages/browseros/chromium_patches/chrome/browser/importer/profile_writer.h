@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/importer/profile_writer.h b/chrome/browser/importer/profile_writer.h
-index f609d99dde302..54119399b48f0 100644
+index f609d99dde..54119399b4 100644
 --- a/chrome/browser/importer/profile_writer.h
 +++ b/chrome/browser/importer/profile_writer.h
 @@ -22,6 +22,10 @@ namespace autofill {

@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/browser_unittest.cc b/chrome/browser/ui/browser_unittest.cc
-index ccec5fda90ad5..998d966d0ade3 100644
+index ccec5fda90..998d966d0a 100644
 --- a/chrome/browser/ui/browser_unittest.cc
 +++ b/chrome/browser/ui/browser_unittest.cc
 @@ -265,6 +265,23 @@ TEST_F(BrowserUnitTest, CreateBrowserWithIncognitoModeEnabled) {

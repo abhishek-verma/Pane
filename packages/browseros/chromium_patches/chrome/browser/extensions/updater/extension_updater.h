@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/extensions/updater/extension_updater.h b/chrome/browser/extensions/updater/extension_updater.h
-index d88bf029fadaa..338f449194c69 100644
+index d88bf029fa..338f449194 100644
 --- a/chrome/browser/extensions/updater/extension_updater.h
 +++ b/chrome/browser/extensions/updater/extension_updater.h
 @@ -166,6 +166,13 @@ class ExtensionUpdater : public KeyedService,

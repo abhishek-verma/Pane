@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/BUILD.gn b/chrome/browser/browseros/BUILD.gn
 new file mode 100644
-index 0000000000000..10b6cd8a75016
+index 0000000000..10b6cd8a75
 --- /dev/null
 +++ b/chrome/browser/browseros/BUILD.gn
 @@ -0,0 +1,22 @@

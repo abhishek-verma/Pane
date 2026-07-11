@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/onboarding/browseros_onboarding_api.ts b/chrome/browser/browseros/onboarding/browseros_onboarding_api.ts
 new file mode 100644
-index 0000000000000..2edbc3d19f087
+index 0000000000..2edbc3d19f
 --- /dev/null
 +++ b/chrome/browser/browseros/onboarding/browseros_onboarding_api.ts
 @@ -0,0 +1,71 @@

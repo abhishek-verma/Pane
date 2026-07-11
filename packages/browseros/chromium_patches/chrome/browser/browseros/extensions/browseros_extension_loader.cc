@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/extensions/browseros_extension_loader.cc b/chrome/browser/browseros/extensions/browseros_extension_loader.cc
 new file mode 100644
-index 0000000000000..70ad8710a39b7
+index 0000000000..70ad8710a3
 --- /dev/null
 +++ b/chrome/browser/browseros/extensions/browseros_extension_loader.cc
 @@ -0,0 +1,269 @@

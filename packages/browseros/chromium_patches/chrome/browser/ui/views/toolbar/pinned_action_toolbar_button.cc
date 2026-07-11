@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.cc b/chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.cc
-index cb5f33a2c5f4c..d3708615bf897 100644
+index cb5f33a2c5..ea7e699ff6 100644
 --- a/chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.cc
 +++ b/chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.cc
 @@ -8,6 +8,12 @@
@@ -15,7 +15,8 @@ index cb5f33a2c5f4c..d3708615bf897 100644
  #include "base/metrics/user_metrics.h"
  #include "base/notreached.h"
  #include "base/strings/strcat.h"
-@@ -30,6 +36,9 @@
+@@ -29,7 +35,10 @@
+ #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
  #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
  #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 +#include "chrome/app/vector_icons/vector_icons.h"
@@ -25,7 +26,7 @@ index cb5f33a2c5f4c..d3708615bf897 100644
  #include "ui/actions/action_id.h"
  #include "ui/actions/actions.h"
  #include "ui/base/metadata/metadata_impl_macros.h"
-@@ -42,6 +49,8 @@
+@@ -42,6 +51,8 @@
  #include "ui/views/controls/button/button_controller.h"
  #include "ui/views/view_class_properties.h"
  #include "ui/views/view_utils.h"
@@ -34,7 +35,7 @@ index cb5f33a2c5f4c..d3708615bf897 100644
  
  namespace {
  // Width of the status indicator shown across the button.
-@@ -86,6 +95,28 @@ PinnedActionToolbarButton::PinnedActionToolbarButton(
+@@ -86,6 +97,28 @@ PinnedActionToolbarButton::PinnedActionToolbarButton(
    GetViewAccessibility().SetDescription(
        std::u16string(), ax::mojom::DescriptionFrom::kAttributeExplicitlyEmpty);
  
@@ -63,7 +64,7 @@ index cb5f33a2c5f4c..d3708615bf897 100644
    // Normally, the notify action is determined by whether a view is draggable
    // (and is set to press for non-draggable and release for draggable views).
    // However, PinnedActionToolbarButton may be draggable or non-draggable
-@@ -222,6 +253,30 @@ void PinnedActionToolbarButton::OnMouseReleased(const ui::MouseEvent& event) {
+@@ -222,6 +255,30 @@ void PinnedActionToolbarButton::OnMouseReleased(const ui::MouseEvent& event) {
    skip_execution_ = false;
  }
  
@@ -94,12 +95,12 @@ index cb5f33a2c5f4c..d3708615bf897 100644
  void PinnedActionToolbarButton::UpdateIcon() {
    const std::optional<VectorIcons>& icons = GetVectorIcons();
    // If the button is a cached permanent button the color provider will not be
-@@ -234,7 +289,12 @@ void PinnedActionToolbarButton::UpdateIcon() {
+@@ -234,7 +291,11 @@ void PinnedActionToolbarButton::UpdateIcon() {
                                      ? icons->touch_icon
                                      : icons->icon;
  
 -  if (is_icon_visible_ && action_engaged_) {
-+  if (action_id_ == kActionBrowserOSAgent) {
++  if (      action_id_ == kActionBrowserOSAgent) {
 +    const SkColor orange = SkColorSetRGB(0xFB, 0x65, 0x18);
 +    UpdateIconsWithColors(vector_icons::kPaneMarkIcon, orange, orange, orange,
 +                          GetForegroundColor(ButtonState::STATE_DISABLED));
@@ -107,7 +108,7 @@ index cb5f33a2c5f4c..d3708615bf897 100644
      UpdateIconsWithColors(
          icon, GetColorProvider()->GetColor(kColorToolbarActionItemEngaged),
          GetColorProvider()->GetColor(kColorToolbarActionItemEngaged),
-@@ -336,6 +396,26 @@ void PinnedActionToolbarButtonActionViewInterface::ActionItemChangedImpl(
+@@ -336,6 +397,26 @@ void PinnedActionToolbarButtonActionViewInterface::ActionItemChangedImpl(
      }
    }
  

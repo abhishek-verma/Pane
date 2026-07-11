@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/extensions/extension_action_view_model.cc b/chrome/browser/ui/extensions/extension_action_view_model.cc
-index 1111111111111..2222222222222 100644
+index 85405c5f7e..9265494527 100644
 --- a/chrome/browser/ui/extensions/extension_action_view_model.cc
 +++ b/chrome/browser/ui/extensions/extension_action_view_model.cc
 @@ -16,6 +16,8 @@
@@ -21,20 +21,20 @@ index 1111111111111..2222222222222 100644
  #include "ui/color/color_provider_manager.h"
  #include "ui/gfx/image/image_skia.h"
  #include "ui/gfx/native_ui_types.h"
-@@ -199,6 +204,12 @@ ExtensionActionViewModel::GetIcon(
-   if (!ExtensionIsValid()) {
+@@ -203,6 +208,12 @@ ui::ImageModel ExtensionActionViewModel::GetIcon(
      return ui::ImageModel();
    }
-+
+ 
 +  if (browseros::IsBrowserOSExtension(extension_id_)) {
 +    constexpr SkColor orange = SkColorSetRGB(0xFB, 0x65, 0x18);
 +    return ui::ImageModel::FromImageSkia(gfx::CreateVectorIcon(
 +        vector_icons::kPaneMarkIcon, size.height(), orange));
 +  }
- 
++
    return ui::ImageModel::FromImageSkia(
        gfx::ImageSkia(GetIconImageSource(web_contents, size), size));
-@@ -212,7 +224,8 @@ std::u16string ExtensionActionViewModel::GetActionName() const {
+ }
+@@ -212,7 +223,8 @@ std::u16string ExtensionActionViewModel::GetActionName() const {
      return std::u16string();
    }
  

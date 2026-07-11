@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/toasts/toast_service.cc b/chrome/browser/ui/toasts/toast_service.cc
-index 09f145e630ca2..8084a7da406a8 100644
+index 09f145e630..8084a7da40 100644
 --- a/chrome/browser/ui/toasts/toast_service.cc
 +++ b/chrome/browser/ui/toasts/toast_service.cc
 @@ -365,6 +365,13 @@ void ToastService::RegisterToasts(

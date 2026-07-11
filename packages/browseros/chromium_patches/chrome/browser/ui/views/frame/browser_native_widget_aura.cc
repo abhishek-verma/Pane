@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/frame/browser_native_widget_aura.cc b/chrome/browser/ui/views/frame/browser_native_widget_aura.cc
-index b4c409f8c0e43..5b77b13ca3024 100644
+index b4c409f8c0..5b77b13ca3 100644
 --- a/chrome/browser/ui/views/frame/browser_native_widget_aura.cc
 +++ b/chrome/browser/ui/views/frame/browser_native_widget_aura.cc
 @@ -81,6 +81,9 @@ views::Widget::InitParams BrowserNativeWidgetAura::GetWidgetParams(

@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/onboarding/browseros_onboarding.cc b/chrome/browser/browseros/onboarding/browseros_onboarding.cc
 new file mode 100644
-index 0000000000000..861b651ec3cbe
+index 0000000000..861b651ec3
 --- /dev/null
 +++ b/chrome/browser/browseros/onboarding/browseros_onboarding.cc
 @@ -0,0 +1,408 @@

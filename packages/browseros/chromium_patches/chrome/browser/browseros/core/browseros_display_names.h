@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/core/browseros_display_names.h b/chrome/browser/browseros/core/browseros_display_names.h
 new file mode 100644
-index 0000000000000..1111111111111
+index 0000000000..d586fd0fa0
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_display_names.h
 @@ -0,0 +1,43 @@

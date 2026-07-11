@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/metrics/BUILD.gn b/chrome/browser/browseros/metrics/BUILD.gn
 new file mode 100644
-index 0000000000000..f3b7a978b3998
+index 0000000000..f3b7a978b3
 --- /dev/null
 +++ b/chrome/browser/browseros/metrics/BUILD.gn
 @@ -0,0 +1,39 @@

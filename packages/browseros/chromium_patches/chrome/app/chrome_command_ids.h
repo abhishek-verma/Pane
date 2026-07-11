@@ -1,8 +1,8 @@
 diff --git a/chrome/app/chrome_command_ids.h b/chrome/app/chrome_command_ids.h
-index 8c34db5f63d03..7ec83d4866c0f 100644
+index 8c34db5f63..11d1e0e121 100644
 --- a/chrome/app/chrome_command_ids.h
 +++ b/chrome/app/chrome_command_ids.h
-@@ -306,6 +306,10 @@
+@@ -306,6 +306,8 @@
  #define IDC_CONTENT_CONTEXT_INSPECTELEMENT_WITH_DEVTOOLS 40301
  #define IDC_REPORT_UNSAFE_SITE 40302
  #define IDC_SHOW_READING_MODE_KEYBOARD 40303

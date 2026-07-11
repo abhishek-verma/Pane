@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.cc b/chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.cc
-index c2437bfc29..3f47d06526 100644
+index c2437bfc29..9bc9ffea9c 100644
 --- a/chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.cc
 +++ b/chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.cc
 @@ -4,8 +4,12 @@
@@ -33,11 +33,10 @@ index c2437bfc29..3f47d06526 100644
  #include "extensions/common/permissions/permissions_data.h"
  #include "third_party/abseil-cpp/absl/memory/memory.h"
  #include "ui/actions/actions.h"
-@@ -120,6 +127,29 @@ void ExtensionSidePanelManager::MaybeCreateActionItemForExtension(
+@@ -120,8 +127,38 @@ void ExtensionSidePanelManager::MaybeCreateActionItemForExtension(
                         std::underlying_type_t<actions::ActionPinnableState>(
                             actions::ActionPinnableState::kPinnable))
            .Build());
-+
 +  // Use the Pane mark for BrowserOS extension side panel headers and toolbar.
 +  if (browseros::IsBrowserOSExtension(extension->id())) {
 +    if (actions::ActionItem* action_item =
@@ -66,14 +65,10 @@ index c2437bfc29..3f47d06526 100644
 +      pinned_model->UpdatePinnedState(extension_action_id, false);
 +    }
 +  }
- }
- 
- actions::ActionId ExtensionSidePanelManager::GetOrCreateActionIdForExtension(
-@@ -159,6 +189,7 @@ void ExtensionSidePanelManager::OnExtensionUnloaded(
-     it->second->DeregisterEntry();
-     coordinators_.erase(extension->id());
-   }
 +
-   MaybeRemoveActionItemForExtension(extension);
  }
  
++
+ actions::ActionId ExtensionSidePanelManager::GetOrCreateActionIdForExtension(
+     const Extension* extension) {
+   return actions::ActionIdMap::CreateActionId(

@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/resources/settings/settings_main/settings_main.ts b/chrome/browser/resources/settings/settings_main/settings_main.ts
-index bf151d0e0086b..978c05d0618dd 100644
+index bf151d0e00..978c05d061 100644
 --- a/chrome/browser/resources/settings/settings_main/settings_main.ts
 +++ b/chrome/browser/resources/settings/settings_main/settings_main.ts
 @@ -21,6 +21,7 @@ import '../privacy_page/privacy_page_index.js';

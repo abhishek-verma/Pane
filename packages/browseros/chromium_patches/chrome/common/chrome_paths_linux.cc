@@ -1,5 +1,5 @@
 diff --git a/chrome/common/chrome_paths_linux.cc b/chrome/common/chrome_paths_linux.cc
-index 5575c049b222f..98ed6e4e8fc16 100644
+index 5575c049b2..98ed6e4e8f 100644
 --- a/chrome/common/chrome_paths_linux.cc
 +++ b/chrome/common/chrome_paths_linux.cc
 @@ -95,7 +95,7 @@ bool GetDefaultUserDataDirectory(base::FilePath* result) {

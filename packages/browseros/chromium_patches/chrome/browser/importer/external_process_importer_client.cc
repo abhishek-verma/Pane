@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/importer/external_process_importer_client.cc b/chrome/browser/importer/external_process_importer_client.cc
-index 412452d77ce1d..cbfce38f0ce44 100644
+index 412452d77c..cbfce38f0c 100644
 --- a/chrome/browser/importer/external_process_importer_client.cc
 +++ b/chrome/browser/importer/external_process_importer_client.cc
 @@ -14,9 +14,11 @@

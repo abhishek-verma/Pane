@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/devtools/chrome_devtools_session.cc b/chrome/browser/devtools/chrome_devtools_session.cc
-index 0756036495f99..65f21fb911f66 100644
+index 0756036495..65f21fb911 100644
 --- a/chrome/browser/devtools/chrome_devtools_session.cc
 +++ b/chrome/browser/devtools/chrome_devtools_session.cc
 @@ -17,10 +17,12 @@

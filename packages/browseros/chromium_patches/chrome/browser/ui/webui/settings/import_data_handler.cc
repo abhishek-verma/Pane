@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/webui/settings/import_data_handler.cc b/chrome/browser/ui/webui/settings/import_data_handler.cc
-index 9b70f041c6b8b..bce81d2687070 100644
+index 9b70f041c6..bce81d2687 100644
 --- a/chrome/browser/ui/webui/settings/import_data_handler.cc
 +++ b/chrome/browser/ui/webui/settings/import_data_handler.cc
 @@ -149,6 +149,12 @@ void ImportDataHandler::HandleImportData(const base::ListValue& args) {

@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/tabs/vertical_tab_strip_state_controller.cc b/chrome/browser/ui/tabs/vertical_tab_strip_state_controller.cc
-index 2aaca1eb0c8f6..303938486071f 100644
+index 2aaca1eb0c..3039384860 100644
 --- a/chrome/browser/ui/tabs/vertical_tab_strip_state_controller.cc
 +++ b/chrome/browser/ui/tabs/vertical_tab_strip_state_controller.cc
 @@ -12,6 +12,7 @@

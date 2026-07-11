@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/extensions/chrome_extension_registrar_delegate.cc b/chrome/browser/extensions/chrome_extension_registrar_delegate.cc
-index 7d18f147508d6..3dd559e1c3877 100644
+index 7d18f14750..3dd559e1c3 100644
 --- a/chrome/browser/extensions/chrome_extension_registrar_delegate.cc
 +++ b/chrome/browser/extensions/chrome_extension_registrar_delegate.cc
 @@ -12,6 +12,7 @@

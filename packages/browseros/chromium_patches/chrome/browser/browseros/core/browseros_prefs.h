@@ -1,9 +1,9 @@
 diff --git a/chrome/browser/browseros/core/browseros_prefs.h b/chrome/browser/browseros/core/browseros_prefs.h
 new file mode 100644
-index 0000000000000..fe576bc18a041
+index 0000000000..45e6701105
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_prefs.h
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,89 @@
 +// Copyright 2025 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -93,7 +93,3 @@ index 0000000000000..fe576bc18a041
 +
 +// Get the visibility pref key for an action, or nullptr if none exists.
 +const char* GetVisibilityPrefForAction(actions::ActionId id);
-+
-+}  // namespace browseros
-+
-+#endif  // CHROME_BROWSER_BROWSEROS_CORE_BROWSEROS_PREFS_H_

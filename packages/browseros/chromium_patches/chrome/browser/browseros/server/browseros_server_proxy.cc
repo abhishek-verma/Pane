@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/browseros_server_proxy.cc b/chrome/browser/browseros/server/browseros_server_proxy.cc
 new file mode 100644
-index 0000000000000..17560c9a2c55a
+index 0000000000..17560c9a2c
 --- /dev/null
 +++ b/chrome/browser/browseros/server/browseros_server_proxy.cc
 @@ -0,0 +1,225 @@

@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/extensions/api/side_panel/side_panel_service.cc b/chrome/browser/extensions/api/side_panel/side_panel_service.cc
-index 5474809d1dcd7..7e8967854ac29 100644
+index 5474809d1d..7e8967854a 100644
 --- a/chrome/browser/extensions/api/side_panel/side_panel_service.cc
 +++ b/chrome/browser/extensions/api/side_panel/side_panel_service.cc
 @@ -8,9 +8,11 @@

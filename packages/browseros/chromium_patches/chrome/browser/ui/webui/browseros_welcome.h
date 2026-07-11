@@ -266,6 +266,15 @@ index 0000000000000..89503c57538ad
 +  </div>
 +  <div class="card">
 +   <h3>
++    <span class="hicon feature-split" aria-hidden="true">
++     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#fb651f"><path d="M600-160v-80h160v-480H600v-80h160q33 0 56.5 23.5T840-720v480q0 33-23.5 56.5T760-160H600ZM440-80v-80H200q-33 0-56.5-23.5T120-240v-480q0-33 23.5-56.5T200-800h240v-80h80v800h-80Zm320-640v480-480Z"/></svg>
++    </span>
++    Split-View AI on Any Page
++   </h3>
++   <p class="muted">Open ChatGPT, Claude, or Gemini alongside any website. Get help while you work — summarize articles, draft responses, or analyze data without switching tabs.</p>
++  </div>
++  <div class="card">
++   <h3>
 +    <span class="hicon feature-private" aria-hidden="true">
 +     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#fb651f"><path d="M240-80q-33 0-56.5-23.5T160-160v-400q0-33 23.5-56.5T240-640h40v-80q0-83 58.5-141.5T480-920q83 0 141.5 58.5T680-720v80h40q33 0 56.5 23.5T800-560v400q0 33-23.5 56.5T720-80H240Zm0-80h480v-400H240v400Zm240-120q33 0 56.5-23.5T560-360q0-33-23.5-56.5T480-440q-33 0-56.5 23.5T400-360q0 33 23.5 56.5T480-280ZM360-640h240v-80q0-50-35-85t-85-35q-50 0-85 35t-35 85v80ZM240-160v-400 400Z"/></svg>
 +    </span>

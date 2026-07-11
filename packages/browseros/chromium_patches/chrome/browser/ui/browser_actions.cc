@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/browser_actions.cc b/chrome/browser/ui/browser_actions.cc
-index 8a43e7c2fc..5797a0de12 100644
+index 8a43e7c2fc..90681d5dfd 100644
 --- a/chrome/browser/ui/browser_actions.cc
 +++ b/chrome/browser/ui/browser_actions.cc
 @@ -17,6 +17,7 @@
@@ -25,10 +25,11 @@ index 8a43e7c2fc..5797a0de12 100644
  #include "chrome/browser/ui/autofill/address_bubbles_icon_controller.h"
  #include "chrome/browser/ui/autofill/autofill_bubble_base.h"
  #include "chrome/browser/ui/autofill/payments/filled_card_information_bubble_controller_impl.h"
-@@ -310,6 +318,79 @@ void BrowserActions::InitializeSidePanelActions() {
+@@ -310,6 +318,69 @@ void BrowserActions::InitializeSidePanelActions() {
              .Build());
    }
  
++
 +  // BrowserOS Agent - toggles contextual side panel on active tab.
 +  root_action_item_->AddChild(
 +      actions::ActionItem::Builder(

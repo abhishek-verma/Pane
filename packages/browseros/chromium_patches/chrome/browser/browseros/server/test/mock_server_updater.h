@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/test/mock_server_updater.h b/chrome/browser/browseros/server/test/mock_server_updater.h
 new file mode 100644
-index 0000000000000..c36962da26240
+index 0000000000..c36962da26
 --- /dev/null
 +++ b/chrome/browser/browseros/server/test/mock_server_updater.h
 @@ -0,0 +1,31 @@

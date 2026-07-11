@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/accelerator_table.cc b/chrome/browser/ui/accelerator_table.cc
-index 06e3a9b5e0ee9..a49cac1c4052d 100644
+index 06e3a9b5e0..ac91d60262 100644
 --- a/chrome/browser/ui/accelerator_table.cc
 +++ b/chrome/browser/ui/accelerator_table.cc
 @@ -15,6 +15,7 @@
@@ -10,11 +10,11 @@ index 06e3a9b5e0ee9..a49cac1c4052d 100644
  #include "chrome/browser/ui/tabs/features.h"
  #include "chrome/browser/ui/ui_features.h"
  #include "components/lens/buildflags.h"
-@@ -333,6 +334,17 @@ std::vector<AcceleratorMapping> GetAcceleratorList() {
+@@ -333,6 +334,11 @@ std::vector<AcceleratorMapping> GetAcceleratorList() {
      }
  #endif
  
-+         if (base::FeatureList::IsEnabled(features::kBrowserOsKeyboardShortcuts)) {
++    if (base::FeatureList::IsEnabled(features::kBrowserOsKeyboardShortcuts)) {
 +      accelerators->push_back(
 +          {ui::VKEY_A, ui::EF_ALT_DOWN, IDC_TOGGLE_BROWSEROS_AGENT});
 +    }

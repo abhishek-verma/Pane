@@ -1,5 +1,5 @@
 diff --git a/chrome/common/importer/mock_importer_bridge.h b/chrome/common/importer/mock_importer_bridge.h
-index 9d91eac580b2f..23051e0887d0b 100644
+index 9d91eac580..23051e0887 100644
 --- a/chrome/common/importer/mock_importer_bridge.h
 +++ b/chrome/common/importer/mock_importer_bridge.h
 @@ -10,6 +10,7 @@

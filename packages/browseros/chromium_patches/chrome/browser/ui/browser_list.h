@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/browser_list.h b/chrome/browser/ui/browser_list.h
-index 52cf009c5676d..2c1affc7aaeb7 100644
+index 52cf009c56..2c1affc7aa 100644
 --- a/chrome/browser/ui/browser_list.h
 +++ b/chrome/browser/ui/browser_list.h
 @@ -26,6 +26,12 @@ class Browser;

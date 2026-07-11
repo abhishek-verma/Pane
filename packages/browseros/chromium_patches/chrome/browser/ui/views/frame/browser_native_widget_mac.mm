@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/frame/browser_native_widget_mac.mm b/chrome/browser/ui/views/frame/browser_native_widget_mac.mm
-index d6d2a757c2b63..abe157b257c04 100644
+index d6d2a757c2..abe157b257 100644
 --- a/chrome/browser/ui/views/frame/browser_native_widget_mac.mm
 +++ b/chrome/browser/ui/views/frame/browser_native_widget_mac.mm
 @@ -568,6 +568,9 @@ - (NSTouchBar*)makeTouchBar {

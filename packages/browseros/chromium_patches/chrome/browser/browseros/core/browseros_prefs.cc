@@ -1,9 +1,9 @@
 diff --git a/chrome/browser/browseros/core/browseros_prefs.cc b/chrome/browser/browseros/core/browseros_prefs.cc
 new file mode 100644
-index 0000000000000..c47c0fad94dda
+index 0000000000..e7040892b0
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_prefs.cc
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,99 @@
 +// Copyright 2025 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -36,6 +36,7 @@ index 0000000000000..c47c0fad94dda
 +  registry->RegisterBooleanPref(prefs::kNtpFocusContent, false);
 +  registry->RegisterBooleanPref(prefs::kOnboardingCompleted, false);
 +}
++
 +
 +bool ShouldShowAssistant(PrefService* pref_service) {
 +  return pref_service->GetBoolean(prefs::kShowAssistant);
@@ -78,8 +79,7 @@ index 0000000000000..c47c0fad94dda
 +}
 +
 +const char* GetVisibilityPrefForAction(actions::ActionId id) {
-+  switch (id) {
-+    case kActionBrowserOSAgent:
++  switch (id) {    case kActionBrowserOSAgent:
 +      return prefs::kShowAssistant;
 +    default:
 +      return nullptr;
@@ -103,9 +103,3 @@ index 0000000000000..c47c0fad94dda
 +bool ShouldPinBrowserOSExtension(const std::string& extension_id,
 +                                 PrefService* pref_service) {
 +  if (extension_id == kAgentExtensionId) {
-+    return false;
-+  }
-+  return IsBrowserOSPinnedExtension(extension_id);
-+}
-+
-+}  // namespace browseros

@@ -1,5 +1,5 @@
 diff --git a/chrome/app/app-Info.plist b/chrome/app/app-Info.plist
-index 6fada0a2b1a1f..703744625728c 100644
+index 6fada0a2b1..588c03d116 100644
 --- a/chrome/app/app-Info.plist
 +++ b/chrome/app/app-Info.plist
 @@ -725,5 +725,17 @@

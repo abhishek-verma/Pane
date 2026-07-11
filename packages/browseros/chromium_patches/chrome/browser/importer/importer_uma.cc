@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/importer/importer_uma.cc b/chrome/browser/importer/importer_uma.cc
-index d50675a79eb60..fa28adace33b7 100644
+index d50675a79e..fa28adace3 100644
 --- a/chrome/browser/importer/importer_uma.cc
 +++ b/chrome/browser/importer/importer_uma.cc
 @@ -25,6 +25,7 @@ enum ImporterTypeMetrics {

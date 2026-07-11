@@ -1,5 +1,5 @@
 diff --git a/chrome/common/extensions/api/_api_features.json b/chrome/common/extensions/api/_api_features.json
-index 61747d2e11813..8ed80de268684 100644
+index 61747d2e11..8ed80de268 100644
 --- a/chrome/common/extensions/api/_api_features.json
 +++ b/chrome/common/extensions/api/_api_features.json
 @@ -186,6 +186,10 @@

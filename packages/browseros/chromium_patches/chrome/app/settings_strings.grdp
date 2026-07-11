@@ -1,5 +1,5 @@
 diff --git a/chrome/app/settings_strings.grdp b/chrome/app/settings_strings.grdp
-index 03bd6ef6a2bde..7bf7f6bb2f51c 100644
+index 03bd6ef6a2..7bf7f6bb2f 100644
 --- a/chrome/app/settings_strings.grdp
 +++ b/chrome/app/settings_strings.grdp
 @@ -4014,6 +4014,12 @@

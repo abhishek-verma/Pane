@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/validate_resources.py b/chrome/browser/browseros/server/validate_resources.py
 new file mode 100644
-index 0000000000000..d7dc82b132dad
+index 0000000000..d7dc82b132
 --- /dev/null
 +++ b/chrome/browser/browseros/server/validate_resources.py
 @@ -0,0 +1,43 @@

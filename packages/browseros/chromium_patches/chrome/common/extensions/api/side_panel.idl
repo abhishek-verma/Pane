@@ -1,5 +1,5 @@
 diff --git a/chrome/common/extensions/api/side_panel.idl b/chrome/common/extensions/api/side_panel.idl
-index afc66fce49630..9a73a7447e175 100644
+index afc66fce49..9a73a7447e 100644
 --- a/chrome/common/extensions/api/side_panel.idl
 +++ b/chrome/common/extensions/api/side_panel.idl
 @@ -127,10 +127,33 @@ namespace sidePanel {

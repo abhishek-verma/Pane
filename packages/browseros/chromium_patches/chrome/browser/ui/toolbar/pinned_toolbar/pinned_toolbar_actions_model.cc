@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.cc b/chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.cc
-index 0177d0e3bda7c..dbdd029d1ffb4 100644
+index 0177d0e3bd..f83fe579c4 100644
 --- a/chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.cc
 +++ b/chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.cc
 @@ -16,6 +16,8 @@
@@ -11,7 +11,7 @@ index 0177d0e3bda7c..dbdd029d1ffb4 100644
  #include "chrome/browser/profiles/profile.h"
  #include "chrome/browser/ui/actions/chrome_action_id.h"
  #include "chrome/browser/ui/tab_search_feature.h"
-@@ -37,6 +39,24 @@ PinnedToolbarActionsModel::PinnedToolbarActionsModel(Profile* profile)
+@@ -37,8 +39,21 @@ PinnedToolbarActionsModel::PinnedToolbarActionsModel(Profile* profile)
        base::BindRepeating(&PinnedToolbarActionsModel::UpdatePinnedActionIds,
                            base::Unretained(this)));
  
@@ -31,7 +31,9 @@ index 0177d0e3bda7c..dbdd029d1ffb4 100644
    UpdatePinnedActionIds();
 +  EnsureAlwaysPinnedActions();
  }
-@@ -239,8 +258,11 @@ void PinnedToolbarActionsModel::MaybeMigrateExistingPinnedStates() {
+ 
+ PinnedToolbarActionsModel::~PinnedToolbarActionsModel() = default;
+@@ -239,8 +254,11 @@ void PinnedToolbarActionsModel::MaybeMigrateExistingPinnedStates() {
    if (!CanUpdate()) {
      return;
    }
@@ -44,7 +46,7 @@ index 0177d0e3bda7c..dbdd029d1ffb4 100644
      pref_service_->SetBoolean(prefs::kPinnedChromeLabsMigrationComplete, true);
    }
    if (features::HasTabSearchToolbarButton() &&
-@@ -256,6 +278,36 @@ void PinnedToolbarActionsModel::MaybeMigrateExistingPinnedStates() {
+@@ -256,6 +274,36 @@ void PinnedToolbarActionsModel::MaybeMigrateExistingPinnedStates() {
    }
  }
  
@@ -54,11 +56,15 @@ index 0177d0e3bda7c..dbdd029d1ffb4 100644
 +    return;
 +  }
 +
-+  // Pin native BrowserOS actions when their visibility pref allows it.
++  // Pin native BrowserOS actions if:
++  // 1. Their feature flag is enabled (or no feature flag exists)
++  // 2. Their visibility pref allows it
 +  for (actions::ActionId id : browseros::kBrowserOSNativeActionIds) {
++    const base::Feature* feature = browseros::GetFeatureForBrowserOSAction(id);
++    bool feature_enabled = !feature || base::FeatureList::IsEnabled(*feature);
 +    bool pref_enabled = browseros::ShouldShowToolbarAction(id, pref_service_);
 +
-+    if (pref_enabled) {
++    if (feature_enabled && pref_enabled) {
 +      // Should be pinned - add if not already present
 +      if (!Contains(id)) {
 +        UpdatePinnedState(id, true);
@@ -77,7 +83,7 @@ index 0177d0e3bda7c..dbdd029d1ffb4 100644
  const std::vector<actions::ActionId>&
  PinnedToolbarActionsModel::PinnedActionIds() const {
    return pinned_action_ids_;
-@@ -274,3 +326,20 @@ void PinnedToolbarActionsModel::UpdatePref(
+@@ -274,3 +322,20 @@ void PinnedToolbarActionsModel::UpdatePref(
      list_of_values.Append(id_string.value());
    }
  }

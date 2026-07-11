@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/side_panel/side_panel.h b/chrome/browser/ui/views/side_panel/side_panel.h
-index 4946a573e264e..da735d4bf11f6 100644
+index 4946a573e2..da735d4bf1 100644
 --- a/chrome/browser/ui/views/side_panel/side_panel.h
 +++ b/chrome/browser/ui/views/side_panel/side_panel.h
 @@ -164,6 +164,9 @@ class SidePanel : public views::AccessiblePaneView,

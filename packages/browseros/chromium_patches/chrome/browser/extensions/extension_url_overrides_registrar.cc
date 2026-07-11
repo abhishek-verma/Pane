@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/extensions/extension_url_overrides_registrar.cc b/chrome/browser/extensions/extension_url_overrides_registrar.cc
-index 7762e0c775c22..8a486c6dd7a66 100644
+index 7762e0c775..8a486c6dd7 100644
 --- a/chrome/browser/extensions/extension_url_overrides_registrar.cc
 +++ b/chrome/browser/extensions/extension_url_overrides_registrar.cc
 @@ -7,6 +7,7 @@

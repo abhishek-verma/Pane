@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/test/mock_implementations.cc b/chrome/browser/browseros/server/test/mock_implementations.cc
 new file mode 100644
-index 0000000000000..3bef12ccf6617
+index 0000000000..3bef12ccf6
 --- /dev/null
 +++ b/chrome/browser/browseros/server/test/mock_implementations.cc
 @@ -0,0 +1,24 @@

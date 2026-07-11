@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/browseros_server_constants.h b/chrome/browser/browseros/server/browseros_server_constants.h
 new file mode 100644
-index 0000000000000..d2c8229f8c805
+index 0000000000..bc4dcb1728
 --- /dev/null
 +++ b/chrome/browser/browseros/server/browseros_server_constants.h
 @@ -0,0 +1,52 @@

@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/server_updater.h b/chrome/browser/browseros/server/server_updater.h
 new file mode 100644
-index 0000000000000..e1d0cfbd93d28
+index 0000000000..e1d0cfbd93
 --- /dev/null
 +++ b/chrome/browser/browseros/server/server_updater.h
 @@ -0,0 +1,41 @@

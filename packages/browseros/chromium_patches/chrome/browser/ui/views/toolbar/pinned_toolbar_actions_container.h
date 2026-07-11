@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h b/chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h
-index 4b17a33e211a8..7225867cb31d0 100644
+index 4b17a33e21..7225867cb3 100644
 --- a/chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h
 +++ b/chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h
 @@ -58,6 +58,9 @@ class PinnedToolbarActionsContainer

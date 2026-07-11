@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/flag_descriptions.h b/chrome/browser/flag_descriptions.h
-index eb93b7a1529f9..0bc2602ef8dd4 100644
+index eb93b7a152..0bc2602ef8 100644
 --- a/chrome/browser/flag_descriptions.h
 +++ b/chrome/browser/flag_descriptions.h
 @@ -291,6 +291,18 @@ inline constexpr char kBookmarksTreeViewName[] =

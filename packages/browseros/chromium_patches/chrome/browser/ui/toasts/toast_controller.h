@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/toasts/toast_controller.h b/chrome/browser/ui/toasts/toast_controller.h
-index 5bc5eefc90cff..666367db29962 100644
+index 5bc5eefc90..666367db29 100644
 --- a/chrome/browser/ui/toasts/toast_controller.h
 +++ b/chrome/browser/ui/toasts/toast_controller.h
 @@ -15,6 +15,7 @@

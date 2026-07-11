@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/browser_list.cc b/chrome/browser/ui/browser_list.cc
-index ca9007acd86cc..8117ede5ee811 100644
+index ca9007acd8..8117ede5ee 100644
 --- a/chrome/browser/ui/browser_list.cc
 +++ b/chrome/browser/ui/browser_list.cc
 @@ -125,6 +125,21 @@ void BrowserList::RemoveObserver(BrowserListObserver* observer) {

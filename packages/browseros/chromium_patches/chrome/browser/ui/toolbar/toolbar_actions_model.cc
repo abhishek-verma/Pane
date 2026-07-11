@@ -1,8 +1,8 @@
 diff --git a/chrome/browser/ui/toolbar/toolbar_actions_model.cc b/chrome/browser/ui/toolbar/toolbar_actions_model.cc
-index d4f8091fffc0e..beb80932418cb 100644
+index d4f8091fff..81ff748379 100644
 --- a/chrome/browser/ui/toolbar/toolbar_actions_model.cc
 +++ b/chrome/browser/ui/toolbar/toolbar_actions_model.cc
-@@ -18,6 +18,7 @@
+@@ -18,6 +18,8 @@
  #include "base/one_shot_event.h"
  #include "base/strings/utf_string_conversions.h"
  #include "base/task/single_thread_task_runner.h"
@@ -11,7 +11,7 @@ index d4f8091fffc0e..beb80932418cb 100644
  #include "chrome/browser/extensions/extension_management.h"
  #include "chrome/browser/extensions/extension_tab_util.h"
  #include "chrome/browser/extensions/managed_toolbar_pin_mode.h"
-@@ -66,6 +67,10 @@ ToolbarActionsModel::ToolbarActionsModel(
+@@ -66,6 +68,10 @@ ToolbarActionsModel::ToolbarActionsModel(
        extensions::pref_names::kPinnedExtensions,
        base::BindRepeating(&ToolbarActionsModel::UpdatePinnedActionIds,
                            base::Unretained(this)));
@@ -22,7 +22,9 @@ index d4f8091fffc0e..beb80932418cb 100644
  }
  
  ToolbarActionsModel::~ToolbarActionsModel() = default;
-@@ -266,6 +271,10 @@ bool ToolbarActionsModel::ShouldAddExtension(
+@@ -260,6 +266,10 @@ void ToolbarActionsModel::OnReady() {
+ 
+ bool ToolbarActionsModel::ShouldAddExtension(
      const extensions::Extension* extension) {
 +  if (!browseros::ShouldExposeExtensionInToolbar(extension->id())) {
 +    return false;

@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/process_controller_impl.h b/chrome/browser/browseros/server/process_controller_impl.h
 new file mode 100644
-index 0000000000000..46f7d9359dcd7
+index 0000000000..46f7d9359d
 --- /dev/null
 +++ b/chrome/browser/browseros/server/process_controller_impl.h
 @@ -0,0 +1,35 @@

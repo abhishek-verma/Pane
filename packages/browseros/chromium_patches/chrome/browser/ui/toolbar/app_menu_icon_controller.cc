@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/toolbar/app_menu_icon_controller.cc b/chrome/browser/ui/toolbar/app_menu_icon_controller.cc
-index c920f7ef7d6f2..b371c96ddcbf1 100644
+index c920f7ef7d..b371c96ddc 100644
 --- a/chrome/browser/ui/toolbar/app_menu_icon_controller.cc
 +++ b/chrome/browser/ui/toolbar/app_menu_icon_controller.cc
 @@ -44,8 +44,8 @@ AppMenuIconController::Severity SeverityFromUpgradeLevel(

@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/prefs/browser_prefs.h b/chrome/browser/prefs/browser_prefs.h
-index 3a1c48b14b37f..c9fe51ab1848b 100644
+index 3a1c48b14b..c9fe51ab18 100644
 --- a/chrome/browser/prefs/browser_prefs.h
 +++ b/chrome/browser/prefs/browser_prefs.h
 @@ -32,6 +32,8 @@ void RegisterScreenshotPrefs(PrefRegistrySimple* registry);

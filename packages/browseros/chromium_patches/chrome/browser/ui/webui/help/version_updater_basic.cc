@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/webui/help/version_updater_basic.cc b/chrome/browser/ui/webui/help/version_updater_basic.cc
-index ebcef5637b150..27d1abebda5c7 100644
+index ebcef5637b..27d1abebda 100644
 --- a/chrome/browser/ui/webui/help/version_updater_basic.cc
 +++ b/chrome/browser/ui/webui/help/version_updater_basic.cc
 @@ -5,9 +5,16 @@

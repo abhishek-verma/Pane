@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/profiles/profile_error_dialog.cc b/chrome/browser/ui/profiles/profile_error_dialog.cc
-index 3a64be42331a3..66d8390670219 100644
+index 3a64be4233..66d8390670 100644
 --- a/chrome/browser/ui/profiles/profile_error_dialog.cc
 +++ b/chrome/browser/ui/profiles/profile_error_dialog.cc
 @@ -69,10 +69,11 @@ void ShowProfileErrorDialog(ProfileErrorType type,

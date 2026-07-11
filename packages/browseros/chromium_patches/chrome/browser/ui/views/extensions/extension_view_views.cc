@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/extensions/extension_view_views.cc b/chrome/browser/ui/views/extensions/extension_view_views.cc
-index f24639d796626..8fcf248beb22f 100644
+index f24639d796..8fcf248beb 100644
 --- a/chrome/browser/ui/views/extensions/extension_view_views.cc
 +++ b/chrome/browser/ui/views/extensions/extension_view_views.cc
 @@ -9,6 +9,7 @@

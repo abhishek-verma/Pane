@@ -1,5 +1,5 @@
 diff --git a/chrome/install_static/chromium_install_modes.h b/chrome/install_static/chromium_install_modes.h
-index ee62888f89705..7ec72d302bc4b 100644
+index ee62888f89..14733da89e 100644
 --- a/chrome/install_static/chromium_install_modes.h
 +++ b/chrome/install_static/chromium_install_modes.h
 @@ -21,7 +21,7 @@ inline constexpr wchar_t kCompanyPathName[] = L"";

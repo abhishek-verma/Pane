@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/side_panel/side_panel_action_callback.cc b/chrome/browser/ui/side_panel/side_panel_action_callback.cc
-index f81e396170a79..c4d7abeeac7a6 100644
+index f81e396170..c4d7abeeac 100644
 --- a/chrome/browser/ui/side_panel/side_panel_action_callback.cc
 +++ b/chrome/browser/ui/side_panel/side_panel_action_callback.cc
 @@ -4,6 +4,13 @@

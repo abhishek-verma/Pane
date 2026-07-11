@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/browseros_appcast_parser.h b/chrome/browser/browseros/server/browseros_appcast_parser.h
 new file mode 100644
-index 0000000000000..bd996e8cb06d2
+index 0000000000..bd996e8cb0
 --- /dev/null
 +++ b/chrome/browser/browseros/server/browseros_appcast_parser.h
 @@ -0,0 +1,88 @@

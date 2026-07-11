@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/server/server_state_store_impl.h b/chrome/browser/browseros/server/server_state_store_impl.h
 new file mode 100644
-index 0000000000000..33b8015e18b03
+index 0000000000..33b8015e18
 --- /dev/null
 +++ b/chrome/browser/browseros/server/server_state_store_impl.h
 @@ -0,0 +1,30 @@

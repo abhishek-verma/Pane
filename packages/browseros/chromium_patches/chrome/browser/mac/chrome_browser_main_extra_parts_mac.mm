@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/mac/chrome_browser_main_extra_parts_mac.mm b/chrome/browser/mac/chrome_browser_main_extra_parts_mac.mm
-index 6bb5ccb823895..b6bed8c40d57d 100644
+index 6bb5ccb823..b6bed8c40d 100644
 --- a/chrome/browser/mac/chrome_browser_main_extra_parts_mac.mm
 +++ b/chrome/browser/mac/chrome_browser_main_extra_parts_mac.mm
 @@ -4,11 +4,25 @@

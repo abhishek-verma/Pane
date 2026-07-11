@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/browser_command_controller.cc b/chrome/browser/ui/browser_command_controller.cc
-index 738696abf04fa..aa1a1a1ce6a85 100644
+index 738696abf0..b2e7c63201 100644
 --- a/chrome/browser/ui/browser_command_controller.cc
 +++ b/chrome/browser/ui/browser_command_controller.cc
 @@ -7,7 +7,9 @@
@@ -35,15 +35,7 @@ index 738696abf04fa..aa1a1a1ce6a85 100644
  #include "chrome/browser/lifetime/application_lifetime.h"
  #include "chrome/browser/prefs/incognito_mode_prefs.h"
  #include "chrome/browser/profiles/profile.h"
-@@ -86,6 +92,7 @@
- #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
- #include "chrome/browser/ui/ui_features.h"
- #include "chrome/browser/ui/views/frame/browser_view.h"
--#include "chrome/browser/ui/views/side_panel/third_party_llm/third_party_llm_panel_coordinator.h"
- #include "chrome/browser/ui/web_applications/app_browser_controller.h"
- #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
- #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
-@@ -120,6 +127,7 @@
+@@ -120,6 +126,7 @@
  #include "content/public/browser/web_contents_observer.h"
  #include "content/public/common/profiling.h"
  #include "content/public/common/url_constants.h"
@@ -51,7 +43,7 @@ index 738696abf04fa..aa1a1a1ce6a85 100644
  #include "extensions/browser/extension_registrar.h"
  #include "extensions/browser/extension_registry.h"
  #include "extensions/common/extension_urls.h"
-@@ -1089,6 +1097,60 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
+@@ -1089,6 +1096,44 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
        browser_->GetFeatures().side_panel_ui()->Show(
            SidePanelEntryId::kBookmarks, SidePanelOpenTrigger::kAppMenu);
        break;
@@ -96,7 +88,7 @@ index 738696abf04fa..aa1a1a1ce6a85 100644
      case IDC_SHOW_APP_MENU:
        base::RecordAction(base::UserMetricsAction("Accel_Show_App_Menu"));
        ShowAppMenu(browser_);
-@@ -1802,6 +1864,11 @@ void BrowserCommandController::InitCommandState() {
+@@ -1802,6 +1847,7 @@ void BrowserCommandController::InitCommandState() {
    }
  
    command_updater_.UpdateCommandEnabled(IDC_SHOW_BOOKMARK_SIDE_PANEL, true);

@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/core/browseros_switches.h b/chrome/browser/browseros/core/browseros_switches.h
 new file mode 100644
-index 0000000000000..7ac2f2f44fd1d
+index 0000000000..7ac2f2f44f
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_switches.h
 @@ -0,0 +1,89 @@

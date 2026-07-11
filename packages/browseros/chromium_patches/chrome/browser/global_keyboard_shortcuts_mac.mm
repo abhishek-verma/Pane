@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/global_keyboard_shortcuts_mac.mm b/chrome/browser/global_keyboard_shortcuts_mac.mm
-index bc8c1e5d952c1..5654e5f88c6a3 100644
+index bc8c1e5d95..c9f6ddf71e 100644
 --- a/chrome/browser/global_keyboard_shortcuts_mac.mm
 +++ b/chrome/browser/global_keyboard_shortcuts_mac.mm
 @@ -15,6 +15,7 @@
@@ -10,11 +10,11 @@ index bc8c1e5d952c1..5654e5f88c6a3 100644
  #include "chrome/browser/ui/tabs/features.h"
  #include "chrome/browser/ui/ui_features.h"
  #include "ui/base/accelerators/accelerator.h"
-@@ -165,6 +166,18 @@ CommandForKeyEventResult ShortcutCommand(int cmd) {
+@@ -165,6 +166,12 @@ CommandForKeyEventResult ShortcutCommand(int cmd) {
      keys.push_back(
          {true, false, true, false, kVK_ANSI_Z, IDC_FOCUS_PREV_TAB_GROUP});
  
-+         if (base::FeatureList::IsEnabled(features::kBrowserOsKeyboardShortcuts)) {
++    if (base::FeatureList::IsEnabled(features::kBrowserOsKeyboardShortcuts)) {
 +      keys.push_back(
 +          {false, false, false, true, kVK_ANSI_A,
 +           IDC_TOGGLE_BROWSEROS_AGENT});

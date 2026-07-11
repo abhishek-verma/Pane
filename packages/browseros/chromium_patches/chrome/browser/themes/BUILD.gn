@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/themes/BUILD.gn b/chrome/browser/themes/BUILD.gn
-index 4924b822aa42e..1fcba3a9c4a6c 100644
+index 4924b822aa..1fcba3a9c4 100644
 --- a/chrome/browser/themes/BUILD.gn
 +++ b/chrome/browser/themes/BUILD.gn
 @@ -33,6 +33,7 @@ source_set("themes") {

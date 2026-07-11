@@ -1,5 +1,5 @@
 diff --git a/chrome/common/importer/profile_import_process_param_traits_macros.h b/chrome/common/importer/profile_import_process_param_traits_macros.h
-index b19a5aa8cee27..1d7aaad822fad 100644
+index b19a5aa8ce..1d7aaad822 100644
 --- a/chrome/common/importer/profile_import_process_param_traits_macros.h
 +++ b/chrome/common/importer/profile_import_process_param_traits_macros.h
 @@ -23,11 +23,11 @@

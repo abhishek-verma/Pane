@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/chrome_browser_application_mac.mm b/chrome/browser/chrome_browser_application_mac.mm
-index 0e91128e6ed16..0145e63e89cbc 100644
+index 0e91128e6e..0145e63e89 100644
 --- a/chrome/browser/chrome_browser_application_mac.mm
 +++ b/chrome/browser/chrome_browser_application_mac.mm
 @@ -9,13 +9,16 @@

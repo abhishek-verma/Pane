@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/cocoa/dock_icon.mm b/chrome/browser/ui/cocoa/dock_icon.mm
-index f08c2b156c0fd..c61eb7974ea6a 100644
+index f08c2b156c..c61eb7974e 100644
 --- a/chrome/browser/ui/cocoa/dock_icon.mm
 +++ b/chrome/browser/ui/cocoa/dock_icon.mm
 @@ -32,6 +32,26 @@

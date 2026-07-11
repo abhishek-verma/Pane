@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/devtools/protocol/devtools_protocol_browsertest.cc b/chrome/browser/devtools/protocol/devtools_protocol_browsertest.cc
-index 6a3a8ba7d7997..12cd7a001c5e6 100644
+index 6a3a8ba7d7..12cd7a001c 100644
 --- a/chrome/browser/devtools/protocol/devtools_protocol_browsertest.cc
 +++ b/chrome/browser/devtools/protocol/devtools_protocol_browsertest.cc
 @@ -21,6 +21,7 @@

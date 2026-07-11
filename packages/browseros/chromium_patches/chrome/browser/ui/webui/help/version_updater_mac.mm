@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/webui/help/version_updater_mac.mm b/chrome/browser/ui/webui/help/version_updater_mac.mm
-index d619a644cef14..a851e42d99acb 100644
+index d619a644ce..a851e42d99 100644
 --- a/chrome/browser/ui/webui/help/version_updater_mac.mm
 +++ b/chrome/browser/ui/webui/help/version_updater_mac.mm
 @@ -6,6 +6,15 @@

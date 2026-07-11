@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/devtools/chrome_devtools_manager_delegate.h b/chrome/browser/devtools/chrome_devtools_manager_delegate.h
-index a37b46861fb3d..af1e0e2602c88 100644
+index a37b46861f..af1e0e2602 100644
 --- a/chrome/browser/devtools/chrome_devtools_manager_delegate.h
 +++ b/chrome/browser/devtools/chrome_devtools_manager_delegate.h
 @@ -73,6 +73,9 @@ class ChromeDevToolsManagerDelegate : public content::DevToolsManagerDelegate,

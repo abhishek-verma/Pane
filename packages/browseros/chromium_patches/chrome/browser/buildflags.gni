@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/buildflags.gni b/chrome/browser/buildflags.gni
-index 095e232be0479..55b11261c28cf 100644
+index 095e232be0..55b11261c2 100644
 --- a/chrome/browser/buildflags.gni
 +++ b/chrome/browser/buildflags.gni
 @@ -3,6 +3,7 @@

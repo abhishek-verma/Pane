@@ -1,9 +1,9 @@
 diff --git a/chrome/browser/browseros/core/browseros_action_utils.h b/chrome/browser/browseros/core/browseros_action_utils.h
 new file mode 100644
-index 0000000000000..e263119b0fb23
+index 0000000000..b763ab7f23
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_action_utils.h
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,63 @@
 +// Copyright 2025 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -53,6 +53,15 @@ index 0000000000000..e263119b0fb23
 +  }
 +
 +  return false;
++}
++
++// Get the feature flag for a native BrowserOS action.
++inline const base::Feature* GetFeatureForBrowserOSAction(
++    actions::ActionId id) {
++  switch (id) {
++    default:
++      return nullptr;
++  }
 +}
 +
 +}  // namespace browseros

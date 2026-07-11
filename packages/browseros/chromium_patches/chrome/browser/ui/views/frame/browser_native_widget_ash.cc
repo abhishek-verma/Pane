@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/views/frame/browser_native_widget_ash.cc b/chrome/browser/ui/views/frame/browser_native_widget_ash.cc
-index e40416204fd90..0297c184a5938 100644
+index e40416204f..0297c184a5 100644
 --- a/chrome/browser/ui/views/frame/browser_native_widget_ash.cc
 +++ b/chrome/browser/ui/views/frame/browser_native_widget_ash.cc
 @@ -189,6 +189,7 @@ views::Widget::InitParams BrowserNativeWidgetAsh::GetWidgetParams(

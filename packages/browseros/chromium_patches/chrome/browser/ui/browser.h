@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/browser.h b/chrome/browser/ui/browser.h
-index acdb28d61bada..f7084b9c770ca 100644
+index acdb28d61b..f7084b9c77 100644
 --- a/chrome/browser/ui/browser.h
 +++ b/chrome/browser/ui/browser.h
 @@ -13,6 +13,8 @@

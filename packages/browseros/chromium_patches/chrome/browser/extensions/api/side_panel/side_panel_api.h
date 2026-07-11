@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/extensions/api/side_panel/side_panel_api.h b/chrome/browser/extensions/api/side_panel/side_panel_api.h
-index 72a88888eb9fc..3f0779a57b615 100644
+index 72a88888eb..3f0779a57b 100644
 --- a/chrome/browser/extensions/api/side_panel/side_panel_api.h
 +++ b/chrome/browser/extensions/api/side_panel/side_panel_api.h
 @@ -115,6 +115,36 @@ class SidePanelCloseFunction : public SidePanelApiFunction {

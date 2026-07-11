@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/ui/browser_ui_prefs.cc b/chrome/browser/ui/browser_ui_prefs.cc
-index 25d238a208dcf..4700b8fdfcea0 100644
+index 25d238a208..4700b8fdfc 100644
 --- a/chrome/browser/ui/browser_ui_prefs.cc
 +++ b/chrome/browser/ui/browser_ui_prefs.cc
 @@ -68,7 +68,7 @@ void RegisterBrowserPrefs(PrefRegistrySimple* registry) {

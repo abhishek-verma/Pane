@@ -1,6 +1,6 @@
 diff --git a/chrome/browser/browseros/onboarding/resources/app.js b/chrome/browser/browseros/onboarding/resources/app.js
 new file mode 100644
-index 0000000000000..13d6fc60be548
+index 0000000000..13d6fc60be
 --- /dev/null
 +++ b/chrome/browser/browseros/onboarding/resources/app.js
 @@ -0,0 +1,11 @@
