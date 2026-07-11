@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.101 (2026-07-11)
+
+## What's Changed
+
+- chore(agent-extension): bump version to 0.0.101 for CRX signing fix release
+- docs: add agent extension changelog for v0.0.100
+
+
 ## v0.0.100 (2026-07-10)
 
 Initial release
