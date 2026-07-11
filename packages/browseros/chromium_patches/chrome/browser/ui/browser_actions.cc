@@ -29,17 +29,6 @@ index 8a43e7c2fc..5797a0de12 100644
              .Build());
    }
  
-+  // Add third-party LLM panel if feature is enabled
-+  if (base::FeatureList::IsEnabled(features::kThirdPartyLlmPanel)) {
-+    root_action_item_->AddChild(
-+        SidePanelAction(SidePanelEntryId::kThirdPartyLlm,
-+                        IDS_THIRD_PARTY_LLM_TITLE,
-+                        IDS_THIRD_PARTY_LLM_TITLE,
-+                        vector_icons::kPaneMarkIcon,
-+                        kActionSidePanelShowThirdPartyLlm, bwi, true)
-+            .Build());
-+  }
-+
 +  // BrowserOS Agent - toggles contextual side panel on active tab.
 +  root_action_item_->AddChild(
 +      actions::ActionItem::Builder(

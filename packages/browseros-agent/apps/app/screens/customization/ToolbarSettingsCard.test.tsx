@@ -12,12 +12,10 @@ type SwitchProps = ComponentProps<'button'> & {
 const BROWSEROS_PREFS = {
   MCP_PORT: 'browseros.server.mcp_port',
   PROVIDERS: 'browseros.providers',
-  THIRD_PARTY_LLM_PROVIDERS: 'browseros.third_party_llm.providers',
   PROXY_PORT: 'browseros.server.proxy_port',
   SERVER_PORT: 'browseros.server.server_port',
   ALLOW_REMOTE_MCP: 'browseros.server.allow_remote_in_mcp',
   RESTART_SERVER: 'browseros.server.restart_requested',
-  SHOW_LLM_CHAT: 'browseros.show_llm_chat',
   SHOW_TOOLBAR_LABELS: 'browseros.show_toolbar_labels',
   VERTICAL_TABS_ENABLED: 'browseros.vertical_tabs_enabled',
   INSTALL_ID: 'browseros.metrics_install_id',
@@ -274,16 +272,14 @@ describe('ToolbarSettingsCard', () => {
     const state = await loadToolbarSettingsState()
 
     expect(state.sidePanelPerWindow).toBe(true)
-    expect(state.showLlmChat).toBe(true)
     expect(state.showToolbarLabels).toBe(true)
     expect(state.supportsVerticalTabs).toBe(false)
     expect(state.verticalTabsEnabled).toBe(true)
   })
 
-  it('renders supported toolbar settings without the unsupported Hub control', () => {
+  it('renders supported toolbar settings', () => {
     const html = renderCard()
 
-    expect(html).toContain('Show Pane Chat Button')
     expect(html).toContain('Show Button Labels')
     expect(html).not.toContain('Show Hub Button')
     expect(html).not.toContain('show-llm-hub')

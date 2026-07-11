@@ -39,7 +39,7 @@ index 738696abf04fa..aa1a1a1ce6a85 100644
  #include "chrome/browser/ui/toolbar/chrome_labs/chrome_labs_utils.h"
  #include "chrome/browser/ui/ui_features.h"
  #include "chrome/browser/ui/views/frame/browser_view.h"
-+#include "chrome/browser/ui/views/side_panel/third_party_llm/third_party_llm_panel_coordinator.h"
+-#include "chrome/browser/ui/views/side_panel/third_party_llm/third_party_llm_panel_coordinator.h"
  #include "chrome/browser/ui/web_applications/app_browser_controller.h"
  #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
  #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
@@ -55,22 +55,6 @@ index 738696abf04fa..aa1a1a1ce6a85 100644
        browser_->GetFeatures().side_panel_ui()->Show(
            SidePanelEntryId::kBookmarks, SidePanelOpenTrigger::kAppMenu);
        break;
-+    case IDC_SHOW_THIRD_PARTY_LLM_SIDE_PANEL:
-+      if (base::FeatureList::IsEnabled(features::kThirdPartyLlmPanel)) {
-+        browser_->GetFeatures().side_panel_ui()->Toggle(
-+            SidePanelEntry::Key(SidePanelEntryId::kThirdPartyLlm),
-+            SidePanelOpenTrigger::kAppMenu);
-+      }
-+      break;
-+    case IDC_CYCLE_THIRD_PARTY_LLM_PROVIDER:
-+      if (base::FeatureList::IsEnabled(features::kThirdPartyLlmPanel)) {
-+        if (ThirdPartyLlmPanelCoordinator* coordinator =
-+                browser_->browser_window_features()
-+                    ->third_party_llm_panel_coordinator()) {
-+          coordinator->CycleProvider();
-+        }
-+      }
-+      break;
 +    case IDC_TOGGLE_BROWSEROS_AGENT: {
 +      content::WebContents* active_contents =
 +          browser_->tab_strip_model()->GetActiveWebContents();
@@ -116,10 +100,6 @@ index 738696abf04fa..aa1a1a1ce6a85 100644
    }
  
    command_updater_.UpdateCommandEnabled(IDC_SHOW_BOOKMARK_SIDE_PANEL, true);
-+  command_updater_.UpdateCommandEnabled(IDC_SHOW_THIRD_PARTY_LLM_SIDE_PANEL,
-+                                        base::FeatureList::IsEnabled(features::kThirdPartyLlmPanel));
-+  command_updater_.UpdateCommandEnabled(IDC_CYCLE_THIRD_PARTY_LLM_PROVIDER,
-+                                        base::FeatureList::IsEnabled(features::kThirdPartyLlmPanel));
 +  command_updater_.UpdateCommandEnabled(IDC_TOGGLE_BROWSEROS_AGENT, true);
  
    if (browser_->is_type_normal()) {

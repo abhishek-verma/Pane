@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000000..e263119b0fb23
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_action_utils.h
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,52 @@
 +// Copyright 2025 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -17,7 +17,6 @@ index 0000000000000..e263119b0fb23
 +#include "base/containers/fixed_flat_set.h"
 +#include "chrome/browser/browseros/core/browseros_constants.h"
 +#include "chrome/browser/ui/actions/chrome_action_id.h"
-+#include "chrome/browser/ui/ui_features.h"
 +#include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
 +#include "chrome/common/chrome_features.h"
 +#include "ui/actions/actions.h"
@@ -31,7 +30,6 @@ index 0000000000000..e263119b0fb23
 +// - Have high flex priority (always visible)
 +constexpr auto kBrowserOSNativeActionIds =
 +    base::MakeFixedFlatSet<actions::ActionId>({
-+        kActionSidePanelShowThirdPartyLlm,
 +        kActionBrowserOSAgent,
 +    });
 +
@@ -55,17 +53,6 @@ index 0000000000000..e263119b0fb23
 +  }
 +
 +  return false;
-+}
-+
-+// Get the feature flag for a native BrowserOS action.
-+inline const base::Feature* GetFeatureForBrowserOSAction(
-+    actions::ActionId id) {
-+  switch (id) {
-+    case kActionSidePanelShowThirdPartyLlm:
-+      return &features::kThirdPartyLlmPanel;
-+    default:
-+      return nullptr;
-+  }
 +}
 +
 +}  // namespace browseros

@@ -61,14 +61,7 @@ const sectionLabelClassName =
 const primarySettingsSections: NavSection[] = [
   {
     label: 'Provider Settings',
-    items: [
-      { name: 'AI & Agents', to: '/settings/ai', icon: Bot },
-      {
-        name: 'Chat & Council Provider',
-        to: '/settings/chat',
-        icon: MessageSquare,
-      },
-    ],
+    items: [{ name: 'AI & Agents', to: '/settings/ai', icon: Bot }],
   },
   {
     label: 'Other',

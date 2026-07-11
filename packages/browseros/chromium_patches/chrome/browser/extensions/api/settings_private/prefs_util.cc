@@ -21,8 +21,6 @@ index 7238955992d8c..34a90ffe0c372 100644
 +      settings_api::PrefType::kString;
 +  (*s_allowlist)[browseros::prefs::kShowToolbarLabels] =
 +      settings_api::PrefType::kBoolean;
-+  (*s_allowlist)[browseros::prefs::kShowLLMChat] =
-+      settings_api::PrefType::kBoolean;
 +  (*s_allowlist)[browseros::prefs::kShowAssistant] =
 +      settings_api::PrefType::kBoolean;
 +

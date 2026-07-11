@@ -17,11 +17,6 @@ index 0177d0e3bda7c..dbdd029d1ffb4 100644
  
 +  // Observe BrowserOS visibility prefs for reactive updates.
 +  pref_change_registrar_.Add(
-+      browseros::prefs::kShowLLMChat,
-+      base::BindRepeating(
-+          &PinnedToolbarActionsModel::OnBrowserOSVisibilityPrefChanged,
-+          base::Unretained(this)));
-+  pref_change_registrar_.Add(
 +      browseros::prefs::kShowAssistant,
 +      base::BindRepeating(
 +          &PinnedToolbarActionsModel::OnBrowserOSVisibilityPrefChanged,
@@ -59,15 +54,11 @@ index 0177d0e3bda7c..dbdd029d1ffb4 100644
 +    return;
 +  }
 +
-+  // Pin native BrowserOS actions if:
-+  // 1. Their feature flag is enabled (or no feature flag exists)
-+  // 2. Their visibility pref allows it
++  // Pin native BrowserOS actions when their visibility pref allows it.
 +  for (actions::ActionId id : browseros::kBrowserOSNativeActionIds) {
-+    const base::Feature* feature = browseros::GetFeatureForBrowserOSAction(id);
-+    bool feature_enabled = !feature || base::FeatureList::IsEnabled(*feature);
 +    bool pref_enabled = browseros::ShouldShowToolbarAction(id, pref_service_);
 +
-+    if (feature_enabled && pref_enabled) {
++    if (pref_enabled) {
 +      // Should be pinned - add if not already present
 +      if (!Contains(id)) {
 +        UpdatePinnedState(id, true);

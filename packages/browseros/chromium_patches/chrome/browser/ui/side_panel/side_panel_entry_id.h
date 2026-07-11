@@ -6,7 +6,6 @@ index b089b5e276bab..437fa04663b0e 100644
    V(kGlic, kActionSidePanelShowGlic, "Glic")                                  \
    V(kTabsFromOtherDevices, kActionSidePanelShowTabsFromOtherDevices,          \
      "TabsFromOtherDevices")                                                   \
-+  V(kThirdPartyLlm, kActionSidePanelShowThirdPartyLlm, "ThirdPartyLlm")       \
    /* Extensions (nothing more should be added below here) */                  \
    V(kExtension, std::nullopt, "Extension")
  

@@ -6,14 +6,12 @@ import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { Capabilities, Feature } from '@/lib/browseros/capabilities'
 import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 import { sidePanelPerWindowStorage } from '@/lib/browseros/sidePanelOpenStateStorage'
-import { PRODUCT_CHAT_NAME } from '@/lib/constants/product'
 import {
   RuntimeMessageType,
   sendRuntimeMessage,
 } from '@/lib/messaging/runtime/runtimeMessages'
 
 export type ToolbarSettingsState = {
-  showLlmChat: boolean
   showToolbarLabels: boolean
   sidePanelPerWindow: boolean
   verticalTabsEnabled: boolean
@@ -26,7 +24,6 @@ type NativeToolbarSettingsState = Omit<
 >
 
 const DEFAULT_NATIVE_TOOLBAR_SETTINGS_STATE: NativeToolbarSettingsState = {
-  showLlmChat: true,
   showToolbarLabels: true,
   verticalTabsEnabled: true,
   supportsVerticalTabs: false,
@@ -35,10 +32,9 @@ const DEFAULT_NATIVE_TOOLBAR_SETTINGS_STATE: NativeToolbarSettingsState = {
 async function loadNativeToolbarSettingsState(): Promise<NativeToolbarSettingsState> {
   try {
     const adapter = getBrowserOSAdapter()
-    const [chatPref, labelsPref] = await Promise.all([
-      adapter.getPref(BROWSEROS_PREFS.SHOW_LLM_CHAT),
-      adapter.getPref(BROWSEROS_PREFS.SHOW_TOOLBAR_LABELS),
-    ])
+    const labelsPref = await adapter.getPref(
+      BROWSEROS_PREFS.SHOW_TOOLBAR_LABELS,
+    )
     const supportsVerticalTabs = await Capabilities.supports(
       Feature.VERTICAL_TABS_SUPPORT,
     )
@@ -48,7 +44,6 @@ async function loadNativeToolbarSettingsState(): Promise<NativeToolbarSettingsSt
       : true
 
     return {
-      showLlmChat: chatPref?.value !== false,
       showToolbarLabels: labelsPref?.value !== false,
       verticalTabsEnabled,
       supportsVerticalTabs,
@@ -76,7 +71,6 @@ export async function loadToolbarSettingsState(): Promise<ToolbarSettingsState> 
 }
 
 export const ToolbarSettingsCard: FC = () => {
-  const [showLlmChat, setShowLlmChat] = useState(true)
   const [showToolbarLabels, setShowToolbarLabels] = useState(true)
   const [sidePanelPerWindow, setSidePanelPerWindow] = useState(false)
   const [verticalTabsEnabled, setVerticalTabsEnabled] = useState(true)
@@ -87,7 +81,6 @@ export const ToolbarSettingsCard: FC = () => {
     const loadPrefs = async () => {
       try {
         const state = await loadToolbarSettingsState()
-        setShowLlmChat(state.showLlmChat)
         setShowToolbarLabels(state.showToolbarLabels)
         setSidePanelPerWindow(state.sidePanelPerWindow)
         setVerticalTabsEnabled(state.verticalTabsEnabled)
@@ -144,29 +137,6 @@ export const ToolbarSettingsCard: FC = () => {
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label htmlFor="show-llm-chat" className="font-medium text-sm">
-              Show {PRODUCT_CHAT_NAME} Button
-            </Label>
-            <p className="text-muted-foreground text-xs">
-              Display {PRODUCT_CHAT_NAME} in the browser toolbar
-            </p>
-          </div>
-          <Switch
-            id="show-llm-chat"
-            checked={showLlmChat}
-            onCheckedChange={(checked) =>
-              handleToggle(
-                BROWSEROS_PREFS.SHOW_LLM_CHAT,
-                checked,
-                setShowLlmChat,
-              )
-            }
-            disabled={isLoading}
-          />
-        </div>
-
-        <div className="flex items-center justify-between border-border border-t pt-4">
           <div className="space-y-0.5">
             <Label
               htmlFor="show-toolbar-labels"

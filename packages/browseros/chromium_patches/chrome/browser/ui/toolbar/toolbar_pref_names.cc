@@ -9,8 +9,8 @@ index b0e7b69174614..a4919ec0d8958 100644
 +#include "base/feature_list.h"
  #include "chrome/browser/ui/actions/chrome_action_id.h"
  #include "chrome/browser/ui/tab_search_feature.h"
-+#include "chrome/browser/ui/ui_features.h"
-+#include "chrome/common/chrome_features.h"
+-#include "chrome/browser/ui/ui_features.h"
+-#include "chrome/common/chrome_features.h"
  #include "components/pref_registry/pref_registry_syncable.h"
  #include "components/prefs/pref_registry_simple.h"
  #include "ui/actions/actions.h"
@@ -34,15 +34,6 @@ index b0e7b69174614..a4919ec0d8958 100644
      }
    }
  
-+  // Add third-party LLM panel to default pinned actions
-+  if (base::FeatureList::IsEnabled(features::kThirdPartyLlmPanel)) {
-+    const std::optional<std::string>& third_party_llm_action =
-+        actions::ActionIdMap::ActionIdToString(kActionSidePanelShowThirdPartyLlm);
-+    if (third_party_llm_action.has_value()) {
-+      default_pinned_actions.Append(third_party_llm_action.value());
-+    }
-+  }
-+
    registry->RegisterListPref(prefs::kPinnedActions,
                               std::move(default_pinned_actions),
                               user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
@@ -50,9 +41,6 @@ index b0e7b69174614..a4919ec0d8958 100644
    registry->RegisterBooleanPref(
        prefs::kTabSearchMigrationComplete, false,
        user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-+  registry->RegisterBooleanPref(
-+      prefs::kPinnedThirdPartyLlmMigrationComplete, false,
-+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
  }
  
  }  // namespace toolbar

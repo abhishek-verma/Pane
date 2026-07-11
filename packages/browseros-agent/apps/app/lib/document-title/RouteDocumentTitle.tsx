@@ -4,7 +4,6 @@ import { PRODUCT_CHAT_NAME, PRODUCT_NAME } from '@/lib/constants/product'
 
 function titleForAppPath(pathname: string): string {
   if (pathname.startsWith('/home/chat')) return PRODUCT_CHAT_NAME
-  if (pathname.startsWith('/settings/chat')) return `${PRODUCT_CHAT_NAME} & Hub`
   if (pathname.startsWith('/settings')) return `${PRODUCT_NAME} Settings`
   if (pathname.startsWith('/onboarding')) return `Welcome to ${PRODUCT_NAME}`
   if (pathname.startsWith('/connect-apps'))

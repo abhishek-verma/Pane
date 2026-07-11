@@ -25,9 +25,6 @@ index 0000000000000..fe576bc18a041
 +namespace prefs {
 +
 +// Toolbar visibility prefs
-+// Boolean: Show LLM Chat in toolbar (default: false)
-+inline constexpr char kShowLLMChat[] = "browseros.show_llm_chat";
-+
 +// Boolean: Show Assistant in toolbar (default: true)
 +inline constexpr char kShowAssistant[] = "browseros.show_assistant";
 +
@@ -56,9 +53,6 @@ index 0000000000000..fe576bc18a041
 +
 +// Registers BrowserOS profile preferences.
 +void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
-+
-+// Check if LLM Chat should be shown in toolbar.
-+bool ShouldShowLLMChat(PrefService* pref_service);
 +
 +// Check if Assistant should be shown in toolbar.
 +bool ShouldShowAssistant(PrefService* pref_service);

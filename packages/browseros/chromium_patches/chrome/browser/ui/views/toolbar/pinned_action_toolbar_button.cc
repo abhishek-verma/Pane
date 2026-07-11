@@ -99,8 +99,7 @@ index cb5f33a2c5f4c..d3708615bf897 100644
                                      : icons->icon;
  
 -  if (is_icon_visible_ && action_engaged_) {
-+  if (action_id_ == kActionSidePanelShowThirdPartyLlm ||
-+      action_id_ == kActionBrowserOSAgent) {
++  if (action_id_ == kActionBrowserOSAgent) {
 +    const SkColor orange = SkColorSetRGB(0xFB, 0x65, 0x18);
 +    UpdateIconsWithColors(vector_icons::kPaneMarkIcon, orange, orange, orange,
 +                          GetForegroundColor(ButtonState::STATE_DISABLED));

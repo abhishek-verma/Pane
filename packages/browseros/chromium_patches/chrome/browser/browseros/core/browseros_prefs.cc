@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000000..c47c0fad94dda
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_prefs.cc
-@@ -0,0 +1,106 @@
+@@ -0,0 +1,95 @@
 +// Copyright 2025 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -21,7 +21,6 @@ index 0000000000000..c47c0fad94dda
 +
 +void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
 +  // Toolbar visibility prefs
-+  registry->RegisterBooleanPref(prefs::kShowLLMChat, false);
 +  registry->RegisterBooleanPref(prefs::kShowAssistant, true);
 +  registry->RegisterBooleanPref(prefs::kShowToolbarLabels, false);
 +
@@ -36,10 +35,6 @@ index 0000000000000..c47c0fad94dda
 +  // NTP focus pref
 +  registry->RegisterBooleanPref(prefs::kNtpFocusContent, false);
 +  registry->RegisterBooleanPref(prefs::kOnboardingCompleted, false);
-+}
-+
-+bool ShouldShowLLMChat(PrefService* pref_service) {
-+  return pref_service->GetBoolean(prefs::kShowLLMChat);
 +}
 +
 +bool ShouldShowAssistant(PrefService* pref_service) {
@@ -84,8 +79,6 @@ index 0000000000000..c47c0fad94dda
 +
 +const char* GetVisibilityPrefForAction(actions::ActionId id) {
 +  switch (id) {
-+    case kActionSidePanelShowThirdPartyLlm:
-+      return prefs::kShowLLMChat;
 +    case kActionBrowserOSAgent:
 +      return prefs::kShowAssistant;
 +    default:

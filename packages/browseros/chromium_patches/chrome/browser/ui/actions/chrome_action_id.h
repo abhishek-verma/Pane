@@ -7,8 +7,7 @@ index 89d7ca2422224..586eb455c7351 100644
    E(kActionSidePanelShowSideSearch) \
    E(kActionSidePanelShowMerchantTrust) \
 -  E(kActionSidePanelShowTabsFromOtherDevices)
-+  E(kActionSidePanelShowTabsFromOtherDevices) \
-+  E(kActionSidePanelShowThirdPartyLlm) \
++     E(kActionSidePanelShowTabsFromOtherDevices) \
 +  E(kActionBrowserOSAgent)
  
  #define TOOLBAR_PINNABLE_ACTION_IDS \

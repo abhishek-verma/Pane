@@ -14,13 +14,7 @@ index bc8c1e5d952c1..5654e5f88c6a3 100644
      keys.push_back(
          {true, false, true, false, kVK_ANSI_Z, IDC_FOCUS_PREV_TAB_GROUP});
  
-+    if (base::FeatureList::IsEnabled(features::kBrowserOsKeyboardShortcuts)) {
-+      keys.push_back(
-+          {true, true, false, false, kVK_ANSI_K,
-+           IDC_SHOW_THIRD_PARTY_LLM_SIDE_PANEL});
-+      keys.push_back(
-+          {true, true, false, false, kVK_ANSI_L,
-+           IDC_CYCLE_THIRD_PARTY_LLM_PROVIDER});
++         if (base::FeatureList::IsEnabled(features::kBrowserOsKeyboardShortcuts)) {
 +      keys.push_back(
 +          {false, false, false, true, kVK_ANSI_A,
 +           IDC_TOGGLE_BROWSEROS_AGENT});

@@ -8,10 +8,10 @@ import { AgentCommandConversation } from '@/screens/agent-command/AgentCommandCo
 import { AgentCommandHome } from '@/screens/agent-command/AgentCommandHome'
 import { AgentCommandLayout } from '@/screens/agent-command/AgentCommandLayout'
 import { AISettingsPage } from '@/screens/ai-settings/AISettingsPage'
+import { CapturePage } from '@/screens/capture/CapturePage'
 import { ConnectMCP } from '@/screens/connect-mcp/ConnectMCP'
 import { ContextPage } from '@/screens/context/ContextPage'
 import { CustomizationPage } from '@/screens/customization/CustomizationPage'
-import { LlmHubPage } from '@/screens/llm-hub/LlmHubPage'
 import { MCPSettingsPage } from '@/screens/mcp-settings/MCPSettingsPage'
 import { MemoryPage } from '@/screens/memory/MemoryPage'
 import { NewTabChat } from '@/screens/newtab/index/NewTabChat'
@@ -39,7 +39,6 @@ const OptionsRedirect: FC = () => {
 
   const routeMap: Record<string, string> = {
     ai: '/settings/ai',
-    chat: '/settings/chat',
     'connect-mcp': '/connect-apps',
     mcp: '/settings/mcp',
     customization: '/settings/customization',
@@ -79,6 +78,7 @@ export const App: FC = () => {
             <Route path=":id" element={<WorkspacesPage />} />
           </Route>
           <Route path="context" element={<ContextPage />} />
+          <Route path="capture" element={<CapturePage />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="scheduled" element={<ScheduledTasksPage />} />
         </Route>
@@ -87,7 +87,6 @@ export const App: FC = () => {
           <Route path="settings">
             <Route index element={<Navigate to="/settings/ai" replace />} />
             <Route path="ai" element={<AISettingsPage key="ai" />} />
-            <Route path="chat" element={<LlmHubPage />} />
             <Route path="mcp" element={<MCPSettingsPage />} />
             <Route path="customization" element={<CustomizationPage />} />
             <Route path="action-log" element={<ActionLogPage />} />

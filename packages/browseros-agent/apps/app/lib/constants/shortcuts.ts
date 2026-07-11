@@ -11,22 +11,4 @@ export const SHORTCUTS_LIST = [
       linux: 'Alt',
     },
   },
-  {
-    key: 'K',
-    description: 'Toggle Pane Chat',
-    modifier: {
-      windows: 'Ctrl+Shift',
-      mac: '⌘+Shift',
-      linux: 'Ctrl+Shift',
-    },
-  },
-  {
-    key: 'L',
-    description: 'Switch providers in Pane Chat',
-    modifier: {
-      windows: 'Ctrl+Shift',
-      mac: '⌘+Shift',
-      linux: 'Ctrl+Shift',
-    },
-  },
 ]

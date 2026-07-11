@@ -179,7 +179,6 @@ Features grouped by user outcome. Maturity reflects docs, UI routes, and changel
 | **OAuth providers** | ChatGPT Pro/Plus, GitHub Copilot | No extra API key |
 | **Local models** | Ollama, LM Studio | Strong for chat; weak for agent today |
 | **Default model (Kimi K2.5)** | Try before BYOK | Partnership; limited daily credits for testing |
-| **Chat & Council Provider** | Split-view / LLM Hub providers | Separate from agent provider |
 | **Remote Hermes** | Additional agent provider (gated) | `HERMES_AGENT_SUPPORT` |
 
 ### Browser and UX
@@ -187,7 +186,6 @@ Features grouped by user outcome. Maturity reflects docs, UI routes, and changel
 | Feature | Outcome | Notes |
 |---------|---------|-------|
 | **Vertical tabs** | Side panel tab strip | Default on; toggle in customization |
-| **Split-view / LLM Hub** | ChatGPT, Claude, Gemini beside page | Alt+K; Cmd+Shift+U for council |
 | **Ad blocking (MV2)** | Full uBlock Origin | ~10x vs stock Chrome in public benchmark |
 | **Chrome import** | Bookmarks, passwords, extensions | Onboarding step 1 |
 | **Glow indicator** | Visual feedback when agent works a tab | Orange viewport pulse |
@@ -232,7 +230,6 @@ Sidebar (`SidebarNavigation.tsx`):
 | Section | Route | Purpose |
 |---------|-------|---------|
 | AI & Agents | `/settings/ai` | LLM providers, default model, harness agents |
-| Chat & Council Provider | `/settings/chat` | Split-view / hub models |
 | Customize Pane | `/settings/customization` | Vertical tabs, themes, UX prefs |
 | Pane as MCP | `/settings/mcp` | MCP URL, external client setup |
 | Usage & Billing | `/settings/usage` | Credits (when enabled) |

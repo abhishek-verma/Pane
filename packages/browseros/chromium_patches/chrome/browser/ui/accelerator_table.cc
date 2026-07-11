@@ -14,13 +14,7 @@ index 06e3a9b5e0ee9..a49cac1c4052d 100644
      }
  #endif
  
-+    if (base::FeatureList::IsEnabled(features::kBrowserOsKeyboardShortcuts)) {
-+      accelerators->push_back(
-+          {ui::VKEY_K, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
-+           IDC_SHOW_THIRD_PARTY_LLM_SIDE_PANEL});
-+      accelerators->push_back(
-+          {ui::VKEY_L, ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR,
-+           IDC_CYCLE_THIRD_PARTY_LLM_PROVIDER});
++         if (base::FeatureList::IsEnabled(features::kBrowserOsKeyboardShortcuts)) {
 +      accelerators->push_back(
 +          {ui::VKEY_A, ui::EF_ALT_DOWN, IDC_TOGGLE_BROWSEROS_AGENT});
 +    }
