@@ -100,25 +100,18 @@ extract_version() {
 }
 
 version_gt() {
-  local left_major left_minor left_patch right_major right_minor right_patch
-  IFS=. read -r left_major left_minor left_patch <<< "$1"
-  IFS=. read -r right_major right_minor right_patch <<< "$2"
-
-  if [ "$left_major" -ne "$right_major" ]; then
-    if [ "$left_major" -gt "$right_major" ]; then
+  local left=(${1//./ }) right=(${2//./ })
+  local i l r
+  for i in 0 1 2 3; do
+    l=${left[$i]:-0}
+    r=${right[$i]:-0}
+    if [ "$l" -gt "$r" ]; then
       return 0
     fi
-    return 1
-  fi
-  if [ "$left_minor" -ne "$right_minor" ]; then
-    if [ "$left_minor" -gt "$right_minor" ]; then
-      return 0
+    if [ "$l" -lt "$r" ]; then
+      return 1
     fi
-    return 1
-  fi
-  if [ "$left_patch" -gt "$right_patch" ]; then
-    return 0
-  fi
+  done
   return 1
 }
 
