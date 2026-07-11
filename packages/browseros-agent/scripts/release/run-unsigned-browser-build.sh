@@ -18,6 +18,23 @@ if [ -d /Applications/Xcode.app/Contents/Developer ]; then
   export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 fi
 
+if ! command -v gn >/dev/null 2>&1; then
+  for depot_tools in \
+    "${DEPOT_TOOLS:-}" \
+    "$HOME/chromium/depot_tools" \
+    "$HOME/depot_tools"; do
+    if [ -n "$depot_tools" ] && [ -x "$depot_tools/gn" ]; then
+      export PATH="$depot_tools:$PATH"
+      break
+    fi
+  done
+fi
+
+if ! command -v gn >/dev/null 2>&1; then
+  echo "gn not found. Add depot_tools to PATH or set DEPOT_TOOLS." >&2
+  exit 1
+fi
+
 mkdir -p "$BROWSEROS/logs"
 cd "$BROWSEROS"
 
