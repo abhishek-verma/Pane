@@ -59,6 +59,8 @@ const READ_CONTEXT_TOOLS = new Set([
   'tasks_list',
   'skills_load',
   'skills_list',
+  'home_widget_list',
+  'home_widget_propose',
 ])
 
 const WRITE_LOCAL_TASK_TOOLS = new Set([
@@ -71,6 +73,8 @@ const WRITE_LOCAL_TASK_TOOLS = new Set([
   'skills_archive',
   'capture_start',
   'capture_stop',
+  'home_widget_add',
+  'home_widget_remove',
 ])
 
 const READ_CAPTURE_TOOLS = new Set([

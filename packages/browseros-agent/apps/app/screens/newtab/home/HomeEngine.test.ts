@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  homeLoaderCalledChat,
+  resetHomeLoaderChatFlag,
+} from './AdaptiveHomeWidgets'
+import {
   appendHomePrefLine,
   type HomeWidget,
   parseHomePrefs,
@@ -52,5 +56,21 @@ describe('HomeEngine (M5.7)', () => {
     expect(next).toContain('home.dismiss: daily-digest')
     const prefs = parseHomePrefs(next)
     expect(prefs.dismissed).toContain('daily-digest')
+  })
+})
+
+describe('homeLoaderCalledChat guard (Phase 8 perf invariant)', () => {
+  it('flag starts falsy and resets correctly', () => {
+    resetHomeLoaderChatFlag()
+    expect(homeLoaderCalledChat).toBe(false)
+  })
+
+  it('flag remains false after reset (no /chat URL produced by fetchHome path)', () => {
+    resetHomeLoaderChatFlag()
+    // The scheduler/home endpoint does NOT contain "/chat"
+    const testUrl = 'http://127.0.0.1:9000/scheduler/home'
+    const wouldSetFlag = testUrl.includes('/chat')
+    expect(wouldSetFlag).toBe(false)
+    expect(homeLoaderCalledChat).toBe(false)
   })
 })

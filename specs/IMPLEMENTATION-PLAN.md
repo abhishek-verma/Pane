@@ -482,7 +482,7 @@ Plan complete and saved to `specs/IMPLEMENTATION-PLAN.md`. Two execution options
 - Phase 5: [`PHASE-5-PROMPT.md`](./PHASE-5-PROMPT.md)
 - Phase 6: [`PHASE-6-PROMPT.md`](./PHASE-6-PROMPT.md)
 - Phase 7: ([v1.0 polish & launch readiness](./PHASE-7-PROMPT.md))
-- Phase 8: (evolving home — prompt TBD post-v1.0)
+- Phase 8: ([evolving home — prompt](./PHASE-8-PROMPT.md)) (post-v1.0)
 - Phase 9: (page reshape — prompt TBD; incremental verticals)
 
 Which approach?

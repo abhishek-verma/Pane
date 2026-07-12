@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -166,6 +167,46 @@ func (c *Client) restGET(path string) (map[string]any, error) {
 	var data map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return data, nil
+}
+
+// PostREST sends a POST request to a REST endpoint on the Pane server.
+// body may be nil for empty-body POSTs.
+func (c *Client) PostREST(path string, body any) (map[string]any, error) {
+	return c.restPOST(path, body)
+}
+
+// restPOST sends a POST request (with optional JSON body) to a REST endpoint.
+func (c *Client) restPOST(path string, body any) (map[string]any, error) {
+	var reqBody io.Reader
+	if body != nil {
+		encoded, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("marshal request body: %w", err)
+		}
+		reqBody = strings.NewReader(string(encoded))
+	}
+	req, err := http.NewRequest(http.MethodPost, c.BaseURL+path, reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("cannot connect to Pane at %s: %w%s", c.BaseURL, err, connectionSetupInstructions())
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, &restHTTPError{statusCode: resp.StatusCode, body: string(b)}
+	}
+	var data map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		// 204 No Content is fine
+		return map[string]any{}, nil
 	}
 	return data, nil
 }

@@ -4,13 +4,25 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
-import { type FC, useRef } from 'react'
+import { BookOpen, CheckCircle, FileText, Plus } from 'lucide-react'
+import { type FC, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { BUILTIN_TEMPLATES } from '@/lib/home/builtin-templates'
 import { EmptyHomeState } from './EmptyHomeState'
 import { ProposalCard } from './ProposalCard'
 import { WidgetCard } from './WidgetCard'
+
+const TEMPLATE_ICONS: Record<string, FC<{ className?: string }>> = {
+  'daily-digest': FileText,
+  'open-tasks': CheckCircle,
+  'active-research-thread': BookOpen,
+}
 
 export interface HomeWidget {
   type: string
@@ -74,6 +86,7 @@ function handleCuratedAction(w: HomeWidget): void {
 export const AdaptiveHomeWidgets: FC = () => {
   const qc = useQueryClient()
   const shownWhy = useRef(new Set<string>())
+  const [galleryOpen, setGalleryOpen] = useState(false)
 
   const { data, isLoading, error } = useQuery({
     queryKey: HOME_KEY,
@@ -150,6 +163,32 @@ export const AdaptiveHomeWidgets: FC = () => {
     onSuccess: () => void qc.invalidateQueries({ queryKey: HOME_KEY }),
   })
 
+  const addTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const template = BUILTIN_TEMPLATES.find((t) => t.id === templateId)
+      if (!template) return
+      const base = await getAgentServerUrl()
+      const res = await fetch(`${base}/scheduler/home/widgets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: template.title,
+          source: template.source,
+          action: template.action,
+          refreshMinutes: template.refreshMinutes,
+          createdBy: 'user',
+          whyText: template.whyText,
+          status: 'active',
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to add widget')
+    },
+    onSuccess: () => {
+      setGalleryOpen(false)
+      void qc.invalidateQueries({ queryKey: HOME_KEY })
+    },
+  })
+
   if (isLoading) {
     return (
       <div className="text-muted-foreground text-sm">Loading your day…</div>
@@ -219,20 +258,62 @@ export const AdaptiveHomeWidgets: FC = () => {
 
       {/* Add widget affordance */}
       <div className="pt-1 text-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
-          onClick={() => {
-            const url = new URL(window.location.href)
-            url.searchParams.set('prefill', 'Add a widget for ')
-            window.history.replaceState(null, '', url.toString())
-            document.querySelector<HTMLTextAreaElement>('textarea')?.focus()
-          }}
-        >
-          <Plus className="h-3 w-3" />
-          Add a widget
-        </Button>
+        <Popover open={galleryOpen} onOpenChange={setGalleryOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
+            >
+              <Plus className="h-3 w-3" />
+              Add a widget
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="center" className="w-72 p-3" side="top">
+            <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+              Quick start
+            </p>
+            <div className="space-y-1.5">
+              {BUILTIN_TEMPLATES.map((t) => {
+                const Icon = TEMPLATE_ICONS[t.id] ?? FileText
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    disabled={addTemplateMutation.isPending}
+                    onClick={() => addTemplateMutation.mutate(t.id)}
+                    className="flex w-full items-center gap-2.5 rounded-md border border-border/50 bg-card p-2.5 text-left text-sm transition-colors hover:border-[var(--accent-orange)]/40 hover:bg-[var(--accent-orange)]/5 disabled:opacity-50"
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-xs">{t.title}</p>
+                      <p className="truncate text-muted-foreground text-xs">
+                        {t.description}
+                      </p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-2 border-border/40 border-t pt-2">
+              <button
+                type="button"
+                className="w-full text-center text-muted-foreground text-xs hover:text-foreground"
+                onClick={() => {
+                  setGalleryOpen(false)
+                  const url = new URL(window.location.href)
+                  url.searchParams.set('prefill', 'Add a widget for ')
+                  window.history.replaceState(null, '', url.toString())
+                  document
+                    .querySelector<HTMLTextAreaElement>('textarea')
+                    ?.focus()
+                }}
+              >
+                Or describe in chat →
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   )
