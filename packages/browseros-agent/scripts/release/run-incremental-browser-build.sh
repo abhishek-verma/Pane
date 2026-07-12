@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Resume browser build after a small C++ patch fix without resetting Chromium.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
+BROWSEROS="$ROOT/packages/browseros"
+LOG="$BROWSEROS/logs/unsigned-release-build.log"
+CHROMIUM_SRC="${CHROMIUM_SRC:-/Users/abhishek/chromium/src}"
+PATCH_DIR="$BROWSEROS/chromium_patches/chrome/browser/browseros/core"
+
+if [ -f "$BROWSEROS/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$BROWSEROS/.env"
+  set +a
+fi
+
+if [ -d /Applications/Xcode.app/Contents/Developer ]; then
+  export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+fi
+
+for depot_tools in \
+  "${DEPOT_TOOLS:-}" \
+  "$HOME/chromium/depot_tools" \
+  "$HOME/depot_tools"; do
+  if [ -n "$depot_tools" ] && [ -x "$depot_tools/gn" ]; then
+    export PATH="$depot_tools:$PATH"
+    break
+  fi
+done
+
+apply_patch_file() {
+  local patch="$1"
+  local dest="$2"
+  python3 - <<PY
+from pathlib import Path
+patch = Path("$patch")
+dest = Path("$dest")
+lines = []
+for line in patch.read_text().splitlines():
+    if line.startswith("+") and not line.startswith("+++"):
+        lines.append(line[1:])
+dest.parent.mkdir(parents=True, exist_ok=True)
+dest.write_text("\n".join(lines) + ("\n" if lines else ""))
+print(f"Applied {dest} ({len(lines)} lines)")
+PY
+}
+
+mkdir -p "$BROWSEROS/logs"
+BUILD_EXIT=1
+{
+  echo "=== Pane incremental browser build started $(date) ==="
+  echo "Applying fixed browseros_prefs sources from patches..."
+
+  apply_patch_file "$PATCH_DIR/browseros_prefs.h" \
+    "$CHROMIUM_SRC/chrome/browser/browseros/core/browseros_prefs.h"
+  apply_patch_file "$PATCH_DIR/browseros_prefs.cc" \
+    "$CHROMIUM_SRC/chrome/browser/browseros/core/browseros_prefs.cc"
+
+  cd "$BROWSEROS"
+  "$ROOT/packages/browseros-agent/scripts/release/stage-pane-browser-resources.sh" darwin-arm64
+
+  echo "Compiling chrome + chromedriver (incremental)..."
+  cd "$CHROMIUM_SRC"
+  autoninja -C out/Default_arm64 chrome chromedriver
+
+  echo "Packaging DMG..."
+  cd "$BROWSEROS"
+  uv run browseros build \
+    --modules package_macos,sparkle_sign \
+    --chromium-src "$CHROMIUM_SRC"
+
+  BUILD_EXIT=0
+  echo "=== Pane unsigned browser build finished $(date) exit=$BUILD_EXIT ==="
+  VERSION_DIR="$BROWSEROS/releases"
+  if [ -d "$VERSION_DIR" ]; then
+    find "$VERSION_DIR" -maxdepth 2 -name '*.dmg' -print
+  fi
+} >>"$LOG" 2>&1 || {
+  echo "=== Pane unsigned browser build finished $(date) exit=$BUILD_EXIT ===" >>"$LOG"
+  exit "$BUILD_EXIT"
+}

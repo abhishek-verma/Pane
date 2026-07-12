@@ -20,6 +20,9 @@ export type GraphNodeKind =
   | 'terminal_session'
   | 'agent_run'
   | 'task'
+  | 'meeting'
+  | 'research_page'
+  | 'research_thread'
 
 export type GraphEdgeKind =
   | 'opened'
@@ -27,6 +30,8 @@ export type GraphEdgeKind =
   | 'ran_in'
   | 'produced'
   | 'part_of_run'
+  | 'opened_from'
+  | 'belongs_to_bucket'
 
 export interface Bucket {
   id: string

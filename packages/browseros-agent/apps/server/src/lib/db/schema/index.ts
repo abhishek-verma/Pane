@@ -7,6 +7,7 @@
 export * from './action-log'
 export * from './agents'
 export * from './buckets'
+export * from './capture'
 export * from './chat-sessions'
 export * from './domain-grants'
 export * from './graph-edges'

@@ -8,6 +8,25 @@ This is the README's "A new tab that knows your day" and "auto-evolving widgets.
 
 > **Build on BrowserOS, not from scratch.** BrowserOS already ships a single `app` entrypoint serving new tab + home (`entrypoints/app/App.tsx`) with a personalize screen and a `NewTabBranding` / `NewTabChat` surface. The agent-command home (`AgentCommandHome.tsx`) is the existing composer. This spec extends those into an adaptive widget host; it does not introduce a new entrypoint.
 
+> **v0.6 (phase reorder, 2026-07).** **v1.0 = Phase 7** (packaging). **Phase 8** = evolving home (user/agent widgets). **Phase 9** = page reshape, incremental post-launch. See [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md).
+
+---
+
+## Phased delivery (implementation plan)
+
+| Phase | What ships | Spec section |
+|-------|------------|--------------|
+| **5–6** | **Adaptive home foundation** — curated widget set (digest, meetings, tasks, research, recurring), ranking/hysteresis, pin/hide preferences | This doc (widget model below) |
+| **7** | **v1.0 launch** — packaging, not more home features | [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) M7.x |
+| **8** | **Evolving home** — user asks in plain language ("add a widget for my open PRs"); Pane proposes widgets from workflows/tasks/scheduler/capture; widgets stored as local JSON specs in `~/.browseros/home/widgets/`; `WidgetSource` extension point | Below + ARCHITECTURE-DESIGN §4.12 |
+
+**Phase 8 custom widgets (detail):**
+
+- **Creation paths:** (1) chat — "show my applications in flight"; (2) template gallery from observed patterns (e.g. recurring Friday scan → one-click widget); (3) agent proposal card — "Pane noticed you check PRs every morning — add a widget?"
+- **Data binding:** widgets query graph/tasks/capture/scheduler only — same `<150 ms` render budget; no LLM at tab-open.
+- **Curation:** same demotion/hide discipline as curated widgets; custom widgets that go stale demote with undo.
+- **Not in Phase 8:** page overlays (Phase 9); widget marketplace (State B).
+
 ---
 
 ## Goals
@@ -20,7 +39,7 @@ This is the README's "A new tab that knows your day" and "auto-evolving widgets.
 
 ## Non-goals
 
-- A full dashboard builder / no-code widget editor in v1. Personalization first; a custom-widget SDK is a later extension point.
+- A full dashboard builder / no-code widget editor at v1.0 (Phase 7). Phase 5–6 ship curated widgets only; **Phase 8** adds NL/agent widget creation.
 - Pulling data from Pane servers. Everything is local. A "team" widget surface is State B.
 - Replacing the chat composer. The adaptive home surrounds and feeds the existing `NewTabChat` / `AgentCommandHome`; it doesn't replace it.
 

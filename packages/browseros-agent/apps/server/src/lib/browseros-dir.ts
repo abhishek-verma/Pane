@@ -48,6 +48,10 @@ export function getMemoriesDir(): string {
   return join(getBrowserosDir(), PATHS.MEMORIES_DIR_NAME)
 }
 
+export function getCaptureDir(): string {
+  return join(getBrowserosDir(), PATHS.CAPTURE_DIR_NAME)
+}
+
 /** Returns the ready-to-use directory for large generated tool outputs. */
 export async function getToolOutputDir(): Promise<string> {
   const outputDirPath = join(getBrowserosDir(), 'tool-output')
@@ -115,6 +119,7 @@ export function removeServerConfigSync(): void {
 export async function ensureBrowserosDir(): Promise<void> {
   logDevelopmentBrowserosDir()
   await mkdir(getSessionsDir(), { recursive: true })
+  await mkdir(getCaptureDir(), { recursive: true })
   await getToolOutputDir()
 }
 

@@ -72,6 +72,7 @@
     "@ai-sdk/provider": "^3.0.10",
     "@browseros/browser-core": "workspace:*",
     "@browseros/browser-mcp": "workspace:*",
+    "@browseros/capture": "workspace:*",
     "@browseros/cdp-protocol": "workspace:*",
     "@browseros/context-graph": "workspace:*",
     "@browseros/memory": "workspace:*",

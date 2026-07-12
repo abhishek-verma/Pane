@@ -181,5 +181,63 @@ const WidgetBody: FC<{ widget: HomeWidget }> = ({ widget }) => {
       </ul>
     )
   }
+  if (widget.type === 'next-meeting') {
+    const title = String(widget.data.title ?? widget.data.url ?? 'Meeting')
+    const status = String(widget.data.status ?? 'unknown')
+    const url = String(widget.data.url ?? '')
+    const sessionId = String(widget.data.sessionId ?? '')
+    return (
+      <div className="space-y-2 text-sm">
+        <div className="font-medium">{title}</div>
+        <div className="text-muted-foreground text-xs">Status: {status}</div>
+        <div className="flex flex-wrap gap-2">
+          {url && status === 'active' ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7"
+              onClick={() => window.open(url, '_blank')}
+            >
+              Join meeting
+            </Button>
+          ) : null}
+          {sessionId ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7"
+              onClick={() => {
+                window.location.hash = '#/capture'
+              }}
+            >
+              Open transcript
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+  if (widget.type === 'research-thread') {
+    const topic = String(widget.data.topic ?? 'Research')
+    const pageCount = Number(widget.data.pageCount ?? 0)
+    return (
+      <div className="space-y-2 text-sm">
+        <div className="font-medium">{topic}</div>
+        <div className="text-muted-foreground text-xs">
+          {pageCount} captured page{pageCount === 1 ? '' : 's'}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7"
+          onClick={() => {
+            window.location.hash = '#/capture'
+          }}
+        >
+          Resume research
+        </Button>
+      </div>
+    )
+  }
   return null
 }

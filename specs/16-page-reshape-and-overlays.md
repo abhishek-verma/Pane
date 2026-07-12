@@ -6,6 +6,8 @@ Because Pane is the browser, it can read a page in the context of *your* goals a
 
 This is the README's "Pages reshaped for you" and "Feeds without the slop." It is intrinsic State A: reshapes are computed locally from your graph, memory, and `soul.md`, injected as **clearly marked, reversible, consented** overlays — never silent destructive edits to a page.
 
+> **Implementation phase:** **Phase 9**, post-v1.0 (Phase 7). Ship **one vertical at a time** (e.g. job-listing fit scores first, then one feed) — not bundled LinkedIn/X/HN for launch. Browsing learnings already feed memory in Phase 6; reshape applies them on-page only when we know which surfaces users want. See [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) M9.x.
+
 > **Build on BrowserOS, not from scratch.** The fork already ships page-level access (the glow indicator, content scripts, the 16 browser MCP tools, and native Chromium content-injection primitives an extension is progressively denied). Page reshape reuses that access; it does not add a new privileged path.
 
 ---

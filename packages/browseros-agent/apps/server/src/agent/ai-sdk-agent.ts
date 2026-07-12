@@ -20,6 +20,7 @@ import {
   type UIMessage,
   wrapLanguageModel,
 } from 'ai'
+import { buildCaptureToolSet } from '../capture/tools'
 import { buildContextToolSet, buildTasksToolSet } from '../context/tools'
 import { buildIngestGateHooks } from '../context/wire-ingest'
 import { logger } from '../lib/logger'
@@ -221,6 +222,9 @@ export class AiSdkAgent {
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
       ),
       ...buildTasksToolSet(
+        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
+      ),
+      ...buildCaptureToolSet(
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
       ),
       ...buildMemoryToolSet(

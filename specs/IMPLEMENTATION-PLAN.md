@@ -2,13 +2,19 @@
 
 > **For agentic workers:** Implement this plan phase-by-phase, module-by-module. Modules marked `[par]` within a phase are independently parallelizable; `[seq → M x.y]` need the named module first. Each phase ends at a **Ship Gate** — a real, usable product with *complete* features. No partial-useless features ship.
 
-**Goal:** Ship Pane — a pure-OSS, no-Pane-server, local-first agentic browser ("Hermes agent but a browser") — in 8 phases, each a usable product.
+**Goal:** Ship Pane — a pure-OSS, no-Pane-server, local-first agentic browser ("Hermes agent but a browser") — in **phases 0–9**. **v1.0 launches at Phase 7** (cross-platform packaging + polish). Phases 8–9 are post-launch expression surfaces.
 
 **Architecture:** Extensions of the existing BrowserOS fork (Chromium fork + Bun/Hono server on `:9100` + WXT React app + Go CLI + harness agents). Net-new intrinsic subsystems per [`ARCHITECTURE-DESIGN.md`](./ARCHITECTURE-DESIGN.md) §4. Every Pane-operated-server surface disabled/removed per §9. One tool spec shared by the in-process loop and MCP (§4.0/§7.4). State owned by the server (SQLite/disk) and the app (`chrome.storage` prefs only) per §6.
 
-**Tech Stack:** TypeScript (Bun/Hono server, WXT React app, AI SDK), Go (CLI), Python (Chromium build), SQLite + Drizzle + FTS5, streaming ASR (whisper.cpp-class) for capture, Chromium C++ patches.
+**Tech Stack:** TypeScript (Bun/Hono server, WXT React app, AI SDK), Go (CLI), Python (Chromium build + ASR sidecar), SQLite + Drizzle + FTS5, streaming ASR (`faster-whisper`) for capture, Chromium C++ patches.
 
-**Phase dependency graph:** `0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8`. Phase 0 is the BrowserOS → Pane rebrand sweep (see [`REBRAND-PLAN.md`](./REBRAND-PLAN.md)) — it must precede Phase 1 so the first shippable is a credible *Pane* product, not a half-rebranded fork. Cross-deps: Phase 5 also needs 2; Phase 6 needs 3 + 4; Phase 7 (page reshape) needs 3 + 4 + 2; Phase 8 needs all and is the scale/signing phase. The two "becomes yours" expression surfaces ship on top of the engine: the **adaptive home** in Phase 5 (engine: graph+memory+soul+tasks+proactive), **page reshape & overlays** in Phase 7 (engine: graph+memory+soul+trust+workspace).
+**Phase dependency graph:** `0 → 1 → 2 → 3 → 4 → 5 → 6 → 7`. Post-launch: `8` (evolving home) needs `3 + 4 + 5 + 6`; `9` (page reshape) needs `2 + 3 + 4 + 6`, ships **incrementally one vertical at a time** — not a first-launch gate. Phase 0 is the BrowserOS → Pane rebrand sweep (see [`REBRAND-PLAN.md`](./REBRAND-PLAN.md)). Cross-deps: Phase 5 also needs 2; Phase 6 needs 3 + 4. **Expression surfaces:** Phase 5–6 ship **adaptive home foundation** (curated widgets); Phase 8 evolves it (user/agent-created widgets); Phase 9 reshapes **other pages** (overlays), deferred and built domain-by-domain after v1.0.
+
+### PM rationale for the Phase 7–9 reorder (2026-07)
+
+Through Phase 6, Pane has the full **engine**: trust, graph, memory/skills/soul, proactive/reach, capture/buckets, and a **curated adaptive home** (Phases 5–6). What remains before a credible **first launch** is not more intelligence — it is **distribution** (signed builds, auto-update, Windows/Linux, diagnostics, eval credibility). Page reshape (fit scores, feed de-slop) is high-risk, high-scope, and easy to get wrong without real usage data; it should not block v1.0.
+
+The **new tab home** is already the daily habit surface. The next high-value step **after launch** is making that home **truly yours**: widgets the user asks for in plain language and widgets Pane proposes from observed workflows — not reshaping LinkedIn on day one. **Phase 8** owns that. **Phase 9** owns page-level overlays, shipped **one site/use-case at a time** as we learn what users want reshaped.
 
 ---
 
@@ -85,7 +91,7 @@ Cloud sync, hosted credits/default-model, hosted skills marketplace, cloud-headl
 > **How to test:** The deliverable is the benchmark report + decision. Pass = a recorded WER/latency/battery number and a written go/no-go for Phase 6 M6.2.
 
 > **M1.10 — Eval harness scaffold + browsing-quality baseline** `[par]`
-> **What:** The eval harness (`apps/eval`) is extended with the scaffolding for the Pane-thesis eval (filled in Phase 7), and a browsing-quality CI gate captures the bare-browser latency baseline now.
+> **What:** The eval harness (`apps/eval`) is extended with the scaffolding for the Pane-thesis eval (filled in Phase 7 M7.8), and a browsing-quality CI gate captures the bare-browser latency baseline now.
 > **How to build:** Add a config + dataset stub + grader skeleton to `apps/eval` (no dataset yet). Add the browsing-quality CI test: navigate + tab-switch with the graph off (baseline) and record latency; assert the harness runs green. The actual threshold-with-graph-on lands in Phase 3.
 > **How to test:** CI — the browsing-quality baseline test runs green in CI. The eval skeleton executes a trivial case end-to-end.
 
@@ -291,88 +297,134 @@ Cloud sync, hosted credits/default-model, hosted skills marketplace, cloud-headl
 > **How to build:** Cadence extraction; pause hooks (battery/load/disk); prune oldest raw recordings per retention. A disk-near-full → capture-paused state.
 > **How to test:** Integration — low battery → capture pauses with visible state; disk near-full → raw recordings pruned, capture pauses.
 
----
-
-# Phase 7 — Page Reshape & Overlays: the web, reshaped for you
-
-**Ship gate (Pane v0.7):** Pane can reshape pages you opt in for: your-context overlays (job-fit scores against your resume, calendar-fit highlights, margin notes tied to your project) and feed de-slop on 2–3 named feeds (LinkedIn / X / Hacker News). Every overlay is Pane-branded, reversible, dismissible, per-domain consented, and never silently writes to a site. Dismiss/hide/expand signals feed the memory loop so reshaping improves over time.
-
-> **M7.1 — Reshape consent + overlay isolation** `[seq → M2.2]`
-> **What:** The trust foundation for reshaping: per-domain opt-in (defaults off for banking/payments/health/government), a first-encounter enable prompt, and isolated overlays a hostile page can't read or impersonate.
-> **How to build:** A per-domain consent store (reuses the per-domain grant model from M3.3). A Pane-owned overlay root in an isolated content-script world (the page can't read your context digest or trick the overlay). Overlays are always Pane-branded ("added by Pane") and never impersonate site UI. Reshape never edits form values / posts / submitted data — any write goes through the M2.2 gate.
-> **How to test:** Property — a hostile page script cannot read the overlay's context digest or alter the overlay; submitted form values are untouched by reshape. Unit — defaults off for protected domains; first-encounter prompt fires once per domain. Integration — enable domain A → reshape runs; domain B → none.
-
-> **M7.2 — Annotation overlays (your-context on a page)** `[seq → M7.1]`
-> **What:** Pane reads a page in the context of *your* goals and layers your-fit / your-context on top: a fit score on a job listing (from your workspace resume), calendar-fit highlights on a flight search, margin notes on a long doc tied to your active project.
-> **How to build:** A reshape job (cheap model, BYOK allowed; local-only users get a degraded annotation experience, honestly hidden when the local model is too weak) gets a compact page digest + your-context digest (`soul.md` M4.7 persona + active bucket M3.3 + `USER.md`/`MEMORY.md` M4.1 + granted workspace files M2.1 + calendar via integrations M9-style) and returns overlay intents (annotation / highlight / sidebar-note). Per-URL cache; no page content leaves the machine beyond the model call.
-> **How to test:** Integration — on an opted-in job listing with a granted resume → a Pane fit-score card renders with a one-tap dismiss + "wrong? report"; on a flight page with calendar connected → calendar-fit routes highlighted. Unit — cache hit skips the model call. Manual — report-wrong kills the reshape for that URL.
-
-> **M7.3 — Feed de-slop (LinkedIn / X / Hacker News)** `[seq → M7.1, M6.3]`
-> **What:** On a feed, Pane learns what you consider noise vs. signal and collapses/dims the noise while keeping the signal — original order one tap away.
-> **How to build:** A local "signal vs. noise" classifier per feed, trained on your expand/hide/dwell signals from browsing learnings (M6.3). On load, apply the classifier to visible items first, then lazily on scroll (never blocks first paint). Noise is *collapsed* with a "show what Pane hid" affordance, never deleted. Reorder is feed-only, original order one tap away.
-> **How to test:** Integration — on an opted-in feed, recruiter-spam/engagement-bait items collapse while posts from people you expand stay; "show what Pane hid" re-expands. Property — first paint not blocked (lazy on scroll). Unit — classifier preference stored to memory; a hide on LinkedIn recruiter spam → `USER.md`/feed preference written.
-
-> **M7.4 — Reshape learning loop + performance budget** `[par → M7.2, M7.3]`
-> **What:** Dismiss/hide/expand/pin signals flow back to memory so reshaping improves; reshapes are lazy and rate-limited and pause on battery.
-> **How to build:** Wire dismiss/hide/expand/pin → memory writes (gated per M4.1 approval defaults) that tune the feed classifier and annotation ranking over time. Lazy gating: a reshape runs only if domain opted-in AND the active persona/bucket makes a relevant reshape available. Cache per-URL; pause on battery/low-resource (glow shows "reshape paused").
-> **How to test:** Integration — dismiss a fit score on a site → never shown there again + preference in memory; repeated hides of a feed item type → that type ranks as noise next load. Manual — on battery, reshapes pause with a visible state; heavy/infinite feeds don't block first paint.
-
-> **M7.5 — Reshape UI + home hint** `[par → M7.2, M5.7]`
-> **What:** The user manages reshape: per-domain toggles, "show what Pane hid," a per-page "disable for this site," and the adaptive home surfaces a reshape hint when the active page can be reshaped.
-> **How to build:** A `/settings/reshape` screen (per-domain consent list, defaults, "show hidden" global toggle). The adaptive home (M5.7) renders a "this page can be reshaped — enable?" hint card when a reshape is available for the active tab. A page-level Pane control to disable for the current site.
-> **How to test:** E2E — open an opt-in-eligible page → home hint appears → enable → overlay renders; disable-for-this-site → overlay removed and consent revoked for that domain. Manual — settings list shows per-domain state and "show hidden" works.
+> **Status:** ship gate met — see [`PHASE-6-REPORT.md`](./PHASE-6-REPORT.md).
 
 ---
 
-# Phase 8 — Cross-platform, packaging & polish: Pane for everyone
+# Phase 7 — Cross-platform, packaging & polish: Pane v1.0 (first launch)
 
-**Ship gate (Pane v1.0):** Signed, notarized, auto-updating Pane on macOS, Windows, and Linux, with patch-discipline CI, a local diagnostics surface, the full testing strategy, and the Pane-thesis eval as the credibility artifact.
+**Ship gate (Pane v1.0):** Signed, notarized, auto-updating Pane on macOS, Windows, and Linux, with patch-discipline CI, a local diagnostics surface, the full testing strategy, and the Pane-thesis eval as the credibility artifact. **This is the first public launch gate** — everything through Phase 6 must be shippable before starting Phase 7.
 
-> **M8.1 — Platform interfaces + Windows impl** `[seq]`
+> **M7.1 — Platform interfaces + Windows impl** `[seq]`
 > **What:** The OS primitives (§12) behind interfaces, with a Windows implementation.
 > **How to build:** Land `KeepAliveService`, `NotificationSink`, `CredentialStore`, `CdpTransport` interfaces (consumed by M5.3/M5.4/M1.4). Windows impls: Task Scheduler on-logon, Windows toast, Credential Manager/DPAPI, named pipe for CDP.
 > **How to test:** Integration (Windows VM) — keep-alive at login, OS notification, credential round-trip, CDP over named pipe.
 
-> **M8.2 — Linux impl** `[par]`
+> **M7.2 — Linux impl** `[par]`
 > **What:** systemd user unit, libnotify, libsecret, Unix-socket CDP.
 > **How to build:** Linux impls of the same interfaces. Accept community PRs against them.
 > **How to test:** Integration (Linux) — keep-alive via systemd user unit, notifications via libnotify, credentials via libsecret, CDP over Unix socket.
 
-> **M8.3 — Code-signing + notarization in CI** `[seq]`
+> **M7.3 — Code-signing + notarization in CI** `[seq]`
 > **What:** Nightly/release builds are signed and notarized.
 > **How to build:** Wire macOS Developer ID + notarization and Windows Authenticode into `nightly-macos-build.yml` / `nightly-release.yml` (community-funded certs — an OSS cost, not a server cost).
 > **How to test:** CI — a signed build verifies on a clean macOS/Windows install without warnings.
 
-> **M8.4 — Signed auto-update manifests** `[seq]`
+> **M7.4 — Signed auto-update manifests** `[seq]`
 > **What:** Auto-update works without a Pane product server, from a static host.
 > **How to build:** Sparkle on macOS (signed manifest on a static host / GitHub Releases); WinSparkle or custom signed manifest on Windows; AppImageUpdate/zsync on Linux. Verify-and-swap on next launch. The update server is a *static file host*, never a control plane.
 > **How to test:** E2E — publish a signed manifest on the static host → an installed Pane updates itself on next launch.
 
-> **M8.5 — Patch-discipline CI** `[par]`
+> **M7.5 — Patch-discipline CI** `[par]`
 > **What:** The Chromium rebase treadmill is sustainable: small patch series, auto-rebase detection, upstream tests on patched areas.
 > **How to build:** Organize the fork's diff as a `patches/` series tagged with owner + rationale; a scheduled CI job attempts an auto-rebase against upstream stable; on rebase, run the Chromium test suites for the patched `browseros_*` areas. Prefer upstreaming generally-useful pieces.
 > **How to test:** CI — the auto-rebase job runs on schedule and reports drift; a rebase runs the patched-area test suites green.
 
-> **M8.6 — Local diagnostics surface** `[par]`
+> **M7.6 — Local diagnostics surface** `[par]`
 > **What:** The user is the operator; they get a local dashboard.
-> **How to build:** A `#/diagnostics` route: server/CDP/browser health, model connectivity, last error, `~/.browseros/` disk usage, the action log (M2.3), curation digest (M4.5), capture consent state, per-bucket retention. Self-service: export my data, wipe index, reset onboarding. Local logs to `~/.browseros/logs/` with rotation.
+> **How to build:** A `#/diagnostics` route: server/CDP/browser health, model connectivity, last error, `~/.browseros/` disk usage, the action log (M2.3), curation digest (M4.5), capture consent state (M6.4), per-bucket retention, scheduler/reach status (M5). Self-service: export my data, wipe index, reset onboarding. Local logs to `~/.browseros/logs/` with rotation.
 > **How to test:** Manual — diagnostics renders real values; "export my data" produces a tarball; "wipe index" clears the graph and rebuilds from durable sources (memory files survive).
 
-> **M8.7 — Full testing strategy** `[seq]`
-> **What:** Unit, integration, browsing-quality, trust-invariant, and Chromium-fork tests all run in CI.
-> **How to build:** Unit per-package (Vitest, existing); an integration suite that boots the Bun server + headless Chromium (CDP) and exercises the loop through `/chat` and `/mcp`; the browsing-quality gate (M3.7); the trust-invariant suite (M2.7); Chromium-fork tests on rebase (M8.5).
+> **M7.7 — Full testing strategy** `[seq]`
+> **What:** Unit, integration, browsing-quality, trust-invariant, capture, and Chromium-fork tests all run in CI.
+> **How to build:** Unit per-package (Vitest, existing); an integration suite that boots the Bun server + headless Chromium (CDP) and exercises the loop through `/chat` and `/mcp`; the browsing-quality gate (M3.7); the trust-invariant suite (M2.7 + M6.4 capture vectors); capture tests (M6); Chromium-fork tests on rebase (M7.5).
 > **How to test:** CI — the full suite is green on every PR.
 
-> **M8.8 — Pane-thesis eval** `[seq]`
+> **M7.8 — Pane-thesis eval** `[seq]`
 > **What:** The end-to-end eval proving the moat: browser + workspace + context + capture in one flow.
 > **How to build:** Fill in the Phase 1 eval scaffold (`apps/eval`) with a real config + dataset + grader: a multi-step task that browses, reads/writes workspace files, recalls context, and captures a meeting artifact. This is the internal proof and the public credibility artifact.
 > **How to test:** The eval runs and scores above the set bar in CI; regressions fail the build.
 
 ---
 
+# Phase 8 — Evolving home: widgets that become yours (post-launch)
+
+**Ship gate (Pane v0.8):** The new tab is a **living dashboard** the user can shape in plain language and that Pane improves from real activity. Beyond the Phase 5–6 curated widgets, users can **ask for widgets** ("show my open PRs", "track applications in flight") and Pane can **propose widgets** from workflows, todos, scheduled jobs, skills, and capture threads. Widgets bind to local data only, render without an LLM at tab-open, and obey the same curation discipline as memory. Spec [15](./15-adaptive-home.md) (Phase 8 section).
+
+**Why after v1.0:** Phase 5–6 shipped the home **foundation** (digest, tasks, meetings, research, ranking, hysteresis). First launch (Phase 7) needs a stable, complete engine — not a dashboard builder. Phase 8 is the retention layer: the home becomes the place you **configure your day** without opening settings or writing code.
+
+**Build on (do not rebuild):** `apps/server/src/scheduler/home.ts`, `apps/app/screens/newtab/home/`, `NewTabChat` / `AgentCommandHome` composer, graph/tasks/scheduler/capture APIs, `USER.md` prefs, memory review job.
+
+> **M8.1 — Widget definition model** `[seq]`
+> **What:** A local, inspectable widget spec format: what to show, where data comes from, refresh cadence, and one primary action.
+> **How to build:** `~/.browseros/home/widgets/<id>.json` (SoT) + SQLite index table `home_widgets` (migration `0011_*`). Schema: `{ id, title, source: { type: 'graph-query'|'tasks'|'scheduled'|'capture'|'skill'|'template' }, query, action, refreshMinutes, bucketId, createdBy: 'user'|'agent'|'system', status }`. Built-in templates for common patterns (open PRs, inbox count, next scheduled run, active research thread). Extend `loadHomeWidgets` to merge **curated** (Phase 5) + **user/agent** widgets.
+> **How to test:** Unit — parse/validate widget spec; invalid spec rejected. Integration — drop a widget file → appears on home next open.
+
+> **M8.2 — Natural-language widget creation** `[seq → M8.1]`
+> **What:** User asks in chat or the home composer: "add a widget for X" → Pane drafts a widget spec, shows preview, user confirms.
+> **How to build:** Agent tools `home_widget_propose`, `home_widget_add`, `home_widget_remove` (class `write-local`). The agent maps the request to a template or a bounded graph/task query (never arbitrary code). Confirmation card in sidepanel/home before write. Wire MCP + CLI `home widgets list|add|remove`.
+> **How to test:** Integration — "track my inbox tasks" → proposed widget spec → confirm → renders on home. Property — proposed query is bounded (no raw SQL from model).
+
+> **M8.3 — Auto-widget proposals from activity** `[seq → M8.1, M4.3]`
+> **What:** Pane notices patterns (repeated Friday skill, daily analytics tab, stale task cluster) and **stages a widget proposal** — never silent.
+> **How to build:** Extend the review/monitor loop (`memory/review-job.ts` or a sibling `home-proposal-job.ts`): read graph events, task status, scheduled job history, skill cadence → draft widget spec to `staging/` or `status:'staged'`. Notification via reach (M5.4) or home banner: "Pane suggests a widget — Add / Dismiss." Dismiss → `USER.md` preference.
+> **How to test:** Integration — synthetic repeated workflow → staged widget proposal; dismiss → no re-propose for N days.
+
+> **M8.4 — Widget data bindings + actions** `[seq → M8.1]`
+> **What:** Each widget type can run its one-tap action (open thread, run skill, approve, join meeting, jump to task).
+> **How to build:** Binding executors in `apps/server/src/home/bindings.ts`: map `source.type` to existing repos (`listTasks`, `graphCurrentWork`, `listPendingApprovals`, scheduled jobs from app sync + server `scheduled_runs`, capture meetings, skills). Actions reuse existing routes (`#/tasks`, `#/capture`, `#/scheduled`, chat prefill). Pre-compute/cache widget **content** on a cadence (reuse digest pattern) — still no LLM at tab-open.
+> **How to test:** Integration — each binding type returns real data from seeded fixtures; action deep-links work.
+
+> **M8.5 — Home evolution + curation** `[par → M8.1]`
+> **What:** Widgets that are never acted on demote and hide; pin/hide/dismiss from Phase 5 extend to custom widgets; layout stabilizes with hysteresis.
+> **How to build:** Track `lastActionAt` / `showCount` per widget; after N days with zero actions → demote rank → offer hide (undoable). Merge custom + curated ranking in `rankWidgets`. "Reset home to default" clears custom widgets to archive, keeps curated. Settings: `#/settings/home` lists every widget + source query + "why this is here."
+> **How to test:** Unit — demotion rules; reset restores Phase 5 default set. Manual — busy home calms after ignored widgets demote.
+
+> **M8.6 — Home management UI + composer affordances** `[par → M8.2]`
+> **What:** Visible affordances to shape the home without knowing the agent exists.
+> **How to build:** Home header: "Add widget" → chat prefill or simple form (pick template + parameter). Per-widget ⋮ menu: pin / hide / edit (opens spec as JSON for power users). Empty-state hint: "Tell Pane what to track on your home." Extend onboarding optional step: pick 1–2 starter widgets from templates.
+> **How to test:** Manual — add via UI and via chat both work; edit spec updates render on next cache refresh.
+
+---
+
+# Phase 9 — Page reshape & overlays: the web, reshaped for you (post-launch, incremental)
+
+**Ship gate (Pane v0.9+):** Pane can reshape **one opted-in vertical at a time** with your-context overlays or feed de-slop — never the whole web at once. First slice ships complete for that slice (consent + isolation + overlay + learning loop + settings). Additional sites/feeds are **added one by one** based on usage data, not bundled for first launch. Spec [16](./16-page-reshape-and-overlays.md).
+
+**Why not before v1.0:** Page reshape is high trust risk, high engineering cost (per-site DOM variance, injection defense, performance), and easy to ship badly. Browsing learnings (M6.3) already feed memory; reshape applies them **on-page** only when we know which surfaces users want. **Do not start Phase 9 until Phase 7 ship gate is met.**
+
+**Build on (do not rebuild):** trust gate (M2.2), `domain_grants` / `capture_consents` consent patterns, `browser-mcp` extractors, glow/content-script infrastructure, memory staging (M4), browsing learnings (M6.3).
+
+> **M9.0 — Reshape platform (shared foundation)** `[seq]`
+> **What:** Consent store, isolated overlay root, reshape job interface — **no user-visible reshape until M9.1 picks a vertical.**
+> **How to build:** `packages/reshape/` + `apps/server/src/reshape/`: `ReshapeConsent` (per-domain, defaults off for banking/payments/health/government), Pane-branded overlay root in isolated content-script world, `ReshapeJob` interface (`pageDigest + contextDigest → overlay intents`). `ReshapeSource` extension point (local classifier + templates). Settings shell: `#/settings/reshape` (empty until first vertical enabled).
+> **How to test:** Property — hostile page cannot read overlay context; form values untouched. Unit — protected domains default off.
+
+> **M9.1 — First vertical slice (pick ONE at implementation time)** `[seq → M9.0]`
+> **What:** One complete reshape experience — choose based on launch learnings, e.g. **(A)** job-listing fit score vs. workspace resume, **(B)** Hacker News feed de-slop, or **(C)** calendar-fit highlights on flight search. Document the choice in `PHASE-9-REPORT.md`.
+> **How to build:** Implement only the chosen primitive(s) from spec 16 for that domain pattern. Per-URL cache; lazy on scroll for feeds; cheap/BYOK model for annotations. First-encounter enable prompt once per domain.
+> **How to test:** Integration — opt-in domain A shows reshape; domain B none. Manual — dismiss/report-wrong persists preference.
+
+> **M9.2 — Reshape learning loop for the first vertical** `[seq → M9.1]`
+> **What:** Dismiss/hide/expand signals from the first vertical feed memory (staged per M4.1) and tune the local classifier.
+> **How to build:** Wire overlay events → `USER.md` / memory staging; re-rank on next load. Pause on battery (reuse M6.6 / `battery.ts`).
+> **How to test:** Integration — repeated hide of item type → classifier demotes that type next visit.
+
+> **M9.3 — Second vertical (when ready)** `[seq → M9.2]`
+> **What:** Add the next site/feed using the same platform — **not a big-bang expand.**
+> **How to build:** New domain rules + classifier training data; reuse M9.0 platform. Ship as a minor release, not a phase gate blocker.
+> **How to test:** Same bar as M9.1 for the new vertical only.
+
+> **M9.4 — Adaptive home reshape hint (optional)** `[par → M9.1, M8]`
+> **What:** When the active tab is reshape-eligible, home can show "enable reshape for this site?" — only after at least one vertical exists.
+> **How to build:** Extend Phase 8 home bindings with `reshape-eligible` check from `ReshapeConsent` + domain rules.
+> **How to test:** E2E — eligible tab → hint on home → enable → overlay on return to tab.
+
+---
+
 ## Cross-cutting rules (apply throughout)
 
-- **One tool spec** (M1.6) — every new tool in Phases 2–7 is defined once and consumed by both loop and MCP.
+- **One tool spec** (M1.6) — every new tool in Phases 2–9 is defined once and consumed by both loop and MCP.
 - **State ownership** (§6) — heavy state server-side; app holds only prefs + alarm spec.
 - **Prompt budget** (M4.2) — enforced from Phase 4 onward; snippets, not documents.
 - **Trust gate** (M2.2) — every new tool declares its consequence class and passes the gate.
@@ -391,22 +443,24 @@ Cloud sync, hosted credits/default-model, hosted skills marketplace, cloud-headl
 - Tasks + executable tasks → Phase 3 (M3.5). ✔
 - Proactive + scheduled + keep-alive → Phase 5 (M5.1–M5.3, M5.6). ✔
 - Reach → Phase 5 (M5.4, M5.5). ✔
-- **Adaptive home (evolving widgets)** → Phase 5 (M5.7). ✔
+- **Adaptive home (foundation)** → Phase 5 (M5.7) + Phase 6 widgets. ✔
 - Passive capture + buckets → Phase 6 (M6.1–M6.6). ✔
-- **Page reshape & overlays** → Phase 7 (M7.1–M7.5). ✔
-- Trust framework → Phase 2 (M2.2–M2.4, M2.7); reshape trust → Phase 7 (M7.1). ✔
+- **Cross-platform + v1.0 launch** → Phase 7 (M7.1–M7.8). ✔
+- **Evolving home (user/agent widgets)** → Phase 8 (M8.1–M8.6). post-launch
+- **Page reshape & overlays** → Phase 9 (M9.0–M9.4), incremental post-launch. ✔
+- Trust framework → Phase 2 (M2.2–M2.4, M2.7); reshape trust → Phase 9 (M9.0). ✔
 - Dev surface wedge → Phase 1 (M1.6), Phase 3 (M3.6), Phase 4 (M4.6). ✔
 - Process model / supervision / CDP security → Phase 1 (M1.4, M1.7). ✔
 - State ownership + session persistence → Phase 1 (M1.5). ✔
-- Platform matrix → Phase 8 (M8.1, M8.2). ✔
+- Platform matrix → Phase 7 (M7.1, M7.2). ✔
 - Disable & cleanup register → Phase 1 (M1.1, M1.2, M1.3). ✔
-- Build/packaging/update + patch discipline → Phase 8 (M8.3–M8.5). ✔
-- Telemetry & quality + eval → Phase 1 (M1.3, M1.10) + Phase 8 (M8.7, M8.8). ✔
+- Build/packaging/update + patch discipline → Phase 7 (M7.3–M7.5). ✔
+- Telemetry & quality + eval → Phase 1 (M1.3, M1.10) + Phase 7 (M7.7, M7.8). ✔
 - Loop discipline (prompt budget, computed consequence, instruction channel, single tool spec) → threaded across M1.6, M2.2, M2.7, M4.2. ✔
 
-**2. Dependency check:** 2 needs 1 (build profile, tool spec, CDP, sessions); 3 needs 2 (workspace `bucketId` + trust gate); 4 needs 3 (graph feeds the loop); 5 needs 2 + 4 (trust/approvals + memory/soul for digest + home); 6 needs 3 + 4 (buckets + memory loop); 7 needs 3 + 4 + 2 (graph + memory/soul + trust/workspace for reshape); 8 needs all. The M1.9 ASR spike informs M6.2's path. No cycle.
+**2. Dependency check:** 2 needs 1; 3 needs 2; 4 needs 3; 5 needs 2 + 4; 6 needs 3 + 4; **7 needs 1–6 (v1.0 launch)**; 8 needs 3 + 4 + 5 + 6; 9 needs 2 + 3 + 4 + 6 (incremental). M1.9 ASR spike informs M6.2. No cycle. **Phase 9 is not a v1.0 blocker.**
 
-**3. Ship-gate completeness:** every phase gate names a product with complete features, not partial scaffolding. Phase 1 ships a usable browser+agent+wedge; Phase 2 adds safe acting; Phase 3 adds knowledge+tasks; Phase 4 adds memory+skills+`soul.md`; Phase 5 adds proactive+reach+the adaptive home; Phase 6 adds capture; Phase 7 adds page reshape & overlays; Phase 8 makes it signed/cross-platform. No phase ends on invisible infrastructure without a user surface.
+**3. Ship-gate completeness:** Phase 1–6 ship the engine + capture + home foundation; **Phase 7 is first launch (v1.0)**. Phase 8 ships evolving home on top of Phase 5 foundation. Phase 9 ships **one vertical at a time**, not a big-bang reshape of the web.
 
 **4. Placeholder scan:** no "TBD"/"implement later"; every module names real substrate paths and concrete test signals.
 
@@ -426,5 +480,9 @@ Plan complete and saved to `specs/IMPLEMENTATION-PLAN.md`. Two execution options
 - Phase 3: [`PHASE-3-PROMPT.md`](./PHASE-3-PROMPT.md)
 - Phase 4: [`PHASE-4-PROMPT.md`](./PHASE-4-PROMPT.md)
 - Phase 5: [`PHASE-5-PROMPT.md`](./PHASE-5-PROMPT.md)
+- Phase 6: [`PHASE-6-PROMPT.md`](./PHASE-6-PROMPT.md)
+- Phase 7: (packaging / v1.0 — prompt TBD)
+- Phase 8: (evolving home — prompt TBD post-v1.0)
+- Phase 9: (page reshape — prompt TBD; incremental verticals)
 
 Which approach?

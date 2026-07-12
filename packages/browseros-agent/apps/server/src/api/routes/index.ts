@@ -16,6 +16,7 @@ import { requireTrustedAppOrigin } from '../utils/request-auth'
 import { createAcpxProbeRoutes } from './acpx-probe'
 import { createActionLogRoutes } from './action-log'
 import { createAgentRoutes } from './agents'
+import { createCaptureRoutes } from './capture'
 import { createChatRoutes } from './chat'
 import { createContextRoutes } from './context'
 import { createHealthRoute } from './health'
@@ -68,6 +69,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
       .route('/status', createStatusRoute({ browser }))
       .route('/action-log', createActionLogRoutes())
       .route('/context', createContextRoutes())
+      .route('/capture', createCaptureRoutes())
       .route('/tasks', createTasksRoutes())
       .route('/memory', createMemoryRoutes())
       .route('/scheduler', createSchedulerRoutes())

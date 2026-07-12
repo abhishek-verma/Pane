@@ -8,7 +8,9 @@
 >
 > **v0.4 disable & cleanup review.** Reviewed from product + tech perspectives for what BrowserOS ships by default that Pane doesn't need. Expanded §9 into a full **disable & cleanup register**: product rationale (account, usage/credits, cloud sync, Remote Hermes, hosted default provider, managed-Klavis catalog, JTBD survey, BrowserClaw cockpit, bug-reporter), the **not-flag-gated** surfaces that must be explicitly removed (auth routes + `AuthProvider` polling, JTBD survey, `/settings/usage`, managed-Klavis nav, remote chat-history branch), server routes to **dead-stripe** rather than 503, hardcoded Pane URLs to strip/repoint, the **native-telemetry hardcoded-key credibility blocker**, and the **don't-bundle-BrowserClaw** decision (fold useful surfaces into `apps/app` later).
 >
-> **v0.5 vision-alignment review (against README.md).** The README's headline is "a browser with a soul" that "becomes whatever you need it to be." Brought the design into alignment: **`soul.md` elevated to a first-class persona/identity file** in the memory subsystem (§4.2) — the active persona follows the active bucket and shifts are proposed, never silent; added **§4.10 Adaptive home** (the new-tab expression surface over graph+memory+soul+tasks+proactive+capture, <150 ms render, no LLM at tab-open) and **§4.11 Page reshape & overlays** (your-context overlays + feed de-slop, per-domain consent, reversible, never-silent-writes, injection-isolated) as the two expression surfaces where the engine becomes something the user feels; added a `ReshapeSource` extension point (§8). The engine (§4.1–4.8) is built first; §4.10/§4.11 ship on top. See specs [15](./15-adaptive-home.md) and [16](./16-page-reshape-and-overlays.md).
+> **v0.5 vision-alignment review (against README.md).** The README's headline is "a browser with a soul" that "becomes whatever you need it to be." Brought the design into alignment: **`soul.md` elevated to a first-class persona/identity file** in the memory subsystem (§4.2); added **§4.10 Adaptive home (foundation)**, **§4.12 Evolving home (post-launch)**, and **§4.11 Page reshape & overlays (Phase 9, incremental)** as expression surfaces. **v1.0 launches at Phase 7** (packaging). See specs [15](./15-adaptive-home.md) and [16](./16-page-reshape-and-overlays.md).
+>
+> **v0.6 phase reorder (2026-07).** Old Phase 8 (packaging) → **Phase 7 (v1.0)**. Old Phase 7 (page reshape) split: **Phase 8** = evolving home; **Phase 9** = page reshape one vertical at a time, not a first-launch gate.
 
 ---
 
@@ -287,16 +289,16 @@ Before the subsystems, four rules that govern the agent loop and prevent the mos
 - **This is the wedge and it's mostly already there.** The design work is "wire the new intrinsic tools into the existing MCP surface," not "build a dev surface."
 - **Do not rebuild:** `/mcp`, the CLI, the harness adapters.
 
-### 4.10 Adaptive home (the new tab that knows your day — expression surface)
+### 4.10 Adaptive home — foundation (Phases 5–6)
 
-- **Substrate:** the single `app` entrypoint (`entrypoints/app/App.tsx`, React Router `HashRouter`) already serves new tab + home + personalize; `NewTabBranding`/`NewTabChat` and `AgentCommandHome.tsx` are the existing composer surfaces. **No new entrypoint.**
-- **What it is:** the *presentation layer* over §4.1 (graph), §4.2 (memory + `soul.md`), §4.4 (tasks), §4.5 (proactive/digest), §4.7 (capture/buckets). Widgets (daily digest, next meeting w/ prior notes, resumed work, pending approvals, one-click recurring, research thread) are **derived** from local state and ranked by activity-memory rhythms (§4.2 layer 4) × `soul.md` persona + active bucket relevance, with hysteresis so the home doesn't jump. Spec [15](./15-adaptive-home.md).
-- **Performance is the hard rule:** the home renders **<150 ms** on open with **no LLM call at tab-open** — LLM content (digest summaries) is pre-computed by the proactive engine (§4.5) on a cadence and cached. Widget queries are SQLite/FTS5.
-- **State ownership:** the home reads only local, consented state; it owns no heavy state. Preferences (pin/hide/dismiss) are prefs (`chrome.storage`); dismissals also write a preference into `USER.md` (§4.2). Capture-dependent widgets respect capture consent (§4.7/§4.8).
-- **Day-1 fallback:** when the graph/persona have nothing yet, render the existing BrowserOS new-tab (most-visited from import + chat composer + "summarize this page"). No fake widgets.
-- **Do not rebuild:** the `app` entrypoint, the chat composer, the personalize screen.
+- **Substrate:** the single `app` entrypoint (`entrypoints/app/App.tsx`) already serves new tab + home + personalize; `NewTabBranding`/`NewTabChat` and `AgentCommandHome.tsx` are the composer. **No new entrypoint.**
+- **What it is (shipped Phases 5–6):** curated widgets (digest, tasks, meetings, research, resumed work, approvals, recurring skills) derived from local state, ranked with hysteresis. Implemented in `apps/server/src/scheduler/home.ts` + `apps/app/screens/newtab/home/`. Spec [15](./15-adaptive-home.md).
+- **Performance:** home renders **<150 ms** on open; **no LLM at tab-open**; digest/widget content pre-computed on a cadence.
+- **Do not rebuild:** the `app` entrypoint, chat composer, personalize screen.
 
-### 4.11 Page reshape & overlays (the web, reshaped for you — expression surface)
+### 4.11 Page reshape & overlays (Phase 9, post-v1.0, incremental)
+
+- **When:** after **Phase 7 (v1.0)**. Ship **one vertical at a time**, not bundled for first launch.
 
 - **Substrate:** the fork's native page access — the glow indicator, content scripts, `browser-mcp`'s 16 browser tools + page-markdown extraction, and Chromium content-injection primitives an extension is progressively denied. **Reuses that access; adds no new privileged path.**
 - **What it is:** Pane reads a page in the context of *your* goals (§4.2 `soul.md` persona + active bucket + `USER.md`/`MEMORY.md` + granted workspace files §4.3 + integrations §4.9) and layers your-context on top: annotation overlays (job-fit scores, calendar-fit highlights, margin notes tied to your project) and feed de-slop (collapse/dim noise, keep signal; original order one tap away). Spec [16](./16-page-reshape-and-overlays.md).
@@ -304,7 +306,14 @@ Before the subsystems, four rules that govern the agent loop and prevent the mos
 - **No exfiltration:** page content does not leave the machine beyond the model call (local or BYOK); per-URL cache; lazy + rate-limited, pause on battery.
 - **Learning feed:** dismiss/hide/expand/pin signals flow back to §4.2 memory (gated) so the feed classifier and annotation ranking improve — another expression of "smarter from real activity."
 - **Extension point (interface only):** a future hosted "reshape rule/marketplace" source — **local default: the per-user learned classifier + built-in persona templates.**
-- **Do not rebuild:** the browser tools, the page extractors, the glow primitive (repurposed as the capture/reshape light).
+- **Do not rebuild:** the browser tools, the page extractors, the glow primitive (capture light).
+
+### 4.12 Evolving home (Phase 8, post-v1.0)
+
+- **Substrate:** §4.10 home engine, graph/tasks/scheduler/capture repos, memory review job, chat composer.
+- **What it is:** user/agent-created widgets via plain language ("track my open PRs"); auto-proposed widgets from activity (staged, never silent). Specs in `~/.browseros/home/widgets/` + SQLite index. **No arbitrary code** from the model — bounded local query bindings only.
+- **Extension point:** `WidgetSource` (local templates + user specs; hosted marketplace = State B).
+- **Do not rebuild:** §4.10 ranking/hysteresis or underlying repos.
 
 ---
 
@@ -323,8 +332,9 @@ The heart of this doc. For each net-new intrinsic subsystem: the substrate it ex
 | Passive capture | `browser-mcp`/CDP; glow; Cowork; **the fork** | `packages/capture/` + `apps/server/src/capture/` + Chromium patch | `TranscriptionProvider` (local whisper; BYOK opt-in) | CDP extraction, glow, local-model host |
 | Trust | glow; tool transcript; loop `prepareStep`; SQLite | trust gate in `apps/server/src/agent/` (chokepoint) + `lib/db/` action log | action-log sync (no sync) | the loop, the glow, transcript UI |
 | Dev surface (wedge) | `/mcp`; `browseros-cli`; harness adapters | register new tools in MCP server; extend Go CLI; fix `#/mcp` route | — | `/mcp`, CLI, harness |
-| Adaptive home | `entrypoints/app` (new tab + home + personalize); `NewTabChat`/`AgentCommandHome` | `apps/app/screens/home/` widget host + home engine (server-side widget queries) | — (hosted widget source = State B) | the `app` entrypoint, the chat composer, personalize |
-| Page reshape & overlays | glow; content scripts; `browser-mcp` page extraction; **the fork's injection primitives** | `packages/reshape/` + `apps/server/src/reshape/` + content-script overlay root | `ReshapeSource` (per-user learned classifier + persona templates) | browser tools, page extractors, the glow primitive |
+| Adaptive home (foundation) | `entrypoints/app`; `scheduler/home.ts`; `NewTabChat`/`AgentCommandHome` | `apps/app/screens/newtab/home/` + `apps/server/src/scheduler/home.ts` | — | app entrypoint, composer, personalize |
+| Evolving home (Phase 8) | §4.10 + graph/tasks/scheduler/capture | `apps/server/src/home/` + extend `scheduler/home.ts` | `WidgetSource` (templates; marketplace = State B) | §4.10 curated widgets |
+| Page reshape (Phase 9) | glow; content scripts; `browser-mcp`; fork injection | `packages/reshape/` + `apps/server/src/reshape/` | `ReshapeSource` | browser tools, extractors, glow |
 
 ---
 
@@ -442,6 +452,7 @@ Every State B capability is behind one of these interfaces, each with a **local 
 | `CreditsProvider` | `resolve(model)`, `spend(n)` | none (BYOK/OAuth/local only) | hosted credits / default-model on-ramp |
 | `TaskSync` | `pull()`, `push(task)` | no-op (Klavis optional for third-party) | cloud Linear/Jira |
 | `ReshapeSource` | `rulesFor(domain)`, `publish(rule)` | per-user learned classifier + built-in persona templates | hosted reshape-rule directory / shared overlay configs |
+| `WidgetSource` | `listTemplates()`, `resolve(spec)` | local templates + `~/.browseros/home/widgets/` specs | hosted widget marketplace |
 
 The architecture rule: **the core never calls a Pane server directly.** It calls an interface whose default is local. A future server implements the interface; nothing in the core changes.
 

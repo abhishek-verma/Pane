@@ -14,6 +14,7 @@ import { CdpBackend } from '@browseros/browser-core/backends/cdp'
 import { Browser } from '@browseros/browser-core/browser'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
 import { createHttpServer } from './api/server'
+import { startCaptureRetentionMonitor } from './capture/retention-monitor'
 import type { ServerConfig } from './config'
 import { startBatteryIngestMonitor } from './context/battery'
 import { subscribeTerminalIngest } from './context/subscribe-terminal'
@@ -201,6 +202,7 @@ export class Application {
     })
     subscribeTerminalIngest()
     startBatteryIngestMonitor()
+    startCaptureRetentionMonitor()
     startMemoryReviewMonitor()
     startDailyDigestMonitor()
 

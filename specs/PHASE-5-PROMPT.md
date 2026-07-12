@@ -337,7 +337,7 @@ Recommended review of: unattended approval token handling, reach credential stor
 ## What NOT to do
 
 - No meeting capture / tab audio / browsing learnings (Phase 6).
-- No page reshape / feed de-slop (Phase 7).
+- No page reshape / feed de-slop (Phase 9).
 - No cloud-headless / Pane-operated push relay.
 - No auto-approve from channel silence or "trusted owner" shortcuts that skip the gate.
 - No second full agent runtime beside the existing loop.

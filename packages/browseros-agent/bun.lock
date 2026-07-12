@@ -31,6 +31,7 @@
       "version": "0.0.100",
       "dependencies": {
         "@ai-sdk/react": "^3.0.210",
+        "@browseros/capture": "workspace:*",
         "@browseros/server": "workspace:*",
         "@hookform/resolvers": "^5.4.0",
         "@lobehub/icons": "^2.48.0",
@@ -266,6 +267,7 @@
         "@ai-sdk/provider": "^3.0.10",
         "@browseros/browser-core": "workspace:*",
         "@browseros/browser-mcp": "workspace:*",
+        "@browseros/capture": "workspace:*",
         "@browseros/cdp-protocol": "workspace:*",
         "@browseros/context-graph": "workspace:*",
         "@browseros/memory": "workspace:*",
@@ -333,6 +335,14 @@
       "devDependencies": {
         "@types/bun": "^1.3.5",
         "@types/node": "^24.13.2",
+        "typescript": "^5.9.3",
+      },
+    },
+    "packages/capture": {
+      "name": "@browseros/capture",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/bun": "^1.3.14",
         "typescript": "^5.9.3",
       },
     },
@@ -595,6 +605,8 @@
     "@browseros/browser-mcp": ["@browseros/browser-mcp@workspace:packages/browser-mcp"],
 
     "@browseros/build-server-tools": ["@browseros/build-server-tools@workspace:packages/build-server-tools"],
+
+    "@browseros/capture": ["@browseros/capture@workspace:packages/capture"],
 
     "@browseros/cdp-protocol": ["@browseros/cdp-protocol@workspace:packages/cdp-protocol"],
 

@@ -36,6 +36,10 @@ describe('context tools + trust class', () => {
     expect(deriveClass('tasks_list', {})).toBe('read')
     expect(deriveClass('tasks_add', { title: 'x' })).toBe('write-local')
     expect(deriveClass('tasks_done', { id: 't1' })).toBe('write-local')
+    expect(deriveClass('capture_read', { sessionId: 's1' })).toBe('read')
+    expect(deriveClass('capture_start', { tabId: 1, url: 'https://x' })).toBe(
+      'write-local',
+    )
     expect(deriveClass('some_unknown_mcp', {})).toBe('write-external')
   })
 

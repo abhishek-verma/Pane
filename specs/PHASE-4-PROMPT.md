@@ -267,7 +267,7 @@ Recommended review of: `review-job.ts`, prompt-budget, injection scan, consequen
 ## What NOT to do
 
 - No adaptive home, digest delivery, keep-alive, reach (Phase 5).
-- No meeting capture / ASR (Phase 6) or page reshape (Phase 7).
+- No meeting capture / ASR (Phase 6) or page reshape (Phase 9).
 - No hosted skills marketplace.
 - No full skill bodies / unbounded graph dumps in the system prompt.
 - No auto-apply inferred memory/skills.

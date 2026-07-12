@@ -8,6 +8,8 @@ export type HomeWidgetType =
   | 'resumed-work'
   | 'one-click-recurring'
   | 'recent-sites-fallback'
+  | 'next-meeting'
+  | 'research-thread'
 
 export interface HomeWidget {
   type: HomeWidgetType

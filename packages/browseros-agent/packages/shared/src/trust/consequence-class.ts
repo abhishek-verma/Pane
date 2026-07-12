@@ -69,6 +69,14 @@ const WRITE_LOCAL_TASK_TOOLS = new Set([
   'memory_remove',
   'skills_install',
   'skills_archive',
+  'capture_start',
+  'capture_stop',
+])
+
+const READ_CAPTURE_TOOLS = new Set([
+  'capture_status',
+  'capture_list',
+  'capture_read',
 ])
 
 const PAYMENT_HOST_KEYWORDS = [
@@ -144,6 +152,7 @@ function baseClassForTool(
 ): ConsequenceClass {
   if (READ_FILESYSTEM_TOOLS.has(toolName)) return 'read'
   if (READ_CONTEXT_TOOLS.has(toolName)) return 'read'
+  if (READ_CAPTURE_TOOLS.has(toolName)) return 'read'
   if (WRITE_LOCAL_TASK_TOOLS.has(toolName)) return 'write-local'
   if (toolName === 'filesystem_write' || toolName === 'filesystem_edit') {
     return 'write-local'

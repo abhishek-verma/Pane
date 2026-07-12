@@ -13,6 +13,8 @@ const GLOW_THICKNESS = 1.0
 const GLOW_OPACITY = 0.6
 
 let activeConversationId: string | null = null
+let activeCaptureSessionId: string | null = null
+let activeMode: GlowMessage['mode'] = 'agent'
 
 function injectStyles(): void {
   if (document.getElementById(GLOW_STYLES_ID)) {
@@ -100,6 +102,12 @@ function injectStyles(): void {
     #${GLOW_STOP_BTN_ID}:hover {
       background: rgba(185, 28, 28, 1) !important;
     }
+
+    #${GLOW_OVERLAY_ID}[data-mode="capture"] {
+      animation:
+        browseros-glow-pulse 1.5s ease-in-out infinite,
+        browseros-glow-fade-in 180ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+    }
   `
   const appendStyle = () => document.head.appendChild(style)
 
@@ -110,19 +118,24 @@ function injectStyles(): void {
   }
 }
 
-function startGlow(): void {
+function startGlow(mode: GlowMessage['mode'] = 'agent'): void {
   stopGlow()
   injectStyles()
 
   const overlay = document.createElement('div')
   overlay.id = GLOW_OVERLAY_ID
+  overlay.dataset.mode = mode ?? 'agent'
 
   const button = document.createElement('button')
   button.id = GLOW_STOP_BTN_ID
   button.innerHTML =
     '<svg width="16" height="16" viewBox="0 0 16 16" fill="white" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="14" height="14" rx="2"/></svg>'
   button.addEventListener('click', () => {
-    if (activeConversationId) {
+    if (activeMode === 'capture' && activeCaptureSessionId) {
+      void sendRuntimeMessage(RuntimeMessageType.stopCapture, {
+        sessionId: activeCaptureSessionId,
+      })
+    } else if (activeConversationId) {
       void sendRuntimeMessage(RuntimeMessageType.stopAgent, {
         conversationId: activeConversationId,
       })
@@ -199,19 +212,23 @@ export default defineContentScript({
   main() {
     browser.runtime.onMessage.addListener(
       (message: GlowMessage, _sender, sendResponse) => {
-        if (
-          typeof message !== 'object' ||
-          !('conversationId' in message) ||
-          !('isActive' in message)
-        ) {
+        if (typeof message !== 'object' || !('isActive' in message)) {
           return
         }
 
+        const mode = message.mode ?? 'agent'
         if (message.isActive) {
-          activeConversationId = message.conversationId
-          startGlow()
-        } else if (message.conversationId === activeConversationId) {
+          activeMode = mode
+          activeConversationId = message.conversationId ?? null
+          activeCaptureSessionId = message.sessionId ?? null
+          startGlow(mode)
+        } else if (
+          (mode === 'capture' &&
+            message.sessionId === activeCaptureSessionId) ||
+          (mode === 'agent' && message.conversationId === activeConversationId)
+        ) {
           activeConversationId = null
+          activeCaptureSessionId = null
           stopGlow()
           if (message.showConfetti) {
             fireConfetti()
@@ -226,8 +243,7 @@ export default defineContentScript({
     window.addEventListener('beforeunload', stopGlow)
 
     document.addEventListener('visibilitychange', () => {
-      // If user navigates away from the tab, remove the glow overlay - no need to re-enable it when they return
-      if (document.hidden) {
+      if (document.hidden && activeMode !== 'capture') {
         stopGlow()
       }
     })

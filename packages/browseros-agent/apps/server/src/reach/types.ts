@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-export type ReachTransportId = 'os-push' | 'email' | 'telegram'
+export type ReachTransportId = 'os-push' | 'email' | 'telegram' | 'capture'
 
 export type ReachMessageType =
   | 'digest'

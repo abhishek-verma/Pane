@@ -51,6 +51,44 @@ declare namespace chrome.browserOS {
     callback: (result: SelectedPath | null) => void,
   ): void
   function choosePath(callback: (result: SelectedPath | null) => void): void
+
+  type CaptureClass = 'meeting' | 'browsing' | 'research'
+
+  interface CaptureTabAudioOptions {
+    captureClass: CaptureClass
+    bucketId: string
+    sessionId?: string
+  }
+
+  interface CaptureTabAudioResult {
+    streamId: string
+    tabId: number
+    captureClass: CaptureClass
+    active: boolean
+  }
+
+  interface CaptureStatus {
+    tabId: number
+    active: boolean
+    captureClass?: CaptureClass
+    streamId?: string
+  }
+
+  function captureTabAudio(
+    tabId: number,
+    options: CaptureTabAudioOptions,
+    callback: (result: CaptureTabAudioResult) => void,
+  ): void
+
+  function stopCaptureTabAudio(
+    tabId: number,
+    callback: (stopped: boolean) => void,
+  ): void
+
+  function getCaptureStatus(
+    tabId: number,
+    callback: (status: CaptureStatus) => void,
+  ): void
 }
 
 declare namespace chrome.sidePanel {

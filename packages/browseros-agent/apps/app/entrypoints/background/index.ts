@@ -25,6 +25,7 @@ import { setupScheduledJobsSyncToBackend } from '@/lib/schedules/syncSchedulesTo
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
+import { captureBridge } from './captureBridge'
 import { drainOsPush } from './drainOsPush'
 import { drainServerRuns } from './drainServerRuns'
 import { scheduledJobRuns } from './scheduledJobRuns'
@@ -55,6 +56,7 @@ export default defineBackground(() => {
   scheduledJobRuns()
   drainServerRuns()
   drainOsPush()
+  captureBridge()
 
   chrome.action.onClicked.addListener(async (tab) => {
     if (typeof tab.id === 'number' && typeof tab.windowId === 'number') {

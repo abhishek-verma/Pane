@@ -26,8 +26,10 @@ We are not greenfield. BrowserOS already ships the substrate for most of this sp
 | Tasks | — | Tasks/inbox/executable-tasks + external sync |
 | Proactive / scheduled | Scheduled tasks (sidebar + nudge), smart nudges | Triggers (graph events), keep-alive, daily digest |
 | Reach | — | OS push + email + Telegram (all peer-to-peer, no Pane server) |
-| **Adaptive home** | New-tab/home entrypoint (`entrypoints/app`), personalize screen, `NewTabChat`/`AgentCommandHome` composer | Evolving widget host: widgets derived from graph + memory + soul + tasks + capture, ranked by activity rhythms, persona/bucket-shaped ([15](./15-adaptive-home.md)) |
-| **Page reshape & overlays** | Page DOM access (glow, content scripts, browser-mcp, native injection primitives) | Your-context overlays (fit scores, margin notes, calendar-fit) + feed de-slop; per-domain consent, reversible, never-silent-writes ([16](./16-page-reshape-and-overlays.md)) |
+| **Adaptive home (foundation)** | New-tab/home entrypoint; `scheduler/home.ts`; `NewTabChat`/`AgentCommandHome` | **Phases 5–6:** curated widgets + ranking ([15](./15-adaptive-home.md)) |
+| **Evolving home** | §4.10 foundation + graph/tasks/scheduler/capture | **Phase 8 (post-v1.0):** user/agent widgets via chat/templates ([15](./15-adaptive-home.md)) |
+| **Page reshape & overlays** | glow; content scripts; browser-mcp | **Phase 9 (post-v1.0, incremental):** one vertical at a time ([16](./16-page-reshape-and-overlays.md)) |
+| **v1.0 launch (packaging)** | Sparkle/signing; platform interfaces; diagnostics; eval | **Phase 7** — first public launch after Phases 1–6 |
 | Integrations | Connect Apps (40+ via Klavis — a third-party server, not Pane's), custom MCPs, `/klavis` routes | Expose Context Graph over MCP; skill-installed MCPs |
 | Models | BYOK + OAuth (ChatGPT Pro/Copilot/Qwen) + local (Ollama/LM Studio) + default credits (Kimi, partnership) | Per-mode routing UI; weak-model nag |
 | Trust | (implicit) | Consequence classes, approval framework, Context panel, action log, injection defense, **capture consent** |
@@ -35,7 +37,7 @@ We are not greenfield. BrowserOS already ships the substrate for most of this sp
 | Eval | `apps/eval` (WebVoyager, Mind2Web, AGI SDK) | Add the "Pane thesis" eval (browser + workspace + context + capture) |
 | Parallel surface | BrowserClaw stack (`claw-server`/`claw-app`/`claw-onboard`) | May host some of these surfaces; out of scope for this spec set |
 
-**The headline:** the developer wedge — the first proof of the thesis — is *mostly already shipped*. The net-new intrinsic work is the Context Graph (with **context buckets**), the memory + auto-skills engine, **passive capture (meetings + browsing learnings)**, Workspaces (evolved from Cowork), Tasks, Triggers, Reach, and the Trust framework. On top of that engine sit the two **expression surfaces** that make the "browser with a soul / becomes yours" vision something the user *feels*: the **adaptive home** (evolving new-tab widgets, [15](./15-adaptive-home.md)) and **page reshape & overlays** (your-context overlays + feed de-slop, [16](./16-page-reshape-and-overlays.md)). That's the system to build.
+**The headline:** the developer wedge is *mostly already shipped*. Net-new intrinsic work is Phases 1–6 (engine + capture + home foundation). **v1.0 = Phase 7** (packaging). Post-launch: **Phase 8** evolving home, **Phase 9** page reshape incremental. See [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md).
 
 ---
 
@@ -105,8 +107,9 @@ flowchart TB
         tasks[Tasks + executable tasks + triggers]
         reach[Reach: OS push + email + Telegram]
         soul[Personalization: soul.md + USER.md]
-        home[Adaptive home: evolving new-tab widgets]
-        reshape[Page reshape: your-context overlays + feed de-slop]
+        home[Adaptive home foundation — Phases 5–6]
+        evolvingHome[Evolving home — Phase 8]
+        reshape[Page reshape — Phase 9 incremental]
     end
 
     subgraph ext [State B extension points — optional servers]
@@ -138,6 +141,12 @@ flowchart TB
     memory --> home
     soul --> home
     tasks --> home
+    capture --> home
+    graph --> evolvingHome
+    memory --> evolvingHome
+    tasks --> evolvingHome
+    sched --> evolvingHome
+    home --> evolvingHome
     graph --> reshape
     memory --> reshape
     soul --> reshape
@@ -156,6 +165,7 @@ flowchart TB
 
 - **Foundational (already shipped):** browser + agent server + tools + CLI/MCP + Cowork + scheduled tasks + apps + models. We build on these, we don't rebuild them.
 - **Core intrinsic (State A, net-new):** Context Graph (with buckets), Trust framework (with capture consent), Workspaces, Memory+skills, **Passive capture (meetings + browsing learnings)**, Tasks, Reach, Personalization. These are the system. They depend on each other in the ways shown, and on nothing Pane-server-side.
+- **Expression surfaces (post-engine):** **Phases 5–6** adaptive home foundation; **Phase 7** v1.0 packaging (first launch); **Phase 8** evolving home; **Phase 9** page reshape (incremental, one vertical at a time). Reshape is not a v1.0 gate.
 - **Extension points (State B):** behind interfaces, no-server fallback each.
 
 ---

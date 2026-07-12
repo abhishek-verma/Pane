@@ -3,6 +3,7 @@ import {
   CheckSquare,
   FolderKanban,
   Home,
+  Mic,
   Network,
   PlugZap,
   Settings,
@@ -36,6 +37,7 @@ const primaryNavItems: NavItem[] = [
   },
   { name: 'Workspaces', to: '/workspaces', icon: FolderKanban },
   { name: 'Context', to: '/context', icon: Network },
+  { name: 'Capture', to: '/capture', icon: Mic },
   { name: 'Tasks', to: '/tasks', icon: CheckSquare },
   { name: 'Scheduled Tasks', to: '/scheduled', icon: CalendarClock },
   {

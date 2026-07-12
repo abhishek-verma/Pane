@@ -8,10 +8,16 @@
 
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import {
+  isMeetingRoomUrl,
+  meetingRoomLabel,
+} from '@browseros/capture/meeting-urls'
 import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { DIGESTS_DIR } from '@browseros/memory/constants'
+import { listCaptureSessions } from '../capture/meeting-pipeline'
 import { graphCurrentWork } from '../context/repo'
 import { listTasks } from '../context/tasks-repo'
+import { getDbHandle } from '../lib/db'
 import { ensureMemoriesLayout, readPromptFiles } from '../memory/files'
 import { listSkills } from '../memory/store'
 import { listPendingApprovals } from './approvals'
@@ -22,6 +28,8 @@ export type HomeWidgetType =
   | 'resumed-work'
   | 'one-click-recurring'
   | 'recent-sites-fallback'
+  | 'next-meeting'
+  | 'research-thread'
 
 export interface HomeWidget {
   type: HomeWidgetType
@@ -237,6 +245,89 @@ export async function loadHomeWidgets(options?: {
     }
   } catch {
     // skills index missing
+  }
+
+  try {
+    const meetings = listCaptureSessions({ bucketId, kind: 'meeting' }).filter(
+      (session) => session.url && isMeetingRoomUrl(session.url),
+    )
+    const active = meetings.find((session) => session.status === 'active')
+    const recent = meetings.find(
+      (session) =>
+        session.status === 'stopped' &&
+        session.startedAt > Date.now() - 24 * 60 * 60 * 1000,
+    )
+    let recentHasTranscript = false
+    if (recent?.transcriptPath) {
+      try {
+        const raw = await readFile(recent.transcriptPath, 'utf8')
+        recentHasTranscript = raw.trim().length > 0
+      } catch {
+        recentHasTranscript = false
+      }
+    }
+    const focus = active ?? (recentHasTranscript ? recent : null)
+    if (focus) {
+      candidates.push({
+        type: 'next-meeting',
+        title: active ? 'Meeting capture live' : 'Last meeting notes',
+        why: active
+          ? 'Recording this call — stop via the glow on the Meet tab.'
+          : 'Recent meeting with a saved transcript.',
+        rank: 12,
+        data: {
+          sessionId: focus.id,
+          title: focus.title ?? meetingRoomLabel(focus.url ?? '') ?? 'Meeting',
+          url: focus.url,
+          status: focus.status,
+          transcriptPath: focus.transcriptPath,
+        },
+      })
+    }
+  } catch {
+    // capture tables missing
+  }
+
+  try {
+    const thread = getDbHandle()
+      .sqlite.prepare<
+        {
+          id: string
+          topic: string | null
+          updated_at: number
+        },
+        [string]
+      >(
+        `SELECT id, topic, updated_at FROM research_threads
+         WHERE bucket_id = ? AND status = 'active'
+         ORDER BY updated_at DESC LIMIT 1`,
+      )
+      .get(bucketId)
+    if (thread) {
+      const pageCount = getDbHandle()
+        .sqlite.prepare<{ n: number }, [string]>(
+          `SELECT COUNT(*) as n FROM research_thread_pages WHERE thread_id = ?`,
+        )
+        .get(thread.id)
+      const count = pageCount?.n ?? 0
+      const topic = thread.topic?.trim() ?? ''
+      if (count >= 2 && topic.length > 2) {
+        candidates.push({
+          type: 'research-thread',
+          title: topic,
+          why: 'Research pages captured while research mode is on.',
+          rank: 14,
+          data: {
+            threadId: thread.id,
+            topic,
+            pageCount: count,
+            updatedAt: thread.updated_at,
+          },
+        })
+      }
+    }
+  } catch {
+    // research tables missing
   }
 
   // Day-1 fallback always available as lowest rank.

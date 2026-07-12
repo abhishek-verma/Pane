@@ -50,6 +50,7 @@ export function openBrowserOsDatabase(options: OpenDbOptions): DbHandle {
   if (options.runMigrations !== false) {
     if (migrationsDir) {
       migrate(db, { migrationsFolder: migrationsDir })
+      ensureCaptureSchema(sqlite)
     } else {
       logger.warn(
         'Drizzle migrations unavailable; bootstrapping current schema',
@@ -151,6 +152,96 @@ function isDrizzleJournal(
   )
 }
 
+/** Repairs dev DBs where migration history was recorded before capture DDL existed. */
+function ensureCaptureSchema(sqlite: BunDatabase): void {
+  const row = sqlite
+    .prepare(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'capture_consents'`,
+    )
+    .get()
+  if (row) return
+  for (const statement of captureSchemaStatements) {
+    sqlite.exec(statement)
+  }
+}
+
+const captureSchemaStatements = [
+  `
+    CREATE TABLE IF NOT EXISTS capture_consents (
+      domain text NOT NULL,
+      class text NOT NULL,
+      bucket_id text NOT NULL,
+      allowed integer DEFAULT 0 NOT NULL,
+      updated_at integer NOT NULL,
+      PRIMARY KEY (domain, class),
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id) ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS capture_consents_bucket_class_idx
+    ON capture_consents (bucket_id, class)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS capture_sessions (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      kind text NOT NULL,
+      tab_id integer,
+      url text,
+      title text,
+      status text NOT NULL,
+      provider text NOT NULL,
+      started_at integer NOT NULL,
+      ended_at integer,
+      transcript_path text,
+      summary_path text,
+      graph_node_id text,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id) ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (graph_node_id) REFERENCES graph_nodes(id) ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS capture_sessions_bucket_started_idx
+    ON capture_sessions (bucket_id, started_at)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS capture_sessions_status_idx
+    ON capture_sessions (status)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS research_threads (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      topic text,
+      status text NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id) ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS research_threads_bucket_status_idx
+    ON research_threads (bucket_id, status)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS research_thread_pages (
+      thread_id text NOT NULL,
+      node_id text NOT NULL,
+      order_index integer NOT NULL,
+      quote text,
+      url text NOT NULL,
+      captured_at integer NOT NULL,
+      PRIMARY KEY (thread_id, node_id),
+      FOREIGN KEY (thread_id) REFERENCES research_threads(id) ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (node_id) REFERENCES graph_nodes(id) ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS research_thread_pages_order_idx
+    ON research_thread_pages (thread_id, order_index)
+  `,
+]
+
 /** Creates the current schema when packaged builds lack migration files, and marks those migrations applied. */
 function bootstrapCurrentSchema(sqlite: BunDatabase): void {
   sqlite.exec('BEGIN')
@@ -230,6 +321,11 @@ export const currentMigrationHistory = [
     tag: '0009_curvy_bucky',
     hash: '7a97736e4dec5d9c374f70f4ca91c10dfb209bfe725c255a161df1117878f1ac',
     createdAt: 1783689148142,
+  },
+  {
+    tag: '0010_passive_capture',
+    hash: '2a8e26ac7a12b6375af5289f1ac0f79c2576933a295d1119ade43aff2b85450e',
+    createdAt: 1783789148142,
   },
 ]
 
@@ -599,5 +695,79 @@ const currentSchemaStatements = [
       hash text NOT NULL,
       created_at numeric
     )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS capture_consents (
+      domain text NOT NULL,
+      class text NOT NULL,
+      bucket_id text NOT NULL,
+      allowed integer DEFAULT 0 NOT NULL,
+      updated_at integer NOT NULL,
+      PRIMARY KEY (domain, class),
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id) ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS capture_consents_bucket_class_idx
+    ON capture_consents (bucket_id, class)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS capture_sessions (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      kind text NOT NULL,
+      tab_id integer,
+      url text,
+      title text,
+      status text NOT NULL,
+      provider text NOT NULL,
+      started_at integer NOT NULL,
+      ended_at integer,
+      transcript_path text,
+      summary_path text,
+      graph_node_id text,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id) ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (graph_node_id) REFERENCES graph_nodes(id) ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS capture_sessions_bucket_started_idx
+    ON capture_sessions (bucket_id, started_at)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS capture_sessions_status_idx
+    ON capture_sessions (status)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS research_threads (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text NOT NULL,
+      topic text,
+      status text NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL,
+      FOREIGN KEY (bucket_id) REFERENCES buckets(id) ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS research_threads_bucket_status_idx
+    ON research_threads (bucket_id, status)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS research_thread_pages (
+      thread_id text NOT NULL,
+      node_id text NOT NULL,
+      order_index integer NOT NULL,
+      quote text,
+      url text NOT NULL,
+      captured_at integer NOT NULL,
+      PRIMARY KEY (thread_id, node_id),
+      FOREIGN KEY (thread_id) REFERENCES research_threads(id) ON UPDATE no action ON DELETE no action,
+      FOREIGN KEY (node_id) REFERENCES graph_nodes(id) ON UPDATE no action ON DELETE no action
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS research_thread_pages_order_idx
+    ON research_thread_pages (thread_id, order_index)
   `,
 ]

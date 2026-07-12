@@ -9,6 +9,7 @@ import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { z } from 'zod'
 import { gateExecute } from '../agent/trust/gate'
+import { buildCaptureToolSet } from '../capture/tools'
 import { buildMemoryToolSet } from '../memory/tools'
 import { buildContextToolSet, buildTasksToolSet } from './tools'
 
@@ -43,6 +44,7 @@ export function registerContextMcpTools(
     ...buildContextToolSet(getBucketId),
     ...buildTasksToolSet(getBucketId),
     ...buildMemoryToolSet(getBucketId),
+    ...buildCaptureToolSet(getBucketId),
   } as unknown as Record<string, AiSdkToolLike>
 
   for (const [name, tool] of Object.entries(tools)) {

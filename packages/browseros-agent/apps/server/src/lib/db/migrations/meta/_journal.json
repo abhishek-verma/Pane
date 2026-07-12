@@ -71,6 +71,13 @@
       "when": 1783689148142,
       "tag": "0009_curvy_bucky",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1783789148142,
+      "tag": "0010_passive_capture",
+      "breakpoints": true
     }
   ]
 }

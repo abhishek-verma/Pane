@@ -16,6 +16,7 @@ import {
 import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
+import { lookupResearchCitation } from '../capture/research-citations'
 import { bumpSurfaced, listEntries } from '../memory/store'
 import { getDeniedHosts } from './grants'
 import { graphCurrentWork, graphSearch } from './repo'
@@ -81,10 +82,18 @@ export function buildContextToolSet(getBucketId: () => string): ToolSet {
         if (hits.length === 0) {
           return { text: `No context matches for "${query}".` }
         }
-        const lines = hits.map(
-          (h, i) =>
-            `${i + 1}. [${h.kind}] ${h.title ?? '(untitled)'} — ${h.uri ?? ''}\n   ${h.snippet}`,
-        )
+        const lines = hits.map((h, i) => {
+          const citation =
+            h.kind === 'research_page' ? lookupResearchCitation(h.nodeId) : null
+          const citationLine = citation
+            ? `\n   citation: ${JSON.stringify({
+                url: citation.url,
+                quote: citation.quote,
+                capturedAt: citation.capturedAt,
+              })}`
+            : ''
+          return `${i + 1}. [${h.kind}] ${h.title ?? '(untitled)'} — ${h.uri ?? ''}\n   ${h.snippet}${citationLine}`
+        })
         return { text: lines.join('\n') }
       },
     }),
