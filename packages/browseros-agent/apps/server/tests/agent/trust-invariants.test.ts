@@ -8,6 +8,7 @@ import {
   deriveClass,
   type GateContext,
   getBlastRadiusCap,
+  isConsequentialClass,
   isPinActive,
 } from '@browseros/shared/trust/consequence-class'
 import { tool } from 'ai'
@@ -600,5 +601,62 @@ describe('wrapToolWithGate scheduled-run idempotency', () => {
     await wrapped.execute?.(args, { toolCallId: 'tc-err', messages: [] })
     await wrapped.execute?.(args, { toolCallId: 'tc-err-2', messages: [] })
     expect(calls).toBe(2)
+  })
+})
+
+describe('home widget tool trust classification', () => {
+  it('classifies home_widget_list and home_widget_propose as read', () => {
+    const ctx = makeCtx()
+    expect(deriveClass('home_widget_list', {}, ctx)).toBe('read')
+    expect(deriveClass('home_widget_propose', {}, ctx)).toBe('read')
+  })
+
+  it('classifies home_widget_add and home_widget_remove as write-local', () => {
+    const ctx = makeCtx()
+    expect(deriveClass('home_widget_add', {}, ctx)).toBe('write-local')
+    expect(deriveClass('home_widget_remove', {}, ctx)).toBe('write-local')
+  })
+
+  it('auto-approves home_widget_list and home_widget_propose in attended mode with read pin', () => {
+    const ctx = makeCtx({
+      surface: 'loop',
+      pins: { read: { pinned: true } },
+      isNewUser: false,
+    })
+    expect(decideGate('home_widget_list', {}, ctx)).toEqual({
+      action: 'execute',
+    })
+    expect(decideGate('home_widget_propose', {}, ctx)).toEqual({
+      action: 'execute',
+    })
+  })
+
+  it('auto-approves home_widget_add with write-local pin (attended)', () => {
+    const ctx = makeCtx({
+      surface: 'loop',
+      pins: { 'write-local': { pinned: true } },
+      isNewUser: false,
+    })
+    expect(decideGate('home_widget_add', {}, ctx)).toEqual({
+      action: 'execute',
+    })
+    expect(decideGate('home_widget_remove', {}, ctx)).toEqual({
+      action: 'execute',
+    })
+  })
+
+  it('does NOT classify home_widget_add as write-external (regression guard)', () => {
+    const ctx = makeCtx()
+    expect(deriveClass('home_widget_add', {}, ctx)).not.toBe('write-external')
+    expect(deriveClass('home_widget_remove', {}, ctx)).not.toBe(
+      'write-external',
+    )
+  })
+
+  it('does NOT classify home_widget_list as write-local or consequential (regression guard)', () => {
+    const ctx = makeCtx()
+    const cls = deriveClass('home_widget_list', {}, ctx)
+    expect(cls).toBe('read')
+    expect(isConsequentialClass(cls)).toBe(false)
   })
 })
