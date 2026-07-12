@@ -6,6 +6,7 @@ import { StepConnectApps } from './StepConnectApps'
 import { StepIcp } from './StepIcp'
 import { StepOne } from './StepOne'
 import { StepTwo } from './StepTwo'
+import { StepWidgets } from './StepWidgets'
 
 export const steps = [
   {
@@ -18,10 +19,15 @@ export const steps = [
     name: 'How you use Pane',
     component: StepIcp,
   },
+  {
+    id: 3,
+    name: 'Starter widgets',
+    component: StepWidgets,
+  },
   ...(productFeatures.klavisIntegrations
     ? [
         {
-          id: 3,
+          id: 4,
           name: 'Connect Apps',
           component: StepConnectApps,
         },
@@ -30,7 +36,7 @@ export const steps = [
   ...(cloudAccountEnabled
     ? [
         {
-          id: productFeatures.klavisIntegrations ? 4 : 3,
+          id: productFeatures.klavisIntegrations ? 5 : 4,
           name: 'Sign In',
           component: StepTwo,
         },

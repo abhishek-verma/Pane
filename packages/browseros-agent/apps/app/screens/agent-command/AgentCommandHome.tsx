@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { type FC, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import type { Provider } from '@/components/chat/chatComponentTypes'
@@ -16,7 +17,10 @@ import {
   resolveSidepanelChatTarget,
 } from '@/modules/chat/sidepanel-chat-targets'
 import { useLlmProviders } from '@/modules/llm-providers/llm-providers.hooks'
-import { AdaptiveHomeWidgets } from '@/screens/newtab/home/AdaptiveHomeWidgets'
+import {
+  AdaptiveHomeWidgets,
+  type HomeData,
+} from '@/screens/newtab/home/AdaptiveHomeWidgets'
 import { useActiveHint } from '@/screens/newtab/index/active-hint.hooks'
 import { ImportDataHint } from '@/screens/newtab/index/ImportDataHint'
 import { RecentSites } from '@/screens/newtab/index/RecentSites'
@@ -31,6 +35,69 @@ import {
   routeHomeSend,
 } from './home-compose.helpers'
 import { setPendingInitialMessage } from './pending-initial-message'
+
+const HOME_KEY = ['scheduler', 'home'] as const
+
+const ContextualGreeting: FC<{ firstName: string | null }> = ({
+  firstName,
+}) => {
+  const hour = new Date().getHours()
+  const greeting =
+    hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  if (firstName) {
+    return (
+      <>
+        {greeting},{' '}
+        <span className="font-medium text-[var(--accent-orange)] italic">
+          {firstName}
+        </span>
+      </>
+    )
+  }
+  return (
+    <>
+      What should your agent{' '}
+      <span className="font-medium text-[var(--accent-orange)] italic">
+        work on
+      </span>{' '}
+      next?
+    </>
+  )
+}
+
+const ContextualSubtitle: FC<{ widgets: HomeData['widgets'] }> = ({
+  widgets,
+}) => {
+  const active = widgets.filter((w) => w.type !== 'recent-sites-fallback')
+  if (active.length === 0) {
+    return (
+      <>
+        Pick Pane AI or any agent, then start a task — all without leaving this
+        tab.
+      </>
+    )
+  }
+  const parts: string[] = []
+  const approvalWidget = active.find((w) => w.type === 'pending-approvals')
+  if (approvalWidget) {
+    const count = (approvalWidget.data.items as unknown[])?.length ?? 0
+    if (count > 0)
+      parts.push(`${count} action${count === 1 ? '' : 's'} waiting`)
+  }
+  const meetingWidget = active.find((w) => w.type === 'next-meeting')
+  if (meetingWidget?.data.status === 'active') {
+    parts.push('meeting capture live')
+  }
+  if (parts.length === 0) {
+    return (
+      <>
+        You have {active.length} item{active.length === 1 ? '' : 's'} on your
+        home.
+      </>
+    )
+  }
+  return <>{parts.join(' and ')}.</>
+}
 
 export const AgentCommandHome: FC = () => {
   const navigate = useNavigate()
@@ -53,6 +120,12 @@ export const AgentCommandHome: FC = () => {
   )
   const waitingForLlmCapabilities =
     selectedProvider?.kind === 'llm' && llmRoutingMode === 'wait'
+
+  // Shares the same query key as AdaptiveHomeWidgets — React Query deduplicates the fetch.
+  const { data: homeData } = useQuery<HomeData>({
+    queryKey: HOME_KEY,
+    staleTime: 60_000,
+  })
 
   const targets = useMemo(
     () =>
@@ -138,15 +211,10 @@ export const AgentCommandHome: FC = () => {
         <div className="flex flex-col items-center gap-5 pt-[max(10vh,24px)] text-center">
           <div className="space-y-3">
             <h1 className="font-semibold text-[clamp(2.25rem,4.5vw,3.5rem)] leading-[1.08] tracking-[-0.025em] [text-wrap:balance]">
-              What should your agent{' '}
-              <span className="font-medium text-[var(--accent-orange)] italic">
-                work on
-              </span>{' '}
-              next?
+              <ContextualGreeting firstName={homeData?.firstName ?? null} />
             </h1>
             <p className="mx-auto max-w-2xl text-muted-foreground text-sm leading-6 [text-wrap:pretty]">
-              Pick Pane AI or any agent, then start a task — all without leaving
-              this tab.
+              <ContextualSubtitle widgets={homeData?.widgets ?? []} />
             </p>
           </div>
 

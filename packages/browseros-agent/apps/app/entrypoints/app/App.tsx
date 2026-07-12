@@ -24,6 +24,7 @@ import { Onboarding } from '@/screens/onboarding/index/Onboarding'
 import { StepsLayout } from '@/screens/onboarding/steps/StepsLayout'
 import { ReachSettingsPage } from '@/screens/reach/ReachSettingsPage'
 import { ScheduledTasksPage } from '@/screens/scheduled-tasks/ScheduledTasksPage'
+import { HomeSettingsPage } from '@/screens/settings/home/HomeSettingsPage'
 import { TasksPage } from '@/screens/tasks/TasksPage'
 import { WorkspacesPage } from '@/screens/workspaces/WorkspacesPage'
 
@@ -93,6 +94,7 @@ export const App: FC = () => {
             <Route path="action-log" element={<ActionLogPage />} />
             <Route path="memory" element={<MemoryPage />} />
             <Route path="reach" element={<ReachSettingsPage />} />
+            <Route path="home" element={<HomeSettingsPage />} />
             <Route path="diagnostics" element={<DiagnosticsPage />} />
             <Route
               path="search"
