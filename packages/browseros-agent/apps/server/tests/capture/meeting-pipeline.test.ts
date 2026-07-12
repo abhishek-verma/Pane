@@ -68,4 +68,38 @@ describe('meeting capture pipeline', () => {
     const transcript = await readFile(transcriptPath as string, 'utf8')
     expect(transcript).toContain('chunk 0')
   })
+
+  it('feeds cumulative webm bytes to ASR for later timeslices', async () => {
+    const session = await startMeetingCapture({
+      tabId: 42,
+      bucketId: 'default',
+      url: 'https://meet.google.com/abc-defg-hij',
+      title: 'Standup',
+      provider: 'local-faster-whisper',
+      requireConsent: true,
+    })
+
+    await feedCaptureChunk({
+      sessionId: session.id,
+      sequence: 0,
+      mimeType: 'audio/webm',
+      data: new TextEncoder().encode('chunk-a'),
+    })
+    await feedCaptureChunk({
+      sessionId: session.id,
+      sequence: 1,
+      mimeType: 'audio/webm',
+      data: new TextEncoder().encode('chunk-b'),
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await stopMeetingCapture(session.id)
+
+    const transcript = await readFile(
+      getCaptureSession(session.id)?.transcriptPath as string,
+      'utf8',
+    )
+    expect(transcript).toContain('chunk 0')
+    expect(transcript).toContain('chunk 1')
+  })
 })

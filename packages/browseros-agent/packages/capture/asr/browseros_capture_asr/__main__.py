@@ -24,6 +24,10 @@ def emit(segment: dict) -> None:
     sys.stdout.flush()
 
 
+def emit_ack(sequence: int) -> None:
+    emit({"kind": "ack", "sequence": sequence})
+
+
 def mock_transcribe(chunk: dict) -> None:
     seq = chunk.get("sequence", 0)
     session_id = chunk.get("sessionId", "unknown")
@@ -51,10 +55,32 @@ def mock_transcribe(chunk: dict) -> None:
             "capturedAt": captured_at + 4000,
         }
     )
+    emit_ack(seq)
+
+
+# Process state for one capture session (one sidecar process per session).
+_LAST_TRANSCRIBED_END_S = 0.0
+_CLIP_PAD_S = 0.15
+
+
+def audio_duration_s(path: str) -> float:
+    import av
+
+    with av.open(path) as container:
+        if container.duration is not None:
+            return float(container.duration) / 1_000_000
+        total = 0.0
+        for frame in container.decode(audio=0):
+            if frame.time is not None:
+                total = max(total, float(frame.time) + float(frame.samples) / float(frame.rate))
+        return total
 
 
 def whisper_transcribe(chunk: dict, model_name: str, device: str) -> None:
+    global _LAST_TRANSCRIBED_END_S
     from faster_whisper import WhisperModel
+
+    sequence = int(chunk.get("sequence", 0))
 
     # Lazy-init model once per process.
     if not hasattr(whisper_transcribe, "_model"):
@@ -74,22 +100,20 @@ def whisper_transcribe(chunk: dict, model_name: str, device: str) -> None:
         tmp_path = tmp.name
 
     try:
-        segments, _info = model.transcribe(tmp_path, vad_filter=True)
-        text_parts: list[str] = []
-        for segment in segments:
-            text_parts.append(segment.text.strip())
-            emit(
-                {
-                    "id": str(uuid.uuid4()),
-                    "sessionId": session_id,
-                    "kind": "partial",
-                    "text": segment.text.strip(),
-                    "startedAtMs": int(segment.start * 1000),
-                    "endedAtMs": int(segment.end * 1000),
-                    "capturedAt": captured_at,
-                }
-            )
-        final_text = " ".join(part for part in text_parts if part)
+        duration_s = audio_duration_s(tmp_path)
+        clip_start = max(0.0, _LAST_TRANSCRIBED_END_S - _CLIP_PAD_S)
+        if duration_s <= clip_start + 0.05:
+            emit_ack(sequence)
+            return
+
+        segments, _info = model.transcribe(
+            tmp_path,
+            vad_filter=True,
+            clip_timestamps=f"{clip_start},{duration_s}",
+            condition_on_previous_text=False,
+        )
+        parts = [segment.text.strip() for segment in segments if segment.text.strip()]
+        final_text = " ".join(parts).strip()
         if final_text:
             emit(
                 {
@@ -100,8 +124,11 @@ def whisper_transcribe(chunk: dict, model_name: str, device: str) -> None:
                     "capturedAt": captured_at,
                 }
             )
+
+        _LAST_TRANSCRIBED_END_S = duration_s
     finally:
         Path(tmp_path).unlink(missing_ok=True)
+        emit_ack(sequence)
 
 
 def main() -> None:
@@ -120,7 +147,11 @@ def main() -> None:
         try:
             import faster_whisper  # noqa: F401
         except ImportError:
-            use_whisper = False
+            sys.stderr.write(
+                "browseros_capture_asr: faster-whisper not installed; "
+                "pip install faster-whisper or set BROWSEROS_ASR_MOCK=1\n"
+            )
+            sys.exit(1)
 
     device = args.device
     if device == "auto":

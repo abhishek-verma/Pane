@@ -164,6 +164,10 @@ async function transcribeChunk(
 }
 
 class JsonlSidecarSession implements TranscriptionSession {
+  private stdoutBuffer = ''
+  private pendingAck: (() => void) | null = null
+  private pendingAckTimer: ReturnType<typeof setTimeout> | null = null
+
   constructor(
     private readonly child: ChildProcessWithoutNullStreams,
     private readonly input: {
@@ -181,18 +185,39 @@ class JsonlSidecarSession implements TranscriptionSession {
   }
 
   async feedChunk(chunk: AudioChunk): Promise<void> {
-    const payload = JSON.stringify({
-      sessionId: chunk.sessionId,
-      sequence: chunk.sequence,
-      mimeType: chunk.mimeType,
-      capturedAt: chunk.capturedAt,
-      dataBase64: Buffer.from(chunk.data).toString('base64'),
+    await new Promise<void>((resolve, reject) => {
+      if (this.pendingAck) {
+        reject(new Error('ASR sidecar is already processing a chunk'))
+        return
+      }
+      this.pendingAck = resolve
+      this.pendingAckTimer = setTimeout(() => {
+        this.pendingAck = null
+        this.pendingAckTimer = null
+        reject(new Error(`ASR sidecar ack timeout for chunk ${chunk.sequence}`))
+      }, 120_000)
+
+      const payload = JSON.stringify({
+        sessionId: chunk.sessionId,
+        sequence: chunk.sequence,
+        mimeType: chunk.mimeType,
+        capturedAt: chunk.capturedAt,
+        dataBase64: Buffer.from(chunk.data).toString('base64'),
+      })
+      const writeOk = this.child.stdin.write(`${payload}\n`)
+      if (writeOk) return
+      this.child.stdin.once('drain', () => undefined)
     })
-    if (!this.child.stdin.write(`${payload}\n`)) {
-      await new Promise<void>((resolve) =>
-        this.child.stdin.once('drain', resolve),
-      )
+  }
+
+  private resolveAck(): void {
+    if (this.pendingAckTimer) {
+      clearTimeout(this.pendingAckTimer)
+      this.pendingAckTimer = null
     }
+    const resolve = this.pendingAck
+    this.pendingAck = null
+    resolve?.()
   }
 
   async stop(): Promise<void> {
@@ -204,18 +229,33 @@ class JsonlSidecarSession implements TranscriptionSession {
   }
 
   private handleStdout(data: string): void {
-    for (const line of data.split('\n')) {
+    this.stdoutBuffer += data
+    const lines = this.stdoutBuffer.split('\n')
+    this.stdoutBuffer = lines.pop() ?? ''
+    for (const line of lines) {
       if (!line.trim()) continue
-      const parsed = JSON.parse(line) as Partial<TranscriptSegment>
+      const parsed = JSON.parse(line) as Record<string, unknown>
+      if (parsed.kind === 'ack') {
+        this.resolveAck()
+        continue
+      }
       const segment: TranscriptSegment = {
-        id: parsed.id ?? crypto.randomUUID(),
-        sessionId: parsed.sessionId ?? this.input.sessionId,
+        id: String(parsed.id ?? crypto.randomUUID()),
+        sessionId: String(parsed.sessionId ?? this.input.sessionId),
         kind: parsed.kind === 'final' ? 'final' : 'partial',
         text: String(parsed.text ?? ''),
-        startedAtMs: parsed.startedAtMs,
-        endedAtMs: parsed.endedAtMs,
-        capturedAt: parsed.capturedAt ?? Date.now(),
-        speaker: parsed.speaker,
+        startedAtMs:
+          typeof parsed.startedAtMs === 'number'
+            ? parsed.startedAtMs
+            : undefined,
+        endedAtMs:
+          typeof parsed.endedAtMs === 'number' ? parsed.endedAtMs : undefined,
+        capturedAt:
+          typeof parsed.capturedAt === 'number'
+            ? parsed.capturedAt
+            : Date.now(),
+        speaker:
+          typeof parsed.speaker === 'string' ? parsed.speaker : undefined,
       }
       if (segment.kind === 'final') {
         this.input.onFinal(segment)

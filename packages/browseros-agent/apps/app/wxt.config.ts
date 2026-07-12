@@ -89,6 +89,8 @@ export default defineConfig({
       'webNavigation',
       'downloads',
       'tabCapture',
+      'offscreen',
+      'audioCapture',
     ],
     host_permissions: ['http://127.0.0.1/*'],
   },

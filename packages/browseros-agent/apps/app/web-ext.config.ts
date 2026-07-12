@@ -82,6 +82,8 @@ const chromiumArgs = [
   '--disable-browseros-server',
   '--disable-browseros-extensions',
   '--browseros-dock-icon=dev',
+  // Pane agent extension: background tab capture without a user gesture.
+  '--allowlisted-extension-id=biedncddmddkpapdplhcnkhhplnfgbif',
 ]
 
 if (env.BROWSEROS_CDP_PORT) {

@@ -28,12 +28,48 @@ import {
 
 const CONSENT_CLASSES: CaptureClass[] = ['meeting', 'browsing', 'research']
 
+function dedupeTranscriptFinals<T extends { kind: string; text: string }>(
+  segments: T[],
+): T[] {
+  const finals = segments.filter((s) => s.kind === 'final')
+  const deduped: T[] = []
+  let lastText = ''
+  for (const segment of finals) {
+    const text = segment.text.trim()
+    if (!text || text === lastText) continue
+    if (lastText && text.startsWith(lastText)) continue
+    deduped.push(segment)
+    lastText = text
+  }
+  return deduped
+}
+
+function formatRelativeTime(ms: number): string {
+  const diff = Date.now() - ms
+  if (diff < 60_000) return 'just now'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
+  return new Date(ms).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function formatDuration(startMs: number, endMs: number | null): string {
+  const duration = (endMs ?? Date.now()) - startMs
+  const minutes = Math.floor(duration / 60_000)
+  if (minutes < 1) return '<1 min'
+  if (minutes < 60) return `${minutes} min`
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+}
+
 export const CapturePage: FC = () => {
   const [bucketId, setBucketId] = useState('default')
   const [domainInput, setDomainInput] = useState('')
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   )
+  const [showSettings, setShowSettings] = useState(false)
   const [researchMode, setResearchMode] = useState(false)
   const { buckets, loading: bucketsLoading } = useContextBuckets()
   const status = useCaptureStatus()
@@ -41,9 +77,30 @@ export const CapturePage: FC = () => {
   const consents = useCaptureConsents(bucketId)
   const transcript = useCaptureTranscript(selectedSessionId)
 
+  const visibleSessions = [...meetings.sessions]
+    .filter((session) => !session.url || isMeetingRoomUrl(session.url))
+    .sort((a, b) => b.startedAt - a.startedAt)
+
   useEffect(() => {
     void researchModeStorage.getValue().then(setResearchMode)
   }, [])
+
+  useEffect(() => {
+    if (selectedSessionId) return
+    const latest = visibleSessions[0]
+    if (latest) setSelectedSessionId(latest.id)
+  }, [visibleSessions, selectedSessionId])
+
+  useEffect(() => {
+    if (!selectedSessionId) return
+    if (visibleSessions.some((s) => s.id === selectedSessionId)) return
+    setSelectedSessionId(visibleSessions[0]?.id ?? null)
+  }, [visibleSessions, selectedSessionId])
+
+  const selectedSession = visibleSessions.find(
+    (s) => s.id === selectedSessionId,
+  )
+  const dedupedSegments = dedupeTranscriptFinals(transcript.segments)
 
   const domains = Array.from(
     new Set(consents.consents.map((c) => c.domain)),
@@ -66,200 +123,139 @@ export const CapturePage: FC = () => {
   }
 
   return (
-    <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-semibold text-2xl tracking-tight">Capture</h1>
-          <p className="mt-1 text-muted-foreground text-sm">
-            Meeting transcripts, browsing learnings, and research threads stay
-            local and bucket-scoped.
-          </p>
+    <div className="fade-in animate-in space-y-4 duration-300">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="font-semibold text-lg tracking-tight">Meetings</h1>
+          {status.data?.paused && (
+            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 font-medium text-[11px] text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+              Paused
+            </span>
+          )}
         </div>
-        <Button variant="outline" size="sm" onClick={() => meetings.refetch()}>
-          Refresh
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="text-muted-foreground text-sm">Bucket</span>
-        <Select value={bucketId} onValueChange={setBucketId}>
-          <SelectTrigger className="w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(buckets.length > 0
-              ? buckets
-              : [{ id: 'default', name: 'Default' }]
-            ).map((bucket) => (
-              <SelectItem key={bucket.id} value={bucket.id}>
-                {bucket.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-2 text-sm">
-          <Switch
-            checked={researchMode}
-            onCheckedChange={(enabled) => {
-              setResearchMode(enabled)
-              void researchModeStorage.setValue(enabled)
-            }}
-          />
-          Researching
-        </div>
-        {status.data?.paused && (
-          <span className="rounded-md bg-amber-500/15 px-2 py-1 text-amber-700 text-xs dark:text-amber-300">
-            Capture paused ({status.data.reason ?? 'resource budget'})
-          </span>
-        )}
-      </div>
-
-      <section className="rounded-lg border bg-card p-4">
-        <h2 className="font-medium text-sm">Meetings</h2>
-        {(meetings.loading || bucketsLoading) && (
-          <p className="mt-3 text-muted-foreground text-sm">
-            Loading meetings...
-          </p>
-        )}
-        {meetings.error && (
-          <p className="mt-3 text-destructive text-sm">
-            {meetings.error instanceof Error
-              ? meetings.error.message
-              : 'Failed to load meetings'}
-          </p>
-        )}
-        {!meetings.loading &&
-          meetings.sessions.filter(
-            (session) => !session.url || isMeetingRoomUrl(session.url),
-          ).length === 0 && (
-            <p className="mt-3 text-muted-foreground text-sm">
-              No captured meetings in this bucket yet.
-            </p>
-          )}
-        <ul className="mt-3 space-y-2">
-          {meetings.sessions
-            .filter((session) => !session.url || isMeetingRoomUrl(session.url))
-            .map((session) => (
-              <li
-                key={session.id}
-                className="rounded-md border px-3 py-2 text-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <button
-                    type="button"
-                    className="text-left"
-                    onClick={() => setSelectedSessionId(session.id)}
-                  >
-                    <div className="font-medium">
-                      {session.title ?? session.url ?? session.id}
-                    </div>
-                    {session.url && (
-                      <div className="truncate text-muted-foreground text-xs">
-                        {session.url}
-                      </div>
-                    )}
-                  </button>
-                  <span
-                    className={`rounded px-2 py-1 text-xs ${
-                      session.status === 'error'
-                        ? 'bg-destructive/15 text-destructive'
-                        : session.status === 'active'
-                          ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                          : 'bg-muted'
-                    }`}
-                  >
-                    {session.status}
-                  </span>
-                </div>
-                <div className="mt-2 grid gap-1 text-muted-foreground text-xs">
-                  <span>Bucket: {session.bucketId}</span>
-                  <span>Transcript: {session.transcriptPath ?? 'pending'}</span>
-                </div>
-              </li>
-            ))}
-        </ul>
-      </section>
-
-      {selectedSessionId && (
-        <section className="rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-medium text-sm">Transcript</h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => transcript.refetch()}
-            >
-              Reload
-            </Button>
-          </div>
-          {transcript.loading && (
-            <p className="mt-3 text-muted-foreground text-sm">
-              Loading transcript...
-            </p>
-          )}
-          {transcript.error && (
-            <p className="mt-3 text-destructive text-sm">
-              {transcript.error instanceof Error
-                ? transcript.error.message
-                : 'Failed to load transcript'}
-            </p>
-          )}
-          {!transcript.loading && transcript.segments.length === 0 && (
-            <p className="mt-3 text-muted-foreground text-sm">
-              No transcript segments yet.
-            </p>
-          )}
-          <ul className="mt-3 max-h-80 space-y-2 overflow-y-auto text-sm">
-            {transcript.segments
-              .filter((segment) => segment.kind === 'final')
-              .map((segment) => (
-                <li key={segment.id} className="rounded-md border px-3 py-2">
-                  <div className="text-muted-foreground text-xs">
-                    {new Date(segment.capturedAt).toLocaleString()}
-                  </div>
-                  <div className="mt-1">{segment.text}</div>
-                </li>
-              ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="rounded-lg border bg-card p-4">
-        <h2 className="font-medium text-sm">Capture Consent</h2>
-        <p className="mt-1 text-muted-foreground text-sm">
-          Capture is off by default. Enable each domain and class separately.
-        </p>
-        <div className="mt-3 flex gap-2">
-          <input
-            className="h-9 w-64 rounded-md border bg-background px-3 text-sm"
-            placeholder="domain, e.g. meet.google.com"
-            value={domainInput}
-            onChange={(event) => setDomainInput(event.target.value)}
-          />
+        <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            onClick={() => {
-              if (!domainInput.trim()) return
-              void consents.setConsent.mutateAsync({
-                domain: domainInput.trim(),
-                class: 'meeting',
-                allowed: false,
-                bucketId,
-              })
-              setDomainInput('')
-            }}
+            className="h-7 px-2 text-xs"
+            onClick={() => setShowSettings(!showSettings)}
           >
-            Add Domain
+            {showSettings ? 'Close' : 'Settings'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => meetings.refetch()}
+          >
+            Refresh
           </Button>
         </div>
-        <div className="mt-4 space-y-3">
-          {visibleDomains.map((domain) => (
-            <div key={domain} className="rounded-md border px-3 py-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="font-medium text-sm">{domain}</div>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-muted-foreground">Bucket</span>
+      </div>
+
+      {/* Settings (collapsible) */}
+      {showSettings && (
+        <div className="space-y-4 rounded-xl border border-border/50 bg-muted/30 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={bucketId} onValueChange={setBucketId}>
+              <SelectTrigger className="h-8 w-44 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(buckets.length > 0
+                  ? buckets
+                  : [{ id: 'default', name: 'Default' }]
+                ).map((bucket) => (
+                  <SelectItem key={bucket.id} value={bucket.id}>
+                    {bucket.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex cursor-pointer items-center gap-2 text-muted-foreground text-xs">
+              <Switch
+                checked={researchMode}
+                onCheckedChange={(enabled) => {
+                  setResearchMode(enabled)
+                  void researchModeStorage.setValue(enabled)
+                }}
+              />
+              Research mode
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+              Allowed domains
+            </div>
+            <div className="flex gap-2">
+              <input
+                className="h-8 w-56 rounded-lg border bg-background px-2.5 text-xs"
+                placeholder="e.g. meet.google.com"
+                value={domainInput}
+                onChange={(e) => setDomainInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' || !domainInput.trim()) return
+                  void consents.setConsent.mutateAsync({
+                    domain: domainInput.trim(),
+                    class: 'meeting',
+                    allowed: true,
+                    bucketId,
+                  })
+                  setDomainInput('')
+                }}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => {
+                  if (!domainInput.trim()) return
+                  void consents.setConsent.mutateAsync({
+                    domain: domainInput.trim(),
+                    class: 'meeting',
+                    allowed: true,
+                    bucketId,
+                  })
+                  setDomainInput('')
+                }}
+              >
+                Add
+              </Button>
+            </div>
+            {visibleDomains.map((domain) => (
+              <div
+                key={domain}
+                className="flex items-center justify-between rounded-lg border border-border/40 px-3 py-2"
+              >
+                <span className="font-medium text-xs">{domain}</span>
+                <div className="flex items-center gap-3">
+                  {CONSENT_CLASSES.map((captureClass) => {
+                    const consent = consents.consents.find(
+                      (item) =>
+                        item.domain === domain && item.class === captureClass,
+                    )
+                    return (
+                      <div
+                        key={captureClass}
+                        className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground"
+                      >
+                        <Switch
+                          checked={consent?.allowed ?? false}
+                          onCheckedChange={(allowed) =>
+                            consents.setConsent.mutate({
+                              domain,
+                              class: captureClass,
+                              allowed,
+                              bucketId: consent?.bucketId ?? bucketId,
+                            })
+                          }
+                        />
+                        {captureClass}
+                      </div>
+                    )
+                  })}
                   <Select
                     value={
                       consents.consents.find((item) => item.domain === domain)
@@ -269,7 +265,7 @@ export const CapturePage: FC = () => {
                       reassignDomainBucket(domain, nextBucketId)
                     }
                   >
-                    <SelectTrigger className="h-8 w-40">
+                    <SelectTrigger className="h-6 w-28 text-[11px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -285,37 +281,138 @@ export const CapturePage: FC = () => {
                   </Select>
                 </div>
               </div>
-              <div className="mt-2 flex flex-wrap gap-4">
-                {CONSENT_CLASSES.map((captureClass) => {
-                  const consent = consents.consents.find(
-                    (item) =>
-                      item.domain === domain && item.class === captureClass,
-                  )
-                  return (
-                    <div
-                      key={captureClass}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      <Switch
-                        checked={consent?.allowed ?? false}
-                        onCheckedChange={(allowed) =>
-                          consents.setConsent.mutate({
-                            domain,
-                            class: captureClass,
-                            allowed,
-                            bucketId: consent?.bucketId ?? bucketId,
-                          })
-                        }
-                      />
-                      {captureClass}
-                    </div>
-                  )
-                })}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Session list + transcript split */}
+      <div className="grid grid-cols-[220px_1fr] gap-4">
+        {/* Left: session list */}
+        <div
+          className="space-y-1.5 overflow-y-auto"
+          style={{ maxHeight: 'calc(100vh - 180px)' }}
+        >
+          {(meetings.loading || bucketsLoading) && (
+            <p className="px-2 py-6 text-center text-muted-foreground text-xs">
+              Loading...
+            </p>
+          )}
+          {!meetings.loading && visibleSessions.length === 0 && (
+            <p className="px-2 py-6 text-center text-muted-foreground text-xs">
+              No meetings yet. Join a Google Meet with capture enabled.
+            </p>
+          )}
+          {visibleSessions.map((session) => {
+            const isSelected = session.id === selectedSessionId
+            const isActive = session.status === 'active'
+            return (
+              <button
+                type="button"
+                key={session.id}
+                onClick={() => setSelectedSessionId(session.id)}
+                className={`w-full rounded-lg px-3 py-2.5 text-left transition-colors ${
+                  isSelected
+                    ? 'bg-accent text-accent-foreground'
+                    : 'hover:bg-muted/60'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {isActive && (
+                    <span className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
+                  )}
+                  <span className="truncate font-medium text-xs">
+                    {session.title ?? 'Meeting'}
+                  </span>
+                </div>
+                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <span>{formatRelativeTime(session.startedAt)}</span>
+                  <span className="opacity-40">·</span>
+                  <span>
+                    {formatDuration(session.startedAt, session.endedAt)}
+                  </span>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Right: transcript */}
+        <div
+          className="overflow-y-auto rounded-xl border border-border/40 bg-card/50"
+          style={{ maxHeight: 'calc(100vh - 180px)' }}
+        >
+          {!selectedSessionId && (
+            <div className="flex h-full items-center justify-center p-8">
+              <p className="text-muted-foreground text-xs">
+                Select a meeting to view its transcript.
+              </p>
+            </div>
+          )}
+
+          {selectedSessionId && (
+            <div className="flex flex-col">
+              {/* Session header */}
+              <div className="sticky top-0 z-10 flex items-center justify-between border-border/30 border-b bg-card/80 px-4 py-2.5 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  {selectedSession?.status === 'active' && (
+                    <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                  )}
+                  <span className="font-medium text-xs">
+                    {selectedSession?.title ?? 'Meeting'}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {selectedSession &&
+                      formatDuration(
+                        selectedSession.startedAt,
+                        selectedSession.endedAt,
+                      )}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px]"
+                  onClick={() => transcript.refetch()}
+                >
+                  Reload
+                </Button>
+              </div>
+
+              {/* Transcript body */}
+              <div className="space-y-0 divide-y divide-border/20 px-4">
+                {transcript.loading && (
+                  <p className="py-8 text-center text-muted-foreground text-xs">
+                    Loading transcript...
+                  </p>
+                )}
+                {!transcript.loading && dedupedSegments.length === 0 && (
+                  <p className="py-8 text-center text-muted-foreground text-xs">
+                    No transcript yet. Speak during the call to see text here.
+                  </p>
+                )}
+                {dedupedSegments.map((segment) => (
+                  <div key={segment.id} className="py-2.5">
+                    <span className="mr-2 font-mono text-[10px] text-muted-foreground/60">
+                      {new Date(segment.capturedAt).toLocaleTimeString(
+                        undefined,
+                        {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        },
+                      )}
+                    </span>
+                    <span className="text-[13px] leading-relaxed">
+                      {segment.text}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          )}
         </div>
-      </section>
+      </div>
     </div>
   )
 }

@@ -15,6 +15,14 @@
     "./meeting-urls": {
       "types": "./src/meeting-urls.ts",
       "default": "./src/meeting-urls.ts"
+    },
+    "./meeting-in-call": {
+      "types": "./src/meeting-in-call.ts",
+      "default": "./src/meeting-in-call.ts"
+    },
+    "./webm-chunks": {
+      "types": "./src/webm-chunks.ts",
+      "default": "./src/webm-chunks.ts"
     }
   },
   "scripts": {

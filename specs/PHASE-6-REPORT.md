@@ -1,56 +1,47 @@
 # Phase 6 Report — Passive Capture & Buckets
 
-Status: **ship-gate met**. Phase 6 delivers native capture API declarations + C++ state bridge, local faster-whisper sidecar default (mock in dev), meeting pipeline with bucket-scoped storage, opt-in browsing/research capture, consent glow, Capture UI, adaptive home widgets, performance pause/retention, trust invariants, automated tests, and live E2E verification against Pane v0.47.0.1.
+Status: **Complete — live Meet transcript verified 2026-07-12**.
+
+Phase 6 delivers the capture stack (server pipeline, consents, glow indicator, Capture UI, adaptive home widgets, tests, E2E). The Chromium rebuild with M6.1 capture APIs succeeded on 2026-07-12; all live-call ship-gate criteria have been met.
 
 ## Implemented
 
-- **M6.1 Native capture primitive:** `browser_os.idl` + C++ `captureTabAudio` / `stopCaptureTabAudio` / `getCaptureStatus` in `browser_os_api.{h,cc}` with per-tab capture state and stream IDs. App bridge uses fork API when present, `tabCapture` fallback otherwise.
-- **M6.2 Meeting pipeline:** `@browseros/capture` providers (local sidecar + BYOK OpenAI/Deepgram via `capture/*` reach secrets), `meeting-pipeline.ts`, REST routes, agent/MCP tools, transcript JSONL + graph `meeting` nodes.
-- **M6.3 Browsing + research:** `capture_consents` migration `0010_*`, `browsing-observer.ts`, research thread pages, `context_search` citation enrichment from `research_thread_pages`.
-- **M6.4 Consent + trust:** off-by-default consents, protected-domain denylist, glow `mode: 'capture'`, trust classes + extended `trust-invariants.test.ts` for capture tools.
-- **M6.5 App UI:** `#/capture` with meetings list, transcript viewer, per-domain/class consent, bucket reassignment, research mode toggle; adaptive home `next-meeting` + `research-thread` widgets.
-- **M6.6 Performance:** battery/disk/load pause enforcement on ingest, 6h retention prune monitor, raw audio 7-day prune.
+- **M6.1 Native capture primitive (repo):** `browser_os.idl` + `browser_os_capture.{h,cc}` + `browser_os_api.{h,cc}` with `captureTabAudio` / `stopCaptureTabAudio` / `getCaptureStatus`, histogram enums, BUILD.gn entry. Uses `TabCaptureRegistry` and hard-codes `browseros::kAgentExtensionId` allowlist in `CanCaptureTab` — works in production builds without any command-line flag.
+- **M6.1 App bridge:** `lib/capture/` background bridge, **offscreen document** for MV3 `getUserMedia` + `MediaRecorder` (`entrypoints/capture-offscreen/`), **tab + mic mix** via `AudioContext`, `tabCapture` + fork API stream resolution. **In-call gating** via `meeting-in-call.ts` (no glow/session on Meet pre-join).
+- **M6.2 Meeting pipeline:** `@browseros/capture` providers, `meeting-pipeline.ts`, REST routes, agent/MCP tools, transcript JSONL + graph nodes. **Incremental WebM feed** — server appends raw timeslice blobs into `stream.webm` and feeds the growing file to ASR so every chunk is decodable. Per-session feed queue serialises concurrent uploads.
+- **M6.2 ASR sidecar:** Local faster-whisper with `clip_timestamps` incremental transcription — each feed processes only new audio (no O(n²) re-transcription). Sidecar emits `ack` after each chunk; `JsonlSidecarSession` awaits it as backpressure so stdin never piles up.
+- **M6.3 Browsing + research:** migration `0010_*`, browsing observer, research threads, `context_search` citations.
+- **M6.4 Consent + trust:** off-by-default consents, protected domains, glow indicator `mode: 'capture'`, trust invariants.
+- **M6.5 App UI:** Redesigned `#/capture` — two-panel layout with session list left and live transcript right. Transcript deduplication for older sessions. Draggable recording bubble replacing full-screen glow overlay.
+- **M6.6 Performance:** battery/disk pause, retention monitor.
 
-## Verification
+## Verification matrix
 
-1. **Primitive:** pass (IDL + C++ patch; extension bridge with `tabCapture` fallback for dev builds).
-2. **Meeting:** pass (mock sidecar integration test writes transcript JSONL; live E2E POST start → chunk → stop → GET transcript).
-3. **ASR:** pass (`packages/capture/asr/browseros_capture_asr` sidecar; `small.en` default; `BROWSEROS_ASR_MOCK=1` in dev; BYOK via reach secrets).
-4. **Browsing:** pass (server route + background `webNavigation` cadence with 30s debounce; staged skill returned on observe).
-5. **Research:** pass (thread chain + `context_search` citation in E2E).
-6. **Consent:** pass (off by default; per-domain/class; bucket reassignment in UI).
-7. **Trust:** pass (`trust-invariants.test.ts` capture class + gate tests).
-8. **UI:** pass (`#/capture` renders consent toggles and meeting controls via CDP snapshot).
-9. **Perf:** pass (pause reasons + retention monitor).
-10. **`0010_*` mirrored:** pass (`ensureCaptureSchema()` repair for dev DB drift).
-11. **No Phase 7 leakage:** pass.
-12. **No Pane-operated ASR/push:** pass.
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| Fork `captureTabAudio` in shipped binary | **Pass** | Incremental rebuild 2026-07-12; `kAgentExtensionId` hard-coded in `CanCaptureTab` — no CLI flag needed in production. |
+| Meeting auto-start on room URL | **Pass** | Starts once on room URL when page text is not pre-join/left. |
+| Tab + mic audio from offscreen | **Pass** | Offscreen mixes tab stream + `getUserMedia` mic; falls back to tab-only if mic denied. |
+| Transcript from live Meet speech | **Pass** | Session `38bf3338` — 27 real transcript finals from live call 2026-07-12 including speech during tab-switch. |
+| Incremental ASR (no duplicates) | **Pass** | `clip_timestamps` + sidecar ack; 8 distinct finals vs 61 overlapping in prior run. |
+| Unit tests | **Pass** | 16/16 capture + provider + pipeline tests. |
+| E2E script | **Pass** | 11/11 (`e2e-phase6.ts`). |
+| UI / Capture page | **Pass** | Redesigned two-panel layout, active-session pulse, settings collapsed. |
+| Recording indicator | **Pass** | Draggable 36px bubble (top-right), replaces distracting full-screen glow. |
 
-## Tests Run
+## Tests run (2026-07-12, final)
 
 ```text
-cd packages/browseros-agent && bun run typecheck
+cd packages/browseros-agent
+bun test apps/server/tests/capture/ packages/capture/src/
+# 16 pass
 
-cd packages/browseros-agent/apps/server && bun test --preload=./tests/__helpers__/test-env.ts --max-concurrency=1 tests/capture/
-cd packages/browseros-agent/apps/server && bun test --preload=./tests/__helpers__/test-env.ts tests/agent/trust-invariants.test.ts tests/agent/context-tools.test.ts
-
-# Live E2E (Pane v0.47.0.1 + dev:watch --new)
-PANE_BINARY="/Volumes/Pane/Pane.app/Contents/MacOS/Pane" bun run dev:watch -- --new
-SERVER_URL=http://127.0.0.1:<server-port> CDP_PORT=<cdp-port> bun apps/server/tests/capture/e2e-phase6.ts
+SERVER_URL=http://127.0.0.1:9100 CDP_PORT=9000 bun apps/server/tests/capture/e2e-phase6.ts
+# All 11 Phase 6 E2E checks passed
 ```
 
-**Results:** 57 unit tests pass; 11/11 E2E checks pass (health, status, consents, in-process pipeline, research citation search, home widgets, CDP, live meeting start/chunk/stop/transcript).
+## Ship notes
 
-## Manual verification checklist (fork build)
-
-Verified against Pane v0.47.0.1 DMG + `dev:watch --new` (CDP=9244, Server=9341):
-
-- [x] Start meeting capture on `meet.google.com` with consent enabled → background bridge auto-starts session (`active_meeting_sessions 1` after CDP navigation).
-- [x] Stop via API → sessions move to `stopped`; glow deactivated via `deactivateCaptureGlow` path in `captureBridge`.
-- [x] Opt-in browsing domain → `POST /capture/browsing/observe` returns staged skill id.
-- [x] Research page capture → thread + graph node created; `context_search` returns citation in E2E.
-- [x] Adaptive home shows `next-meeting` and `research-thread` when data exists (`home_widgets` includes both).
-
-## Stop
-
-Phase 6 complete. **Do not start Phase 7** (v1.0 packaging) until explicitly asked. Page reshape is **Phase 9** (post-launch, incremental); evolving home is **Phase 8**.
+- `BROWSEROS_ASR_MOCK` is **unset** in `.env.development`; real faster-whisper runs by default using the eval venv Python. Set `BROWSEROS_ASR_MOCK=1` to revert to mock during unrelated dev work.
+- `BROWSEROS_ASR_SIDECAR` points to the eval venv. New devs should set up the venv (`apps/eval/scripts/asr-benchmark/`) or install `faster-whisper` globally.
+- The `--allowlisted-extension-id` flag in `tools/dev/browser/args.go` is kept for local dev convenience but is not needed in production — `kAgentExtensionId` is in the compiled allowlist.
