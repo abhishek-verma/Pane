@@ -4,6 +4,17 @@
 
 ## What's Changed
 
+- chore: bump versions to agent-extension v0.0.102 / server v0.0.123
+- feat(capture): Phase 6 passive capture — live transcript verified (#21)
+- docs: update agent extension changelog for v0.0.101 (#19)
+- feat: Phase 6 passive capture, buckets, and meeting pipeline
+- refactor: remove Pane Chat third-party LLM panel and LLM Hub
+
+
+## v0.0.102 (2026-07-12)
+
+## What's Changed
+
 ### Phase 7 — Pane v1.0 Polish, Correctness & Launch Readiness
 
 - **Diagnostics**: new `#/settings/diagnostics` route with server health, CDP status, disk usage, capture consent summary, reach transport status, keep-alive status, 7-day action log summary, and self-service tools (wipe context index, reset onboarding, inline log viewer)
