@@ -15,7 +15,7 @@ index 43fd1559ee..403c61b703 100644
      "external_policy_loader.cc",
      "external_policy_loader.h",
      "external_pref_loader.cc",
-@@ -687,6 +693,14 @@ source_set("extensions") {
+@@ -687,6 +693,16 @@ source_set("extensions") {
        "api/automation_internal/chrome_automation_internal_api_delegate.h",
        "api/bookmark_manager_private/bookmark_manager_private_api.cc",
        "api/bookmark_manager_private/bookmark_manager_private_api.h",
