@@ -26,6 +26,7 @@ import {
 import {
   cleanOldSessions,
   ensureBrowserosDir,
+  getBrowserosDir,
   getDbPath,
   removeServerConfigSync,
   writeServerConfig,
@@ -261,10 +262,8 @@ export class Application {
   }
 
   private configureLogDirectory(): void {
-    const logDir = this.config.executionDir
-    const resolvedDir = path.isAbsolute(logDir)
-      ? logDir
-      : path.resolve(process.cwd(), logDir)
+    const browserosDir = getBrowserosDir()
+    const resolvedDir = path.join(browserosDir, 'logs')
 
     try {
       fs.mkdirSync(resolvedDir, { recursive: true })

@@ -17,8 +17,8 @@ import type { LoggerInterface, LogLevel } from '@browseros/shared/types/logger'
 import pino from 'pino'
 
 const isDev = process.env.NODE_ENV === 'development'
-const LOG_FILE_NAME = 'browseros-server.log'
-const LOG_FILE_MAX_AGE_MS = 24 * 60 * 60 * 1000 // 1 day
+const LOG_FILE_PREFIX = 'pane-server-'
+const LOG_RETENTION_DAYS = 7
 
 /**
  * Parse caller info from stack trace.
@@ -71,25 +71,37 @@ function truncateForConsole(
 }
 
 /**
- * Rotate log file if it's older than max age.
- * Simple startup-time rotation - deletes old backup, renames current to .old
+ * Get today's log file name: pane-server-YYYY-MM-DD.log
  */
-function rotateLogIfNeeded(logPath: string): void {
-  try {
-    const stat = fs.statSync(logPath)
-    const ageMs = Date.now() - stat.mtimeMs
+function todayLogFileName(): string {
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${LOG_FILE_PREFIX}${yyyy}-${mm}-${dd}.log`
+}
 
-    if (ageMs > LOG_FILE_MAX_AGE_MS) {
-      const backupPath = `${logPath}.old`
+/**
+ * Remove log files older than retention period.
+ */
+function pruneOldLogs(logDir: string): void {
+  try {
+    const cutoff = Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000
+    const files = fs.readdirSync(logDir)
+    for (const file of files) {
+      if (!file.startsWith(LOG_FILE_PREFIX) || !file.endsWith('.log')) continue
+      const filePath = path.join(logDir, file)
       try {
-        fs.unlinkSync(backupPath)
+        const stat = fs.statSync(filePath)
+        if (stat.mtimeMs < cutoff) {
+          fs.unlinkSync(filePath)
+        }
       } catch {
-        // Backup doesn't exist, that's fine
+        // skip
       }
-      fs.renameSync(logPath, backupPath)
     }
   } catch {
-    // File doesn't exist, nothing to rotate
+    // logDir may not exist yet
   }
 }
 
@@ -152,13 +164,12 @@ class Logger implements LoggerInterface {
   }
 
   /**
-   * Configure file logging with async writes and rotation.
+   * Configure file logging with dated filenames and retention pruning.
    */
   setLogFile(logDir: string): void {
-    const logPath = path.join(logDir, LOG_FILE_NAME)
+    const logPath = path.join(logDir, todayLogFileName())
 
-    // Rotate old logs on startup
-    rotateLogIfNeeded(logPath)
+    pruneOldLogs(logDir)
 
     // Create async file destination
     const fileDestination = pino.destination({

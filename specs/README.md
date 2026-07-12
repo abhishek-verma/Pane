@@ -167,6 +167,7 @@ The **Context Graph** (02) is the center of gravity, **partitioned into context 
 | — | [Phase 5 Report](./PHASE-5-REPORT.md) | As-shipped Phase 5. Ship gate met. |
 | — | [Phase 6 Prompt](./PHASE-6-PROMPT.md) | Self-contained execution prompt for Phase 6 (Passive Capture & Buckets). Stops at Pane v0.6. |
 | — | [Phase 6 Report](./PHASE-6-REPORT.md) | As-shipped Phase 6. Ship gate met; next is Phase 7 (v1.0 packaging). |
+| — | [Phase 7 Prompt](./PHASE-7-PROMPT.md) | Self-contained execution prompt for Phase 7 (v1.0 polish, packaging, diagnostics, eval). |
 
 ---
 

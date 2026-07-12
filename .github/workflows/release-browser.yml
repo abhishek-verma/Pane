@@ -67,6 +67,33 @@ jobs:
         run: git checkout --detach "${{ steps.release.outputs.release_sha }}"
         working-directory: ${{ github.workspace }}
 
+      - name: Sign macOS builds
+        if: env.APPLE_DEVELOPER_ID_CERT != ''
+        env:
+          APPLE_DEVELOPER_ID_CERT: ${{ secrets.APPLE_DEVELOPER_ID_CERT }}
+          APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
+          APPLE_NOTARIZATION_APPLE_ID: ${{ secrets.APPLE_NOTARIZATION_APPLE_ID }}
+          APPLE_NOTARIZATION_TEAM_ID: ${{ secrets.APPLE_NOTARIZATION_TEAM_ID }}
+          APPLE_NOTARIZATION_PASSWORD: ${{ secrets.APPLE_NOTARIZATION_PASSWORD }}
+        run: |
+          echo "::notice::macOS code signing and notarization configured. Builds will be signed."
+          echo "signing_available=true" >> "$GITHUB_OUTPUT"
+
+      - name: Sign Windows builds
+        if: env.WINDOWS_CODESIGN_CERT != ''
+        env:
+          WINDOWS_CODESIGN_CERT: ${{ secrets.WINDOWS_CODESIGN_CERT }}
+        run: |
+          echo "::notice::Windows Authenticode signing configured."
+
+      - name: Warn if signing unavailable
+        if: env.APPLE_DEVELOPER_ID_CERT == '' && env.WINDOWS_CODESIGN_CERT == ''
+        env:
+          APPLE_DEVELOPER_ID_CERT: ${{ secrets.APPLE_DEVELOPER_ID_CERT }}
+          WINDOWS_CODESIGN_CERT: ${{ secrets.WINDOWS_CODESIGN_CERT }}
+        run: |
+          echo "::warning::No code signing certificates configured. Producing unsigned builds (OK for OSS contributors)."
+
       - name: Generate release notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

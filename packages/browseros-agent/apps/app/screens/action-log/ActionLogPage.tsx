@@ -65,9 +65,14 @@ export const ActionLogPage: FC = () => {
       )}
 
       {!loading && !error && entries.length === 0 && (
-        <p className="text-muted-foreground text-sm">
-          No consequential actions recorded yet.
-        </p>
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <p className="font-medium text-sm">No actions recorded yet</p>
+          <p className="mt-1 text-muted-foreground text-xs">
+            When Pane writes files, runs commands, or takes other consequential
+            actions on your behalf, each one is logged here with its approval
+            status and consequence class.
+          </p>
+        </div>
       )}
 
       <ul className="space-y-3">

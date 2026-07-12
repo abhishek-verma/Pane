@@ -88,7 +88,13 @@ export const TasksPage: FC = () => {
       )}
 
       {!loading && inbox.length === 0 && (
-        <p className="text-muted-foreground text-sm">Inbox is empty.</p>
+        <div className="rounded-lg border border-dashed p-6 text-center">
+          <p className="font-medium text-sm">No tasks yet</p>
+          <p className="mt-1 text-muted-foreground text-xs">
+            Type a task above and press Add, or Pane will suggest follow-ups
+            from your browsing and conversations.
+          </p>
+        </div>
       )}
 
       <ul className="space-y-3">
