@@ -15,7 +15,6 @@ import { ONBOARDING_STEP_COMPLETED_EVENT } from '@/lib/constants/analyticsEvents
 import { BUILTIN_TEMPLATES } from '@/lib/home/builtin-templates'
 import { track } from '@/lib/metrics/track'
 import type { OnboardingIcp } from '@/lib/onboarding/icp'
-import { onboardingIcpStorage } from '@/lib/onboarding/onboardingStorage'
 import { type StepDirection, StepTransition } from './StepTransition'
 
 // ICP → suggested starter widget ids
@@ -45,7 +44,7 @@ export const StepWidgets = ({ direction, onContinue }: StepWidgetsProps) => {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
 
-  const icp = onboardingIcpStorage.fallbackValue as OnboardingIcp | null
+  const icp = null as OnboardingIcp | null // ICP is async; step shows general starters
   const preferredIds =
     ICP_WIDGET_MAP[icp ?? 'default'] ?? ICP_WIDGET_MAP['default']
 
