@@ -125,6 +125,45 @@ index 0000000000000..0da7f357c6730
 +  ResponseAction Run() override;
 +};
 +
++class BrowserOSCaptureTabAudioFunction : public ExtensionFunction {
++ public:
++  DECLARE_EXTENSION_FUNCTION("browserOS.captureTabAudio",
++                             BROWSER_OS_CAPTURETABAUDIO)
++
++  BrowserOSCaptureTabAudioFunction() = default;
++
++ protected:
++  ~BrowserOSCaptureTabAudioFunction() override = default;
++
++  ResponseAction Run() override;
++};
++
++class BrowserOSStopCaptureTabAudioFunction : public ExtensionFunction {
++ public:
++  DECLARE_EXTENSION_FUNCTION("browserOS.stopCaptureTabAudio",
++                             BROWSER_OS_STOPCAPTURETABAUDIO)
++
++  BrowserOSStopCaptureTabAudioFunction() = default;
++
++ protected:
++  ~BrowserOSStopCaptureTabAudioFunction() override = default;
++
++  ResponseAction Run() override;
++};
++
++class BrowserOSGetCaptureStatusFunction : public ExtensionFunction {
++ public:
++  DECLARE_EXTENSION_FUNCTION("browserOS.getCaptureStatus",
++                             BROWSER_OS_GETCAPTURESTATUS)
++
++  BrowserOSGetCaptureStatusFunction() = default;
++
++ protected:
++  ~BrowserOSGetCaptureStatusFunction() override = default;
++
++  ResponseAction Run() override;
++};
++
 +}  // namespace extensions::api
 +
 +#endif  // CHROME_BROWSER_EXTENSIONS_API_BROWSER_OS_BROWSER_OS_API_H_

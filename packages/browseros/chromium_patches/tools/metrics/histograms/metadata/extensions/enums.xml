@@ -33,6 +33,9 @@ index 67daa1883b62f..ee0a736394d66 100644
 +  <int value="1986" label="BROWSER_OS_CHOOSEPATH"/>
 +  <int value="1987" label="BROWSER_OS_SHOWTOAST"/>
 +  <int value="1988" label="BROWSER_OS_SHOWINFOBAR"/>
++  <int value="1989" label="BROWSER_OS_CAPTURETABAUDIO"/>
++  <int value="1990" label="BROWSER_OS_STOPCAPTURETABAUDIO"/>
++  <int value="1991" label="BROWSER_OS_GETCAPTURESTATUS"/>
  </enum>
  
  <!-- LINT.ThenChange(//extensions/browser/extension_function_histogram_value.h:HistogramValue) -->

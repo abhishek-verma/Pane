@@ -5,133 +5,121 @@ import {
 } from '@/lib/messaging/runtime/runtimeMessages'
 import type { GlowMessage } from './GlowMessage'
 
+const BUBBLE_ID = 'browseros-capture-bubble'
+const BUBBLE_STYLES_ID = 'browseros-capture-bubble-styles'
 const GLOW_OVERLAY_ID = 'browseros-glow-overlay'
 const GLOW_STYLES_ID = 'browseros-glow-styles'
-const GLOW_STOP_BTN_ID = 'browseros-glow-stop-btn'
-
-const GLOW_THICKNESS = 1.0
-const GLOW_OPACITY = 0.6
 
 let activeConversationId: string | null = null
 let activeCaptureSessionId: string | null = null
 let activeMode: GlowMessage['mode'] = 'agent'
 
-function injectStyles(): void {
-  if (document.getElementById(GLOW_STYLES_ID)) {
-    return
-  }
-
-  const t = GLOW_THICKNESS
-
+function injectBubbleStyles(): void {
+  if (document.getElementById(BUBBLE_STYLES_ID)) return
   const style = document.createElement('style')
-  style.id = GLOW_STYLES_ID
+  style.id = BUBBLE_STYLES_ID
   style.textContent = `
-    @keyframes browseros-glow-pulse {
-      0% {
-        box-shadow:
-          inset 0 0 ${58 * t}px ${26 * t}px transparent,
-          inset 0 0 ${50 * t}px ${22 * t}px rgba(251, 102, 24, 0.06),
-          inset 0 0 ${42 * t}px ${18 * t}px rgba(251, 102, 24, 0.12),
-          inset 0 0 ${34 * t}px ${14 * t}px rgba(251, 102, 24, 0.18);
-      }
-      50% {
-        box-shadow:
-          inset 0 0 ${72 * t}px ${35 * t}px transparent,
-          inset 0 0 ${64 * t}px ${32 * t}px rgba(251, 102, 24, 0.10),
-          inset 0 0 ${54 * t}px ${26 * t}px rgba(251, 102, 24, 0.18),
-          inset 0 0 ${46 * t}px ${22 * t}px rgba(251, 102, 24, 0.24);
-      }
-      100% {
-        box-shadow:
-          inset 0 0 ${58 * t}px ${26 * t}px transparent,
-          inset 0 0 ${50 * t}px ${22 * t}px rgba(251, 102, 24, 0.06),
-          inset 0 0 ${42 * t}px ${18 * t}px rgba(251, 102, 24, 0.12),
-          inset 0 0 ${34 * t}px ${14 * t}px rgba(251, 102, 24, 0.18);
-      }
+    @keyframes browseros-bubble-in {
+      from { opacity: 0; scale: 0.6; }
+      to { opacity: 1; scale: 1; }
     }
-
-    @keyframes browseros-glow-fade-in {
-      from { opacity: 0; }
-      to { opacity: ${GLOW_OPACITY}; }
+    @keyframes browseros-bubble-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(251,102,24,0.4); }
+      50% { box-shadow: 0 0 0 6px rgba(251,102,24,0); }
     }
-
-    @keyframes browseros-glow-btn-fade-in {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    #${GLOW_OVERLAY_ID} {
+    #${BUBBLE_ID} {
       position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 100% !important;
-      height: 100% !important;
-      pointer-events: none !important;
-      z-index: 2147483647 !important;
-      opacity: 0;
-      will-change: opacity;
-      animation:
-        browseros-glow-pulse 3s ease-in-out infinite,
-        browseros-glow-fade-in 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
-    }
-
-    #${GLOW_STOP_BTN_ID} {
-      position: fixed !important;
-      bottom: 24px !important;
-      left: 50% !important;
-      transform: translateX(-50%) !important;
-      width: 48px !important;
-      height: 48px !important;
+      top: 12px !important;
+      right: 12px !important;
+      width: 36px !important;
+      height: 36px !important;
       border-radius: 50% !important;
-      background: rgba(220, 38, 38, 0.95) !important;
+      background: rgba(251,102,24,0.95) !important;
       color: white !important;
-      border: none !important;
-      pointer-events: auto !important;
-      cursor: pointer !important;
+      border: 2px solid rgba(255,255,255,0.3) !important;
+      cursor: grab !important;
       z-index: 2147483647 !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
-      line-height: 1 !important;
       padding: 0 !important;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-      opacity: 0;
-      animation: browseros-glow-btn-fade-in 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+      font-size: 0 !important;
+      line-height: 1 !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+      animation: browseros-bubble-in 200ms ease-out, browseros-bubble-pulse 2s ease-in-out infinite !important;
+      transition: background 150ms ease, transform 100ms ease !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      touch-action: none !important;
     }
-
-    #${GLOW_STOP_BTN_ID}:hover {
-      background: rgba(185, 28, 28, 1) !important;
+    #${BUBBLE_ID}:hover {
+      background: rgba(220,60,20,1) !important;
+      transform: scale(1.1) !important;
     }
-
-    #${GLOW_OVERLAY_ID}[data-mode="capture"] {
-      animation:
-        browseros-glow-pulse 1.5s ease-in-out infinite,
-        browseros-glow-fade-in 180ms cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
+    #${BUBBLE_ID}:active {
+      cursor: grabbing !important;
+    }
+    #${BUBBLE_ID}[data-mode="agent"] {
+      background: rgba(59,130,246,0.95) !important;
+    }
+    #${BUBBLE_ID}[data-mode="agent"]:hover {
+      background: rgba(37,99,235,1) !important;
+    }
+    #${BUBBLE_ID} .browseros-bubble-tooltip {
+      position: absolute !important;
+      right: calc(100% + 8px) !important;
+      top: 50% !important;
+      transform: translateY(-50%) !important;
+      background: rgba(0,0,0,0.8) !important;
+      color: white !important;
+      font-size: 11px !important;
+      padding: 4px 8px !important;
+      border-radius: 6px !important;
+      white-space: nowrap !important;
+      pointer-events: none !important;
+      opacity: 0 !important;
+      transition: opacity 150ms !important;
+    }
+    #${BUBBLE_ID}:hover .browseros-bubble-tooltip {
+      opacity: 1 !important;
     }
   `
-  const appendStyle = () => document.head.appendChild(style)
-
-  if (document.head) {
-    appendStyle()
-  } else {
-    document.addEventListener('DOMContentLoaded', appendStyle, { once: true })
-  }
+  const append = () => document.head.appendChild(style)
+  if (document.head) append()
+  else document.addEventListener('DOMContentLoaded', append, { once: true })
 }
 
-function startGlow(mode: GlowMessage['mode'] = 'agent'): void {
-  stopGlow()
-  injectStyles()
+function createBubble(mode: GlowMessage['mode']): void {
+  removeBubble()
+  injectBubbleStyles()
 
-  const overlay = document.createElement('div')
-  overlay.id = GLOW_OVERLAY_ID
-  overlay.dataset.mode = mode ?? 'agent'
+  const bubble = document.createElement('button')
+  bubble.id = BUBBLE_ID
+  bubble.dataset.mode = mode ?? 'capture'
+  bubble.setAttribute(
+    'aria-label',
+    mode === 'capture'
+      ? 'Recording — click to stop'
+      : 'Agent running — click to stop',
+  )
 
-  const button = document.createElement('button')
-  button.id = GLOW_STOP_BTN_ID
-  button.innerHTML =
-    '<svg width="16" height="16" viewBox="0 0 16 16" fill="white" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="14" height="14" rx="2"/></svg>'
-  button.addEventListener('click', () => {
-    if (activeMode === 'capture' && activeCaptureSessionId) {
+  const icon =
+    mode === 'capture'
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg>'
+      : '<svg width="14" height="14" viewBox="0 0 16 16" fill="white"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>'
+  bubble.innerHTML =
+    icon +
+    `<span class="browseros-bubble-tooltip">${mode === 'capture' ? 'Recording — click to stop' : 'Agent — click to stop'}</span>`
+
+  let dragging = false
+  let offsetX = 0
+  let offsetY = 0
+  let wasDragged = false
+
+  bubble.addEventListener('click', (e) => {
+    if (wasDragged) return
+    e.preventDefault()
+    if (mode === 'capture' && activeCaptureSessionId) {
       void sendRuntimeMessage(RuntimeMessageType.stopCapture, {
         sessionId: activeCaptureSessionId,
       })
@@ -142,15 +130,41 @@ function startGlow(mode: GlowMessage['mode'] = 'agent'): void {
     }
   })
 
-  overlay.appendChild(button)
+  bubble.addEventListener('pointerdown', (e) => {
+    dragging = true
+    wasDragged = false
+    offsetX = e.clientX - bubble.getBoundingClientRect().left
+    offsetY = e.clientY - bubble.getBoundingClientRect().top
+    bubble.setPointerCapture(e.pointerId)
+    bubble.style.cursor = 'grabbing'
+  })
 
-  const appendOverlay = () => document.body.appendChild(overlay)
+  bubble.addEventListener('pointermove', (e) => {
+    if (!dragging) return
+    wasDragged = true
+    const x = e.clientX - offsetX
+    const y = e.clientY - offsetY
+    bubble.style.right = 'auto'
+    bubble.style.left = `${Math.max(0, Math.min(x, window.innerWidth - 36))}px`
+    bubble.style.top = `${Math.max(0, Math.min(y, window.innerHeight - 36))}px`
+  })
 
-  if (document.body) {
-    appendOverlay()
-  } else {
-    document.addEventListener('DOMContentLoaded', appendOverlay, { once: true })
-  }
+  bubble.addEventListener('pointerup', (e) => {
+    dragging = false
+    bubble.releasePointerCapture(e.pointerId)
+    bubble.style.cursor = 'grab'
+    setTimeout(() => {
+      wasDragged = false
+    }, 50)
+  })
+
+  const append = () => document.body.appendChild(bubble)
+  if (document.body) append()
+  else document.addEventListener('DOMContentLoaded', append, { once: true })
+}
+
+function removeBubble(): void {
+  document.getElementById(BUBBLE_ID)?.remove()
 }
 
 function fireConfetti(): void {
@@ -199,11 +213,10 @@ function fireConfetti(): void {
   }, 350)
 }
 
-function stopGlow(): void {
-  const overlay = document.getElementById(GLOW_OVERLAY_ID)
-  if (overlay) {
-    overlay.remove()
-  }
+// Legacy glow removal (cleanup from older installs)
+function stopLegacyGlow(): void {
+  document.getElementById(GLOW_OVERLAY_ID)?.remove()
+  document.getElementById(GLOW_STYLES_ID)?.remove()
 }
 
 export default defineContentScript({
@@ -221,7 +234,8 @@ export default defineContentScript({
           activeMode = mode
           activeConversationId = message.conversationId ?? null
           activeCaptureSessionId = message.sessionId ?? null
-          startGlow(mode)
+          stopLegacyGlow()
+          createBubble(mode)
         } else if (
           (mode === 'capture' &&
             message.sessionId === activeCaptureSessionId) ||
@@ -229,7 +243,7 @@ export default defineContentScript({
         ) {
           activeConversationId = null
           activeCaptureSessionId = null
-          stopGlow()
+          removeBubble()
           if (message.showConfetti) {
             fireConfetti()
           }
@@ -240,11 +254,11 @@ export default defineContentScript({
       },
     )
 
-    window.addEventListener('beforeunload', stopGlow)
+    window.addEventListener('beforeunload', removeBubble)
 
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && activeMode !== 'capture') {
-        stopGlow()
+        removeBubble()
       }
     })
   },

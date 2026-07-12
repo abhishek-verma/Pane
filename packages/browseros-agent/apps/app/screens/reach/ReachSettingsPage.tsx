@@ -179,19 +179,20 @@ export const ReachSettingsPage: FC = () => {
         <div className="grid gap-2 sm:grid-cols-2">
           {(
             [
-              ['host', 'Host'],
-              ['port', 'Port'],
-              ['user', 'User'],
-              ['password', 'Password / app password'],
-              ['from', 'From'],
-              ['to', 'To'],
+              ['host', 'Host', 'smtp.gmail.com'],
+              ['port', 'Port', '587'],
+              ['user', 'User', 'you@gmail.com'],
+              ['password', 'Password / app password', 'app password'],
+              ['from', 'From', 'you@gmail.com'],
+              ['to', 'To', 'you@gmail.com'],
             ] as const
-          ).map(([key, label]) => (
+          ).map(([key, label, placeholder]) => (
             <div key={key} className="space-y-1">
               <Label>{label}</Label>
               <Input
                 type={key === 'password' ? 'password' : 'text'}
                 value={email[key]}
+                placeholder={placeholder}
                 onChange={(e) =>
                   setEmail((prev) => ({ ...prev, [key]: e.target.value }))
                 }

@@ -21,6 +21,8 @@ index 43fd1559ee..403c61b703 100644
        "api/bookmark_manager_private/bookmark_manager_private_api.h",
 +      "api/browser_os/browser_os_api.cc",
 +      "api/browser_os/browser_os_api.h",
++      "api/browser_os/browser_os_capture.cc",
++      "api/browser_os/browser_os_capture.h",
 +      "api/browser_os/browser_os_api_helpers.cc",
 +      "api/browser_os/browser_os_api_helpers.h",
 +      "api/browser_os/browser_os_api_utils.cc",

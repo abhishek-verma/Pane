@@ -59,7 +59,8 @@ export const ShortcutsDialog = ({
         </div>
 
         <div className="mt-8 border-border/50 border-t pt-4 text-center text-muted-foreground text-xs">
-          More shortcuts coming soon
+          Press <Kbd>{isMac ? '⌘' : 'Ctrl'}</Kbd> + <Kbd>/</Kbd> to toggle this
+          dialog
         </div>
       </DialogContent>
     </Dialog>

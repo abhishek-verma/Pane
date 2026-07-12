@@ -481,7 +481,7 @@ Plan complete and saved to `specs/IMPLEMENTATION-PLAN.md`. Two execution options
 - Phase 4: [`PHASE-4-PROMPT.md`](./PHASE-4-PROMPT.md)
 - Phase 5: [`PHASE-5-PROMPT.md`](./PHASE-5-PROMPT.md)
 - Phase 6: [`PHASE-6-PROMPT.md`](./PHASE-6-PROMPT.md)
-- Phase 7: (packaging / v1.0 — prompt TBD)
+- Phase 7: ([v1.0 polish & launch readiness](./PHASE-7-PROMPT.md))
 - Phase 8: (evolving home — prompt TBD post-v1.0)
 - Phase 9: (page reshape — prompt TBD; incremental verticals)
 

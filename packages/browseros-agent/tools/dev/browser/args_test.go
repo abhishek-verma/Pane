@@ -27,4 +27,7 @@ func TestBuildArgsUsesDevDockIconAndDisablesBundledExtensions(t *testing.T) {
 	if !strings.Contains(joined, "--load-extension=") {
 		t.Fatalf("missing load-extension arg in\n%s", joined)
 	}
+	if !strings.Contains(joined, "--allowlisted-extension-id=biedncddmddkpapdplhcnkhhplnfgbif") {
+		t.Fatalf("missing allowlisted extension arg in\n%s", joined)
+	}
 }

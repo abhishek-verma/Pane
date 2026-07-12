@@ -111,7 +111,11 @@ export const MemoryPage: FC = () => {
       <section className="space-y-3">
         <h2 className="font-medium text-sm">Staged skills</h2>
         {(staged.data?.staged ?? []).length === 0 && (
-          <p className="text-muted-foreground text-sm">No staged skills.</p>
+          <p className="text-muted-foreground text-sm">
+            No skills waiting for review. Pane proposes skills when it notices
+            repeating patterns in your workflow — they'll appear here for your
+            approval.
+          </p>
         )}
         <ul className="space-y-3">
           {(staged.data?.staged ?? []).map((s) => (

@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Server,
   Shield,
+  Stethoscope,
 } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink } from 'react-router'
@@ -78,6 +79,11 @@ const primarySettingsSections: NavSection[] = [
         name: 'Reach & Keep-alive',
         to: '/settings/reach',
         icon: MessageSquare,
+      },
+      {
+        name: 'Diagnostics',
+        to: '/settings/diagnostics',
+        icon: Stethoscope,
       },
       {
         name: 'Usage & Billing',

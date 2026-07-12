@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { appendFile, mkdir, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   ByokTranscriptionProvider,
@@ -50,6 +50,7 @@ const activeSessions = new Map<
     rawDir: string
   }
 >()
+const feedQueues = new Map<string, Promise<void>>()
 
 function sqlite() {
   return getDbHandle().sqlite
@@ -137,6 +138,33 @@ export async function feedCaptureChunk(input: {
   data: Uint8Array
   capturedAt?: number
 }): Promise<void> {
+  const prior = feedQueues.get(input.sessionId) ?? Promise.resolve()
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  feedQueues.set(
+    input.sessionId,
+    prior.then(() => gate),
+  )
+  await prior
+  try {
+    await feedCaptureChunkInner(input)
+  } finally {
+    release()
+    if (feedQueues.get(input.sessionId) === gate) {
+      feedQueues.delete(input.sessionId)
+    }
+  }
+}
+
+async function feedCaptureChunkInner(input: {
+  sessionId: string
+  sequence: number
+  mimeType: string
+  data: Uint8Array
+  capturedAt?: number
+}): Promise<void> {
   await refreshCapturePauseState()
   assertCaptureNotPaused()
   const active = activeSessions.get(input.sessionId)
@@ -152,7 +180,14 @@ export async function feedCaptureChunk(input: {
     join(active.rawDir, `${String(input.sequence).padStart(8, '0')}.chunk`),
     chunk.data,
   )
-  await active.providerSession.feedChunk(chunk)
+  const streamPath = join(active.rawDir, 'stream.webm')
+  if (input.sequence === 0) {
+    await writeFile(streamPath, chunk.data)
+  } else {
+    await appendFile(streamPath, chunk.data)
+  }
+  const decodable = new Uint8Array(await readFile(streamPath))
+  await active.providerSession.feedChunk({ ...chunk, data: decodable })
 }
 
 export async function appendPageSnapshot(input: {

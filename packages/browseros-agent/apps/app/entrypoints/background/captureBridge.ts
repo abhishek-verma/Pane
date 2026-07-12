@@ -16,6 +16,7 @@ import {
   stopMeetingSession,
 } from '@/lib/capture/capture-api'
 import { activateCaptureGlow, deactivateCaptureGlow } from '@/lib/capture/glow'
+import { getMeetingTabCallState } from '@/lib/capture/meeting-in-call'
 import {
   isMeetingRoomUrl,
   meetingHostname,
@@ -38,10 +39,29 @@ import {
 
 const SYNC_ALARM = 'capture-sync'
 const SYNC_PERIOD_MINUTES = 0.25
+const PENDING_MEETING_POLL_MS = 2_000
 const BROWSE_DEBOUNCE_MS = 30_000
 
 const lastBrowseAtByTab = new Map<number, number>()
+/** Room URLs waiting for in-call DOM before capture starts. */
+const pendingMeetingTabs = new Map<number, string>()
 let syncing = false
+let pendingPollTimer: ReturnType<typeof setInterval> | null = null
+
+function ensurePendingMeetingPoll(): void {
+  if (pendingPollTimer) return
+  pendingPollTimer = setInterval(() => {
+    if (pendingMeetingTabs.size === 0) return
+    void pollPendingMeetingTabs().catch(() => null)
+  }, PENDING_MEETING_POLL_MS)
+}
+
+function stopPendingMeetingPollIfIdle(): void {
+  if (pendingMeetingTabs.size > 0) return
+  if (!pendingPollTimer) return
+  clearInterval(pendingPollTimer)
+  pendingPollTimer = null
+}
 
 function isSkippableUrl(url: string | undefined): boolean {
   if (!url) return true
@@ -120,6 +140,8 @@ async function syncActiveSessions(): Promise<void> {
   if (syncing) return
   syncing = true
   try {
+    await pollPendingMeetingTabs()
+
     const sessions = await fetchActiveMeetingSessions()
     const activeIds = new Set(sessions.map((session) => session.id))
 
@@ -129,7 +151,33 @@ async function syncActiveSessions(): Promise<void> {
         await stopCaptureForSession(session.id, session.tabId)
         continue
       }
-      if (isRecording(session.id)) continue
+      const callState = await getMeetingTabCallState(session.tabId).catch(
+        () => 'prejoin' as const,
+      )
+      if (callState === 'left') {
+        pendingMeetingTabs.delete(session.tabId)
+        await stopCaptureForSession(session.id, session.tabId)
+        continue
+      }
+      if (callState !== 'in-call') {
+        // Wait on pre-join without tearing down an already-started session's
+        // server record; only hold off on glow/recording until in-call.
+        pendingMeetingTabs.set(session.tabId, session.url)
+        ensurePendingMeetingPoll()
+        if (!isRecording(session.id)) {
+          deactivateCaptureGlow(session.tabId, session.id)
+        }
+        continue
+      }
+      pendingMeetingTabs.delete(session.tabId)
+      if (isRecording(session.id)) {
+        activateCaptureGlow({
+          tabId: session.tabId,
+          sessionId: session.id,
+          captureClass: 'meeting',
+        })
+        continue
+      }
       try {
         await startTabAudioCapture({
           sessionId: session.id,
@@ -163,6 +211,22 @@ async function syncActiveSessions(): Promise<void> {
   }
 }
 
+async function pollPendingMeetingTabs(): Promise<void> {
+  for (const [tabId, url] of pendingMeetingTabs.entries()) {
+    if (!isMeetingRoomUrl(url)) {
+      pendingMeetingTabs.delete(tabId)
+      continue
+    }
+    const callState = await getMeetingTabCallState(tabId).catch(
+      () => 'prejoin' as const,
+    )
+    if (callState !== 'in-call') continue
+    pendingMeetingTabs.delete(tabId)
+    await maybeStartMeetingCapture(tabId, url)
+  }
+  stopPendingMeetingPollIfIdle()
+}
+
 async function maybeStartMeetingCapture(
   tabId: number,
   url: string,
@@ -177,9 +241,43 @@ async function maybeStartMeetingCapture(
   )
   if (!allowed) return
 
+  const callState = await getMeetingTabCallState(tabId).catch(
+    () => 'prejoin' as const,
+  )
+  if (callState !== 'in-call') {
+    if (callState === 'left') {
+      pendingMeetingTabs.delete(tabId)
+      await stopCaptureForTab(tabId)
+      return
+    }
+    pendingMeetingTabs.set(tabId, url)
+    ensurePendingMeetingPoll()
+    return
+  }
+  pendingMeetingTabs.delete(tabId)
+
   const active = await fetchActiveMeetingSessions()
   const existingOnTab = active.find((session) => session.tabId === tabId)
-  if (existingOnTab?.url && isMeetingRoomUrl(existingOnTab.url)) return
+  if (existingOnTab?.url && isMeetingRoomUrl(existingOnTab.url)) {
+    if (!isRecording(existingOnTab.id)) {
+      try {
+        await startTabAudioCapture({
+          sessionId: existingOnTab.id,
+          tabId,
+        })
+        activateCaptureGlow({
+          tabId,
+          sessionId: existingOnTab.id,
+          captureClass: 'meeting',
+        })
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Tab audio capture failed'
+        await failCaptureForSession(existingOnTab.id, tabId, message)
+      }
+    }
+    return
+  }
   if (existingOnTab) {
     await stopCaptureForSession(existingOnTab.id, tabId)
   }
@@ -221,9 +319,13 @@ async function stopCaptureForTab(tabId: number): Promise<void> {
 
 async function handleNavigation(tabId: number, url: string): Promise<void> {
   if (isMeetingRoomUrl(url)) {
+    pendingMeetingTabs.set(tabId, url)
+    ensurePendingMeetingPoll()
     await maybeStartMeetingCapture(tabId, url)
     return
   }
+  pendingMeetingTabs.delete(tabId)
+  stopPendingMeetingPollIfIdle()
   await stopCaptureForTab(tabId)
   await observeTabIfConsented(tabId, url)
 }
@@ -277,8 +379,19 @@ export function captureBridge(): void {
     void handleNavigation(details.tabId, details.url).catch(() => null)
   })
 
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status !== 'complete' && !changeInfo.url) return
+    const url = changeInfo.url ?? tab.url
+    if (!url || !isMeetingRoomUrl(url)) return
+    pendingMeetingTabs.set(tabId, url)
+    ensurePendingMeetingPoll()
+    void maybeStartMeetingCapture(tabId, url).catch(() => null)
+  })
+
   chrome.tabs.onRemoved.addListener((tabId) => {
     lastBrowseAtByTab.delete(tabId)
+    pendingMeetingTabs.delete(tabId)
+    stopPendingMeetingPollIfIdle()
     void stopCaptureForTab(tabId).catch(() => null)
   })
 

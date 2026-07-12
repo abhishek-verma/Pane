@@ -5,19 +5,11 @@
  */
 
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
-import { uploadCaptureChunk } from './capture-api'
-
-const CHUNK_MS = 4_000
-
-interface RecorderState {
-  sessionId: string
-  tabId: number
-  sequence: number
-  recorder: MediaRecorder
-  stream: MediaStream
-}
-
-const recorders = new Map<string, RecorderState>()
+import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import {
+  closeCaptureOffscreenDocumentIfIdle,
+  ensureCaptureOffscreenDocument,
+} from './offscreen-audio'
 
 async function resolveStreamId(tabId: number): Promise<string> {
   const adapter = getBrowserOSAdapter()
@@ -53,77 +45,61 @@ async function resolveStreamId(tabId: number): Promise<string> {
   })
 }
 
-async function openTabAudioStream(tabId: number): Promise<MediaStream> {
-  const streamId = await resolveStreamId(tabId)
-  return navigator.mediaDevices.getUserMedia({
-    audio: {
-      mandatory: {
-        chromeMediaSource: 'tab',
-        chromeMediaSourceId: streamId,
-      },
-    },
-    // biome-ignore lint/suspicious/noExplicitAny: Chrome-specific constraint
-  } as any)
-}
+const activeSessions = new Map<string, number>()
 
 export async function startTabAudioCapture(input: {
   sessionId: string
   tabId: number
 }): Promise<void> {
-  if (recorders.has(input.sessionId)) return
+  if (activeSessions.has(input.sessionId)) return
 
-  const stream = await openTabAudioStream(input.tabId)
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-    ? 'audio/webm;codecs=opus'
-    : 'audio/webm'
-  const recorder = new MediaRecorder(stream, { mimeType })
-  const state: RecorderState = {
-    sessionId: input.sessionId,
-    tabId: input.tabId,
-    sequence: 0,
-    recorder,
-    stream,
+  const streamId = await resolveStreamId(input.tabId)
+  const serverUrl = await getAgentServerUrl()
+  await ensureCaptureOffscreenDocument()
+
+  const response = (await chrome.runtime.sendMessage({
+    type: 'capture-audio-start',
+    payload: {
+      sessionId: input.sessionId,
+      tabId: input.tabId,
+      streamId,
+      serverUrl,
+    },
+  })) as { ok?: boolean; error?: string } | undefined
+
+  if (!response?.ok) {
+    throw new Error(
+      response?.error ?? 'Offscreen audio capture failed to start',
+    )
   }
 
-  recorder.addEventListener('dataavailable', (event) => {
-    if (!event.data || event.data.size === 0) return
-    const sequence = state.sequence++
-    void event.data.arrayBuffer().then((buffer) =>
-      uploadCaptureChunk({
-        sessionId: input.sessionId,
-        sequence,
-        mimeType,
-        data: buffer,
-      }).catch(() => null),
-    )
-  })
-
-  recorder.start(CHUNK_MS)
-  recorders.set(input.sessionId, state)
+  activeSessions.set(input.sessionId, input.tabId)
 }
 
 export async function stopTabAudioCapture(sessionId: string): Promise<void> {
-  const state = recorders.get(sessionId)
-  if (!state) return
+  const tabId = activeSessions.get(sessionId)
+  if (tabId === undefined) return
 
-  if (state.recorder.state !== 'inactive') {
-    state.recorder.stop()
-  }
-  for (const track of state.stream.getTracks()) {
-    track.stop()
-  }
-  recorders.delete(sessionId)
+  await chrome.runtime
+    .sendMessage({
+      type: 'capture-audio-stop',
+      payload: { sessionId },
+    })
+    .catch(() => null)
+
+  activeSessions.delete(sessionId)
+  await closeCaptureOffscreenDocumentIfIdle()
 
   const adapter = getBrowserOSAdapter()
   if (adapter.isAPIAvailable('stopCaptureTabAudio')) {
-    chrome.browserOS.stopCaptureTabAudio(state.tabId, () => {})
+    chrome.browserOS.stopCaptureTabAudio(tabId, () => {})
   }
 }
 
 export function isRecording(sessionId: string): boolean {
-  return recorders.has(sessionId)
+  return activeSessions.has(sessionId)
 }
 
 export function recordingSessionIds(): string[] {
-  return Array.from(recorders.keys())
+  return Array.from(activeSessions.keys())
 }

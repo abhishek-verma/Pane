@@ -10,6 +10,8 @@ index 0000000000000..ea477521a09d7
 +
 +#include "chrome/browser/extensions/api/browser_os/browser_os_api.h"
 +
++#include "chrome/browser/extensions/api/browser_os/browser_os_capture.h"
++
 +#include <algorithm>
 +#include <memory>
 +#include <optional>
@@ -341,6 +343,66 @@ index 0000000000000..ea477521a09d7
 +
 +  return RespondNow(
 +      ArgumentList(browser_os::ShowInfoBar::Results::Create(shown)));
++}
++
++ExtensionFunction::ResponseAction BrowserOSCaptureTabAudioFunction::Run() {
++  std::optional<browser_os::CaptureTabAudio::Params> params =
++      browser_os::CaptureTabAudio::Params::Create(args());
++  EXTENSION_FUNCTION_VALIDATE(params);
++
++  if (params->options.bucket_id.empty()) {
++    return RespondNow(Error("bucketId must not be empty"));
++  }
++
++  const std::optional<BrowserOSCaptureService::Session> session =
++      BrowserOSCaptureService::Get()->StartCapture(
++          browser_context(), extension(), source_process_id(),
++          /*restrict_to_frame_id=*/std::nullopt, params->tab_id,
++          params->options.capture_class, params->options.bucket_id,
++          params->options.session_id ? *params->options.session_id
++                                     : std::string());
++  if (!session) {
++    return RespondNow(Error("Unable to start tab audio capture"));
++  }
++
++  browser_os::CaptureTabAudioResult result;
++  result.stream_id = session->stream_id;
++  result.tab_id = session->tab_id;
++  result.capture_class = session->capture_class;
++  result.active = session->active;
++  return RespondNow(
++      ArgumentList(browser_os::CaptureTabAudio::Results::Create(result)));
++}
++
++ExtensionFunction::ResponseAction BrowserOSStopCaptureTabAudioFunction::Run() {
++  std::optional<browser_os::StopCaptureTabAudio::Params> params =
++      browser_os::StopCaptureTabAudio::Params::Create(args());
++  EXTENSION_FUNCTION_VALIDATE(params);
++
++  const bool stopped =
++      BrowserOSCaptureService::Get()->StopCapture(params->tab_id);
++  return RespondNow(ArgumentList(
++      browser_os::StopCaptureTabAudio::Results::Create(stopped)));
++}
++
++ExtensionFunction::ResponseAction BrowserOSGetCaptureStatusFunction::Run() {
++  std::optional<browser_os::GetCaptureStatus::Params> params =
++      browser_os::GetCaptureStatus::Params::Create(args());
++  EXTENSION_FUNCTION_VALIDATE(params);
++
++  browser_os::CaptureStatus status;
++  status.tab_id = params->tab_id;
++  status.active = false;
++
++  if (const std::optional<BrowserOSCaptureService::Session> session =
++          BrowserOSCaptureService::Get()->GetStatus(params->tab_id)) {
++    status.active = session->active;
++    status.capture_class = session->capture_class;
++    status.stream_id = session->stream_id;
++  }
++
++  return RespondNow(
++      ArgumentList(browser_os::GetCaptureStatus::Results::Create(status)));
 +}
 +
 +}  // namespace api

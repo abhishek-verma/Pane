@@ -79,7 +79,10 @@ export const ScheduledTaskResults: FC<ScheduledTaskResultsProps> = ({
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
         <Calendar className="h-10 w-10 opacity-50" />
-        <p className="text-sm">No task runs yet</p>
+        <p className="text-sm">No runs yet</p>
+        <p className="max-w-xs text-center text-xs">
+          Results will appear here after this task runs for the first time.
+        </p>
       </div>
     )
   }

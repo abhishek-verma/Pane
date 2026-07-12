@@ -113,12 +113,20 @@ async function main() {
   const stopped = await stopMeetingCapture(session.id)
   record('meeting pipeline transcript', Boolean(stopped?.transcriptPath))
 
-  recordResearchPage({
+  const researchThread = recordResearchPage({
     url: 'https://example.com/widgets',
     title: 'Widgets',
     text: 'Widgets are reusable UI blocks for dashboards and admin tools.',
     quote: 'Widgets are reusable UI blocks',
     topic: 'widget research',
+  })
+  recordResearchPage({
+    url: 'https://example.com/widget-patterns',
+    title: 'Widget patterns',
+    text: 'Common widget patterns include cards, lists, and charts.',
+    quote: 'Common widget patterns',
+    topic: 'widget research',
+    threadId: researchThread.threadId,
   })
   const tools = buildContextToolSet(() => 'default')
   const search = await tools.context_search?.execute?.(

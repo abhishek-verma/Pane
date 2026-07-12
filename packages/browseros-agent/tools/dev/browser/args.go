@@ -34,6 +34,8 @@ func BuildArgs(cfg ArgsConfig) ([]string, error) {
 		"--disable-browseros-server",
 		"--disable-browseros-extensions",
 		"--browseros-dock-icon=dev",
+		// Allow Pane dev extension to capture tab audio without a user gesture.
+		"--allowlisted-extension-id=biedncddmddkpapdplhcnkhhplnfgbif",
 	)
 
 	args = append(args, "--enable-logging=stderr")

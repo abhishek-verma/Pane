@@ -71,6 +71,37 @@ index 0000000000000..baeb98959b39a
 +  // Callback for showInfoBar.
 +  callback ShowInfoBarCallback = void(boolean shown);
 +
++  // Passive capture classes for tab audio.
++  enum CaptureClass {
++    meeting,
++    browsing,
++    research
++  };
++
++  dictionary CaptureTabAudioOptions {
++    CaptureClass captureClass;
++    DOMString bucketId;
++    DOMString? sessionId;
++  };
++
++  dictionary CaptureTabAudioResult {
++    DOMString streamId;
++    long tabId;
++    CaptureClass captureClass;
++    boolean active;
++  };
++
++  dictionary CaptureStatus {
++    long tabId;
++    boolean active;
++    CaptureClass? captureClass;
++    DOMString? streamId;
++  };
++
++  callback CaptureTabAudioCallback = void(CaptureTabAudioResult result);
++  callback StopCaptureTabAudioCallback = void(boolean stopped);
++  callback GetCaptureStatusCallback = void(CaptureStatus status);
++
 +  interface Functions {
 +    // Settings API functions - compatible with chrome.settingsPrivate
 +    // Gets a specific preference value
@@ -140,5 +171,23 @@ index 0000000000000..baeb98959b39a
 +    static void showInfoBar(
 +        DOMString message,
 +        ShowInfoBarCallback callback);
++
++    // Starts tab-audio capture for |tabId| and returns a stream id suitable for
++    // getUserMedia({ audio: { mandatory: { chromeMediaSource: 'tab', ... }}}).
++    static void captureTabAudio(
++        long tabId,
++        CaptureTabAudioOptions options,
++        CaptureTabAudioCallback callback);
++
++    // Clears BrowserOS capture state for |tabId|. Media tracks must be stopped
++    // by the caller.
++    static void stopCaptureTabAudio(
++        long tabId,
++        StopCaptureTabAudioCallback callback);
++
++    // Returns the current BrowserOS capture state for |tabId|.
++    static void getCaptureStatus(
++        long tabId,
++        GetCaptureStatusCallback callback);
 +  };
 +};

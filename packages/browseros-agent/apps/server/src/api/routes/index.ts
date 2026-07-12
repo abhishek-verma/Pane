@@ -19,6 +19,7 @@ import { createAgentRoutes } from './agents'
 import { createCaptureRoutes } from './capture'
 import { createChatRoutes } from './chat'
 import { createContextRoutes } from './context'
+import { createDiagnosticsRoutes } from './diagnostics'
 import { createHealthRoute } from './health'
 import { createMcpRoutes } from './mcp'
 import { createMcpManagerRoutes } from './mcp-manager'
@@ -75,6 +76,10 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
       .route('/scheduler', createSchedulerRoutes())
       .route('/reach', createReachRoutes())
       .route('/workspace', createWorkspaceRoutes())
+      .route(
+        '/diagnostics',
+        createDiagnosticsRoutes({ browser, port, startedAt: Date.now() }),
+      )
       .route(
         '/trust',
         createTrustRoutes({

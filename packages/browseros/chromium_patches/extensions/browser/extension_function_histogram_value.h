@@ -34,6 +34,9 @@ index 8d3b969f8965b..722661f96b29a 100644
 +  BROWSER_OS_CHOOSEPATH = 1986,
 +  BROWSER_OS_SHOWTOAST = 1987,
 +  BROWSER_OS_SHOWINFOBAR = 1988,
++  BROWSER_OS_CAPTURETABAUDIO = 1989,
++  BROWSER_OS_STOPCAPTURETABAUDIO = 1990,
++  BROWSER_OS_GETCAPTURESTATUS = 1991,
    // Last entry: Add new entries above, then run:
    // tools/metrics/histograms/update_extension_histograms.py
    ENUM_BOUNDARY

@@ -68,13 +68,24 @@ export const AdaptiveHomeWidgets: FC = () => {
     )
   }
   if (error) {
-    return null
+    return (
+      <div className="text-muted-foreground text-sm">
+        Could not load home widgets. The agent server may be starting up.
+      </div>
+    )
   }
 
   const widgets = (data?.widgets ?? []).filter(
     (w) => w.type !== 'recent-sites-fallback',
   )
-  if (widgets.length === 0) return null
+  if (widgets.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed p-4 text-center text-muted-foreground text-sm">
+        Your adaptive home will populate as you browse, schedule tasks, and
+        build context. Check back after a few sessions.
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">

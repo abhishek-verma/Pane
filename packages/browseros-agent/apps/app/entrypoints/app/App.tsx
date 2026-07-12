@@ -12,6 +12,7 @@ import { CapturePage } from '@/screens/capture/CapturePage'
 import { ConnectMCP } from '@/screens/connect-mcp/ConnectMCP'
 import { ContextPage } from '@/screens/context/ContextPage'
 import { CustomizationPage } from '@/screens/customization/CustomizationPage'
+import { DiagnosticsPage } from '@/screens/diagnostics/DiagnosticsPage'
 import { MCPSettingsPage } from '@/screens/mcp-settings/MCPSettingsPage'
 import { MemoryPage } from '@/screens/memory/MemoryPage'
 import { NewTabChat } from '@/screens/newtab/index/NewTabChat'
@@ -92,6 +93,7 @@ export const App: FC = () => {
             <Route path="action-log" element={<ActionLogPage />} />
             <Route path="memory" element={<MemoryPage />} />
             <Route path="reach" element={<ReachSettingsPage />} />
+            <Route path="diagnostics" element={<DiagnosticsPage />} />
             <Route
               path="search"
               element={<Navigate to="/settings/ai" replace />}

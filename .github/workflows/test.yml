@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 env:
-  BROWSEROS_APPIMAGE_URL: https://files.browseros.com/download/BrowserOS.AppImage
+  PANE_APPIMAGE_URL: ${{ vars.PANE_APPIMAGE_URL || '' }}
 
 jobs:
   test:
@@ -62,17 +62,21 @@ jobs:
             command: (cd apps/app && bun run test)
             junit_path: test-results/agent.xml
             needs_browser: false
-          - suite: claw-app
-            command: (cd apps/claw-app && bun run test)
-            junit_path: test-results/claw-app.xml
+          - suite: server-memory
+            command: (cd apps/server && bun run ./tests/__helpers__/run-test-group.ts memory)
+            junit_path: test-results/server-memory.xml
             needs_browser: false
-          - suite: claw-onboard
-            command: (cd apps/claw-onboard && bun run test)
-            junit_path: test-results/claw-onboard.xml
+          - suite: server-capture
+            command: (cd apps/server && bun run ./tests/__helpers__/run-test-group.ts capture)
+            junit_path: test-results/server-capture.xml
             needs_browser: false
-          - suite: claw-server
-            command: (cd apps/claw-server && bun run test)
-            junit_path: test-results/claw-server.xml
+          - suite: server-scheduler
+            command: (cd apps/server && bun run ./tests/__helpers__/run-test-group.ts scheduler)
+            junit_path: test-results/server-scheduler.xml
+            needs_browser: false
+          - suite: trust-invariants
+            command: (cd apps/server && bun test --preload=./tests/__helpers__/test-env.ts --max-concurrency=1 tests/agent/trust-invariants.test.ts)
+            junit_path: test-results/trust-invariants.xml
             needs_browser: false
           - suite: eval
             command: (cd apps/eval && bun run test)
@@ -82,6 +86,11 @@ jobs:
             command: bun run ./scripts/run-bun-test.ts ./scripts/build
             junit_path: test-results/build.xml
             needs_browser: false
+          - suite: cli
+            command: (cd apps/cli && go test ./...)
+            junit_path: test-results/cli.xml
+            needs_browser: false
+            needs_go: true
 
     steps:
       - name: Checkout code
@@ -90,50 +99,62 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Setup Go
+        if: matrix.needs_go == true
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: packages/browseros-agent/apps/cli/go.sum
+
       - name: Install dependencies
         run: bun ci
 
-      - name: Resolve BrowserOS cache key
+      - name: Resolve Pane binary cache key
         if: matrix.needs_browser == true
         id: browseros-cache-key
         run: |
           set -euo pipefail
-          headers="$(curl -fsSI "$BROWSEROS_APPIMAGE_URL")"
+          if [ -z "${PANE_APPIMAGE_URL:-}" ]; then
+            echo "::warning::PANE_APPIMAGE_URL not configured; browser-dependent tests will be skipped"
+            echo "key=pane-appimage-unavailable" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          headers="$(curl -fsSI "$PANE_APPIMAGE_URL")"
           etag="$(printf '%s\n' "$headers" | awk 'BEGIN{IGNORECASE=1} /^etag:/ {sub(/\r$/, "", $2); gsub(/"/, "", $2); print $2; exit}')"
           last_modified="$(printf '%s\n' "$headers" | awk 'BEGIN{IGNORECASE=1} /^last-modified:/ {$1=""; sub(/^ /, ""); sub(/\r$/, ""); print; exit}')"
           raw_key="${etag:-$last_modified}"
           if [ -z "$raw_key" ]; then
-            raw_key="$BROWSEROS_APPIMAGE_URL"
+            raw_key="$PANE_APPIMAGE_URL"
           fi
           cache_key="$(printf '%s' "$raw_key" | shasum -a 256 | awk '{print $1}')"
-          echo "key=browseros-appimage-${{ runner.os }}-$cache_key" >> "$GITHUB_OUTPUT"
+          echo "key=pane-appimage-${{ runner.os }}-$cache_key" >> "$GITHUB_OUTPUT"
 
-      - name: Restore BrowserOS cache
-        if: matrix.needs_browser == true
+      - name: Restore Pane cache
+        if: matrix.needs_browser == true && env.PANE_APPIMAGE_URL != ''
         id: browseros-cache
         uses: actions/cache@v5.0.5
         with:
-          path: packages/browseros-agent/.ci/bin/BrowserOS.AppImage
+          path: packages/browseros-agent/.ci/bin/Pane.AppImage
           key: ${{ steps.browseros-cache-key.outputs.key }}
 
-      - name: Download BrowserOS
-        if: matrix.needs_browser == true && steps.browseros-cache.outputs.cache-hit != 'true'
+      - name: Download Pane AppImage
+        if: matrix.needs_browser == true && env.PANE_APPIMAGE_URL != '' && steps.browseros-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p .ci/bin
-          curl -fsSL "$BROWSEROS_APPIMAGE_URL" -o .ci/bin/BrowserOS.AppImage
-          chmod +x .ci/bin/BrowserOS.AppImage
+          curl -fsSL "$PANE_APPIMAGE_URL" -o .ci/bin/Pane.AppImage
+          chmod +x .ci/bin/Pane.AppImage
 
-      - name: Prepare BrowserOS wrapper
-        if: matrix.needs_browser == true
+      - name: Prepare Pane wrapper
+        if: matrix.needs_browser == true && env.PANE_APPIMAGE_URL != ''
         run: |
           mkdir -p .ci/bin
-          cat > .ci/bin/browseros <<'EOF'
+          cat > .ci/bin/pane <<'EOF'
           #!/usr/bin/env bash
           set -euo pipefail
           export APPIMAGE_EXTRACT_AND_RUN=1
-          exec "$(dirname "$0")/BrowserOS.AppImage" "$@"
+          exec "$(dirname "$0")/Pane.AppImage" "$@"
           EOF
-          chmod +x .ci/bin/browseros
+          chmod +x .ci/bin/pane
 
       - name: Create server env file
         working-directory: packages/browseros-agent/apps/server
@@ -142,7 +163,7 @@ jobs:
       - name: Run ${{ matrix.suite }} tests
         id: test
         env:
-          BROWSEROS_BINARY: ${{ github.workspace }}/packages/browseros-agent/.ci/bin/browseros
+          BROWSEROS_BINARY: ${{ github.workspace }}/packages/browseros-agent/.ci/bin/pane
           BROWSEROS_TEST_HEADLESS: "true"
           BROWSEROS_TEST_EXTRA_ARGS: --no-sandbox --disable-dev-shm-usage
           BROWSEROS_JUNIT_PATH: ${{ github.workspace }}/packages/browseros-agent/${{ matrix.junit_path }}
