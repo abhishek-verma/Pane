@@ -4,9 +4,13 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import { type FC, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { EmptyHomeState } from './EmptyHomeState'
+import { ProposalCard } from './ProposalCard'
+import { WidgetCard } from './WidgetCard'
 
 export interface HomeWidget {
   type: string
@@ -14,7 +18,26 @@ export interface HomeWidget {
   why: string
   rank: number
   pinned?: boolean
+  hidden?: boolean
   data: Record<string, unknown>
+  // Phase 8 extensions
+  id?: string
+  status?: 'active' | 'staged'
+  source?: {
+    type: string
+    query?: string
+    templateId?: string
+    bucketId?: string
+  }
+  action?: { type: string; target: string }
+  whyText?: string
+  createdBy?: 'user' | 'agent' | 'system'
+}
+
+export interface HomeData {
+  widgets: HomeWidget[]
+  proposals?: HomeWidget[]
+  firstName?: string | null
 }
 
 const HOME_KEY = ['scheduler', 'home'] as const
@@ -25,19 +48,33 @@ export function resetHomeLoaderChatFlag() {
   homeLoaderCalledChat = false
 }
 
-async function fetchHome(): Promise<{ widgets: HomeWidget[] }> {
+async function fetchHome(): Promise<HomeData> {
   const base = await getAgentServerUrl()
   // Perf / ship-gate: only /scheduler/home — never /chat or generateText.
   const url = `${base}/scheduler/home`
   if (url.includes('/chat')) homeLoaderCalledChat = true
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Home load failed: ${res.status}`)
-  return res.json() as Promise<{ widgets: HomeWidget[] }>
+  return res.json() as Promise<HomeData>
+}
+
+function handleCuratedAction(w: HomeWidget): void {
+  const routes: Record<string, string> = {
+    'next-meeting': '#/capture',
+    'research-thread': '#/capture',
+    'pending-approvals': '#/tasks',
+    'one-click-recurring': '#/scheduled',
+    'daily-digest': '#/home',
+    'resumed-work': '#/context',
+  }
+  const target = routes[w.type]
+  if (target) window.location.hash = target
 }
 
 export const AdaptiveHomeWidgets: FC = () => {
   const qc = useQueryClient()
   const shownWhy = useRef(new Set<string>())
+
   const { data, isLoading, error } = useQuery({
     queryKey: HOME_KEY,
     queryFn: fetchHome,
@@ -57,9 +94,60 @@ export const AdaptiveHomeWidgets: FC = () => {
       })
       if (!res.ok) throw new Error(`Pref failed: ${res.status}`)
     },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: HOME_KEY })
+    onSuccess: () => void qc.invalidateQueries({ queryKey: HOME_KEY }),
+  })
+
+  const addProposalMutation = useMutation({
+    mutationFn: async (widget: HomeWidget) => {
+      const base = await getAgentServerUrl()
+      const res = await fetch(`${base}/scheduler/home/widgets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: widget.title,
+          source: widget.source ?? { type: 'template' },
+          action: widget.action ?? { type: 'open-route', target: '#/home' },
+          refreshMinutes: 5,
+          createdBy: 'agent',
+          whyText: widget.why,
+          status: 'active',
+        }),
+      })
+      if (widget.id) {
+        await fetch(`${base}/scheduler/home/widgets/${widget.id}`, {
+          method: 'DELETE',
+        })
+      }
+      if (!res.ok) throw new Error('Failed to add widget')
     },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: HOME_KEY }),
+  })
+
+  const dismissProposalMutation = useMutation({
+    mutationFn: async (widget: HomeWidget) => {
+      if (!widget.id) return
+      const base = await getAgentServerUrl()
+      await fetch(`${base}/scheduler/home/widgets/${widget.id}`, {
+        method: 'DELETE',
+      })
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: HOME_KEY }),
+  })
+
+  const actionMutation = useMutation({
+    mutationFn: async (widget: HomeWidget) => {
+      if (!widget.id) return
+      const base = await getAgentServerUrl()
+      await fetch(`${base}/scheduler/home/widgets/${widget.id}/action`, {
+        method: 'POST',
+      })
+      const action = widget.action
+      if (!action) return
+      if (action.type === 'open-route' || action.type === 'navigate') {
+        window.location.hash = action.target
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: HOME_KEY }),
   })
 
   if (isLoading) {
@@ -75,180 +163,77 @@ export const AdaptiveHomeWidgets: FC = () => {
     )
   }
 
-  const widgets = (data?.widgets ?? []).filter(
+  const activeWidgets = (data?.widgets ?? []).filter(
     (w) => w.type !== 'recent-sites-fallback',
   )
-  if (widgets.length === 0) {
+  const proposals = data?.proposals ?? []
+
+  if (activeWidgets.length === 0 && proposals.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-4 text-center text-muted-foreground text-sm">
-        Your adaptive home will populate as you browse, schedule tasks, and
-        build context. Check back after a few sessions.
+      <div className="space-y-3">
+        <EmptyHomeState />
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {widgets.map((w) => {
-        const showWhy = !shownWhy.current.has(w.type)
-        if (showWhy) shownWhy.current.add(w.type)
+    <div className="space-y-3">
+      {/* Staged proposals at the top */}
+      {proposals.map((p) => (
+        <ProposalCard
+          key={p.id ?? p.type}
+          widget={p}
+          onAdd={() => addProposalMutation.mutate(p)}
+          onDismiss={() => dismissProposalMutation.mutate(p)}
+        />
+      ))}
+
+      {/* Active widget cards */}
+      {activeWidgets.map((w) => {
+        const showWhy = !shownWhy.current.has(w.id ?? w.type)
+        if (showWhy) shownWhy.current.add(w.id ?? w.type)
         return (
-          <section
-            key={w.type}
-            className="border-border/60 border-b pb-4 last:border-0"
-          >
-            <div className="mb-1 flex items-start justify-between gap-3">
-              <h2 className="font-medium text-sm">{w.title}</h2>
-              <div className="flex shrink-0 gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() =>
-                    prefMutation.mutate({ kind: 'pin', widget: w.type })
-                  }
-                >
-                  Pin
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() =>
-                    prefMutation.mutate({ kind: 'hide', widget: w.type })
-                  }
-                >
-                  Hide
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() =>
-                    prefMutation.mutate({ kind: 'dismiss', widget: w.type })
-                  }
-                >
-                  Dismiss
-                </Button>
-              </div>
-            </div>
-            {showWhy && (
-              <p className="mb-2 text-muted-foreground text-xs">{w.why}</p>
-            )}
-            <WidgetBody widget={w} />
-          </section>
+          <WidgetCard
+            key={w.id ?? w.type}
+            widget={w}
+            showWhyInline={showWhy}
+            onPin={() =>
+              prefMutation.mutate({ kind: 'pin', widget: w.id ?? w.type })
+            }
+            onHide={() =>
+              prefMutation.mutate({ kind: 'hide', widget: w.id ?? w.type })
+            }
+            onDismiss={() =>
+              prefMutation.mutate({ kind: 'dismiss', widget: w.id ?? w.type })
+            }
+            onAction={() => {
+              if (w.id) {
+                actionMutation.mutate(w)
+              } else {
+                handleCuratedAction(w)
+              }
+            }}
+          />
         )
       })}
-    </div>
-  )
-}
 
-const WidgetBody: FC<{ widget: HomeWidget }> = ({ widget }) => {
-  if (widget.type === 'daily-digest') {
-    const content = String(widget.data.content ?? '')
-    return (
-      <pre className="max-h-48 overflow-auto whitespace-pre-wrap font-sans text-muted-foreground text-xs leading-5">
-        {content.slice(0, 1200)}
-      </pre>
-    )
-  }
-  if (widget.type === 'pending-approvals') {
-    const items = (widget.data.items as Array<Record<string, string>>) ?? []
-    return (
-      <ul className="space-y-1 text-sm">
-        {items.map((item) => (
-          <li key={item.id}>
-            {item.toolName ?? item.title ?? item.id}
-            {item.preview ? (
-              <span className="text-muted-foreground">
-                {' '}
-                — {item.preview.slice(0, 80)}
-              </span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-    )
-  }
-  if (widget.type === 'resumed-work') {
-    const pages =
-      (widget.data.pages as Array<{ title?: string; uri?: string }>) ?? []
-    return (
-      <ul className="space-y-1 text-sm">
-        {pages.map((p, i) => (
-          <li key={p.uri ?? String(i)}>{p.title ?? p.uri}</li>
-        ))}
-      </ul>
-    )
-  }
-  if (widget.type === 'one-click-recurring') {
-    const skills =
-      (widget.data.skills as Array<{ id: string; name: string }>) ?? []
-    return (
-      <ul className="space-y-1 text-sm">
-        {skills.map((s) => (
-          <li key={s.id}>{s.name}</li>
-        ))}
-      </ul>
-    )
-  }
-  if (widget.type === 'next-meeting') {
-    const title = String(widget.data.title ?? widget.data.url ?? 'Meeting')
-    const status = String(widget.data.status ?? 'unknown')
-    const url = String(widget.data.url ?? '')
-    const sessionId = String(widget.data.sessionId ?? '')
-    return (
-      <div className="space-y-2 text-sm">
-        <div className="font-medium">{title}</div>
-        <div className="text-muted-foreground text-xs">Status: {status}</div>
-        <div className="flex flex-wrap gap-2">
-          {url && status === 'active' ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7"
-              onClick={() => window.open(url, '_blank')}
-            >
-              Join meeting
-            </Button>
-          ) : null}
-          {sessionId ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7"
-              onClick={() => {
-                window.location.hash = '#/capture'
-              }}
-            >
-              Open transcript
-            </Button>
-          ) : null}
-        </div>
-      </div>
-    )
-  }
-  if (widget.type === 'research-thread') {
-    const topic = String(widget.data.topic ?? 'Research')
-    const pageCount = Number(widget.data.pageCount ?? 0)
-    return (
-      <div className="space-y-2 text-sm">
-        <div className="font-medium">{topic}</div>
-        <div className="text-muted-foreground text-xs">
-          {pageCount} captured page{pageCount === 1 ? '' : 's'}
-        </div>
+      {/* Add widget affordance */}
+      <div className="pt-1 text-center">
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className="h-7"
+          className="h-7 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
           onClick={() => {
-            window.location.hash = '#/capture'
+            const url = new URL(window.location.href)
+            url.searchParams.set('prefill', 'Add a widget for ')
+            window.history.replaceState(null, '', url.toString())
+            document.querySelector<HTMLTextAreaElement>('textarea')?.focus()
           }}
         >
-          Resume research
+          <Plus className="h-3 w-3" />
+          Add a widget
         </Button>
       </div>
-    )
-  }
-  return null
+    </div>
+  )
 }
