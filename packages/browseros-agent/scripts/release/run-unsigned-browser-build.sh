@@ -50,7 +50,7 @@ fi
 exec >>"$LOG" 2>&1
 echo "=== Pane unsigned browser build started $(date) ==="
 uv run browseros build \
-  --config build/config/release.macos.arm64.unsigned.fast.yaml \
+  --config build/config/release.macos.arm64.unsigned.local.yaml \
   --chromium-src "$CHROMIUM_SRC"
 BUILD_EXIT=$?
 echo "=== Pane unsigned browser build finished $(date) exit=$BUILD_EXIT ==="

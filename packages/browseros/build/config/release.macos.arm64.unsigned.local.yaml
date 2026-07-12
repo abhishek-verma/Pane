@@ -1,0 +1,27 @@
+# Pane macOS arm64 unsigned release for local builds without R2 access.
+# Runs clean + gclient sync but skips download_resources (uses locally staged binaries).
+
+build:
+  type: release
+  architecture: arm64
+
+gn_flags:
+  file: build/config/gn/flags.macos.release.gn
+
+modules:
+  - clean
+  - git_setup
+  - sparkle_setup
+  - resources
+  - bundled_extensions
+  - chromium_replace
+  - string_replaces
+  - series_patches
+  - patches
+  - configure
+  - compile
+  - package_macos
+  - sparkle_sign
+
+notifications:
+  slack: false
