@@ -17,6 +17,7 @@ import { DIGESTS_DIR } from '@browseros/memory/constants'
 import { listCaptureSessions } from '../capture/meeting-pipeline'
 import { graphCurrentWork } from '../context/repo'
 import { listTasks } from '../context/tasks-repo'
+import { getBrowserosDir } from '../lib/browseros-dir'
 import { getDbHandle } from '../lib/db'
 import { ensureMemoriesLayout, readPromptFiles } from '../memory/files'
 import { listSkills } from '../memory/store'
@@ -32,13 +33,25 @@ export type HomeWidgetType =
   | 'research-thread'
 
 export interface HomeWidget {
-  type: HomeWidgetType
+  type: HomeWidgetType | string
   title: string
   why: string
   rank: number
   pinned?: boolean
   hidden?: boolean
   data: Record<string, unknown>
+  // Phase 8 extensions for user/agent widgets
+  id?: string
+  status?: 'active' | 'staged'
+  source?: {
+    type: string
+    query?: string
+    templateId?: string
+    bucketId?: string
+  }
+  action?: { type: string; target: string }
+  whyText?: string
+  createdBy?: 'user' | 'agent' | 'system'
 }
 
 export interface HomePrefs {
@@ -81,15 +94,15 @@ export function appendHomePrefLine(
 export function rankWidgets(
   candidates: HomeWidget[],
   prefs: HomePrefs,
-  previousOrder: HomeWidgetType[] = [],
+  previousOrder: string[] = [],
 ): HomeWidget[] {
   const blocked = new Set([...prefs.hidden, ...prefs.dismissed])
   const pinned = new Set(prefs.pinned)
   let filtered: HomeWidget[] = candidates
-    .filter((w) => !blocked.has(w.type))
+    .filter((w) => !blocked.has(w.type as HomeWidgetType))
     .map((w) => ({
       ...w,
-      pinned: pinned.has(w.type),
+      pinned: pinned.has(w.type as HomeWidgetType),
       hidden: false,
     }))
 
@@ -126,11 +139,14 @@ export function rankWidgets(
 export async function loadHomeWidgets(options?: {
   memoriesRoot?: string
   bucketId?: string
-  previousOrder?: HomeWidgetType[]
+  previousOrder?: string[]
+  widgetsDir?: string
 }): Promise<{
   widgets: HomeWidget[]
+  proposals: HomeWidget[]
   prefs: HomePrefs
   digestPath: string | null
+  firstName: string | null
 }> {
   const bucketId = options?.bucketId ?? DEFAULT_BUCKET_ID
   const base = await ensureMemoriesLayout(options?.memoriesRoot)
@@ -339,6 +355,64 @@ export async function loadHomeWidgets(options?: {
     data: {},
   })
 
+  // Merge user/agent widgets from home_widgets table
+  try {
+    const { listWidgets, getWidgetsDir } = await import('../home/widget-store')
+    const { executeBinding } = await import('../home/bindings')
+    const { getOrComputeBinding } = await import('../home/widget-cache')
+    const dir = options?.widgetsDir ?? getWidgetsDir(getBrowserosDir())
+    const userWidgets = await listWidgets({ status: 'active' }, dir)
+    for (const spec of userWidgets) {
+      const binding = await getOrComputeBinding(spec, executeBinding)
+      candidates.push({
+        type: `user:${spec.source.type}` as HomeWidgetType,
+        title: spec.title,
+        why: spec.whyText,
+        rank: 30,
+        data: { binding, specId: spec.id, action: spec.action },
+        id: spec.id,
+        status: 'active',
+        source: spec.source,
+        action: spec.action,
+        whyText: spec.whyText,
+        createdBy: spec.createdBy,
+      })
+    }
+  } catch {
+    // user widget store unavailable (e.g., test environments without full DB)
+  }
+
   const widgets = rankWidgets(candidates, prefs, options?.previousOrder)
-  return { widgets, prefs, digestPath }
+  const proposals = await loadStagedProposals(options?.widgetsDir)
+  const firstName = extractFirstName(files.user)
+  return { widgets, proposals, prefs, digestPath, firstName }
+}
+
+function extractFirstName(userMd: string): string | null {
+  const m = userMd.match(/name:\s*([^\n,]+)/i)
+  if (!m) return null
+  return m[1].trim().split(/\s+/)[0] ?? null
+}
+
+async function loadStagedProposals(widgetsDir?: string): Promise<HomeWidget[]> {
+  try {
+    const { listWidgets, getWidgetsDir } = await import('../home/widget-store')
+    const dir = widgetsDir ?? getWidgetsDir(getBrowserosDir())
+    const staged = await listWidgets({ status: 'staged' }, dir)
+    return staged.slice(0, 1).map((spec) => ({
+      type: `user:${spec.source.type}` as HomeWidgetType,
+      title: spec.title,
+      why: spec.whyText,
+      rank: 0,
+      data: { specId: spec.id, action: spec.action },
+      id: spec.id,
+      status: 'staged' as const,
+      source: spec.source,
+      action: spec.action,
+      whyText: spec.whyText,
+      createdBy: spec.createdBy,
+    }))
+  } catch {
+    return []
+  }
 }

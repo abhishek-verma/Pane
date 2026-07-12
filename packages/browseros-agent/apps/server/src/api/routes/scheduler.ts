@@ -183,13 +183,7 @@ export function createSchedulerRoutes() {
       const body = z
         .object({
           kind: z.enum(['pin', 'hide', 'dismiss']),
-          widget: z.enum([
-            'daily-digest',
-            'pending-approvals',
-            'resumed-work',
-            'one-click-recurring',
-            'recent-sites-fallback',
-          ]),
+          widget: z.string().min(1),
         })
         .parse(await c.req.json())
       const { appendHomePrefLine } = await import('../../scheduler/home')
@@ -197,8 +191,124 @@ export function createSchedulerRoutes() {
         '../../memory/files'
       )
       const files = await readPromptFiles()
-      const next = appendHomePrefLine(files.user, body.kind, body.widget)
+      // Cast to HomeWidgetType — curated widgets use the type name as identifier
+      const next = appendHomePrefLine(
+        files.user,
+        body.kind,
+        body.widget as Parameters<typeof appendHomePrefLine>[2],
+      )
       await writePromptFileAndReindex('user', next)
       return c.json({ ok: true })
+    })
+    .get('/home/widgets', async (c) => {
+      const { listWidgets, getWidgetsDir } = await import(
+        '../../home/widget-store'
+      )
+      const { getBrowserosDir } = await import('../../lib/browseros-dir')
+      const dir = getWidgetsDir(getBrowserosDir())
+      const widgets = await listWidgets({}, dir)
+      return c.json({ widgets })
+    })
+    .post('/home/widgets', async (c) => {
+      const body = z
+        .object({
+          title: z.string().min(1),
+          source: z.object({
+            type: z.enum([
+              'tasks',
+              'scheduled',
+              'capture',
+              'graph',
+              'skills',
+              'template',
+            ]),
+            query: z.string().optional(),
+            templateId: z.string().optional(),
+            bucketId: z.string().optional(),
+          }),
+          action: z.object({
+            type: z.enum([
+              'navigate',
+              'chat-prefill',
+              'run-skill',
+              'open-route',
+            ]),
+            target: z.string(),
+          }),
+          refreshMinutes: z.number().int().min(1).default(5),
+          createdBy: z.enum(['user', 'agent', 'system']).default('user'),
+          whyText: z.string().default(''),
+          status: z.enum(['active', 'staged']).default('active'),
+        })
+        .parse(await c.req.json())
+      const { createWidget, getWidgetsDir } = await import(
+        '../../home/widget-store'
+      )
+      const { getBrowserosDir } = await import('../../lib/browseros-dir')
+      const dir = getWidgetsDir(getBrowserosDir())
+      const spec = await createWidget(body, dir)
+      return c.json({ widget: spec }, 201)
+    })
+    .delete('/home/widgets/:id', async (c) => {
+      const { getWidget, archiveWidget, getWidgetsDir } = await import(
+        '../../home/widget-store'
+      )
+      const { getBrowserosDir } = await import('../../lib/browseros-dir')
+      const dir = getWidgetsDir(getBrowserosDir())
+      const widget = await getWidget(c.req.param('id'), dir)
+      await archiveWidget(c.req.param('id'), dir)
+
+      // Persist dismiss marker for agent-proposed staged widgets
+      if (widget?.createdBy === 'agent' && widget.status === 'staged') {
+        const { createHash } = await import('node:crypto')
+        const hash = createHash('sha1')
+          .update(`${widget.source.type}:${widget.source.query ?? ''}`)
+          .digest('hex')
+          .slice(0, 8)
+        const { readPromptFiles, writePromptFileAndReindex } = await import(
+          '../../memory/files'
+        )
+        const files = await readPromptFiles()
+        const marker = `home.widget-proposal.dismiss: ${hash}`
+        if (!files.user.includes(marker)) {
+          await writePromptFileAndReindex(
+            'user',
+            `${files.user.trimEnd()}\n- ${marker}\n`,
+          )
+        }
+      }
+
+      return c.json({ ok: true })
+    })
+    .post('/home/widgets/:id/action', async (c) => {
+      const { updateWidgetLastAction } = await import('../../home/widget-store')
+      await updateWidgetLastAction(c.req.param('id'))
+      return c.json({ ok: true })
+    })
+    .post('/home/reset', async (c) => {
+      const { listWidgets, archiveWidget, getWidgetsDir } = await import(
+        '../../home/widget-store'
+      )
+      const { getBrowserosDir } = await import('../../lib/browseros-dir')
+      const dir = getWidgetsDir(getBrowserosDir())
+      const active = await listWidgets(
+        {
+          status: ['active', 'staged'] as Parameters<
+            typeof listWidgets
+          >[0]['status'],
+        },
+        dir,
+      )
+      for (const w of active) await archiveWidget(w.id, dir)
+      const { readPromptFiles, writePromptFileAndReindex } = await import(
+        '../../memory/files'
+      )
+      const files = await readPromptFiles()
+      const cleared = files.user.replace(
+        /- home\.(pin|hide|dismiss):[^\n]+\n?/g,
+        '',
+      )
+      await writePromptFileAndReindex('user', cleared)
+      return c.json({ ok: true, archived: active.length })
     })
 }

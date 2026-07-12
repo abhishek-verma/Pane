@@ -72,7 +72,9 @@ function bindTasks(spec: WidgetSpec, bucketId: string): BindingResult {
           : undefined,
     }
   }
-  const status = query.includes('status:pending') ? 'pending' : undefined
+  const status = query.includes('status:pending')
+    ? ('inbox' as const)
+    : undefined
   const tasks = listTasks({ bucketId, status })
   return {
     items: tasks
@@ -124,9 +126,9 @@ function bindGraph(bucketId: string): BindingResult {
   const work = graphCurrentWork(bucketId)
   const pages = (work.pages ?? []).slice(0, 3)
   return {
-    items: pages.map((p: { title?: string; uri?: string }) => ({
+    items: pages.map((p) => ({
       label: p.title ?? p.uri ?? '',
-      sublabel: p.uri,
+      sublabel: p.uri ?? undefined,
     })),
     count: (work.pages ?? []).length,
   }
