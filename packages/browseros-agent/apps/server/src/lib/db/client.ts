@@ -327,6 +327,11 @@ export const currentMigrationHistory = [
     hash: '2a8e26ac7a12b6375af5289f1ac0f79c2576933a295d1119ade43aff2b85450e',
     createdAt: 1783789148142,
   },
+  {
+    tag: '0011_home_widgets',
+    hash: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2',
+    createdAt: 1784000000000,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -769,5 +774,36 @@ const currentSchemaStatements = [
   `
     CREATE INDEX IF NOT EXISTS research_thread_pages_order_idx
     ON research_thread_pages (thread_id, order_index)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS home_widgets (
+      id text PRIMARY KEY NOT NULL,
+      title text NOT NULL,
+      source_type text NOT NULL,
+      source_query text,
+      source_template_id text,
+      source_bucket_id text,
+      action_type text NOT NULL,
+      action_target text NOT NULL,
+      refresh_minutes integer DEFAULT 5 NOT NULL,
+      created_by text NOT NULL,
+      status text DEFAULT 'active' NOT NULL,
+      show_count integer DEFAULT 0 NOT NULL,
+      last_action_at integer,
+      why_text text DEFAULT '' NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS home_widgets_status_idx
+    ON home_widgets (status)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS home_widget_cache (
+      widget_id text PRIMARY KEY NOT NULL,
+      data_json text NOT NULL,
+      expires_at integer NOT NULL
+    )
   `,
 ]
