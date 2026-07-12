@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000000..869ed71be8869
 --- /dev/null
 +++ b/chrome/browser/win/winsparkle_glue.cc
-@@ -0,0 +1,351 @@
+@@ -0,0 +1,352 @@
 +// Copyright 2024 BrowserOS Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.

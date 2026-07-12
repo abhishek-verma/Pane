@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000000..8f2d4c91b7e12
 --- /dev/null
 +++ b/chrome/browser/extensions/api/browser_os/browser_os_capture.cc
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,192 @@
 +// Copyright 2025 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.

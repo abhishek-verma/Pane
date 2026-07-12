@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000000..baeb98959b39a
 --- /dev/null
 +++ b/chrome/common/extensions/api/browser_os.idl
-@@ -0,0 +1,138 @@
+@@ -0,0 +1,187 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
