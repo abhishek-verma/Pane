@@ -40,17 +40,29 @@ cd "$BROWSEROS"
 
 "$ROOT/packages/browseros-agent/scripts/release/stage-pane-browser-resources.sh" darwin-arm64
 
-# Fresh Chromium tree required when using the fast config (no clean step).
+# Choose config: incremental if Chromium tree is already at the right tag,
+# full (with clean + gclient sync) otherwise.
+INCREMENTAL_CONFIG="build/config/release.macos.arm64.unsigned.incremental.yaml"
+FULL_CONFIG="build/config/release.macos.arm64.unsigned.local.yaml"
+BUILD_CONFIG="$FULL_CONFIG"
+
 if [ -d "$CHROMIUM_SRC/.git" ]; then
-  rm -f "$CHROMIUM_SRC/.git/index.lock"
-  git -C "$CHROMIUM_SRC" reset --hard tags/148.0.7778.97
-  git -C "$CHROMIUM_SRC" clean -fdq
+  CURRENT_TAG=$(git -C "$CHROMIUM_SRC" describe --tags --exact-match 2>/dev/null || git -C "$CHROMIUM_SRC" rev-parse --abbrev-ref HEAD 2>/dev/null)
+  if echo "$CURRENT_TAG" | grep -qE "148\.0\.7778\.97|browseros"; then
+    echo "Chromium tree at $CURRENT_TAG — using incremental config (skipping clean + gclient sync)"
+    rm -f "$CHROMIUM_SRC/.git/index.lock"
+    git -C "$CHROMIUM_SRC" reset --hard tags/148.0.7778.97
+    git -C "$CHROMIUM_SRC" clean -fdq
+    BUILD_CONFIG="$INCREMENTAL_CONFIG"
+  else
+    echo "Chromium tree at $CURRENT_TAG — using full config (clean + gclient sync required)"
+  fi
 fi
 
 exec >>"$LOG" 2>&1
-echo "=== Pane unsigned browser build started $(date) ==="
+echo "=== Pane unsigned browser build started $(date) config=$BUILD_CONFIG ==="
 uv run browseros build \
-  --config build/config/release.macos.arm64.unsigned.local.yaml \
+  --config "$BUILD_CONFIG" \
   --chromium-src "$CHROMIUM_SRC"
 BUILD_EXIT=$?
 echo "=== Pane unsigned browser build finished $(date) exit=$BUILD_EXIT ==="

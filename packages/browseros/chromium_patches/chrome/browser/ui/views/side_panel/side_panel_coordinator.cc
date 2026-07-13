@@ -2,15 +2,15 @@ diff --git a/chrome/browser/ui/views/side_panel/side_panel_coordinator.cc b/chro
 index a394820870..f14bcf2771 100644
 --- a/chrome/browser/ui/views/side_panel/side_panel_coordinator.cc
 +++ b/chrome/browser/ui/views/side_panel/side_panel_coordinator.cc
-@@ -29,6 +29,7 @@
- #include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
- #include "chrome/browser/ui/views/side_panel/side_panel_resize_area.h"
- #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
+@@ -32,6 +32,7 @@
+ #include "chrome/browser/ui/views/side_panel/side_panel_helper.h"
+ #include "chrome/browser/ui/views/side_panel/side_panel_toolbar_pinning_controller.h"
+ #include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
 +#include "chrome/browser/browseros/core/browseros_constants.h"
- 
- namespace {
- 
-@@ -350,9 +350,22 @@ void SidePanelCoordinator::PopulateSidePanel(
+ #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
+ #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+ #include "components/feature_engagement/public/event_constants.h"
+@@ -350,9 +351,21 @@ void SidePanelCoordinator::PopulateSidePanel(
    entry->OnEntryShown();
    if (previous_entry) {
      previous_entry->OnEntryHidden();
@@ -33,3 +33,4 @@ index a394820870..f14bcf2771 100644
 +  }
  
    side_panel->UpdateWidthOnEntryChanged();
+ 

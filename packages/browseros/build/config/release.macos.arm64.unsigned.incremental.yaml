@@ -1,0 +1,25 @@
+# Pane macOS arm64 unsigned release — incremental (skip clean + gclient sync).
+# Use when Chromium tree is already at the right tag and dependencies are synced.
+
+build:
+  type: release
+  architecture: arm64
+
+gn_flags:
+  file: build/config/gn/flags.macos.release.gn
+
+modules:
+  - sparkle_setup
+  - resources
+  - bundled_extensions
+  - chromium_replace
+  - string_replaces
+  - series_patches
+  - patches
+  - configure
+  - compile
+  - package_macos
+  - sparkle_sign
+
+notifications:
+  slack: false
