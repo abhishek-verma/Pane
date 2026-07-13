@@ -16,7 +16,11 @@ export const WorkspaceSidebarSwitcher: FC<WorkspaceSidebarSwitcherProps> = ({
   return (
     <div className="border-t px-2 py-2">
       <Link
-        to={selectedFolder ? `/workspaces/${selectedFolder.id}` : '/workspaces'}
+        to={
+          selectedFolder
+            ? `/settings/workspaces/${selectedFolder.id}`
+            : '/settings/workspaces'
+        }
         className={cn(
           'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
         )}

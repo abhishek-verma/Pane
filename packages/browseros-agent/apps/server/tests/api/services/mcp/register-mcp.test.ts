@@ -101,6 +101,15 @@ describe('registerTools', () => {
     'skills_load',
     'skills_install',
     'skills_archive',
+    'capture_start',
+    'capture_stop',
+    'capture_status',
+    'capture_list',
+    'capture_read',
+    'home_widget_list',
+    'home_widget_propose',
+    'home_widget_add',
+    'home_widget_remove',
   ]
   let infoMessages: unknown[] = []
 

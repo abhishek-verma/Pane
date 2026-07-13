@@ -24,7 +24,7 @@ describe('routeHomeSend', () => {
     expect(routeHomeSend(llm, 'hello')).toEqual({
       kind: 'llm',
       providerId: 'browseros',
-      path: '/home/chat?q=hello&mode=chat',
+      path: '/home/chat?q=hello&mode=agent',
     })
   })
 
@@ -42,7 +42,7 @@ describe('routeHomeSend', () => {
 
   it('encodes special characters in the query', () => {
     expect(routeHomeSend(llm, 'a & b?')?.path).toBe(
-      '/home/chat?q=a%20%26%20b%3F&mode=chat',
+      '/home/chat?q=a%20%26%20b%3F&mode=agent',
     )
   })
 
@@ -55,7 +55,7 @@ describe('routeHomeSend', () => {
           { id: 12 } as chrome.tabs.Tab,
         ],
       })?.path,
-    ).toBe('/home/chat?q=summarize%20these&mode=chat&tabs=11,12')
+    ).toBe('/home/chat?q=summarize%20these&mode=agent&tabs=11,12')
   })
 
   it('returns null for an empty prompt', () => {

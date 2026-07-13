@@ -80,9 +80,9 @@ describe('approval-over-channel (M5.5)', () => {
     expect(approval).not.toBeNull()
 
     // Approve via token
-    const resolved = resolveByToken(approval!.approveToken)
+    const resolved = resolveByToken(approval?.approveToken)
     expect(resolved?.resolution).toBe('approved')
-    signalApprovalResolved(approval!.id, 'approved')
+    signalApprovalResolved(approval?.id, 'approved')
 
     const result = await pending
     expect(result.resolution).toBe('approved')

@@ -13,6 +13,7 @@ const CLASS_LABELS: Record<PinnableClass, string> = {
   'write-local': 'Workspace file writes',
   system: 'Terminal commands',
   'write-external': 'External browser actions',
+  spend: 'Payments and purchases',
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
@@ -44,7 +45,7 @@ export const TrustPinsSettings: FC = () => {
         <h2 className="font-medium text-base">Trust pins</h2>
         <p className="mt-1 text-muted-foreground text-sm">
           Pin a consequence class to reduce approval prompts. Pins expire after
-          seven days by default. Payment actions cannot be pinned.
+          seven days by default.
         </p>
       </div>
       {PINNABLE_CLASSES.map((cls) => {

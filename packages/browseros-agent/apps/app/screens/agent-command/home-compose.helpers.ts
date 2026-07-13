@@ -50,6 +50,6 @@ export function routeHomeSend(
   return {
     kind: 'llm',
     providerId: provider.id,
-    path: `/home/chat?q=${encoded}&mode=chat${tabsParam}`,
+    path: `/home/chat?q=${encoded}&mode=agent${tabsParam}`,
   }
 }

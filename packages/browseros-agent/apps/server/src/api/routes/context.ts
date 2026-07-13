@@ -9,6 +9,10 @@ import { ensureDefaultBucket } from '@browseros/context-graph/repo'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import {
+  getPauseOnBatteryPref,
+  setPauseOnBatteryPref,
+} from '../../context/battery'
+import {
   ensureImplicitAllow,
   getDeniedHosts,
   listGrants,
@@ -59,15 +63,18 @@ export function createContextRoutes() {
     })
     .get('/grants', (c) => {
       const bucketId = c.req.query('bucketId') || DEFAULT_BUCKET_ID
+      const deniedOnly = c.req.query('deniedOnly') === 'true'
       ensureDefaultBucket(getDbHandle().sqlite as never)
-      const visited = listVisitedDomains(bucketId)
-      for (const host of visited) {
-        ensureImplicitAllow(host, bucketId)
+      if (!deniedOnly) {
+        const visited = listVisitedDomains(bucketId)
+        for (const host of visited) {
+          ensureImplicitAllow(host, bucketId)
+        }
       }
       return c.json({
         bucketId,
-        grants: listGrants(bucketId),
-        visitedDomains: visited,
+        grants: listGrants(bucketId, { deniedOnly }),
+        visitedDomains: deniedOnly ? [] : listVisitedDomains(bucketId),
       })
     })
     .put('/grants', async (c) => {
@@ -120,5 +127,17 @@ export function createContextRoutes() {
           createdAt,
         },
       })
+    })
+    .get('/settings', (c) => {
+      return c.json({
+        pauseOnBattery: getPauseOnBatteryPref(),
+      })
+    })
+    .put('/settings', async (c) => {
+      const body = z
+        .object({ pauseOnBattery: z.boolean() })
+        .parse(await c.req.json())
+      setPauseOnBatteryPref(body.pauseOnBattery)
+      return c.json({ pauseOnBattery: getPauseOnBatteryPref() })
     })
 }

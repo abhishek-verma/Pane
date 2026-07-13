@@ -4,13 +4,29 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { assertMemoryContent } from '@browseros/memory/scan'
+import { getDeniedHosts } from '../context/grants'
 import { graphAddEdge, graphAddEvent, graphUpsertNode } from '../context/repo'
 import { getDbHandle } from '../lib/db'
 import { writeStagedSkill } from '../memory/files'
 import { upsertSkillRecord } from '../memory/store'
-import { getCaptureConsent, requireCaptureConsent } from './consent'
 import { getCapturePausedReason } from './performance'
+
+function isUrlDenied(url: string, bucketId: string): boolean {
+  const denied = getDeniedHosts(bucketId)
+  if (denied.size === 0) return false
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    if (denied.has(host)) return true
+    for (const d of denied) {
+      if (host === d || host.endsWith(`.${d}`)) return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
 
 export interface BrowsingObservationInput {
   url: string
@@ -31,8 +47,10 @@ export async function observeBrowsingLearning(
 ): Promise<{ stagedSkillId: string | null; skippedReason?: string }> {
   if (getCapturePausedReason())
     return { stagedSkillId: null, skippedReason: 'paused' }
-  const consent = requireCaptureConsent(input.url, 'browsing')
-  const bucketId = input.bucketId ?? consent.bucketId
+  const bucketId = input.bucketId ?? DEFAULT_BUCKET_ID
+  if (isUrlDenied(input.url, bucketId)) {
+    return { stagedSkillId: null, skippedReason: 'denied' }
+  }
   const digest = extractDeterministicLearning(input)
   if (!digest) return { stagedSkillId: null, skippedReason: 'no-learning' }
   assertMemoryContent(digest)
@@ -70,10 +88,9 @@ export function recordResearchPage(input: ResearchPageInput): {
   threadId: string
   nodeId: string
 } {
-  const consent = getCaptureConsent(input.url, 'research')
-  if (!consent?.allowed)
+  const bucketId = input.bucketId ?? DEFAULT_BUCKET_ID
+  if (isUrlDenied(input.url, bucketId))
     throw new Error('Research capture is off for this domain')
-  const bucketId = input.bucketId ?? consent.bucketId
   const now = input.capturedAt ?? Date.now()
   const threadId = input.threadId ?? crypto.randomUUID()
   ensureResearchThread(threadId, bucketId, input.topic, now)

@@ -14,7 +14,7 @@ import {
   TaskItem,
   TaskTrigger,
 } from '@/components/ai-elements/task'
-import { ApprovalCard } from './ApprovalCard'
+import { ApprovalCard, isDryRunPreview } from './ApprovalCard'
 import type {
   ToolInvocationInfo,
   ToolInvocationState,
@@ -46,19 +46,31 @@ export const ToolBatch: FC<ToolBatchProps> = ({
   onDeny,
   onPromote,
 }) => {
-  const shouldBeOpen = isLastMessage && isLastBatch && isStreaming
+  const hasActionableTool = tools.some(
+    (t) =>
+      t.state === 'approval-requested' ||
+      (t.state === 'output-available' && isDryRunPreview(t)),
+  )
+  const shouldBeOpen =
+    isLastMessage && isLastBatch && (isStreaming || hasActionableTool)
   const [isOpen, setIsOpen] = useState(shouldBeOpen)
   const [hasUserInteracted, setHasUserInteracted] = useState(false)
 
   useEffect(() => {
     if (isLastMessage && !hasUserInteracted) {
       if (isLastBatch) {
-        setIsOpen(isStreaming)
+        setIsOpen(isStreaming || hasActionableTool)
       } else {
         setIsOpen(false)
       }
     }
-  }, [isStreaming, isLastMessage, isLastBatch, hasUserInteracted])
+  }, [
+    isStreaming,
+    isLastMessage,
+    isLastBatch,
+    hasUserInteracted,
+    hasActionableTool,
+  ])
 
   const completedCount = tools.filter((t) => isToolCompleted(t.state)).length
   const triggerTitle = `${completedCount}/${tools.length} actions completed`

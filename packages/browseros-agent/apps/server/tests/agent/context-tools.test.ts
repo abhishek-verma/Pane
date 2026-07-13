@@ -60,7 +60,7 @@ describe('context tools + trust class', () => {
     const tools = buildContextToolSet(() => 'default')
     const execute = tools.context_recall?.execute
     expect(execute).toBeDefined()
-    const result = await execute!(
+    const result = await execute?.(
       { query: 'tabs' },
       { toolCallId: 't1', messages: [] },
     )
@@ -92,7 +92,7 @@ describe('context tools + trust class', () => {
     setGrant('evil.com', false, 'default')
 
     const tools = buildContextToolSet(() => 'default')
-    const result = await tools.context_search!.execute!(
+    const result = await tools.context_search?.execute?.(
       { query: 'widgets', limit: 10 },
       { toolCallId: 't2', messages: [] },
     )

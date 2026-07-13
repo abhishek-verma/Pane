@@ -80,7 +80,7 @@ export const WorkspacesPage: FC = () => {
         bucketId: 'default',
       }
       await addFolder(folder)
-      navigate(`/workspaces/${folder.id}`)
+      navigate(`/settings/workspaces/${folder.id}`)
     } catch {
       // cancelled
     }
@@ -90,13 +90,13 @@ export const WorkspacesPage: FC = () => {
     await selectFolder(folder)
     setBrowsePath('.')
     setSelectedFile(null)
-    navigate(`/workspaces/${folder.id}`)
+    navigate(`/settings/workspaces/${folder.id}`)
   }
 
   const handleRemove = async (folderId: string) => {
     await removeFolder(folderId)
     if (routeWorkspaceId === folderId) {
-      navigate('/workspaces')
+      navigate('/settings/workspaces')
     }
   }
 

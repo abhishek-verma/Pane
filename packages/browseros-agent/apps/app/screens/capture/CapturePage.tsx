@@ -6,27 +6,14 @@
 
 import type { FC } from 'react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { isMeetingRoomUrl } from '@/lib/capture/meeting-urls'
-import { researchModeStorage } from '@/lib/capture/research-mode'
-import { useContextBuckets } from '@/screens/context/useContextApi'
 import {
-  type CaptureClass,
-  useCaptureConsents,
   useCaptureMeetings,
   useCaptureStatus,
   useCaptureTranscript,
 } from './useCaptureApi'
-
-const CONSENT_CLASSES: CaptureClass[] = ['meeting', 'browsing', 'research']
 
 function dedupeTranscriptFinals<T extends { kind: string; text: string }>(
   segments: T[],
@@ -64,26 +51,16 @@ function formatDuration(startMs: number, endMs: number | null): string {
 }
 
 export const CapturePage: FC = () => {
-  const [bucketId, setBucketId] = useState('default')
-  const [domainInput, setDomainInput] = useState('')
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null,
   )
-  const [showSettings, setShowSettings] = useState(false)
-  const [researchMode, setResearchMode] = useState(false)
-  const { buckets, loading: bucketsLoading } = useContextBuckets()
   const status = useCaptureStatus()
-  const meetings = useCaptureMeetings(bucketId)
-  const consents = useCaptureConsents(bucketId)
+  const meetings = useCaptureMeetings('default')
   const transcript = useCaptureTranscript(selectedSessionId)
 
   const visibleSessions = [...meetings.sessions]
     .filter((session) => !session.url || isMeetingRoomUrl(session.url))
     .sort((a, b) => b.startedAt - a.startedAt)
-
-  useEffect(() => {
-    void researchModeStorage.getValue().then(setResearchMode)
-  }, [])
 
   useEffect(() => {
     if (selectedSessionId) return
@@ -102,26 +79,6 @@ export const CapturePage: FC = () => {
   )
   const dedupedSegments = dedupeTranscriptFinals(transcript.segments)
 
-  const domains = Array.from(
-    new Set(consents.consents.map((c) => c.domain)),
-  ).sort()
-  const visibleDomains = domains.length > 0 ? domains : ['meet.google.com']
-
-  const reassignDomainBucket = (domain: string, nextBucketId: string) => {
-    for (const captureClass of CONSENT_CLASSES) {
-      const consent = consents.consents.find(
-        (item) => item.domain === domain && item.class === captureClass,
-      )
-      if (!consent) continue
-      consents.setConsent.mutate({
-        domain,
-        class: captureClass,
-        allowed: consent.allowed,
-        bucketId: nextBucketId,
-      })
-    }
-  }
-
   return (
     <div className="fade-in animate-in space-y-4 duration-300">
       {/* Header */}
@@ -134,15 +91,13 @@ export const CapturePage: FC = () => {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => setShowSettings(!showSettings)}
+        <div className="flex items-center gap-3">
+          <Link
+            to="/settings/permissions"
+            className="inline-flex h-7 items-center justify-center rounded-md border px-2 font-medium text-muted-foreground text-xs transition-colors hover:bg-muted/80"
           >
-            {showSettings ? 'Close' : 'Settings'}
-          </Button>
+            Settings
+          </Link>
           <Button
             variant="ghost"
             size="sm"
@@ -153,147 +108,13 @@ export const CapturePage: FC = () => {
           </Button>
         </div>
       </div>
-
-      {/* Settings (collapsible) */}
-      {showSettings && (
-        <div className="space-y-4 rounded-xl border border-border/50 bg-muted/30 p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <Select value={bucketId} onValueChange={setBucketId}>
-              <SelectTrigger className="h-8 w-44 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(buckets.length > 0
-                  ? buckets
-                  : [{ id: 'default', name: 'Default' }]
-                ).map((bucket) => (
-                  <SelectItem key={bucket.id} value={bucket.id}>
-                    {bucket.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex cursor-pointer items-center gap-2 text-muted-foreground text-xs">
-              <Switch
-                checked={researchMode}
-                onCheckedChange={(enabled) => {
-                  setResearchMode(enabled)
-                  void researchModeStorage.setValue(enabled)
-                }}
-              />
-              Research mode
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-              Allowed domains
-            </div>
-            <div className="flex gap-2">
-              <input
-                className="h-8 w-56 rounded-lg border bg-background px-2.5 text-xs"
-                placeholder="e.g. meet.google.com"
-                value={domainInput}
-                onChange={(e) => setDomainInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Enter' || !domainInput.trim()) return
-                  void consents.setConsent.mutateAsync({
-                    domain: domainInput.trim(),
-                    class: 'meeting',
-                    allowed: true,
-                    bucketId,
-                  })
-                  setDomainInput('')
-                }}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => {
-                  if (!domainInput.trim()) return
-                  void consents.setConsent.mutateAsync({
-                    domain: domainInput.trim(),
-                    class: 'meeting',
-                    allowed: true,
-                    bucketId,
-                  })
-                  setDomainInput('')
-                }}
-              >
-                Add
-              </Button>
-            </div>
-            {visibleDomains.map((domain) => (
-              <div
-                key={domain}
-                className="flex items-center justify-between rounded-lg border border-border/40 px-3 py-2"
-              >
-                <span className="font-medium text-xs">{domain}</span>
-                <div className="flex items-center gap-3">
-                  {CONSENT_CLASSES.map((captureClass) => {
-                    const consent = consents.consents.find(
-                      (item) =>
-                        item.domain === domain && item.class === captureClass,
-                    )
-                    return (
-                      <div
-                        key={captureClass}
-                        className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground"
-                      >
-                        <Switch
-                          checked={consent?.allowed ?? false}
-                          onCheckedChange={(allowed) =>
-                            consents.setConsent.mutate({
-                              domain,
-                              class: captureClass,
-                              allowed,
-                              bucketId: consent?.bucketId ?? bucketId,
-                            })
-                          }
-                        />
-                        {captureClass}
-                      </div>
-                    )
-                  })}
-                  <Select
-                    value={
-                      consents.consents.find((item) => item.domain === domain)
-                        ?.bucketId ?? bucketId
-                    }
-                    onValueChange={(nextBucketId) =>
-                      reassignDomainBucket(domain, nextBucketId)
-                    }
-                  >
-                    <SelectTrigger className="h-6 w-28 text-[11px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(buckets.length > 0
-                        ? buckets
-                        : [{ id: 'default', name: 'Default' }]
-                      ).map((bucket) => (
-                        <SelectItem key={bucket.id} value={bucket.id}>
-                          {bucket.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Session list + transcript split */}
       <div className="grid grid-cols-[220px_1fr] gap-4">
         {/* Left: session list */}
         <div
           className="space-y-1.5 overflow-y-auto"
           style={{ maxHeight: 'calc(100vh - 180px)' }}
         >
-          {(meetings.loading || bucketsLoading) && (
+          {meetings.loading && (
             <p className="px-2 py-6 text-center text-muted-foreground text-xs">
               Loading...
             </p>

@@ -100,7 +100,7 @@ describe('reach transports (M5.4)', () => {
     expect(isTelegramSenderAllowed('999')).toBe(true)
 
     const calls: string[] = []
-    const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
+    const fetchImpl = (async (url: string | URL, _init?: RequestInit) => {
       calls.push(String(url))
       return new Response(JSON.stringify({ ok: true, result: [] }), {
         status: 200,

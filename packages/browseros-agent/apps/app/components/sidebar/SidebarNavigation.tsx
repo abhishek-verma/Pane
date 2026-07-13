@@ -1,13 +1,4 @@
-import {
-  CalendarClock,
-  CheckSquare,
-  FolderKanban,
-  Home,
-  Mic,
-  Network,
-  PlugZap,
-  Settings,
-} from 'lucide-react'
+import { CheckSquare, Home, Mic } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import {
@@ -30,32 +21,14 @@ type NavItem = {
 
 const primaryNavItems: NavItem[] = [
   { name: 'Home', to: '/home', icon: Home },
-  {
-    name: 'Connect Apps',
-    to: '/connect-apps',
-    icon: PlugZap,
-  },
-  { name: 'Workspaces', to: '/workspaces', icon: FolderKanban },
-  { name: 'Context', to: '/context', icon: Network },
-  { name: 'Capture', to: '/capture', icon: Mic },
   { name: 'Tasks', to: '/tasks', icon: CheckSquare },
-  { name: 'Scheduled Tasks', to: '/scheduled', icon: CalendarClock },
-  {
-    name: 'Settings',
-    to: '/settings/ai',
-    icon: Settings,
-  },
+  { name: 'Meetings', to: '/meetings', icon: Mic },
 ]
 
 function isNavItemActive(item: NavItem, pathname: string): boolean {
-  if (item.to === '/settings/ai') {
-    return pathname.startsWith('/settings')
+  if (item.to === '/tasks') {
+    return pathname.startsWith('/tasks')
   }
-
-  if (item.to === '/workspaces') {
-    return pathname.startsWith('/workspaces')
-  }
-
   return pathname === item.to
 }
 
@@ -66,7 +39,7 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+      <div className="overflow-x-hidden p-2">
         <nav className="space-y-1">
           {primaryNavItems.map((item) => {
             const Icon = item.icon

@@ -66,14 +66,14 @@ The agent is a Chrome extension that provides AI-powered automation. Most contri
 cd packages/browseros-agent
 
 # 2. Install dependencies
-yarn install
+bun install
 
 # 3. Set up environment
 cp .env.example .env
 # Edit .env and add your LITELLM_API_KEY
 
 # 4. Build the extension
-yarn build:dev       # One-time build
+bun run dev:watch
 ```
 
 ### Load in Pane

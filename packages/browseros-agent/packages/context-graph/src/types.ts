@@ -86,6 +86,8 @@ export interface CurrentWork {
   files: GraphNode[]
   runs: GraphNode[]
   terminal: GraphNode[]
+  research: GraphNode[]
+  meetings: GraphNode[]
 }
 
 export interface UpsertNodeInput {

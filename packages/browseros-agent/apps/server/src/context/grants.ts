@@ -20,8 +20,14 @@ function sqlite(): GraphSqlDatabase {
   return getDbHandle().sqlite as unknown as GraphSqlDatabase
 }
 
-export function listGrants(bucketId = DEFAULT_BUCKET_ID): DomainGrant[] {
+export function listGrants(
+  bucketId = DEFAULT_BUCKET_ID,
+  options: { deniedOnly?: boolean } = {},
+): DomainGrant[] {
   ensureDefaultBucket(sqlite())
+  const whereClause = options.deniedOnly
+    ? 'WHERE bucket_id = ? AND allowed = 0'
+    : 'WHERE bucket_id = ?'
   const rows = sqlite()
     .prepare<{
       domain: string
@@ -30,7 +36,7 @@ export function listGrants(bucketId = DEFAULT_BUCKET_ID): DomainGrant[] {
       updated_at: number
     }>(
       `SELECT domain, bucket_id, allowed, updated_at
-       FROM domain_grants WHERE bucket_id = ?
+       FROM domain_grants ${whereClause}
        ORDER BY domain`,
     )
     .all(bucketId)

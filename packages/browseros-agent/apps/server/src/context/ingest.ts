@@ -111,7 +111,7 @@ function summarizeArgs(args: Record<string, unknown>): Record<string, unknown> {
 }
 
 export function isInternalBrowserUrl(url: string | undefined | null): boolean {
-  if (!url || !url.trim()) return true
+  if (!url?.trim()) return true
   const lower = url.trim().toLowerCase()
   return (
     lower.startsWith('chrome:') ||

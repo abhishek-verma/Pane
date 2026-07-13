@@ -208,7 +208,7 @@ description: bad
     const skill = getSkill('rated-skill')
     expect(skill?.uses).toBe(5)
     expect(skill?.successRate).not.toBeNull()
-    expect(skill!.successRate!).toBeLessThan(0.4)
+    expect(skill?.successRate ?? 0).toBeLessThan(0.4)
 
     const { runCurationPass } = await import('../../src/memory/skills')
     const curation = await runCurationPass({

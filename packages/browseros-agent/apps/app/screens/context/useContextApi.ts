@@ -25,6 +25,8 @@ export interface CurrentWorkResponse {
     files: ContextNode[]
     runs: ContextNode[]
     terminal: ContextNode[]
+    research: ContextNode[]
+    meetings: ContextNode[]
   }
   indexingPaused: boolean
   pauseReason: string | null
@@ -89,14 +91,25 @@ export function useContextCurrent(bucketId: string) {
   }
 }
 
-export function useContextGrants(bucketId: string) {
+export function useContextGrants(
+  bucketId: string,
+  options: { deniedOnly?: boolean } = {},
+) {
   const { baseUrl, isLoading: urlLoading } = useAgentServerUrl()
   const queryClient = useQueryClient()
   const query = useQuery({
-    queryKey: [CONTEXT_QUERY_KEY, 'grants', baseUrl, bucketId],
+    queryKey: [
+      CONTEXT_QUERY_KEY,
+      'grants',
+      baseUrl,
+      bucketId,
+      options.deniedOnly,
+    ],
     queryFn: async () => {
+      const params = new URLSearchParams({ bucketId })
+      if (options.deniedOnly) params.set('deniedOnly', 'true')
       const res = await fetch(
-        `${base(baseUrl as string)}/context/grants?bucketId=${encodeURIComponent(bucketId)}`,
+        `${base(baseUrl as string)}/context/grants?${params}`,
       )
       if (!res.ok) throw new Error(`Failed to load grants (${res.status})`)
       return (await res.json()) as {
@@ -134,5 +147,48 @@ export function useContextGrants(bucketId: string) {
     error: query.error,
     setGrant,
     refetch: query.refetch,
+  }
+}
+
+export interface ContextSettings {
+  pauseOnBattery: boolean
+}
+
+export function useContextSettings() {
+  const { baseUrl, isLoading: urlLoading } = useAgentServerUrl()
+  const queryClient = useQueryClient()
+
+  const query = useQuery({
+    queryKey: [CONTEXT_QUERY_KEY, 'settings', baseUrl],
+    queryFn: async () => {
+      const res = await fetch(`${base(baseUrl as string)}/context/settings`)
+      if (!res.ok)
+        throw new Error(`Failed to load context settings (${res.status})`)
+      return (await res.json()) as ContextSettings
+    },
+    enabled: Boolean(baseUrl) && !urlLoading,
+  })
+
+  const updateSettings = useMutation({
+    mutationFn: async (patch: Partial<ContextSettings>) => {
+      const res = await fetch(`${base(baseUrl as string)}/context/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      if (!res.ok) throw new Error(`Failed to update settings (${res.status})`)
+      return res.json()
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [CONTEXT_QUERY_KEY, 'settings', baseUrl],
+      })
+    },
+  })
+
+  return {
+    settings: query.data,
+    loading: query.isLoading || urlLoading,
+    updateSettings,
   }
 }

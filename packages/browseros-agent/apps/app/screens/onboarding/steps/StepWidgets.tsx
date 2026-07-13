@@ -46,7 +46,7 @@ export const StepWidgets = ({ direction, onContinue }: StepWidgetsProps) => {
 
   const icp = null as OnboardingIcp | null // ICP is async; step shows general starters
   const preferredIds =
-    ICP_WIDGET_MAP[icp ?? 'default'] ?? ICP_WIDGET_MAP['default']
+    ICP_WIDGET_MAP[icp ?? 'default'] ?? ICP_WIDGET_MAP.default
 
   const starters = BUILTIN_TEMPLATES.filter((t) =>
     preferredIds.includes(t.id),

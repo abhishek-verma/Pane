@@ -6,6 +6,7 @@
 
 import type { FC } from 'react'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -14,12 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import {
   type ContextNode,
   useContextBuckets,
   useContextCurrent,
-  useContextGrants,
 } from './useContextApi'
 
 function NodeList({ title, nodes }: { title: string; nodes: ContextNode[] }) {
@@ -50,13 +49,6 @@ export const ContextPage: FC = () => {
   const { buckets, loading: bucketsLoading } = useContextBuckets()
   const [bucketId, setBucketId] = useState('default')
   const { data, loading, error, refetch } = useContextCurrent(bucketId)
-  const {
-    grants,
-    visitedDomains,
-    setGrant,
-    loading: grantsLoading,
-  } = useContextGrants(bucketId)
-
   const work = data?.work
   const empty =
     work &&
@@ -64,12 +56,9 @@ export const ContextPage: FC = () => {
     work.pages.length === 0 &&
     work.files.length === 0 &&
     work.terminal.length === 0 &&
-    work.runs.length === 0
-
-  const grantByDomain = new Map(grants.map((g) => [g.domain, g]))
-  const domains = [
-    ...new Set([...visitedDomains, ...grants.map((g) => g.domain)]),
-  ].sort()
+    work.runs.length === 0 &&
+    (!work.research || work.research.length === 0) &&
+    (!work.meetings || work.meetings.length === 0)
 
   return (
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
@@ -129,51 +118,29 @@ export const ContextPage: FC = () => {
       {work && !empty && (
         <div className="grid gap-6 md:grid-cols-2">
           <NodeList title="Pages" nodes={work.pages} />
-          <NodeList title="Tabs" nodes={work.tabs} />
+          <NodeList title="Previously Opened Pages" nodes={work.tabs} />
           <NodeList title="Files" nodes={work.files} />
           <NodeList title="Terminal" nodes={work.terminal} />
           <NodeList title="Agent runs" nodes={work.runs} />
+          <NodeList title="Research Pages" nodes={work.research || []} />
+          <NodeList title="Meetings" nodes={work.meetings || []} />
         </div>
       )}
 
-      <section className="space-y-3">
-        <h2 className="font-medium text-sm">Domain grants</h2>
+      <section className="space-y-3 border-t pt-4">
+        <h2 className="font-medium text-sm">Privacy & Domains</h2>
         <p className="text-muted-foreground text-xs">
-          Deny a domain to hide its pages from context search and current work.
+          Manage allowed domains for context search and indexing in the
+          centralized permissions settings.
         </p>
-        {grantsLoading && (
-          <p className="text-muted-foreground text-sm">Loading grants…</p>
-        )}
-        {domains.length === 0 && !grantsLoading && (
-          <p className="text-muted-foreground text-sm">
-            No visited domains yet.
-          </p>
-        )}
-        <ul className="space-y-2">
-          {domains.map((domain) => {
-            const grant = grantByDomain.get(domain)
-            const allowed = grant?.allowed ?? true
-            return (
-              <li
-                key={domain}
-                className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
-              >
-                <span>{domain}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground text-xs">
-                    {allowed ? 'Allowed' : 'Denied'}
-                  </span>
-                  <Switch
-                    checked={allowed}
-                    onCheckedChange={(next) =>
-                      setGrant.mutate({ domain, allowed: next })
-                    }
-                  />
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+        <div className="pt-1">
+          <Link
+            to="/settings/permissions"
+            className="font-semibold text-[var(--accent-orange)] text-xs hover:underline"
+          >
+            Manage domain grants in Settings →
+          </Link>
+        </div>
       </section>
     </div>
   )

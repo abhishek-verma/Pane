@@ -166,7 +166,6 @@ Features grouped by user outcome. Maturity reflects docs, UI routes, and changel
 
 | Feature | Outcome | Notes |
 |---------|---------|-------|
-| **Connect Apps** | 40+ OAuth/API integrations (Gmail, Slack, GitHub, …) | Klavis-backed; `/connect-apps` |
 | **Pane as MCP** | Expose browser to external MCP clients | Settings → copy URL; `browseros-cli init` |
 | **Custom MCP servers** | User-added MCP endpoints | Connect Apps + MCP settings |
 | **n8n integration** | Workflow automation via docs recipe | Integration doc |
@@ -191,12 +190,6 @@ Features grouped by user outcome. Maturity reflects docs, UI routes, and changel
 | **Glow indicator** | Visual feedback when agent works a tab | Orange viewport pulse |
 | **Voice input** | Speak prompts | Shipped v0.44 |
 
-### Account and sync
-
-| Feature | Outcome | Notes |
-|---------|---------|-------|
-| **Cloud sync** | Conversations, settings, scheduled tasks across devices | Magic link or Google; GraphQL API |
-| **Usage & billing** | Credits display and billing | Gated by `CREDITS_SUPPORT`; `/settings/usage` |
 
 ### Developer
 
@@ -232,7 +225,6 @@ Sidebar (`SidebarNavigation.tsx`):
 | AI & Agents | `/settings/ai` | LLM providers, default model, harness agents |
 | Customize Pane | `/settings/customization` | Vertical tabs, themes, UX prefs |
 | Pane as MCP | `/settings/mcp` | MCP URL, external client setup |
-| Usage & Billing | `/settings/usage` | Credits (when enabled) |
 
 ### Other surfaces
 
@@ -240,7 +232,6 @@ Sidebar (`SidebarNavigation.tsx`):
 |---------|-------|---------|
 | **Side panel** | Browser toolbar | Main chat/agent loop while browsing |
 | **Onboarding** | First install | Import, provider setup, feature tour |
-| **Profile / auth** | `/login`, `/profile` | Cloud account |
 
 ### Mental model for users
 
@@ -308,10 +299,8 @@ flowchart TD
 
 | Layer | What it connects | User-facing name |
 |-------|------------------|------------------|
-| **Built-in app MCPs** | 40+ SaaS apps via Klavis | Connect Apps |
 | **Pane MCP server** | Browser control for any MCP client | Pane as MCP |
 | **User custom MCP** | Self-hosted or third-party servers | Custom MCP in Connect Apps |
-| **Cloud API** | Account, sync, credits, GraphQL | Sign in / api.browseros.com |
 | **Automation platforms** | n8n recipes | Docs integration |
 
 ### MCP as strategic wedge
@@ -354,8 +343,6 @@ Inferred from product behavior and docs (not a financial forecast).
 | **Browser download** | Free, open source |
 | **Default AI** | Kimi K2.5 (or similar) with **limited daily credits** for trial |
 | **Full usage** | BYOK (user pays provider) or OAuth subscriptions (ChatGPT Pro, Copilot) |
-| **Cloud sync / account** | Free sign-in; drives retention and cross-device stickiness |
-| **Credits / billing** | Usage page when `CREDITS_SUPPORT` enabled — likely monetization path for hosted inference |
 | **Enterprise** | Not prominently documented in repo; likely sales-led separately |
 
 **Pricing philosophy (product):** Avoid forcing a single AI vendor. Revenue likely mixes hosted credits, partnerships (e.g. Kimi default), and future team features — while keeping the OSS core and BYOK path credible.

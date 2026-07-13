@@ -222,7 +222,7 @@ describe('trigger engine (M5.1)', () => {
     const event = makeEvent({ toolName: 'snapshot', id: 'evt_persist_1' })
     await onGraphEvent(event, { skipBatteryCheck: true })
     const run = findRunByIdempotencyKey(
-      `trigger:${listTriggerRules()[0]!.id}:evt_persist_1`,
+      `trigger:${listTriggerRules()[0]?.id}:evt_persist_1`,
     )
     expect(run).not.toBeNull()
     expect(run?.prompt).toBe('snap')

@@ -4,10 +4,12 @@ import {
   Bot,
   Brain,
   Compass,
-  CreditCard,
+  FolderKanban,
   LayoutDashboard,
   MessageSquare,
+  Network,
   Palette,
+  PlugZap,
   RotateCcw,
   Server,
   Shield,
@@ -15,8 +17,7 @@ import {
 } from 'lucide-react'
 import type { FC } from 'react'
 import { NavLink } from 'react-router'
-import { ThemeToggle } from '@/components/elements/theme-toggle'
-import { Feature } from '@/lib/browseros/capabilities'
+import type { Feature } from '@/lib/browseros/capabilities'
 import { productRepositoryUrl } from '@/lib/constants/productUrls'
 import { cn } from '@/lib/utils'
 import { useCapabilities } from '@/modules/browseros/capabilities.hooks'
@@ -62,37 +63,49 @@ const sectionLabelClassName =
 
 const primarySettingsSections: NavSection[] = [
   {
-    label: 'Provider Settings',
-    items: [{ name: 'AI & Agents', to: '/settings/ai', icon: Bot }],
+    label: 'General',
+    items: [
+      { name: 'Customize Pane', to: '/settings/customization', icon: Palette },
+      { name: 'Home widgets', to: '/settings/home', icon: LayoutDashboard },
+      { name: 'About Pane', to: '/settings/about', icon: BookOpen },
+    ],
   },
   {
-    label: 'Other',
+    label: 'Agent Setup',
+    items: [
+      { name: 'AI Providers', to: '/settings/ai', icon: Bot },
+      { name: 'Memory & Skills', to: '/settings/memory', icon: Brain },
+    ],
+  },
+  {
+    label: 'Data & Environment',
+    items: [
+      { name: 'Workspaces', to: '/settings/workspaces', icon: FolderKanban },
+      { name: 'Indexed Context', to: '/settings/context', icon: Network },
+      {
+        name: 'Privacy & Permissions',
+        to: '/settings/permissions',
+        icon: Shield,
+      },
+    ],
+  },
+  {
+    label: 'Integrations',
     items: [
       {
-        name: 'Customize Pane',
-        to: '/settings/customization',
-        icon: Palette,
+        name: 'Connect Apps (MCP)',
+        to: '/settings/connect-apps',
+        icon: PlugZap,
       },
-      { name: 'Home widgets', to: '/settings/home', icon: LayoutDashboard },
       { name: 'Pane as MCP', to: '/settings/mcp', icon: Server },
+    ],
+  },
+  {
+    label: 'System & Advanced',
+    items: [
+      { name: 'Notifications', to: '/settings/reach', icon: MessageSquare },
       { name: 'Action log', to: '/settings/action-log', icon: Shield },
-      { name: 'Memory & Skills', to: '/settings/memory', icon: Brain },
-      {
-        name: 'Reach & Keep-alive',
-        to: '/settings/reach',
-        icon: MessageSquare,
-      },
-      {
-        name: 'Diagnostics',
-        to: '/settings/diagnostics',
-        icon: Stethoscope,
-      },
-      {
-        name: 'Usage & Billing',
-        to: '/settings/usage',
-        icon: CreditCard,
-        feature: Feature.CREDITS_SUPPORT,
-      },
+      { name: 'Diagnostics', to: '/settings/diagnostics', icon: Stethoscope },
     ],
   },
 ]
@@ -167,10 +180,6 @@ export const SettingsSidebar: FC = () => {
           <ArrowLeft className="size-4 shrink-0" />
           <span className="truncate">Back</span>
         </NavLink>
-        <ThemeToggle
-          className="mr-1 h-8 w-8 shrink-0"
-          iconClassName="h-4 w-4"
-        />
       </div>
 
       <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden p-2">
