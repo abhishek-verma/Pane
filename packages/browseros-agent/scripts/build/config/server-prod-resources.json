@@ -63,6 +63,59 @@
       },
       "destination": "resources/db/migrations",
       "recursive": true
+    },
+    {
+      "name": "ASR Bun sidecar script",
+      "source": {
+        "type": "local",
+        "path": "packages/capture/asr/bun-sidecar"
+      },
+      "destination": "resources/asr/bun-sidecar",
+      "recursive": true
+    },
+    {
+      "name": "Whisper.node - macOS ARM64",
+      "source": {
+        "type": "local",
+        "path": "packages/capture/node_modules/@kutalia/whisper-node-addon/dist/mac-arm64"
+      },
+      "destination": "resources/asr/whisper/darwin-arm64",
+      "os": ["macos"],
+      "arch": ["arm64"],
+      "recursive": true
+    },
+    {
+      "name": "Whisper.node - macOS x64",
+      "source": {
+        "type": "local",
+        "path": "packages/capture/node_modules/@kutalia/whisper-node-addon/dist/mac-x64"
+      },
+      "destination": "resources/asr/whisper/darwin-x64",
+      "os": ["macos"],
+      "arch": ["x64"],
+      "recursive": true
+    },
+    {
+      "name": "Whisper.node - Linux x64",
+      "source": {
+        "type": "local",
+        "path": "packages/capture/node_modules/@kutalia/whisper-node-addon/dist/linux-x64"
+      },
+      "destination": "resources/asr/whisper/linux-x64",
+      "os": ["linux"],
+      "arch": ["x64"],
+      "recursive": true
+    },
+    {
+      "name": "Whisper.node - Windows x64",
+      "source": {
+        "type": "local",
+        "path": "packages/capture/node_modules/@kutalia/whisper-node-addon/dist/win32-x64"
+      },
+      "destination": "resources/asr/whisper/win32-x64",
+      "os": ["windows"],
+      "arch": ["x64"],
+      "recursive": true
     }
   ]
 }

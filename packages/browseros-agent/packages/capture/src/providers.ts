@@ -5,6 +5,7 @@
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type {
@@ -19,28 +20,67 @@ interface LocalFasterWhisperOptions {
   args?: string[]
 }
 
-function defaultSidecarArgs(): string[] {
+/**
+ * Resolve the runtime (Bun binary) and script for the ASR sidecar.
+ *
+ * Priority:
+ *  1. BROWSEROS_ASR_SIDECAR env var — used in dev/CI to set the runtime directly
+ *     (set to the full bun/python command; BROWSEROS_ASR_SIDECAR_SCRIPT overrides the script).
+ *  2. Bundled Bun + bundled TS sidecar (production path inside the app bundle).
+ *  3. dev workspace: use system `bun` + local sidecar.ts from source.
+ */
+function resolveSidecar(): { command: string; args: string[] } {
   const moduleDir = dirname(fileURLToPath(import.meta.url))
-  const asrRoot = join(moduleDir, '..', 'asr')
   const mock = process.env.BROWSEROS_ASR_MOCK === '1'
-  if (mock) {
-    return [join(asrRoot, 'browseros_capture_asr', '__main__.py'), '--mock']
+
+  // Explicit override (dev / CI / power-user)
+  if (process.env.BROWSEROS_ASR_SIDECAR) {
+    const pythonOrBun = process.env.BROWSEROS_ASR_SIDECAR
+    // Legacy Python-style override: just a python binary path → keep old args
+    if (pythonOrBun.includes('python')) {
+      const asrRoot = join(moduleDir, '..', 'asr')
+      return {
+        command: pythonOrBun,
+        args: mock
+          ? [join(asrRoot, 'browseros_capture_asr', '__main__.py'), '--mock']
+          : [
+              '-m',
+              'browseros_capture_asr',
+              '--model',
+              process.env.BROWSEROS_ASR_MODEL ?? 'small.en',
+            ],
+      }
+    }
+    // Bun-style override: binary + optional script override
+    const script =
+      process.env.BROWSEROS_ASR_SIDECAR_SCRIPT ??
+      bundledSidecarScript(moduleDir)
+    return { command: pythonOrBun, args: [script] }
   }
-  return [
-    '-m',
-    'browseros_capture_asr',
-    '--model',
-    process.env.BROWSEROS_ASR_MODEL ?? 'small.en',
-  ]
+
+  // Production: bundled Bun + bundled sidecar
+  const bundledBun = join(moduleDir, '..', 'bin', 'third_party', 'bun')
+  if (existsSync(bundledBun)) {
+    const script = bundledSidecarScript(moduleDir)
+    return { command: bundledBun, args: [script] }
+  }
+
+  // Dev workspace: system bun + source sidecar
+  const devScript = join(moduleDir, '..', 'asr', 'bun-sidecar', 'sidecar.ts')
+  return { command: 'bun', args: [devScript] }
+}
+
+function bundledSidecarScript(moduleDir: string): string {
+  // In the production app bundle the sidecar script sits at:
+  //   resources/asr/bun-sidecar/sidecar.ts  (relative to resources/bin/)
+  return join(moduleDir, '..', 'asr', 'bun-sidecar', 'sidecar.ts')
 }
 
 function sidecarEnv(): NodeJS.ProcessEnv {
-  const moduleDir = dirname(fileURLToPath(import.meta.url))
-  const asrRoot = join(moduleDir, '..', 'asr')
   return {
     ...process.env,
-    PYTHONPATH: [asrRoot, process.env.PYTHONPATH].filter(Boolean).join(':'),
     BROWSEROS_ASR_MOCK: process.env.BROWSEROS_ASR_MOCK ?? '',
+    BROWSEROS_ASR_MODEL: process.env.BROWSEROS_ASR_MODEL ?? 'ggml-small.en',
   }
 }
 
@@ -54,9 +94,9 @@ export class LocalFasterWhisperProvider implements TranscriptionProvider {
     onPartial: (segment: TranscriptSegment) => void
     onFinal: (segment: TranscriptSegment) => void
   }): Promise<TranscriptionSession> {
-    const command =
-      this.options.command ?? process.env.BROWSEROS_ASR_SIDECAR ?? 'python3'
-    const args = this.options.args ?? defaultSidecarArgs()
+    const { command, args } = this.options.command
+      ? { command: this.options.command, args: this.options.args ?? [] }
+      : resolveSidecar()
     const child = spawn(command, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: sidecarEnv(),
@@ -166,6 +206,7 @@ async function transcribeChunk(
 class JsonlSidecarSession implements TranscriptionSession {
   private stdoutBuffer = ''
   private pendingAck: (() => void) | null = null
+  private pendingAckReject: ((err: Error) => void) | null = null
   private pendingAckTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
@@ -179,8 +220,23 @@ class JsonlSidecarSession implements TranscriptionSession {
     child.stdout.setEncoding('utf8')
     child.stdout.on('data', (data) => this.handleStdout(String(data)))
     child.stderr.setEncoding('utf8')
-    child.stderr.on('data', () => {
-      // sidecar logs on stderr; ignore for transcript path
+    child.stderr.on('data', (data) => {
+      // Surface sidecar stderr to the server log so startup failures are visible
+      process.stderr.write(`[asr-sidecar] ${String(data)}`)
+    })
+    // Reject the pending ack immediately if the sidecar exits unexpectedly
+    child.on('exit', (code) => {
+      if (code !== 0 && this.pendingAck) {
+        this.pendingAckReject?.(
+          new Error(`ASR sidecar exited with code ${code}`),
+        )
+        this.pendingAck = null
+        this.pendingAckReject = null
+        if (this.pendingAckTimer) {
+          clearTimeout(this.pendingAckTimer)
+          this.pendingAckTimer = null
+        }
+      }
     })
   }
 
@@ -191,8 +247,10 @@ class JsonlSidecarSession implements TranscriptionSession {
         return
       }
       this.pendingAck = resolve
+      this.pendingAckReject = reject
       this.pendingAckTimer = setTimeout(() => {
         this.pendingAck = null
+        this.pendingAckReject = null
         this.pendingAckTimer = null
         reject(new Error(`ASR sidecar ack timeout for chunk ${chunk.sequence}`))
       }, 120_000)
@@ -217,6 +275,7 @@ class JsonlSidecarSession implements TranscriptionSession {
     }
     const resolve = this.pendingAck
     this.pendingAck = null
+    this.pendingAckReject = null
     resolve?.()
   }
 

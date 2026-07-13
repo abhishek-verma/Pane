@@ -1,0 +1,21 @@
+# Pane macOS arm64 — resource-only repackage.
+# Use when ONLY server binary, extension CRX, or static resources changed.
+# Chromium source is UNCHANGED — no recompile, no gn gen, no patches.
+# Prerequisites: a previous full or incremental build must have already
+# produced the Pane.app bundle in out/Default_arm64/.
+
+build:
+  type: release
+  architecture: arm64
+
+gn_flags:
+  file: build/config/gn/flags.macos.release.gn
+
+modules:
+  - resources
+  - bundled_extensions
+  - package_macos
+  - sparkle_sign
+
+notifications:
+  slack: false
