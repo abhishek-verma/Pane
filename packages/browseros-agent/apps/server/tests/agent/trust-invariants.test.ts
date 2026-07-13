@@ -169,12 +169,12 @@ describe('decideGate', () => {
     expect(isPinActive(ctx, 'write-local')).toBe(false)
   })
 
-  it('never honors spend pins', () => {
+  it('honors spend pins', () => {
     const ctx = makeCtx({
       pins: { spend: { pinned: true } },
       isNewUser: false,
     })
-    expect(isPinActive(ctx, 'spend')).toBe(false)
+    expect(isPinActive(ctx, 'spend')).toBe(true)
   })
 
   it('raises cap when any pin is active', () => {

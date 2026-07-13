@@ -48,7 +48,7 @@ export async function activateStagedSkill(
   options: { memoriesRoot?: string } = {},
 ): Promise<{ ok: boolean; error?: string }> {
   const skill = getSkill(id)
-  if (!skill || skill.status !== 'staged') {
+  if (skill?.status !== 'staged') {
     return { ok: false, error: `No staged skill: ${id}` }
   }
   const base = memoriesRoot(options.memoriesRoot)

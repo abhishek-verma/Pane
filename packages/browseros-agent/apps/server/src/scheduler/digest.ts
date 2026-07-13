@@ -87,7 +87,7 @@ export function assembleDailyDigestMarkdown(options?: {
       layer: 'memory',
       status: 'active',
       limit: MAX_MEMORY_BULLETS,
-    }).map((e) => e.content.split('\n')[0]!.slice(0, 160))
+    }).map((e) => e.content.split('\n')[0]?.slice(0, 160))
   } catch {
     memoryBullets = []
   }

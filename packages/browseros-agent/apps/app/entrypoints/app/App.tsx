@@ -23,8 +23,9 @@ import { FeaturesPage } from '@/screens/onboarding/features/Features'
 import { Onboarding } from '@/screens/onboarding/index/Onboarding'
 import { StepsLayout } from '@/screens/onboarding/steps/StepsLayout'
 import { ReachSettingsPage } from '@/screens/reach/ReachSettingsPage'
-import { ScheduledTasksPage } from '@/screens/scheduled-tasks/ScheduledTasksPage'
+import { AboutSettingsPage } from '@/screens/settings/about/AboutSettingsPage'
 import { HomeSettingsPage } from '@/screens/settings/home/HomeSettingsPage'
+import { PermissionsPage } from '@/screens/settings/permissions/PermissionsPage'
 import { TasksPage } from '@/screens/tasks/TasksPage'
 import { WorkspacesPage } from '@/screens/workspaces/WorkspacesPage'
 
@@ -41,11 +42,11 @@ const OptionsRedirect: FC = () => {
 
   const routeMap: Record<string, string> = {
     ai: '/settings/ai',
-    'connect-mcp': '/connect-apps',
+    'connect-mcp': '/settings/connect-apps',
     mcp: '/settings/mcp',
     customization: '/settings/customization',
     search: '/settings/ai',
-    scheduled: '/scheduled',
+    scheduled: '/tasks?tab=scheduled',
   }
 
   const newPath = routeMap[path] || '/settings/ai'
@@ -74,15 +75,25 @@ export const App: FC = () => {
             <Route path="personalize" element={<Personalize />} />
           </Route>
 
-          <Route path="connect-apps" element={<ConnectMCP />} />
-          <Route path="workspaces">
-            <Route index element={<WorkspacesPage />} />
-            <Route path=":id" element={<WorkspacesPage />} />
-          </Route>
-          <Route path="context" element={<ContextPage />} />
-          <Route path="capture" element={<CapturePage />} />
+          <Route path="meetings" element={<CapturePage />} />
           <Route path="tasks" element={<TasksPage />} />
-          <Route path="scheduled" element={<ScheduledTasksPage />} />
+          <Route
+            path="scheduled"
+            element={<Navigate to="/tasks?tab=scheduled" replace />}
+          />
+          <Route path="capture" element={<Navigate to="/meetings" replace />} />
+          <Route
+            path="context"
+            element={<Navigate to="/settings/context" replace />}
+          />
+          <Route
+            path="connect-apps"
+            element={<Navigate to="/settings/connect-apps" replace />}
+          />
+          <Route
+            path="workspaces"
+            element={<Navigate to="/settings/workspaces" replace />}
+          />
         </Route>
 
         <Route element={<SettingsSidebarLayout />}>
@@ -96,6 +107,13 @@ export const App: FC = () => {
             <Route path="reach" element={<ReachSettingsPage />} />
             <Route path="home" element={<HomeSettingsPage />} />
             <Route path="diagnostics" element={<DiagnosticsPage />} />
+            <Route path="permissions" element={<PermissionsPage />} />
+            <Route path="about" element={<AboutSettingsPage />} />
+            <Route path="connect-apps" element={<ConnectMCP />} />
+            <Route path="context" element={<ContextPage />} />
+            <Route path="workspaces" element={<WorkspacesPage />}>
+              <Route path=":id" element={<WorkspacesPage />} />
+            </Route>
             <Route
               path="search"
               element={<Navigate to="/settings/ai" replace />}
@@ -118,7 +136,7 @@ export const App: FC = () => {
         />
         <Route
           path="/settings/connect-mcp"
-          element={<Navigate to="/connect-apps" replace />}
+          element={<Navigate to="/settings/connect-apps" replace />}
         />
         <Route path="/audit" element={<Navigate to="/home" replace />} />
         <Route

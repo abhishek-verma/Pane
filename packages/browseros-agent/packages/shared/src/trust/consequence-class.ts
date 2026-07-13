@@ -131,7 +131,6 @@ export function isConsequentialClass(cls: ConsequenceClass): boolean {
 }
 
 export function isPinActive(ctx: GateContext, cls: ConsequenceClass): boolean {
-  if (cls === 'spend') return false
   const pin = ctx.pins[cls]
   if (!pin?.pinned) return false
   if (pin.expiresAt != null && Date.now() >= pin.expiresAt) return false

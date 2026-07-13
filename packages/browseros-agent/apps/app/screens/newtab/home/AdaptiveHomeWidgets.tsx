@@ -72,12 +72,12 @@ async function fetchHome(): Promise<HomeData> {
 
 function handleCuratedAction(w: HomeWidget): void {
   const routes: Record<string, string> = {
-    'next-meeting': '#/capture',
-    'research-thread': '#/capture',
-    'pending-approvals': '#/tasks',
-    'one-click-recurring': '#/scheduled',
+    'next-meeting': '#/meetings',
+    'research-thread': '#/meetings',
+    'pending-approvals': '#/tasks?tab=inbox',
+    'one-click-recurring': '#/tasks?tab=scheduled',
     'daily-digest': '#/home',
-    'resumed-work': '#/context',
+    'resumed-work': '#/settings/context',
   }
   const target = routes[w.type]
   if (target) window.location.hash = target

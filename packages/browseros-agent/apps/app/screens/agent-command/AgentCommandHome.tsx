@@ -191,13 +191,13 @@ export const AgentCommandHome: FC = () => {
     await setDefaultProvider(route.providerId)
     if (llmRoutingMode === 'sidepanel') {
       const action = createBrowserOSAction({
-        mode: 'chat',
+        mode: 'agent',
         message: input.text,
         tabs: input.selectedTabs,
       })
       await openSidePanelWithSearch('open', {
         query: input.text,
-        mode: 'chat',
+        mode: 'agent',
         action,
       })
       return
@@ -234,7 +234,7 @@ export const AgentCommandHome: FC = () => {
                   : 'Loading providers...'
               }
               onOpenVoiceMode={() => {
-                navigate('/home/chat?voice=open&mode=chat')
+                navigate('/home/chat?voice=open&mode=agent')
               }}
             />
           </div>

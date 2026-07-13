@@ -1,8 +1,29 @@
-import { describeToolCall } from '@browseros/shared/trust/consequence-class'
+import {
+  deriveClass,
+  describeToolCall,
+} from '@browseros/shared/trust/consequence-class'
+import { ChevronDown } from 'lucide-react'
 import type { FC } from 'react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  conversationTrustStorage,
+  PINNABLE_CLASSES,
+  type PinnableClass,
+  type TrustPinRecord,
+  type TrustPinsMap,
+  trustPinsStorage,
+} from '@/lib/trust/trust-pins-storage'
+import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
+import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import type { ToolInvocationInfo } from './getMessageSegments'
 
 function extractOutputText(output: unknown): string {
@@ -67,15 +88,120 @@ export interface ApprovalCardProps {
   ) => void | Promise<void>
 }
 
+const TRUST_SCOPE_LABELS: Record<PinnableClass, string> = {
+  'write-local': 'workspace file writes',
+  system: 'terminal commands',
+  'write-external': 'external browser actions',
+  spend: 'payments and purchases',
+}
+
 export const ApprovalCard: FC<ApprovalCardProps> = ({
   tool,
   onApprove,
   onDeny,
   onPromote,
 }) => {
+  const { conversationId } = useChatSessionContext()
+  const [workspaceRoot, setWorkspaceRoot] = useState<string | undefined>()
+  const [activeTabUrl, setActiveTabUrl] = useState<string | undefined>()
+
+  useEffect(() => {
+    selectedWorkspaceStorage.getValue().then((folder) => {
+      setWorkspaceRoot(folder?.path)
+    })
+    chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
+      setActiveTabUrl(tabs[0]?.url)
+    })
+  }, [])
+
+  const gateCtx = {
+    pins: {},
+    browserContext: {
+      activeTab: {
+        id: 0,
+        url: activeTabUrl,
+        title: '',
+      },
+      isPrivate: false,
+    },
+    workspaceRoot,
+    runConsequentialCount: { count: 0 },
+    isNewUser: false,
+    surface: 'loop' as const,
+  }
+  const consequenceClass = deriveClass(
+    tool.toolName,
+    (tool.input ?? {}) as Record<string, unknown>,
+    gateCtx,
+  )
+
+  const isPinnable =
+    consequenceClass &&
+    (PINNABLE_CLASSES as readonly string[]).includes(consequenceClass)
+
+  const updatePin = async (
+    cls: PinnableClass,
+    patch: Partial<TrustPinRecord>,
+  ) => {
+    const next: TrustPinsMap = { ...(await trustPinsStorage.getValue()) }
+    const current = next[cls] ?? { pinned: false }
+    next[cls] = { ...current, ...patch }
+    if (!next[cls]?.pinned) {
+      delete next[cls]
+    }
+    await trustPinsStorage.setValue(next)
+  }
+
+  const updateConversationPin = async (
+    convoId: string,
+    cls: PinnableClass,
+    pinned: boolean,
+  ) => {
+    const next = { ...(await conversationTrustStorage.getValue()) }
+    const current = next[convoId] ?? {}
+    if (pinned) {
+      next[convoId] = { ...current, [cls]: true }
+    } else {
+      const { [cls]: _, ...rest } = current
+      if (Object.keys(rest).length === 0) {
+        delete next[convoId]
+      } else {
+        next[convoId] = rest
+      }
+    }
+    await conversationTrustStorage.setValue(next)
+  }
+
   const preview = extractOutputText(tool.output)
   const waitingApproval = tool.state === 'approval-requested'
   const dryRun = tool.state === 'output-available' && isDryRunPreview(tool)
+
+  const handleAllowAlways = async () => {
+    if (!isPinnable || !consequenceClass) return
+    await updatePin(consequenceClass as PinnableClass, {
+      pinned: true,
+      expiresAt: undefined,
+    })
+    if (waitingApproval) {
+      handleApprove()
+    } else if (dryRun) {
+      handlePromote()
+    }
+  }
+
+  const handleAllowSession = async () => {
+    if (!isPinnable || !consequenceClass || !conversationId) return
+    await updateConversationPin(
+      conversationId,
+      consequenceClass as PinnableClass,
+      true,
+    )
+    if (waitingApproval) {
+      handleApprove()
+    } else if (dryRun) {
+      handlePromote()
+    }
+  }
   // Loop-surface consequential calls pause for approval instead of returning a
   // dry-run preview as output, so render a preview from the tool input here.
   const approvalPreview =
@@ -158,9 +284,37 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
       <div className="flex flex-wrap gap-2">
         {waitingApproval && tool.approval?.id && (
           <>
-            <Button size="sm" onClick={handleApprove}>
-              Approve
-            </Button>
+            {isPinnable && consequenceClass ? (
+              <ButtonGroup>
+                <Button size="sm" onClick={handleApprove}>
+                  Approve
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="border-primary-foreground/20 border-l px-1.5"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleAllowSession}>
+                      Allow for this chat:{' '}
+                      {TRUST_SCOPE_LABELS[consequenceClass as PinnableClass]}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleAllowAlways}>
+                      Allow always:{' '}
+                      {TRUST_SCOPE_LABELS[consequenceClass as PinnableClass]}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </ButtonGroup>
+            ) : (
+              <Button size="sm" onClick={handleApprove}>
+                Approve
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -175,9 +329,37 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
         )}
         {dryRun && (
           <>
-            <Button size="sm" onClick={handlePromote}>
-              Promote
-            </Button>
+            {isPinnable && consequenceClass ? (
+              <ButtonGroup>
+                <Button size="sm" onClick={handlePromote}>
+                  Promote
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="border-primary-foreground/20 border-l px-1.5"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleAllowSession}>
+                      Allow for this chat:{' '}
+                      {TRUST_SCOPE_LABELS[consequenceClass as PinnableClass]}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleAllowAlways}>
+                      Allow always:{' '}
+                      {TRUST_SCOPE_LABELS[consequenceClass as PinnableClass]}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </ButtonGroup>
+            ) : (
+              <Button size="sm" onClick={handlePromote}>
+                Promote
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"

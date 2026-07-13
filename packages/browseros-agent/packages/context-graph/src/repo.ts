@@ -369,6 +369,8 @@ export function currentWork(
     files: pick('file'),
     runs: pick('agent_run'),
     terminal: pick('terminal_session'),
+    research: pick('research_page'),
+    meetings: pick('meeting'),
   }
 }
 

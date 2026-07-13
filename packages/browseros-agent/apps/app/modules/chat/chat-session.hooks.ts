@@ -1,4 +1,5 @@
 import { useChat } from '@ai-sdk/react'
+import type { ConsequenceClass } from '@browseros/shared/trust/consequence-class'
 import { useQueryClient } from '@tanstack/react-query'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 import { compact } from 'es-toolkit/array'
@@ -38,7 +39,10 @@ import {
   patchToolInvocationOutput,
 } from '@/lib/trust/patch-tool-output'
 import { replayToolOnServer } from '@/lib/trust/replay-tool'
-import { trustPinsStorage } from '@/lib/trust/trust-pins-storage'
+import {
+  conversationTrustStorage,
+  trustPinsStorage,
+} from '@/lib/trust/trust-pins-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { useInvalidateCredits } from '@/modules/credits/credits.hooks'
@@ -366,14 +370,21 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       if (selectedChatTargetRef.current?.kind === 'acp') return false
       const lastMessage = messages[messages.length - 1]
       if (lastMessage?.role !== 'assistant' || !lastMessage.parts) return false
-      return lastMessage.parts.some((part) => {
-        if (!part.type) return false
+
+      let hasAnyResponded = false
+      for (const part of lastMessage.parts) {
+        if (!part.type) continue
         const isTool =
           part.type === 'dynamic-tool' || part.type.startsWith('tool-')
-        if (!isTool) return false
+        if (!isTool) continue
         const toolPart = part as { state: string }
-        return toolPart.state === 'approval-responded'
-      })
+        // If ANY tool is still waiting for approval, hold off — resuming now
+        // would send approval-requested state to the server loop which causes
+        // a TypeValidationError when multiple tools need approval simultaneously.
+        if (toolPart.state === 'approval-requested') return false
+        if (toolPart.state === 'approval-responded') hasAnyResponded = true
+      }
+      return hasAnyResponded
     },
     transport: new DefaultChatTransport({
       prepareSendMessagesRequest: async ({ messages }) => {
@@ -442,6 +453,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         const agentSessionId =
           agentSessionStrategy === 'main' ? 'main' : conversationIdRef.current
 
+        const convoPins = await conversationTrustStorage.getValue()
+        const activeConvoPins = convoPins[conversationIdRef.current] ?? {}
+        const mergedPins = { ...trustPinsRef.current }
+        for (const [cls, isTrusted] of Object.entries(activeConvoPins)) {
+          if (isTrusted) {
+            mergedPins[cls as ConsequenceClass] = { pinned: true }
+          }
+        }
+
         const commonRequest = {
           conversationId: conversationIdRef.current,
           agentSessionId,
@@ -451,7 +471,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           userWorkingDir: workingDirRef.current,
           workspaceId: workspaceIdRef.current,
           bucketId: bucketIdRef.current ?? 'default',
-          trustPins: trustPinsRef.current,
+          trustPins: mergedPins,
           previousConversation,
           declinedApps,
           toolApprovalResponses,
@@ -899,6 +919,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         isPrivate,
       })
 
+      const convoPins = await conversationTrustStorage.getValue()
+      const activeConvoPins = convoPins[conversationIdRef.current] ?? {}
+      const mergedPins = { ...trustPinsRef.current }
+      for (const [cls, isTrusted] of Object.entries(activeConvoPins)) {
+        if (isTrusted) {
+          mergedPins[cls as ConsequenceClass] = { pinned: true }
+        }
+      }
+
       const result = await replayToolOnServer(baseUrl, {
         toolName: tool.toolName,
         args,
@@ -907,7 +936,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         userWorkingDir: workingDirRef.current,
         workspaceId: workspaceIdRef.current,
         bucketId: bucketIdRef.current ?? 'default',
-        trustPins: trustPinsRef.current,
+        trustPins: mergedPins,
         browserContext,
       })
 

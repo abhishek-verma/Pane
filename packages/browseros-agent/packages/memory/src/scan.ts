@@ -47,7 +47,7 @@ export class MemoryWriteRejectedError extends Error {
 }
 
 export function scanMemoryContent(content: string): InjectionScanResult {
-  if (!content || !content.trim()) {
+  if (!content?.trim()) {
     return { ok: false, reason: 'empty content' }
   }
   if (INVISIBLE_UNICODE.test(content)) {

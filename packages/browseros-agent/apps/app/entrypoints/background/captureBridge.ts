@@ -6,6 +6,8 @@
  * Background bridge: tab audio chunks, glow, browsing observer cadence.
  */
 
+import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { browsingCaptureModeStorage } from '@/lib/capture/browsing-capture-mode'
 import {
   failMeetingSession,
   fetchActiveMeetingSessions,
@@ -101,7 +103,7 @@ async function extractPageDigest(tabId: number): Promise<{
   return result?.result ?? null
 }
 
-async function consentAllowed(
+async function _consentAllowed(
   url: string,
   captureClass: 'browsing' | 'research',
 ): Promise<boolean> {
@@ -114,6 +116,23 @@ async function consentAllowed(
       consent.class === captureClass &&
       consent.allowed,
   )
+}
+
+async function isDomainDenied(url: string): Promise<boolean> {
+  try {
+    const serverUrl = (await getAgentServerUrl()).replace(/\/$/, '')
+    const res = await fetch(`${serverUrl}/context/grants?deniedOnly=true`)
+    if (!res.ok) return false
+    const json = (await res.json()) as {
+      grants: Array<{ domain: string; allowed: boolean }>
+    }
+    const host = new URL(url).hostname.toLowerCase()
+    return json.grants.some(
+      (g) => !g.allowed && (host === g.domain || host.endsWith(`.${g.domain}`)),
+    )
+  } catch {
+    return false
+  }
 }
 
 async function stopCaptureForSession(
@@ -343,8 +362,11 @@ async function observeTabIfConsented(
   const digest = await extractPageDigest(tabId)
   if (!digest?.text.trim()) return
 
+  const denied = await isDomainDenied(url)
+  if (denied) return
+
   const researchMode = await researchModeStorage.getValue()
-  if (researchMode && (await consentAllowed(url, 'research'))) {
+  if (researchMode) {
     const threadId = await researchThreadStorage.getValue()
     await recordResearchPage({
       url,
@@ -356,7 +378,8 @@ async function observeTabIfConsented(
     return
   }
 
-  if (await consentAllowed(url, 'browsing')) {
+  const browsingMode = await browsingCaptureModeStorage.getValue()
+  if (browsingMode) {
     await observeBrowsingPage({
       url,
       title: digest.title,
@@ -415,4 +438,12 @@ export async function setResearchCaptureMode(enabled: boolean): Promise<void> {
 
 export async function getResearchCaptureMode(): Promise<boolean> {
   return researchModeStorage.getValue()
+}
+
+export async function setBrowsingCaptureMode(enabled: boolean): Promise<void> {
+  await browsingCaptureModeStorage.setValue(enabled)
+}
+
+export async function getBrowsingCaptureMode(): Promise<boolean> {
+  return browsingCaptureModeStorage.getValue()
 }

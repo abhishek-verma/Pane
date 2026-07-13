@@ -10,19 +10,46 @@
  */
 
 import { execFile } from 'node:child_process'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { promisify } from 'node:util'
+import { getBrowserosDir } from '../lib/browseros-dir'
 import { logger } from '../lib/logger'
 import { setIngestPaused } from './ingest'
 
 const execFileAsync = promisify(execFile)
+
+function getSettingsPath(): string {
+  return join(getBrowserosDir(), 'settings.json')
+}
 
 let cached: { at: number; onBattery: boolean } | null = null
 const CACHE_MS = 30_000
 let pauseOnBatteryPref = true
 let monitorTimer: ReturnType<typeof setInterval> | null = null
 
+// Load preference on startup
+try {
+  const path = getSettingsPath()
+  if (existsSync(path)) {
+    const raw = readFileSync(path, 'utf8')
+    const parsed = JSON.parse(raw)
+    if (typeof parsed.pauseOnBattery === 'boolean') {
+      pauseOnBatteryPref = parsed.pauseOnBattery
+    }
+  }
+} catch (error) {
+  logger.warn('failed to load settings.json', { error: String(error) })
+}
+
 export function setPauseOnBatteryPref(enabled: boolean): void {
   pauseOnBatteryPref = enabled
+  try {
+    const path = getSettingsPath()
+    writeFileSync(path, JSON.stringify({ pauseOnBattery: enabled }), 'utf8')
+  } catch (error) {
+    logger.warn('failed to save settings.json', { error: String(error) })
+  }
   void refreshBatteryIngestPause()
 }
 
