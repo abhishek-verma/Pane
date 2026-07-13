@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { afterEach, describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -36,6 +36,10 @@ import type { ReachMessage, ReachTransport } from '../../src/reach/types'
 
 describe('reach transports (M5.4)', () => {
   const tempDirs: string[] = []
+
+  beforeEach(() => {
+    drainOsNotificationQueue()
+  })
 
   afterEach(() => {
     resetReachTransports()
