@@ -19,7 +19,7 @@ index a394820870..f14bcf2771 100644
    }
 +  content->RequestFocus();
 +
-+  if (header_view_) {
++  if (auto* header = side_panel->GetHeaderView<SidePanelHeader>()) {
 +    bool is_browseros_extension = false;
 +    if (entry->key().id() == SidePanelEntryId::kExtension) {
 +      const std::optional<extensions::ExtensionId>& extension_id =
@@ -29,7 +29,7 @@ index a394820870..f14bcf2771 100644
 +        is_browseros_extension = true;
 +      }
 +    }
-+    header_view_->SetVisible(!is_browseros_extension);
++    header->SetVisible(!is_browseros_extension);
 +  }
  
    side_panel->UpdateWidthOnEntryChanged();
