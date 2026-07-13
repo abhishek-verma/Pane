@@ -40,8 +40,13 @@ cd "$BROWSEROS"
 
 "$ROOT/packages/browseros-agent/scripts/release/stage-pane-browser-resources.sh" darwin-arm64
 
-# Choose config: incremental if Chromium tree is already at the right tag,
-# full (with clean + gclient sync) otherwise.
+# Choose config based on whether the Chromium tree is already at the right tag.
+#
+# INCREMENTAL: tree already at 148.0.7778.97 — skip clean + gclient sync,
+#   and skip the git reset so ninja only recompiles files whose content
+#   actually changed (fast, ~minutes).
+# FULL: tree is at a different tag — run clean + gclient sync first.
+#
 INCREMENTAL_CONFIG="build/config/release.macos.arm64.unsigned.incremental.yaml"
 FULL_CONFIG="build/config/release.macos.arm64.unsigned.local.yaml"
 BUILD_CONFIG="$FULL_CONFIG"
@@ -49,13 +54,13 @@ BUILD_CONFIG="$FULL_CONFIG"
 if [ -d "$CHROMIUM_SRC/.git" ]; then
   CURRENT_TAG=$(git -C "$CHROMIUM_SRC" describe --tags --exact-match 2>/dev/null || git -C "$CHROMIUM_SRC" rev-parse --abbrev-ref HEAD 2>/dev/null)
   if echo "$CURRENT_TAG" | grep -qE "148\.0\.7778\.97|browseros"; then
-    echo "Chromium tree at $CURRENT_TAG — using incremental config (skipping clean + gclient sync)"
+    echo "Chromium tree at $CURRENT_TAG — incremental build (no reset, no gclient sync)"
+    # Remove lock file only; do NOT reset/clean — preserves compiled objects
+    # so ninja skips files whose content has not changed.
     rm -f "$CHROMIUM_SRC/.git/index.lock"
-    git -C "$CHROMIUM_SRC" reset --hard tags/148.0.7778.97
-    git -C "$CHROMIUM_SRC" clean -fdq
     BUILD_CONFIG="$INCREMENTAL_CONFIG"
   else
-    echo "Chromium tree at $CURRENT_TAG — using full config (clean + gclient sync required)"
+    echo "Chromium tree at $CURRENT_TAG — full build required (clean + gclient sync)"
   fi
 fi
 
