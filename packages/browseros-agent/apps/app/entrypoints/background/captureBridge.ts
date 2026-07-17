@@ -405,16 +405,14 @@ export function captureBridge(): void {
 
   // Offscreen recorder asks for the live agent URL on each chunk so uploads
   // survive server restarts / MCP port flips mid-meeting.
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message?.type !== 'capture-audio-server-url') return false
-    void getAgentServerUrl()
-      .then((serverUrl) => sendResponse({ serverUrl }))
-      .catch((err: unknown) =>
-        sendResponse({
-          error: err instanceof Error ? err.message : String(err),
-        }),
-      )
-    return true
+  onRuntimeMessage(RuntimeMessageType.getCaptureServerUrl, async () => {
+    try {
+      return { serverUrl: await getAgentServerUrl() }
+    } catch (err: unknown) {
+      return {
+        error: err instanceof Error ? err.message : String(err),
+      }
+    }
   })
 
   chrome.webNavigation.onCompleted.addListener((details) => {

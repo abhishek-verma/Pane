@@ -56,7 +56,12 @@ export const CapturePage: FC = () => {
   )
   const status = useCaptureStatus()
   const meetings = useCaptureMeetings('default')
-  const transcript = useCaptureTranscript(selectedSessionId)
+  const activeSelectedSession =
+    meetings.sessions.find((s) => s.id === selectedSessionId) ?? null
+  const transcript = useCaptureTranscript(
+    selectedSessionId,
+    activeSelectedSession?.status === 'active',
+  )
 
   const visibleSessions = [...meetings.sessions]
     .filter((session) => !session.url || isMeetingRoomUrl(session.url))
@@ -119,11 +124,18 @@ export const CapturePage: FC = () => {
               Loading...
             </p>
           )}
-          {!meetings.loading && visibleSessions.length === 0 && (
+          {!meetings.loading && meetings.error && (
             <p className="px-2 py-6 text-center text-muted-foreground text-xs">
-              No meetings yet. Join a Google Meet with capture enabled.
+              Can&apos;t reach the Pane server. Restart Pane and try Refresh.
             </p>
           )}
+          {!meetings.loading &&
+            !meetings.error &&
+            visibleSessions.length === 0 && (
+              <p className="px-2 py-6 text-center text-muted-foreground text-xs">
+                No meetings yet. Join a Google Meet with capture enabled.
+              </p>
+            )}
           {visibleSessions.map((session) => {
             const isSelected = session.id === selectedSessionId
             const isActive = session.status === 'active'
@@ -207,11 +219,19 @@ export const CapturePage: FC = () => {
                     Loading transcript...
                   </p>
                 )}
-                {!transcript.loading && dedupedSegments.length === 0 && (
+                {!transcript.loading && transcript.error && (
                   <p className="py-8 text-center text-muted-foreground text-xs">
-                    No transcript yet. Speak during the call to see text here.
+                    Can&apos;t load transcript. The Pane server may be down.
+                    Restart Pane and hit Reload.
                   </p>
                 )}
+                {!transcript.loading &&
+                  !transcript.error &&
+                  dedupedSegments.length === 0 && (
+                    <p className="py-8 text-center text-muted-foreground text-xs">
+                      No transcript yet. Speak during the call to see text here.
+                    </p>
+                  )}
                 {dedupedSegments.map((segment) => (
                   <div key={segment.id} className="py-2.5">
                     <span className="mr-2 font-mono text-[10px] text-muted-foreground/60">

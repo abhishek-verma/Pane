@@ -13,6 +13,7 @@ import { setCaptureConsent } from '../../src/capture/consent'
 import {
   feedCaptureChunk,
   getCaptureSession,
+  reconcileStaleActiveCaptureSessions,
   rehydrateActiveCaptureSessions,
   startMeetingCapture,
   stopMeetingCapture,
@@ -104,7 +105,7 @@ describe('meeting capture pipeline', () => {
     expect(transcript).toContain('chunk 1')
   })
 
-  it('rehydrates an active session so chunks work after a process restart', async () => {
+  it('skips empty active sessions on bulk rehydrate (avoids ASR crash-loops)', async () => {
     const session = await startMeetingCapture({
       tabId: 42,
       bucketId: 'default',
@@ -114,7 +115,8 @@ describe('meeting capture pipeline', () => {
       requireConsent: true,
     })
 
-    // Simulate server restart: drop in-memory state while DB stays active.
+    // Simulate server restart: drop in-memory state while DB stays active,
+    // with no audio on disk (zombie empty session).
     await stopMeetingCapture(session.id)
     getDbHandle()
       .sqlite.prepare(
@@ -125,8 +127,9 @@ describe('meeting capture pipeline', () => {
       .run(session.id)
 
     const restored = await rehydrateActiveCaptureSessions()
-    expect(restored).toBe(1)
+    expect(restored).toBe(0)
 
+    // Lazy rehydrate on the first real chunk still works.
     await feedCaptureChunk({
       sessionId: session.id,
       sequence: 0,
@@ -141,6 +144,75 @@ describe('meeting capture pipeline', () => {
       'utf8',
     )
     expect(transcript).toContain('chunk 0')
+  })
+
+  it('bulk-rehydrates active sessions that already have audio on disk', async () => {
+    const session = await startMeetingCapture({
+      tabId: 42,
+      bucketId: 'default',
+      url: 'https://meet.google.com/abc-defg-hij',
+      title: 'Standup',
+      provider: 'local-faster-whisper',
+      requireConsent: true,
+    })
+
+    await feedCaptureChunk({
+      sessionId: session.id,
+      sequence: 0,
+      mimeType: 'audio/webm',
+      data: new TextEncoder().encode('before-restart'),
+    })
+
+    // Drop in-memory ASR while keeping DB active + stream.webm on disk.
+    await stopMeetingCapture(session.id)
+    getDbHandle()
+      .sqlite.prepare(
+        `UPDATE capture_sessions
+         SET status = 'active', ended_at = NULL, graph_node_id = NULL
+         WHERE id = ?`,
+      )
+      .run(session.id)
+
+    const restored = await rehydrateActiveCaptureSessions()
+    expect(restored).toBe(1)
+
+    await feedCaptureChunk({
+      sessionId: session.id,
+      sequence: 1,
+      mimeType: 'audio/webm',
+      data: new TextEncoder().encode('after-rehydrate'),
+    })
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await stopMeetingCapture(session.id)
+
+    const transcript = await readFile(
+      getCaptureSession(session.id)?.transcriptPath as string,
+      'utf8',
+    )
+    expect(transcript).toContain('chunk 0')
+    expect(transcript).toContain('chunk 1')
+  })
+
+  it('reconciles empty active zombies after the empty-session grace period', async () => {
+    const session = await startMeetingCapture({
+      tabId: 42,
+      bucketId: 'default',
+      url: 'https://meet.google.com/abc-defg-hij',
+      provider: 'local-faster-whisper',
+      requireConsent: true,
+    })
+    await stopMeetingCapture(session.id)
+    getDbHandle()
+      .sqlite.prepare(
+        `UPDATE capture_sessions
+         SET status = 'active', ended_at = NULL, started_at = ?
+         WHERE id = ?`,
+      )
+      .run(Date.now() - 61_000, session.id)
+
+    const stopped = reconcileStaleActiveCaptureSessions()
+    expect(stopped).toBeGreaterThanOrEqual(1)
+    expect(getCaptureSession(session.id)?.status).toBe('stopped')
   })
 
   it('auto-rehydrates on chunk feed when the in-memory session was lost', async () => {

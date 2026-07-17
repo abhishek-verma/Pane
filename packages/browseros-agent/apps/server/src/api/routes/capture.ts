@@ -9,6 +9,7 @@ import type { TranscriptionProviderId } from '@browseros/capture/types'
 import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { ensureAsrModel, getAsrModelStatus } from '../../capture/asr-model'
 import {
   observeBrowsingLearning,
   recordResearchPage,
@@ -167,15 +168,54 @@ export function createCaptureRoutes() {
         return c.json({ error: 'Transcript unavailable' }, 500)
       }
     })
+    .get('/asr/model-status', async (c) => {
+      const modelName = c.req.query('model') || undefined
+      return c.json(await getAsrModelStatus(modelName))
+    })
+    .get('/asr/ensure-model', async (c) => {
+      const modelName = c.req.query('model') || undefined
+      // Server-Sent Events stream — each event is a JSON progress object.
+      // The client closes the connection when it receives percent === 100.
+      return new Response(
+        new ReadableStream({
+          async start(controller) {
+            const enc = new TextEncoder()
+            const send = (obj: object) => {
+              controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`))
+            }
+            try {
+              await ensureAsrModel((progress) => send(progress), modelName)
+              send({ done: true, percent: 100 })
+            } catch (err) {
+              send({ error: String(err) })
+            } finally {
+              controller.close()
+            }
+          },
+        }),
+        {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            Connection: 'keep-alive',
+          },
+        },
+      )
+    })
     .post('/chunk', async (c) => {
       const body = ChunkSchema.parse(await c.req.json())
-      await feedCaptureChunk({
-        sessionId: body.sessionId,
-        sequence: body.sequence,
-        mimeType: body.mimeType,
-        data: Buffer.from(body.dataBase64, 'base64'),
-        capturedAt: body.capturedAt,
-      })
+      try {
+        await feedCaptureChunk({
+          sessionId: body.sessionId,
+          sequence: body.sequence,
+          mimeType: body.mimeType,
+          data: Buffer.from(body.dataBase64, 'base64'),
+          capturedAt: body.capturedAt,
+        })
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        return c.json({ ok: false, error: message }, 500)
+      }
       return c.json({ ok: true })
     })
     .post('/page-snapshot', async (c) => {

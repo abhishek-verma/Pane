@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { existsSync } from 'node:fs'
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
@@ -29,6 +30,12 @@ import { getCaptureAsrSecret } from './secrets'
 
 /** DB-active meetings older than this with no in-memory recorder are treated as stale. */
 const STALE_ACTIVE_SESSION_MS = 6 * 60 * 60 * 1000
+/**
+ * Active meetings with no uploaded audio after this long are abandoned.
+ * Keep short: empty zombies previously crash-looped the server via ASR rehydrate.
+ * 60s still leaves room for the first MediaRecorder timeslice (~2s) after start.
+ */
+const EMPTY_ACTIVE_SESSION_MS = 60 * 1000
 
 export interface CaptureSessionSummary {
   id: string
@@ -174,7 +181,11 @@ async function rehydrateSession(session: CaptureSessionSummary): Promise<{
   return active
 }
 
-/** Re-attach ASR for every DB-active meeting after process start. */
+/**
+ * Re-attach ASR for DB-active meetings that already have audio on disk.
+ * Never spawn ASR for empty zombies — that crash-looped the packaged server.
+ * Prefer lazy rehydrate via feedCaptureChunk; this exists for tests / recovery tools.
+ */
 export async function rehydrateActiveCaptureSessions(): Promise<number> {
   const rows = sqlite()
     .prepare<CaptureSessionDbRow, []>(
@@ -185,11 +196,28 @@ export async function rehydrateActiveCaptureSessions(): Promise<number> {
   for (const row of rows) {
     const session = rowToSummary(row)
     if (Date.now() - session.startedAt > STALE_ACTIVE_SESSION_MS) continue
+    const sessionDir = session.transcriptPath?.replace(
+      /\/transcript\.jsonl$/,
+      '',
+    )
+    const streamPath = sessionDir
+      ? join(sessionDir, 'audio-chunks', 'stream.webm')
+      : null
+    if (!streamPath || !existsSync(streamPath)) {
+      logger.info('Skipping rehydrate for empty active capture session', {
+        sessionId: session.id,
+      })
+      continue
+    }
     const active = await rehydrateSession(session).catch((err: unknown) => {
       logger.warn('Failed to rehydrate capture session', {
         sessionId: session.id,
         err,
       })
+      void failMeetingCapture(
+        session.id,
+        err instanceof Error ? err.message : String(err),
+      ).catch(() => undefined)
       return null
     })
     if (active) restored++
@@ -197,18 +225,29 @@ export async function rehydrateActiveCaptureSessions(): Promise<number> {
   return restored
 }
 
-/** Mark only long-abandoned DB-active meetings as stopped (not mid-call restarts). */
+/** Mark abandoned DB-active meetings as stopped (not mid-call restarts). */
 export function reconcileStaleActiveCaptureSessions(now = Date.now()): number {
   const rows = sqlite()
-    .prepare<{ id: string; started_at: number }, []>(
-      `SELECT id, started_at FROM capture_sessions
+    .prepare<
+      { id: string; started_at: number; transcript_path: string | null },
+      []
+    >(
+      `SELECT id, started_at, transcript_path FROM capture_sessions
        WHERE kind = 'meeting' AND status = 'active'`,
     )
     .all()
   let stopped = 0
   for (const row of rows) {
     if (isSessionRecording(row.id)) continue
-    if (now - row.started_at < STALE_ACTIVE_SESSION_MS) continue
+    const age = now - row.started_at
+    const sessionDir = row.transcript_path?.replace(/\/transcript\.jsonl$/, '')
+    const streamPath = sessionDir
+      ? join(sessionDir, 'audio-chunks', 'stream.webm')
+      : null
+    const hasAudio = streamPath ? existsSync(streamPath) : false
+    const abandonedEmpty = !hasAudio && age >= EMPTY_ACTIVE_SESSION_MS
+    const abandonedOld = age >= STALE_ACTIVE_SESSION_MS
+    if (!abandonedEmpty && !abandonedOld) continue
     sqlite()
       .prepare(
         `UPDATE capture_sessions SET status = 'stopped', ended_at = ? WHERE id = ?`,
@@ -259,7 +298,19 @@ async function feedCaptureChunkInner(input: {
   if (!active) {
     const session = getCaptureSession(input.sessionId)
     if (session?.status === 'active') {
-      active = (await rehydrateSession(session)) ?? undefined
+      try {
+        active = (await rehydrateSession(session)) ?? undefined
+      } catch (err: unknown) {
+        logger.warn('Lazy capture rehydrate failed', {
+          sessionId: input.sessionId,
+          err,
+        })
+        await failMeetingCapture(
+          input.sessionId,
+          err instanceof Error ? err.message : String(err),
+        ).catch(() => undefined)
+        throw err
+      }
     }
   }
   if (!active) throw new Error(`Capture session not active: ${input.sessionId}`)

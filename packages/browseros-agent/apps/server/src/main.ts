@@ -14,7 +14,7 @@ import { CdpBackend } from '@browseros/browser-core/backends/cdp'
 import { Browser } from '@browseros/browser-core/browser'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
 import { createHttpServer } from './api/server'
-import { rehydrateActiveCaptureSessions } from './capture/meeting-pipeline'
+import { reconcileStaleActiveCaptureSessions } from './capture/meeting-pipeline'
 import { startCaptureRetentionMonitor } from './capture/retention-monitor'
 import type { ServerConfig } from './config'
 import { startBatteryIngestMonitor } from './context/battery'
@@ -208,17 +208,12 @@ export class Application {
     startCaptureRetentionMonitor()
     startMemoryReviewMonitor()
     startDailyDigestMonitor()
-    void rehydrateActiveCaptureSessions()
-      .then((restored) => {
-        if (restored > 0) {
-          logger.info('Rehydrated active capture sessions on startup', {
-            restored,
-          })
-        }
-      })
-      .catch((err: unknown) => {
-        logger.warn('Capture session rehydrate on startup failed', { err })
-      })
+    // Do not spawn ASR sidecars on startup — that crash-looped the server when a
+    // zombie "active" meeting lingered in the DB. Chunk upload rehydrates lazily.
+    const stopped = reconcileStaleActiveCaptureSessions()
+    if (stopped > 0) {
+      logger.info('Stopped stale capture sessions on startup', { stopped })
+    }
 
     // Home proposal job — initial run 10 minutes after startup, then every 24h
     setTimeout(

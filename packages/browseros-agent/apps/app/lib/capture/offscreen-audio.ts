@@ -4,6 +4,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import {
+  RuntimeMessageType,
+  sendRuntimeMessage,
+} from '@/lib/messaging/runtime/runtimeMessages'
+
 const OFFSCREEN_URL = 'capture-offscreen.html'
 
 async function hasOffscreenDocument(): Promise<boolean> {
@@ -31,9 +36,9 @@ export async function closeCaptureOffscreenDocumentIfIdle(): Promise<void> {
   if (!chrome.offscreen?.closeDocument) return
   if (!(await hasOffscreenDocument())) return
 
-  const response = (await chrome.runtime.sendMessage({
-    type: 'capture-audio-status',
-  })) as { sessionIds?: string[] } | undefined
+  const response = await sendRuntimeMessage(
+    RuntimeMessageType.captureAudioStatus,
+  ).catch(() => null)
   if (response?.sessionIds?.length) return
 
   await chrome.offscreen.closeDocument()

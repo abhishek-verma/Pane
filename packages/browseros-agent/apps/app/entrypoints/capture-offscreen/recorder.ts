@@ -8,7 +8,17 @@
  * concatenates 0..N before ASR so each feed is a valid WebM stream.
  */
 
+import {
+  onRuntimeMessage,
+  RuntimeMessageType,
+  sendRuntimeMessage,
+} from '@/lib/messaging/runtime/runtimeMessages'
+
 const CHUNK_MS = 2_000
+const UPLOAD_TIMEOUT_MS = 30_000
+const UPLOAD_MAX_ATTEMPTS = 3
+/** After this many consecutive failed chunks, ask background to fail the session. */
+const MAX_CONSECUTIVE_UPLOAD_ERRORS = 5
 
 interface RecorderState {
   sessionId: string
@@ -19,15 +29,18 @@ interface RecorderState {
   includeMic: boolean
   serverUrl: string
   uploadErrors: number
+  /** Serializes uploads so stream.webm append order matches MediaRecorder order. */
+  uploadChain: Promise<void>
+  failingOut: boolean
 }
 
 const recorders = new Map<string, RecorderState>()
 
 async function resolveLiveServerUrl(fallback: string): Promise<string> {
   try {
-    const response = (await chrome.runtime.sendMessage({
-      type: 'capture-audio-server-url',
-    })) as { serverUrl?: string } | undefined
+    const response = await sendRuntimeMessage(
+      RuntimeMessageType.getCaptureServerUrl,
+    )
     if (response?.serverUrl) return response.serverUrl
   } catch {
     // Background may be restarting; fall back to the URL from start.
@@ -42,7 +55,7 @@ async function uploadCaptureChunk(input: {
   mimeType: string
   data: ArrayBuffer
   capturedAt?: number
-}): Promise<void> {
+}): Promise<string> {
   const bytes = new Uint8Array(input.data)
   let binary = ''
   for (const byte of bytes) {
@@ -60,6 +73,7 @@ async function uploadCaptureChunk(input: {
       dataBase64: btoa(binary),
       capturedAt: input.capturedAt ?? Date.now(),
     }),
+    signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
   })
   if (!res.ok) {
     const body = await res.text().catch(() => '')
@@ -67,6 +81,7 @@ async function uploadCaptureChunk(input: {
       `capture chunk failed (${res.status})${body ? `: ${body.slice(0, 200)}` : ''}`,
     )
   }
+  return serverUrl
 }
 
 async function openTabAudioStream(streamId: string): Promise<MediaStream> {
@@ -188,40 +203,51 @@ async function startRecording(input: {
     includeMic: opened.includeMic,
     serverUrl: input.serverUrl,
     uploadErrors: 0,
+    uploadChain: Promise.resolve(),
+    failingOut: false,
   }
 
   recorder.addEventListener('dataavailable', (event) => {
     if (!event.data || event.data.size === 0) return
+    if (state.failingOut) return
     const sequence = state.sequence
     state.sequence++
-    void event.data.arrayBuffer().then(async (buffer) => {
-      try {
-        await uploadCaptureChunk({
-          serverUrl: state.serverUrl,
-          sessionId: input.sessionId,
-          sequence,
-          mimeType,
-          data: buffer,
-        })
-      } catch (_err) {
-        state.uploadErrors++
-        // Retry once with a freshly resolved server URL after a restart/port flip.
-        try {
-          const serverUrl = await resolveLiveServerUrl(state.serverUrl)
-          state.serverUrl = serverUrl
-          await uploadCaptureChunk({
-            serverUrl,
-            sessionId: input.sessionId,
-            sequence,
-            mimeType,
-            data: buffer,
-          })
-          state.uploadErrors = Math.max(0, state.uploadErrors - 1)
-        } catch {
-          // Keep uploadErrors; next timeslice will try again.
+    const bufferPromise = event.data.arrayBuffer()
+    // Keep uploads strictly ordered so server stream.webm stays a valid WebM.
+    state.uploadChain = state.uploadChain
+      .then(async () => {
+        const buffer = await bufferPromise
+        for (let attempt = 0; attempt < UPLOAD_MAX_ATTEMPTS; attempt++) {
+          try {
+            const serverUrl = await uploadCaptureChunk({
+              serverUrl: state.serverUrl,
+              sessionId: input.sessionId,
+              sequence,
+              mimeType,
+              data: buffer,
+            })
+            state.serverUrl = serverUrl
+            state.uploadErrors = 0
+            return
+          } catch {
+            state.serverUrl = await resolveLiveServerUrl(state.serverUrl)
+            await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
+          }
         }
-      }
-    })
+        state.uploadErrors++
+        if (
+          state.uploadErrors >= MAX_CONSECUTIVE_UPLOAD_ERRORS &&
+          !state.failingOut
+        ) {
+          state.failingOut = true
+          // Must not await stopCapture here: it stops this recorder and would
+          // deadlock if stopRecording waited on this uploadChain.
+          void sendRuntimeMessage(RuntimeMessageType.stopCapture, {
+            sessionId: input.sessionId,
+          }).catch(() => undefined)
+        }
+      })
+      .catch(() => undefined)
   })
 
   recorder.start(CHUNK_MS)
@@ -232,6 +258,7 @@ async function startRecording(input: {
 async function stopRecording(sessionId: string): Promise<void> {
   const state = recorders.get(sessionId)
   if (!state) return
+  state.failingOut = true
 
   await new Promise<void>((resolve) => {
     const finish = () => {
@@ -246,44 +273,39 @@ async function stopRecording(sessionId: string): Promise<void> {
     state.recorder.addEventListener('stop', () => finish(), { once: true })
     state.recorder.stop()
   })
+  // Do not await state.uploadChain — a failing upload may be the caller of
+  // stopCapture, which would deadlock waiting for itself.
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === 'capture-audio-start') {
-    void startRecording(message.payload)
-      .then((result) => sendResponse({ ok: true, ...result }))
-      .catch((err: unknown) =>
-        sendResponse({
-          ok: false,
-          error: err instanceof Error ? err.message : String(err),
-        }),
-      )
-    return true
+onRuntimeMessage(RuntimeMessageType.captureAudioStart, async ({ data }) => {
+  try {
+    const result = await startRecording(data)
+    return { ok: true, ...result }
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    }
   }
-
-  if (message?.type === 'capture-audio-stop') {
-    void stopRecording(message.payload.sessionId)
-      .then(() => sendResponse({ ok: true }))
-      .catch((err: unknown) =>
-        sendResponse({
-          ok: false,
-          error: err instanceof Error ? err.message : String(err),
-        }),
-      )
-    return true
-  }
-
-  if (message?.type === 'capture-audio-status') {
-    sendResponse({
-      sessionIds: Array.from(recorders.keys()),
-      sessions: Array.from(recorders.values()).map((state) => ({
-        sessionId: state.sessionId,
-        chunksUploaded: state.sequence,
-        uploadErrors: state.uploadErrors,
-      })),
-    })
-    return false
-  }
-
-  return false
 })
+
+onRuntimeMessage(RuntimeMessageType.captureAudioStop, async ({ data }) => {
+  try {
+    await stopRecording(data.sessionId)
+    return { ok: true }
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    }
+  }
+})
+
+onRuntimeMessage(RuntimeMessageType.captureAudioStatus, () => ({
+  sessionIds: Array.from(recorders.keys()),
+  sessions: Array.from(recorders.values()).map((state) => ({
+    sessionId: state.sessionId,
+    chunksUploaded: state.sequence,
+    uploadErrors: state.uploadErrors,
+  })),
+}))

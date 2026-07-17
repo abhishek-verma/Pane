@@ -7,6 +7,10 @@
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import {
+  RuntimeMessageType,
+  sendRuntimeMessage,
+} from '@/lib/messaging/runtime/runtimeMessages'
+import {
   closeCaptureOffscreenDocumentIfIdle,
   ensureCaptureOffscreenDocument,
 } from './offscreen-audio'
@@ -55,20 +59,20 @@ export async function startTabAudioCapture(input: {
 
   // Resolve the server URL before stream setup so a mid-start port flip does
   // not strand chunk uploads on a different process than session create.
-  // Uploads also refresh this URL live via capture-audio-server-url.
+  // Uploads also refresh this URL live via getCaptureServerUrl.
   const serverUrl = await getAgentServerUrl()
   const streamId = await resolveStreamId(input.tabId)
   await ensureCaptureOffscreenDocument()
 
-  const response = (await chrome.runtime.sendMessage({
-    type: 'capture-audio-start',
-    payload: {
+  const response = await sendRuntimeMessage(
+    RuntimeMessageType.captureAudioStart,
+    {
       sessionId: input.sessionId,
       tabId: input.tabId,
       streamId,
       serverUrl,
     },
-  })) as { ok?: boolean; error?: string } | undefined
+  )
 
   if (!response?.ok) {
     throw new Error(
@@ -83,12 +87,9 @@ export async function stopTabAudioCapture(sessionId: string): Promise<void> {
   const tabId = activeSessions.get(sessionId)
   if (tabId === undefined) return
 
-  await chrome.runtime
-    .sendMessage({
-      type: 'capture-audio-stop',
-      payload: { sessionId },
-    })
-    .catch(() => null)
+  await sendRuntimeMessage(RuntimeMessageType.captureAudioStop, {
+    sessionId,
+  }).catch(() => null)
 
   activeSessions.delete(sessionId)
   await closeCaptureOffscreenDocumentIfIdle()

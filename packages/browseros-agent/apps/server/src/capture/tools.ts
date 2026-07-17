@@ -4,14 +4,12 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
 import {
   getCaptureSession,
   listCaptureSessions,
-  startMeetingCapture,
   stopMeetingCapture,
 } from './meeting-pipeline'
 import { getCaptureStatus } from './performance'
@@ -24,7 +22,7 @@ export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
   return {
     capture_start: tool({
       description:
-        'Start a consented local meeting capture for the current browser tab. Writes audio/transcripts under the selected bucket.',
+        'Meeting capture is started by the browser extension when the user joins a consented Meet/Zoom/Teams call. This tool does not start tab audio — use capture_status / capture_list to inspect sessions instead.',
       inputSchema: z.object({
         tabId: z.number().int(),
         url: z.string().url(),
@@ -35,18 +33,10 @@ export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
           .optional(),
         ...promotedField,
       }),
-      execute: async ({ tabId, url, title, bucketId, provider }) => {
-        const session = await startMeetingCapture({
-          tabId,
-          url,
-          title,
-          bucketId: bucketId || getBucketId() || DEFAULT_BUCKET_ID,
-          provider,
-        })
-        return {
-          text: `Started capture ${session.id} in bucket ${session.bucketId}.`,
-        }
-      },
+      execute: async () => ({
+        text: 'Meeting capture must be started by the browser extension (join a consented meeting). Creating a server-only session would leave an empty zombie with no audio.',
+        isError: true,
+      }),
     }),
     capture_stop: tool({
       description: 'Stop a local meeting capture session and index it.',
