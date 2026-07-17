@@ -37,6 +37,7 @@ import {
 import {
   onRuntimeMessage,
   RuntimeMessageType,
+  sendRuntimeMessage,
 } from '@/lib/messaging/runtime/runtimeMessages'
 
 const SYNC_ALARM = 'capture-sync'
@@ -142,6 +143,11 @@ async function stopCaptureForSession(
   deactivateCaptureGlow(tabId, sessionId)
   await stopTabAudioCapture(sessionId).catch(() => null)
   await stopMeetingSession(sessionId).catch(() => null)
+  // Notify all extension pages (new tab, sidepanel) so they can
+  // invalidate the home query immediately instead of waiting for the next poll.
+  void sendRuntimeMessage(RuntimeMessageType.captureSessionStopped, {
+    sessionId,
+  }).catch(() => null)
 }
 
 async function failCaptureForSession(
@@ -395,6 +401,20 @@ export function captureBridge(): void {
     if (alarm.name === SYNC_ALARM) {
       void syncActiveSessions()
     }
+  })
+
+  // Offscreen recorder asks for the live agent URL on each chunk so uploads
+  // survive server restarts / MCP port flips mid-meeting.
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== 'capture-audio-server-url') return false
+    void getAgentServerUrl()
+      .then((serverUrl) => sendResponse({ serverUrl }))
+      .catch((err: unknown) =>
+        sendResponse({
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      )
+    return true
   })
 
   chrome.webNavigation.onCompleted.addListener((details) => {

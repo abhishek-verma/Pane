@@ -14,7 +14,11 @@ import {
 } from '@browseros/capture/meeting-urls'
 import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { DIGESTS_DIR } from '@browseros/memory/constants'
-import { listCaptureSessions } from '../capture/meeting-pipeline'
+import {
+  isSessionRecording,
+  listCaptureSessions,
+  reconcileStaleActiveCaptureSessions,
+} from '../capture/meeting-pipeline'
 import { graphCurrentWork } from '../context/repo'
 import { listTasks } from '../context/tasks-repo'
 import { getBrowserosDir } from '../lib/browseros-dir'
@@ -136,6 +140,42 @@ export function rankWidgets(
   return filtered
 }
 
+function resolveMeetingTitle(
+  url: string | null,
+  labelFromUrl: string | null,
+): string {
+  if (!url) return 'Untitled meeting'
+  try {
+    const db = getDbHandle().sqlite
+    const row = db
+      .prepare<{ title: string | null }, [string, string]>(
+        `SELECT title FROM graph_nodes WHERE uri = ? OR uri LIKE ? LIMIT 1`,
+      )
+      .get(url, `${url}%`)
+
+    if (row?.title) {
+      const cleanTitle = row.title
+        .replace(/^Meet\s*-\s*/i, '')
+        .replace(/^Google Meet\s*-\s*/i, '')
+        .trim()
+      if (cleanTitle && !/^[a-z]{3}-[a-z]{4}-[a-z]{3}$/i.test(cleanTitle)) {
+        return cleanTitle
+      }
+    }
+  } catch {
+    // graph node DB not resolved
+  }
+
+  // If labelFromUrl is just the hash slug pattern, return a friendly fallback
+  if (labelFromUrl) {
+    if (/^[a-z]{3}-[a-z]{4}-[a-z]{3}$/i.test(labelFromUrl)) {
+      return 'Google Meet'
+    }
+    return labelFromUrl
+  }
+  return 'Untitled meeting'
+}
+
 export async function loadHomeWidgets(options?: {
   memoriesRoot?: string
   bucketId?: string
@@ -191,6 +231,8 @@ export async function loadHomeWidgets(options?: {
           toolName: a.toolName,
           preview: a.preview.slice(0, 200),
           runId: a.runId,
+          approveToken: a.approveToken,
+          denyToken: a.denyToken,
         })),
       },
     })
@@ -264,10 +306,18 @@ export async function loadHomeWidgets(options?: {
   }
 
   try {
+    // Only stop long-abandoned DB-active meetings. A server restart mid-call
+    // leaves status=active with no in-memory recorder; those are rehydrated
+    // on chunk upload / startup instead of being killed here.
+    reconcileStaleActiveCaptureSessions()
+
     const meetings = listCaptureSessions({ bucketId, kind: 'meeting' }).filter(
       (session) => session.url && isMeetingRoomUrl(session.url),
     )
-    const active = meetings.find((session) => session.status === 'active')
+    const active = meetings.find(
+      (session) =>
+        session.status === 'active' && isSessionRecording(session.id),
+    )
     const recent = meetings.find(
       (session) =>
         session.status === 'stopped' &&
@@ -284,6 +334,10 @@ export async function loadHomeWidgets(options?: {
     }
     const focus = active ?? (recentHasTranscript ? recent : null)
     if (focus) {
+      const displayTitle = resolveMeetingTitle(
+        focus.url,
+        focus.title ?? meetingRoomLabel(focus.url ?? ''),
+      )
       candidates.push({
         type: 'next-meeting',
         title: active ? 'Meeting capture live' : 'Last meeting notes',
@@ -293,10 +347,11 @@ export async function loadHomeWidgets(options?: {
         rank: 12,
         data: {
           sessionId: focus.id,
-          title: focus.title ?? meetingRoomLabel(focus.url ?? '') ?? 'Meeting',
+          title: displayTitle,
           url: focus.url,
           status: focus.status,
           transcriptPath: focus.transcriptPath,
+          startedAt: focus.startedAt,
         },
       })
     }
@@ -363,7 +418,23 @@ export async function loadHomeWidgets(options?: {
     const dir = options?.widgetsDir ?? getWidgetsDir(getBrowserosDir())
     const userWidgets = await listWidgets({ status: 'active' }, dir)
     for (const spec of userWidgets) {
+      // Prevent duplicate daily-digest template card if system daily-digest is active
+      if (
+        spec.source.type === 'template' &&
+        spec.source.templateId === 'daily-digest' &&
+        candidates.some((c) => c.type === 'daily-digest')
+      ) {
+        continue
+      }
       const binding = await getOrComputeBinding(spec, executeBinding)
+      // Don't render empty user widgets — if there's nothing to show, skip
+      if (
+        binding.count === 0 &&
+        binding.items.length === 0 &&
+        !binding.primaryLabel
+      ) {
+        continue
+      }
       candidates.push({
         type: `user:${spec.source.type}` as HomeWidgetType,
         title: spec.title,

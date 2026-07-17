@@ -53,8 +53,11 @@ export async function startTabAudioCapture(input: {
 }): Promise<void> {
   if (activeSessions.has(input.sessionId)) return
 
-  const streamId = await resolveStreamId(input.tabId)
+  // Resolve the server URL before stream setup so a mid-start port flip does
+  // not strand chunk uploads on a different process than session create.
+  // Uploads also refresh this URL live via capture-audio-server-url.
   const serverUrl = await getAgentServerUrl()
+  const streamId = await resolveStreamId(input.tabId)
   await ensureCaptureOffscreenDocument()
 
   const response = (await chrome.runtime.sendMessage({

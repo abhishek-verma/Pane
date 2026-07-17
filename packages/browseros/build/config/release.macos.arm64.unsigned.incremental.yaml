@@ -1,5 +1,6 @@
 # Pane macOS arm64 unsigned release — incremental (skip clean + gclient sync).
 # Use when Chromium tree is already at the right tag and dependencies are synced.
+# Assumes series_patches + patches are already applied from the previous build.
 
 build:
   type: release
@@ -14,8 +15,6 @@ modules:
   - bundled_extensions
   - chromium_replace
   - string_replaces
-  - series_patches
-  - patches
   - configure
   - compile
   - package_macos

@@ -13,12 +13,13 @@ import { setCaptureConsent } from '../../src/capture/consent'
 import {
   feedCaptureChunk,
   getCaptureSession,
+  rehydrateActiveCaptureSessions,
   startMeetingCapture,
   stopMeetingCapture,
 } from '../../src/capture/meeting-pipeline'
 import { setCapturePausedReason } from '../../src/capture/performance'
 import { setPauseOnBatteryPref } from '../../src/context/battery'
-import { closeDb, initializeDb } from '../../src/lib/db'
+import { closeDb, getDbHandle, initializeDb } from '../../src/lib/db'
 
 describe('meeting capture pipeline', () => {
   beforeEach(() => {
@@ -101,5 +102,79 @@ describe('meeting capture pipeline', () => {
     )
     expect(transcript).toContain('chunk 0')
     expect(transcript).toContain('chunk 1')
+  })
+
+  it('rehydrates an active session so chunks work after a process restart', async () => {
+    const session = await startMeetingCapture({
+      tabId: 42,
+      bucketId: 'default',
+      url: 'https://meet.google.com/abc-defg-hij',
+      title: 'Standup',
+      provider: 'local-faster-whisper',
+      requireConsent: true,
+    })
+
+    // Simulate server restart: drop in-memory state while DB stays active.
+    await stopMeetingCapture(session.id)
+    getDbHandle()
+      .sqlite.prepare(
+        `UPDATE capture_sessions
+         SET status = 'active', ended_at = NULL, graph_node_id = NULL
+         WHERE id = ?`,
+      )
+      .run(session.id)
+
+    const restored = await rehydrateActiveCaptureSessions()
+    expect(restored).toBe(1)
+
+    await feedCaptureChunk({
+      sessionId: session.id,
+      sequence: 0,
+      mimeType: 'audio/webm',
+      data: new TextEncoder().encode('after-restart'),
+    })
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await stopMeetingCapture(session.id)
+
+    const transcript = await readFile(
+      getCaptureSession(session.id)?.transcriptPath as string,
+      'utf8',
+    )
+    expect(transcript).toContain('chunk 0')
+  })
+
+  it('auto-rehydrates on chunk feed when the in-memory session was lost', async () => {
+    const session = await startMeetingCapture({
+      tabId: 42,
+      bucketId: 'default',
+      url: 'https://meet.google.com/abc-defg-hij',
+      provider: 'local-faster-whisper',
+      requireConsent: true,
+    })
+
+    await stopMeetingCapture(session.id)
+    getDbHandle()
+      .sqlite.prepare(
+        `UPDATE capture_sessions
+         SET status = 'active', ended_at = NULL, graph_node_id = NULL
+         WHERE id = ?`,
+      )
+      .run(session.id)
+
+    // No explicit rehydrate — feedCaptureChunk should restore from DB.
+    await feedCaptureChunk({
+      sessionId: session.id,
+      sequence: 0,
+      mimeType: 'audio/webm',
+      data: new TextEncoder().encode('auto-rehydrate'),
+    })
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    await stopMeetingCapture(session.id)
+
+    const transcript = await readFile(
+      getCaptureSession(session.id)?.transcriptPath as string,
+      'utf8',
+    )
+    expect(transcript).toContain('chunk 0')
   })
 })

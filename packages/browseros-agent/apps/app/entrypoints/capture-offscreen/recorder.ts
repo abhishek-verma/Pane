@@ -23,6 +23,18 @@ interface RecorderState {
 
 const recorders = new Map<string, RecorderState>()
 
+async function resolveLiveServerUrl(fallback: string): Promise<string> {
+  try {
+    const response = (await chrome.runtime.sendMessage({
+      type: 'capture-audio-server-url',
+    })) as { serverUrl?: string } | undefined
+    if (response?.serverUrl) return response.serverUrl
+  } catch {
+    // Background may be restarting; fall back to the URL from start.
+  }
+  return fallback
+}
+
 async function uploadCaptureChunk(input: {
   serverUrl: string
   sessionId: string
@@ -36,7 +48,8 @@ async function uploadCaptureChunk(input: {
   for (const byte of bytes) {
     binary += String.fromCharCode(byte)
   }
-  const base = input.serverUrl.replace(/\/$/, '')
+  const serverUrl = await resolveLiveServerUrl(input.serverUrl)
+  const base = serverUrl.replace(/\/$/, '')
   const res = await fetch(`${base}/capture/chunk`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -49,7 +62,10 @@ async function uploadCaptureChunk(input: {
     }),
   })
   if (!res.ok) {
-    throw new Error(`capture chunk failed (${res.status})`)
+    const body = await res.text().catch(() => '')
+    throw new Error(
+      `capture chunk failed (${res.status})${body ? `: ${body.slice(0, 200)}` : ''}`,
+    )
   }
 }
 
@@ -87,21 +103,9 @@ async function openMixedCaptureStream(input: {
     },
   ]
 
-  if (!input.includeMic) {
-    return {
-      stream: tabStream,
-      cleanup: () => {
-        for (const fn of cleanups) fn()
-      },
-      includeMic: false,
-    }
-  }
-
-  const micStream = await openMicStream()
-  cleanups.push(() => {
-    for (const track of micStream.getTracks()) track.stop()
-  })
-
+  // chrome.tabCapture / chromeMediaSource:'tab' mutes the tab for the user
+  // while the capture stream is live. Route tab audio to AudioContext.destination
+  // so meeting participants stay audible during recording.
   const audioContext = new AudioContext()
   cleanups.push(() => {
     if (audioContext.state !== 'closed') {
@@ -109,9 +113,22 @@ async function openMixedCaptureStream(input: {
     }
   })
 
+  const tabSource = audioContext.createMediaStreamSource(tabStream)
+  tabSource.connect(audioContext.destination)
+
   const destination = audioContext.createMediaStreamDestination()
-  audioContext.createMediaStreamSource(tabStream).connect(destination)
-  audioContext.createMediaStreamSource(micStream).connect(destination)
+  tabSource.connect(destination)
+
+  let includeMic = false
+  if (input.includeMic) {
+    const micStream = await openMicStream()
+    cleanups.push(() => {
+      for (const track of micStream.getTracks()) track.stop()
+    })
+    // Mic goes to the recorder only — never to speakers (echo).
+    audioContext.createMediaStreamSource(micStream).connect(destination)
+    includeMic = true
+  }
 
   if (audioContext.state === 'suspended') {
     await audioContext.resume().catch(() => undefined)
@@ -122,7 +139,7 @@ async function openMixedCaptureStream(input: {
     cleanup: () => {
       for (const fn of cleanups) fn()
     },
-    includeMic: true,
+    includeMic,
   }
 }
 
@@ -188,6 +205,21 @@ async function startRecording(input: {
         })
       } catch (_err) {
         state.uploadErrors++
+        // Retry once with a freshly resolved server URL after a restart/port flip.
+        try {
+          const serverUrl = await resolveLiveServerUrl(state.serverUrl)
+          state.serverUrl = serverUrl
+          await uploadCaptureChunk({
+            serverUrl,
+            sessionId: input.sessionId,
+            sequence,
+            mimeType,
+            data: buffer,
+          })
+          state.uploadErrors = Math.max(0, state.uploadErrors - 1)
+        } catch {
+          // Keep uploadErrors; next timeslice will try again.
+        }
       }
     })
   })

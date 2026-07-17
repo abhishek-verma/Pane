@@ -22,9 +22,13 @@ import type {
 import { graphAddEvent, graphUpsertNode } from '../context/repo'
 import { getCaptureDir } from '../lib/browseros-dir'
 import { getDbHandle } from '../lib/db'
+import { logger } from '../lib/logger'
 import { requireCaptureConsent } from './consent'
 import { assertCaptureNotPaused, refreshCapturePauseState } from './performance'
 import { getCaptureAsrSecret } from './secrets'
+
+/** DB-active meetings older than this with no in-memory recorder are treated as stale. */
+const STALE_ACTIVE_SESSION_MS = 6 * 60 * 60 * 1000
 
 export interface CaptureSessionSummary {
   id: string
@@ -131,6 +135,90 @@ export async function startMeetingCapture(input: {
   return getCaptureSession(id) as CaptureSessionSummary
 }
 
+/**
+ * Rebuild in-memory ASR state for a DB-active session after a server restart.
+ * Without this, chunk uploads fail with "Capture session not active" and the
+ * meeting produces an empty transcript even though the client is still recording.
+ */
+async function rehydrateSession(session: CaptureSessionSummary): Promise<{
+  providerSession: TranscriptionSession
+  transcriptPath: string
+  rawDir: string
+} | null> {
+  if (!session.transcriptPath) return null
+  const existing = activeSessions.get(session.id)
+  if (existing) return existing
+
+  const sessionDir = session.transcriptPath.replace(/\/transcript\.jsonl$/, '')
+  const rawDir = join(sessionDir, 'audio-chunks')
+  await mkdir(rawDir, { recursive: true })
+  await mkdir(join(sessionDir, 'page-snapshots'), { recursive: true })
+
+  const providerSession = await providerFor(session.provider).startSession({
+    sessionId: session.id,
+    onPartial: (segment) =>
+      void appendTranscript(session.transcriptPath as string, segment),
+    onFinal: (segment) =>
+      void appendTranscript(session.transcriptPath as string, segment),
+  })
+  const active = {
+    providerSession,
+    transcriptPath: session.transcriptPath,
+    rawDir,
+  }
+  activeSessions.set(session.id, active)
+  logger.info('Rehydrated capture session after restart', {
+    sessionId: session.id,
+    provider: session.provider,
+  })
+  return active
+}
+
+/** Re-attach ASR for every DB-active meeting after process start. */
+export async function rehydrateActiveCaptureSessions(): Promise<number> {
+  const rows = sqlite()
+    .prepare<CaptureSessionDbRow, []>(
+      `SELECT * FROM capture_sessions WHERE kind = 'meeting' AND status = 'active'`,
+    )
+    .all()
+  let restored = 0
+  for (const row of rows) {
+    const session = rowToSummary(row)
+    if (Date.now() - session.startedAt > STALE_ACTIVE_SESSION_MS) continue
+    const active = await rehydrateSession(session).catch((err: unknown) => {
+      logger.warn('Failed to rehydrate capture session', {
+        sessionId: session.id,
+        err,
+      })
+      return null
+    })
+    if (active) restored++
+  }
+  return restored
+}
+
+/** Mark only long-abandoned DB-active meetings as stopped (not mid-call restarts). */
+export function reconcileStaleActiveCaptureSessions(now = Date.now()): number {
+  const rows = sqlite()
+    .prepare<{ id: string; started_at: number }, []>(
+      `SELECT id, started_at FROM capture_sessions
+       WHERE kind = 'meeting' AND status = 'active'`,
+    )
+    .all()
+  let stopped = 0
+  for (const row of rows) {
+    if (isSessionRecording(row.id)) continue
+    if (now - row.started_at < STALE_ACTIVE_SESSION_MS) continue
+    sqlite()
+      .prepare(
+        `UPDATE capture_sessions SET status = 'stopped', ended_at = ? WHERE id = ?`,
+      )
+      .run(now, row.id)
+    stopped++
+  }
+  return stopped
+}
+
 export async function feedCaptureChunk(input: {
   sessionId: string
   sequence: number
@@ -167,7 +255,13 @@ async function feedCaptureChunkInner(input: {
 }): Promise<void> {
   await refreshCapturePauseState()
   assertCaptureNotPaused()
-  const active = activeSessions.get(input.sessionId)
+  let active = activeSessions.get(input.sessionId)
+  if (!active) {
+    const session = getCaptureSession(input.sessionId)
+    if (session?.status === 'active') {
+      active = (await rehydrateSession(session)) ?? undefined
+    }
+  }
   if (!active) throw new Error(`Capture session not active: ${input.sessionId}`)
   const chunk: AudioChunk = {
     sessionId: input.sessionId,
@@ -299,6 +393,10 @@ export function getCaptureSession(id: string): CaptureSessionSummary | null {
 
 export function activeCaptureSessionCount(): number {
   return activeSessions.size
+}
+
+export function isSessionRecording(id: string): boolean {
+  return activeSessions.has(id)
 }
 
 async function appendTranscript(
