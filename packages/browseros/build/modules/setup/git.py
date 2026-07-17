@@ -197,6 +197,33 @@ class SparkleSetupModule(CommandModule):
 
         sparkle_archive.unlink()
 
+        # Official Sparkle tarball has no GN BUILD file. chromium_patches stores
+        # it as a git "new file" diff — strip the patch headers and write BUILD.gn.
+        build_gn_patch = (
+            ctx.root_dir
+            / "chromium_patches"
+            / "third_party"
+            / "sparkle"
+            / "BUILD.gn"
+        )
+        build_gn_dst = sparkle_dir / "BUILD.gn"
+        if not build_gn_patch.is_file():
+            raise RuntimeError(f"Missing Sparkle BUILD.gn patch at {build_gn_patch}")
+        lines = build_gn_patch.read_text().splitlines(keepends=True)
+        if lines and lines[0].startswith("diff --git"):
+            body: list[str] = []
+            for line in lines:
+                if line.startswith("+++") or line.startswith("---") or line.startswith("diff ") or line.startswith("index ") or line.startswith("new file ") or line.startswith("@@"):
+                    continue
+                if line.startswith("+"):
+                    body.append(line[1:])
+                elif line.startswith("\\"):
+                    continue
+            build_gn_dst.write_text("".join(body))
+        else:
+            shutil.copy2(build_gn_patch, build_gn_dst)
+        log_info("  Wrote third_party/sparkle/BUILD.gn from chromium patch")
+
         log_success("Sparkle setup complete")
 
 

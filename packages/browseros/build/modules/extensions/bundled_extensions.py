@@ -2,6 +2,7 @@
 """Bundled Extensions Module - Download and bundle extensions from CDN manifest"""
 
 import json
+import shutil
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -161,10 +162,18 @@ class BundledExtensionsModule(CommandModule):
         dest_filename = f"{ext.id}.crx"
         dest_path = output_dir / dest_filename
 
+        # Prefer a locally packed CRX when present (avoids flaky GitHub download
+        # during incremental release builds on the same machine).
+        local_crx = Path(f"/tmp/pane-agent-{ext.version}.crx")
+        if local_crx.is_file():
+            log_info(f"  Using local CRX {local_crx} for {ext.id} v{ext.version}")
+            shutil.copy2(local_crx, dest_path)
+            return
+
         log_info(f"  Downloading {ext.id} v{ext.version}...")
 
         try:
-            response = requests.get(ext.codebase, stream=True, timeout=60)
+            response = requests.get(ext.codebase, stream=True, timeout=120)
             response.raise_for_status()
 
             total_size = int(response.headers.get("content-length", 0))
