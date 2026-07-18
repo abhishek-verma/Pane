@@ -10,24 +10,8 @@
         <link rel="icon" type="image/png" href="/favicon.png" />
 
         <meta name="manifest.open_in_tab" content="true" />
-        <script>
-            (function setPaneFavicon() {
-                if (typeof chrome === 'undefined' || !chrome.runtime?.getURL) {
-                    return;
-                }
-                const href = chrome.runtime.getURL('icon/32.png');
-                for (const rel of ['icon', 'shortcut icon', 'apple-touch-icon']) {
-                    let link = document.querySelector(`link[rel="${rel}"]`);
-                    if (!link) {
-                        link = document.createElement('link');
-                        link.rel = rel;
-                        document.head.appendChild(link);
-                    }
-                    link.type = 'image/png';
-                    link.href = href;
-                }
-            })();
-        </script>
+        <!-- External script: MV3 CSP forbids inline <script> without unsafe-inline. -->
+        <script src="/set-favicon.js"></script>
         <script type="module">
             import { themeStorage } from '@/lib/theme/theme-storage';
 
