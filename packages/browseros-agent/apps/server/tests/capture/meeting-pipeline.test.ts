@@ -61,7 +61,8 @@ describe('meeting capture pipeline', () => {
       data: new TextEncoder().encode('fake-audio'),
     })
 
-    await new Promise((resolve) => setTimeout(resolve, 250))
+    // ASR runs after disk persist on a background queue.
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
     const stopped = await stopMeetingCapture(session.id)
     expect(stopped?.status).toBe('stopped')
@@ -94,7 +95,7 @@ describe('meeting capture pipeline', () => {
       data: new TextEncoder().encode('chunk-b'),
     })
 
-    await new Promise((resolve) => setTimeout(resolve, 400))
+    await new Promise((resolve) => setTimeout(resolve, 600))
     await stopMeetingCapture(session.id)
 
     const transcript = await readFile(

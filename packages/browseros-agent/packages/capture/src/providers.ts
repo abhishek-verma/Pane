@@ -221,26 +221,47 @@ class JsonlSidecarSession implements TranscriptionSession {
     child.stdout.on('data', (data) => this.handleStdout(String(data)))
     child.stderr.setEncoding('utf8')
     child.stderr.on('data', (data) => {
-      // Surface sidecar stderr to the server log so startup failures are visible
-      process.stderr.write(`[asr-sidecar] ${String(data)}`)
+      // Surface sidecar stderr to the server log so startup failures are visible.
+      // Never throw — a broken stderr pipe must not take down the agent server.
+      try {
+        process.stderr.write(`[asr-sidecar] ${String(data)}`)
+      } catch {
+        // ignore
+      }
+    })
+    // Writing to a closed stdin (sidecar crashed) emits 'error'; without a
+    // listener Node/Bun can terminate the parent process — that crash-looped
+    // Pane during live meetings.
+    child.stdin.on('error', (err) => {
+      this.rejectPendingAck(err instanceof Error ? err : new Error(String(err)))
+    })
+    child.on('error', (err) => {
+      this.rejectPendingAck(err instanceof Error ? err : new Error(String(err)))
     })
     // Reject the pending ack immediately if the sidecar exits unexpectedly
     child.on('exit', (code) => {
-      if (code !== 0 && this.pendingAck) {
-        this.pendingAckReject?.(
-          new Error(`ASR sidecar exited with code ${code}`),
-        )
-        this.pendingAck = null
-        this.pendingAckReject = null
-        if (this.pendingAckTimer) {
-          clearTimeout(this.pendingAckTimer)
-          this.pendingAckTimer = null
-        }
+      if (code !== 0) {
+        this.rejectPendingAck(new Error(`ASR sidecar exited with code ${code}`))
       }
     })
   }
 
+  private rejectPendingAck(err: Error): void {
+    if (!this.pendingAckReject) return
+    if (this.pendingAckTimer) {
+      clearTimeout(this.pendingAckTimer)
+      this.pendingAckTimer = null
+    }
+    const reject = this.pendingAckReject
+    this.pendingAck = null
+    this.pendingAckReject = null
+    reject(err)
+  }
+
   async feedChunk(chunk: AudioChunk): Promise<void> {
+    if (this.child.killed || this.child.exitCode !== null) {
+      throw new Error('ASR sidecar is not running')
+    }
     await new Promise<void>((resolve, reject) => {
       if (this.pendingAck) {
         reject(new Error('ASR sidecar is already processing a chunk'))
@@ -262,9 +283,16 @@ class JsonlSidecarSession implements TranscriptionSession {
         capturedAt: chunk.capturedAt,
         dataBase64: Buffer.from(chunk.data).toString('base64'),
       })
-      const writeOk = this.child.stdin.write(`${payload}\n`)
-      if (writeOk) return
-      this.child.stdin.once('drain', () => undefined)
+      try {
+        const writeOk = this.child.stdin.write(`${payload}\n`)
+        if (!writeOk) {
+          this.child.stdin.once('drain', () => undefined)
+        }
+      } catch (err) {
+        this.rejectPendingAck(
+          err instanceof Error ? err : new Error(String(err)),
+        )
+      }
     })
   }
 
@@ -293,7 +321,12 @@ class JsonlSidecarSession implements TranscriptionSession {
     this.stdoutBuffer = lines.pop() ?? ''
     for (const line of lines) {
       if (!line.trim()) continue
-      const parsed = JSON.parse(line) as Record<string, unknown>
+      let parsed: Record<string, unknown>
+      try {
+        parsed = JSON.parse(line) as Record<string, unknown>
+      } catch {
+        continue
+      }
       if (parsed.kind === 'ack') {
         this.resolveAck()
         continue

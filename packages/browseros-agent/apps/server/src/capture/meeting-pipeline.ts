@@ -62,6 +62,8 @@ const activeSessions = new Map<
   }
 >()
 const feedQueues = new Map<string, Promise<void>>()
+/** ASR feeds run after disk persist so Whisper latency cannot block/kill uploads. */
+const asrQueues = new Map<string, Promise<void>>()
 
 function sqlite() {
   return getDbHandle().sqlite
@@ -301,15 +303,13 @@ async function feedCaptureChunkInner(input: {
       try {
         active = (await rehydrateSession(session)) ?? undefined
       } catch (err: unknown) {
-        logger.warn('Lazy capture rehydrate failed', {
+        // Keep accepting audio on disk. Next chunk will retry ASR spawn.
+        logger.warn('Lazy capture rehydrate failed; persisting audio only', {
           sessionId: input.sessionId,
           err,
         })
-        await failMeetingCapture(
-          input.sessionId,
-          err instanceof Error ? err.message : String(err),
-        ).catch(() => undefined)
-        throw err
+        await persistCaptureChunkFiles(session, input)
+        return
       }
     }
   }
@@ -321,18 +321,71 @@ async function feedCaptureChunkInner(input: {
     data: input.data,
     capturedAt: input.capturedAt ?? Date.now(),
   }
-  await writeFile(
-    join(active.rawDir, `${String(input.sequence).padStart(8, '0')}.chunk`),
-    chunk.data,
+  const streamPath = await persistCaptureChunkFiles(
+    {
+      id: input.sessionId,
+      transcriptPath: active.transcriptPath,
+    },
+    input,
   )
-  const streamPath = join(active.rawDir, 'stream.webm')
-  if (input.sequence === 0) {
-    await writeFile(streamPath, chunk.data)
-  } else {
-    await appendFile(streamPath, chunk.data)
+
+  // Persist first, return success, ASR in the background. Awaiting Whisper here
+  // previously held the HTTP request for 10–30s and hard-killed the agent
+  // server in a restart loop (port flips → empty transcripts).
+  const providerSession = active.providerSession
+  const asrChunk = {
+    ...chunk,
+    data: new Uint8Array(await readFile(streamPath)),
   }
-  const decodable = new Uint8Array(await readFile(streamPath))
-  await active.providerSession.feedChunk({ ...chunk, data: decodable })
+  enqueueAsrFeed(input.sessionId, async () => {
+    try {
+      await providerSession.feedChunk(asrChunk)
+    } catch (err: unknown) {
+      logger.warn('ASR feed failed; audio retained on disk', {
+        sessionId: input.sessionId,
+        sequence: input.sequence,
+        err,
+      })
+    }
+  })
+}
+
+async function persistCaptureChunkFiles(
+  session: { id: string; transcriptPath: string | null },
+  input: {
+    sessionId: string
+    sequence: number
+    data: Uint8Array
+  },
+): Promise<string> {
+  if (!session.transcriptPath) {
+    throw new Error(`Capture session missing transcript path: ${session.id}`)
+  }
+  const sessionDir = session.transcriptPath.replace(/\/transcript\.jsonl$/, '')
+  const rawDir = join(sessionDir, 'audio-chunks')
+  await mkdir(rawDir, { recursive: true })
+  await writeFile(
+    join(rawDir, `${String(input.sequence).padStart(8, '0')}.chunk`),
+    input.data,
+  )
+  const streamPath = join(rawDir, 'stream.webm')
+  if (input.sequence === 0) {
+    await writeFile(streamPath, input.data)
+  } else {
+    await appendFile(streamPath, input.data)
+  }
+  return streamPath
+}
+
+function enqueueAsrFeed(sessionId: string, task: () => Promise<void>): void {
+  const prior = asrQueues.get(sessionId) ?? Promise.resolve()
+  const next = prior.then(task, task)
+  asrQueues.set(sessionId, next)
+  void next.finally(() => {
+    if (asrQueues.get(sessionId) === next) {
+      asrQueues.delete(sessionId)
+    }
+  })
 }
 
 export async function appendPageSnapshot(input: {
