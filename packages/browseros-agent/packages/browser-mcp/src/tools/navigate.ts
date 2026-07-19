@@ -35,6 +35,7 @@ export const navigate = defineTool({
     response.text(`navigated (${args.action}) -> ${origin}`)
     response.data({ page: args.page, url: origin })
     response.includeSnapshot(args.page)
+    response.includeScreenshot(args.page)
     return undefined
   },
 })

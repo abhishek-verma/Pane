@@ -175,4 +175,35 @@ describe('ToolResponse', () => {
     assert.ok(text.includes('+   button "Saved" [ref=e1]'))
     assert.ok(!text.includes('origin=https://example.com/stale'))
   })
+
+  it('includes screenshot image when buildForSession receives a screenshot post-action', async () => {
+    const response = new ToolResponse({ postActionTimeoutMs: 200 })
+    response.text('ok')
+    response.includeScreenshot(1)
+
+    const session = createSession({
+      pages: {
+        getSession: async () => ({
+          session: {
+            Page: {
+              captureScreenshot: async () => ({ data: 'fake-png-base64' }),
+            },
+          },
+        }),
+      },
+    })
+
+    const result = await response.buildForSession(session)
+    const text = textOf(result)
+    const image = result.content.find((item) => item.type === 'image')
+
+    assert.ok(text.includes('ok'))
+    assert.ok(text.includes('[Page 1 screenshot]'))
+    assert.ok(image)
+    assert.strictEqual(image?.type, 'image')
+    if (image?.type === 'image') {
+      assert.strictEqual(image.data, 'fake-png-base64')
+      assert.strictEqual(image.mimeType, 'image/png')
+    }
+  })
 })

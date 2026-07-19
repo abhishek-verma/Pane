@@ -12,6 +12,7 @@ import { CapturePage } from '@/screens/capture/CapturePage'
 import { ConnectMCP } from '@/screens/connect-mcp/ConnectMCP'
 import { ContextPage } from '@/screens/context/ContextPage'
 import { CustomizationPage } from '@/screens/customization/CustomizationPage'
+import { ToolEvidenceDemoPage } from '@/screens/dev/ToolEvidenceDemoPage'
 import { DiagnosticsPage } from '@/screens/diagnostics/DiagnosticsPage'
 import { MCPSettingsPage } from '@/screens/mcp-settings/MCPSettingsPage'
 import { MemoryPage } from '@/screens/memory/MemoryPage'
@@ -121,6 +122,8 @@ export const App: FC = () => {
             <Route path="*" element={<Navigate to="/settings/ai" replace />} />
           </Route>
         </Route>
+
+        <Route path="dev/tool-evidence" element={<ToolEvidenceDemoPage />} />
 
         <Route path="onboarding">
           <Route index element={<Onboarding />} />

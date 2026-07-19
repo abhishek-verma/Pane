@@ -29,3 +29,7 @@ export const useChatSessionContext = () => {
   }
   return context
 }
+
+/** Returns null when rendered outside ChatSessionProvider (e.g. Agent Command). */
+export const useOptionalChatSessionContext = () =>
+  useContext(ChatSessionContext)

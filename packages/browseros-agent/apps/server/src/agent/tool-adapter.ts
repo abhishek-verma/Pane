@@ -68,6 +68,17 @@ function contentToModelOutput(
   }
 }
 
+/** Maps browser-mcp ToolResult into the AI SDK tool execute return shape. */
+export function toBrowserToolExecuteResult(result: BrowserToolResult) {
+  return {
+    content: result.content,
+    isError: result.isError ?? false,
+    ...(result.structuredContent !== undefined && {
+      structuredContent: result.structuredContent,
+    }),
+  }
+}
+
 /** Wraps the browser-core tool surface as AI SDK tools for the internal agent. */
 export function buildBrowserToolSet(
   session: BrowserSession,
@@ -128,7 +139,7 @@ export function buildBrowserToolSet(
           success: !result.isError,
           source: 'chat',
         })
-        return { content: result.content, isError: result.isError ?? false }
+        return toBrowserToolExecuteResult(result)
       },
       toModelOutput: ({ output }) => {
         const result = output as { content: ContentBlock[]; isError: boolean }

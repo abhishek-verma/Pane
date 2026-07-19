@@ -162,6 +162,8 @@ export function useAgentConversation(
       rawName,
       event.text ? { description: event.text } : undefined,
     )
+    // Live harness SSE is label-only — leave input/output unset so the UI
+    // shows detailsUnavailable rather than inventing peeks.
     const tool: ToolEntry = {
       id: event.id ?? crypto.randomUUID(),
       name: rawName,
