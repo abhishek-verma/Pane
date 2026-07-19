@@ -1,0 +1,65 @@
+export type ToolVisibilityKind =
+  | 'file-change'
+  | 'browser-action'
+  | 'screenshot'
+  | 'generic'
+
+export type ToolEvidenceState =
+  | 'running'
+  | 'completed'
+  | 'error'
+  | 'denied'
+  | 'approval'
+
+export interface ToolMedia {
+  mimeType: string
+  /** raw base64 (no data: prefix) or full data URL */
+  data: string
+}
+
+export interface FileChangeDetail {
+  path: string
+  kind: 'edit' | 'create' | 'overwrite' | 'binary' | 'empty'
+  additions?: number
+  deletions?: number
+  bytesWritten?: number
+  /** unified-ish lines for peek + modal */
+  diffLines: string[]
+  omitFullContent?: boolean
+  omitReason?: string
+}
+
+export interface BrowserActionDetail {
+  caption: string
+  hostname?: string
+  url?: string
+  pageDiffSummary?: string
+  media: ToolMedia[]
+}
+
+export interface GenericToolDetail {
+  title: string
+  subtitle?: string
+  inputJson?: string
+  outputText?: string
+  detailsUnavailable?: boolean
+}
+
+export interface ToolEvidence {
+  toolCallId: string
+  toolName: string
+  kind: ToolVisibilityKind
+  state: ToolEvidenceState
+  /** High-signal cards pin outside the generics chevron */
+  specialized: boolean
+  title: string
+  errorText?: string
+  file?: FileChangeDetail
+  browser?: BrowserActionDetail
+  generic?: GenericToolDetail
+}
+
+export const DIFF_PEEK_LINES = 10
+export const DIFF_MODAL_SOFT_CAP_LINES = 5000
+export const CREATE_PREVIEW_MAX_BYTES = 200_000
+export const GENERIC_JSON_MAX_CHARS = 20_000
