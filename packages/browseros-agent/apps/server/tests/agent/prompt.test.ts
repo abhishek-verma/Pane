@@ -107,7 +107,6 @@ describe('section presence', () => {
       '<capabilities>', // capabilities
       '<execution>', // execution
       '<tool_selection>', // tool-selection
-      '<external_integrations>', // external-integrations
       '<error_recovery>', // error-recovery
       '<workspace>', // workspace
       '<nudge_tools>', // nudges
@@ -391,7 +390,7 @@ describe('security boundaries', () => {
     expect(prompt).toContain(
       'Never type credentials into a page you navigated to yourself',
     )
-    expect(prompt).toContain('run` for page-context data extraction only')
+    expect(prompt).toContain('evaluate` for page-context data extraction only')
   })
 
   it('includes safety rules', () => {
@@ -461,10 +460,24 @@ describe('capability coverage', () => {
       'wait',
       'evaluate',
       'run',
+      'pdf',
+      'download',
+      'upload',
     ]
     for (const tool of browserTools) {
       expect(prompt).toContain(tool)
     }
+  })
+
+  it('documents meeting capture and context tools', () => {
+    const prompt = buildRegular()
+    expect(prompt).toContain('### Meeting Capture')
+    expect(prompt).toContain('capture_list')
+    expect(prompt).toContain('capture_read')
+    expect(prompt).toContain('context_search')
+    expect(prompt).toContain('context_recall')
+    expect(prompt).toContain('context_current_work')
+    expect(prompt).toContain('tasks_list')
   })
 
   it('does not document removed browser tools as active capabilities', () => {
@@ -506,6 +519,16 @@ describe('tool selection', () => {
     expect(prompt).toContain('### Observation: which tool to use')
   })
 
+  it('routes meetings to capture tools and page JS to evaluate', () => {
+    const prompt = buildRegular()
+    expect(prompt).toContain('Recent meetings, calls, or transcripts')
+    expect(prompt).toContain('`capture_list` then `capture_read`')
+    expect(prompt).toContain(
+      'Need runtime data (JS variables, computed values) on the page',
+    )
+    expect(prompt).toContain('| `evaluate` |')
+  })
+
   it('includes interaction preferences', () => {
     const prompt = buildRegular()
     expect(prompt).toContain('Prefer `act` with refs over coordinate actions')
@@ -524,6 +547,12 @@ describe('tool selection', () => {
 // ---------------------------------------------------------------------------
 
 describe('external integrations', () => {
+  it('omits the section when no apps are connected or declined', () => {
+    const prompt = buildRegular({ connectedApps: [], declinedApps: [] })
+    expect(prompt).not.toContain('<external_integrations>')
+    expect(prompt).not.toContain('discover_server_categories_or_actions')
+  })
+
   it('renders connected apps list', () => {
     const prompt = buildRegular({
       connectedApps: ['Gmail', 'Slack', 'Linear'],
@@ -531,11 +560,6 @@ describe('external integrations', () => {
     expect(prompt).toContain(
       '**Connected apps** (use Strata tools for these): Gmail, Slack, Linear',
     )
-  })
-
-  it('renders "no apps connected" when list is empty', () => {
-    const prompt = buildRegular({ connectedApps: [] })
-    expect(prompt).toContain('No apps are currently connected via Strata.')
   })
 
   it('renders declined apps list', () => {
@@ -548,29 +572,30 @@ describe('external integrations', () => {
   })
 
   it('omits declined section when no declined apps', () => {
-    const prompt = buildRegular({ declinedApps: [] })
+    const prompt = buildRegular({
+      connectedApps: ['Gmail'],
+      declinedApps: [],
+    })
     expect(prompt).not.toContain('**Declined apps**')
   })
 
-  it('includes the discovery flow steps', () => {
-    const prompt = buildRegular()
+  it('includes the discovery flow steps when apps are connected', () => {
+    const prompt = buildRegular({
+      connectedApps: ['Gmail'],
+    })
     expect(prompt).toContain('discover_server_categories_or_actions')
     expect(prompt).toContain('get_category_actions')
     expect(prompt).toContain('get_action_details')
     expect(prompt).toContain('execute_action')
   })
 
-  it('includes search_documentation as fallback', () => {
-    // Why: v6 folds search_documentation into the discovery flow
-    // as a fallback instead of a separate "Alternative Discovery" section
-    const prompt = buildRegular()
+  it('includes search_documentation as fallback when apps are connected', () => {
+    const prompt = buildRegular({ connectedApps: ['Gmail'] })
     expect(prompt).toContain('search_documentation')
   })
 
   it('includes side-effect awareness for destructive actions', () => {
-    // Why: Strata actions that send messages, create resources, or delete
-    // data have real-world consequences. The agent must confirm before executing.
-    const prompt = buildRegular()
+    const prompt = buildRegular({ connectedApps: ['Gmail'] })
     expect(prompt).toContain('Side-effect awareness')
     expect(prompt).toContain('confirm content with the user before sending')
     expect(prompt).toContain('confirm details before executing')
@@ -578,14 +603,12 @@ describe('external integrations', () => {
   })
 
   it('includes partial failure guidance', () => {
-    // Why: v5 had no guidance for when execute_action partially succeeds.
-    // The agent would either retry silently or give up entirely.
-    const prompt = buildRegular()
+    const prompt = buildRegular({ connectedApps: ['Gmail'] })
     expect(prompt).toContain("report what you got and explain what's missing")
   })
 
   it('includes authentication re-flow', () => {
-    const prompt = buildRegular()
+    const prompt = buildRegular({ connectedApps: ['Gmail'] })
     expect(prompt).toContain('<authentication_flow>')
     expect(prompt).toContain('STOP and wait')
   })
@@ -801,18 +824,18 @@ describe('error recovery', () => {
   })
 
   it('includes JavaScript error patterns', () => {
-    // Why: the agent has run but should fall back to simpler tools when
+    // Why: the agent has evaluate/run but should fall back to simpler tools when
     // page scripts fail.
     const prompt = buildRegular()
     expect(prompt).toContain('### JavaScript/console errors')
+    expect(prompt).toContain('If `evaluate` fails')
     expect(prompt).toContain('If `run` fails')
     expect(prompt).not.toContain('get_console_logs')
   })
 
-  it('includes Strata error patterns', () => {
-    // Why: new in v6. Strata actions can fail with auth errors, not-found,
-    // or partial failures. Each needs a different recovery strategy.
-    const prompt = buildRegular()
+  it('includes Strata error patterns only when apps are connected', () => {
+    expect(buildRegular()).not.toContain('### Strata error patterns')
+    const prompt = buildRegular({ connectedApps: ['Gmail'] })
     expect(prompt).toContain('### Strata error patterns')
     expect(prompt).toContain('report the error')
   })
@@ -957,7 +980,7 @@ describe('structural invariants', () => {
   })
 
   it('FINAL_REMINDER appears after all other sections', () => {
-    const prompt = buildRegular()
+    const prompt = buildRegular({ connectedApps: ['Gmail'] })
     const finalPos = prompt.indexOf('<FINAL_REMINDER>')
     expect(finalPos).toBeGreaterThan(prompt.indexOf('<role>'))
     expect(finalPos).toBeGreaterThan(prompt.indexOf('<security>'))

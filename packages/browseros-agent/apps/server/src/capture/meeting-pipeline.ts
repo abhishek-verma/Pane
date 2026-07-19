@@ -41,6 +41,12 @@ import {
   clearSpeakerTimeline,
   resolveSpeakerAt,
 } from './speaker-timeline'
+import {
+  buildMeetingGraphSummary,
+  isPlaceholderMeetingGraphSummary,
+  loadFormattedTranscript,
+  writeMeetingSummaryFile,
+} from './transcript-access'
 import { publishCaptureEvent } from './transcript-events'
 import { estimateChunkEnergy, noteAsrText, shouldEnqueueAsr } from './vad'
 
@@ -880,34 +886,97 @@ export async function stopMeetingCapture(
   const session = getCaptureSession(sessionId)
   if (!session) return null
   const endedAt = Date.now()
+  sqlite()
+    .prepare(
+      `UPDATE capture_sessions
+       SET status = 'stopped', ended_at = ?
+       WHERE id = ?`,
+    )
+    .run(endedAt, sessionId)
+
+  const indexed = await indexMeetingCapture(sessionId)
+  publishCaptureEvent(sessionId, {
+    type: 'status',
+    sessionId,
+    status: 'stopped',
+  })
+  return indexed ?? getCaptureSession(sessionId)
+}
+
+/**
+ * Write summary.md + graph FTS text from the on-disk transcript.
+ * Safe to call repeatedly for reindexing placeholder nodes.
+ */
+export async function indexMeetingCapture(
+  sessionId: string,
+): Promise<CaptureSessionSummary | null> {
+  const session = getCaptureSession(sessionId)
+  if (!session) return null
+
+  const formatted = await loadFormattedTranscript(session)
+  await writeMeetingSummaryFile(
+    session,
+    formatted.text,
+    formatted.segmentCount,
+    formatted.truncated,
+  ).catch((err) => {
+    logger.warn('Failed to write meeting summary.md', {
+      sessionId,
+      err: String(err),
+    })
+  })
+
+  const summary = buildMeetingGraphSummary({
+    session,
+    transcriptText: formatted.text,
+    segmentCount: formatted.segmentCount,
+  })
   const node = graphUpsertNode({
     id: `meeting:${sessionId}`,
     bucketId: session.bucketId,
     kind: 'meeting',
     title: session.title ?? 'Meeting capture',
     uri: session.url,
-    summary: `Meeting transcript stored at ${session.transcriptPath}`,
+    summary,
     provenance: 'capture:meeting',
   })
   graphAddEvent({
     bucketId: session.bucketId,
-    toolName: 'capture_stop',
+    toolName: 'capture_index',
     nodeId: node.id,
-    payload: { sessionId, url: session.url, endedAt },
+    payload: {
+      sessionId,
+      url: session.url,
+      segmentCount: formatted.segmentCount,
+    },
   })
   sqlite()
-    .prepare(
-      `UPDATE capture_sessions
-       SET status = 'stopped', ended_at = ?, graph_node_id = ?
-       WHERE id = ?`,
-    )
-    .run(endedAt, node.id, sessionId)
-  publishCaptureEvent(sessionId, {
-    type: 'status',
-    sessionId,
-    status: 'stopped',
-  })
+    .prepare(`UPDATE capture_sessions SET graph_node_id = ? WHERE id = ?`)
+    .run(node.id, sessionId)
   return getCaptureSession(sessionId)
+}
+
+/** Reindex stopped meetings whose graph summary is still a path placeholder. */
+export async function reindexPlaceholderMeetingCaptures(): Promise<number> {
+  const sessions = listCaptureSessions({ kind: 'meeting' })
+  let count = 0
+  for (const session of sessions) {
+    if (session.status === 'active') continue
+    const nodeId = session.graphNodeId ?? `meeting:${session.id}`
+    const row = sqlite()
+      .prepare<{ summary: string | null }, [string]>(
+        `SELECT summary FROM graph_nodes WHERE id = ?`,
+      )
+      .get(nodeId)
+    const needsIndex =
+      !row ||
+      isPlaceholderMeetingGraphSummary(row.summary) ||
+      !session.graphNodeId
+    if (!needsIndex) continue
+    await indexMeetingCapture(session.id)
+    count++
+  }
+  return count
 }
 
 export async function failMeetingCapture(

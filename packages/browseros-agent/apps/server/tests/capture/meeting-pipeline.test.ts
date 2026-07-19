@@ -13,15 +13,19 @@ import { setCaptureConsent } from '../../src/capture/consent'
 import {
   feedCaptureChunk,
   getCaptureSession,
+  indexMeetingCapture,
   reconcileStaleActiveCaptureSessions,
   rehydrateActiveCaptureSessions,
+  reindexPlaceholderMeetingCaptures,
   startMeetingCapture,
   stopMeetingCapture,
 } from '../../src/capture/meeting-pipeline'
 import { setCapturePausedReason } from '../../src/capture/performance'
 import { resetSharedAsrWorkerForTests } from '../../src/capture/shared-asr-worker'
 import { recordSpeakerObservation } from '../../src/capture/speaker-timeline'
+import { buildCaptureToolSet } from '../../src/capture/tools'
 import { setPauseOnBatteryPref } from '../../src/context/battery'
+import { graphSearch } from '../../src/context/repo'
 import { closeDb, getDbHandle, initializeDb } from '../../src/lib/db'
 
 describe('meeting capture pipeline', () => {
@@ -71,6 +75,62 @@ describe('meeting capture pipeline', () => {
     expect(transcriptPath).toBeTruthy()
     const transcript = await readFile(transcriptPath as string, 'utf8')
     expect(transcript).toContain('chunk 0')
+
+    const summaryPath = getCaptureSession(session.id)?.summaryPath
+    expect(summaryPath).toBeTruthy()
+    const summaryMd = await readFile(summaryPath as string, 'utf8')
+    expect(summaryMd).toContain('## Excerpt')
+    expect(summaryMd).not.toContain('Summary is pending')
+    expect(summaryMd).toContain('chunk 0')
+
+    const hits = graphSearch('default', 'chunk', 5)
+    expect(hits.some((h) => h.kind === 'meeting')).toBe(true)
+
+    const tools = buildCaptureToolSet(() => 'default')
+    const readResult = await tools.capture_read.execute?.(
+      { sessionId: session.id },
+      { toolCallId: 't1', messages: [] },
+    )
+    expect(readResult).toEqual(
+      expect.objectContaining({
+        text: expect.stringContaining('chunk 0'),
+      }),
+    )
+    expect((readResult as { text: string }).text).toContain('## Transcript')
+  })
+
+  it('reindexes placeholder meeting graph summaries', async () => {
+    const session = await startMeetingCapture({
+      tabId: 43,
+      bucketId: 'default',
+      url: 'https://meet.google.com/xyz-abcd-efg',
+      title: 'Retro',
+      provider: 'local-faster-whisper',
+      requireConsent: true,
+    })
+    await feedCaptureChunk({
+      sessionId: session.id,
+      sequence: 0,
+      mimeType: 'audio/webm',
+      data: new TextEncoder().encode('fake-audio'),
+    })
+    await stopMeetingCapture(session.id)
+
+    // Simulate legacy path-only index.
+    const { getDbHandle } = await import('../../src/lib/db')
+    getDbHandle()
+      .sqlite.prepare(`UPDATE graph_nodes SET summary = ? WHERE id = ?`)
+      .run(
+        `Meeting transcript stored at /tmp/fake/transcript.jsonl`,
+        `meeting:${session.id}`,
+      )
+
+    const count = await reindexPlaceholderMeetingCaptures()
+    expect(count).toBeGreaterThanOrEqual(1)
+    const again = await indexMeetingCapture(session.id)
+    expect(again?.graphNodeId).toBe(`meeting:${session.id}`)
+    const hits = graphSearch('default', 'chunk', 5)
+    expect(hits.some((h) => h.nodeId === `meeting:${session.id}`)).toBe(true)
   })
 
   it('feeds cumulative webm bytes to ASR for later timeslices', async () => {

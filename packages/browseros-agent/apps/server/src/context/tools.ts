@@ -42,6 +42,7 @@ function formatCurrentWork(bucketId: string): string {
   }
   section('Tabs', work.tabs)
   section('Pages', work.pages)
+  section('Meetings', work.meetings)
   section('Files', work.files)
   section('Terminal', work.terminal)
   section('Runs', work.runs)
@@ -53,7 +54,7 @@ export function buildContextToolSet(getBucketId: () => string): ToolSet {
   return {
     context_current_work: tool({
       description:
-        'Summarize what Pane knows about current work in the active context bucket (tabs, pages, files, terminal, recent runs).',
+        'Summarize what Pane knows about current work in the active context bucket (tabs, pages, meetings, files, terminal, recent runs).',
       inputSchema: z.object({
         bucketId: z.string().optional(),
       }),

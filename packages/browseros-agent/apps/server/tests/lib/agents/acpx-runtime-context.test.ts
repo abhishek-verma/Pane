@@ -155,13 +155,25 @@ describe('acpx runtime context helpers', () => {
 
     const skills = await ensureRuntimeSkills(paths.runtimeSkillsDir)
 
-    expect(skills).toEqual(['app-connections', 'browseros', 'memory', 'soul'])
+    expect(skills).toEqual([
+      'app-connections',
+      'browseros',
+      'meetings',
+      'memory',
+      'soul',
+    ])
     expect(
       await readFile(
         join(paths.runtimeSkillsDir, 'browseros', 'SKILL.md'),
         'utf8',
       ),
     ).toContain('BrowserOS MCP')
+    expect(
+      await readFile(
+        join(paths.runtimeSkillsDir, 'meetings', 'SKILL.md'),
+        'utf8',
+      ),
+    ).toContain('capture_list')
     expect(
       await readFile(
         join(paths.runtimeSkillsDir, 'memory', 'SKILL.md'),

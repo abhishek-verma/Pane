@@ -104,6 +104,10 @@ async function setupApplicationTest() {
   const terminalModule = await import('../src/context/subscribe-terminal')
   const memoryReviewModule = await import('../src/memory/review-job')
   const digestModule = await import('../src/scheduler/digest')
+  const capturePipeline = await import('../src/capture/meeting-pipeline')
+  const captureRetention = await import('../src/capture/retention-monitor')
+  const builtinSkills = await import('../src/memory/builtin-skills')
+  const homeProposal = await import('../src/home/proposal-job')
 
   const createHttpServer = spyOn(apiServer, 'createHttpServer')
   createHttpServer.mockImplementation(async () => ({}) as never)
@@ -126,6 +130,19 @@ async function setupApplicationTest() {
     () => {},
   )
   spyOn(digestModule, 'startDailyDigestMonitor').mockImplementation(() => {})
+  spyOn(captureRetention, 'startCaptureRetentionMonitor').mockImplementation(
+    () => {},
+  )
+  spyOn(
+    capturePipeline,
+    'reconcileStaleActiveCaptureSessions',
+  ).mockImplementation(() => 0)
+  spyOn(
+    capturePipeline,
+    'reindexPlaceholderMeetingCaptures',
+  ).mockImplementation(async () => 0)
+  spyOn(builtinSkills, 'ensureBuiltinSkills').mockImplementation(async () => {})
+  spyOn(homeProposal, 'runProposalJob').mockImplementation(async () => {})
 
   const initializeDb = spyOn(dbModule, 'initializeDb').mockImplementation(
     () =>

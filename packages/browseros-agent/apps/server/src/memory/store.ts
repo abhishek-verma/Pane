@@ -474,6 +474,23 @@ export function getSkill(id: string): SkillRecord | null {
   return row ? rowToSkill(row) : null
 }
 
+/** Resolve a skill by id, or by case-insensitive name among non-archived skills. */
+export function getSkillByIdOrName(idOrName: string): SkillRecord | null {
+  const byId = getSkill(idOrName)
+  if (byId) return byId
+  const needle = idOrName.trim().toLowerCase()
+  if (!needle) return null
+  const row = sqlite()
+    .prepare(
+      `SELECT * FROM skills
+       WHERE lower(name) = ? AND status != 'archived'
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+    )
+    .get(needle) as Record<string, unknown> | null
+  return row ? rowToSkill(row) : null
+}
+
 export async function installSkillFromBody(input: {
   id: string
   body: string

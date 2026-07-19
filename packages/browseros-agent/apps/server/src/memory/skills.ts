@@ -28,6 +28,7 @@ import { assertMemoryAddFits } from './prompt-budget'
 import {
   demoteEntry,
   getSkill,
+  getSkillByIdOrName,
   incrementSkillUses,
   installSkillFromBody,
   listEntries,
@@ -95,14 +96,24 @@ export async function archiveSkill(id: string): Promise<void> {
 }
 
 export async function loadSkillBody(
-  id: string,
+  idOrName: string,
   options: { memoriesRoot?: string } = {},
 ): Promise<string | null> {
-  const skill = getSkill(id)
+  const loaded = await loadSkill(idOrName, options)
+  return loaded?.body ?? null
+}
+
+/** Load skill body and resolved id (accepts id or name). */
+export async function loadSkill(
+  idOrName: string,
+  options: { memoriesRoot?: string } = {},
+): Promise<{ id: string; body: string } | null> {
+  const skill = getSkillByIdOrName(idOrName)
   if (!skill || skill.status === 'archived') return null
-  const body = await readSkillFile(id, options.memoriesRoot)
-  if (body) incrementSkillUses(id)
-  return body
+  const body = await readSkillFile(skill.id, options.memoriesRoot)
+  if (!body) return null
+  incrementSkillUses(skill.id)
+  return { id: skill.id, body }
 }
 
 export interface CurationResult {
