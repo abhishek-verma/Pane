@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 import { tool } from 'ai'
 import { z } from 'zod'
+import { denyBrowserosPrivateBashCommand } from './bash-path-policy'
 import {
   getTerminalSessionCwd,
   notifyTerminalSessionRun,
@@ -106,7 +107,7 @@ function formatCommandOutput(
 export function createBashTool(workspace: Workspace) {
   return tool({
     description:
-      'Execute a shell command and return its output. Commands run in a shell (sh/bash on Unix, cmd on Windows). Output is truncated to the last 2000 lines if too large. Pass sessionId to reuse a named terminal session with persisted cwd.',
+      'Execute a shell command in the workspace. Output is truncated to the last 2000 lines if too large. Pass sessionId to reuse a named terminal session (list with terminal_sessions). Cannot read private Pane state under ~/.browseros (use capture_*/context_*/memory_* instead). May require user approval.',
     inputSchema: z.object({
       command: z.string().describe('Shell command to execute'),
       timeout: z
@@ -126,6 +127,10 @@ export function createBashTool(workspace: Workspace) {
             text: `Blocked by terminal policy: ${denial.reason}`,
             isError: true,
           }
+        }
+        const privateDenial = denyBrowserosPrivateBashCommand(params.command)
+        if (privateDenial) {
+          return { text: privateDenial, isError: true }
         }
 
         const cwdResult = await resolveBashCwd(workspace, params.sessionId)

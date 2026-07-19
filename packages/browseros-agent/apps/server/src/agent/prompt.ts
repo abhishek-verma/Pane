@@ -128,6 +128,7 @@ function getCapabilities(
 You control a Chromium browser through a compact tool surface:
 
 - \`tabs\` → list pages, open background/hidden pages, close pages
+- \`tab_groups\` → list/create/update/ungroup/close tab groups (page ids from \`tabs\`)
 - \`windows\` → list, create, close, focus, show, and hide browser windows
 - \`navigate\` → go to URL, back, forward, reload; returns a fresh snapshot
 - \`snapshot\` → accessibility tree with refs like [ref=e12] for acting
@@ -148,21 +149,23 @@ Pane records consented Meet/Zoom/Teams (and similar) calls locally:
 - \`capture_list\` → recent capture sessions (time, duration, site/room, segment counts)
 - \`capture_read\` → metadata + summary + transcript text for a sessionId (default include=full)
 - \`capture_status\` → pause reason, disk usage, active session count
+- \`capture_stop\` → stop an active capture (recording itself is started by the browser extension)
 - Do **not** use generic filesystem or shell tools on capture storage paths; always use \`capture_read\`
 
-### Context, Memory & Tasks
-- \`context_search\` → keyword search over indexed browsing, research, meeting text, files, and memory
+### Context, Memory, Tasks & Home
+- \`context_search\` → keyword/FTS search over indexed browsing, research, meeting excerpts, files, and memory (not semantic embeddings)
 - \`context_recall\` → long-term memory notes only (soul/user/memory layers)
 - \`context_current_work\` → what's open / recent (tabs, pages, meetings, files, terminal, runs)
 - \`memory_add\` / \`memory_replace\` / \`memory_remove\` → durable short facts
 - \`tasks_list\` / \`tasks_add\` / \`tasks_done\` → local task inbox
+- \`home_widget_list\` / \`home_widget_propose\` / \`home_widget_add\` / \`home_widget_remove\` → new-tab home widgets (propose then confirm)
 - \`skills_list\` / \`skills_load\` → load workflow skills when the index matches the task`
 
   if (hasWorkspace) {
     capabilities += `
 
 ### Filesystem
-You have a session workspace for reading, writing, and executing files (\`filesystem_read/write/edit/bash/grep/find/ls\`, \`terminal_sessions\`). See the Workspace section for guidance.`
+You have a session workspace for reading, writing, and executing files. See the Workspace section for tools (\`filesystem_*\`, \`terminal_sessions\`).`
   } else if (hasGeneratedOutputRead) {
     capabilities += `
 
@@ -203,7 +206,7 @@ function getExecution(
 
 ### Philosophy
 - Execute tasks end-to-end. Don't delegate ("I found the button, you can click it").
-- Prefer acting over asking for routine read-only steps. Consequential actions (\`act\`, shell commands, \`evaluate\`, \`run\`, file writes) may require user approval in the UI — wait for approval rather than narrating that you need permission.
+- Prefer acting over asking for routine read-only steps. Observation \`act\` kinds (\`scroll\`, \`hover\`, \`focus\`) usually auto-run. Mutating clicks/types/fills, shell commands, \`evaluate\`, \`run\`, uploads/downloads, and file writes may require user approval in the UI — wait for approval rather than narrating that you need permission.
 - If a tool returns denied/rejected, do **not** retry the same call in a loop. Try a different approach or ask the user.
 - Do not refuse by default, attempt tasks even when outcomes are uncertain.
 - For ambiguous/unclear requests, ask one targeted clarifying question.`
@@ -283,6 +286,7 @@ function getToolSelection(
   options?: BuildSystemPromptOptions,
 ): string {
   const isNewTab = options?.origin === 'newtab'
+  const hasWorkspace = !!options?.workspaceDir && !options?.chatMode
 
   const navTable = isNewTab
     ? `### Navigation: single-tab vs multi-tab
@@ -302,6 +306,11 @@ function getToolSelection(
 | Compare two pages side by side | \`tabs\` action="new" background=true × 2 |
 | User says "open a new tab" | \`tabs\` action="new" background=true — don't steal focus |`
 
+  const workspaceRows = hasWorkspace
+    ? `| List reusable shell sessions | \`terminal_sessions\` then \`filesystem_bash\` with sessionId |
+`
+    : ''
+
   return `<tool_selection>
 ## Tool Selection
 
@@ -319,6 +328,8 @@ function getToolSelection(
 | Topic search across indexed activity + memory | \`context_search\` |
 | Durable personal facts / preferences only | \`context_recall\` |
 | What's open or recently active | \`context_current_work\` |
+| New-tab home widgets | \`home_widget_list\` / propose / add / remove |
+${workspaceRows}| Group browser tabs | \`tab_groups\` (page ids from \`tabs\`) |
 
 ### Interaction: preferences
 - Prefer \`act\` with refs over coordinate actions. Use coordinate kinds only when the element isn't in the snapshot.
@@ -336,8 +347,8 @@ function getExternalIntegrations(
   _exclude: Set<string>,
   options?: BuildSystemPromptOptions,
 ): string {
-  // Only teach Strata discovery when apps are actually connected on this session.
-  // The in-process agent does not always wire Klavis tools; inventing them causes thrash.
+  // In-process AiSdkAgent does not wire Klavis/Strata discovery tools. Only
+  // describe MCP servers that actually appear in the tool list / declined list.
   if (!options?.connectedApps?.length && !options?.declinedApps?.length) {
     return ''
   }
@@ -348,14 +359,9 @@ function getExternalIntegrations(
 `
 
   if (options?.connectedApps?.length) {
-    content += `**Connected apps** (use Strata tools for these): ${options.connectedApps.join(', ')}
+    content += `**Connected MCP servers / apps:** ${options.connectedApps.join(', ')}
 
-### Discovery Flow
-1. \`discover_server_categories_or_actions\`
-2. \`get_category_actions\`
-3. \`get_action_details\`
-4. \`execute_action\`
-(Fallback: \`search_documentation\`)
+Use only integration tools that appear in your available tool list for this turn. Do **not** invent Strata helpers such as \`discover_server_categories_or_actions\`, \`get_category_actions\`, \`get_action_details\`, or \`execute_action\` unless those exact tool names are present.
 
 ### Side-effect awareness
 - Always confirm content with the user before sending
@@ -364,17 +370,11 @@ function getExternalIntegrations(
 
 ### Partial Failure
 If an action partially succeeds, report what you got and explain what's missing.
-
-<authentication_flow>
-If an app requires authentication, STOP and wait for the user to authenticate.
-</authentication_flow>
 `
-  } else {
-    content += `No apps are currently connected via Strata. Prefer browser automation or ask the user to connect an app from settings.\n`
   }
 
   if (options?.declinedApps?.length) {
-    content += `\n**Declined apps** (user chose "do it manually" — use browser automation, NEVER Strata): ${options.declinedApps.join(', ')}\n`
+    content += `\n**Declined apps** (user chose "do it manually" — use browser automation only): ${options.declinedApps.join(', ')}\n`
   }
 
   content += `</external_integrations>`
@@ -414,8 +414,8 @@ function getErrorRecovery(
   if (options?.connectedApps?.length) {
     recovery += `
 
-### Strata error patterns
-- If Strata tools fail, report the error.`
+### Integration error patterns
+- If an external MCP/integration tool fails, report the error. Do not invent alternate discovery tool names.`
   }
 
   if (hasWorkspace) {
@@ -452,9 +452,10 @@ You can read, write, search, and execute files in this directory:
 - \`filesystem_ls\` → list directory contents
 - \`filesystem_find\` → search for files by name pattern
 - \`filesystem_grep\` → search file contents by regex
-- \`filesystem_bash\` → execute shell commands
+- \`filesystem_bash\` → execute shell commands (workspace only; not private Pane state)
+- \`terminal_sessions\` → list reusable bash sessions and their cwd (pair with \`filesystem_bash\` sessionId)
 
-Use the filesystem to save extracted data, run scripts, or process files.
+Use the filesystem to save extracted data, run scripts, or process files. Paths are relative to the working directory unless a tool explicitly returns an absolute BrowserOS tool-output path.
 </workspace>`
 }
 
@@ -727,7 +728,7 @@ export interface BuildSystemPromptOptions {
   /** Skill names + one-liners only — never full SKILL.md bodies. */
   skillIndexContent?: string
   chatMode?: boolean
-  /** Apps the user has connected and authenticated via Strata (from enabledMcpServers). */
+  /** Connected MCP server/app names from enabledMcpServers (may be empty for in-process). */
   connectedApps?: string[]
   /** Apps the user previously declined to connect (chose "do it manually"). */
   declinedApps?: string[]

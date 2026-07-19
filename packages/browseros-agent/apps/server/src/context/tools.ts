@@ -65,7 +65,7 @@ export function buildContextToolSet(getBucketId: () => string): ToolSet {
     }),
     context_search: tool({
       description:
-        'Search the unified local context graph (browsing history, research, meeting notes, files, sessions) and long-term memory. Returns the top k relevant snippets.',
+        'Keyword/FTS search over the local context graph (browsing, research, meeting excerpts, files, sessions) and memory. Returns top-k matching snippets — not semantic embeddings. For "recent meetings" prefer capture_list + capture_read first.',
       inputSchema: z.object({
         query: z.string().min(1),
         bucketId: z.string().optional(),

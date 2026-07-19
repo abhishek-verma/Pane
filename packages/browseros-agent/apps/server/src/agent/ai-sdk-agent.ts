@@ -239,8 +239,8 @@ export class AiSdkAgent {
       config.resolvedConfig.isScheduledTask ||
       config.resolvedConfig.chatMode
     ) {
+      // In-process agent only exposes suggest_schedule (app-connect lives on ACP/nudge MCP).
       delete mergedTools.suggest_schedule
-      delete mergedTools.suggest_app_connection
     }
 
     const ingestHooks = buildIngestGateHooks({

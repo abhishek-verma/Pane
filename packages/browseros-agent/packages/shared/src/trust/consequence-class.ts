@@ -24,6 +24,7 @@ const READ_FILESYSTEM_TOOLS = new Set([
   'filesystem_ls',
   'filesystem_grep',
   'filesystem_find',
+  'terminal_sessions',
 ])
 
 const READ_BROWSER_TOOLS = new Set([
@@ -35,7 +36,6 @@ const READ_BROWSER_TOOLS = new Set([
   'pdf',
   'wait',
   'windows',
-  'tab_groups',
   'navigate',
 ])
 
@@ -101,7 +101,12 @@ const MUTATING_ACT_KINDS = new Set([
   'check',
   'uncheck',
   'select',
+  'drag',
+  'drag_at',
 ])
+
+/** Observation gestures — do not mutate form state or navigate. */
+const READ_ACT_KINDS = new Set(['scroll', 'hover', 'hover_at', 'focus'])
 
 export interface TrustPin {
   pinned: boolean
@@ -169,10 +174,20 @@ function baseClassForTool(
     return 'write-external'
   }
 
+  if (toolName === 'tab_groups') {
+    const action = typeof args.action === 'string' ? args.action : 'list'
+    if (action === 'list') return 'read'
+    return 'write-external'
+  }
+
   if (CODE_EXECUTION_TOOLS.has(toolName)) return 'system'
   if (EXTERNAL_DATA_TOOLS.has(toolName)) return 'write-external'
   if (READ_BROWSER_TOOLS.has(toolName)) return 'read'
-  if (toolName === 'act') return 'write-external'
+  if (toolName === 'act') {
+    const kind = typeof args.kind === 'string' ? args.kind : ''
+    if (READ_ACT_KINDS.has(kind)) return 'read'
+    return 'write-external'
+  }
 
   // Unknown tools — including every third-party / external MCP tool — default
   // to deny. We cannot infer what an arbitrary MCP server does, so it must
@@ -246,9 +261,14 @@ export function deriveClass(
   }
 
   if (toolName === 'act') {
-    if (escalatesActToSpend(args, ctx)) {
+    const kind = typeof args.kind === 'string' ? args.kind : ''
+    if (READ_ACT_KINDS.has(kind)) {
+      cls = 'read'
+    } else if (escalatesActToSpend(args, ctx)) {
       cls = 'spend'
     } else if (escalatesActToWriteExternal(args, ctx)) {
+      cls = 'write-external'
+    } else {
       cls = 'write-external'
     }
   }
