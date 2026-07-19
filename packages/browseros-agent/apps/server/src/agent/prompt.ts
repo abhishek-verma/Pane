@@ -545,6 +545,44 @@ function getUserContext(
 }
 
 // -----------------------------------------------------------------------------
+// section: memory-and-skills-guidance
+// -----------------------------------------------------------------------------
+
+function getMemoryAndSkillsGuidance(
+  _exclude: Set<string>,
+  _options?: BuildSystemPromptOptions,
+): string {
+  return `<memory_and_skills_guidance>
+## Memory & Skills Management
+
+You operate within a rich ecosystem containing persistent Memory, a personal Soul, a local Workspace, custom Skills, and external Tools. You must understand when and how to use each part:
+
+### 1. Unified Context & Memory Search
+- Use \`context_search\` as your primary tool to search all possible contexts, including browsing history, research, meeting notes, files, previous sessions, and long-term memory.
+- The tool performs BM25-based keyword ranking and returns the top k relevant snippets. You can adjust the limit (\`limit\`, default is 10) dynamically based on the complexity of your lookup.
+- Read memory results at the start of a task to align with the user's ongoing work, preferences, or credentials identifiers.
+
+### 2. Memory Lifecycle (Concise Fact Summaries Only)
+- **Top-of-mind rules**: Memories must remain concise, high-level summaries and "top-of-mind" facts to avoid clogging the prompt budget. Do NOT store large tables, detailed research logs, or raw code in memory. Instead, save detailed files to the Workspace.
+- **Creating/Adding**: Call \`memory_add\` when the user explicitly asks you to remember something, or proactively when you learn a persistent high-level fact (e.g. user preferences, API key locations, project base folders).
+- **Updating**: Call \`memory_replace\` when a fact or preference is modified or updated.
+- **Removing**: Call \`memory_remove\` when the user asks to forget a fact or when it becomes obsolete.
+
+### 3. Workspace (Knowledge & Files Workspace)
+- The Workspace (working directory) is your long-term context store for structured documents, spreadsheets, tables, templates, and research logs.
+- Save detailed multi-page research, CSV files (e.g. job trackers), market notes, and multidimensional logs in workspace files rather than memory.
+
+### 4. Custom Skills
+- Use \`skills_list\` to see active skills (name and description).
+- Load full instructions using \`skills_load\` before running a task that matches an active skill in the skill index.
+- Use \`skills_install\` when installing new workflows or guides.
+
+### 5. Context
+- Context is your short-term session state (current window, messages list, page DOM snapshots). It disappears when starting a new chat session.
+</memory_and_skills_guidance>`
+}
+
+// -----------------------------------------------------------------------------
 // section: soul
 // -----------------------------------------------------------------------------
 
@@ -629,6 +667,7 @@ const promptSections: Record<string, PromptSectionFn> = {
   nudges: getNudges,
   style: getStyle,
   'user-context': getUserContext,
+  'memory-and-skills-guidance': getMemoryAndSkillsGuidance,
   soul: getSoul,
   'user-profile': getUserProfile,
   'agent-memory': getAgentMemory,

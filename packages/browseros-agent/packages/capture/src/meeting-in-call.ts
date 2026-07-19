@@ -5,12 +5,13 @@
  *
  * DOM heuristics for whether a meeting tab is in-call vs pre-join/lobby.
  *
- * Google Meet renders call controls in shadow DOM, so positive button
- * selectors are unreliable. Prefer blocking only definite pre-join / post-leave
- * page text on a room URL.
+ * Adapters return `unknown` when unsure — callers must fail soft (keep recording,
+ * never auto-stop on unknown).
  */
 
-export type MeetingCallState = 'prejoin' | 'in-call' | 'left'
+import type { MeetingCallState } from './types'
+
+export type { MeetingCallState }
 
 export interface MeetingInCallProbe {
   hostname: string
@@ -54,7 +55,6 @@ export function evaluateMeetingCallState(
     if (GOOGLE_MEET_PRE_JOIN.some((phrase) => text.includes(phrase))) {
       return 'prejoin'
     }
-    // In-call timer or leave-call copy visible in page text.
     if (
       /\b\d{1,2}:\d{2}\b/.test(text) ||
       text.includes('leave call') ||
@@ -88,11 +88,73 @@ export function evaluateMeetingCallState(
     return 'prejoin'
   }
 
-  return 'in-call'
+  if (host === 'app.slack.com') {
+    if (text.includes('huddle has ended') || text.includes('left the huddle')) {
+      return 'left'
+    }
+    if (
+      text.includes('start a huddle') ||
+      text.includes('join huddle') ||
+      probe.matchesSelector('[data-qa="huddle_start_button"]')
+    ) {
+      return 'prejoin'
+    }
+    if (
+      text.includes('leave huddle') ||
+      probe.ariaLabelIncludes('leave huddle') ||
+      probe.matchesSelector('[data-qa="huddle_leave_button"]')
+    ) {
+      return 'in-call'
+    }
+    // SPA: prefer unknown over false left
+    return 'unknown'
+  }
+
+  if (/^[a-z0-9-]+\.webex\.com$/i.test(host)) {
+    if (
+      text.includes('you have left the meeting') ||
+      text.includes('meeting ended')
+    ) {
+      return 'left'
+    }
+    if (text.includes('join meeting') || text.includes('enter room')) {
+      return 'prejoin'
+    }
+    if (
+      text.includes('leave') ||
+      probe.ariaLabelIncludes('leave') ||
+      probe.matchesSelector('[aria-label*="Leave"]')
+    ) {
+      return 'in-call'
+    }
+    return 'unknown'
+  }
+
+  return 'unknown'
 }
 
 export function evaluateMeetingInCall(probe: MeetingInCallProbe): boolean {
   return evaluateMeetingCallState(probe) === 'in-call'
+}
+
+/**
+ * Optional mute probe — metadata only; never drives lifecycle.
+ */
+export function evaluateLocalMute(
+  probe: MeetingInCallProbe,
+): boolean | 'unknown' {
+  const host = probe.hostname.toLowerCase()
+  if (host === 'meet.google.com') {
+    if (probe.ariaLabelIncludes('turn on microphone')) return true
+    if (probe.ariaLabelIncludes('turn off microphone')) return false
+    return 'unknown'
+  }
+  if (/^[a-z0-9-]+\.zoom\.us$/i.test(host)) {
+    if (probe.ariaLabelIncludes('unmute')) return true
+    if (probe.ariaLabelIncludes('mute')) return false
+    return 'unknown'
+  }
+  return 'unknown'
 }
 
 /**
@@ -102,6 +164,13 @@ export function evaluateMeetingInCall(probe: MeetingInCallProbe): boolean {
 export function probeMeetingCallStatePage(): MeetingCallState {
   const host = location.hostname.toLowerCase()
   const text = document.body?.innerText?.toLowerCase() ?? ''
+
+  const ariaLabelIncludes = (needle: string) => {
+    const lower = needle.toLowerCase()
+    return Array.from(document.querySelectorAll('[aria-label]')).some((el) =>
+      (el.getAttribute('aria-label') ?? '').toLowerCase().includes(lower),
+    )
+  }
 
   if (host === 'meet.google.com') {
     if (['you left the meeting'].some((phrase) => text.includes(phrase))) {
@@ -136,13 +205,6 @@ export function probeMeetingCallStatePage(): MeetingCallState {
     return 'prejoin'
   }
 
-  const ariaLabelIncludes = (needle: string) => {
-    const lower = needle.toLowerCase()
-    return Array.from(document.querySelectorAll('[aria-label]')).some((el) =>
-      (el.getAttribute('aria-label') ?? '').toLowerCase().includes(lower),
-    )
-  }
-
   if (/^[a-z0-9-]+\.zoom\.us$/i.test(host)) {
     const inMeeting = Boolean(
       document.querySelector('#meeting-client, .meeting-app, #wc-container'),
@@ -163,7 +225,40 @@ export function probeMeetingCallStatePage(): MeetingCallState {
     return 'prejoin'
   }
 
-  return 'in-call'
+  if (host === 'app.slack.com') {
+    if (text.includes('huddle has ended') || text.includes('left the huddle')) {
+      return 'left'
+    }
+    if (text.includes('start a huddle') || text.includes('join huddle')) {
+      return 'prejoin'
+    }
+    if (
+      text.includes('leave huddle') ||
+      ariaLabelIncludes('leave huddle') ||
+      document.querySelector('[data-qa="huddle_leave_button"]')
+    ) {
+      return 'in-call'
+    }
+    return 'unknown'
+  }
+
+  if (/^[a-z0-9-]+\.webex\.com$/i.test(host)) {
+    if (
+      text.includes('you have left the meeting') ||
+      text.includes('meeting ended')
+    ) {
+      return 'left'
+    }
+    if (text.includes('join meeting') || text.includes('enter room')) {
+      return 'prejoin'
+    }
+    if (ariaLabelIncludes('leave') || text.includes('leave meeting')) {
+      return 'in-call'
+    }
+    return 'unknown'
+  }
+
+  return 'unknown'
 }
 
 /** @deprecated Prefer probeMeetingCallStatePage */

@@ -64,8 +64,14 @@ if [ -d "$CHROMIUM_SRC/.git" ]; then
   fi
 fi
 
+# Prefer the workspace bundled-manifest for dogfood builds (before push to GitHub).
+if [ -z "${PANE_BUNDLED_MANIFEST_PATH:-}" ] && [ -f "$ROOT/updates/extensions/bundled-manifest.xml" ]; then
+  export PANE_BUNDLED_MANIFEST_PATH="$ROOT/updates/extensions/bundled-manifest.xml"
+fi
+
 exec >>"$LOG" 2>&1
 echo "=== Pane unsigned browser build started $(date) config=$BUILD_CONFIG ==="
+echo "PANE_BUNDLED_MANIFEST_PATH=${PANE_BUNDLED_MANIFEST_PATH:-}"
 uv run browseros build \
   --config "$BUILD_CONFIG" \
   --chromium-src "$CHROMIUM_SRC"

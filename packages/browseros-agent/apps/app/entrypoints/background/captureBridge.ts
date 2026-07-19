@@ -12,6 +12,7 @@ import {
   failMeetingSession,
   fetchActiveMeetingSessions,
   fetchCaptureConsents,
+  interruptMeetingSession,
   observeBrowsingPage,
   recordResearchPage,
   startMeetingSession,
@@ -143,11 +144,27 @@ async function stopCaptureForSession(
   deactivateCaptureGlow(tabId, sessionId)
   await stopTabAudioCapture(sessionId).catch(() => null)
   await stopMeetingSession(sessionId).catch(() => null)
+  await chrome.storage.session
+    .remove(`captureSession:${tabId}`)
+    .catch(() => null)
   // Notify all extension pages (new tab, sidepanel) so they can
   // invalidate the home query immediately instead of waiting for the next poll.
   void sendRuntimeMessage(RuntimeMessageType.captureSessionStopped, {
     sessionId,
   }).catch(() => null)
+}
+
+/** Tab closed / left call — keep session resumable within TTL. */
+async function interruptCaptureForSession(
+  sessionId: string,
+  tabId: number,
+): Promise<void> {
+  deactivateCaptureGlow(tabId, sessionId)
+  await stopTabAudioCapture(sessionId).catch(() => null)
+  await interruptMeetingSession(sessionId).catch(() => null)
+  await chrome.storage.session
+    .set({ [`captureSession:${tabId}`]: sessionId })
+    .catch(() => null)
 }
 
 async function failCaptureForSession(
@@ -159,6 +176,14 @@ async function failCaptureForSession(
   await stopTabAudioCapture(sessionId).catch(() => null)
   await failMeetingSession(sessionId, message).catch(() => null)
   await notifyCaptureError(message)
+}
+
+/** Offscreen tabCapture + mic mix (standard Chrome meeting-capture pattern). */
+async function startCaptureAudio(
+  sessionId: string,
+  tabId: number,
+): Promise<void> {
+  await startTabAudioCapture({ sessionId, tabId })
 }
 
 async function syncActiveSessions(): Promise<void> {
@@ -181,12 +206,11 @@ async function syncActiveSessions(): Promise<void> {
       )
       if (callState === 'left') {
         pendingMeetingTabs.delete(session.tabId)
-        await stopCaptureForSession(session.id, session.tabId)
+        await interruptCaptureForSession(session.id, session.tabId)
         continue
       }
-      if (callState !== 'in-call') {
-        // Wait on pre-join without tearing down an already-started session's
-        // server record; only hold off on glow/recording until in-call.
+      if (callState === 'unknown' || callState !== 'in-call') {
+        // unknown/prejoin: fail soft — never stop an active capture.
         pendingMeetingTabs.set(session.tabId, session.url)
         ensurePendingMeetingPoll()
         if (!isRecording(session.id)) {
@@ -204,10 +228,7 @@ async function syncActiveSessions(): Promise<void> {
         continue
       }
       try {
-        await startTabAudioCapture({
-          sessionId: session.id,
-          tabId: session.tabId,
-        })
+        await startCaptureAudio(session.id, session.tabId)
         activateCaptureGlow({
           tabId: session.tabId,
           sessionId: session.id,
@@ -272,9 +293,10 @@ async function maybeStartMeetingCapture(
   if (callState !== 'in-call') {
     if (callState === 'left') {
       pendingMeetingTabs.delete(tabId)
-      await stopCaptureForTab(tabId)
+      await interruptCaptureForTab(tabId)
       return
     }
+    // unknown / prejoin: wait; do not tear down
     pendingMeetingTabs.set(tabId, url)
     ensurePendingMeetingPoll()
     return
@@ -286,10 +308,7 @@ async function maybeStartMeetingCapture(
   if (existingOnTab?.url && isMeetingRoomUrl(existingOnTab.url)) {
     if (!isRecording(existingOnTab.id)) {
       try {
-        await startTabAudioCapture({
-          sessionId: existingOnTab.id,
-          tabId,
-        })
+        await startCaptureAudio(existingOnTab.id, tabId)
         activateCaptureGlow({
           tabId,
           sessionId: existingOnTab.id,
@@ -307,16 +326,25 @@ async function maybeStartMeetingCapture(
     await stopCaptureForSession(existingOnTab.id, tabId)
   }
 
+  const sticky = await chrome.storage.session
+    .get(`captureSession:${tabId}`)
+    .catch(() => ({}) as Record<string, string>)
+  const resumeSessionId = sticky[`captureSession:${tabId}`]
+
   const roomLabel = meetingRoomLabel(url)
   let sessionId: string | null = null
   try {
     const session = await startMeetingSession({
       tabId,
       url,
+      resumeSessionId,
       title: roomLabel ?? undefined,
     })
     sessionId = session.id
-    await startTabAudioCapture({ sessionId: session.id, tabId })
+    await chrome.storage.session
+      .set({ [`captureSession:${tabId}`]: session.id })
+      .catch(() => null)
+    await startCaptureAudio(session.id, tabId)
     activateCaptureGlow({
       tabId,
       sessionId: session.id,
@@ -338,6 +366,15 @@ async function stopCaptureForTab(tabId: number): Promise<void> {
   for (const session of active) {
     if (session.tabId === tabId) {
       await stopCaptureForSession(session.id, tabId)
+    }
+  }
+}
+
+async function interruptCaptureForTab(tabId: number): Promise<void> {
+  const active = await fetchActiveMeetingSessions()
+  for (const session of active) {
+    if (session.tabId === tabId) {
+      await interruptCaptureForSession(session.id, tabId)
     }
   }
 }
@@ -433,7 +470,7 @@ export function captureBridge(): void {
     lastBrowseAtByTab.delete(tabId)
     pendingMeetingTabs.delete(tabId)
     stopPendingMeetingPollIfIdle()
-    void stopCaptureForTab(tabId).catch(() => null)
+    void interruptCaptureForTab(tabId).catch(() => null)
   })
 
   onRuntimeMessage(RuntimeMessageType.stopCapture, async ({ data }) => {

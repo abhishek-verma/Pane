@@ -61,4 +61,23 @@ describe('@browseros/capture meeting-in-call', () => {
       }),
     ).toBe('left')
   })
+
+  it('returns unknown for unclear Slack huddle DOM', () => {
+    expect(
+      probe({
+        hostname: 'app.slack.com',
+        bodyText: 'channel messages unrelated',
+      }),
+    ).toBe('unknown')
+  })
+
+  it('returns in-call for Slack leave huddle control', () => {
+    expect(
+      probe({
+        hostname: 'app.slack.com',
+        bodyText: 'Leave huddle',
+        ariaLabels: ['Leave huddle'],
+      }),
+    ).toBe('in-call')
+  })
 })

@@ -39,7 +39,7 @@ export const captureSessions = sqliteTable('capture_sessions', {
   url: text('url'),
   title: text('title'),
   status: text('status', {
-    enum: ['active', 'paused', 'stopped', 'error'],
+    enum: ['active', 'interrupted', 'paused', 'stopped', 'error'],
   }).notNull(),
   provider: text('provider').notNull(),
   startedAt: integer('started_at').notNull(),
@@ -47,6 +47,12 @@ export const captureSessions = sqliteTable('capture_sessions', {
   transcriptPath: text('transcript_path'),
   summaryPath: text('summary_path'),
   graphNodeId: text('graph_node_id').references(() => graphNodes.id),
+  site: text('site'),
+  roomKey: text('room_key'),
+  lastChunkAt: integer('last_chunk_at'),
+  asrWatermarkPcm: integer('asr_watermark_pcm').default(0),
+  lastAsrSequence: integer('last_asr_sequence').default(-1),
+  includeMic: integer('include_mic').default(0),
 })
 
 export const researchThreads = sqliteTable('research_threads', {

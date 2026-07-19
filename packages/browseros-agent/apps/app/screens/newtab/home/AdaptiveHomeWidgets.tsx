@@ -5,7 +5,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BookOpen, CheckCircle, FileText, Plus } from 'lucide-react'
-import { type FC, useRef, useState } from 'react'
+import { type FC, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Popover,
@@ -14,6 +14,11 @@ import {
 } from '@/components/ui/popover'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { BUILTIN_TEMPLATES } from '@/lib/home/builtin-templates'
+import {
+  onRuntimeMessage,
+  RuntimeMessageType,
+} from '@/lib/messaging/runtime/runtimeMessages'
+import { executeWidgetAction } from '@/lib/widget-actions'
 import { EmptyHomeState } from './EmptyHomeState'
 import { ProposalCard } from './ProposalCard'
 import { WidgetCard } from './WidgetCard'
@@ -70,17 +75,44 @@ async function fetchHome(): Promise<HomeData> {
   return res.json() as Promise<HomeData>
 }
 
-function handleCuratedAction(w: HomeWidget): void {
+function handleCuratedAction(
+  w: HomeWidget,
+  qc: { invalidateQueries: (opts: { queryKey: string[] }) => unknown },
+): void {
+  if (w.type === 'resumed-work') {
+    const pages = (w.data?.pages as Array<{ uri?: string }>) ?? []
+    const tabs = (w.data?.tabs as Array<{ uri?: string }>) ?? []
+    const urls = [...tabs, ...pages]
+      .map((t) => t.uri)
+      .filter(Boolean) as string[]
+    const uniqueUrls = Array.from(new Set(urls))
+    for (const url of uniqueUrls) {
+      void executeWidgetAction({ type: 'navigate', url })
+    }
+    return
+  }
+
+  if (w.type === 'next-meeting') {
+    const status = String(w.data.status ?? '')
+    const url = String(w.data.url ?? '')
+    if (status === 'active' && url) {
+      void executeWidgetAction({ type: 'navigate', url })
+    } else {
+      void executeWidgetAction({ type: 'navigate-route', route: '#/meetings' })
+    }
+    return
+  }
+
   const routes: Record<string, string> = {
-    'next-meeting': '#/meetings',
     'research-thread': '#/meetings',
     'pending-approvals': '#/tasks?tab=inbox',
     'one-click-recurring': '#/tasks?tab=scheduled',
-    'daily-digest': '#/home',
-    'resumed-work': '#/settings/context',
+    'daily-digest': '#/settings/memory',
   }
   const target = routes[w.type]
-  if (target) window.location.hash = target
+  if (target) {
+    void executeWidgetAction({ type: 'navigate-route', route: target }, qc)
+  }
 }
 
 export const AdaptiveHomeWidgets: FC = () => {
@@ -91,8 +123,18 @@ export const AdaptiveHomeWidgets: FC = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: HOME_KEY,
     queryFn: fetchHome,
-    staleTime: 60_000,
+    staleTime: 5_000,
+    retry: 4,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
+    refetchInterval: 20_000,
   })
+
+  // Invalidate home immediately when the background signals a capture session stopped
+  useEffect(() => {
+    return onRuntimeMessage(RuntimeMessageType.captureSessionStopped, () => {
+      void qc.invalidateQueries({ queryKey: HOME_KEY })
+    })
+  }, [qc])
 
   const prefMutation = useMutation({
     mutationFn: async (input: {
@@ -216,7 +258,7 @@ export const AdaptiveHomeWidgets: FC = () => {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Staged proposals at the top */}
       {proposals.map((p) => (
         <ProposalCard
@@ -228,33 +270,43 @@ export const AdaptiveHomeWidgets: FC = () => {
       ))}
 
       {/* Active widget cards */}
-      {activeWidgets.map((w) => {
-        const showWhy = !shownWhy.current.has(w.id ?? w.type)
-        if (showWhy) shownWhy.current.add(w.id ?? w.type)
-        return (
-          <WidgetCard
-            key={w.id ?? w.type}
-            widget={w}
-            showWhyInline={showWhy}
-            onPin={() =>
-              prefMutation.mutate({ kind: 'pin', widget: w.id ?? w.type })
-            }
-            onHide={() =>
-              prefMutation.mutate({ kind: 'hide', widget: w.id ?? w.type })
-            }
-            onDismiss={() =>
-              prefMutation.mutate({ kind: 'dismiss', widget: w.id ?? w.type })
-            }
-            onAction={() => {
-              if (w.id) {
-                actionMutation.mutate(w)
-              } else {
-                handleCuratedAction(w)
-              }
-            }}
-          />
-        )
-      })}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {activeWidgets.map((w) => {
+          const showWhy = !shownWhy.current.has(w.id ?? w.type)
+          if (showWhy) shownWhy.current.add(w.id ?? w.type)
+          const isLarge = w.type === 'daily-digest'
+          return (
+            <div
+              key={w.id ?? w.type}
+              className={isLarge ? 'md:col-span-2' : ''}
+            >
+              <WidgetCard
+                widget={w}
+                showWhyInline={showWhy}
+                onPin={() =>
+                  prefMutation.mutate({ kind: 'pin', widget: w.id ?? w.type })
+                }
+                onHide={() =>
+                  prefMutation.mutate({ kind: 'hide', widget: w.id ?? w.type })
+                }
+                onDismiss={() =>
+                  prefMutation.mutate({
+                    kind: 'dismiss',
+                    widget: w.id ?? w.type,
+                  })
+                }
+                onAction={() => {
+                  if (w.id) {
+                    actionMutation.mutate(w)
+                  } else {
+                    handleCuratedAction(w, qc)
+                  }
+                }}
+              />
+            </div>
+          )
+        })}
+      </div>
 
       {/* Add widget affordance */}
       <div className="pt-1 text-center">

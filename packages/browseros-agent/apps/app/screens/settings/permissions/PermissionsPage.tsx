@@ -15,8 +15,17 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { browsingCaptureModeStorage } from '@/lib/capture/browsing-capture-mode'
+import {
+  type MicPermissionState,
+  primeMicrophonePermission,
+  queryMicPermission,
+} from '@/lib/capture/mic-permission'
 import { researchModeStorage } from '@/lib/capture/research-mode'
-import { useCaptureConsents } from '@/screens/capture/useCaptureApi'
+import {
+  useAsrModelStatus,
+  useCaptureConsents,
+  useEnsureAsrModel,
+} from '@/screens/capture/useCaptureApi'
 import {
   useContextBuckets,
   useContextGrants,
@@ -29,6 +38,9 @@ export const PermissionsPage: FC = () => {
   const [meetingInput, setMeetingInput] = useState('')
   const [browsingOn, setBrowsingOn] = useState(false)
   const [researchOn, setResearchOn] = useState(false)
+  const [micState, setMicState] = useState<MicPermissionState>('prompt')
+  const [micBusy, setMicBusy] = useState(false)
+  const [micError, setMicError] = useState<string | null>(null)
 
   const { buckets } = useContextBuckets()
   const {
@@ -39,6 +51,10 @@ export const PermissionsPage: FC = () => {
 
   const { settings, updateSettings } = useContextSettings()
   const consents = useCaptureConsents(bucketId)
+  const { isReady: modelReady, loading: modelStatusLoading } =
+    useAsrModelStatus()
+  const { start: startModelDownload, state: modelDownload } =
+    useEnsureAsrModel()
 
   // Load WXT storage values for global toggles
   useEffect(() => {
@@ -48,7 +64,23 @@ export const PermissionsPage: FC = () => {
     void researchModeStorage
       .getValue()
       .then((val) => setResearchOn(Boolean(val)))
+    void queryMicPermission().then(setMicState)
   }, [])
+
+  const handleAllowMicrophone = () => {
+    setMicBusy(true)
+    setMicError(null)
+    void primeMicrophonePermission()
+      .then((result) => {
+        if (!result.ok) {
+          setMicError(result.error ?? 'Microphone permission denied')
+          setMicState('denied')
+          return
+        }
+        setMicState('granted')
+      })
+      .finally(() => setMicBusy(false))
+  }
 
   // Only display denied grants
   const deniedDomains = grants.filter((g) => !g.allowed)
@@ -80,6 +112,10 @@ export const PermissionsPage: FC = () => {
       bucketId,
     })
     setMeetingInput('')
+    // Offscreen capture cannot prompt — prime mic from this visible page.
+    if (micState !== 'granted') {
+      void handleAllowMicrophone()
+    }
   }
 
   const handleToggleBrowsing = (checked: boolean) => {
@@ -286,6 +322,122 @@ export const PermissionsPage: FC = () => {
             you join a call.
           </p>
         </div>
+
+        {/* Transcription model download card */}
+        {!modelStatusLoading && !modelReady && !modelDownload.inProgress && (
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+            <div className="space-y-0.5">
+              <p className="font-medium text-amber-700 text-xs dark:text-amber-400">
+                Transcription model not downloaded
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                The local Whisper model (~150 MB) enables on-device
+                speech-to-text during meetings. Download it now so transcription
+                is ready when you join your first call.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 border-amber-500/40 px-3 text-amber-700 text-xs hover:bg-amber-500/10 dark:text-amber-400"
+              onClick={startModelDownload}
+            >
+              Download model
+            </Button>
+          </div>
+        )}
+
+        {modelDownload.inProgress && (
+          <div className="space-y-1.5 rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-blue-700 text-xs dark:text-blue-400">
+                Downloading transcription model…
+              </p>
+              <span className="font-mono text-blue-700 text-xs dark:text-blue-400">
+                {modelDownload.percent}%
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-blue-500/20">
+              <div
+                className="h-full rounded-full bg-blue-500 transition-all duration-300"
+                style={{ width: `${modelDownload.percent}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              This happens once. Transcription will be available as soon as the
+              download completes.
+            </p>
+          </div>
+        )}
+
+        {modelDownload.error && (
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+            <p className="text-destructive text-xs">{modelDownload.error}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2.5 text-destructive text-xs hover:bg-destructive/10"
+              onClick={startModelDownload}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {!modelStatusLoading &&
+          (modelReady || modelDownload.percent === 100) && (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5">
+              <svg
+                aria-hidden="true"
+                className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4.5 12.75l6 6 9-13.5"
+                />
+              </svg>
+              <p className="text-emerald-700 text-xs dark:text-emerald-400">
+                Transcription model ready — speech-to-text is fully enabled.
+              </p>
+            </div>
+          )}
+
+        {micState === 'granted' ? (
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-4 py-2.5">
+            <p className="text-emerald-700 text-xs dark:text-emerald-400">
+              Microphone allowed — your voice can be mixed into meeting
+              transcripts.
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border/50 bg-muted/20 px-4 py-3">
+            <div className="space-y-0.5">
+              <p className="font-medium text-xs">Microphone for your voice</p>
+              <p className="text-[10px] text-muted-foreground">
+                Tab audio only hears guests. Allow the mic once so Pane can
+                include what you say. Grant from this page — the recorder cannot
+                show a prompt later.
+              </p>
+              {micError && (
+                <p className="text-[10px] text-destructive">{micError}</p>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 px-3 text-xs"
+              disabled={micBusy}
+              onClick={handleAllowMicrophone}
+            >
+              {micBusy ? 'Requesting…' : 'Allow microphone'}
+            </Button>
+          </div>
+        )}
 
         <div className="space-y-3">
           <div className="flex gap-2">

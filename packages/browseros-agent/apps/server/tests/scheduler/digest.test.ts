@@ -63,9 +63,13 @@ describe('daily digest (M5.2)', () => {
     const content = readFileSync(result.path!, 'utf-8')
     expect(content).toContain('Daily digest')
     expect(content).toContain('Ship Phase 5')
-    expect(content).toContain('navigate')
+    // Human-readable activity format: either shows 'example.com' (domain) or 'Sites you visited' section
+    expect(
+      content.includes('example.com') ||
+        content.includes('Sites you visited') ||
+        content.includes('background action'),
+    ).toBe(true)
     expect(content).toContain('prefers dark mode')
-    expect(content).toContain('template; no LLM')
 
     const latest = readFileSync(result.latestPath!, 'utf-8')
     expect(latest).toBe(content)

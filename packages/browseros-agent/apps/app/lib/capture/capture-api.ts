@@ -31,6 +31,7 @@ export async function startMeetingSession(input: {
   url: string
   title?: string
   bucketId?: string
+  resumeSessionId?: string
 }): Promise<CaptureSession> {
   const res = await captureApiFetch(
     `${await baseUrl()}/capture/meetings/start`,
@@ -42,6 +43,7 @@ export async function startMeetingSession(input: {
         url: input.url,
         title: input.title,
         bucketId: input.bucketId ?? 'default',
+        resumeSessionId: input.resumeSessionId,
       }),
     },
   )
@@ -54,7 +56,58 @@ export async function fetchActiveMeetingSessions(): Promise<CaptureSession[]> {
   const res = await captureApiFetch(`${await baseUrl()}/capture/meetings`)
   if (!res.ok) throw new Error(`capture meetings failed (${res.status})`)
   const json = (await res.json()) as { sessions: CaptureSession[] }
-  return json.sessions.filter((session) => session.status === 'active')
+  return json.sessions.filter(
+    (session) =>
+      session.status === 'active' ||
+      session.status === 'interrupted' ||
+      session.status === 'paused',
+  )
+}
+
+export async function interruptMeetingSession(
+  sessionId: string,
+): Promise<void> {
+  const res = await captureApiFetch(
+    `${await baseUrl()}/capture/meetings/interrupt`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId }),
+    },
+  )
+  if (!res.ok) throw new Error(`capture interrupt failed (${res.status})`)
+}
+
+export async function pauseMeetingSession(sessionId: string): Promise<void> {
+  const res = await captureApiFetch(
+    `${await baseUrl()}/capture/meetings/pause`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId }),
+    },
+  )
+  if (!res.ok) throw new Error(`capture pause failed (${res.status})`)
+}
+
+export async function resumeMeetingSession(sessionId: string): Promise<void> {
+  const res = await captureApiFetch(
+    `${await baseUrl()}/capture/meetings/resume`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId }),
+    },
+  )
+  if (!res.ok) throw new Error(`capture resume failed (${res.status})`)
+}
+
+export async function deleteMeetingSession(sessionId: string): Promise<void> {
+  const res = await captureApiFetch(
+    `${await baseUrl()}/capture/meetings/${encodeURIComponent(sessionId)}`,
+    { method: 'DELETE' },
+  )
+  if (!res.ok) throw new Error(`capture delete failed (${res.status})`)
 }
 
 export async function stopMeetingSession(sessionId: string): Promise<void> {

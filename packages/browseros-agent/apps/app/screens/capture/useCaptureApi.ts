@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 const CAPTURE_QUERY_KEY = 'capture'
@@ -28,18 +28,22 @@ export interface CaptureSession {
   tabId: number | null
   url: string | null
   title: string | null
-  status: 'active' | 'paused' | 'stopped' | 'error'
+  status: 'active' | 'interrupted' | 'paused' | 'stopped' | 'error'
   provider: string
   startedAt: number
   endedAt: number | null
   transcriptPath: string | null
   summaryPath: string | null
   graphNodeId: string | null
+  site?: string | null
+  roomKey?: string | null
 }
 
 export interface CaptureStatus {
   paused: boolean
   reason: 'battery' | 'disk' | 'load' | null
+  refuseNewSessions?: boolean
+  asrDeferred?: boolean
   diskUsageBytes: number
   activeSessions: number
 }
@@ -153,9 +157,12 @@ export function useCaptureConsents(bucketId: string) {
 export interface TranscriptSegment {
   id: string
   sessionId: string
-  kind: 'partial' | 'final'
-  text: string
+  kind: 'partial' | 'final' | 'gap'
+  text?: string
   capturedAt: number
+  speaker?: string
+  confidence?: number
+  reason?: string
 }
 
 export function useCaptureTranscript(
@@ -163,6 +170,9 @@ export function useCaptureTranscript(
   isActive = false,
 ) {
   const { baseUrl, isLoading: urlLoading } = useAgentServerUrl()
+  const queryClient = useQueryClient()
+  const [sseAlive, setSseAlive] = useState(false)
+
   const query = useQuery({
     queryKey: [CAPTURE_QUERY_KEY, 'transcript', baseUrl, sessionId],
     queryFn: async () => {
@@ -173,15 +183,72 @@ export function useCaptureTranscript(
       return (await res.json()) as { segments: TranscriptSegment[] }
     },
     enabled: Boolean(baseUrl) && !urlLoading && Boolean(sessionId),
-    refetchInterval: isActive ? 3_000 : false,
+    refetchInterval: isActive && !sseAlive ? 3_000 : isActive ? 8_000 : false,
     retry: 1,
   })
+
+  useEffect(() => {
+    if (!baseUrl || !sessionId || !isActive) return
+    const url = `${base(baseUrl)}/capture/meetings/${encodeURIComponent(sessionId)}/events`
+    const es = new EventSource(url)
+    let lastMsg = Date.now()
+    const onAny = () => {
+      lastMsg = Date.now()
+      setSseAlive(true)
+    }
+    const invalidate = () => {
+      void queryClient.invalidateQueries({
+        queryKey: [CAPTURE_QUERY_KEY, 'transcript', baseUrl, sessionId],
+      })
+    }
+    es.addEventListener('segment', () => {
+      onAny()
+      invalidate()
+    })
+    es.addEventListener('gap', () => {
+      onAny()
+      invalidate()
+    })
+    es.addEventListener('status', onAny)
+    es.addEventListener('heartbeat', onAny)
+    es.onerror = () => {
+      setSseAlive(false)
+      es.close()
+    }
+    const watchdog = setInterval(() => {
+      if (Date.now() - lastMsg > 8_000) setSseAlive(false)
+    }, 2_000)
+    return () => {
+      clearInterval(watchdog)
+      es.close()
+      setSseAlive(false)
+    }
+  }, [baseUrl, sessionId, isActive, queryClient])
+
   return {
     segments: query.data?.segments ?? [],
     loading: query.isLoading || urlLoading,
     error: query.error,
     refetch: query.refetch,
+    live: sseAlive,
   }
+}
+
+export function useDeleteMeeting() {
+  const { baseUrl } = useAgentServerUrl()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await captureFetch(
+        `${base(baseUrl as string)}/capture/meetings/${encodeURIComponent(sessionId)}`,
+        { method: 'DELETE' },
+      )
+      if (!res.ok) throw new Error(`Failed to delete meeting (${res.status})`)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [CAPTURE_QUERY_KEY] })
+    },
+  })
 }
 
 // ---------------------------------------------------------------------------

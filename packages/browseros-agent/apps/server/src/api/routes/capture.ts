@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises'
 import type { TranscriptionProviderId } from '@browseros/capture/types'
 import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { Hono } from 'hono'
+import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
 import { ensureAsrModel, getAsrModelStatus } from '../../capture/asr-model'
 import {
@@ -17,17 +18,25 @@ import {
 import { listCaptureConsents, setCaptureConsent } from '../../capture/consent'
 import {
   appendPageSnapshot,
+  deleteMeetingCapture,
   failMeetingCapture,
   feedCaptureChunk,
   getCaptureSession,
+  interruptMeetingCapture,
   listCaptureSessions,
+  pauseMeetingCapture,
   startMeetingCapture,
   stopMeetingCapture,
+  unpauseMeetingCapture,
 } from '../../capture/meeting-pipeline'
 import {
   getCaptureStatus,
   pruneCaptureRetention,
 } from '../../capture/performance'
+import {
+  getCaptureEventCursor,
+  subscribeCaptureEvents,
+} from '../../capture/transcript-events'
 import type { Env } from '../types'
 
 const CaptureClassSchema = z.enum(['meeting', 'browsing', 'research'])
@@ -51,6 +60,8 @@ const StartMeetingSchema = z.object({
   title: z.string().optional(),
   provider: ProviderSchema.optional(),
   requireConsent: z.boolean().optional(),
+  includeMic: z.boolean().optional(),
+  resumeSessionId: z.string().optional(),
 })
 
 const ChunkSchema = z.object({
@@ -59,6 +70,7 @@ const ChunkSchema = z.object({
   mimeType: z.string().min(1),
   dataBase64: z.string().min(1),
   capturedAt: z.number().optional(),
+  track: z.enum(['mixed', 'mic']).optional(),
 })
 
 const PageSnapshotSchema = z.object({
@@ -114,6 +126,8 @@ export function createCaptureRoutes() {
         title: body.title,
         provider: body.provider as TranscriptionProviderId | undefined,
         requireConsent: body.requireConsent,
+        includeMic: body.includeMic,
+        resumeSessionId: body.resumeSessionId,
       })
       return c.json({ session })
     })
@@ -122,6 +136,24 @@ export function createCaptureRoutes() {
         .object({ sessionId: z.string().min(1) })
         .parse(await c.req.json())
       return c.json({ session: await stopMeetingCapture(body.sessionId) })
+    })
+    .post('/meetings/interrupt', async (c) => {
+      const body = z
+        .object({ sessionId: z.string().min(1) })
+        .parse(await c.req.json())
+      return c.json({ session: await interruptMeetingCapture(body.sessionId) })
+    })
+    .post('/meetings/pause', async (c) => {
+      const body = z
+        .object({ sessionId: z.string().min(1) })
+        .parse(await c.req.json())
+      return c.json({ session: await pauseMeetingCapture(body.sessionId) })
+    })
+    .post('/meetings/resume', async (c) => {
+      const body = z
+        .object({ sessionId: z.string().min(1) })
+        .parse(await c.req.json())
+      return c.json({ session: await unpauseMeetingCapture(body.sessionId) })
     })
     .post('/meetings/fail', async (c) => {
       const body = z
@@ -133,6 +165,11 @@ export function createCaptureRoutes() {
       return c.json({
         session: await failMeetingCapture(body.sessionId, body.message),
       })
+    })
+    .delete('/meetings/:id', async (c) => {
+      const id = c.req.param('id')
+      await deleteMeetingCapture(id)
+      return c.json({ ok: true })
     })
     .get('/meetings', (c) => {
       return c.json({
@@ -168,14 +205,95 @@ export function createCaptureRoutes() {
         return c.json({ error: 'Transcript unavailable' }, 500)
       }
     })
+    .get('/meetings/:id/events', async (c) => {
+      const sessionId = c.req.param('id')
+      const session = getCaptureSession(sessionId)
+      if (!session) return c.json({ error: 'Not found' }, 404)
+      const lastEventId = Number(c.req.header('Last-Event-ID') ?? '0')
+
+      return streamSSE(c, async (stream) => {
+        // Replay transcript lines as segment events when reconnecting
+        if (session.transcriptPath && lastEventId === 0) {
+          try {
+            const raw = await readFile(session.transcriptPath, 'utf8')
+            let cursor = 0
+            for (const line of raw.split('\n')) {
+              if (!line.trim()) continue
+              cursor++
+              const segment = JSON.parse(line)
+              await stream.writeSSE({
+                id: String(cursor),
+                event: segment.kind === 'gap' ? 'gap' : 'segment',
+                data: JSON.stringify(segment),
+              })
+            }
+          } catch {
+            /* empty */
+          }
+        }
+
+        await stream.writeSSE({
+          id: String(getCaptureEventCursor(sessionId)),
+          event: 'status',
+          data: JSON.stringify({
+            sessionId,
+            status: session.status,
+          }),
+        })
+
+        let closed = false
+        const unsub = subscribeCaptureEvents(sessionId, async (event) => {
+          if (closed) return
+          if (event.cursor <= lastEventId) return
+          const eventName =
+            event.type === 'segment'
+              ? 'segment'
+              : event.type === 'gap'
+                ? 'gap'
+                : event.type === 'heartbeat'
+                  ? 'heartbeat'
+                  : 'status'
+          const data =
+            event.type === 'segment' || event.type === 'gap'
+              ? JSON.stringify(event.segment)
+              : JSON.stringify(event)
+          await stream.writeSSE({
+            id: String(event.cursor),
+            event: eventName,
+            data,
+          })
+        })
+
+        const heartbeat = setInterval(() => {
+          void stream.writeSSE({
+            event: 'heartbeat',
+            data: JSON.stringify({ ts: Date.now() }),
+          })
+        }, 15_000)
+
+        stream.onAbort(() => {
+          closed = true
+          clearInterval(heartbeat)
+          unsub()
+        })
+
+        // Keep stream open until client disconnects
+        await new Promise<void>((resolve) => {
+          const check = setInterval(() => {
+            if (closed) {
+              clearInterval(check)
+              resolve()
+            }
+          }, 500)
+        })
+      })
+    })
     .get('/asr/model-status', async (c) => {
       const modelName = c.req.query('model') || undefined
       return c.json(await getAsrModelStatus(modelName))
     })
     .get('/asr/ensure-model', async (c) => {
       const modelName = c.req.query('model') || undefined
-      // Server-Sent Events stream — each event is a JSON progress object.
-      // The client closes the connection when it receives percent === 100.
       return new Response(
         new ReadableStream({
           async start(controller) {
@@ -211,6 +329,7 @@ export function createCaptureRoutes() {
           mimeType: body.mimeType,
           data: Buffer.from(body.dataBase64, 'base64'),
           capturedAt: body.capturedAt,
+          track: body.track,
         })
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err)

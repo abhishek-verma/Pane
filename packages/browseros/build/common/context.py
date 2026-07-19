@@ -434,7 +434,22 @@ class Context:
         return f"https://github.com/vslavik/winsparkle/releases/download/v{self.WINSPARKLE_VERSION}/WinSparkle-{self.WINSPARKLE_VERSION}.zip"
 
     def get_extensions_manifest_url(self) -> str:
-        """Get URL for bundled extensions manifest"""
+        """Get URL for bundled extensions manifest.
+
+        Override with PANE_BUNDLED_MANIFEST_PATH (absolute file path) or
+        PANE_BUNDLED_MANIFEST_URL for local dogfood builds before the
+        manifest is pushed to GitHub.
+        """
+        import os
+
+        path_override = os.environ.get("PANE_BUNDLED_MANIFEST_PATH", "").strip()
+        if path_override:
+            return path_override
+
+        url_override = os.environ.get("PANE_BUNDLED_MANIFEST_URL", "").strip()
+        if url_override:
+            return url_override
+
         from .pane_releases import PANE_EXTENSION_BUNDLED_MANIFEST_URL
 
         return PANE_EXTENSION_BUNDLED_MANIFEST_URL

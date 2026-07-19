@@ -21,6 +21,12 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
+import {
+  decideAsrWindow,
+  extractWhisperText,
+  peakNormalize,
+  stripOverlapDuplicate,
+} from './transcript-quality'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -194,15 +200,17 @@ interface TranscribeOptions {
   pcmf32?: Float32Array
   language?: string
   use_gpu?: boolean
+  flash_attn?: boolean
   no_prints?: boolean
   no_timestamps?: boolean
   translate?: boolean
+  /** Soft prompt from prior transcript for continuity (whisper.cpp). */
+  prompt?: string
+  [key: string]: unknown
 }
 
 interface TranscribeResult {
-  transcription?: Array<
-    Array<{ text: string; timestamps?: { from: string; to: string } }>
-  >
+  transcription?: unknown
 }
 
 // ---------------------------------------------------------------------------
@@ -285,24 +293,54 @@ function emit(obj: Record<string, unknown>): void {
   process.stdout.write(`${JSON.stringify(obj)}\n`)
 }
 
-function emitAck(sequence: number): void {
-  emit({ kind: 'ack', sequence })
+function emitAck(sessionId: string, sequence: number): void {
+  emit({ kind: 'ack', sessionId, sequence })
 }
 
 // ---------------------------------------------------------------------------
-// Mock transcription (BROWSEROS_ASR_MOCK=1)
+// Multi-session incremental state
 // ---------------------------------------------------------------------------
 
-function mockTranscribe(chunk: AudioChunkMsg): void {
-  const { sequence, sessionId, capturedAt } = chunk
+interface SessionAsrState {
+  lastEndSample: number
+  lastEmittedText: string
+}
+
+const sessionState = new Map<string, SessionAsrState>()
+
+type WorkerMsg = {
+  op?: string
+  sessionId?: string
+  sequence?: number
+  mimeType?: string
+  capturedAt?: number
+  dataBase64?: string
+  audioPath?: string
+  force?: boolean
+}
+
+async function loadFeedBytes(msg: WorkerMsg): Promise<Uint8Array> {
+  if (msg.audioPath) {
+    const file = Bun.file(msg.audioPath)
+    const buf = await file.arrayBuffer()
+    return new Uint8Array(buf)
+  }
+  if (msg.dataBase64) {
+    return new Uint8Array(Buffer.from(msg.dataBase64, 'base64'))
+  }
+  throw new Error('feed missing audioPath and dataBase64')
+}
+
+function mockTranscribe(msg: WorkerMsg): void {
+  const sequence = Number(msg.sequence ?? 0)
+  const sessionId = String(msg.sessionId ?? 'unknown')
+  const capturedAt = Number(msg.capturedAt ?? Date.now())
   emit({
     kind: 'partial',
     id: randomUUID(),
     sessionId,
     text: `[chunk ${sequence}] meeting audio received`,
     capturedAt,
-    startedAtMs: capturedAt,
-    endedAtMs: capturedAt + 1000,
   })
   emit({
     kind: 'final',
@@ -310,32 +348,134 @@ function mockTranscribe(chunk: AudioChunkMsg): void {
     sessionId,
     text: `[chunk ${sequence}] meeting audio received`,
     capturedAt: capturedAt + 4000,
-    startedAtMs: capturedAt,
-    endedAtMs: capturedAt + 4000,
   })
-  emitAck(sequence)
+  emitAck(sessionId, sequence)
 }
 
-// ---------------------------------------------------------------------------
-// Main transcription loop
-// ---------------------------------------------------------------------------
+async function handleFeed(
+  msg: WorkerMsg,
+  modelPath: string,
+  transcribe: (opts: TranscribeOptions) => Promise<TranscribeResult>,
+): Promise<void> {
+  const sequence = Number(msg.sequence ?? 0)
+  const sessionId = String(msg.sessionId ?? 'unknown')
+  const capturedAt = Number(msg.capturedAt ?? Date.now())
+  try {
+    const rawBytes = await loadFeedBytes(msg)
+    const pcmf32 = await decodeWebmToFloat32(rawBytes)
+    if (pcmf32.length < 3200) {
+      emitAck(sessionId, sequence)
+      return
+    }
 
-interface AudioChunkMsg {
-  sessionId: string
-  sequence: number
-  mimeType: string
-  capturedAt: number
-  dataBase64: string
+    let state = sessionState.get(sessionId)
+    if (!state) {
+      state = { lastEndSample: 0, lastEmittedText: '' }
+      sessionState.set(sessionId, state)
+    }
+
+    // Grow watermark if the stream shrank/reset (new session file).
+    if (pcmf32.length < state.lastEndSample) {
+      state.lastEndSample = 0
+      state.lastEmittedText = ''
+    }
+
+    const window = decideAsrWindow({
+      totalSamples: pcmf32.length,
+      lastEndSample: state.lastEndSample,
+      force: msg.force === true,
+    })
+    if (!window.run) {
+      emitAck(sessionId, sequence)
+      return
+    }
+
+    const slice = pcmf32.subarray(window.clipStart, window.clipEnd)
+    const normalized = peakNormalize(slice)
+    const prompt = state.lastEmittedText
+      ? state.lastEmittedText.slice(-400)
+      : undefined
+
+    const result = await transcribe({
+      model: modelPath,
+      pcmf32: normalized,
+      language: 'en',
+      use_gpu: true,
+      flash_attn: true,
+      no_prints: true,
+      // Timestamps were leaking into transcript text as "00:00:00,000 …".
+      no_timestamps: true,
+      translate: false,
+      prompt,
+    })
+
+    const rawText = extractWhisperText(result.transcription)
+    const text = stripOverlapDuplicate(rawText, state.lastEmittedText)
+
+    if (text) {
+      emit({
+        kind: 'final',
+        id: randomUUID(),
+        sessionId,
+        text,
+        capturedAt,
+      })
+      state.lastEmittedText = `${state.lastEmittedText} ${text}`.trim()
+      if (state.lastEmittedText.length > 2_000) {
+        state.lastEmittedText = state.lastEmittedText.slice(-1_200)
+      }
+    }
+    state.lastEndSample = window.clipEnd
+  } catch (err) {
+    log(`[asr] Error processing chunk ${sequence}: ${err}`)
+  } finally {
+    emitAck(sessionId, sequence)
+  }
+}
+
+async function handleLine(
+  line: string,
+  modelPath: string | null,
+  transcribe: ((opts: TranscribeOptions) => Promise<TranscribeResult>) | null,
+): Promise<void> {
+  const msg = JSON.parse(line) as WorkerMsg
+  const op = msg.op ?? (msg.dataBase64 || msg.audioPath ? 'feed' : undefined)
+
+  if (op === 'register') {
+    const sessionId = String(msg.sessionId ?? '')
+    if (sessionId) {
+      sessionState.set(sessionId, { lastEndSample: 0, lastEmittedText: '' })
+    }
+    return
+  }
+  if (op === 'unregister') {
+    sessionState.delete(String(msg.sessionId ?? ''))
+    return
+  }
+  if (op === 'ping') {
+    emit({ kind: 'pong' })
+    return
+  }
+  if (op === 'feed') {
+    if (MOCK_MODE) {
+      mockTranscribe(msg)
+      return
+    }
+    if (!modelPath || !transcribe) {
+      throw new Error('ASR model not ready')
+    }
+    await handleFeed(msg, modelPath, transcribe)
+  }
 }
 
 async function main(): Promise<void> {
   if (MOCK_MODE) {
     log('[asr] Mock mode enabled')
+    emit({ kind: 'ready' })
     const rl = createInterface({ input: process.stdin })
     for await (const line of rl) {
       if (!line.trim()) continue
-      const chunk = JSON.parse(line) as AudioChunkMsg
-      mockTranscribe(chunk)
+      await handleLine(line, null, null)
     }
     return
   }
@@ -346,54 +486,12 @@ async function main(): Promise<void> {
     Promise.resolve(loadWhisperAddon()),
   ])
   log(`[asr] Model ready: ${modelPath}`)
+  emit({ kind: 'ready' })
 
   const rl = createInterface({ input: process.stdin })
   for await (const line of rl) {
     if (!line.trim()) continue
-    const chunk = JSON.parse(line) as AudioChunkMsg
-    const { sequence, sessionId, capturedAt } = chunk
-
-    try {
-      const rawBytes = Buffer.from(chunk.dataBase64, 'base64')
-      const pcmf32 = await decodeWebmToFloat32(new Uint8Array(rawBytes))
-
-      if (pcmf32.length < 3200) {
-        // Less than 200ms at 16kHz — not enough audio, skip silently
-        emitAck(sequence)
-        continue
-      }
-
-      const result = await transcribe({
-        model: modelPath,
-        pcmf32,
-        language: 'en',
-        use_gpu: true,
-        no_prints: true,
-        no_timestamps: false,
-        translate: false,
-      })
-
-      const text = (result.transcription ?? [])
-        .flat()
-        .map((s) => (typeof s === 'string' ? s : (s.text ?? '')).trim())
-        .filter(Boolean)
-        .join(' ')
-        .trim()
-
-      if (text) {
-        emit({
-          kind: 'final',
-          id: randomUUID(),
-          sessionId,
-          text,
-          capturedAt,
-        })
-      }
-    } catch (err) {
-      log(`[asr] Error processing chunk ${sequence}: ${err}`)
-    } finally {
-      emitAck(sequence)
-    }
+    await handleLine(line, modelPath, transcribe)
   }
 }
 

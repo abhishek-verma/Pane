@@ -3,9 +3,8 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Offscreen audio recorder — bundled with capture-offscreen.html.
- * MediaRecorder timeslice blobs after chunk 0 are cluster fragments; the server
- * concatenates 0..N before ASR so each feed is a valid WebM stream.
+ * Offscreen audio recorder — dual MediaRecorder (mixed + optional mic).
+ * Durable pending-upload buffer survives transient server failures.
  */
 
 import {
@@ -16,25 +15,73 @@ import {
 
 const CHUNK_MS = 2_000
 const UPLOAD_TIMEOUT_MS = 30_000
-const UPLOAD_MAX_ATTEMPTS = 3
-/** After this many consecutive failed chunks, ask background to fail the session. */
-const MAX_CONSECUTIVE_UPLOAD_ERRORS = 5
+const UPLOAD_MAX_ATTEMPTS = 5
+const MAX_BUFFERED_CHUNKS = 120
+
+type TrackName = 'mixed' | 'mic'
+
+interface PendingChunk {
+  sequence: number
+  track: TrackName
+  mimeType: string
+  dataBase64: string
+  capturedAt: number
+}
+
+interface TrackRecorder {
+  recorder: MediaRecorder
+  sequence: number
+}
 
 interface RecorderState {
   sessionId: string
   tabId: number
-  sequence: number
-  recorder: MediaRecorder
   cleanup: () => void
   includeMic: boolean
   serverUrl: string
   uploadErrors: number
-  /** Serializes uploads so stream.webm append order matches MediaRecorder order. */
   uploadChain: Promise<void>
   failingOut: boolean
+  mixed: TrackRecorder
+  mic?: TrackRecorder
+  pending: PendingChunk[]
 }
 
 const recorders = new Map<string, RecorderState>()
+
+function bufferKey(sessionId: string): string {
+  return `capturePending:${sessionId}`
+}
+
+async function loadPending(sessionId: string): Promise<PendingChunk[]> {
+  try {
+    const key = bufferKey(sessionId)
+    const stored = await chrome.storage.local.get(key)
+    const value = stored[key]
+    return Array.isArray(value) ? (value as PendingChunk[]) : []
+  } catch {
+    return []
+  }
+}
+
+async function savePending(
+  sessionId: string,
+  pending: PendingChunk[],
+): Promise<void> {
+  try {
+    await chrome.storage.local.set({ [bufferKey(sessionId)]: pending })
+  } catch {
+    /* ignore quota */
+  }
+}
+
+async function clearPending(sessionId: string): Promise<void> {
+  try {
+    await chrome.storage.local.remove(bufferKey(sessionId))
+  } catch {
+    /* ignore */
+  }
+}
 
 async function resolveLiveServerUrl(fallback: string): Promise<string> {
   try {
@@ -43,9 +90,16 @@ async function resolveLiveServerUrl(fallback: string): Promise<string> {
     )
     if (response?.serverUrl) return response.serverUrl
   } catch {
-    // Background may be restarting; fall back to the URL from start.
+    /* fall through */
   }
   return fallback
+}
+
+function bytesToBase64(data: ArrayBuffer): string {
+  const bytes = new Uint8Array(data)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
 }
 
 async function uploadCaptureChunk(input: {
@@ -53,14 +107,10 @@ async function uploadCaptureChunk(input: {
   sessionId: string
   sequence: number
   mimeType: string
-  data: ArrayBuffer
+  dataBase64: string
   capturedAt?: number
+  track: TrackName
 }): Promise<string> {
-  const bytes = new Uint8Array(input.data)
-  let binary = ''
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte)
-  }
   const serverUrl = await resolveLiveServerUrl(input.serverUrl)
   const base = serverUrl.replace(/\/$/, '')
   const res = await fetch(`${base}/capture/chunk`, {
@@ -70,8 +120,9 @@ async function uploadCaptureChunk(input: {
       sessionId: input.sessionId,
       sequence: input.sequence,
       mimeType: input.mimeType,
-      dataBase64: btoa(binary),
+      dataBase64: input.dataBase64,
       capturedAt: input.capturedAt ?? Date.now(),
+      track: input.track,
     }),
     signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
   })
@@ -96,21 +147,34 @@ async function openTabAudioStream(streamId: string): Promise<MediaStream> {
   } as any)
 }
 
-async function openMicStream(): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-    video: false,
-  })
+/**
+ * Soft mic constraints: do not enable AEC/NS/AGC on Pane's recorder mic.
+ * Meet/Zoom already own voice processing; fighting that on macOS is what
+ * previously made guests go silent. Pattern matches TabScribe / Recall.ai
+ * (tabCapture + getUserMedia mixed in one AudioContext).
+ */
+async function openMicStream(): Promise<MediaStream | null> {
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    })
+  } catch {
+    return null
+  }
 }
 
-async function openMixedCaptureStream(input: {
+async function openCaptureStreams(input: {
   streamId: string
   includeMic: boolean
-}): Promise<{ stream: MediaStream; cleanup: () => void; includeMic: boolean }> {
+}): Promise<{
+  mixed: MediaStream
+  cleanup: () => void
+  includeMic: boolean
+}> {
   const tabStream = await openTabAudioStream(input.streamId)
   const cleanups: Array<() => void> = [
     () => {
@@ -118,9 +182,6 @@ async function openMixedCaptureStream(input: {
     },
   ]
 
-  // chrome.tabCapture / chromeMediaSource:'tab' mutes the tab for the user
-  // while the capture stream is live. Route tab audio to AudioContext.destination
-  // so meeting participants stay audible during recording.
   const audioContext = new AudioContext()
   cleanups.push(() => {
     if (audioContext.state !== 'closed') {
@@ -129,20 +190,25 @@ async function openMixedCaptureStream(input: {
   })
 
   const tabSource = audioContext.createMediaStreamSource(tabStream)
+  // Chrome mutes the captured tab's local playback; loop back so the
+  // user still hears remote participants through the offscreen context.
   tabSource.connect(audioContext.destination)
 
-  const destination = audioContext.createMediaStreamDestination()
-  tabSource.connect(destination)
+  const mixedDest = audioContext.createMediaStreamDestination()
+  tabSource.connect(mixedDest)
 
   let includeMic = false
   if (input.includeMic) {
     const micStream = await openMicStream()
-    cleanups.push(() => {
-      for (const track of micStream.getTracks()) track.stop()
-    })
-    // Mic goes to the recorder only — never to speakers (echo).
-    audioContext.createMediaStreamSource(micStream).connect(destination)
-    includeMic = true
+    if (micStream) {
+      const micSource = audioContext.createMediaStreamSource(micStream)
+      // Mic into the mix only — never to destination (feedback / howl).
+      micSource.connect(mixedDest)
+      cleanups.push(() => {
+        for (const track of micStream.getTracks()) track.stop()
+      })
+      includeMic = true
+    }
   }
 
   if (audioContext.state === 'suspended') {
@@ -150,11 +216,86 @@ async function openMixedCaptureStream(input: {
   }
 
   return {
-    stream: destination.stream,
+    mixed: mixedDest.stream,
     cleanup: () => {
       for (const fn of cleanups) fn()
     },
     includeMic,
+  }
+}
+
+function wireTrack(
+  state: RecorderState,
+  track: TrackName,
+  recorder: MediaRecorder,
+  mimeType: string,
+): void {
+  recorder.addEventListener('dataavailable', (event) => {
+    if (!event.data || event.data.size === 0) return
+    if (state.failingOut) return
+    const tr = track === 'mixed' ? state.mixed : state.mic
+    if (!tr) return
+    const sequence = tr.sequence
+    tr.sequence++
+    const bufferPromise = event.data.arrayBuffer()
+    state.uploadChain = state.uploadChain
+      .then(async () => {
+        const buffer = await bufferPromise
+        const pending: PendingChunk = {
+          sequence,
+          track,
+          mimeType,
+          dataBase64: bytesToBase64(buffer),
+          capturedAt: Date.now(),
+        }
+        await flushChunk(state, pending)
+      })
+      .catch(() => undefined)
+  })
+  recorder.start(CHUNK_MS)
+}
+
+async function flushChunk(
+  state: RecorderState,
+  chunk: PendingChunk,
+): Promise<void> {
+  for (let attempt = 0; attempt < UPLOAD_MAX_ATTEMPTS; attempt++) {
+    try {
+      const serverUrl = await uploadCaptureChunk({
+        serverUrl: state.serverUrl,
+        sessionId: state.sessionId,
+        sequence: chunk.sequence,
+        mimeType: chunk.mimeType,
+        dataBase64: chunk.dataBase64,
+        capturedAt: chunk.capturedAt,
+        track: chunk.track,
+      })
+      state.serverUrl = serverUrl
+      state.uploadErrors = 0
+      // Drop from durable buffer if present
+      state.pending = state.pending.filter(
+        (p) => !(p.sequence === chunk.sequence && p.track === chunk.track),
+      )
+      await savePending(state.sessionId, state.pending)
+      return
+    } catch {
+      state.serverUrl = await resolveLiveServerUrl(state.serverUrl)
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
+    }
+  }
+  // Buffer for later — do not stop the meeting on transient failures.
+  state.pending.push(chunk)
+  if (state.pending.length > MAX_BUFFERED_CHUNKS) {
+    state.pending = state.pending.slice(-MAX_BUFFERED_CHUNKS)
+  }
+  await savePending(state.sessionId, state.pending)
+  state.uploadErrors++
+}
+
+async function flushPendingBuffer(state: RecorderState): Promise<void> {
+  const queued = [...state.pending]
+  for (const chunk of queued) {
+    await flushChunk(state, chunk)
   }
 }
 
@@ -169,7 +310,7 @@ async function startRecording(input: {
     const existing = recorders.get(input.sessionId)
     return {
       includeMic: existing?.includeMic ?? false,
-      chunksUploaded: existing?.sequence ?? 0,
+      chunksUploaded: existing?.mixed.sequence ?? 0,
     }
   }
 
@@ -177,12 +318,13 @@ async function startRecording(input: {
     throw new Error('Capture server URL missing')
   }
 
-  const opened = await openMixedCaptureStream({
+  const opened = await openCaptureStreams({
     streamId: input.streamId,
+    // Default on: industry pattern mixes tab + mic into one recorder.
     includeMic: input.includeMic !== false,
   })
 
-  const liveTracks = opened.stream
+  const liveTracks = opened.mixed
     .getAudioTracks()
     .filter((track) => track.readyState === 'live')
   if (liveTracks.length === 0) {
@@ -193,65 +335,31 @@ async function startRecording(input: {
   const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
     ? 'audio/webm;codecs=opus'
     : 'audio/webm'
-  const recorder = new MediaRecorder(opened.stream, { mimeType })
+
+  // One MediaRecorder on the mixed stream (tab + mic). Avoid a second
+  // recorder on the raw mic — that doubled device contention on macOS.
+  const mixedRecorder = new MediaRecorder(opened.mixed, { mimeType })
   const state: RecorderState = {
     sessionId: input.sessionId,
     tabId: input.tabId,
-    sequence: 0,
-    recorder,
     cleanup: opened.cleanup,
     includeMic: opened.includeMic,
     serverUrl: input.serverUrl,
     uploadErrors: 0,
     uploadChain: Promise.resolve(),
     failingOut: false,
+    mixed: { recorder: mixedRecorder, sequence: 0 },
+    pending: await loadPending(input.sessionId),
   }
 
-  recorder.addEventListener('dataavailable', (event) => {
-    if (!event.data || event.data.size === 0) return
-    if (state.failingOut) return
-    const sequence = state.sequence
-    state.sequence++
-    const bufferPromise = event.data.arrayBuffer()
-    // Keep uploads strictly ordered so server stream.webm stays a valid WebM.
-    state.uploadChain = state.uploadChain
-      .then(async () => {
-        const buffer = await bufferPromise
-        for (let attempt = 0; attempt < UPLOAD_MAX_ATTEMPTS; attempt++) {
-          try {
-            const serverUrl = await uploadCaptureChunk({
-              serverUrl: state.serverUrl,
-              sessionId: input.sessionId,
-              sequence,
-              mimeType,
-              data: buffer,
-            })
-            state.serverUrl = serverUrl
-            state.uploadErrors = 0
-            return
-          } catch {
-            state.serverUrl = await resolveLiveServerUrl(state.serverUrl)
-            await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
-          }
-        }
-        state.uploadErrors++
-        if (
-          state.uploadErrors >= MAX_CONSECUTIVE_UPLOAD_ERRORS &&
-          !state.failingOut
-        ) {
-          state.failingOut = true
-          // Must not await stopCapture here: it stops this recorder and would
-          // deadlock if stopRecording waited on this uploadChain.
-          void sendRuntimeMessage(RuntimeMessageType.stopCapture, {
-            sessionId: input.sessionId,
-          }).catch(() => undefined)
-        }
-      })
-      .catch(() => undefined)
-  })
+  wireTrack(state, 'mixed', mixedRecorder, mimeType)
 
-  recorder.start(CHUNK_MS)
   recorders.set(input.sessionId, state)
+  // Retry any durable buffered chunks from a prior offscreen death.
+  state.uploadChain = state.uploadChain
+    .then(() => flushPendingBuffer(state))
+    .catch(() => undefined)
+
   return { includeMic: opened.includeMic, chunksUploaded: 0 }
 }
 
@@ -260,52 +368,56 @@ async function stopRecording(sessionId: string): Promise<void> {
   if (!state) return
   state.failingOut = true
 
-  await new Promise<void>((resolve) => {
-    const finish = () => {
-      state.cleanup()
-      recorders.delete(sessionId)
-      resolve()
-    }
-    if (state.recorder.state === 'inactive') {
-      finish()
-      return
-    }
-    state.recorder.addEventListener('stop', () => finish(), { once: true })
-    state.recorder.stop()
-  })
-  // Do not await state.uploadChain — a failing upload may be the caller of
-  // stopCapture, which would deadlock waiting for itself.
+  const stopOne = (recorder: MediaRecorder) =>
+    new Promise<void>((resolve) => {
+      if (recorder.state === 'inactive') {
+        resolve()
+        return
+      }
+      recorder.addEventListener('stop', () => resolve(), { once: true })
+      recorder.stop()
+    })
+
+  await stopOne(state.mixed.recorder)
+  if (state.mic) await stopOne(state.mic.recorder)
+  state.cleanup()
+  recorders.delete(sessionId)
+  await clearPending(sessionId)
 }
 
 onRuntimeMessage(RuntimeMessageType.captureAudioStart, async ({ data }) => {
   try {
-    const result = await startRecording(data)
-    return { ok: true, ...result }
-  } catch (err: unknown) {
+    const result = await startRecording({
+      sessionId: data.sessionId,
+      tabId: data.tabId,
+      streamId: data.streamId,
+      serverUrl: data.serverUrl,
+      includeMic: data.includeMic,
+    })
+    return { ok: true as const, ...result }
+  } catch (error) {
     return {
-      ok: false,
-      error: err instanceof Error ? err.message : String(err),
+      ok: false as const,
+      error: error instanceof Error ? error.message : String(error),
     }
   }
 })
 
 onRuntimeMessage(RuntimeMessageType.captureAudioStop, async ({ data }) => {
-  try {
-    await stopRecording(data.sessionId)
-    return { ok: true }
-  } catch (err: unknown) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : String(err),
-    }
-  }
+  await stopRecording(data.sessionId)
+  return { ok: true as const }
 })
 
-onRuntimeMessage(RuntimeMessageType.captureAudioStatus, () => ({
-  sessionIds: Array.from(recorders.keys()),
-  sessions: Array.from(recorders.values()).map((state) => ({
-    sessionId: state.sessionId,
-    chunksUploaded: state.sequence,
-    uploadErrors: state.uploadErrors,
-  })),
-}))
+onRuntimeMessage(RuntimeMessageType.captureAudioStatus, async () => {
+  const sessions = Array.from(recorders.entries()).map(
+    ([sessionId, state]) => ({
+      sessionId,
+      chunksUploaded: state.mixed.sequence,
+      uploadErrors: state.uploadErrors,
+    }),
+  )
+  return {
+    sessionIds: sessions.map((session) => session.sessionId),
+    sessions,
+  }
+})

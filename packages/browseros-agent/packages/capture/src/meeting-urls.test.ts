@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'bun:test'
 import {
+  detectMeetingRoom,
   isMeetingHost,
   isMeetingRoomUrl,
   meetingRoomLabel,
@@ -26,5 +27,29 @@ describe('@browseros/capture meeting-urls', () => {
     expect(meetingRoomLabel('https://meet.google.com/bdb-xbat-xzr')).toBe(
       'bdb-xbat-xzr',
     )
+  })
+
+  it('detects Slack huddle room keys', () => {
+    expect(
+      detectMeetingRoom('https://app.slack.com/huddle/T026CMCFV4H/D026SCN0LAU'),
+    ).toEqual({
+      site: 'slack',
+      roomKey: 'slack:t026cmcfv4h/d026scn0lau',
+    })
+    expect(isMeetingRoomUrl('https://app.slack.com/client/T1/C1')).toBe(false)
+  })
+
+  it('detects Webex personal room keys', () => {
+    expect(detectMeetingRoom('https://acme.webex.com/meet/jane.doe')).toEqual({
+      site: 'webex',
+      roomKey: 'webex:acme.webex.com/jane.doe',
+    })
+  })
+
+  it('detects Zoom meeting ids', () => {
+    expect(detectMeetingRoom('https://us02web.zoom.us/j/123456789')).toEqual({
+      site: 'zoom',
+      roomKey: 'zoom:123456789',
+    })
   })
 })

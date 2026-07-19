@@ -216,10 +216,16 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   const [argsText, setArgsText] = useState('')
   const [argsError, setArgsError] = useState<string | null>(null)
 
+  const stringifiedInput = JSON.stringify(tool.input ?? {})
+
   useEffect(() => {
-    setArgsText(JSON.stringify(tool.input ?? {}, null, 2))
+    try {
+      setArgsText(JSON.stringify(JSON.parse(stringifiedInput), null, 2))
+    } catch {
+      setArgsText(stringifiedInput)
+    }
     setArgsError(null)
-  }, [tool.input])
+  }, [stringifiedInput])
 
   if (!waitingApproval && !dryRun) return null
 

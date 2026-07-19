@@ -20,10 +20,15 @@ export async function getMeetingTabCallState(
     func: probeMeetingCallStatePage,
   })
   const value = result?.result
-  if (value === 'prejoin' || value === 'in-call' || value === 'left') {
+  if (
+    value === 'prejoin' ||
+    value === 'in-call' ||
+    value === 'left' ||
+    value === 'unknown'
+  ) {
     return value
   }
-  return 'prejoin'
+  return 'unknown'
 }
 
 export async function isMeetingTabInCall(tabId: number): Promise<boolean> {

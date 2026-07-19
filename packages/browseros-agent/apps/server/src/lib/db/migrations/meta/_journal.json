@@ -85,6 +85,13 @@
       "when": 1784000000000,
       "tag": "0011_home_widgets",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1784500000000,
+      "tag": "0012_capture_continuity",
+      "breakpoints": true
     }
   ]
 }

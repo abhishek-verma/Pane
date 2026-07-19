@@ -71,6 +71,8 @@ export async function startTabAudioCapture(input: {
       tabId: input.tabId,
       streamId,
       serverUrl,
+      // Mix mic into the offscreen AudioContext (TabScribe / Recall pattern).
+      includeMic: true,
     },
   )
 

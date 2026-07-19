@@ -29,9 +29,18 @@ interface LocalFasterWhisperOptions {
  *  2. Bundled Bun + bundled TS sidecar (production path inside the app bundle).
  *  3. dev workspace: use system `bun` + local sidecar.ts from source.
  */
+export function resolveLocalAsrSidecar(): { command: string; args: string[] } {
+  return resolveSidecar()
+}
+
+export function localAsrSidecarEnv(): NodeJS.ProcessEnv {
+  return sidecarEnv()
+}
+
 function resolveSidecar(): { command: string; args: string[] } {
   const moduleDir = dirname(fileURLToPath(import.meta.url))
   const mock = process.env.BROWSEROS_ASR_MOCK === '1'
+  const bunName = process.platform === 'win32' ? 'bun.exe' : 'bun'
 
   // Explicit override (dev / CI / power-user)
   if (process.env.BROWSEROS_ASR_SIDECAR) {
@@ -54,14 +63,56 @@ function resolveSidecar(): { command: string; args: string[] } {
     // Bun-style override: binary + optional script override
     const script =
       process.env.BROWSEROS_ASR_SIDECAR_SCRIPT ??
-      bundledSidecarScript(moduleDir)
+      firstExisting([
+        join(
+          dirname(process.execPath),
+          '..',
+          'asr',
+          'bun-sidecar',
+          'sidecar.ts',
+        ),
+        join(moduleDir, '..', 'asr', 'bun-sidecar', 'sidecar.ts'),
+      ]) ??
+      join(moduleDir, '..', 'asr', 'bun-sidecar', 'sidecar.ts')
     return { command: pythonOrBun, args: [script] }
   }
 
-  // Production: bundled Bun + bundled sidecar
-  const bundledBun = join(moduleDir, '..', 'bin', 'third_party', 'bun')
+  // Production compiled binary: browseros_server lives at resources/bin/,
+  // with bun at bin/third_party/bun and the sidecar under resources/asr/.
+  // import.meta.url points inside the bun compile FS, so existsSync on a
+  // moduleDir-relative path always misses — resolve from execPath first.
+  const execDir = dirname(process.execPath)
+  const nextToBinary = join(execDir, 'third_party', bunName)
+  const scriptNextToBinary = join(
+    execDir,
+    '..',
+    'asr',
+    'bun-sidecar',
+    'sidecar.ts',
+  )
+  if (existsSync(nextToBinary) && existsSync(scriptNextToBinary)) {
+    return { command: nextToBinary, args: [scriptNextToBinary] }
+  }
+
+  // resourcesDir from env (Pane server_config / BROWSEROS_RESOURCES_DIR)
+  const resourcesDir = process.env.BROWSEROS_RESOURCES_DIR?.trim()
+  if (resourcesDir) {
+    const fromResources = join(resourcesDir, 'bin', 'third_party', bunName)
+    const scriptFromResources = join(
+      resourcesDir,
+      'asr',
+      'bun-sidecar',
+      'sidecar.ts',
+    )
+    if (existsSync(fromResources) && existsSync(scriptFromResources)) {
+      return { command: fromResources, args: [scriptFromResources] }
+    }
+  }
+
+  // Uncompiled package layout (dev workspace / tests)
+  const bundledBun = join(moduleDir, '..', 'bin', 'third_party', bunName)
   if (existsSync(bundledBun)) {
-    const script = bundledSidecarScript(moduleDir)
+    const script = join(moduleDir, '..', 'asr', 'bun-sidecar', 'sidecar.ts')
     return { command: bundledBun, args: [script] }
   }
 
@@ -70,10 +121,8 @@ function resolveSidecar(): { command: string; args: string[] } {
   return { command: 'bun', args: [devScript] }
 }
 
-function bundledSidecarScript(moduleDir: string): string {
-  // In the production app bundle the sidecar script sits at:
-  //   resources/asr/bun-sidecar/sidecar.ts  (relative to resources/bin/)
-  return join(moduleDir, '..', 'asr', 'bun-sidecar', 'sidecar.ts')
+function firstExisting(paths: string[]): string | undefined {
+  return paths.find((path) => existsSync(path))
 }
 
 function sidecarEnv(): NodeJS.ProcessEnv {
