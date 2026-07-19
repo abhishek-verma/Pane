@@ -305,14 +305,6 @@ export const CapturePage: FC = () => {
                     )}
                   </div>
                 ))}
-                {selectedSession?.site === 'meet' &&
-                  dedupedSegments.filter(
-                    (s) => s.kind === 'final' && s.text?.trim() && !s.speaker,
-                  ).length >= 3 && (
-                    <p className="pt-2 text-[10px] text-muted-foreground">
-                      Speaker names appear when Meet shows who is talking.
-                    </p>
-                  )}
               </div>
             </div>
           )}

@@ -64,11 +64,36 @@ describe('decideCaptureLifecycle', () => {
     expect(d.reason).toBe('left_to_lobby')
   })
 
-  it('stops when tab closes while recording', () => {
+  it('does not stop on prejoin before wasInCall is marked', () => {
+    const d = decideCaptureLifecycle({
+      callState: 'prejoin',
+      isRecording: true,
+      wasInCall: false,
+      tabOpen: true,
+      unknownStreak: 0,
+      maturity: 'mature',
+    })
+    expect(d.action).toBe('wait')
+  })
+
+  it('keeps generic recordings on unknown (no streak stop)', () => {
+    const d = decideCaptureLifecycle({
+      callState: 'unknown',
+      isRecording: true,
+      wasInCall: false,
+      tabOpen: true,
+      unknownStreak: 5,
+      maturity: 'generic',
+    })
+    expect(d.action).toBe('keep')
+    expect(d.reason).toBe('generic_unknown_keep')
+  })
+
+  it('stops when tab closes even without local recorder flag', () => {
     const d = decideCaptureLifecycle({
       callState: 'in-call',
-      isRecording: true,
-      wasInCall: true,
+      isRecording: false,
+      wasInCall: false,
       tabOpen: false,
       unknownStreak: 0,
       maturity: 'mature',

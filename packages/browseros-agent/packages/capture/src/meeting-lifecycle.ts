@@ -54,9 +54,10 @@ export interface CaptureLifecycleDecision {
 export function decideCaptureLifecycle(
   input: CaptureLifecycleInput,
 ): CaptureLifecycleDecision {
+  // Active sessions with a missing tab must always stop (avoid zombie rows).
   if (!input.tabOpen) {
     return {
-      action: input.isRecording || input.wasInCall ? 'stop' : 'wait',
+      action: 'stop',
       reason: 'tab_closed',
       nextUnknownStreak: 0,
       markInCall: false,
@@ -84,8 +85,10 @@ export function decideCaptureLifecycle(
     }
   }
 
-  // prejoin / unknown
-  if (input.callState === 'prejoin' && (input.wasInCall || input.isRecording)) {
+  // Lobby after a confirmed in-call — hangup without a `left` phrase.
+  // Require wasInCall so a prejoin flicker before the first in-call mark
+  // does not kill a brand-new recorder.
+  if (input.callState === 'prejoin' && input.wasInCall) {
     return {
       action: 'stop',
       reason: 'left_to_lobby',
@@ -96,6 +99,16 @@ export function decideCaptureLifecycle(
   }
 
   if (input.callState === 'unknown' && input.isRecording) {
+    // Generic sites often stay on `unknown` for the whole call — keep them.
+    if (input.maturity === 'generic') {
+      return {
+        action: 'keep',
+        reason: 'generic_unknown_keep',
+        nextUnknownStreak: 0,
+        markInCall: false,
+        clearInCall: false,
+      }
+    }
     const next = input.unknownStreak + 1
     if (next >= UNKNOWN_STOP_STREAK) {
       return {

@@ -226,7 +226,8 @@ async function startCaptureAudio(
   tabId: number,
 ): Promise<void> {
   await startTabAudioCapture({ sessionId, tabId })
-  captureWasInCallTabs.add(tabId)
+  // Do not mark wasInCall here — only sync's `in-call` decision should.
+  // Generic auto-start on unknown+audible must not look like a hangup later.
   unknownStreakByTab.delete(tabId)
   ensurePendingMeetingPoll()
 }
@@ -429,6 +430,10 @@ async function maybeStartMeetingCapture(
     ensurePendingMeetingPoll()
     return
   }
+  // Mark before audio starts so a fast hangup cannot race past wasInCall.
+  if (callState === 'in-call') {
+    captureWasInCallTabs.add(tabId)
+  }
   pendingMeetingTabs.delete(tabId)
   genericUnknownSince.delete(tabId)
 
@@ -615,9 +620,9 @@ export function captureBridge(): void {
     lastBrowseAtByTab.delete(tabId)
     pendingMeetingTabs.delete(tabId)
     genericUnknownSince.delete(tabId)
-    captureWasInCallTabs.delete(tabId)
-    unknownStreakByTab.delete(tabId)
-    // Hard stop first (sync audio off), then idle the poller.
+    // Hard stop first — stopCaptureForTab clears wasInCall / streaks.
+    // Do not clear those maps before stop finishes (avoids zombie sessions
+    // if a concurrent sync tick races the close).
     void stopCaptureForTab(tabId)
       .catch(() => null)
       .finally(() => {
