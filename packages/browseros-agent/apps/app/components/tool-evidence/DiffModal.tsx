@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { openInEditor } from '@/lib/tool-evidence/open-in-editor'
 import type { FileChangeDetail } from '@/lib/tool-evidence/types'
 import { DiffLines } from './DiffLines'
 
@@ -13,13 +14,17 @@ export const DiffModal: FC<{
   open: boolean
   onOpenChange: (open: boolean) => void
   file: FileChangeDetail
-}> = ({ open, onOpenChange, file }) => {
+  workspaceRoot?: string | null
+}> = ({ open, onOpenChange, file, workspaceRoot }) => {
   const copyDiff = () => {
     void navigator.clipboard.writeText(file.diffLines.join('\n'))
   }
   const copyPath = () => {
     void navigator.clipboard.writeText(file.path)
   }
+  const canOpenEditor =
+    file.path !== '(unknown path)' &&
+    (file.path.startsWith('/') || Boolean(workspaceRoot))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -29,13 +34,22 @@ export const DiffModal: FC<{
             {file.path}
           </DialogTitle>
         </DialogHeader>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={copyPath}>
             Copy path
           </Button>
           {!file.omitFullContent && file.diffLines.length > 0 ? (
             <Button size="sm" variant="outline" onClick={copyDiff}>
               Copy diff
+            </Button>
+          ) : null}
+          {canOpenEditor ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => openInEditor(file.path, workspaceRoot)}
+            >
+              Open in editor
             </Button>
           ) : null}
         </div>

@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -20,9 +21,12 @@ const CONSEQUENCE_CLASSES = [
 ] as const
 
 export const ActionLogPage: FC = () => {
+  const [searchParams] = useSearchParams()
+  const conversationId = searchParams.get('conversationId') ?? undefined
   const [classFilter, setClassFilter] = useState<string>('all')
   const { entries, loading, error, refetch } = useActionLog({
     consequenceClass: classFilter === 'all' ? undefined : classFilter,
+    conversationId,
   })
 
   return (
@@ -32,6 +36,9 @@ export const ActionLogPage: FC = () => {
           <h1 className="font-semibold text-2xl tracking-tight">Action log</h1>
           <p className="mt-1 text-muted-foreground text-sm">
             Consequential agent actions recorded locally on this device.
+            {conversationId
+              ? ' Showing actions for the linked conversation.'
+              : null}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()}>

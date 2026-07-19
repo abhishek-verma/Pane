@@ -3,8 +3,10 @@ import { type FC, type ReactNode, useEffect, useRef, useState } from 'react'
 import { Task, TaskContent, TaskTrigger } from '@/components/ai-elements/task'
 import { Button } from '@/components/ui/button'
 import { buildToolEvidence } from '@/lib/tool-evidence/build-tool-evidence'
+import { coalesceConsecutiveFileEdits } from '@/lib/tool-evidence/coalesce-file-edits'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
 import { cn } from '@/lib/utils'
+import { useOptionalChatSessionContext } from '@/modules/chat/chat-session-context'
 import { AppSendCard } from './AppSendCard'
 import { BrowserActionCard } from './BrowserActionCard'
 import { FileChangeCard } from './FileChangeCard'
@@ -27,17 +29,36 @@ export interface ToolEvidenceSource {
   renderApproval?: () => ReactNode
 }
 
-function SpecializedCard({ evidence }: { evidence: ToolEvidence }) {
+function SpecializedCard({
+  evidence,
+  editCount,
+  conversationId,
+}: {
+  evidence: ToolEvidence
+  editCount?: number
+  conversationId?: string
+}) {
   switch (evidence.kind) {
     case 'file-change':
-      return <FileChangeCard evidence={evidence} />
+      return (
+        <FileChangeCard
+          evidence={evidence}
+          editCount={editCount}
+          conversationId={conversationId}
+        />
+      )
     case 'terminal':
       return <TerminalCard evidence={evidence} />
     case 'app-send':
       return <AppSendCard evidence={evidence} />
     case 'browser-action':
     case 'screenshot':
-      return <BrowserActionCard evidence={evidence} />
+      return (
+        <BrowserActionCard
+          evidence={evidence}
+          conversationId={conversationId}
+        />
+      )
     default:
       return <GenericToolRow evidence={evidence} />
   }
@@ -51,12 +72,18 @@ export const ToolEvidenceList: FC<{
   allowStepReplay?: boolean
   /** Externally controlled highlight (optional; internal replay uses this too) */
   highlightToolCallId?: string
+  /** Override conversation id for Action Log links (falls back to chat session) */
+  conversationId?: string
 }> = ({
   tools,
   preferGenericsOpen = false,
   allowStepReplay = false,
   highlightToolCallId: highlightToolCallIdProp,
+  conversationId: conversationIdProp,
 }) => {
+  const chatSession = useOptionalChatSessionContext()
+  const conversationId = conversationIdProp ?? chatSession?.conversationId
+
   const items = tools.map((t) => ({
     source: t,
     evidence: buildToolEvidence({
@@ -80,6 +107,10 @@ export const ToolEvidenceList: FC<{
     (i) => !i.source.isApproval && !i.evidence.specialized,
   )
 
+  const coalesced = coalesceConsecutiveFileEdits(
+    specialized.map((s) => s.evidence),
+  )
+
   const errorCount = generics.filter((g) => g.evidence.state === 'error').length
   const genericsTitle =
     generics.length === 0
@@ -94,9 +125,9 @@ export const ToolEvidenceList: FC<{
   }, [preferGenericsOpen])
 
   const [replayIndex, setReplayIndex] = useState<number | null>(null)
-  const canReplay = allowStepReplay && specialized.length >= 2
+  const canReplay = allowStepReplay && coalesced.length >= 2
   const safeReplayIndex =
-    replayIndex != null && replayIndex >= 0 && replayIndex < specialized.length
+    replayIndex != null && replayIndex >= 0 && replayIndex < coalesced.length
       ? replayIndex
       : null
 
@@ -107,7 +138,7 @@ export const ToolEvidenceList: FC<{
   const highlightToolCallId =
     highlightToolCallIdProp ??
     (safeReplayIndex != null
-      ? specialized[safeReplayIndex]?.evidence.toolCallId
+      ? coalesced[safeReplayIndex]?.evidence.toolCallId
       : undefined)
 
   const highlightRef = useRef<HTMLDivElement | null>(null)
@@ -125,11 +156,11 @@ export const ToolEvidenceList: FC<{
         safeReplayIndex != null ? (
           <StepReplayBar
             index={safeReplayIndex}
-            total={specialized.length}
+            total={coalesced.length}
             onPrev={() => setReplayIndex((i) => Math.max(0, (i ?? 0) - 1))}
             onNext={() =>
               setReplayIndex((i) =>
-                Math.min(specialized.length - 1, (i ?? 0) + 1),
+                Math.min(coalesced.length - 1, (i ?? 0) + 1),
               )
             }
             onClose={() => setReplayIndex(null)}
@@ -148,11 +179,11 @@ export const ToolEvidenceList: FC<{
         )
       ) : null}
 
-      {specialized.map(({ evidence }) => {
+      {coalesced.map(({ key, evidence, editCount }) => {
         const highlighted = evidence.toolCallId === highlightToolCallId
         return (
           <div
-            key={evidence.toolCallId}
+            key={key}
             ref={highlighted ? highlightRef : undefined}
             className={cn(
               'rounded-md transition-shadow',
@@ -160,7 +191,11 @@ export const ToolEvidenceList: FC<{
                 'ring-2 ring-[var(--accent-orange)] ring-offset-1 ring-offset-background',
             )}
           >
-            <SpecializedCard evidence={evidence} />
+            <SpecializedCard
+              evidence={evidence}
+              editCount={editCount}
+              conversationId={conversationId}
+            />
           </div>
         )
       })}

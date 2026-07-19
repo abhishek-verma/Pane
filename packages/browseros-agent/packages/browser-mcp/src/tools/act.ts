@@ -69,6 +69,7 @@ export const act = defineTool({
 
     response.data({ kind: args.kind })
     response.includeDiff(args.page, { includeStructured: true })
+    response.includeScreenshot(args.page)
     return textResult(`ok (${args.kind})`)
   },
 })

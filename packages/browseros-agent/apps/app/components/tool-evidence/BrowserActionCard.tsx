@@ -1,4 +1,6 @@
 import { type FC, useState } from 'react'
+import { openActionLog } from '@/lib/tool-evidence/action-log-link'
+import { useScreenshotPrefs } from '@/lib/tool-evidence/screenshot-prefs'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
 import { cn } from '@/lib/utils'
 import { ImageLightbox } from './ImageLightbox'
@@ -9,13 +11,24 @@ function toSrc(data: string, mimeType: string): string {
   return `data:${mimeType};base64,${data}`
 }
 
-export const BrowserActionCard: FC<{ evidence: ToolEvidence }> = ({
-  evidence,
-}) => {
+export const BrowserActionCard: FC<{
+  evidence: ToolEvidence
+  conversationId?: string
+}> = ({ evidence, conversationId }) => {
   const [open, setOpen] = useState(false)
+  const [revealed, setRevealed] = useState(false)
+  const { showBrowserScreenshots, blurScreenshotsUntilClick } =
+    useScreenshotPrefs()
   const browser = evidence.browser
   if (!browser) return null
   const media = browser.media[0]
+  const showImage = Boolean(media) && showBrowserScreenshots
+  const blurred = showImage && blurScreenshotsUntilClick && !revealed
+
+  const onThumbClick = () => {
+    if (blurred) setRevealed(true)
+    setOpen(true)
+  }
 
   return (
     <>
@@ -36,18 +49,26 @@ export const BrowserActionCard: FC<{ evidence: ToolEvidence }> = ({
             {evidence.errorText}
           </p>
         ) : null}
-        {media ? (
+        {showImage && media ? (
           <button
             type="button"
             className="mt-1.5 block w-full overflow-hidden rounded"
-            onClick={() => setOpen(true)}
+            onClick={onThumbClick}
           >
             <img
               src={toSrc(media.data, media.mimeType)}
               alt={browser.caption}
               loading="lazy"
-              className="aspect-video max-h-40 w-full object-cover object-top"
+              className={cn(
+                'aspect-video max-h-40 w-full object-cover object-top transition-[filter]',
+                blurred && 'blur-md',
+              )}
             />
+            {blurred ? (
+              <span className="mt-1 block text-center text-[10px] text-muted-foreground">
+                Click to reveal
+              </span>
+            ) : null}
           </button>
         ) : browser.pageDiffSummary ? (
           <p className="mt-1 text-[11px] text-muted-foreground">
@@ -55,11 +76,22 @@ export const BrowserActionCard: FC<{ evidence: ToolEvidence }> = ({
           </p>
         ) : evidence.state === 'completed' ? (
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Screenshot unavailable
+            {showBrowserScreenshots
+              ? 'Screenshot unavailable'
+              : 'Screenshots hidden in settings'}
           </p>
         ) : null}
+        <div className="mt-1.5">
+          <button
+            type="button"
+            className="text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            onClick={() => openActionLog(conversationId)}
+          >
+            View in Action Log
+          </button>
+        </div>
       </div>
-      {media ? (
+      {showImage && media ? (
         <ImageLightbox
           open={open}
           onOpenChange={setOpen}
