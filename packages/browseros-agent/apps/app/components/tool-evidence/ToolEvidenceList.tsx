@@ -1,11 +1,14 @@
-import { BotIcon } from 'lucide-react'
-import { type FC, type ReactNode, useEffect, useState } from 'react'
+import { BotIcon, Play } from 'lucide-react'
+import { type FC, type ReactNode, useEffect, useRef, useState } from 'react'
 import { Task, TaskContent, TaskTrigger } from '@/components/ai-elements/task'
+import { Button } from '@/components/ui/button'
 import { buildToolEvidence } from '@/lib/tool-evidence/build-tool-evidence'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
+import { cn } from '@/lib/utils'
 import { BrowserActionCard } from './BrowserActionCard'
 import { FileChangeCard } from './FileChangeCard'
 import { GenericToolRow } from './GenericToolRow'
+import { StepReplayBar } from './StepReplayBar'
 
 export interface ToolEvidenceSource {
   toolCallId: string
@@ -26,7 +29,16 @@ export const ToolEvidenceList: FC<{
   tools: ToolEvidenceSource[]
   /** Auto-open generics while streaming last batch */
   preferGenericsOpen?: boolean
-}> = ({ tools, preferGenericsOpen = false }) => {
+  /** Offer step replay when specialized cards >= 2 (completed runs) */
+  allowStepReplay?: boolean
+  /** Externally controlled highlight (optional; internal replay uses this too) */
+  highlightToolCallId?: string
+}> = ({
+  tools,
+  preferGenericsOpen = false,
+  allowStepReplay = false,
+  highlightToolCallId: highlightToolCallIdProp,
+}) => {
   const items = tools.map((t) => ({
     source: t,
     evidence: buildToolEvidence({
@@ -63,15 +75,81 @@ export const ToolEvidenceList: FC<{
     if (preferGenericsOpen) setGenericsOpen(true)
   }, [preferGenericsOpen])
 
+  const [replayIndex, setReplayIndex] = useState<number | null>(null)
+  const canReplay = allowStepReplay && specialized.length >= 2
+  const safeReplayIndex =
+    replayIndex != null && replayIndex >= 0 && replayIndex < specialized.length
+      ? replayIndex
+      : null
+
+  useEffect(() => {
+    if (!canReplay) setReplayIndex(null)
+  }, [canReplay])
+
+  const highlightToolCallId =
+    highlightToolCallIdProp ??
+    (safeReplayIndex != null
+      ? specialized[safeReplayIndex]?.evidence.toolCallId
+      : undefined)
+
+  const highlightRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!highlightToolCallId) return
+    highlightRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+    })
+  }, [highlightToolCallId])
+
   return (
     <div className="space-y-2">
-      {specialized.map(({ evidence }) =>
-        evidence.kind === 'file-change' ? (
-          <FileChangeCard key={evidence.toolCallId} evidence={evidence} />
+      {canReplay ? (
+        safeReplayIndex != null ? (
+          <StepReplayBar
+            index={safeReplayIndex}
+            total={specialized.length}
+            onPrev={() => setReplayIndex((i) => Math.max(0, (i ?? 0) - 1))}
+            onNext={() =>
+              setReplayIndex((i) =>
+                Math.min(specialized.length - 1, (i ?? 0) + 1),
+              )
+            }
+            onClose={() => setReplayIndex(null)}
+          />
         ) : (
-          <BrowserActionCard key={evidence.toolCallId} evidence={evidence} />
-        ),
-      )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 px-2 text-[11px] text-muted-foreground"
+            onClick={() => setReplayIndex(0)}
+          >
+            <Play className="h-3 w-3" />
+            Replay steps
+          </Button>
+        )
+      ) : null}
+
+      {specialized.map(({ evidence }) => {
+        const highlighted = evidence.toolCallId === highlightToolCallId
+        return (
+          <div
+            key={evidence.toolCallId}
+            ref={highlighted ? highlightRef : undefined}
+            className={cn(
+              'rounded-md transition-shadow',
+              highlighted &&
+                'ring-2 ring-[var(--accent-orange)] ring-offset-1 ring-offset-background',
+            )}
+          >
+            {evidence.kind === 'file-change' ? (
+              <FileChangeCard evidence={evidence} />
+            ) : (
+              <BrowserActionCard evidence={evidence} />
+            )}
+          </div>
+        )
+      })}
 
       {approvals.map((a) => (
         <div key={a.source.toolCallId}>{a.source.renderApproval?.()}</div>

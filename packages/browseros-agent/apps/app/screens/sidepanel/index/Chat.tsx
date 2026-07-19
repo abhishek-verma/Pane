@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { LiveWatchStrip } from '@/components/tool-evidence/LiveWatchStrip'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import {
   SIDEPANEL_AI_TRIGGERED_EVENT,
@@ -14,6 +15,7 @@ import {
   SIDEPANEL_VOICE_TRANSCRIPTION_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import { resolveWatchPageId } from '@/lib/tool-evidence/resolve-watch-target'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import type { ChatMode } from '@/modules/chat/chat-types'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
@@ -180,6 +182,10 @@ export const Chat = () => {
     onStopRecording: handleStopRecording,
   }
 
+  const isStreaming = status === 'streaming' || status === 'submitted'
+  const showLiveWatch = mode === 'agent' && isStreaming
+  const watchPageId = showLiveWatch ? resolveWatchPageId(messages) : undefined
+
   return (
     <>
       <main className="mt-4 flex h-full flex-1 flex-col space-y-4 overflow-y-auto">
@@ -217,6 +223,8 @@ export const Chat = () => {
           <ChatError error={chatError} providerType={selectedProvider?.type} />
         )}
       </main>
+
+      <LiveWatchStrip pageId={watchPageId} enabled={showLiveWatch} />
 
       <ChatFooter
         mode={mode}

@@ -135,6 +135,7 @@ export const ConversationMessage: FC<ConversationMessageProps> = ({
                 <ToolEvidenceList
                   key={key}
                   preferGenericsOpen={!turn.done}
+                  allowStepReplay={turn.done}
                   tools={tools.map((tool) => ({
                     toolCallId: tool.id,
                     toolName: tool.name,

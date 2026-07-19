@@ -179,6 +179,7 @@ export const AgentChatMessage: FC<AgentChatMessageProps> = ({ message }) => {
             return (
               <ToolEvidenceList
                 key={key}
+                allowStepReplay
                 tools={tools.map((tool, idx) => ({
                   toolCallId: `${tool.name}-${idx}`,
                   toolName: tool.name,
