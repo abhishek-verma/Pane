@@ -1078,6 +1078,8 @@ return 'late'
     expect(result?.structuredContent).toEqual({
       kind: 'click',
       changed: true,
+      added: 0,
+      removed: 0,
       urlChanged: true,
       beforeUrl: 'https://example.com/start',
       afterUrl: 'https://example.com/destination',
@@ -1155,6 +1157,8 @@ return 'late'
       expect(result?.structuredContent).toEqual({
         kind: 'click',
         changed: true,
+        added: 0,
+        removed: 0,
         urlChanged: true,
         beforeUrl: 'https://example.com/start',
         afterUrl: 'https://example.com/destination',
@@ -1224,6 +1228,8 @@ return 'late'
     expect(result?.structuredContent).toEqual({
       kind: 'click',
       changed: true,
+      added: 1,
+      removed: 0,
     })
     expect(result?.content).toEqual(
       expect.arrayContaining([
