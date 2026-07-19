@@ -54,6 +54,8 @@ describe('builtin skills', () => {
     const browser = await loadSkill('browser-observe', { memoriesRoot })
     expect(browser?.id).toBe(BUILTIN_BROWSER_OBSERVE_SKILL_ID)
     expect(browser?.body).toContain('evaluate')
+    expect(browser?.body).toContain('page ID from Browser Context')
+    expect(browser?.body).not.toMatch(/Find pages with `tabs` action="list"/i)
 
     const memory = await loadSkill('memory', { memoriesRoot })
     expect(memory?.id).toBe(BUILTIN_MEMORY_SKILL_ID)

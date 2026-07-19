@@ -84,7 +84,8 @@ description: Use BrowserOS MCP tools for browser automation. Use for browsing, c
 
 Observe → act → verify over \`mcp.browseros.*\`.
 
-- Find pages with \`tabs\` (or \`mcp.browseros.tabs\`); open background tabs when researching.
+- Use the page ID from Browser Context for the active page. Do not call \`tabs\` list only to rediscover that starting page.
+- Call \`tabs\` list when you need other open pages; open background tabs with action="new" when researching.
 - Observe with \`snapshot\` before interacting; use \`read\` / \`grep\` / \`screenshot\` / \`wait\` as needed.
 - Act with refs from the snapshot via \`act\`. Prefer fill/click/press over coordinates.
 - Verify with \`diff\`, another snapshot, or \`read\` after consequential changes.

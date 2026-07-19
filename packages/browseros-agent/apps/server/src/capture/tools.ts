@@ -15,11 +15,13 @@ import {
 } from './meeting-pipeline'
 import { getCaptureStatus } from './performance'
 import {
+  buildMeetingSummaryMarkdown,
   CAPTURE_TRANSCRIPT_MAX_CHARS,
   formatCaptureListLine,
   formatCaptureWhen,
   loadFormattedTranscript,
   readTranscriptSegments,
+  writeMeetingSummaryFile,
 } from './transcript-access'
 
 const promotedField = {
@@ -40,6 +42,38 @@ async function readSummaryFile(summaryPath: string | null): Promise<string> {
   } catch {
     return ''
   }
+}
+
+function isPendingSummaryStub(body: string): boolean {
+  return body.includes('Summary is pending')
+}
+
+/** Prefer a real excerpt over the start-time "pending" stub when segments exist. */
+async function resolveSummaryBody(
+  session: NonNullable<ReturnType<typeof getCaptureSession>>,
+  formatted: Awaited<ReturnType<typeof loadFormattedTranscript>>,
+): Promise<string> {
+  let body = await readSummaryFile(session.summaryPath)
+  if (!isPendingSummaryStub(body) && body.trim()) return body
+  if (formatted.segmentCount === 0 && !formatted.text) {
+    return body.trim()
+      ? body
+      : `No summary yet for ${session.id}. Transcript segments: 0.`
+  }
+  await writeMeetingSummaryFile(
+    session,
+    formatted.text,
+    formatted.segmentCount,
+    formatted.truncated,
+  ).catch(() => undefined)
+  body = await readSummaryFile(session.summaryPath)
+  if (body.trim() && !isPendingSummaryStub(body)) return body
+  return await buildMeetingSummaryMarkdown({
+    session,
+    transcriptText: formatted.text,
+    segmentCount: formatted.segmentCount,
+    truncated: formatted.truncated,
+  })
 }
 
 function formatTranscriptToolText(
@@ -79,34 +113,20 @@ function formatFullCaptureRead(input: {
     '',
   ].join('\n')
   const summarySection = summaryBody.trim()
-    ? `## Summary\n\n${summaryBody.trim()}\n\n`
-    : '## Summary\n\n_(none yet — transcript below)_\n\n'
+    ? `## Local excerpt / metadata\n\n${summaryBody.trim()}\n\n_(Not AI meeting notes — use the transcript below for content.)_\n\n`
+    : '## Local excerpt / metadata\n\n_(none yet — transcript below)_\n\n'
   const transcriptSection = formatted.text
     ? `## Transcript\n\n${formatted.text}`
     : '## Transcript\n\n_(empty)_'
   return { text: `${header}${summarySection}${transcriptSection}` }
 }
 
-export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
-  return {
-    capture_start: tool({
-      description:
-        'Meeting capture is started by the browser extension when the user joins a consented Meet/Zoom/Teams call. This tool does not start tab audio — use capture_status / capture_list to inspect sessions instead.',
-      inputSchema: z.object({
-        tabId: z.number().int(),
-        url: z.string().url(),
-        title: z.string().optional(),
-        bucketId: z.string().optional(),
-        provider: z
-          .enum(['local-faster-whisper', 'openai-byok', 'deepgram-byok'])
-          .optional(),
-        ...promotedField,
-      }),
-      execute: async () => ({
-        text: 'Meeting capture must be started by the browser extension (join a consented meeting). Creating a server-only session would leave an empty zombie with no audio.',
-        isError: true,
-      }),
-    }),
+export function buildCaptureToolSet(
+  getBucketId: () => string,
+  options: { includeStartTool?: boolean } = {},
+): ToolSet {
+  const includeStartTool = options.includeStartTool ?? true
+  const tools: ToolSet = {
     capture_stop: tool({
       description: 'Stop a local meeting capture session and index it.',
       inputSchema: z.object({
@@ -157,14 +177,14 @@ export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
     }),
     capture_read: tool({
       description:
-        'Read a local meeting capture. Default include="full" returns metadata plus summary and transcript text. Use this for meeting notes/transcripts — do not use filesystem_read or filesystem_bash on ~/.browseros/capture paths.',
+        'Read a local meeting capture. Default include="full" returns metadata, a short local excerpt (not AI meeting notes), and transcript text. Prefer include="transcript" or "full" for spoken content — do not use filesystem tools on ~/.browseros/capture paths.',
       inputSchema: z.object({
         sessionId: z.string().min(1),
         include: z
           .enum(['meta', 'transcript', 'summary', 'full'])
           .optional()
           .describe(
-            'meta = JSON metadata only; transcript = spoken text; summary = summary.md; full = metadata + summary + transcript (default).',
+            'meta = JSON metadata only; transcript = spoken text; summary = local excerpt/metadata file (not AI notes); full = metadata + excerpt + transcript (default).',
           ),
         maxChars: z
           .number()
@@ -201,7 +221,7 @@ export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
           )
         }
 
-        const summaryBody = await readSummaryFile(session.summaryPath)
+        const summaryBody = await resolveSummaryBody(session, formatted)
         if (mode === 'summary') {
           return {
             text:
@@ -214,4 +234,27 @@ export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
       },
     }),
   }
+
+  if (includeStartTool) {
+    tools.capture_start = tool({
+      description:
+        'Meeting capture is started by the browser extension when the user joins a consented Meet/Zoom/Teams call. This tool does not start tab audio — use capture_status / capture_list to inspect sessions instead.',
+      inputSchema: z.object({
+        tabId: z.number().int(),
+        url: z.string().url(),
+        title: z.string().optional(),
+        bucketId: z.string().optional(),
+        provider: z
+          .enum(['local-faster-whisper', 'openai-byok', 'deepgram-byok'])
+          .optional(),
+        ...promotedField,
+      }),
+      execute: async () => ({
+        text: 'Meeting capture must be started by the browser extension (join a consented meeting). Creating a server-only session would leave an empty zombie with no audio.',
+        isError: true,
+      }),
+    })
+  }
+
+  return tools
 }

@@ -7,6 +7,7 @@
  */
 
 import { DEFAULT_BUCKET_ID } from '@browseros/memory/constants'
+import { ensureBuiltinSkills } from './builtin-skills'
 import { readPromptFiles, seedPromptFilesIfMissing } from './files'
 import { resolveSoulForBucket } from './personas'
 import { allocatePromptMemory, type PromptBudgetResult } from './prompt-budget'
@@ -18,6 +19,8 @@ export async function loadPromptMemorySnapshot(options: {
 }): Promise<PromptBudgetResult> {
   const bucketId = options.bucketId ?? DEFAULT_BUCKET_ID
   await seedPromptFilesIfMissing(options.memoriesRoot)
+  // Avoid racing startup's fire-and-forget seed: skill index must include builtins.
+  await ensureBuiltinSkills({ memoriesRoot: options.memoriesRoot })
   const files = await readPromptFiles(options.memoriesRoot)
   const soulResolved = await resolveSoulForBucket(
     bucketId,

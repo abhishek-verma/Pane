@@ -382,6 +382,17 @@ describe('filesystem path boundaries', () => {
     )
   })
 
+  it('redirects private capture paths away from filesystem_read', async () => {
+    const outputDir = await getToolOutputDir()
+    const capturePath = join(outputDir, '..', 'capture', 'session.json')
+    await mkdir(join(outputDir, '..', 'capture'), { recursive: true })
+    await writeFile(capturePath, '{}')
+
+    await expect(resolveBrowserToolOutputPath(capturePath)).rejects.toThrow(
+      'capture_list / capture_read',
+    )
+  })
+
   it('rejects symlinked BrowserOS tool output roots', async () => {
     const rawOutputDir = join(browserosDir, 'tool-output')
     await symlink(outsideDir, rawOutputDir)

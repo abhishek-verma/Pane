@@ -32,7 +32,7 @@ import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
 import { createReadTool } from '../tools/filesystem/read'
 import { defaultWorkspace } from '../tools/filesystem/workspace'
 import { isAcpProvider } from './acp-providers'
-import { CHAT_MODE_ALLOWED_TOOLS } from './chat-mode'
+import { CHAT_MODE_ALLOWED_TOOLS, filterToolsForChatMode } from './chat-mode'
 import { createCompactionPrepareStep, type StepWithUsage } from './compaction'
 import { buildMcpServerSpecs, createMcpClients } from './mcp-builder'
 import {
@@ -227,6 +227,7 @@ export class AiSdkAgent {
       ),
       ...buildCaptureToolSet(
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
+        { includeStartTool: false },
       ),
       ...buildMemoryToolSet(
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
@@ -242,6 +243,10 @@ export class AiSdkAgent {
       // In-process agent only exposes suggest_schedule (app-connect lives on ACP/nudge MCP).
       delete mergedTools.suggest_schedule
     }
+
+    const toolsForGate = config.resolvedConfig.chatMode
+      ? filterToolsForChatMode(mergedTools)
+      : mergedTools
 
     const ingestHooks = buildIngestGateHooks({
       getBucketId: () => workspace?.bucketId ?? 'default',
@@ -268,7 +273,7 @@ export class AiSdkAgent {
     // fall back to a deny-by-default context (empty pins, new-user cap) so a
     // future caller that forgets to set gateContext can never run ungated.
     const tools = wrapToolSetWithGate(
-      mergedTools,
+      toolsForGate,
       () => ({
         ...(gateCtx ?? {
           pins: {},
