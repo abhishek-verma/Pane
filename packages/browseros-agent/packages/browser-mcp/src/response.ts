@@ -179,6 +179,8 @@ export class ToolResponse {
     if (action.includeStructured) {
       this.data({
         changed: diff.changed,
+        added: diff.added,
+        removed: diff.removed,
         ...(diff.urlChanged && {
           urlChanged: true,
           beforeUrl: diff.beforeUrl,
