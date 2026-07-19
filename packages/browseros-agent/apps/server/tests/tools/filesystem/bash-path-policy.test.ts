@@ -39,8 +39,30 @@ describe('denyBrowserosPrivateBashCommand', () => {
     ).not.toBeNull()
   })
 
+  it('denies $BROWSEROS_DIR and relative .browseros paths outside tool-output', () => {
+    expect(
+      denyBrowserosPrivateBashCommand('cat $BROWSEROS_DIR/db/browseros.sqlite'),
+    ).not.toBeNull()
+    expect(
+      denyBrowserosPrivateBashCommand('ls ${BROWSEROS_DIR}/memories'),
+    ).not.toBeNull()
+    expect(
+      denyBrowserosPrivateBashCommand('cat .browseros/capture/session.json'),
+    ).not.toBeNull()
+    expect(
+      denyBrowserosPrivateBashCommand('cat ../.browseros/memories/MEMORY.md'),
+    ).not.toBeNull()
+    expect(denyBrowserosPrivateBashCommand('ls $BROWSEROS_DIR')).not.toBeNull()
+  })
+
   it('allows tool-output under the BrowserOS dir', () => {
     const toolOut = join(dir, 'tool-output', 'snapshot.txt')
     expect(denyBrowserosPrivateBashCommand(`cat ${toolOut}`)).toBeNull()
+    expect(
+      denyBrowserosPrivateBashCommand('cat $BROWSEROS_DIR/tool-output/out.txt'),
+    ).toBeNull()
+    expect(
+      denyBrowserosPrivateBashCommand('cat ~/.browseros/tool-output/out.txt'),
+    ).toBeNull()
   })
 })
