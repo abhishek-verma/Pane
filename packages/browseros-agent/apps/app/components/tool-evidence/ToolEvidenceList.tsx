@@ -122,18 +122,6 @@ export const ToolEvidenceList: FC<{
     specialized.map((s) => s.evidence),
   )
 
-  const browserImageIds = coalesced
-    .filter(
-      (c) =>
-        (c.evidence.kind === 'browser-action' ||
-          c.evidence.kind === 'screenshot') &&
-        (c.evidence.browser?.media.length ?? 0) > 0,
-    )
-    .map((c) => c.evidence.toolCallId)
-  const mountImageIds = new Set(
-    browserImageIds.slice(-MAX_MOUNTED_BROWSER_IMAGES),
-  )
-
   const errorCount = generics.filter((g) => g.evidence.state === 'error').length
   const genericsTitle =
     generics.length === 0
@@ -163,6 +151,20 @@ export const ToolEvidenceList: FC<{
     (safeReplayIndex != null
       ? coalesced[safeReplayIndex]?.evidence.toolCallId
       : undefined)
+
+  const browserImageIds = coalesced
+    .filter(
+      (c) =>
+        (c.evidence.kind === 'browser-action' ||
+          c.evidence.kind === 'screenshot') &&
+        (c.evidence.browser?.media.length ?? 0) > 0,
+    )
+    .map((c) => c.evidence.toolCallId)
+  const mountImageIds = new Set(
+    browserImageIds.slice(-MAX_MOUNTED_BROWSER_IMAGES),
+  )
+  // Keep the highlighted/replayed card mounted even if it is older than N.
+  if (highlightToolCallId) mountImageIds.add(highlightToolCallId)
 
   const highlightRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
