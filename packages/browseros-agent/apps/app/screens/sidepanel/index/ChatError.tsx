@@ -107,7 +107,7 @@ export const ChatError: FC<ChatErrorProps> = ({
   }
 
   return (
-    <div className="mx-4 flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+    <div className="agent-trace-error mx-4 flex flex-col items-center justify-center gap-3 bg-destructive/5 p-4">
       <div className="flex items-center gap-2 text-muted-foreground">
         <AlertCircle className="h-5 w-5" />
         <span className="font-medium text-sm">{getTitle()}</span>

@@ -63,17 +63,17 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
   }
 
   return (
-    <div className="relative rounded-lg border border-border/50 bg-card p-4 shadow-sm">
+    <div className="agent-trace relative py-3">
       <button
         type="button"
         onClick={handleDismiss}
-        className="absolute top-2 right-2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+        className="absolute top-2 right-0 rounded p-1 text-muted-foreground hover:text-foreground"
       >
         <X className="h-4 w-4" />
       </button>
 
       <div className="flex items-start gap-3 pr-6">
-        <Clock className="h-5 w-5 shrink-0 text-[var(--accent-orange)]" />
+        <Clock className="h-4 w-4 shrink-0 text-[var(--accent-orange)]" />
         <div>
           <p className="font-medium text-sm">Run this automatically?</p>
           <p className="mt-1 text-muted-foreground text-xs">

@@ -24,7 +24,7 @@ export const StepReplayBar: FC<StepReplayBarProps> = ({
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-1.5 py-1',
+        'flex items-center gap-1 border-border/40 border-b px-0.5 py-1',
         className,
       )}
     >

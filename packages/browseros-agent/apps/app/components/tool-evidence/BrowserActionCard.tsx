@@ -1,4 +1,5 @@
 import { type FC, useState } from 'react'
+import { agentTraceClass } from '@/lib/agent-chat/surfaces'
 import { openActionLog } from '@/lib/tool-evidence/action-log-link'
 import { useScreenshotPrefs } from '@/lib/tool-evidence/screenshot-prefs'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
@@ -33,9 +34,8 @@ export const BrowserActionCard: FC<{
   return (
     <>
       <div
-        className={cn(
-          'w-full rounded-md border border-border/60 bg-card/40 px-2.5 py-2',
-          evidence.state === 'error' && 'border-destructive/40',
+        className={agentTraceClass(
+          evidence.state === 'error' ? 'error' : 'browser',
         )}
       >
         <div className="flex items-center gap-2">
@@ -52,7 +52,7 @@ export const BrowserActionCard: FC<{
         {showImage && media ? (
           <button
             type="button"
-            className="mt-1.5 block w-full overflow-hidden rounded"
+            className="mt-1.5 block w-full overflow-hidden"
             onClick={onThumbClick}
           >
             <img
@@ -60,7 +60,7 @@ export const BrowserActionCard: FC<{
               alt={browser.caption}
               loading="lazy"
               className={cn(
-                'aspect-video max-h-40 w-full object-cover object-top transition-[filter]',
+                'aspect-video max-h-40 w-full object-cover object-top opacity-95 transition-[filter,opacity]',
                 blurred && 'blur-md',
               )}
             />

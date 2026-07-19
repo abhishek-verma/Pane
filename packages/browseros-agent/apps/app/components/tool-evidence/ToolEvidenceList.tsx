@@ -151,7 +151,7 @@ export const ToolEvidenceList: FC<{
   }, [highlightToolCallId])
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-[var(--agent-trace-gap)]">
       {canReplay ? (
         safeReplayIndex != null ? (
           <StepReplayBar
@@ -170,7 +170,7 @@ export const ToolEvidenceList: FC<{
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 gap-1 px-2 text-[11px] text-muted-foreground"
+            className="h-7 gap-1 px-1 text-[11px] text-muted-foreground"
             onClick={() => setReplayIndex(0)}
           >
             <Play className="h-3 w-3" />
@@ -185,11 +185,7 @@ export const ToolEvidenceList: FC<{
           <div
             key={key}
             ref={highlighted ? highlightRef : undefined}
-            className={cn(
-              'rounded-md transition-shadow',
-              highlighted &&
-                'ring-2 ring-[var(--accent-orange)] ring-offset-1 ring-offset-background',
-            )}
+            className={cn(highlighted && 'agent-trace-highlight')}
           >
             <SpecializedCard
               evidence={evidence}

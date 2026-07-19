@@ -156,14 +156,13 @@ export const ConversationMessage: FC<ConversationMessageProps> = ({
       )}
 
       {!turn.done && turn.parts.length === 0 && streaming && (
-        <div className="flex gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent-orange)] text-white">
-            <Bot className="size-3.5" />
-          </div>
-          <div className="flex items-center gap-1 rounded-xl rounded-tl-none border border-border/50 bg-card px-3 py-2.5 shadow-sm">
-            <span className="size-1.5 animate-bounce rounded-full bg-[var(--accent-orange)] [animation-delay:-0.3s]" />
-            <span className="size-1.5 animate-bounce rounded-full bg-[var(--accent-orange)] [animation-delay:-0.15s]" />
-            <span className="size-1.5 animate-bounce rounded-full bg-[var(--accent-orange)]" />
+        <div className="flex items-center gap-2 py-1">
+          <Bot className="size-3.5 shrink-0 text-muted-foreground" />
+          <div className="agent-typing" role="status">
+            <span className="sr-only">Agent is typing</span>
+            <span className="agent-typing-dot" />
+            <span className="agent-typing-dot" />
+            <span className="agent-typing-dot" />
           </div>
         </div>
       )}

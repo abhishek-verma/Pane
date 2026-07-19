@@ -43,7 +43,7 @@ export const GenericToolRow: FC<{ evidence: ToolEvidence }> = ({
                 <p className="mb-0.5 text-[10px] text-muted-foreground uppercase tracking-wide">
                   Parameters
                 </p>
-                <pre className="max-h-40 overflow-auto rounded bg-muted/50 p-2 text-[11px]">
+                <pre className="agent-peek max-h-40 overflow-auto p-2 font-mono text-[11px]">
                   {g.inputJson}
                 </pre>
               </div>
@@ -53,7 +53,7 @@ export const GenericToolRow: FC<{ evidence: ToolEvidence }> = ({
                 <p className="mb-0.5 text-[10px] text-muted-foreground uppercase tracking-wide">
                   Result
                 </p>
-                <pre className="max-h-40 overflow-auto rounded bg-muted/50 p-2 text-[11px]">
+                <pre className="agent-peek max-h-40 overflow-auto p-2 font-mono text-[11px]">
                   {g.outputText}
                 </pre>
               </div>

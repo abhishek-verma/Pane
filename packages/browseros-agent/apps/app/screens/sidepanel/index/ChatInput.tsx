@@ -382,7 +382,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
         {voice?.isRecording ? (
           <div
             className={cn(
-              'flex min-h-[42px] flex-1 items-center justify-center gap-1 rounded-2xl border border-red-500/50 bg-muted/50 px-4 py-2.5',
+              'agent-composer-field flex min-h-[42px] flex-1 items-center justify-center gap-1 border-red-500/50 px-4 py-2.5',
               inputPaddingRight,
             )}
           >
@@ -400,7 +400,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
           <textarea
             ref={textareaRef}
             className={cn(
-              'field-sizing-content max-h-60 min-h-[42px] flex-1 resize-none overflow-hidden rounded-2xl border border-border/50 bg-muted/50 px-4 py-2.5 text-sm outline-none transition-colors placeholder:text-muted-foreground/70 hover:border-border focus:border-[var(--accent-orange)]',
+              'agent-composer-field field-sizing-content max-h-60 min-h-[42px] flex-1 resize-none overflow-hidden px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/70',
               inputPaddingRight,
             )}
             value={input}

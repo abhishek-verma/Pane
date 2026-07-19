@@ -1,6 +1,6 @@
 import type { FC } from 'react'
+import { agentTraceClass } from '@/lib/agent-chat/surfaces'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
-import { cn } from '@/lib/utils'
 import { ToolStatusIcon } from './ToolStatusIcon'
 
 export const AppSendCard: FC<{ evidence: ToolEvidence }> = ({ evidence }) => {
@@ -9,9 +9,8 @@ export const AppSendCard: FC<{ evidence: ToolEvidence }> = ({ evidence }) => {
 
   return (
     <div
-      className={cn(
-        'w-full rounded-md border border-border/60 bg-card/40 px-2.5 py-2',
-        evidence.state === 'error' && 'border-destructive/40',
+      className={agentTraceClass(
+        evidence.state === 'error' ? 'error' : 'default',
       )}
     >
       <div className="flex items-center gap-2">

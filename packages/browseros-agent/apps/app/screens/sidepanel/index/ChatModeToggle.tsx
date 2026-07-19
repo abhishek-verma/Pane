@@ -28,10 +28,10 @@ export const ChatModeToggle: FC<ChatModeToggleProps> = ({
             type="button"
             onClick={() => onModeChange(isAgentMode ? 'chat' : 'agent')}
             className={cn(
-              'flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 font-medium text-xs transition-all',
+              'flex items-center gap-1.5 rounded-md px-2 py-1 font-medium text-xs transition-colors',
               isAgentMode
-                ? 'border-border/50 bg-muted text-muted-foreground hover:text-foreground'
-                : 'border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]',
+                ? 'bg-muted/60 text-muted-foreground hover:text-foreground'
+                : 'bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]',
             )}
           >
             {isAgentMode ? (
