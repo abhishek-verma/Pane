@@ -10,13 +10,15 @@ import {
   RECALL_MAX_LIMIT,
   RECALL_SNIPPET_MAX_CHARS,
 } from '@browseros/memory/constants'
+import { contentTokens } from '@browseros/retrieval/normalize'
 import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
-import { lookupResearchCitation } from '../capture/research-citations'
 import { bumpSurfaced, listEntries } from '../memory/store'
+import { searchChatFts } from '../retrieval/chat-fts'
+import { formatRetrieveResult, hybridSearch } from '../retrieval/hybrid'
 import { getDeniedHosts } from './grants'
-import { graphCurrentWork, graphSearch } from './repo'
+import { graphCurrentWork } from './repo'
 import { addTask, listTasks, markTaskDone, type TaskStatus } from './tasks-repo'
 
 /** Optional MCP promote flag — must be in the schema or the SDK strips it. */
@@ -50,7 +52,10 @@ function formatCurrentWork(bucketId: string): string {
   return lines.join('\n')
 }
 
-export function buildContextToolSet(getBucketId: () => string): ToolSet {
+export function buildContextToolSet(
+  getBucketId: () => string,
+  getWorkspaceRoot?: () => string | null | undefined,
+): ToolSet {
   return {
     context_current_work: tool({
       description:
@@ -65,9 +70,12 @@ export function buildContextToolSet(getBucketId: () => string): ToolSet {
     }),
     context_search: tool({
       description:
-        'Keyword/FTS search over the local context graph (browsing, research, meeting excerpts, files, sessions) and memory. Returns top-k matching snippets — not semantic embeddings. For "recent meetings" prefer capture_list + capture_read first.',
+        'Hybrid NL search (local FTS + semantic embeddings) over the context graph, memory, past chats, and indexed files. Pass the user question or a short topic — do not hand-craft long keyword lists. For "recent meetings" prefer capture_list + capture_read first.',
       inputSchema: z.object({
-        query: z.string().min(1),
+        query: z
+          .string()
+          .min(1)
+          .describe('Natural-language question or short topic to search for'),
         bucketId: z.string().optional(),
         limit: z
           .number()
@@ -79,122 +87,23 @@ export function buildContextToolSet(getBucketId: () => string): ToolSet {
       }),
       execute: async ({ query, bucketId, limit }) => {
         const id = bucketId || getBucketId()
-        const denied = getDeniedHosts(id)
-        const k = limit ?? 10
-
-        // 1. Fetch from context graph FTS5
-        const graphHits = graphSearch(id, query, k * 2, {
-          deniedHosts: denied,
-        })
-
-        // 2. Fetch from memory
-        const memoryHits = listEntries({
+        const result = await hybridSearch(query, {
           bucketId: id,
-          query,
-          status: ['active', 'demoted'],
-          limit: k * 2,
+          limit: limit ?? 10,
+          workspaceRoot: getWorkspaceRoot?.() ?? null,
         })
-
-        interface Candidate {
-          id: string
-          kind: string
-          title: string | null
-          uri: string | null
-          snippet: string
-          metadata?: string
-        }
-
-        const candidates: Candidate[] = []
-
-        for (const h of graphHits) {
-          const citation =
-            h.kind === 'research_page' ? lookupResearchCitation(h.nodeId) : null
-          const metadata = citation
-            ? JSON.stringify({
-                url: citation.url,
-                quote: citation.quote,
-                capturedAt: citation.capturedAt,
-              })
-            : undefined
-
-          candidates.push({
-            id: h.nodeId,
-            kind: h.kind,
-            title: h.title,
-            uri: h.uri,
-            snippet: h.snippet,
-            metadata,
-          })
-        }
-
-        for (const h of memoryHits) {
-          candidates.push({
-            id: h.id,
-            kind: 'memory',
-            title: `Memory: ${h.layer}`,
-            uri: null,
-            snippet: h.content,
-          })
-        }
-
-        if (candidates.length === 0) {
-          return { text: `No context or memory matches for "${query}".` }
-        }
-
-        // Lightweight TF-IDF similarity scoring
-        const queryText = query.toLowerCase().trim()
-        const queryWords = queryText.split(/\s+/).filter(Boolean)
-
-        const computeScore = (c: Candidate) => {
-          if (queryWords.length === 0) return 0
-          const title = (c.title || '').toLowerCase()
-          const snippet = (c.snippet || '').toLowerCase()
-          const uri = (c.uri || '').toLowerCase()
-          const fullText = `${title} ${snippet} ${uri}`
-
-          let score = 0
-          if (fullText.includes(queryText)) {
-            score += 10
-          }
-          let matched = 0
-          for (const word of queryWords) {
-            if (fullText.includes(word)) {
-              matched++
-              if (title.includes(word)) {
-                score += 2
-              } else {
-                score += 1
-              }
-            }
-          }
-          score += (matched / queryWords.length) * 5
-          return score
-        }
-
-        const ranked = candidates
-          .map((c) => ({ candidate: c, score: computeScore(c) }))
-          .sort((a, b) => b.score - a.score)
-
-        // Increment usefulness for memory hits that made it to top k
-        const topK = ranked.slice(0, k).map((r) => r.candidate)
-        const topMemoryIds = topK
-          .filter((c) => c.kind === 'memory')
-          .map((c) => c.id)
+        const topMemoryIds = result.hits
+          .filter((c) => c.kind === 'memory' || c.sourceKind === 'memory')
+          .map((c) => c.sourceId)
         if (topMemoryIds.length > 0) {
           bumpSurfaced(topMemoryIds, 1)
         }
-
-        const lines = topK.map((c, i) => {
-          const citationLine = c.metadata ? `\n   citation: ${c.metadata}` : ''
-          return `${i + 1}. [${c.kind}] ${c.title ?? '(untitled)'}${c.uri ? ` — ${c.uri}` : ''}\n   ${c.snippet}${citationLine}`
-        })
-
-        return { text: lines.join('\n') }
+        return { text: formatRetrieveResult(result) }
       },
     }),
     context_recall: tool({
       description:
-        'Recall long-term memory notes (soul/user/memory layers). Returns short snippets. Use context_search for browsing/activity.',
+        'Recall long-term memory notes (soul/user/memory layers) by topic tokens. Returns short snippets. Use context_search for browsing/activity/chats.',
       inputSchema: z.object({
         query: z.string().min(1),
         bucketId: z.string().optional(),
@@ -222,6 +131,32 @@ export function buildContextToolSet(getBucketId: () => string): ToolSet {
               : h.content
           return `${i + 1}. [${h.layer}/${h.status}] ${snippet}`
         })
+        return { text: lines.join('\n') }
+      },
+    }),
+    session_search: tool({
+      description:
+        'Search past Pane chat conversations (session archive). Use when the user asks "did we discuss X?" or needs prior chat context.',
+      inputSchema: z.object({
+        query: z.string().min(1),
+        bucketId: z.string().optional(),
+        limit: z.number().int().min(1).max(20).optional(),
+      }),
+      execute: async ({ query, bucketId, limit }) => {
+        const id = bucketId || getBucketId()
+        const tokens = contentTokens(query)
+        const hits = searchChatFts(
+          id,
+          tokens.length ? tokens : [query],
+          limit ?? 10,
+        )
+        if (hits.length === 0) {
+          return { text: `No past chat matches for "${query}".` }
+        }
+        const lines = hits.map(
+          (h, i) =>
+            `${i + 1}. [${h.role}] session ${h.sessionId.slice(0, 8)}…\n   ${h.content.slice(0, 400)}`,
+        )
         return { text: lines.join('\n') }
       },
     }),

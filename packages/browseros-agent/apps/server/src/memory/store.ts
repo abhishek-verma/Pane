@@ -24,7 +24,10 @@ import type {
   SkillRecord,
   SkillStatus,
 } from '@browseros/memory/types'
+import { contentTokens } from '@browseros/retrieval/normalize'
 import { getDbHandle } from '../lib/db'
+import { removeMemoryFts, syncMemoryFts } from '../retrieval/memory-fts'
+import { enqueueEmbed } from '../retrieval/queue'
 import {
   appendMemoryFileLine,
   listSkillIdsOnDisk,
@@ -117,6 +120,22 @@ export async function writeMemoryEntry(
     )
     .run(id, layer, bucketId, content, source, status, ts, ts)
 
+  if (status === 'active' || status === 'demoted') {
+    try {
+      syncMemoryFts({ id, bucketId, layer, content })
+      enqueueEmbed({
+        bucketId,
+        sourceKind: 'memory',
+        sourceId: id,
+        kind: `memory:${layer}`,
+        title: `Memory: ${layer}`,
+        text: content,
+      })
+    } catch {
+      /* index tables may be absent in older test DBs */
+    }
+  }
+
   return {
     id,
     layer,
@@ -155,6 +174,13 @@ export async function forgetMemoryEntry(
         `UPDATE memory_entries SET status = 'rejected', updated_at = ? WHERE id = ?`,
       )
       .run(now(), id)
+    try {
+      removeMemoryFts(id)
+      const { deleteChunksForSource } = await import('../retrieval/chunks')
+      deleteChunksForSource('memory', id)
+    } catch {
+      /* ignore */
+    }
   }
   return { removed: removedFile || entryIds.length > 0, entryIds }
 }
@@ -185,8 +211,16 @@ export function listEntries(options: ListEntriesOptions = {}): MemoryEntry[] {
   sql += ` AND status IN (${statuses.map(() => '?').join(',')})`
   params.push(...statuses)
   if (options.query?.trim()) {
-    sql += ` AND instr(lower(content), lower(?)) > 0`
-    params.push(options.query.trim())
+    // Token AND (not whole-phrase substring) so "interview coach" hits
+    // entries with both words without requiring the exact phrase.
+    const tokens = contentTokens(options.query)
+    if (tokens.length === 0) {
+      sql += ` AND instr(lower(content), lower(?)) > 0`
+      params.push(options.query.trim())
+    } else {
+      sql += ` AND (${tokens.map(() => 'instr(lower(content), lower(?)) > 0').join(' AND ')})`
+      params.push(...tokens)
+    }
   }
   sql += ` ORDER BY usefulness DESC, updated_at DESC LIMIT ?`
   params.push(limit)
@@ -328,6 +362,13 @@ export async function rebuildIndexFromFiles(
       )
       .get() as { c: number }
   ).c
+
+  try {
+    const { rebuildMemoryFts } = await import('../retrieval/memory-fts')
+    rebuildMemoryFts()
+  } catch {
+    /* ignore */
+  }
 
   return { entries: entryCount, skills: skillCount }
 }

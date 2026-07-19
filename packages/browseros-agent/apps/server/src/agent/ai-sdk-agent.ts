@@ -221,6 +221,7 @@ export class AiSdkAgent {
       ...buildNudgeToolSet(),
       ...buildContextToolSet(
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
+        () => config.resolvedConfig.workingDir ?? workspace?.root ?? null,
       ),
       ...buildTasksToolSet(
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',

@@ -85,7 +85,7 @@ description: Store and recall durable user facts via memory_* and context_recall
 ## Read
 
 - \`context_recall\` for durable notes (soul/user/memory layers).
-- \`context_search\` for keyword hits across indexed activity + memory (not semantic search).
+- \`context_search\` for hybrid NL search across indexed activity + memory + chats (FTS + local embeddings).
 - \`context_current_work\` for what is open / recent right now.
 
 ## Write

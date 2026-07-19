@@ -139,9 +139,9 @@ The rule: **the system should get measurably smarter, not just fuller.** Curatio
 
 ## Session archive (layer 3)
 
-- Every CLI, side-panel, command-center, and channel conversation is stored in SQLite with **FTS5** full-text search.
+- Every CLI, side-panel, command-center, and channel conversation is stored in SQLite with **FTS5** full-text search (`chat_index`) and local embedding chunks.
 - `session_search` tool: discovery ("did we discuss X?"), scroll within a session, browse past sessions.
-- Free retrieval (no LLM call), ~20ms FTS5 query.
+- Free retrieval (no LLM call), ~20ms FTS5 query; also merged into hybrid `context_search` as kind `chat`.
 - Distinguishes `memory` (always-on critical facts) from `session_search` (specific past conversations).
 
 ---

@@ -20,8 +20,9 @@ import {
   setGrant,
 } from '../../context/grants'
 import { getIngestPauseReason, isIngestPaused } from '../../context/ingest'
-import { graphCurrentWork, graphSearch } from '../../context/repo'
+import { graphCurrentWork } from '../../context/repo'
 import { getDbHandle } from '../../lib/db'
+import { hybridSearch } from '../../retrieval/hybrid'
 import type { Env } from '../types'
 
 const PutGrantSchema = z.object({
@@ -52,14 +53,28 @@ export function createContextRoutes() {
         pauseReason: getIngestPauseReason(),
       })
     })
-    .get('/search', (c) => {
+    .get('/search', async (c) => {
       const bucketId = c.req.query('bucketId') || DEFAULT_BUCKET_ID
       const q = c.req.query('q') || ''
       const limit = Number(c.req.query('limit') || '8')
       ensureDefaultBucket(getDbHandle().sqlite as never)
-      const denied = getDeniedHosts(bucketId)
-      const snippets = graphSearch(bucketId, q, limit, { deniedHosts: denied })
-      return c.json({ bucketId, query: q, snippets })
+      const result = await hybridSearch(q, { bucketId, limit })
+      return c.json({
+        bucketId,
+        query: q,
+        mode: result.mode,
+        suggestions: result.suggestions,
+        snippets: result.hits.map((h) => ({
+          nodeId: h.sourceId,
+          bucketId,
+          kind: h.kind,
+          title: h.title,
+          uri: h.uri,
+          snippet: h.snippet,
+          sourceKind: h.sourceKind,
+          score: h.score,
+        })),
+      })
     })
     .get('/grants', (c) => {
       const bucketId = c.req.query('bucketId') || DEFAULT_BUCKET_ID

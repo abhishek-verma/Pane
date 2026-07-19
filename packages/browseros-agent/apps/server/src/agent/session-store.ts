@@ -125,17 +125,55 @@ export class SessionStore {
 
     await db.delete(chatMessages).where(eq(chatMessages.sessionId, sessionId))
 
-    if (messages.length > 0) {
-      const rows = messages.map((m, i) => ({
-        id: `${sessionId}-msg-${i}-${now}`,
-        sessionId,
-        role: m.role,
-        content: JSON.stringify(
-          m.parts ?? (m as { content?: string }).content ?? '',
-        ),
-        createdAt: now + i,
-      }))
-      await db.insert(chatMessages).values(rows)
+    // Always clear retrieval indexes (including empty saves) so stale chats
+    // cannot linger in session_search / hybrid embeddings.
+    try {
+      const { clearChatFtsForSession } = await import('../retrieval/chat-fts')
+      const { deleteChunksForChatSession } = await import('../retrieval/chunks')
+      clearChatFtsForSession(sessionId)
+      deleteChunksForChatSession(sessionId)
+    } catch {
+      /* optional in tests */
+    }
+
+    if (messages.length === 0) return
+
+    const rows = messages.map((m, i) => ({
+      id: `${sessionId}-msg-${i}-${now}`,
+      sessionId,
+      role: m.role,
+      content: JSON.stringify(
+        m.parts ?? (m as { content?: string }).content ?? '',
+      ),
+      createdAt: now + i,
+    }))
+    await db.insert(chatMessages).values(rows)
+    try {
+      const { syncChatFts } = await import('../retrieval/chat-fts')
+      const { enqueueEmbed } = await import('../retrieval/queue')
+      const { extractChatPlainText } = await import('../retrieval/chat-text')
+      for (const row of rows) {
+        if (row.role !== 'user' && row.role !== 'assistant') continue
+        const plain = extractChatPlainText(row.content)
+        if (!plain.trim()) continue
+        syncChatFts({
+          id: row.id,
+          sessionId: row.sessionId,
+          role: row.role,
+          content: row.content,
+        })
+        enqueueEmbed({
+          bucketId: 'default',
+          sourceKind: 'chat',
+          sourceId: row.id,
+          kind: 'chat',
+          title: `${row.role} · ${sessionId.slice(0, 8)}`,
+          uri: `chat:${sessionId}`,
+          text: plain,
+        })
+      }
+    } catch {
+      /* retrieval indexes optional in tests */
     }
   }
 

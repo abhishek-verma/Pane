@@ -48,6 +48,10 @@ import { Sentry } from './lib/sentry'
 import { createUnavailableBrowser } from './lib/unavailable-browser'
 import { ensureBuiltinSkills } from './memory/builtin-skills'
 import { startMemoryReviewMonitor } from './memory/review-job'
+import { rebuildChatFts } from './retrieval/chat-fts'
+import { startEmbedIndexer } from './retrieval/indexer'
+import { rebuildMemoryFts } from './retrieval/memory-fts'
+import { startEmbedWorkerProcess } from './retrieval/worker-process'
 import { startDailyDigestMonitor } from './scheduler/digest'
 import { VERSION } from './version'
 
@@ -212,6 +216,16 @@ export class Application {
     startCaptureRetentionMonitor()
     startMemoryReviewMonitor()
     startDailyDigestMonitor()
+    void startEmbedWorkerProcess().catch((err: unknown) => {
+      logger.warn('Embed worker start failed', { err: String(err) })
+    })
+    try {
+      rebuildMemoryFts()
+      rebuildChatFts()
+    } catch (err) {
+      logger.warn('Retrieval FTS rebuild failed', { err: String(err) })
+    }
+    startEmbedIndexer()
     // Do not spawn ASR sidecars on startup — that crash-looped the server when a
     // zombie "active" meeting lingered in the DB. Chunk upload rehydrates lazily.
     const stopped = reconcileStaleActiveCaptureSessions()

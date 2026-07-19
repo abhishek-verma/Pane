@@ -28,7 +28,7 @@
     },
     "apps/app": {
       "name": "@browseros/app",
-      "version": "0.0.104",
+      "version": "0.0.118",
       "dependencies": {
         "@ai-sdk/react": "^3.0.210",
         "@browseros/capture": "workspace:*",
@@ -271,6 +271,7 @@
         "@browseros/cdp-protocol": "workspace:*",
         "@browseros/context-graph": "workspace:*",
         "@browseros/memory": "workspace:*",
+        "@browseros/retrieval": "workspace:*",
         "@browseros/shared": "workspace:*",
         "@hono/mcp": "^0.2.5",
         "@hono/zod-validator": "^0.4.3",
@@ -360,6 +361,10 @@
     },
     "packages/memory": {
       "name": "@browseros/memory",
+      "version": "0.0.1",
+    },
+    "packages/retrieval": {
+      "name": "@browseros/retrieval",
       "version": "0.0.1",
     },
     "packages/shared": {
@@ -627,6 +632,8 @@
     "@browseros/eval": ["@browseros/eval@workspace:apps/eval"],
 
     "@browseros/memory": ["@browseros/memory@workspace:packages/memory"],
+
+    "@browseros/retrieval": ["@browseros/retrieval@workspace:packages/retrieval"],
 
     "@browseros/server": ["@browseros/server@workspace:apps/server"],
 
