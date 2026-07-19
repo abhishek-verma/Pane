@@ -1,4 +1,4 @@
-import { CheckCircle2, Copy, Loader2, Wrench, XCircle } from 'lucide-react'
+import { Copy } from 'lucide-react'
 import { type FC, useCallback, useMemo } from 'react'
 import {
   Message,
@@ -15,12 +15,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning'
-import {
-  Task,
-  TaskContent,
-  TaskItem,
-  TaskTrigger,
-} from '@/components/ai-elements/task'
+import { ToolEvidenceList } from '@/components/tool-evidence/ToolEvidenceList'
 import { cn } from '@/lib/utils'
 import type {
   AgentChatMessagePart,
@@ -80,16 +75,10 @@ function buildRenderEntries(parts: AgentChatMessagePart[]): RenderEntry[] {
   return entries
 }
 
-function ToolStatusIcon({ status }: { status: ToolCallPart['status'] }) {
-  if (status === 'running' || status === 'pending') {
-    return (
-      <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-    )
-  }
-  if (status === 'completed') {
-    return <CheckCircle2 className="size-3.5 shrink-0 text-green-500" />
-  }
-  return <XCircle className="size-3.5 shrink-0 text-destructive" />
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return undefined
+  return value as Record<string, unknown>
 }
 
 export interface AgentChatMessageProps {
@@ -186,42 +175,22 @@ export const AgentChatMessage: FC<AgentChatMessageProps> = ({ message }) => {
 
           if (entry.kind === 'task' && entry.tools) {
             const tools = entry.tools
-            const errorCount = tools.filter((t) => t.status === 'failed').length
-            const taskTitle = `Agent activity (${tools.length} ${tools.length === 1 ? 'action' : 'actions'}${errorCount > 0 ? `, ${errorCount} failed` : ''})`
 
             return (
-              <Task key={key} defaultOpen={false}>
-                <TaskTrigger title={taskTitle} TriggerIcon={Wrench} />
-                <TaskContent>
-                  {tools.map((tool, idx) => (
-                    <TaskItem
-                      // biome-ignore lint/suspicious/noArrayIndexKey: tool order is stable within a finalized historical message
-                      key={`${tool.name}-${tool.status}-${idx}`}
-                      className="flex items-center gap-2"
-                    >
-                      <ToolStatusIcon status={tool.status} />
-                      <span className="text-foreground text-xs">
-                        {tool.label}
-                      </span>
-                      {tool.subject ? (
-                        <span className="ml-1.5 truncate text-muted-foreground/70 text-xs">
-                          · {tool.subject}
-                        </span>
-                      ) : null}
-                      {tool.error ? (
-                        <span className="ml-2 truncate text-destructive text-xs">
-                          {tool.error}
-                        </span>
-                      ) : null}
-                      {tool.durationMs != null ? (
-                        <span className="ml-auto text-muted-foreground/60 text-xs tabular-nums">
-                          {(tool.durationMs / 1000).toFixed(1)}s
-                        </span>
-                      ) : null}
-                    </TaskItem>
-                  ))}
-                </TaskContent>
-              </Task>
+              <ToolEvidenceList
+                key={key}
+                tools={tools.map((tool, idx) => ({
+                  toolCallId: `${tool.name}-${idx}`,
+                  toolName: tool.name,
+                  state: tool.status,
+                  input: asRecord(tool.input),
+                  output: tool.output,
+                  errorText: tool.error,
+                  label: tool.label,
+                  subject: tool.subject,
+                  detailsUnavailable: tool.input == null && tool.output == null,
+                }))}
+              />
             )
           }
 

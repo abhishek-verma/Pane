@@ -1,4 +1,4 @@
-import { Bot, CheckCircle2, Loader2, Wrench, XCircle } from 'lucide-react'
+import { Bot } from 'lucide-react'
 import { type FC, useMemo } from 'react'
 import {
   Message,
@@ -12,12 +12,7 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning'
-import {
-  Task,
-  TaskContent,
-  TaskItem,
-  TaskTrigger,
-} from '@/components/ai-elements/task'
+import { ToolEvidenceList } from '@/components/tool-evidence/ToolEvidenceList'
 import type {
   AgentConversationTurn,
   ToolEntry,
@@ -71,18 +66,6 @@ function buildRenderEntries(turn: AgentConversationTurn): RenderEntry[] {
   })
 
   return entries
-}
-
-function ToolStatusIcon({ status }: { status: ToolEntry['status'] }) {
-  if (status === 'running') {
-    return (
-      <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-    )
-  }
-  if (status === 'completed') {
-    return <CheckCircle2 className="size-3.5 shrink-0 text-green-500" />
-  }
-  return <XCircle className="size-3.5 shrink-0 text-destructive" />
 }
 
 export const ConversationMessage: FC<ConversationMessageProps> = ({
@@ -147,38 +130,24 @@ export const ConversationMessage: FC<ConversationMessageProps> = ({
               }
 
               const tools = entry.tools ?? []
-              const allDone = tools.every((t) => t.status !== 'running')
-              const taskTitle = allDone
-                ? `Agent activity (${tools.length} ${tools.length === 1 ? 'action' : 'actions'})`
-                : `Working… (${tools.length} ${tools.length === 1 ? 'action' : 'actions'})`
 
               return (
-                <Task key={key} defaultOpen={!turn.done}>
-                  <TaskTrigger title={taskTitle} TriggerIcon={Wrench} />
-                  <TaskContent>
-                    {tools.map((tool) => (
-                      <TaskItem
-                        key={tool.id}
-                        className="flex items-center gap-2"
-                      >
-                        <ToolStatusIcon status={tool.status} />
-                        <span className="text-foreground text-xs">
-                          {tool.label}
-                        </span>
-                        {tool.subject ? (
-                          <span className="ml-1.5 truncate text-muted-foreground/70 text-xs">
-                            · {tool.subject}
-                          </span>
-                        ) : null}
-                        {tool.durationMs != null && (
-                          <span className="ml-auto text-muted-foreground/60 text-xs tabular-nums">
-                            {(tool.durationMs / 1000).toFixed(1)}s
-                          </span>
-                        )}
-                      </TaskItem>
-                    ))}
-                  </TaskContent>
-                </Task>
+                <ToolEvidenceList
+                  key={key}
+                  preferGenericsOpen={!turn.done}
+                  tools={tools.map((tool) => ({
+                    toolCallId: tool.id,
+                    toolName: tool.name,
+                    state: tool.status,
+                    input: tool.input,
+                    output: tool.output,
+                    errorText: tool.error,
+                    label: tool.label,
+                    subject: tool.subject,
+                    detailsUnavailable:
+                      tool.input == null && tool.output == null,
+                  }))}
+                />
               )
             })}
           </MessageContent>
