@@ -181,12 +181,18 @@ export function createChatRoutes(deps: ChatRouteDeps) {
         if (!image) {
           return c.json({ error: 'Image not found' }, 404)
         }
-        return new Response(image.data.buffer as ArrayBuffer, {
-          headers: {
-            'Content-Type': image.mimeType,
-            'Cache-Control': 'public, max-age=3600, immutable',
+        return new Response(
+          image.data.buffer.slice(
+            image.data.byteOffset,
+            image.data.byteOffset + image.data.byteLength,
+          ) as ArrayBuffer,
+          {
+            headers: {
+              'Content-Type': image.mimeType,
+              'Cache-Control': 'public, max-age=3600, immutable',
+            },
           },
-        })
+        )
       },
     )
 }
