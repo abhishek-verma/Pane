@@ -108,6 +108,10 @@ async function setupApplicationTest() {
   const captureRetention = await import('../src/capture/retention-monitor')
   const builtinSkills = await import('../src/memory/builtin-skills')
   const homeProposal = await import('../src/home/proposal-job')
+  const chatFts = await import('../src/retrieval/chat-fts')
+  const memoryFts = await import('../src/retrieval/memory-fts')
+  const embedIndexer = await import('../src/retrieval/indexer')
+  const embedWorker = await import('../src/retrieval/worker-process')
 
   const createHttpServer = spyOn(apiServer, 'createHttpServer')
   createHttpServer.mockImplementation(async () => ({}) as never)
@@ -143,6 +147,12 @@ async function setupApplicationTest() {
   ).mockImplementation(async () => 0)
   spyOn(builtinSkills, 'ensureBuiltinSkills').mockImplementation(async () => {})
   spyOn(homeProposal, 'runProposalJob').mockImplementation(async () => {})
+  spyOn(chatFts, 'rebuildChatFts').mockImplementation(() => 0)
+  spyOn(memoryFts, 'rebuildMemoryFts').mockImplementation(() => 0)
+  spyOn(embedIndexer, 'startEmbedIndexer').mockImplementation(() => {})
+  spyOn(embedWorker, 'startEmbedWorkerProcess').mockImplementation(
+    async () => undefined,
+  )
 
   const initializeDb = spyOn(dbModule, 'initializeDb').mockImplementation(
     () =>
