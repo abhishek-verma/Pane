@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it, mock } from 'bun:test'
 import * as realAi from 'ai'
+import * as realAiSdkAgent from '../../../src/agent/ai-sdk-agent'
 
 interface MockMessage {
   id: string
@@ -58,6 +59,7 @@ mock.module('ai', () => ({
 }))
 
 mock.module('../../../src/agent/ai-sdk-agent', () => ({
+  ...realAiSdkAgent,
   AiSdkAgent: {
     create: createAgentSpy,
   },
@@ -78,9 +80,10 @@ mock.module('../../../src/lib/logger', () => ({
 
 afterAll(() => {
   mock.restore()
-  // mock.restore() does not always clear mock.module; re-bind the real package
-  // so later suites that import `{ tool }` from `ai` are not poisoned.
+  // mock.restore() does not always clear mock.module; re-bind real modules so
+  // later suites are not poisoned by incomplete named-export mocks.
   mock.module('ai', () => realAi)
+  mock.module('../../../src/agent/ai-sdk-agent', () => realAiSdkAgent)
 })
 
 const { ChatService } = await import('../../../src/api/services/chat-service')
