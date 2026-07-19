@@ -133,7 +133,7 @@ function privateBrowserosPathHint(inputPath: string): string | null {
     return 'Path is private Pane capture storage. Use capture_list / capture_read instead of filesystem tools.'
   }
   if (normalized.includes('/memories/') || normalized.endsWith('/memories')) {
-    return 'Path is private Pane memory storage. Use context_recall / memory_* / skills_* instead of filesystem tools.'
+    return 'Path is private Pane memory storage. Use context_search / memory_* / skills_* instead of filesystem tools.'
   }
   if (
     normalized.includes('/db/') ||

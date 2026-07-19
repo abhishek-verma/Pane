@@ -5,16 +5,11 @@
  */
 
 import { SEARCH_MAX_LIMIT } from '@browseros/context-graph/constants'
-import {
-  RECALL_DEFAULT_LIMIT,
-  RECALL_MAX_LIMIT,
-  RECALL_SNIPPET_MAX_CHARS,
-} from '@browseros/memory/constants'
 import { contentTokens } from '@browseros/retrieval/normalize'
 import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
-import { bumpSurfaced, listEntries } from '../memory/store'
+import { bumpSurfaced } from '../memory/store'
 import { searchChatFts } from '../retrieval/chat-fts'
 import { formatRetrieveResult, hybridSearch } from '../retrieval/hybrid'
 import { getDeniedHosts } from './grants'
@@ -70,7 +65,7 @@ export function buildContextToolSet(
     }),
     context_search: tool({
       description:
-        'Hybrid NL search (local FTS + semantic embeddings) over the context graph, memory, past chats, and indexed files. Pass the user question or a short topic — do not hand-craft long keyword lists. For "recent meetings" prefer capture_list + capture_read first.',
+        'Hybrid NL search (local FTS + semantic embeddings) over the context graph, memory, past chats, and indexed files. Pass the user question or a short topic — do not hand-craft long keyword lists. For "recent meetings" prefer capture_list + capture_read first. This is the DEFAULT first tool for any question about the user\'s situation (interviews, meetings, job pipeline, preferences, past conversations). Call before reaching for filesystem, web research, or anything else.',
       inputSchema: z.object({
         query: z
           .string()
@@ -99,39 +94,6 @@ export function buildContextToolSet(
           bumpSurfaced(topMemoryIds, 1)
         }
         return { text: formatRetrieveResult(result) }
-      },
-    }),
-    context_recall: tool({
-      description:
-        'Recall long-term memory notes (soul/user/memory layers) by topic tokens. Returns short snippets. Use context_search for browsing/activity/chats.',
-      inputSchema: z.object({
-        query: z.string().min(1),
-        bucketId: z.string().optional(),
-        limit: z.number().int().min(1).max(RECALL_MAX_LIMIT).optional(),
-      }),
-      execute: async ({ query, bucketId, limit }) => {
-        const id = bucketId || getBucketId()
-        const hits = listEntries({
-          bucketId: id,
-          query,
-          status: ['active', 'demoted'],
-          limit: limit ?? RECALL_DEFAULT_LIMIT,
-        })
-        if (hits.length === 0) {
-          return { text: `No memory matches for "${query}".` }
-        }
-        bumpSurfaced(
-          hits.map((h) => h.id),
-          1,
-        )
-        const lines = hits.map((h, i) => {
-          const snippet =
-            h.content.length > RECALL_SNIPPET_MAX_CHARS
-              ? `${h.content.slice(0, RECALL_SNIPPET_MAX_CHARS)}…`
-              : h.content
-          return `${i + 1}. [${h.layer}/${h.status}] ${snippet}`
-        })
-        return { text: lines.join('\n') }
       },
     }),
     session_search: tool({

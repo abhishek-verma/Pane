@@ -54,7 +54,6 @@ const NUDGE_TOOLS = new Set(['suggest_schedule', 'suggest_app_connection'])
 const READ_CONTEXT_TOOLS = new Set([
   'context_current_work',
   'context_search',
-  'context_recall',
   'session_search',
   'tasks_list',
   'skills_load',

@@ -132,4 +132,95 @@ describe('buildToolEvidence', () => {
     expect(e.specialized).toBe(true)
     expect(e.browser).toBeTruthy()
   })
+
+  // -------------------------------------------------------------------------
+  // Stripped image tests (new behaviour)
+  // -------------------------------------------------------------------------
+
+  test('screenshot with inline image populates browser.media', () => {
+    const e = buildToolEvidence({
+      toolCallId: 'c9',
+      toolName: 'screenshot',
+      state: 'output-available',
+      input: { page: 1, format: 'jpeg' },
+      output: {
+        content: [
+          { type: 'image', data: 'BASE64JPEG', mimeType: 'image/jpeg' },
+        ],
+        isError: false,
+        structuredContent: { page: 1, format: 'jpeg', bytes: 1000 },
+      },
+    })
+    expect(e.kind).toBe('screenshot')
+    expect(e.specialized).toBe(true)
+    expect(e.browser?.media).toHaveLength(1)
+    expect(e.browser?.media[0]?.data).toBe('BASE64JPEG')
+    expect(e.browser?.strippedImages).toBeUndefined()
+  })
+
+  test('screenshot with stripped image populates browser.strippedImages not media', () => {
+    const e = buildToolEvidence({
+      toolCallId: 'c10',
+      toolName: 'screenshot',
+      state: 'output-available',
+      input: { page: 1, format: 'jpeg' },
+      output: {
+        content: [{ type: 'image', mimeType: 'image/jpeg', stripped: true }],
+        isError: false,
+        structuredContent: { page: 1, format: 'jpeg', bytes: 1000 },
+      },
+    })
+    expect(e.kind).toBe('screenshot')
+    expect(e.browser?.media).toHaveLength(0)
+    expect(e.browser?.strippedImages).toHaveLength(1)
+    expect(e.browser?.strippedImages?.[0]).toEqual({
+      stripped: true,
+      mimeType: 'image/jpeg',
+    })
+  })
+
+  test('act tool with stripped PNG populates strippedImages', () => {
+    const e = buildToolEvidence({
+      toolCallId: 'c11',
+      toolName: 'act',
+      state: 'output-available',
+      input: { kind: 'click', ref: 'e12' },
+      output: {
+        content: [
+          {
+            type: 'text',
+            text: 'ok (click)\n--- Additional context ---\n[Page 1 screenshot]',
+          },
+          { type: 'image', mimeType: 'image/png', stripped: true },
+        ],
+        isError: false,
+        structuredContent: { kind: 'click', afterUrl: 'https://example.com' },
+      },
+    })
+    expect(e.kind).toBe('browser-action')
+    expect(e.browser?.media).toHaveLength(0)
+    expect(e.browser?.strippedImages).toHaveLength(1)
+    expect(e.browser?.strippedImages?.[0]?.mimeType).toBe('image/png')
+    expect(e.browser?.url).toBe('https://example.com')
+  })
+
+  test('navigate tool with stripped image carries hostname and strippedImages', () => {
+    const e = buildToolEvidence({
+      toolCallId: 'c12',
+      toolName: 'navigate',
+      state: 'output-available',
+      input: { url: 'https://github.com', page: 1 },
+      output: {
+        content: [
+          { type: 'text', text: 'Navigated to github.com' },
+          { type: 'image', mimeType: 'image/png', stripped: true },
+        ],
+        isError: false,
+        structuredContent: { afterUrl: 'https://github.com' },
+      },
+    })
+    expect(e.kind).toBe('browser-action')
+    expect(e.browser?.strippedImages).toHaveLength(1)
+    expect(e.browser?.hostname).toBe('github.com')
+  })
 })

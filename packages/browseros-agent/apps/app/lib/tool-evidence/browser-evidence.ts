@@ -1,4 +1,4 @@
-import type { BrowserActionDetail, ToolMedia } from './types'
+import type { BrowserActionDetail, StrippedMedia, ToolMedia } from './types'
 
 const KIND_VERBS: Record<string, string> = {
   click: 'Clicked',
@@ -110,6 +110,7 @@ export function buildBrowserActionDetail(args: {
   outputText: string
   structured: Record<string, unknown> | null
   images: ToolMedia[]
+  strippedImages?: StrippedMedia[]
 }): BrowserActionDetail {
   const url =
     (typeof args.structured?.afterUrl === 'string'
@@ -148,5 +149,8 @@ export function buildBrowserActionDetail(args: {
       text: args.outputText,
     }),
     media: args.images,
+    ...(args.strippedImages && args.strippedImages.length > 0
+      ? { strippedImages: args.strippedImages }
+      : {}),
   }
 }

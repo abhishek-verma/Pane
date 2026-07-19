@@ -5,6 +5,7 @@
  */
 
 import type { UIMessage } from 'ai'
+import type { ToolImageStore } from './session-store'
 
 /**
  * Checks whether a UIMessage has meaningful content that can be sent
@@ -77,4 +78,84 @@ export function sanitizeMessagesForToolset(
       return { ...msg, parts: filteredParts }
     })
     .filter(hasMessageContent)
+}
+
+/**
+ * Strips base64 image data from UIMessage tool-output parts, persisting each
+ * stripped image to `imageStore` so the UI can lazy-load via the tool-images API.
+ *
+ * Images in the most recent `keepRecentN` assistant messages are left intact
+ * to avoid flicker during an active agent run. All older assistant messages
+ * have their image data replaced with a `{stripped:true}` placeholder while
+ * the `structuredContent` metadata (page, format, bytes) is preserved so the
+ * card can still render a meaningful "Screenshot unavailable" / lazy-load state.
+ *
+ * The function mutates `messages` **in-place** so `session.agent.messages` is
+ * also updated without requiring a reference swap at the call site.
+ */
+export function stripUIImageOutputs(
+  messages: UIMessage[],
+  sessionId: string,
+  imageStore: ToolImageStore,
+  keepRecentN = 3,
+): void {
+  // Identify indices of assistant messages (newest first) so we can skip the
+  // most recent `keepRecentN`.
+  const assistantIndices: number[] = []
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === 'assistant') {
+      assistantIndices.push(i)
+    }
+  }
+
+  // Messages at positions 0..keepRecentN-1 in assistantIndices are the newest
+  // ones — leave them alone.
+  const indicesToStrip = new Set(assistantIndices.slice(keepRecentN))
+  if (indicesToStrip.size === 0) return
+
+  for (const msgIdx of indicesToStrip) {
+    const msg = messages[msgIdx]
+    if (!msg) continue
+    for (const part of msg.parts) {
+      if (typeof part.type !== 'string' || !part.type.startsWith('tool-'))
+        continue
+      // AI SDK tool parts are typed as specific discriminated unions; use
+      // unknown cast to access the output field safely.
+      const anyPart = part as Record<string, unknown>
+      const output = anyPart.output
+      if (!output || typeof output !== 'object') continue
+      const rec = output as Record<string, unknown>
+      if (!Array.isArray(rec.content)) continue
+      let stripped = false
+      const newContent = (rec.content as unknown[]).map((item) => {
+        if (
+          typeof item !== 'object' ||
+          item === null ||
+          (item as Record<string, unknown>).type !== 'image'
+        ) {
+          return item
+        }
+        const imgPart = item as Record<string, unknown>
+        const data = imgPart.data
+        const mimeType = imgPart.mimeType ?? imgPart.mediaType
+        const toolCallId = anyPart.toolCallId
+        if (
+          typeof data === 'string' &&
+          typeof mimeType === 'string' &&
+          typeof toolCallId === 'string'
+        ) {
+          imageStore.store(sessionId, toolCallId, data, mimeType)
+          stripped = true
+          // Return the item without the data field; keep type/mimeType for
+          // the UI to detect and lazy-load.
+          const { data: _removed, ...rest } = imgPart
+          return { ...rest, stripped: true }
+        }
+        return item
+      })
+      if (stripped) {
+        anyPart.output = { ...rec, content: newContent }
+      }
+    }
+  }
 }

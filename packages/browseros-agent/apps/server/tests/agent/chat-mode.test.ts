@@ -26,7 +26,6 @@ describe('chat mode tool allowlist', () => {
       'capture_read',
       'capture_status',
       'context_search',
-      'context_recall',
       'context_current_work',
       'tasks_list',
       'skills_list',

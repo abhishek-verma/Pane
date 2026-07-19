@@ -122,6 +122,7 @@ function buildBrowserEvidence(args: {
     outputText: args.extracted.text,
     structured: args.extracted.structured,
     images: args.extracted.images,
+    strippedImages: args.extracted.strippedImages,
   })
   if (args.label) {
     const subject =

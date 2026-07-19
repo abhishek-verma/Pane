@@ -169,4 +169,24 @@ export function createChatRoutes(deps: ChatRouteDeps) {
         )
       },
     )
+    .get(
+      '/:conversationId/tool-images/:toolCallId',
+      zValidator(
+        'param',
+        z.object({ conversationId: z.string(), toolCallId: z.string() }),
+      ),
+      async (c) => {
+        const { toolCallId } = c.req.valid('param')
+        const image = sessionStore.imageStore.get(toolCallId)
+        if (!image) {
+          return c.json({ error: 'Image not found' }, 404)
+        }
+        return new Response(image.data.buffer as ArrayBuffer, {
+          headers: {
+            'Content-Type': image.mimeType,
+            'Cache-Control': 'public, max-age=3600, immutable',
+          },
+        })
+      },
+    )
 }

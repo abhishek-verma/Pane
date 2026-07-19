@@ -1,8 +1,9 @@
-import type { ToolMedia } from './types'
+import type { StrippedMedia, ToolMedia } from './types'
 
 export interface ExtractedToolOutput {
   text: string
   images: ToolMedia[]
+  strippedImages: StrippedMedia[]
   structured: Record<string, unknown> | null
   isError: boolean
 }
@@ -28,6 +29,7 @@ function extractFromParts(
 ): Omit<ExtractedToolOutput, 'structured' | 'isError'> {
   const texts: string[] = []
   const images: ToolMedia[] = []
+  const strippedImages: StrippedMedia[] = []
   for (const part of parts) {
     if (typeof part === 'string') {
       texts.push(part)
@@ -38,21 +40,45 @@ function extractFromParts(
     if (rec.type === 'text' && typeof rec.text === 'string')
       texts.push(rec.text)
     else if (typeof rec.text === 'string' && !rec.type) texts.push(rec.text)
-    if (rec.type === 'image' || rec.type === 'media') pushImage(images, rec)
+    if (rec.type === 'image' || rec.type === 'media') {
+      if (rec.stripped === true) {
+        const mimeType =
+          typeof rec.mimeType === 'string'
+            ? rec.mimeType
+            : typeof rec.mediaType === 'string'
+              ? rec.mediaType
+              : 'image/png'
+        strippedImages.push({ stripped: true, mimeType })
+      } else {
+        pushImage(images, rec)
+      }
+    }
   }
-  return { text: texts.filter(Boolean).join('\n'), images }
+  return { text: texts.filter(Boolean).join('\n'), images, strippedImages }
 }
 
 export function extractToolOutput(output: unknown): ExtractedToolOutput {
   if (typeof output === 'string') {
-    return { text: output, images: [], structured: null, isError: false }
+    return {
+      text: output,
+      images: [],
+      strippedImages: [],
+      structured: null,
+      isError: false,
+    }
   }
   if (Array.isArray(output)) {
     return { ...extractFromParts(output), structured: null, isError: false }
   }
   const rec = asRecord(output)
   if (!rec) {
-    return { text: '', images: [], structured: null, isError: false }
+    return {
+      text: '',
+      images: [],
+      strippedImages: [],
+      structured: null,
+      isError: false,
+    }
   }
 
   const isError = rec.isError === true
@@ -73,7 +99,13 @@ export function extractToolOutput(output: unknown): ExtractedToolOutput {
     return { ...extractFromParts(rec.content), structured, isError }
   }
   if (typeof rec.text === 'string') {
-    return { text: rec.text, images: [], structured, isError }
+    return {
+      text: rec.text,
+      images: [],
+      strippedImages: [],
+      structured,
+      isError,
+    }
   }
-  return { text: '', images: [], structured, isError }
+  return { text: '', images: [], strippedImages: [], structured, isError }
 }

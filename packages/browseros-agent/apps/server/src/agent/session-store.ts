@@ -3,10 +3,95 @@ import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { UIMessage } from 'ai'
 import { asc, eq } from 'drizzle-orm'
-import { getDb } from '../lib/db'
+import { getDb, getDbHandle } from '../lib/db'
 import { chatMessages, chatSessions } from '../lib/db/schema/chat-sessions'
 import { logger } from '../lib/logger'
 import type { AiSdkAgent } from './ai-sdk-agent'
+
+/**
+ * Stores and retrieves raw screenshot/image blobs by toolCallId.
+ * Uses the existing BrowserOS SQLite database with a lazily-created table so no
+ * Drizzle migration is required. Images survive server restarts and are deleted
+ * when their parent chat session is deleted.
+ */
+export class ToolImageStore {
+  private ready = false
+
+  private ensureTable(): void {
+    if (this.ready) return
+    const sqlite = getDbHandle().sqlite
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS tool_images (
+        tool_call_id TEXT PRIMARY KEY NOT NULL,
+        session_id TEXT NOT NULL,
+        data BLOB NOT NULL,
+        mime_type TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `)
+    sqlite.exec(`
+      CREATE INDEX IF NOT EXISTS tool_images_session_idx
+      ON tool_images (session_id)
+    `)
+    this.ready = true
+  }
+
+  store(
+    sessionId: string,
+    toolCallId: string,
+    data: string,
+    mimeType: string,
+  ): void {
+    try {
+      this.ensureTable()
+      const sqlite = getDbHandle().sqlite
+      const buf = Buffer.from(data, 'base64')
+      sqlite
+        .prepare(
+          `INSERT OR REPLACE INTO tool_images (tool_call_id, session_id, data, mime_type, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(toolCallId, sessionId, buf, mimeType, Date.now())
+    } catch (err) {
+      logger.warn('ToolImageStore: failed to store image', {
+        toolCallId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
+  }
+
+  get(toolCallId: string): { data: Buffer; mimeType: string } | null {
+    try {
+      this.ensureTable()
+      const sqlite = getDbHandle().sqlite
+      const row = sqlite
+        .prepare(
+          `SELECT data, mime_type FROM tool_images WHERE tool_call_id = ?`,
+        )
+        .get(toolCallId) as { data: Buffer; mime_type: string } | null
+      if (!row) return null
+      return { data: row.data, mimeType: row.mime_type }
+    } catch (err) {
+      logger.warn('ToolImageStore: failed to get image', {
+        toolCallId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+      return null
+    }
+  }
+
+  deleteForSession(sessionId: string): void {
+    try {
+      this.ensureTable()
+      const sqlite = getDbHandle().sqlite
+      sqlite
+        .prepare(`DELETE FROM tool_images WHERE session_id = ?`)
+        .run(sessionId)
+    } catch {
+      // Non-fatal — images are transient
+    }
+  }
+}
 
 export interface AgentSession {
   agent: AiSdkAgent
@@ -37,6 +122,8 @@ export class SessionStore {
   private deletedSessions = new Set<string>()
   /** Per-session write serialization (promise chain). */
   private persistLocks = new Map<string, Promise<void>>()
+  /** Shared image store for all sessions managed by this store. */
+  readonly imageStore = new ToolImageStore()
 
   get(conversationId: string): AgentSession | undefined {
     return this.sessions.get(conversationId)
@@ -88,6 +175,7 @@ export class SessionStore {
     if (deleted) {
       this.deletedSessions.add(conversationId)
       this.persistLocks.delete(conversationId)
+      this.imageStore.deleteForSession(conversationId)
       logger.info('Session deleted', {
         conversationId,
         remainingSessions: this.sessions.size,

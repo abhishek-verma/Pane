@@ -5,19 +5,15 @@
  */
 
 /**
- * BrowserOS Agent System Prompt v6
+ * BrowserOS Agent System Prompt v7
  *
- * Changes from v5:
- * - Expanded role to cover full capability surface
- * - Added unified tool catalog section (capabilities)
- * - Added tool selection strategy
- * - Added safety rules
- * - Expanded security to cover all untrusted data sources
- * - Workspace-gated filesystem: full tools only available when user selects directory
- * - Expanded error recovery per tool category
- * - Removed dangling tab-grouping reference
- * - Added mode-aware framing (regular/scheduled/chat)
- * - Added tool call style guidelines
+ * Changes from v6:
+ * - Added retrieval_first: MANDATORY context_search before research
+ * - Replaced flat tool-selection with compact tool_dispatch table
+ * - Removed context_recall from capabilities and guidance (use context_search)
+ * - Added success signals table to execution
+ * - Added token budget guidance to skill_index section
+ * - Section order: retrieval_first + tool_dispatch inserted after capabilities
  */
 
 // -----------------------------------------------------------------------------
@@ -153,9 +149,8 @@ Pane records consented Meet/Zoom/Teams (and similar) calls locally:
 - Do **not** use generic filesystem or shell tools on capture storage paths; always use \`capture_read\`
 
 ### Context, Memory, Tasks & Home
-- \`context_search\` → hybrid NL search (local FTS + semantic embeddings) over browsing, research, meeting excerpts, files, memory, and past chats. Pass the user question; do not invent long keyword lists
-- \`context_recall\` → durable memory notes only (soul/user/memory layers; token match)
 - \`session_search\` → past Pane chat conversations ("did we discuss X?")
+- \`context_search\` → **DEFAULT first tool** for any question about the user's situation. Hybrid NL search (local FTS + semantic embeddings) over browsing, research, meeting excerpts, files, memory, and past chats. Pass the user question; do not invent long keyword lists
 - \`context_current_work\` → what's open / recent (tabs, pages, meetings, files, terminal, runs)
 - \`memory_add\` / \`memory_replace\` / \`memory_remove\` → durable short facts
 - \`tasks_list\` / \`tasks_add\` / \`tasks_done\` → local task inbox
@@ -176,6 +171,89 @@ Browser tools may save large snapshots, page reads, or diffs to BrowserOS-genera
 
   capabilities += '\n</capabilities>'
   return capabilities
+}
+
+// -----------------------------------------------------------------------------
+// section: retrieval-first (MANDATORY rule: context_search before research)
+// -----------------------------------------------------------------------------
+
+function getRetrievalFirst(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  // Not needed in scheduled tasks or chat mode where the user's "own situation" queries are less common
+  if (options?.isScheduledTask || options?.chatMode) return ''
+  return `<retrieval_first>
+## MANDATORY: Retrieve Before Research
+
+Before answering ANY question involving the user's own situation — interviews, applications, meetings, job pipeline, past discussions, preferences, prep materials, or anything with "my", "our", "I", "we":
+
+1. Call \`context_search\` FIRST — searches chats + files + memory in one shot
+2. Only if result is empty → read vault/workspace files
+3. Only if still empty → web research
+
+**Never reach for web search, filesystem reads, or browser tabs before calling \`context_search\` when the question is about the user's own context.**
+</retrieval_first>`
+}
+
+// -----------------------------------------------------------------------------
+// section: tool-dispatch (compact routing table)
+// -----------------------------------------------------------------------------
+
+function getToolDispatch(
+  _exclude: Set<string>,
+  options?: BuildSystemPromptOptions,
+): string {
+  const isNewTab = options?.origin === 'newtab'
+  const hasWorkspace = !!options?.workspaceDir && !options?.chatMode
+
+  const workspaceRows = hasWorkspace
+    ? `| List reusable shell sessions | \`terminal_sessions\` then \`filesystem_bash\` with sessionId | — | Only with workspace |
+| File content lookup | \`filesystem_read\` | \`filesystem_grep\` | Only when path is known |
+`
+    : ''
+
+  const navRow = isNewTab
+    ? `| Navigate to a URL | \`tabs\` action="new" background=true | — | Never navigate active tab |
+`
+    : `| Navigate to a URL | \`navigate\` on current tab | — | Single page only |
+`
+
+  return `<tool_dispatch>
+## Tool Dispatch Table
+
+| When asked about… | Default tool | Parallel tool | Order |
+|---|---|---|---|
+| User's own situation (interviews, meetings, apps, resume, prep, preferences) | \`context_search\` | — | **FIRST**, before anything else |
+| Meetings / calls / transcripts | \`capture_list\` → \`capture_read\` | \`context_search\` | After context search |
+| Past conversations ("did we discuss X?") | \`session_search\` | \`context_search\` | **FIRST** |
+| Preferences / personal facts | \`context_search\` | — | **FIRST** |
+| Company / person / role research | \`context_search\` | \`navigate\` web | context_search first |
+
+| What's currently open | \`context_current_work\` | — | Only |
+| "Remember this" | \`memory_add\` | — | Only |
+| Need to click/fill/interact | \`snapshot\` → \`act\` | — | Always snapshot first |
+| Read text content | \`read\` | — | — |
+| Find specific links | \`read\` format="links" | — | — |
+| Find phrase or selector | \`grep\` or \`wait\` | — | — |
+| Runtime JS data on page | \`evaluate\` | — | — |
+| Multi-step browser SDK script | \`run\` | — | — |
+| Visual proof | \`screenshot\` | — | — |
+${navRow}${workspaceRows}| Group browser tabs | \`tab_groups\` | — | Page ids from \`tabs\` |
+| Scheduling / automation nudge | \`suggest_schedule\` | — | **LAST**, after task done |
+
+### Interaction preferences
+- Prefer \`act\` with refs over coordinate actions. Use coordinates only when ref absent from snapshot.
+- Prefer \`act\` kind="fill" for text input. Use kind="press" for keyboard shortcuts.
+- Prefer clicking visible links with \`act\` over direct navigation.
+- \`navigate\` usually auto-runs. \`tabs\` action="new" and window ops may require user approval — wait rather than looping.
+${
+  isNewTab
+    ? `
+**New-Tab rules:** Active tab is the chat UI. NEVER navigate or close it. All browsing uses \`tabs\` action="new" background=true.`
+    : ''
+}
+</tool_dispatch>`
 }
 
 // -----------------------------------------------------------------------------
@@ -210,7 +288,17 @@ function getExecution(
 - Prefer acting over asking for routine read-only steps. Observation \`act\` kinds (\`scroll\`, \`hover\`, \`focus\`) usually auto-run. Mutating clicks/types/fills, shell commands, \`evaluate\`, \`run\`, uploads/downloads, and file writes may require user approval in the UI — wait for approval rather than narrating that you need permission.
 - If a tool returns denied/rejected, do **not** retry the same call in a loop. Try a different approach or ask the user.
 - Do not refuse by default, attempt tasks even when outcomes are uncertain.
-- For ambiguous/unclear requests, ask one targeted clarifying question.`
+- For ambiguous/unclear requests, ask one targeted clarifying question.
+
+### Success Signals
+| Task type | Success signal |
+|---|---|
+| Interview / job prep | Prep plan covering all known rounds, delivered to user |
+| Company / person research | Summary delivered, background tabs left open |
+| Memory recall | Fact retrieved OR "not found" stated clearly |
+| Meeting summary | Capture read, key points extracted |
+| Web research | Data summarised in chat, sources cited |
+| File task | File written/updated, path confirmed |`
 
   if (isNewTab) {
     executionContent += `
@@ -276,70 +364,6 @@ When a background tab fails (404, wrong content, unexpected redirect):
 </execution>`
 
   return executionContent
-}
-
-// -----------------------------------------------------------------------------
-// section: tool-selection
-// -----------------------------------------------------------------------------
-
-function getToolSelection(
-  _exclude: Set<string>,
-  options?: BuildSystemPromptOptions,
-): string {
-  const isNewTab = options?.origin === 'newtab'
-  const hasWorkspace = !!options?.workspaceDir && !options?.chatMode
-
-  const navTable = isNewTab
-    ? `### Navigation: single-tab vs multi-tab
-| Task | Approach |
-|------|----------|
-| Look up one page | \`tabs\` action="new" background=true → extract data → \`tabs\` action="close" |
-| Research across multiple sites | \`tabs\` action="new" background=true for each site |
-| Compare two pages side by side | \`tabs\` action="new" background=true × 2 |
-| User says "open a new tab" | \`tabs\` action="new" background=true |
-
-**Remember:** The active tab is the New Tab chat UI. Never navigate or close it.`
-    : `### Navigation: single-tab vs multi-tab
-| Task | Approach |
-|------|----------|
-| Look up one page | \`navigate\` on current tab |
-| Research across multiple sites | \`tabs\` action="new" background=true for each site |
-| Compare two pages side by side | \`tabs\` action="new" background=true × 2 |
-| User says "open a new tab" | \`tabs\` action="new" background=true — don't steal focus |`
-
-  const workspaceRows = hasWorkspace
-    ? `| List reusable shell sessions | \`terminal_sessions\` then \`filesystem_bash\` with sessionId |
-`
-    : ''
-
-  return `<tool_selection>
-## Tool Selection
-
-### Observation: which tool to use
-| Situation | Tool |
-|-----------|------|
-| Need to click/fill/interact, including complex nested UI | \`snapshot\` then \`act\` |
-| Need to read text content | \`read\` |
-| Looking for specific links | \`read\` format="links" |
-| Looking for a phrase or selector quickly | \`grep\` or \`wait\` |
-| Need runtime data (JS variables, computed values) on the page | \`evaluate\` |
-| Multi-step browser SDK script on the server | \`run\` |
-| Need visual proof | \`screenshot\` |
-| Recent meetings, calls, or transcripts | \`capture_list\` then \`capture_read\` |
-| Topic search across indexed activity + memory + chats | \`context_search\` |
-| Durable personal facts / preferences only | \`context_recall\` |
-| Past conversation archive | \`session_search\` |
-| What's open or recently active | \`context_current_work\` |
-| New-tab home widgets | \`home_widget_list\` / propose / add / remove |
-${workspaceRows}| Group browser tabs | \`tab_groups\` (page ids from \`tabs\`) |
-
-### Interaction: preferences
-- Prefer \`act\` with refs over coordinate actions. Use coordinate kinds only when the element isn't in the snapshot.
-- Prefer \`act\` kind="fill" for text input. Use kind="press" for keyboard shortcuts (Enter, Escape, Tab, Ctrl+A, etc.).
-- Prefer clicking visible links with \`act\` over direct navigation. Use \`navigate\` for direct URL access, back/forward, or reload.
-- \`navigate\` usually auto-runs. Opening tabs with \`tabs\` action="new" (and creating/closing windows) may require user approval — wait rather than looping.
-
-${navTable}</tool_selection>`
 }
 
 // -----------------------------------------------------------------------------
@@ -603,7 +627,6 @@ function getMemoryAndSkillsGuidance(
 ### 1. Unified Context & Memory Search
 - For **meetings / calls / transcripts**, start with \`capture_list\` then \`capture_read\`. Do not use filesystem tools on capture paths.
 - Use \`context_search\` with the user's natural question (or a short topic). It runs hybrid FTS + local embeddings. Do not hand-craft long AND keyword lists. If it returns suggestions after a miss, follow them (\`filesystem_ls\`, \`capture_list\`, \`session_search\`). For full meeting text, use \`capture_read\`.
-- Use \`context_recall\` when you only need durable memory notes (preferences, identity facts).
 - Use \`session_search\` when the user asks about a prior chat ("did we discuss…").
 - Adjust \`limit\` (default 10) based on lookup complexity.
 - Read memory/context at the start of a task when the user's ongoing work or preferences matter.
@@ -689,7 +712,16 @@ function getSkillIndex(
   if (!content) return ''
   // Already wrapped by allocator when non-empty; accept raw lines too.
   if (content.startsWith('<skill_index>')) return content
-  return `<skill_index>\n${content}\n</skill_index>`
+  return `<skill_index>
+${content}
+
+## Skill Token Budget
+Skills declare ~500 tokens each in their frontmatter.
+- Tight context: load 1 skill max
+- Normal context: load up to 2
+- Never load more than 3 skills
+- Check \`tier\` and \`tokens\` in frontmatter before loading full body
+</skill_index>`
 }
 
 // -----------------------------------------------------------------------------
@@ -723,11 +755,9 @@ const promptSections: Record<string, PromptSectionFn> = {
   security: getSecurity,
   capabilities: getCapabilities,
   'acp-tool-namespace': getAcpToolNamespace,
+  'retrieval-first': getRetrievalFirst,
+  'tool-dispatch': getToolDispatch,
   execution: getExecution,
-  'tool-selection': (
-    _exclude: Set<string>,
-    options?: BuildSystemPromptOptions,
-  ) => getToolSelection(_exclude, options),
   'external-integrations': getExternalIntegrations,
   'error-recovery': getErrorRecovery,
   workspace: getWorkspace,

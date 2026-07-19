@@ -20,6 +20,7 @@ import { formatUserMessage } from '../../agent/format-message'
 import {
   filterValidMessages,
   sanitizeMessagesForToolset,
+  stripUIImageOutputs,
 } from '../../agent/message-validation'
 import { runTracker } from '../../agent/run-tracker'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
@@ -603,6 +604,15 @@ export class ChatService {
     syncIndexes: boolean,
   ): Promise<void> {
     try {
+      // Strip base64 image data from old assistant messages in-place.
+      // This bounds both session.agent.messages (server RAM) and what we write
+      // to SQLite. The most recent 3 assistant messages keep their images
+      // intact so the UI does not flicker during an active run.
+      stripUIImageOutputs(
+        messages,
+        conversationId,
+        this.deps.sessionStore.imageStore,
+      )
       await this.deps.sessionStore.persistMessages(
         conversationId,
         filterValidMessages(messages),
