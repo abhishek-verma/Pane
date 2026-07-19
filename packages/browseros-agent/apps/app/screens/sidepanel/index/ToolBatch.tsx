@@ -40,6 +40,7 @@ export const ToolBatch: FC<ToolBatchProps> = ({
   return (
     <ToolEvidenceList
       preferGenericsOpen={preferGenericsOpen}
+      allowStepReplay={!isStreaming}
       tools={tools.map((tool) => {
         const isApproval =
           tool.state === 'approval-requested' ||

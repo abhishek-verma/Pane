@@ -1,0 +1,77 @@
+import { describe, expect, it } from 'bun:test'
+import type { UIMessage } from 'ai'
+import {
+  buildScreencastWsUrl,
+  httpToWsBase,
+  resolveWatchPageId,
+} from './resolve-watch-target'
+
+describe('resolveWatchPageId', () => {
+  it('returns the newest browser tool page id', () => {
+    const messages = [
+      {
+        id: '1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'a',
+            state: 'output-available',
+            input: { page: 3 },
+          },
+        ],
+      },
+      {
+        id: '2',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-navigate',
+            toolCallId: 'b',
+            state: 'input-available',
+            input: { page: 7, url: 'https://example.com' },
+          },
+        ],
+      },
+    ] as unknown as UIMessage[]
+
+    expect(resolveWatchPageId(messages)).toBe(7)
+  })
+
+  it('skips non-browser tools and invalid pages', () => {
+    const messages = [
+      {
+        id: '1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-filesystem_edit',
+            toolCallId: 'a',
+            state: 'output-available',
+            input: { page: 9, path: 'x.ts' },
+          },
+          {
+            type: 'tool-act',
+            toolCallId: 'b',
+            state: 'output-available',
+            input: { page: 0 },
+          },
+        ],
+      },
+    ] as unknown as UIMessage[]
+
+    expect(resolveWatchPageId(messages)).toBeUndefined()
+  })
+})
+
+describe('buildScreencastWsUrl', () => {
+  it('builds ws url with windowId and optional pageId', () => {
+    expect(httpToWsBase('http://127.0.0.1:9100')).toBe('ws://127.0.0.1:9100')
+    expect(buildScreencastWsUrl('http://127.0.0.1:9100', 2)).toBe(
+      'ws://127.0.0.1:9100/screencast?windowId=2',
+    )
+    expect(buildScreencastWsUrl('http://127.0.0.1:9100/', 2, 5)).toBe(
+      'ws://127.0.0.1:9100/screencast?windowId=2&pageId=5',
+    )
+  })
+})
