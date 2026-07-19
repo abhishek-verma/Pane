@@ -1,0 +1,115 @@
+/**
+ * @license
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+import { describe, expect, it } from 'bun:test'
+import {
+  decideCaptureLifecycle,
+  UNKNOWN_STOP_STREAK,
+} from './meeting-lifecycle'
+
+describe('decideCaptureLifecycle', () => {
+  it('starts on in-call when not recording', () => {
+    const d = decideCaptureLifecycle({
+      callState: 'in-call',
+      isRecording: false,
+      wasInCall: false,
+      tabOpen: true,
+      unknownStreak: 0,
+      maturity: 'mature',
+    })
+    expect(d.action).toBe('start')
+    expect(d.markInCall).toBe(true)
+  })
+
+  it('keeps recording while in-call', () => {
+    const d = decideCaptureLifecycle({
+      callState: 'in-call',
+      isRecording: true,
+      wasInCall: true,
+      tabOpen: true,
+      unknownStreak: 2,
+      maturity: 'mature',
+    })
+    expect(d.action).toBe('keep')
+    expect(d.nextUnknownStreak).toBe(0)
+  })
+
+  it('stops on left after recording', () => {
+    const d = decideCaptureLifecycle({
+      callState: 'left',
+      isRecording: true,
+      wasInCall: true,
+      tabOpen: true,
+      unknownStreak: 0,
+      maturity: 'mature',
+    })
+    expect(d.action).toBe('stop')
+    expect(d.reason).toBe('call_left')
+    expect(d.clearInCall).toBe(true)
+  })
+
+  it('stops on prejoin after was in-call (Meet post-hangup lobby)', () => {
+    const d = decideCaptureLifecycle({
+      callState: 'prejoin',
+      isRecording: true,
+      wasInCall: true,
+      tabOpen: true,
+      unknownStreak: 0,
+      maturity: 'mature',
+    })
+    expect(d.action).toBe('stop')
+    expect(d.reason).toBe('left_to_lobby')
+  })
+
+  it('stops when tab closes while recording', () => {
+    const d = decideCaptureLifecycle({
+      callState: 'in-call',
+      isRecording: true,
+      wasInCall: true,
+      tabOpen: false,
+      unknownStreak: 0,
+      maturity: 'mature',
+    })
+    expect(d.action).toBe('stop')
+    expect(d.reason).toBe('tab_closed')
+  })
+
+  it('waits on prejoin before ever joining', () => {
+    const d = decideCaptureLifecycle({
+      callState: 'prejoin',
+      isRecording: false,
+      wasInCall: false,
+      tabOpen: true,
+      unknownStreak: 0,
+      maturity: 'mature',
+    })
+    expect(d.action).toBe('wait')
+  })
+
+  it('keeps briefly on unknown then stops after streak', () => {
+    const grace = decideCaptureLifecycle({
+      callState: 'unknown',
+      isRecording: true,
+      wasInCall: true,
+      tabOpen: true,
+      unknownStreak: 0,
+      maturity: 'mature',
+    })
+    expect(grace.action).toBe('keep')
+    expect(grace.nextUnknownStreak).toBe(1)
+
+    const stop = decideCaptureLifecycle({
+      callState: 'unknown',
+      isRecording: true,
+      wasInCall: true,
+      tabOpen: true,
+      unknownStreak: UNKNOWN_STOP_STREAK - 1,
+      maturity: 'mature',
+    })
+    expect(stop.action).toBe('stop')
+    expect(stop.reason).toBe('unknown_streak')
+  })
+})

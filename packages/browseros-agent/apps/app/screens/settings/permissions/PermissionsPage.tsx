@@ -3,7 +3,11 @@
  * Manages domain-level indexing grants, battery-pause setting, global passive capture, and meeting transcription consents.
  */
 
-import { type FC, useEffect, useState } from 'react'
+import {
+  listMatureAdapterMeta,
+  type MatureAdapterMeta,
+} from '@browseros/capture/adapters'
+import { type FC, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -31,6 +35,21 @@ import {
   useContextGrants,
   useContextSettings,
 } from '@/screens/context/useContextApi'
+
+const MATURE_META = listMatureAdapterMeta()
+
+function adapterPrimaryHost(meta: MatureAdapterMeta): string {
+  return meta.defaultHosts[0] ?? meta.id
+}
+
+function isAdapterEnabled(
+  meta: MatureAdapterMeta,
+  meetingConsents: Array<{ domain: string; allowed: boolean }>,
+): boolean {
+  return meta.defaultHosts.some((host) =>
+    meetingConsents.some((c) => c.domain === host && c.allowed),
+  )
+}
 
 export const PermissionsPage: FC = () => {
   const [bucketId, setBucketId] = useState('default')
@@ -87,9 +106,36 @@ export const PermissionsPage: FC = () => {
 
   // Only display 'meeting' class domains
   const meetingConsents = consents.consents.filter((c) => c.class === 'meeting')
-  const meetingDomains = Array.from(
-    new Set(meetingConsents.map((c) => c.domain)),
+  const matureHostSet = useMemo(
+    () => new Set(MATURE_META.flatMap((m) => m.defaultHosts)),
+    [],
+  )
+  const manualMeetingDomains = Array.from(
+    new Set(
+      meetingConsents
+        .map((c) => c.domain)
+        .filter((domain) => !matureHostSet.has(domain)),
+    ),
   ).sort()
+
+  const handleToggleMatureAdapter = (
+    meta: MatureAdapterMeta,
+    allowed: boolean,
+  ) => {
+    for (const domain of meta.defaultHosts) {
+      void consents.setConsent.mutateAsync({
+        domain,
+        class: 'meeting',
+        allowed,
+        bucketId:
+          meetingConsents.find((c) => c.domain === domain)?.bucketId ??
+          bucketId,
+      })
+    }
+    if (allowed && micState !== 'granted') {
+      void handleAllowMicrophone()
+    }
+  }
 
   const handleAddDenyDomain = () => {
     const domain = denyInput.trim()
@@ -318,9 +364,64 @@ export const PermissionsPage: FC = () => {
             Meeting Capture
           </h2>
           <p className="mt-0.5 text-muted-foreground text-xs">
-            Add sites where Pane should auto-start transcription and notes when
-            you join a call.
+            Enable supported meeting sites for auto-start transcription, or add
+            other domains for best-effort generic recording.
           </p>
+        </div>
+
+        <div className="space-y-2">
+          <p className="font-medium text-card-foreground text-xs">
+            Supported sites
+          </p>
+          <ul className="space-y-2">
+            {MATURE_META.map((meta) => {
+              const enabled = isAdapterEnabled(meta, meetingConsents)
+              const hostHint = meta.defaultHosts.join(', ')
+              const hasSpeakers = meta.capabilities.includes('speakerLabels')
+              return (
+                <li
+                  key={meta.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-muted/20 px-3 py-2.5"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-xs">
+                        {meta.displayName}
+                      </span>
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        Recording
+                      </span>
+                      <span
+                        className={
+                          hasSpeakers
+                            ? 'rounded bg-muted px-1.5 py-0.5 text-[10px] text-foreground'
+                            : 'rounded bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground/70'
+                        }
+                      >
+                        {hasSpeakers
+                          ? meta.id === 'generic'
+                            ? 'Best-effort speakers'
+                            : 'Speaker names'
+                          : 'Speaker names'}
+                      </span>
+                    </div>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {hostHint || adapterPrimaryHost(meta)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <Switch
+                      checked={enabled}
+                      onCheckedChange={(checked) =>
+                        handleToggleMatureAdapter(meta, checked)
+                      }
+                    />
+                    <span className="font-medium text-xs">Auto-start</span>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         </div>
 
         {/* Transcription model download card */}
@@ -440,10 +541,17 @@ export const PermissionsPage: FC = () => {
         )}
 
         <div className="space-y-3">
+          <p className="font-medium text-card-foreground text-xs">
+            Other sites
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            Generic recording (best-effort speakers). Add a hostname to capture
+            calls on sites without a dedicated adapter.
+          </p>
           <div className="flex gap-2">
             <Input
               className="h-9 w-64 text-xs"
-              placeholder="e.g. meet.google.com"
+              placeholder="e.g. meet.company.com"
               value={meetingInput}
               onChange={(e) => setMeetingInput(e.target.value)}
               onKeyDown={(e) => {
@@ -466,15 +574,15 @@ export const PermissionsPage: FC = () => {
             </p>
           )}
 
-          {!consents.loading && meetingDomains.length === 0 && (
+          {!consents.loading && manualMeetingDomains.length === 0 && (
             <p className="text-muted-foreground text-xs italic">
-              No meeting domains added. Auto-transcription is off.
+              No custom domains. Use Supported sites above, or add a host here.
             </p>
           )}
 
-          {meetingDomains.length > 0 && (
+          {manualMeetingDomains.length > 0 && (
             <ul className="space-y-2">
-              {meetingDomains.map((domain) => {
+              {manualMeetingDomains.map((domain) => {
                 const consent = meetingConsents.find((c) => c.domain === domain)
                 return (
                   <li

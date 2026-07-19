@@ -17,6 +17,9 @@ const CHUNK_MS = 2_000
 const UPLOAD_TIMEOUT_MS = 30_000
 const UPLOAD_MAX_ATTEMPTS = 5
 const MAX_BUFFERED_CHUNKS = 120
+/** Mic RMS above this counts as local speaking (matches capture mic-energy). */
+const MIC_SPEAKING_RMS = 0.02
+const MIC_LEVEL_POLL_MS = 200
 
 type TrackName = 'mixed' | 'mic'
 
@@ -45,9 +48,11 @@ interface RecorderState {
   mixed: TrackRecorder
   mic?: TrackRecorder
   pending: PendingChunk[]
+  localSpeaking: boolean
 }
 
 const recorders = new Map<string, RecorderState>()
+const micSpeakingBySession = new Map<string, boolean>()
 
 function bufferKey(sessionId: string): string {
   return `capturePending:${sessionId}`
@@ -170,6 +175,7 @@ async function openMicStream(): Promise<MediaStream | null> {
 async function openCaptureStreams(input: {
   streamId: string
   includeMic: boolean
+  sessionId: string
 }): Promise<{
   mixed: MediaStream
   cleanup: () => void
@@ -204,6 +210,33 @@ async function openCaptureStreams(input: {
       const micSource = audioContext.createMediaStreamSource(micStream)
       // Mic into the mix only — never to destination (feedback / howl).
       micSource.connect(mixedDest)
+
+      const analyser = audioContext.createAnalyser()
+      analyser.fftSize = 256
+      micSource.connect(analyser)
+      const samples = new Float32Array(analyser.fftSize)
+      const levelTimer = setInterval(() => {
+        try {
+          analyser.getFloatTimeDomainData(samples)
+          let sum = 0
+          for (let i = 0; i < samples.length; i++) {
+            const v = samples[i] ?? 0
+            sum += v * v
+          }
+          const rms = Math.sqrt(sum / samples.length)
+          const speaking = rms >= MIC_SPEAKING_RMS
+          micSpeakingBySession.set(input.sessionId, speaking)
+          const state = recorders.get(input.sessionId)
+          if (state) state.localSpeaking = speaking
+        } catch {
+          /* analyser may be gone during teardown */
+        }
+      }, MIC_LEVEL_POLL_MS)
+      cleanups.push(() => {
+        clearInterval(levelTimer)
+        micSpeakingBySession.delete(input.sessionId)
+      })
+
       cleanups.push(() => {
         for (const track of micStream.getTracks()) track.stop()
       })
@@ -322,6 +355,7 @@ async function startRecording(input: {
     streamId: input.streamId,
     // Default on: industry pattern mixes tab + mic into one recorder.
     includeMic: input.includeMic !== false,
+    sessionId: input.sessionId,
   })
 
   const liveTracks = opened.mixed
@@ -350,6 +384,7 @@ async function startRecording(input: {
     failingOut: false,
     mixed: { recorder: mixedRecorder, sequence: 0 },
     pending: await loadPending(input.sessionId),
+    localSpeaking: false,
   }
 
   wireTrack(state, 'mixed', mixedRecorder, mimeType)
@@ -419,5 +454,13 @@ onRuntimeMessage(RuntimeMessageType.captureAudioStatus, async () => {
   return {
     sessionIds: sessions.map((session) => session.sessionId),
     sessions,
+  }
+})
+
+onRuntimeMessage(RuntimeMessageType.captureMicSpeaking, async ({ data }) => {
+  const state = recorders.get(data.sessionId)
+  return {
+    localSpeaking:
+      state?.localSpeaking ?? micSpeakingBySession.get(data.sessionId) ?? false,
   }
 })

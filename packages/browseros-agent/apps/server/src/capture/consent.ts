@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { isMeetingConsentAllowed } from '@browseros/capture/adapters'
 import type { CaptureClass } from '@browseros/capture/types'
 import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { ensureDefaultBucket } from '@browseros/context-graph/repo'
@@ -139,8 +140,22 @@ export function requireCaptureConsent(
   captureClass: CaptureClass,
 ): CaptureConsent {
   const consent = getCaptureConsent(domainOrUrl, captureClass)
-  if (!consent?.allowed) {
-    throw new Error(`Capture is off for ${captureClass} on this domain`)
+  if (consent?.allowed) return consent
+
+  if (captureClass === 'meeting') {
+    const host = normalizeCaptureDomain(domainOrUrl)
+    const meetingConsents = listCaptureConsents().filter(
+      (c) => c.class === 'meeting' && c.allowed,
+    )
+    const allowedDomains = meetingConsents.map((c) => c.domain)
+    if (isMeetingConsentAllowed(host, allowedDomains)) {
+      const matched =
+        meetingConsents.find((c) =>
+          isMeetingConsentAllowed(host, [c.domain]),
+        ) ?? meetingConsents[0]
+      if (matched) return matched
+    }
   }
-  return consent
+
+  throw new Error(`Capture is off for ${captureClass} on this domain`)
 }

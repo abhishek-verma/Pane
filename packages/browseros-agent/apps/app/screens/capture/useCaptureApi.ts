@@ -93,6 +93,14 @@ export function useCaptureMeetings(bucketId: string) {
     },
     enabled: Boolean(baseUrl) && !urlLoading,
     retry: 1,
+    // Keep list status fresh so leave/tab-close clears "live" without Refresh.
+    refetchInterval: (q) => {
+      const sessions = q.state.data?.sessions ?? []
+      const hot = sessions.some(
+        (s) => s.status === 'active' || s.status === 'interrupted',
+      )
+      return hot ? 3_000 : false
+    },
   })
   return {
     sessions: query.data?.sessions ?? [],
@@ -209,7 +217,12 @@ export function useCaptureTranscript(
       onAny()
       invalidate()
     })
-    es.addEventListener('status', onAny)
+    es.addEventListener('status', () => {
+      onAny()
+      void queryClient.invalidateQueries({
+        queryKey: [CAPTURE_QUERY_KEY, 'meetings'],
+      })
+    })
     es.addEventListener('heartbeat', onAny)
     es.onerror = () => {
       setSseAlive(false)

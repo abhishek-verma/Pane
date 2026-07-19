@@ -3,16 +3,22 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * DOM heuristics for whether a meeting tab is in-call vs pre-join/lobby.
+ * Thin wrappers over meeting site adapters for call-state evaluation.
+ * Prefer `@browseros/capture/adapters` for new code.
  *
  * Adapters return `unknown` when unsure — callers must fail soft (keep recording,
  * never auto-stop on unknown).
  */
 
+import { MEETING_SELECTOR_ALLOWLIST } from './adapters/dom-facts'
+import { genericAdapter } from './adapters/generic'
+import { getAdapterForHost } from './adapters/registry'
+import type { MeetingDomProbe } from './adapters/types'
 import type { MeetingCallState } from './types'
 
-export type { MeetingCallState }
+export type { MeetingCallState, MeetingDomProbe }
 
+/** @deprecated Prefer MeetingDomProbe + adapter.evaluateCallState */
 export interface MeetingInCallProbe {
   hostname: string
   bodyText: string
@@ -21,116 +27,56 @@ export interface MeetingInCallProbe {
   ariaLabelIncludes(text: string): boolean
 }
 
-/** Visible copy on Google Meet pre-join / lobby screens. */
-const GOOGLE_MEET_PRE_JOIN = [
-  'join now',
-  'ask to join',
-  "you're waiting to be let in",
-  'waiting for the host',
-  'getting ready to join',
-  'green room',
-  'check your camera',
-  'check your microphone',
-  'choose how you want to join',
-  'other ways to join',
-  'return to home screen',
+const COMMON_ARIA_NEEDLES = [
+  'leave',
+  'hang up',
+  'leave huddle',
+  'unmute',
+  'mute',
+  'turn on microphone',
+  'turn off microphone',
+  'speaking',
+  'presenting',
 ] as const
 
-/** Visible copy after leaving a call while still on the room URL. */
-const GOOGLE_MEET_LEFT = ['you left the meeting'] as const
+function legacyProbeToDom(probe: MeetingInCallProbe): MeetingDomProbe {
+  const matchedSelectors = MEETING_SELECTOR_ALLOWLIST.filter((sel) => {
+    try {
+      return probe.matchesSelector(sel)
+    } catch {
+      return false
+    }
+  })
+  const ariaLabels = COMMON_ARIA_NEEDLES.filter((needle) =>
+    probe.ariaLabelIncludes(needle),
+  )
+  return {
+    hostname: probe.hostname,
+    href: '',
+    bodyText: probe.bodyText,
+    pageTitle: probe.pageTitle ?? '',
+    facts: {
+      matchedSelectors: [...matchedSelectors],
+      ariaLabels: [...ariaLabels],
+      speakingCandidates: [],
+    },
+  }
+}
 
+export function evaluateMeetingCallStateFromProbe(
+  probe: MeetingDomProbe,
+): MeetingCallState {
+  const adapter = getAdapterForHost(probe.hostname) ?? genericAdapter
+  return adapter.evaluateCallState(probe)
+}
+
+/**
+ * Legacy probe shape — converts to MeetingDomProbe then dispatches to adapters.
+ */
 export function evaluateMeetingCallState(
   probe: MeetingInCallProbe,
 ): MeetingCallState {
-  const host = probe.hostname.toLowerCase()
-  const text = probe.bodyText.toLowerCase()
-
-  if (host === 'meet.google.com') {
-    if (GOOGLE_MEET_LEFT.some((phrase) => text.includes(phrase))) {
-      return 'left'
-    }
-    if ((probe.pageTitle ?? '').trim().toLowerCase() === 'google meet') {
-      return 'prejoin'
-    }
-    if (GOOGLE_MEET_PRE_JOIN.some((phrase) => text.includes(phrase))) {
-      return 'prejoin'
-    }
-    if (
-      /\b\d{1,2}:\d{2}\b/.test(text) ||
-      text.includes('leave call') ||
-      text.includes('end call')
-    ) {
-      return 'in-call'
-    }
-    return 'prejoin'
-  }
-
-  if (/^[a-z0-9-]+\.zoom\.us$/i.test(host)) {
-    const inMeeting =
-      probe.matchesSelector('#meeting-client') ||
-      probe.matchesSelector('.meeting-app') ||
-      probe.matchesSelector('#wc-container')
-    const hasJoin =
-      probe.matchesSelector('#join-btn') ||
-      probe.matchesSelector('.join-meeting')
-    return inMeeting && !hasJoin ? 'in-call' : 'prejoin'
-  }
-
-  if (/^teams\.(microsoft|live)\.com$/i.test(host)) {
-    if (text.includes('join now') || text.includes('lobby')) return 'prejoin'
-    if (
-      probe.ariaLabelIncludes('leave') ||
-      probe.ariaLabelIncludes('hang up') ||
-      probe.matchesSelector('[data-tid="call-hangup"]')
-    ) {
-      return 'in-call'
-    }
-    return 'prejoin'
-  }
-
-  if (host === 'app.slack.com') {
-    if (text.includes('huddle has ended') || text.includes('left the huddle')) {
-      return 'left'
-    }
-    if (
-      text.includes('start a huddle') ||
-      text.includes('join huddle') ||
-      probe.matchesSelector('[data-qa="huddle_start_button"]')
-    ) {
-      return 'prejoin'
-    }
-    if (
-      text.includes('leave huddle') ||
-      probe.ariaLabelIncludes('leave huddle') ||
-      probe.matchesSelector('[data-qa="huddle_leave_button"]')
-    ) {
-      return 'in-call'
-    }
-    // SPA: prefer unknown over false left
-    return 'unknown'
-  }
-
-  if (/^[a-z0-9-]+\.webex\.com$/i.test(host)) {
-    if (
-      text.includes('you have left the meeting') ||
-      text.includes('meeting ended')
-    ) {
-      return 'left'
-    }
-    if (text.includes('join meeting') || text.includes('enter room')) {
-      return 'prejoin'
-    }
-    if (
-      text.includes('leave') ||
-      probe.ariaLabelIncludes('leave') ||
-      probe.matchesSelector('[aria-label*="Leave"]')
-    ) {
-      return 'in-call'
-    }
-    return 'unknown'
-  }
-
-  return 'unknown'
+  return evaluateMeetingCallStateFromProbe(legacyProbeToDom(probe))
 }
 
 export function evaluateMeetingInCall(probe: MeetingInCallProbe): boolean {
@@ -143,23 +89,17 @@ export function evaluateMeetingInCall(probe: MeetingInCallProbe): boolean {
 export function evaluateLocalMute(
   probe: MeetingInCallProbe,
 ): boolean | 'unknown' {
-  const host = probe.hostname.toLowerCase()
-  if (host === 'meet.google.com') {
-    if (probe.ariaLabelIncludes('turn on microphone')) return true
-    if (probe.ariaLabelIncludes('turn off microphone')) return false
-    return 'unknown'
-  }
-  if (/^[a-z0-9-]+\.zoom\.us$/i.test(host)) {
-    if (probe.ariaLabelIncludes('unmute')) return true
-    if (probe.ariaLabelIncludes('mute')) return false
-    return 'unknown'
-  }
+  const dom = legacyProbeToDom(probe)
+  const adapter = getAdapterForHost(dom.hostname)
+  const muted = adapter?.probeLocalMute?.(dom)
+  if (muted === true) return true
+  if (muted === false) return false
   return 'unknown'
 }
 
 /**
- * Injected into the meeting tab via executeScript.
- * MUST be fully self-contained — no outer references (Chrome serializes this).
+ * @deprecated Injected collectors should use collectMeetingDomFactsPage.
+ * Kept for any remaining executeScript callers; self-contained call-state.
  */
 export function probeMeetingCallStatePage(): MeetingCallState {
   const host = location.hostname.toLowerCase()
@@ -173,9 +113,17 @@ export function probeMeetingCallStatePage(): MeetingCallState {
   }
 
   if (host === 'meet.google.com') {
-    if (['you left the meeting'].some((phrase) => text.includes(phrase))) {
-      return 'left'
-    }
+    const left = [
+      'you left the meeting',
+      "you've left the meeting",
+      'you left the call',
+      'return to home screen',
+      'thanks for joining',
+      'meeting has ended',
+      'the meeting has ended',
+      'call ended',
+    ]
+    if (left.some((phrase) => text.includes(phrase))) return 'left'
     if (document.title.trim().toLowerCase() === 'google meet') {
       return 'prejoin'
     }
@@ -191,7 +139,6 @@ export function probeMeetingCallStatePage(): MeetingCallState {
       'check your microphone',
       'choose how you want to join',
       'other ways to join',
-      'return to home screen',
     ]
     if (preJoin.some((phrase) => text.includes(phrase))) return 'prejoin'
 

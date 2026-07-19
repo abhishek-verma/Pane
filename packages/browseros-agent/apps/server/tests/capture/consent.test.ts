@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import {
   getCaptureConsent,
   isProtectedCaptureDomain,
+  requireCaptureConsent,
   setCaptureConsent,
 } from '../../src/capture/consent'
 import { closeDb, initializeDb } from '../../src/lib/db'
@@ -45,5 +46,16 @@ describe('capture consent', () => {
     })
     expect(isProtectedCaptureDomain('chase.bank.com')).toBe(true)
     expect(consent.allowed).toBe(false)
+  })
+
+  it('allows Zoom subdomain when zoom.us consent is set (A-T5)', () => {
+    setCaptureConsent({
+      domain: 'zoom.us',
+      class: 'meeting',
+      allowed: true,
+    })
+    expect(
+      requireCaptureConsent('https://us02web.zoom.us/j/123', 'meeting').domain,
+    ).toBe('zoom.us')
   })
 })
