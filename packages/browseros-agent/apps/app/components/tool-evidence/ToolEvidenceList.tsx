@@ -6,6 +6,7 @@ import type { ToolEvidence } from '@/lib/tool-evidence/types'
 import { BrowserActionCard } from './BrowserActionCard'
 import { FileChangeCard } from './FileChangeCard'
 import { GenericToolRow } from './GenericToolRow'
+import { TerminalCard } from './TerminalCard'
 
 export interface ToolEvidenceSource {
   toolCallId: string
@@ -20,6 +21,20 @@ export interface ToolEvidenceSource {
   /** When true, caller renders ApprovalCard instead of evidence */
   isApproval?: boolean
   renderApproval?: () => ReactNode
+}
+
+function SpecializedCard({ evidence }: { evidence: ToolEvidence }) {
+  switch (evidence.kind) {
+    case 'file-change':
+      return <FileChangeCard evidence={evidence} />
+    case 'terminal':
+      return <TerminalCard evidence={evidence} />
+    case 'browser-action':
+    case 'screenshot':
+      return <BrowserActionCard evidence={evidence} />
+    default:
+      return <GenericToolRow evidence={evidence} />
+  }
 }
 
 export const ToolEvidenceList: FC<{
@@ -65,13 +80,9 @@ export const ToolEvidenceList: FC<{
 
   return (
     <div className="space-y-2">
-      {specialized.map(({ evidence }) =>
-        evidence.kind === 'file-change' ? (
-          <FileChangeCard key={evidence.toolCallId} evidence={evidence} />
-        ) : (
-          <BrowserActionCard key={evidence.toolCallId} evidence={evidence} />
-        ),
-      )}
+      {specialized.map(({ evidence }) => (
+        <SpecializedCard key={evidence.toolCallId} evidence={evidence} />
+      ))}
 
       {approvals.map((a) => (
         <div key={a.source.toolCallId}>{a.source.renderApproval?.()}</div>

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { classifyToolVisibility } from './classify'
+import { classifyToolVisibility, isSpecializedKind } from './classify'
 
 describe('classifyToolVisibility', () => {
   test('file mutations', () => {
@@ -15,10 +15,15 @@ describe('classifyToolVisibility', () => {
     expect(classifyToolVisibility('screenshot')).toBe('screenshot')
   })
 
+  test('filesystem_bash → terminal', () => {
+    expect(classifyToolVisibility('filesystem_bash')).toBe('terminal')
+    expect(classifyToolVisibility('tool-filesystem_bash')).toBe('terminal')
+    expect(isSpecializedKind('terminal')).toBe(true)
+  })
+
   test('reads stay generic', () => {
     expect(classifyToolVisibility('filesystem_read')).toBe('generic')
     expect(classifyToolVisibility('snapshot')).toBe('generic')
-    expect(classifyToolVisibility('filesystem_bash')).toBe('generic')
     expect(classifyToolVisibility('unknown_mcp_tool')).toBe('generic')
   })
 })
