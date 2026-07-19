@@ -16,6 +16,9 @@ export interface ToolEntry {
   subject?: string
   status: 'running' | 'completed' | 'error'
   durationMs?: number
+  input?: Record<string, unknown>
+  output?: unknown
+  error?: string
 }
 
 export interface AssistantToolBatchPart {
