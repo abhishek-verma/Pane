@@ -77,15 +77,14 @@ description: Observe then act on web pages with Pane browser tools. Use for brow
 
 export const BUILTIN_MEMORY_SKILL_BODY = `---
 name: memory
-description: Store and recall durable user facts via memory_* and context_recall. Use when the user asks to remember something, or when preferences/facts should stick across chats.
+description: Store and recall durable user facts via memory_* and context_search. Use when the user asks to remember something, or when preferences/facts should stick across chats.
 ---
 
 # Memory
 
 ## Read
 
-- \`context_recall\` for durable notes (soul/user/memory layers).
-- \`context_search\` for hybrid NL search across indexed activity + memory + chats (FTS + local embeddings).
+- \`context_search\` for hybrid NL search across indexed activity + memory + chats (FTS + local embeddings). DEFAULT tool for memory recall.
 - \`context_current_work\` for what is open / recent right now.
 
 ## Write

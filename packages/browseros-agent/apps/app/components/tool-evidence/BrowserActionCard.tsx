@@ -4,6 +4,7 @@ import { openActionLog } from '@/lib/tool-evidence/action-log-link'
 import { useScreenshotPrefs } from '@/lib/tool-evidence/screenshot-prefs'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
 import { cn } from '@/lib/utils'
+import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { ImageLightbox } from './ImageLightbox'
 import { ToolStatusIcon } from './ToolStatusIcon'
 
@@ -20,16 +21,28 @@ export const BrowserActionCard: FC<{
   const [revealed, setRevealed] = useState(false)
   const { showBrowserScreenshots, blurScreenshotsUntilClick } =
     useScreenshotPrefs()
+  const { baseUrl: serverBaseUrl } = useAgentServerUrl()
   const browser = evidence.browser
   if (!browser) return null
+
   const media = browser.media[0]
-  const showImage = Boolean(media) && showBrowserScreenshots
+  // If no inline image but the server stripped one, build a lazy-load URL.
+  const strippedMeta = !media ? (browser.strippedImages?.[0] ?? null) : null
+  const strippedSrc =
+    strippedMeta && serverBaseUrl && conversationId
+      ? `${serverBaseUrl}/chat/${conversationId}/tool-images/${evidence.toolCallId}`
+      : null
+
+  const showImage = Boolean(media || strippedSrc) && showBrowserScreenshots
   const blurred = showImage && blurScreenshotsUntilClick && !revealed
 
   const onThumbClick = () => {
     if (blurred) setRevealed(true)
     setOpen(true)
   }
+
+  const imgSrc = media ? toSrc(media.data, media.mimeType) : (strippedSrc ?? '')
+  const imgMimeType = media?.mimeType ?? strippedMeta?.mimeType ?? 'image/png'
 
   return (
     <>
@@ -49,14 +62,14 @@ export const BrowserActionCard: FC<{
             {evidence.errorText}
           </p>
         ) : null}
-        {showImage && media ? (
+        {showImage ? (
           <button
             type="button"
             className="mt-1.5 block w-full overflow-hidden"
             onClick={onThumbClick}
           >
             <img
-              src={toSrc(media.data, media.mimeType)}
+              src={imgSrc}
               alt={browser.caption}
               loading="lazy"
               className={cn(
@@ -91,11 +104,12 @@ export const BrowserActionCard: FC<{
           </button>
         </div>
       </div>
-      {showImage && media ? (
+      {showImage ? (
         <ImageLightbox
           open={open}
           onOpenChange={setOpen}
-          media={media}
+          imgSrc={imgSrc}
+          mimeType={imgMimeType}
           caption={browser.caption}
           url={browser.url}
         />

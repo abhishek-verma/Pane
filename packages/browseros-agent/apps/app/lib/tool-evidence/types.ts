@@ -19,6 +19,13 @@ export interface ToolMedia {
   data: string
 }
 
+export interface StrippedMedia {
+  /** Signals that image data was stripped from this tool output and can be
+   *  fetched from the server tool-images API using the tool call id. */
+  stripped: true
+  mimeType: string
+}
+
 export interface FileChangeDetail {
   path: string
   kind: 'edit' | 'create' | 'overwrite' | 'binary' | 'empty'
@@ -37,6 +44,9 @@ export interface BrowserActionDetail {
   url?: string
   pageDiffSummary?: string
   media: ToolMedia[]
+  /** Images that were stripped from the UIMessage for memory efficiency.
+   *  The card fetches them lazily from the tool-images API using toolCallId. */
+  strippedImages?: StrippedMedia[]
 }
 
 export interface TerminalDetail {

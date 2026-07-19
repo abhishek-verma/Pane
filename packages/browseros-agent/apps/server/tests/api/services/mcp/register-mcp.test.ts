@@ -90,7 +90,6 @@ describe('registerTools', () => {
   const contextToolNames = [
     'context_current_work',
     'context_search',
-    'context_recall',
     'session_search',
     'tasks_list',
     'tasks_add',

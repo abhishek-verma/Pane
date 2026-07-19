@@ -5,20 +5,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import type { ToolMedia } from '@/lib/tool-evidence/types'
-
-function toSrc(media: ToolMedia): string {
-  if (media.data.startsWith('data:')) return media.data
-  return `data:${media.mimeType};base64,${media.data}`
-}
 
 export const ImageLightbox: FC<{
   open: boolean
   onOpenChange: (open: boolean) => void
-  media: ToolMedia
+  imgSrc: string
+  mimeType: string
   caption: string
   url?: string
-}> = ({ open, onOpenChange, media, caption, url }) => (
+}> = ({ open, onOpenChange, imgSrc, caption, url }) => (
   <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-w-2xl">
       <DialogHeader>
@@ -28,7 +23,7 @@ export const ImageLightbox: FC<{
         <p className="truncate text-muted-foreground text-xs">{url}</p>
       ) : null}
       <img
-        src={toSrc(media)}
+        src={imgSrc}
         alt={caption}
         className="max-h-[70vh] w-full rounded-md object-contain"
       />

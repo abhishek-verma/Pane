@@ -105,8 +105,9 @@ describe('section presence', () => {
       '<role>', // role-and-mode
       '<security>', // security
       '<capabilities>', // capabilities
+      '<retrieval_first>', // retrieval-first
+      '<tool_dispatch>', // tool-dispatch
       '<execution>', // execution
-      '<tool_selection>', // tool-selection
       '<error_recovery>', // error-recovery
       '<workspace>', // workspace
       '<nudge_tools>', // nudges
@@ -493,7 +494,7 @@ describe('capability coverage', () => {
     expect(prompt).toContain('capture_read')
     expect(prompt).toContain('capture_stop')
     expect(prompt).toContain('context_search')
-    expect(prompt).toContain('context_recall')
+    expect(prompt).not.toContain('context_recall')
     expect(prompt).toContain('context_current_work')
     expect(prompt).toContain('tasks_list')
     expect(prompt).toContain('home_widget_list')
@@ -534,20 +535,17 @@ describe('capability coverage', () => {
 // ---------------------------------------------------------------------------
 
 describe('tool selection', () => {
-  it('includes observation decision table', () => {
+  it('includes tool dispatch table', () => {
     const prompt = buildRegular()
-    expect(prompt).toContain('<tool_selection>')
-    expect(prompt).toContain('### Observation: which tool to use')
+    expect(prompt).toContain('<tool_dispatch>')
+    expect(prompt).toContain('## Tool Dispatch Table')
   })
 
   it('routes meetings to capture tools and page JS to evaluate', () => {
     const prompt = buildRegular()
-    expect(prompt).toContain('Recent meetings, calls, or transcripts')
-    expect(prompt).toContain('`capture_list` then `capture_read`')
-    expect(prompt).toContain(
-      'Need runtime data (JS variables, computed values) on the page',
-    )
-    expect(prompt).toContain('| `evaluate` |')
+    expect(prompt).toContain('capture_list')
+    expect(prompt).toContain('capture_read')
+    expect(prompt).toContain('`evaluate`')
   })
 
   it('includes interaction preferences', () => {
@@ -968,12 +966,12 @@ describe('structural invariants', () => {
     expect(securityPos).toBeLessThan(capabilitiesPos)
   })
 
-  it('capabilities appear before tool-selection', () => {
+  it('capabilities appear before tool-dispatch', () => {
     // Why: the agent needs to know WHAT tools exist before learning
     // WHICH tool to prefer for a given situation.
     const prompt = buildRegular()
     const capPos = prompt.indexOf('<capabilities>')
-    const selPos = prompt.indexOf('<tool_selection>')
+    const selPos = prompt.indexOf('<tool_dispatch>')
     expect(capPos).toBeLessThan(selPos)
   })
 
@@ -991,7 +989,7 @@ describe('structural invariants', () => {
     expect(finalPos).toBeGreaterThan(prompt.indexOf('<security>'))
     expect(finalPos).toBeGreaterThan(prompt.indexOf('<capabilities>'))
     expect(finalPos).toBeGreaterThan(prompt.indexOf('<execution>'))
-    expect(finalPos).toBeGreaterThan(prompt.indexOf('<tool_selection>'))
+    expect(finalPos).toBeGreaterThan(prompt.indexOf('<tool_dispatch>'))
     expect(finalPos).toBeGreaterThan(prompt.indexOf('<external_integrations>'))
     expect(finalPos).toBeGreaterThan(prompt.indexOf('<error_recovery>'))
     expect(finalPos).toBeGreaterThan(prompt.indexOf('<nudge_tools>'))
@@ -1190,26 +1188,25 @@ describe('new-tab origin', () => {
 
   // --- Tool selection section ---
 
-  it('tool selection table uses tabs new for lookups in newtab mode', () => {
+  it('tool dispatch table uses tabs new for lookups in newtab mode', () => {
+    const prompt = buildNewTab()
+    expect(prompt).toContain('Never navigate active tab')
+    expect(prompt).toContain('tabs` action="new" background=true')
+  })
+
+  it('tool dispatch includes reminder about active tab in newtab mode', () => {
     const prompt = buildNewTab()
     expect(prompt).toContain(
-      '`tabs` action="new" background=true → extract data → `tabs` action="close"',
+      'Active tab is the chat UI. NEVER navigate or close it.',
     )
   })
 
-  it('tool selection includes reminder about active tab in newtab mode', () => {
-    const prompt = buildNewTab()
-    expect(prompt).toContain(
-      'The active tab is the New Tab chat UI. Never navigate or close it.',
-    )
-  })
-
-  it('tool selection table uses navigate for lookups in sidepanel mode', () => {
+  it('tool dispatch table uses navigate for lookups in sidepanel mode', () => {
     const prompt = buildRegular({ origin: 'sidepanel' })
     expect(prompt).toContain('`navigate` on current tab')
   })
 
-  it('tool selection does NOT have newtab reminder in sidepanel mode', () => {
+  it('tool dispatch does NOT have newtab reminder in sidepanel mode', () => {
     const prompt = buildRegular({ origin: 'sidepanel' })
     expect(prompt).not.toContain('The active tab is the New Tab chat UI')
   })
