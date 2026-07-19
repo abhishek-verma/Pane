@@ -474,10 +474,14 @@ describe('capability coverage', () => {
     expect(prompt).toContain('### Meeting Capture')
     expect(prompt).toContain('capture_list')
     expect(prompt).toContain('capture_read')
+    expect(prompt).toContain('capture_stop')
     expect(prompt).toContain('context_search')
     expect(prompt).toContain('context_recall')
     expect(prompt).toContain('context_current_work')
     expect(prompt).toContain('tasks_list')
+    expect(prompt).toContain('home_widget_list')
+    expect(prompt).toContain('tab_groups')
+    expect(prompt).toContain('terminal_sessions')
   })
 
   it('does not document removed browser tools as active capabilities', () => {
@@ -553,13 +557,18 @@ describe('external integrations', () => {
     expect(prompt).not.toContain('discover_server_categories_or_actions')
   })
 
-  it('renders connected apps list', () => {
+  it('renders connected apps list without inventing Strata discovery tools', () => {
     const prompt = buildRegular({
       connectedApps: ['Gmail', 'Slack', 'Linear'],
     })
     expect(prompt).toContain(
-      '**Connected apps** (use Strata tools for these): Gmail, Slack, Linear',
+      '**Connected MCP servers / apps:** Gmail, Slack, Linear',
     )
+    expect(prompt).toContain('Do **not** invent Strata helpers')
+    // Names may appear in the "do not invent" warning, but not as a taught flow.
+    expect(prompt).not.toContain('### Discovery Flow')
+    expect(prompt).not.toContain('search_documentation')
+    expect(prompt).not.toContain('<authentication_flow>')
   })
 
   it('renders declined apps list', () => {
@@ -567,7 +576,7 @@ describe('external integrations', () => {
       declinedApps: ['GitHub', 'Notion'],
     })
     expect(prompt).toContain(
-      '**Declined apps** (user chose "do it manually" — use browser automation, NEVER Strata): GitHub, Notion',
+      '**Declined apps** (user chose "do it manually" — use browser automation only): GitHub, Notion',
     )
   })
 
@@ -577,21 +586,6 @@ describe('external integrations', () => {
       declinedApps: [],
     })
     expect(prompt).not.toContain('**Declined apps**')
-  })
-
-  it('includes the discovery flow steps when apps are connected', () => {
-    const prompt = buildRegular({
-      connectedApps: ['Gmail'],
-    })
-    expect(prompt).toContain('discover_server_categories_or_actions')
-    expect(prompt).toContain('get_category_actions')
-    expect(prompt).toContain('get_action_details')
-    expect(prompt).toContain('execute_action')
-  })
-
-  it('includes search_documentation as fallback when apps are connected', () => {
-    const prompt = buildRegular({ connectedApps: ['Gmail'] })
-    expect(prompt).toContain('search_documentation')
   })
 
   it('includes side-effect awareness for destructive actions', () => {
@@ -605,12 +599,6 @@ describe('external integrations', () => {
   it('includes partial failure guidance', () => {
     const prompt = buildRegular({ connectedApps: ['Gmail'] })
     expect(prompt).toContain("report what you got and explain what's missing")
-  })
-
-  it('includes authentication re-flow', () => {
-    const prompt = buildRegular({ connectedApps: ['Gmail'] })
-    expect(prompt).toContain('<authentication_flow>')
-    expect(prompt).toContain('STOP and wait')
   })
 })
 
@@ -833,10 +821,10 @@ describe('error recovery', () => {
     expect(prompt).not.toContain('get_console_logs')
   })
 
-  it('includes Strata error patterns only when apps are connected', () => {
-    expect(buildRegular()).not.toContain('### Strata error patterns')
+  it('includes integration error patterns only when apps are connected', () => {
+    expect(buildRegular()).not.toContain('### Integration error patterns')
     const prompt = buildRegular({ connectedApps: ['Gmail'] })
-    expect(prompt).toContain('### Strata error patterns')
+    expect(prompt).toContain('### Integration error patterns')
     expect(prompt).toContain('report the error')
   })
 

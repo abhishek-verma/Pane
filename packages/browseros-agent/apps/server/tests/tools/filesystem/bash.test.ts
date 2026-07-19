@@ -104,4 +104,12 @@ describe('filesystem_bash', () => {
     expect(result.isError).toBe(true)
     expect(result.text).toContain('Blocked by terminal policy')
   })
+
+  it('blocks shell access to private Pane capture paths', async () => {
+    const result = await exec({
+      command: 'cat ~/.browseros/capture/session.json',
+    })
+    expect(result.isError).toBe(true)
+    expect(result.text).toContain('capture')
+  })
 })

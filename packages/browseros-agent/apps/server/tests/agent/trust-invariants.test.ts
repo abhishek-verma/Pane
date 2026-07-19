@@ -251,6 +251,46 @@ describe('deriveClass payment / form-target escalation', () => {
     ).toBe('write-external')
   })
 
+  it('classifies observation act kinds as read', () => {
+    for (const kind of ['scroll', 'hover', 'hover_at', 'focus'] as const) {
+      expect(
+        deriveClass(
+          'act',
+          { kind, page: 1, ref: 'e1' },
+          makeCtx({
+            browserContext: {
+              activeTab: { url: 'https://example.com' },
+            },
+          }),
+        ),
+      ).toBe('read')
+    }
+  })
+
+  it('keeps observation act kinds as read on payment hosts', () => {
+    expect(
+      deriveClass(
+        'act',
+        { kind: 'scroll', page: 1, direction: 'down' },
+        makeCtx({
+          browserContext: {
+            activeTab: { url: 'https://checkout.stripe.com/pay' },
+          },
+        }),
+      ),
+    ).toBe('read')
+  })
+
+  it('classifies terminal_sessions and tab_groups list as read', () => {
+    expect(deriveClass('terminal_sessions', {}, makeCtx())).toBe('read')
+    expect(deriveClass('tab_groups', { action: 'list' }, makeCtx())).toBe(
+      'read',
+    )
+    expect(
+      deriveClass('tab_groups', { action: 'create', pageIds: [1] }, makeCtx()),
+    ).toBe('write-external')
+  })
+
   it('does not treat password field text in args as approval bypass', () => {
     const args = {
       kind: 'fill',
