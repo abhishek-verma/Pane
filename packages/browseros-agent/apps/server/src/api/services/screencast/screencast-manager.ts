@@ -104,19 +104,23 @@ export class ScreencastManager {
     session.unsubscribeFrame = resolved.session.Page.on(
       'screencastFrame',
       (params) => {
-        this.send(ws, {
-          type: 'frame',
-          data: params.data,
-          metadata: {
-            timestamp: params.metadata.timestamp,
-            deviceWidth: params.metadata.deviceWidth,
-            deviceHeight: params.metadata.deviceHeight,
-            offsetTop: params.metadata.offsetTop,
-            pageScaleFactor: params.metadata.pageScaleFactor,
-            scrollOffsetX: params.metadata.scrollOffsetX,
-            scrollOffsetY: params.metadata.scrollOffsetY,
-          },
-        })
+        // Always ack so CDP keeps producing; drop the WS payload when the
+        // subscriber is behind (avoids unbounded JPEG buffering).
+        if (!this.isBackpressured(ws)) {
+          this.send(ws, {
+            type: 'frame',
+            data: params.data,
+            metadata: {
+              timestamp: params.metadata.timestamp,
+              deviceWidth: params.metadata.deviceWidth,
+              deviceHeight: params.metadata.deviceHeight,
+              offsetTop: params.metadata.offsetTop,
+              pageScaleFactor: params.metadata.pageScaleFactor,
+              scrollOffsetX: params.metadata.scrollOffsetX,
+              scrollOffsetY: params.metadata.scrollOffsetY,
+            },
+          })
+        }
         resolved.session.Page.screencastFrameAck({
           sessionId: params.sessionId,
         }).catch((err) => {
@@ -200,4 +204,20 @@ export class ScreencastManager {
       // Best-effort.
     }
   }
+
+  /** True when the subscriber socket has more than the backpressure budget queued. */
+  private isBackpressured(ws: Subscriber): boolean {
+    const amount = subscriberBufferedAmount(ws)
+    return amount > SCREENCAST_LIMITS.SUBSCRIBER_BACKPRESSURE_BYTES
+  }
+}
+
+/** Read bufferedAmount from Hono WSContext or a raw WebSocket when present. */
+export function subscriberBufferedAmount(ws: Subscriber): number {
+  const withRaw = ws as {
+    bufferedAmount?: number
+    raw?: { bufferedAmount?: number }
+  }
+  const amount = withRaw.raw?.bufferedAmount ?? withRaw.bufferedAmount
+  return typeof amount === 'number' && Number.isFinite(amount) ? amount : 0
 }

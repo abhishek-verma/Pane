@@ -12,9 +12,10 @@ import type {
   GateContext,
   TrustPin,
 } from '@browseros/shared/trust/consequence-class'
-import { createAgentUIStreamResponse, type UIMessage } from 'ai'
+import type { UIMessage } from 'ai'
 import { isAcpProvider } from '../../agent/acp-providers'
 import { AiSdkAgent } from '../../agent/ai-sdk-agent'
+import { createDurableAgentUIStreamResponse } from '../../agent/durable-agent-ui-stream'
 import { formatUserMessage } from '../../agent/format-message'
 import {
   filterValidMessages,
@@ -398,28 +399,42 @@ export class ChatService {
         count: request.toolApprovalResponses.length,
       })
 
+      await this.checkpointMessages(
+        request.conversationId,
+        session.agent.messages,
+        false,
+      )
+
       const runId = crypto.randomUUID()
       gateContext.runId = runId
       runTracker.startRun(runId)
 
-      return createAgentUIStreamResponse({
+      return createDurableAgentUIStreamResponse({
         agent: session.agent.toolLoopAgent,
         uiMessages: filterValidMessages(session.agent.messages),
         abortSignal,
-        onFinish: async ({ messages }: { messages: UIMessage[] }) => {
+        onStepFinish: async ({ messages }) => {
+          if (!session) return
+          session.agent.messages = filterValidMessages(messages)
+          await this.checkpointMessages(
+            request.conversationId,
+            session.agent.messages,
+            false,
+          )
+        },
+        onFinish: async ({ messages, isAborted }) => {
           try {
             if (!session) return
             session.agent.messages = filterValidMessages(messages)
-            this.deps.sessionStore
-              .persistMessages(request.conversationId, session.agent.messages)
-              .catch((err: unknown) => {
-                logger.error('Failed to persist messages', {
-                  error: err instanceof Error ? err.message : String(err),
-                })
-              })
+            await this.checkpointMessages(
+              request.conversationId,
+              session.agent.messages,
+              true,
+            )
             logger.info('Agent execution complete', {
               conversationId: request.conversationId,
               totalMessages: session.agent.messages.length,
+              isAborted,
             })
           } finally {
             finalizeSkillOutcomesForRun(runId, !abortSignal.aborted)
@@ -458,6 +473,12 @@ export class ChatService {
     // copy below — the LLM sees it, the user-visible state never
     // does.
     session.agent.appendUserMessage(request.message)
+    await this.checkpointMessages(
+      request.conversationId,
+      session.agent.messages,
+      false,
+    )
+
     const promptUserText = contextPrefix + userContent
     const wrappedUserMessageId =
       session.agent.messages[session.agent.messages.length - 1]?.id
@@ -496,52 +517,71 @@ export class ChatService {
     gateContext.runId = runId
     runTracker.startRun(runId)
 
-    return createAgentUIStreamResponse({
+    const applyStreamMessages = (messages: UIMessage[]) => {
+      if (isAcp) {
+        // Stream originalMessages are only this turn's user prompt. Keep
+        // prior turns, restore raw user text, and replace this turn's
+        // assistant/tool messages from the stream (including step updates).
+        const userIdx = session.agent.messages.findIndex(
+          (m) => m.id === wrappedUserMessageId,
+        )
+        const prior =
+          userIdx >= 0
+            ? session.agent.messages.slice(0, userIdx)
+            : session.agent.messages.filter(
+                (m) => !messages.some((sm) => sm.id === m.id),
+              )
+        const userMsg: UIMessage = {
+          id: wrappedUserMessageId ?? crypto.randomUUID(),
+          role: 'user',
+          parts: [{ type: 'text', text: request.message }],
+        }
+        const afterUser = messages.filter((m) => m.id !== wrappedUserMessageId)
+        session.agent.messages = filterValidMessages([
+          ...prior,
+          userMsg,
+          ...afterUser,
+        ])
+      } else {
+        const restored = messages.map((msg) =>
+          msg.id === wrappedUserMessageId && msg.role === 'user'
+            ? {
+                ...msg,
+                parts: [{ type: 'text' as const, text: request.message }],
+              }
+            : msg,
+        )
+        session.agent.messages = filterValidMessages(restored)
+      }
+    }
+
+    return createDurableAgentUIStreamResponse({
       agent: session.agent.toolLoopAgent,
       uiMessages: promptUiMessages,
       abortSignal,
-      onFinish: async ({ messages }: { messages: UIMessage[] }) => {
+      onStepFinish: async ({ messages }) => {
+        if (!session) return
+        applyStreamMessages(messages)
+        await this.checkpointMessages(
+          request.conversationId,
+          session.agent.messages,
+          false,
+        )
+      },
+      onFinish: async ({ messages, isAborted }) => {
         try {
           if (!session) return
-          if (isAcp) {
-            const existingIds = new Set(session.agent.messages.map((m) => m.id))
-            const newMessages = messages.filter((m) => !existingIds.has(m.id))
-            const updated = session.agent.messages.map((m) =>
-              m.id === wrappedUserMessageId && m.role === 'user'
-                ? {
-                    ...m,
-                    parts: [{ type: 'text' as const, text: request.message }],
-                  }
-                : m,
-            )
-            session.agent.messages = filterValidMessages([
-              ...updated,
-              ...newMessages,
-            ])
-          } else {
-            const restored = messages.map((msg) =>
-              msg.id === wrappedUserMessageId && msg.role === 'user'
-                ? {
-                    ...msg,
-                    parts: [{ type: 'text' as const, text: request.message }],
-                  }
-                : msg,
-            )
-            session.agent.messages = filterValidMessages(restored)
-          }
-
-          // Persist messages
-          this.deps.sessionStore
-            .persistMessages(request.conversationId, session.agent.messages)
-            .catch((err: unknown) => {
-              logger.error('Failed to persist messages', {
-                error: err instanceof Error ? err.message : String(err),
-              })
-            })
+          applyStreamMessages(messages)
+          await this.checkpointMessages(
+            request.conversationId,
+            session.agent.messages,
+            true,
+          )
 
           logger.info('Agent execution complete', {
             conversationId: request.conversationId,
             totalMessages: session.agent.messages.length,
+            isAborted,
           })
 
           if (session.hiddenPageId) {
@@ -555,6 +595,26 @@ export class ChatService {
         }
       },
     })
+  }
+
+  private async checkpointMessages(
+    conversationId: string,
+    messages: UIMessage[],
+    syncIndexes: boolean,
+  ): Promise<void> {
+    try {
+      await this.deps.sessionStore.persistMessages(
+        conversationId,
+        filterValidMessages(messages),
+        { syncIndexes },
+      )
+    } catch (err: unknown) {
+      logger.error('Failed to persist messages', {
+        conversationId,
+        syncIndexes,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
   }
 
   async deleteSession(

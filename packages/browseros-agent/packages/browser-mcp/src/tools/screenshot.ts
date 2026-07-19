@@ -86,11 +86,11 @@ export const screenshot = defineTool({
       content: [
         { type: 'image', data: result.data, mimeType: result.mimeType },
       ],
+      // Do not duplicate base64 under structuredContent — UI reads content[].
       structuredContent: {
         page: args.page,
         format: args.format,
         bytes: Buffer.from(result.data, 'base64').length,
-        image: result.data,
         ...(result.annotations.length > 0 && {
           annotations: result.annotations,
         }),

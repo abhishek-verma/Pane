@@ -1,6 +1,10 @@
 import type { BrowserOutputFileAccess } from '@browseros/browser-mcp/output-file'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { GateContext } from '@browseros/shared/trust/consequence-class'
+import type { UIMessage } from 'ai'
+import { asc, eq } from 'drizzle-orm'
+import { getDb } from '../lib/db'
+import { chatMessages, chatSessions } from '../lib/db/schema/chat-sessions'
 import { logger } from '../lib/logger'
 import type { AiSdkAgent } from './ai-sdk-agent'
 
@@ -19,19 +23,27 @@ export interface AgentSession {
   gateContext?: GateContext
 }
 
-import type { UIMessage } from 'ai'
-import { asc, eq } from 'drizzle-orm'
-import { getDb } from '../lib/db'
-import { chatMessages, chatSessions } from '../lib/db/schema/chat-sessions'
+export interface PersistMessagesOptions {
+  /**
+   * When false, skip FTS/embed index sync (mid-turn checkpoints).
+   * Default true for final writes.
+   */
+  syncIndexes?: boolean
+}
 
 export class SessionStore {
   private sessions = new Map<string, AgentSession>()
+  /** Process-lifetime tombstones so late persist after delete cannot resurrect. */
+  private deletedSessions = new Set<string>()
+  /** Per-session write serialization (promise chain). */
+  private persistLocks = new Map<string, Promise<void>>()
 
   get(conversationId: string): AgentSession | undefined {
     return this.sessions.get(conversationId)
   }
 
   set(conversationId: string, session: AgentSession): void {
+    this.deletedSessions.delete(conversationId)
     this.sessions.set(conversationId, session)
     logger.info('Session added to store', {
       conversationId,
@@ -74,6 +86,8 @@ export class SessionStore {
 
     const deleted = Boolean(existing || session)
     if (deleted) {
+      this.deletedSessions.add(conversationId)
+      this.persistLocks.delete(conversationId)
       logger.info('Session deleted', {
         conversationId,
         remainingSessions: this.sessions.size,
@@ -85,6 +99,7 @@ export class SessionStore {
   }
 
   async hasPersistedSession(conversationId: string): Promise<boolean> {
+    if (this.deletedSessions.has(conversationId)) return false
     const row = await getDb()
       .select({ id: chatSessions.id })
       .from(chatSessions)
@@ -100,7 +115,37 @@ export class SessionStore {
   async persistMessages(
     sessionId: string,
     messages: UIMessage[],
+    options: PersistMessagesOptions = {},
   ): Promise<void> {
+    const syncIndexes = options.syncIndexes !== false
+    const prev = this.persistLocks.get(sessionId) ?? Promise.resolve()
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    this.persistLocks.set(
+      sessionId,
+      prev.catch(() => {}).then(() => gate),
+    )
+    await prev.catch(() => {})
+
+    try {
+      await this.persistMessagesUnlocked(sessionId, messages, syncIndexes)
+    } finally {
+      release()
+    }
+  }
+
+  private async persistMessagesUnlocked(
+    sessionId: string,
+    messages: UIMessage[],
+    syncIndexes: boolean,
+  ): Promise<void> {
+    if (this.deletedSessions.has(sessionId)) {
+      logger.info('Skipping persist for deleted session', { sessionId })
+      return
+    }
+
     const db = getDb()
     const now = Date.now()
 
@@ -125,15 +170,17 @@ export class SessionStore {
 
     await db.delete(chatMessages).where(eq(chatMessages.sessionId, sessionId))
 
-    // Always clear retrieval indexes (including empty saves) so stale chats
-    // cannot linger in session_search / hybrid embeddings.
-    try {
-      const { clearChatFtsForSession } = await import('../retrieval/chat-fts')
-      const { deleteChunksForChatSession } = await import('../retrieval/chunks')
-      clearChatFtsForSession(sessionId)
-      deleteChunksForChatSession(sessionId)
-    } catch {
-      /* optional in tests */
+    if (syncIndexes) {
+      try {
+        const { clearChatFtsForSession } = await import('../retrieval/chat-fts')
+        const { deleteChunksForChatSession } = await import(
+          '../retrieval/chunks'
+        )
+        clearChatFtsForSession(sessionId)
+        deleteChunksForChatSession(sessionId)
+      } catch {
+        /* optional in tests */
+      }
     }
 
     if (messages.length === 0) return
@@ -148,6 +195,9 @@ export class SessionStore {
       createdAt: now + i,
     }))
     await db.insert(chatMessages).values(rows)
+
+    if (!syncIndexes) return
+
     try {
       const { syncChatFts } = await import('../retrieval/chat-fts')
       const { enqueueEmbed } = await import('../retrieval/queue')

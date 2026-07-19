@@ -93,7 +93,18 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
                         switch (segment.type) {
                           case 'text':
                             return (
-                              <MessageResponse key={segment.key}>
+                              <MessageResponse
+                                key={segment.key}
+                                // Completed segments stay static so Streamdown
+                                // does not re-parse every token / load mermaid.
+                                mode={
+                                  segment.isStreaming ? 'streaming' : 'static'
+                                }
+                                parseIncompleteMarkdown={segment.isStreaming}
+                                // Keep mermaid plugin off the side-panel hot path
+                                // (Crashpad OOM last-alloc was mermaid chunk).
+                                plugins={{}}
+                              >
                                 {segment.text}
                               </MessageResponse>
                             )

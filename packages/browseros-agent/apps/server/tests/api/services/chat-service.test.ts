@@ -23,7 +23,11 @@ interface StoredSession {
 
 interface StreamResponseOptions {
   uiMessages?: MockMessage[]
-  onFinish(args: { messages: MockMessage[] }): Promise<void>
+  onStepFinish?(args: { messages: MockMessage[] }): Promise<void>
+  onFinish(args: {
+    messages: MockMessage[]
+    isAborted?: boolean
+  }): Promise<void>
 }
 
 let agentToReturn: MockAgent | undefined
@@ -38,7 +42,7 @@ const createAgentSpy = mock(async (config: unknown) => {
   return agentToReturn
 })
 
-const createAgentUIStreamResponseSpy = mock(
+const createDurableAgentUIStreamResponseSpy = mock(
   async (options: StreamResponseOptions) => {
     if (!streamResponseHandler) {
       throw new Error('No stream response handler configured')
@@ -53,9 +57,8 @@ const resolveLLMConfigSpy = mock(async () => ({
   apiKey: 'test-key',
 }))
 
-mock.module('ai', () => ({
-  ...realAi,
-  createAgentUIStreamResponse: createAgentUIStreamResponseSpy,
+mock.module('../../../src/agent/durable-agent-ui-stream', () => ({
+  createDurableAgentUIStreamResponse: createDurableAgentUIStreamResponseSpy,
 }))
 
 mock.module('../../../src/agent/ai-sdk-agent', () => ({

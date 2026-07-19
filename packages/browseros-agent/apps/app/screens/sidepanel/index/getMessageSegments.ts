@@ -29,7 +29,7 @@ export interface NudgeData {
 }
 
 export type MessageSegment =
-  | { type: 'text'; key: string; text: string }
+  | { type: 'text'; key: string; text: string; isStreaming: boolean }
   | { type: 'reasoning'; key: string; text: string; isStreaming: boolean }
   | { type: 'tool-batch'; key: string; tools: ToolInvocationInfo[] }
   | { type: 'nudge'; key: string; nudgeType: NudgeType; data: NudgeData }
@@ -93,6 +93,8 @@ export const getMessageSegments = (
         type: 'text',
         key: `${message.id}-text-${textSegmentCount}`,
         text: part.text,
+        isStreaming:
+          isStreaming && i === message.parts.length - 1 && isLastMessage,
       })
       textSegmentCount++
     } else if (part.type === 'reasoning') {

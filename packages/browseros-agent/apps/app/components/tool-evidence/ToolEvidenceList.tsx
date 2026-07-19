@@ -64,6 +64,17 @@ function SpecializedCard({
   }
 }
 
+/** Max browser/screenshot thumbs mounted at once (older cards stay caption-only). */
+const MAX_MOUNTED_BROWSER_IMAGES = 3
+
+function withoutBrowserMedia(evidence: ToolEvidence): ToolEvidence {
+  if (!evidence.browser?.media.length) return evidence
+  return {
+    ...evidence,
+    browser: { ...evidence.browser, media: [] },
+  }
+}
+
 export const ToolEvidenceList: FC<{
   tools: ToolEvidenceSource[]
   /** Auto-open generics while streaming last batch */
@@ -109,6 +120,18 @@ export const ToolEvidenceList: FC<{
 
   const coalesced = coalesceConsecutiveFileEdits(
     specialized.map((s) => s.evidence),
+  )
+
+  const browserImageIds = coalesced
+    .filter(
+      (c) =>
+        (c.evidence.kind === 'browser-action' ||
+          c.evidence.kind === 'screenshot') &&
+        (c.evidence.browser?.media.length ?? 0) > 0,
+    )
+    .map((c) => c.evidence.toolCallId)
+  const mountImageIds = new Set(
+    browserImageIds.slice(-MAX_MOUNTED_BROWSER_IMAGES),
   )
 
   const errorCount = generics.filter((g) => g.evidence.state === 'error').length
@@ -191,7 +214,11 @@ export const ToolEvidenceList: FC<{
             )}
           >
             <SpecializedCard
-              evidence={evidence}
+              evidence={
+                mountImageIds.has(evidence.toolCallId)
+                  ? evidence
+                  : withoutBrowserMedia(evidence)
+              }
               editCount={editCount}
               conversationId={conversationId}
             />
