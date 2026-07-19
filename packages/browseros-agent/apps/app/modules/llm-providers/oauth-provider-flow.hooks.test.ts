@@ -1,4 +1,5 @@
-import { beforeAll, describe, expect, it, mock } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it, mock } from 'bun:test'
+import * as realProviderTemplates from '@/lib/llm-providers/providerTemplates'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import type { OAuthProviderFlowConfig } from './oauth-provider-flow.hooks'
 
@@ -26,6 +27,7 @@ mock.module('@/lib/llm-providers/provider-display-names', () => ({
 }))
 
 mock.module('@/lib/llm-providers/providerTemplates', () => ({
+  ...realProviderTemplates,
   getProviderTemplate: (providerType: string) =>
     providerType === 'chatgpt-pro'
       ? {
@@ -43,6 +45,14 @@ mock.module('@/modules/llm-providers/oauth-status.hooks', () => ({
     disconnect: async () => {},
   }),
 }))
+
+afterAll(() => {
+  mock.restore()
+  mock.module(
+    '@/lib/llm-providers/providerTemplates',
+    () => realProviderTemplates,
+  )
+})
 
 const chatgptConfig: OAuthProviderFlowConfig = {
   providerType: 'chatgpt-pro',
