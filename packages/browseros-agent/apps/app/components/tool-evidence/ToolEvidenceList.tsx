@@ -2,7 +2,9 @@ import { BotIcon } from 'lucide-react'
 import { type FC, type ReactNode, useEffect, useState } from 'react'
 import { Task, TaskContent, TaskTrigger } from '@/components/ai-elements/task'
 import { buildToolEvidence } from '@/lib/tool-evidence/build-tool-evidence'
+import { coalesceConsecutiveFileEdits } from '@/lib/tool-evidence/coalesce-file-edits'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
+import { useOptionalChatSessionContext } from '@/modules/chat/chat-session-context'
 import { BrowserActionCard } from './BrowserActionCard'
 import { FileChangeCard } from './FileChangeCard'
 import { GenericToolRow } from './GenericToolRow'
@@ -26,7 +28,16 @@ export const ToolEvidenceList: FC<{
   tools: ToolEvidenceSource[]
   /** Auto-open generics while streaming last batch */
   preferGenericsOpen?: boolean
-}> = ({ tools, preferGenericsOpen = false }) => {
+  /** Override conversation id for Action Log links (falls back to chat session) */
+  conversationId?: string
+}> = ({
+  tools,
+  preferGenericsOpen = false,
+  conversationId: conversationIdProp,
+}) => {
+  const chatSession = useOptionalChatSessionContext()
+  const conversationId = conversationIdProp ?? chatSession?.conversationId
+
   const items = tools.map((t) => ({
     source: t,
     evidence: buildToolEvidence({
@@ -50,6 +61,10 @@ export const ToolEvidenceList: FC<{
     (i) => !i.source.isApproval && !i.evidence.specialized,
   )
 
+  const coalesced = coalesceConsecutiveFileEdits(
+    specialized.map((s) => s.evidence),
+  )
+
   const errorCount = generics.filter((g) => g.evidence.state === 'error').length
   const genericsTitle =
     generics.length === 0
@@ -65,11 +80,20 @@ export const ToolEvidenceList: FC<{
 
   return (
     <div className="space-y-2">
-      {specialized.map(({ evidence }) =>
+      {coalesced.map(({ key, evidence, editCount }) =>
         evidence.kind === 'file-change' ? (
-          <FileChangeCard key={evidence.toolCallId} evidence={evidence} />
+          <FileChangeCard
+            key={key}
+            evidence={evidence}
+            editCount={editCount}
+            conversationId={conversationId}
+          />
         ) : (
-          <BrowserActionCard key={evidence.toolCallId} evidence={evidence} />
+          <BrowserActionCard
+            key={key}
+            evidence={evidence}
+            conversationId={conversationId}
+          />
         ),
       )}
 
