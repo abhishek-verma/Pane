@@ -7,7 +7,7 @@
  * index is not empty on a fresh install.
  */
 
-import { installSkillFromBody } from './store'
+import { getSkill, installSkillFromBody } from './store'
 
 export const BUILTIN_MEETINGS_SKILL_ID = 'builtin-meetings'
 export const BUILTIN_BROWSER_OBSERVE_SKILL_ID = 'builtin-browser-observe'
@@ -53,19 +53,20 @@ description: Observe then act on web pages with Pane browser tools. Use for brow
 
 ## Workflow
 
-1. Find pages with \`tabs\` action="list" (or open with action="new" when needed).
-2. Observe: \`snapshot\` before interacting; use \`read\` / \`grep\` / \`screenshot\` / \`wait\` as needed.
-3. Act with \`act\` using refs from the snapshot (\`[ref=e12]\`). Prefer fill/click/press over coordinate actions.
-4. Verify with \`diff\`, another \`snapshot\`, or \`read\` after consequential changes.
-5. After \`navigate\`, take a fresh \`snapshot\` — all prior refs are stale.
+1. Use the **page ID from Browser Context** for the active page. Do **not** call \`tabs\` action="list" just to rediscover that starting page.
+2. Call \`tabs\` action="list" only when you need other open pages; use action="new" to open more tabs when researching.
+3. Observe: \`snapshot\` before interacting; use \`read\` / \`grep\` / \`screenshot\` / \`wait\` as needed.
+4. Act with \`act\` using refs from the snapshot (\`[ref=e12]\`). Prefer fill/click/press over coordinate actions.
+5. Verify with \`diff\`, another \`snapshot\`, or \`read\` after consequential changes.
+6. After \`navigate\`, take a fresh \`snapshot\` — all prior refs are stale.
 
 ## Tool choice
 
 - Page-context JS (DOM values, small scripts): \`evaluate\`
 - Multi-step browser SDK script on the server: \`run\`
 - Observation gestures (\`scroll\`, \`hover\`, \`focus\`): use \`act\` — these usually auto-run
-- Mutating clicks/types/fills may require user approval — wait, do not retry in a loop
-- Tab groups: \`tab_groups\`; windows: \`windows\`
+- Mutating clicks/types/fills and \`tabs\` action="new" may require user approval — wait, do not retry in a loop
+- Tab groups: \`tab_groups\`; windows: \`windows\` (list is read-only; create/close need approval)
 
 ## Do not
 
@@ -113,7 +114,10 @@ export async function ensureBuiltinSkills(
   options: { memoriesRoot?: string } = {},
 ): Promise<void> {
   for (const skill of BUILTIN_SKILLS) {
-    // Always reinstall so skill text stays current across upgrades.
+    const existing = getSkill(skill.id)
+    // Respect user archive — do not reactivate on prompt load / startup.
+    if (existing?.status === 'archived') continue
+    // Refresh body when active/staged so upgrades stay current; install if missing.
     await installSkillFromBody({
       id: skill.id,
       body: skill.body,

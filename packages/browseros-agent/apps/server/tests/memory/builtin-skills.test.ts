@@ -16,7 +16,7 @@ import {
   ensureBuiltinSkills,
 } from '../../src/memory/builtin-skills'
 import { loadSkill } from '../../src/memory/skills'
-import { getSkill, listSkills } from '../../src/memory/store'
+import { getSkill, listSkills, setSkillStatus } from '../../src/memory/store'
 
 describe('builtin skills', () => {
   let memoriesRoot: string
@@ -54,9 +54,18 @@ describe('builtin skills', () => {
     const browser = await loadSkill('browser-observe', { memoriesRoot })
     expect(browser?.id).toBe(BUILTIN_BROWSER_OBSERVE_SKILL_ID)
     expect(browser?.body).toContain('evaluate')
+    expect(browser?.body).toContain('page ID from Browser Context')
+    expect(browser?.body).not.toMatch(/Find pages with `tabs` action="list"/i)
 
     const memory = await loadSkill('memory', { memoriesRoot })
     expect(memory?.id).toBe(BUILTIN_MEMORY_SKILL_ID)
     expect(memory?.body).toContain('memory_add')
+  })
+
+  it('does not reactivate an archived builtin skill', async () => {
+    await ensureBuiltinSkills({ memoriesRoot })
+    setSkillStatus(BUILTIN_MEETINGS_SKILL_ID, 'archived')
+    await ensureBuiltinSkills({ memoriesRoot })
+    expect(getSkill(BUILTIN_MEETINGS_SKILL_ID)?.status).toBe('archived')
   })
 })

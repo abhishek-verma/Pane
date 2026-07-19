@@ -127,6 +127,27 @@ export async function resolveWorkspaceWritePath(
   return resolved
 }
 
+function privateBrowserosPathHint(inputPath: string): string | null {
+  const normalized = inputPath.replace(/\\/g, '/').toLowerCase()
+  if (normalized.includes('/capture/') || normalized.endsWith('/capture')) {
+    return 'Path is private Pane capture storage. Use capture_list / capture_read instead of filesystem tools.'
+  }
+  if (normalized.includes('/memories/') || normalized.endsWith('/memories')) {
+    return 'Path is private Pane memory storage. Use context_recall / memory_* / skills_* instead of filesystem tools.'
+  }
+  if (
+    normalized.includes('/db/') ||
+    normalized.endsWith('/db') ||
+    normalized.endsWith('.sqlite')
+  ) {
+    return 'Path is private Pane database state. Use capture_* / context_* / memory_* tools instead of filesystem tools.'
+  }
+  if (normalized.includes('/agents/') || normalized.endsWith('/agents')) {
+    return 'Path is private Pane agent state. Do not read it with filesystem tools.'
+  }
+  return null
+}
+
 /** Resolves a BrowserOS-generated output file without exposing sibling app state. */
 export async function resolveBrowserToolOutputPath(
   inputPath: string,
@@ -136,7 +157,10 @@ export async function resolveBrowserToolOutputPath(
   const candidate = resolve(inputPath)
   const canonical = await realpath(candidate)
   if (!isPathInside(outputRoot, canonical)) {
-    throw new Error('Path is outside BrowserOS tool output.')
+    throw new Error(
+      privateBrowserosPathHint(inputPath) ??
+        'Path is outside BrowserOS tool output.',
+    )
   }
   return canonical
 }

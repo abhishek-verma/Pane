@@ -147,7 +147,7 @@ You control a Chromium browser through a compact tool surface:
 Pane records consented Meet/Zoom/Teams (and similar) calls locally:
 
 - \`capture_list\` → recent capture sessions (time, duration, site/room, segment counts)
-- \`capture_read\` → metadata + summary + transcript text for a sessionId (default include=full)
+- \`capture_read\` → metadata + local excerpt + transcript text for a sessionId (default include=full; excerpt is not AI notes)
 - \`capture_status\` → pause reason, disk usage, active session count
 - \`capture_stop\` → stop an active capture (recording itself is started by the browser extension)
 - Do **not** use generic filesystem or shell tools on capture storage paths; always use \`capture_read\`
@@ -335,6 +335,7 @@ ${workspaceRows}| Group browser tabs | \`tab_groups\` (page ids from \`tabs\`) |
 - Prefer \`act\` with refs over coordinate actions. Use coordinate kinds only when the element isn't in the snapshot.
 - Prefer \`act\` kind="fill" for text input. Use kind="press" for keyboard shortcuts (Enter, Escape, Tab, Ctrl+A, etc.).
 - Prefer clicking visible links with \`act\` over direct navigation. Use \`navigate\` for direct URL access, back/forward, or reload.
+- \`navigate\` usually auto-runs. Opening tabs with \`tabs\` action="new" (and creating/closing windows) may require user approval — wait rather than looping.
 
 ${navTable}</tool_selection>`
 }
@@ -347,6 +348,8 @@ function getExternalIntegrations(
   _exclude: Set<string>,
   options?: BuildSystemPromptOptions,
 ): string {
+  // Chat mode strips external MCP tools — never advertise them there.
+  if (options?.chatMode) return ''
   // In-process AiSdkAgent does not wire Klavis/Strata discovery tools. Only
   // describe MCP servers that actually appear in the tool list / declined list.
   if (!options?.connectedApps?.length && !options?.declinedApps?.length) {
@@ -587,12 +590,13 @@ function getUserContext(
 
 function getMemoryAndSkillsGuidance(
   _exclude: Set<string>,
-  _options?: BuildSystemPromptOptions,
+  options?: BuildSystemPromptOptions,
 ): string {
-  return `<memory_and_skills_guidance>
-## Memory & Skills Management
+  const chatMode = Boolean(options?.chatMode)
+  const hasWorkspace = !!options?.workspaceDir && !chatMode
 
-You operate within a rich ecosystem containing persistent Memory, a personal Soul, a local Workspace, custom Skills, and external Tools. You must understand when and how to use each part:
+  let body = `<memory_and_skills_guidance>
+## Memory & Skills Management
 
 ### 1. Unified Context & Memory Search
 - For **meetings / calls / transcripts**, start with \`capture_list\` then \`capture_read\`. Do not use filesystem tools on capture paths.
@@ -600,25 +604,46 @@ You operate within a rich ecosystem containing persistent Memory, a personal Sou
 - Use \`context_recall\` when you only need durable memory notes (preferences, identity facts).
 - Adjust \`limit\` (default 10) based on lookup complexity.
 - Read memory/context at the start of a task when the user's ongoing work or preferences matter.
+`
 
+  if (!chatMode) {
+    body += `
 ### 2. Memory Lifecycle (Concise Fact Summaries Only)
-- **Top-of-mind rules**: Memories must remain concise, high-level summaries and "top-of-mind" facts to avoid clogging the prompt budget. Do NOT store large tables, detailed research logs, or raw code in memory. Instead, save detailed files to the Workspace.
+- **Top-of-mind rules**: Memories must remain concise, high-level summaries and "top-of-mind" facts to avoid clogging the prompt budget. Do NOT store large tables, detailed research logs, or raw code in memory.${hasWorkspace ? ' Instead, save detailed files to the Workspace.' : ''}
 - **Creating/Adding**: Call \`memory_add\` when the user explicitly asks you to remember something, or proactively when you learn a persistent high-level fact (e.g. user preferences, API key locations, project base folders).
 - **Updating**: Call \`memory_replace\` when a fact or preference is modified or updated.
 - **Removing**: Call \`memory_remove\` when the user asks to forget a fact or when it becomes obsolete.
+`
+  } else {
+    body += `
+### 2. Read-only chat mode
+- You can recall and search memory/context, but you cannot add, replace, or remove memories in this mode.
+- You cannot install skills, mutate tasks/home widgets, or start/stop captures.
+`
+  }
 
+  if (hasWorkspace) {
+    body += `
 ### 3. Workspace (Knowledge & Files Workspace)
 - The Workspace (working directory) is your long-term context store for structured documents, spreadsheets, tables, templates, and research logs.
 - Save detailed multi-page research, CSV files (e.g. job trackers), market notes, and multidimensional logs in workspace files rather than memory.
+`
+  }
 
-### 4. Custom Skills
+  body += `
+### ${hasWorkspace ? '4' : '3'}. Custom Skills
 - Use \`skills_list\` to see active skills (name and description).
 - Load full instructions using \`skills_load\` before running a task that matches an active skill in the skill index.
-- Use \`skills_install\` when installing new workflows or guides.
-
-### 5. Context
+${
+  chatMode
+    ? ''
+    : '- Use `skills_install` when installing new workflows or guides.\n'
+}
+### ${hasWorkspace ? '5' : '4'}. Context
 - Context is your short-term session state (current window, messages list, page DOM snapshots). It disappears when starting a new chat session.
 </memory_and_skills_guidance>`
+
+  return body
 }
 
 // -----------------------------------------------------------------------------

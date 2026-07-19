@@ -87,6 +87,12 @@ describe('meeting capture pipeline', () => {
     expect(hits.some((h) => h.kind === 'meeting')).toBe(true)
 
     const tools = buildCaptureToolSet(() => 'default')
+    expect(tools.capture_start).toBeDefined()
+    const inProcessTools = buildCaptureToolSet(() => 'default', {
+      includeStartTool: false,
+    })
+    expect(inProcessTools.capture_start).toBeUndefined()
+
     const readResult = await tools.capture_read.execute?.(
       { sessionId: session.id },
       { toolCallId: 't1', messages: [] },
@@ -97,6 +103,12 @@ describe('meeting capture pipeline', () => {
       }),
     )
     expect((readResult as { text: string }).text).toContain('## Transcript')
+    expect((readResult as { text: string }).text).toContain(
+      'Local excerpt / metadata',
+    )
+    expect((readResult as { text: string }).text).not.toContain(
+      'Summary is pending',
+    )
   })
 
   it('reindexes placeholder meeting graph summaries', async () => {

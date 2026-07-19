@@ -291,6 +291,21 @@ describe('deriveClass payment / form-target escalation', () => {
     ).toBe('write-external')
   })
 
+  it('classifies windows list as read and mutations as write-external', () => {
+    expect(deriveClass('windows', { action: 'list' }, makeCtx())).toBe('read')
+    expect(deriveClass('windows', {}, makeCtx())).toBe('read')
+    for (const action of [
+      'create',
+      'close',
+      'activate',
+      'set_visibility',
+    ] as const) {
+      expect(deriveClass('windows', { action }, makeCtx())).toBe(
+        'write-external',
+      )
+    }
+  })
+
   it('does not treat password field text in args as approval bypass', () => {
     const args = {
       kind: 'fill',

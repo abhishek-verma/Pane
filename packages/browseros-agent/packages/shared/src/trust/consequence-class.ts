@@ -35,7 +35,6 @@ const READ_BROWSER_TOOLS = new Set([
   'diff',
   'pdf',
   'wait',
-  'windows',
   'navigate',
 ])
 
@@ -175,6 +174,12 @@ function baseClassForTool(
   }
 
   if (toolName === 'tab_groups') {
+    const action = typeof args.action === 'string' ? args.action : 'list'
+    if (action === 'list') return 'read'
+    return 'write-external'
+  }
+
+  if (toolName === 'windows') {
     const action = typeof args.action === 'string' ? args.action : 'list'
     if (action === 'list') return 'read'
     return 'write-external'
