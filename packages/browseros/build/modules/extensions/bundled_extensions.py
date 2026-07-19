@@ -88,6 +88,10 @@ class BundledExtensionsModule(CommandModule):
         """Fetch XML manifest and parse extension information"""
         log_info(f"  Fetching manifest: {url}")
 
+        local_path = Path(url.removeprefix("file://")) if url.startswith("file://") else Path(url)
+        if local_path.is_file():
+            return self._parse_manifest_xml(local_path.read_text(encoding="utf-8"))
+
         try:
             response = requests.get(url, timeout=30)
             response.raise_for_status()

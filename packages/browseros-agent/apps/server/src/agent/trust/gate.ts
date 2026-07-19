@@ -212,7 +212,29 @@ export function wrapToolWithGate<T extends Tool>(
   const wrapped = tool({
     description: original.description,
     inputSchema,
-    needsApproval: async (input) => {
+    needsApproval: async (
+      input,
+      options?: { toolCallId?: string; messages?: any[] },
+    ) => {
+      if (options?.toolCallId && options.messages) {
+        const toolCallId = options.toolCallId
+        const messages = options.messages
+        for (const message of messages) {
+          if (message.role !== 'assistant' || !message.parts) continue
+          for (const part of message.parts) {
+            if (
+              (part.type === 'dynamic-tool' ||
+                part.type?.startsWith('tool-')) &&
+              part.toolCallId === toolCallId
+            ) {
+              if (part.state === 'approval-responded') {
+                return true
+              }
+            }
+          }
+        }
+      }
+
       const ctx = { ...ctxProvider(), surface: 'loop' as const }
       const args = input as Record<string, unknown>
       const cls = deriveClass(toolName, args, ctx)

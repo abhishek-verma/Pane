@@ -25,6 +25,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { HomeWidget } from './AdaptiveHomeWidgets'
+import {
+  ActionGridTemplate,
+  type SkillItem,
+} from './templates/ActionGridTemplate'
+import {
+  ApprovalGateTemplate,
+  type ApprovalItem,
+} from './templates/ApprovalGateTemplate'
+import { BriefingTemplate } from './templates/BriefingTemplate'
+import { LiveStatusTemplate } from './templates/LiveStatusTemplate'
+import { MetricTemplate } from './templates/MetricTemplate'
+import { type PageItem, TimelineTemplate } from './templates/TimelineTemplate'
 
 const WIDGET_ICONS: Record<string, FC<{ className?: string }>> = {
   'next-meeting': CalendarClock,
@@ -89,17 +101,20 @@ function getWidgetMeta(widget: HomeWidget): WidgetMeta {
         urgent: false,
       }
     case 'pending-approvals': {
-      const count = (widget.data.items as unknown[])?.length ?? 0
+      const items = Array.isArray(widget.data.items)
+        ? (widget.data.items as ApprovalItem[])
+        : []
+      const hasTokens = items.some((item) => item.approveToken)
       return {
         timestamp: '',
-        actionLabel: count > 0 ? 'Review' : 'View tasks',
-        urgent: count > 0,
+        actionLabel: hasTokens ? '' : 'View tasks',
+        urgent: !hasTokens && items.length > 0,
       }
     }
     case 'one-click-recurring':
       return { timestamp: '', actionLabel: 'Run now', urgent: false }
     case 'daily-digest':
-      return { timestamp: 'Today', actionLabel: 'Read', urgent: false }
+      return { timestamp: 'Today', actionLabel: '', urgent: false }
     case 'resumed-work':
       return { timestamp: '', actionLabel: 'Restore', urgent: false }
     default: {
@@ -120,78 +135,134 @@ function getWidgetMeta(widget: HomeWidget): WidgetMeta {
   }
 }
 
+function cleanDigestContent(content: string): string {
+  const lines = content.split('\n')
+  const sections: Array<{ title: string; items: string[] }> = []
+  let currentSection: { title: string; items: string[] } | null = null
+  const headerLines: string[] = []
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+
+    // Skip main title and metadata
+    if (
+      trimmed.startsWith('# ') &&
+      trimmed.toLowerCase().includes('daily digest')
+    ) {
+      continue
+    }
+    if (
+      trimmed.startsWith('_Assembled') ||
+      (trimmed.startsWith('_') &&
+        trimmed.endsWith('_') &&
+        trimmed.includes('Assembled'))
+    ) {
+      continue
+    }
+
+    // Convert section headers "## Section" to bold uppercase text "SECTION"
+    if (trimmed.startsWith('## ')) {
+      const secName = trimmed.replace(/^##\s+/, '').toUpperCase()
+      currentSection = { title: `**${secName}**`, items: [] }
+      sections.push(currentSection)
+      continue
+    }
+
+    // Replace checkboxes - [inbox] with bullets
+    if (trimmed.startsWith('- [') || trimmed.startsWith('- ')) {
+      const bullet = trimmed
+        .replace(/^-\s+\[[^\]]+\]\s*/, '• ') // Remove status badge e.g. [inbox]
+        .replace(/^-\s+/, '• ')
+      if (currentSection) {
+        currentSection.items.push(bullet)
+      } else {
+        headerLines.push(bullet)
+      }
+      continue
+    }
+
+    // Keep other non-empty lines but strip markdown bold/italic/code marks
+    if (trimmed.length > 0) {
+      const cleaned = trimmed.replace(/[*_`]/g, '')
+      if (currentSection) {
+        currentSection.items.push(cleaned)
+      } else {
+        headerLines.push(cleaned)
+      }
+    }
+  }
+
+  const outLines: string[] = [...headerLines]
+  for (const sec of sections) {
+    const activeItems = sec.items.filter((item) => {
+      const lower = item.toLowerCase()
+      return !lower.includes('none') && lower.trim().length > 0
+    })
+    if (activeItems.length > 0) {
+      if (outLines.length > 0) {
+        outLines.push('')
+      }
+      outLines.push(sec.title)
+      outLines.push(...activeItems)
+    }
+  }
+
+  if (outLines.length === 0) {
+    return 'Your daily digest is quiet. No pending approvals, live meetings, or active inbox tasks.'
+  }
+
+  return outLines.join('\n').trim()
+}
+
+function _getDomain(uri?: string): string {
+  if (!uri) return ''
+  try {
+    const url = new URL(uri)
+    return url.hostname.replace('www.', '')
+  } catch {
+    return ''
+  }
+}
+
 const WidgetContent: FC<{ widget: HomeWidget }> = ({ widget }) => {
   if (widget.type === 'daily-digest') {
-    const content = String(widget.data.content ?? '')
-    return (
-      <p className="line-clamp-3 text-muted-foreground text-xs leading-5">
-        {content.slice(0, 240)}
-      </p>
-    )
+    const content = cleanDigestContent(String(widget.data.content ?? ''))
+    return <BriefingTemplate content={content} />
   }
   if (widget.type === 'pending-approvals') {
-    const items = (widget.data.items as Array<Record<string, string>>) ?? []
-    if (items.length === 0)
-      return (
-        <p className="text-muted-foreground text-xs">No pending actions.</p>
-      )
-    return (
-      <div className="space-y-1">
-        {items.slice(0, 3).map((item) => (
-          <div key={item.id} className="text-sm">
-            <span className="font-medium">
-              {item.toolName ?? item.title ?? item.id}
-            </span>
-            {item.preview ? (
-              <span className="text-muted-foreground">
-                {' '}
-                — {item.preview.slice(0, 60)}
-              </span>
-            ) : null}
-          </div>
-        ))}
-        {items.length > 3 && (
-          <p className="text-muted-foreground text-xs">
-            +{items.length - 3} more
-          </p>
-        )}
-      </div>
-    )
+    const items = Array.isArray(widget.data.items)
+      ? (widget.data.items as ApprovalItem[])
+      : []
+    return <ApprovalGateTemplate items={items} />
   }
   if (widget.type === 'resumed-work') {
-    const pages =
-      (widget.data.pages as Array<{ title?: string; uri?: string }>) ?? []
-    return (
-      <div className="space-y-1">
-        {pages.slice(0, 3).map((p, i) => (
-          <p key={p.uri ?? String(i)} className="truncate text-sm">
-            {p.title ?? p.uri}
-          </p>
-        ))}
-      </div>
-    )
+    const pages = Array.isArray(widget.data.pages)
+      ? (widget.data.pages as PageItem[])
+      : []
+    return <TimelineTemplate pages={pages} />
   }
   if (widget.type === 'one-click-recurring') {
-    const skills =
-      (widget.data.skills as Array<{ id: string; name: string }>) ?? []
-    return (
-      <div className="space-y-1">
-        {skills.slice(0, 3).map((s) => (
-          <p key={s.id} className="text-sm">
-            {s.name}
-          </p>
-        ))}
-      </div>
-    )
+    const skills = Array.isArray(widget.data.skills)
+      ? (widget.data.skills as SkillItem[])
+      : []
+    return <ActionGridTemplate skills={skills} />
   }
   if (widget.type === 'next-meeting') {
-    const title = String(widget.data.title ?? widget.data.url ?? 'Meeting')
     const status = String(widget.data.status ?? '')
+    const url = String(widget.data.url ?? '')
+    const startedAt = widget.data.startedAt as number | undefined
+    if (status === 'active') {
+      return (
+        <LiveStatusTemplate status={status} startedAt={startedAt} url={url} />
+      )
+    }
     return (
-      <div>
-        <p className="font-medium text-sm">{title}</p>
-        <p className="text-muted-foreground text-xs">
-          {status === 'active' ? 'Recording now' : 'Recent meeting'}
+      <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/20 p-3">
+        <p className="font-semibold text-foreground text-xs">
+          {String(widget.data.title ?? 'Recent Meeting')}
+        </p>
+        <p className="text-muted-foreground text-xs leading-5">
+          Meeting ended. Transcription and notes are saved.
         </p>
       </div>
     )
@@ -201,39 +272,36 @@ const WidgetContent: FC<{ widget: HomeWidget }> = ({ widget }) => {
     const pageCount = Number(widget.data.pageCount ?? 0)
     return (
       <div>
-        <p className="font-medium text-sm">{topic}</p>
+        <p className="font-semibold text-foreground text-sm leading-snug">
+          {topic}
+        </p>
         <p className="text-muted-foreground text-xs">
           {pageCount} captured page{pageCount === 1 ? '' : 's'}
         </p>
       </div>
     )
   }
-  // User widget — show binding result
+
+  // User widget — show binding result mapped to MetricTemplate
   const binding = widget.data.binding as
     | {
-        items?: Array<{ label: string; sublabel?: string }>
+        items?: Array<{
+          label: string
+          sublabel?: string
+          meta?: string
+          id?: string
+        }>
         primaryLabel?: string
         count?: number
       }
     | undefined
+
   if (!binding) return null
   const label = binding.primaryLabel ?? binding.items?.[0]?.label ?? ''
   const count = binding.count ?? binding.items?.length ?? 0
-  return (
-    <div>
-      {label && <p className="font-medium text-sm">{label}</p>}
-      {count > 0 && !binding.primaryLabel && (
-        <p className="text-muted-foreground text-xs">
-          {count} item{count === 1 ? '' : 's'}
-        </p>
-      )}
-      {binding.items?.slice(0, 3).map((item, i) => (
-        <p key={String(i)} className="truncate text-muted-foreground text-xs">
-          {item.label}
-        </p>
-      ))}
-    </div>
-  )
+  const items = binding.items ?? []
+
+  return <MetricTemplate label={label} count={count} items={items} />
 }
 
 export interface WidgetCardProps {
@@ -259,7 +327,7 @@ export const WidgetCard: FC<WidgetCardProps> = ({
 
   return (
     <article
-      className="group relative rounded-[var(--radius)] border border-border/50 bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
+      className="group relative rounded-[var(--radius)] border border-border/40 bg-card/70 p-4 shadow-sm backdrop-blur-md transition-all duration-300 hover:scale-[1.01] hover:border-[var(--accent-orange)]/30 hover:shadow-md"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >

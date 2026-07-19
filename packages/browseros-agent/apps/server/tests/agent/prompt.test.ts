@@ -113,6 +113,7 @@ describe('section presence', () => {
       '<nudge_tools>', // nudges
       '<style_rules>', // style
       '<page_context>', // user-context (page context part)
+      '<memory_and_skills_guidance>', // memory-and-skills-guidance
       '<FINAL_REMINDER>', // security-reminder
     ]
 

@@ -4,10 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import {
-  SEARCH_DEFAULT_LIMIT,
-  SEARCH_MAX_LIMIT,
-} from '@browseros/context-graph/constants'
+import { SEARCH_MAX_LIMIT } from '@browseros/context-graph/constants'
 import {
   RECALL_DEFAULT_LIMIT,
   RECALL_MAX_LIMIT,
@@ -67,33 +64,130 @@ export function buildContextToolSet(getBucketId: () => string): ToolSet {
     }),
     context_search: tool({
       description:
-        'Search the local context graph. Returns short snippets only (not full documents) for prompt-budget discipline.',
+        'Search the unified local context graph (browsing history, research, meeting notes, files, sessions) and long-term memory. Returns the top k relevant snippets.',
       inputSchema: z.object({
         query: z.string().min(1),
         bucketId: z.string().optional(),
-        limit: z.number().int().min(1).max(SEARCH_MAX_LIMIT).optional(),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(SEARCH_MAX_LIMIT)
+          .optional()
+          .describe('The top k results to return. Defaults to 10.'),
       }),
       execute: async ({ query, bucketId, limit }) => {
         const id = bucketId || getBucketId()
         const denied = getDeniedHosts(id)
-        const hits = graphSearch(id, query, limit ?? SEARCH_DEFAULT_LIMIT, {
+        const k = limit ?? 10
+
+        // 1. Fetch from context graph FTS5
+        const graphHits = graphSearch(id, query, k * 2, {
           deniedHosts: denied,
         })
-        if (hits.length === 0) {
-          return { text: `No context matches for "${query}".` }
+
+        // 2. Fetch from memory
+        const memoryHits = listEntries({
+          bucketId: id,
+          query,
+          status: ['active', 'demoted'],
+          limit: k * 2,
+        })
+
+        interface Candidate {
+          id: string
+          kind: string
+          title: string | null
+          uri: string | null
+          snippet: string
+          metadata?: string
         }
-        const lines = hits.map((h, i) => {
+
+        const candidates: Candidate[] = []
+
+        for (const h of graphHits) {
           const citation =
             h.kind === 'research_page' ? lookupResearchCitation(h.nodeId) : null
-          const citationLine = citation
-            ? `\n   citation: ${JSON.stringify({
+          const metadata = citation
+            ? JSON.stringify({
                 url: citation.url,
                 quote: citation.quote,
                 capturedAt: citation.capturedAt,
-              })}`
-            : ''
-          return `${i + 1}. [${h.kind}] ${h.title ?? '(untitled)'} — ${h.uri ?? ''}\n   ${h.snippet}${citationLine}`
+              })
+            : undefined
+
+          candidates.push({
+            id: h.nodeId,
+            kind: h.kind,
+            title: h.title,
+            uri: h.uri,
+            snippet: h.snippet,
+            metadata,
+          })
+        }
+
+        for (const h of memoryHits) {
+          candidates.push({
+            id: h.id,
+            kind: 'memory',
+            title: `Memory: ${h.layer}`,
+            uri: null,
+            snippet: h.content,
+          })
+        }
+
+        if (candidates.length === 0) {
+          return { text: `No context or memory matches for "${query}".` }
+        }
+
+        // Lightweight TF-IDF similarity scoring
+        const queryText = query.toLowerCase().trim()
+        const queryWords = queryText.split(/\s+/).filter(Boolean)
+
+        const computeScore = (c: Candidate) => {
+          if (queryWords.length === 0) return 0
+          const title = (c.title || '').toLowerCase()
+          const snippet = (c.snippet || '').toLowerCase()
+          const uri = (c.uri || '').toLowerCase()
+          const fullText = `${title} ${snippet} ${uri}`
+
+          let score = 0
+          if (fullText.includes(queryText)) {
+            score += 10
+          }
+          let matched = 0
+          for (const word of queryWords) {
+            if (fullText.includes(word)) {
+              matched++
+              if (title.includes(word)) {
+                score += 2
+              } else {
+                score += 1
+              }
+            }
+          }
+          score += (matched / queryWords.length) * 5
+          return score
+        }
+
+        const ranked = candidates
+          .map((c) => ({ candidate: c, score: computeScore(c) }))
+          .sort((a, b) => b.score - a.score)
+
+        // Increment usefulness for memory hits that made it to top k
+        const topK = ranked.slice(0, k).map((r) => r.candidate)
+        const topMemoryIds = topK
+          .filter((c) => c.kind === 'memory')
+          .map((c) => c.id)
+        if (topMemoryIds.length > 0) {
+          bumpSurfaced(topMemoryIds, 1)
+        }
+
+        const lines = topK.map((c, i) => {
+          const citationLine = c.metadata ? `\n   citation: ${c.metadata}` : ''
+          return `${i + 1}. [${c.kind}] ${c.title ?? '(untitled)'}${c.uri ? ` — ${c.uri}` : ''}\n   ${c.snippet}${citationLine}`
         })
+
         return { text: lines.join('\n') }
       },
     }),

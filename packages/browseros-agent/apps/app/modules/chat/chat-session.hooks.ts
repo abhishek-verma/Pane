@@ -802,8 +802,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   useEffect(() => {
     const unwatch = searchActionsStorage.watch((storageAction) => {
       if (storageAction) {
+        resetConversationState()
         setMode(storageAction.mode)
-        sendMessage({ text: storageAction.query, action: storageAction.action })
+        setTimeout(() => {
+          sendMessage({
+            text: storageAction.query,
+            action: storageAction.action,
+          })
+        }, 0)
+        searchActionsStorage.setValue(null)
       }
     })
     return () => unwatch()
@@ -824,7 +831,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const resetConversationState = () => {
     stop()
     void finishExecutionTask({ isAbort: true })
-    setConversationId(crypto.randomUUID())
+    const nextConvoId = crypto.randomUUID()
+    setConversationId(nextConvoId)
+    conversationIdRef.current = nextConvoId
     setMessages([])
     setTextToAction(new Map())
     setLiked({})

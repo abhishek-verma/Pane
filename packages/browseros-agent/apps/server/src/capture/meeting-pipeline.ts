@@ -5,19 +5,17 @@
  */
 
 import { existsSync } from 'node:fs'
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import {
-  ByokTranscriptionProvider,
-  LocalFasterWhisperProvider,
-} from '@browseros/capture/providers'
+import { detectMeetingRoom } from '@browseros/capture/meeting-urls'
+import { ByokTranscriptionProvider } from '@browseros/capture/providers'
 import type {
   AudioChunk,
+  CaptureAudioTrack,
   CaptureClass,
   CaptureSessionStatus,
-  TranscriptionProvider,
+  MeetingSite,
   TranscriptionProviderId,
-  TranscriptionSession,
   TranscriptSegment,
 } from '@browseros/capture/types'
 import { graphAddEvent, graphUpsertNode } from '../context/repo'
@@ -25,17 +23,27 @@ import { getCaptureDir } from '../lib/browseros-dir'
 import { getDbHandle } from '../lib/db'
 import { logger } from '../lib/logger'
 import { requireCaptureConsent } from './consent'
-import { assertCaptureNotPaused, refreshCapturePauseState } from './performance'
+import {
+  assertCanStartNewCapture,
+  isAsrDeferredGlobally,
+  refreshCapturePauseState,
+} from './performance'
 import { getCaptureAsrSecret } from './secrets'
+import {
+  drainAsrSession,
+  enqueueAsrJob,
+  registerAsrSession,
+  registeredAsrSessionCount,
+  unregisterAsrSession,
+} from './shared-asr-worker'
+import { publishCaptureEvent } from './transcript-events'
+import { estimateChunkEnergy, noteAsrText, shouldEnqueueAsr } from './vad'
 
 /** DB-active meetings older than this with no in-memory recorder are treated as stale. */
 const STALE_ACTIVE_SESSION_MS = 6 * 60 * 60 * 1000
-/**
- * Active meetings with no uploaded audio after this long are abandoned.
- * Keep short: empty zombies previously crash-looped the server via ASR rehydrate.
- * 60s still leaves room for the first MediaRecorder timeslice (~2s) after start.
- */
 const EMPTY_ACTIVE_SESSION_MS = 60 * 1000
+/** Resume TTL for interrupted sessions (roomKey lookup). */
+export const ROOM_RESUME_TTL_MS = 45 * 60 * 1000
 
 export interface CaptureSessionSummary {
   id: string
@@ -51,44 +59,74 @@ export interface CaptureSessionSummary {
   transcriptPath: string | null
   summaryPath: string | null
   graphNodeId: string | null
+  site: MeetingSite | null
+  roomKey: string | null
+  lastChunkAt: number | null
+  asrWatermarkPcm: number
+  lastAsrSequence: number
+  includeMic: boolean
+  asrDeferred?: boolean
 }
 
-const activeSessions = new Map<
-  string,
-  {
-    providerSession: TranscriptionSession
-    transcriptPath: string
-    rawDir: string
+type RegisteredSession = {
+  transcriptPath: string
+  rawDir: string
+  provider: TranscriptionProviderId
+  byokSession?: {
+    feedChunk: (chunk: AudioChunk) => Promise<void>
+    stop: () => Promise<void>
   }
->()
+}
+
+const registeredSessions = new Map<string, RegisteredSession>()
 const feedQueues = new Map<string, Promise<void>>()
-/** ASR feeds run after disk persist so Whisper latency cannot block/kill uploads. */
+/** Per-session ASR task chain (ordering); jobs go to fair shared worker. */
 const asrQueues = new Map<string, Promise<void>>()
 
 function sqlite() {
   return getDbHandle().sqlite
 }
 
-function providerFor(id: TranscriptionProviderId): TranscriptionProvider {
-  if (id === 'openai-byok') {
-    const apiKey = getCaptureAsrSecret('openai')
-    if (!apiKey) {
-      throw new Error(
-        'OpenAI BYOK transcription requires capture/openai_api_key',
-      )
-    }
-    return new ByokTranscriptionProvider(id, apiKey)
+function byokProvider(id: 'openai-byok' | 'deepgram-byok') {
+  const apiKey =
+    id === 'openai-byok'
+      ? getCaptureAsrSecret('openai')
+      : getCaptureAsrSecret('deepgram')
+  if (!apiKey) {
+    throw new Error(`${id} transcription requires capture API key`)
   }
-  if (id === 'deepgram-byok') {
-    const apiKey = getCaptureAsrSecret('deepgram')
-    if (!apiKey) {
-      throw new Error(
-        'Deepgram BYOK transcription requires capture/deepgram_api_key',
-      )
+  return new ByokTranscriptionProvider(id, apiKey)
+}
+
+async function writeAsrState(
+  sessionDir: string,
+  state: {
+    lastContiguousSequence: number
+    asrPcmOffset: number
+    lastFinalAt: number
+  },
+): Promise<void> {
+  const path = join(sessionDir, 'asr-state.json')
+  await writeFile(path, `${JSON.stringify(state, null, 2)}\n`)
+}
+
+async function readAsrState(sessionDir: string): Promise<{
+  lastContiguousSequence: number
+  asrPcmOffset: number
+} | null> {
+  try {
+    const raw = await readFile(join(sessionDir, 'asr-state.json'), 'utf8')
+    const parsed = JSON.parse(raw) as {
+      lastContiguousSequence?: number
+      asrPcmOffset?: number
     }
-    return new ByokTranscriptionProvider(id, apiKey)
+    return {
+      lastContiguousSequence: parsed.lastContiguousSequence ?? -1,
+      asrPcmOffset: parsed.asrPcmOffset ?? 0,
+    }
+  } catch {
+    return null
   }
-  return new LocalFasterWhisperProvider()
 }
 
 export async function startMeetingCapture(input: {
@@ -98,12 +136,53 @@ export async function startMeetingCapture(input: {
   title?: string
   provider?: TranscriptionProviderId
   requireConsent?: boolean
+  includeMic?: boolean
+  resumeSessionId?: string
 }): Promise<CaptureSessionSummary> {
   await refreshCapturePauseState()
-  assertCaptureNotPaused()
   if (input.requireConsent !== false) {
     requireCaptureConsent(input.url, 'meeting')
   }
+
+  const detected = detectMeetingRoom(input.url)
+  const site = detected?.site ?? null
+  const roomKey = detected?.roomKey ?? null
+
+  // Sticky / roomKey resume — allowed even when new sessions are refused.
+  if (input.resumeSessionId) {
+    const existing = getCaptureSession(input.resumeSessionId)
+    if (
+      existing &&
+      (existing.status === 'active' ||
+        existing.status === 'interrupted' ||
+        existing.status === 'paused')
+    ) {
+      return resumeMeetingCapture({
+        sessionId: existing.id,
+        tabId: input.tabId,
+        url: input.url,
+        title: input.title,
+      })
+    }
+  }
+  if (roomKey && site) {
+    const resumable = findResumableSession({
+      bucketId: input.bucketId,
+      site,
+      roomKey,
+    })
+    if (resumable) {
+      return resumeMeetingCapture({
+        sessionId: resumable.id,
+        tabId: input.tabId,
+        url: input.url,
+        title: input.title,
+      })
+    }
+  }
+
+  assertCanStartNewCapture()
+
   const id = crypto.randomUUID()
   const providerId = input.provider ?? 'local-faster-whisper'
   const startedAt = Date.now()
@@ -117,18 +196,20 @@ export async function startMeetingCapture(input: {
     summaryPath,
     `# Meeting Capture\n\nSummary is pending. Transcript: ${transcriptPath}\n`,
   )
-  const providerSession = await providerFor(providerId).startSession({
-    sessionId: id,
-    onPartial: (segment) => void appendTranscript(transcriptPath, segment),
-    onFinal: (segment) => void appendTranscript(transcriptPath, segment),
+  await writeAsrState(sessionDir, {
+    lastContiguousSequence: -1,
+    asrPcmOffset: 0,
+    lastFinalAt: 0,
   })
-  activeSessions.set(id, { providerSession, transcriptPath, rawDir })
+
+  const includeMic = input.includeMic !== false ? 1 : 0
   sqlite()
     .prepare(
       `INSERT INTO capture_sessions
        (id, bucket_id, kind, tab_id, url, title, status, provider, started_at,
-        transcript_path, summary_path)
-       VALUES (?, ?, 'meeting', ?, ?, ?, 'active', ?, ?, ?, ?)`,
+        transcript_path, summary_path, site, room_key, last_chunk_at,
+        asr_watermark_pcm, last_asr_sequence, include_mic)
+       VALUES (?, ?, 'meeting', ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?, 0, -1, ?)`,
     )
     .run(
       id,
@@ -140,54 +221,220 @@ export async function startMeetingCapture(input: {
       startedAt,
       transcriptPath,
       summaryPath,
+      site,
+      roomKey,
+      startedAt,
+      includeMic,
     )
+
+  await attachSessionRuntime({
+    id,
+    provider: providerId,
+    transcriptPath,
+    rawDir,
+  })
+
+  publishCaptureEvent(id, {
+    type: 'status',
+    sessionId: id,
+    status: 'active',
+  })
   return getCaptureSession(id) as CaptureSessionSummary
 }
 
-/**
- * Rebuild in-memory ASR state for a DB-active session after a server restart.
- * Without this, chunk uploads fail with "Capture session not active" and the
- * meeting produces an empty transcript even though the client is still recording.
- */
-async function rehydrateSession(session: CaptureSessionSummary): Promise<{
-  providerSession: TranscriptionSession
+async function attachSessionRuntime(input: {
+  id: string
+  provider: TranscriptionProviderId
   transcriptPath: string
   rawDir: string
-} | null> {
-  if (!session.transcriptPath) return null
-  const existing = activeSessions.get(session.id)
-  if (existing) return existing
+}): Promise<void> {
+  const onSegment = (segment: TranscriptSegment) => {
+    void appendTranscript(input.transcriptPath, segment).then(() => {
+      publishCaptureEvent(input.id, { type: 'segment', segment })
+    })
+  }
 
+  if (input.provider === 'local-faster-whisper') {
+    await registerAsrSession(input.id, {
+      onPartial: onSegment,
+      onFinal: (segment) => {
+        onSegment(segment)
+        const sessionDir = input.transcriptPath.replace(
+          /\/transcript\.jsonl$/,
+          '',
+        )
+        void touchWatermark(input.id, sessionDir, segment)
+      },
+    })
+    registeredSessions.set(input.id, {
+      transcriptPath: input.transcriptPath,
+      rawDir: input.rawDir,
+      provider: input.provider,
+    })
+    return
+  }
+
+  const provider = byokProvider(input.provider)
+  const byokSession = await provider.startSession({
+    sessionId: input.id,
+    onPartial: onSegment,
+    onFinal: onSegment,
+  })
+  registeredSessions.set(input.id, {
+    transcriptPath: input.transcriptPath,
+    rawDir: input.rawDir,
+    provider: input.provider,
+    byokSession,
+  })
+}
+
+async function touchWatermark(
+  sessionId: string,
+  sessionDir: string,
+  segment: TranscriptSegment,
+): Promise<void> {
+  const state = await readAsrState(sessionDir)
+  const lastSeq = state?.lastContiguousSequence ?? -1
+  sqlite()
+    .prepare(
+      `UPDATE capture_sessions SET asr_watermark_pcm = asr_watermark_pcm WHERE id = ?`,
+    )
+    .run(sessionId)
+  await writeAsrState(sessionDir, {
+    lastContiguousSequence: lastSeq,
+    asrPcmOffset: state?.asrPcmOffset ?? 0,
+    lastFinalAt: segment.capturedAt,
+  })
+}
+
+export function findResumableSession(input: {
+  bucketId: string
+  site: MeetingSite
+  roomKey: string
+  now?: number
+}): CaptureSessionSummary | null {
+  const now = input.now ?? Date.now()
+  const row = sqlite()
+    .prepare<CaptureSessionDbRow, [string, string, string, number]>(
+      `SELECT * FROM capture_sessions
+       WHERE bucket_id = ? AND site = ? AND room_key = ?
+         AND status IN ('active', 'interrupted', 'paused')
+         AND COALESCE(last_chunk_at, started_at) >= ?
+       ORDER BY COALESCE(last_chunk_at, started_at) DESC
+       LIMIT 1`,
+    )
+    .get(input.bucketId, input.site, input.roomKey, now - ROOM_RESUME_TTL_MS)
+  return row ? rowToSummary(row) : null
+}
+
+export async function resumeMeetingCapture(input: {
+  sessionId: string
+  tabId: number
+  url?: string
+  title?: string
+}): Promise<CaptureSessionSummary> {
+  const session = getCaptureSession(input.sessionId)
+  if (!session?.transcriptPath) {
+    throw new Error(`Capture session not resumable: ${input.sessionId}`)
+  }
   const sessionDir = session.transcriptPath.replace(/\/transcript\.jsonl$/, '')
   const rawDir = join(sessionDir, 'audio-chunks')
   await mkdir(rawDir, { recursive: true })
-  await mkdir(join(sessionDir, 'page-snapshots'), { recursive: true })
 
-  const providerSession = await providerFor(session.provider).startSession({
-    sessionId: session.id,
-    onPartial: (segment) =>
-      void appendTranscript(session.transcriptPath as string, segment),
-    onFinal: (segment) =>
-      void appendTranscript(session.transcriptPath as string, segment),
-  })
-  const active = {
-    providerSession,
-    transcriptPath: session.transcriptPath,
-    rawDir,
+  const gap: TranscriptSegment = {
+    id: crypto.randomUUID(),
+    sessionId: input.sessionId,
+    kind: 'gap',
+    capturedAt: Date.now(),
+    reason: 'interrupted_resume',
+    resumeSequence: (session.lastAsrSequence ?? -1) + 1,
   }
-  activeSessions.set(session.id, active)
-  logger.info('Rehydrated capture session after restart', {
-    sessionId: session.id,
-    provider: session.provider,
+  await appendTranscript(session.transcriptPath, gap)
+  publishCaptureEvent(input.sessionId, { type: 'gap', segment: gap })
+
+  sqlite()
+    .prepare(
+      `UPDATE capture_sessions
+       SET status = 'active', tab_id = ?, url = COALESCE(?, url),
+           title = COALESCE(?, title), ended_at = NULL
+       WHERE id = ?`,
+    )
+    .run(input.tabId, input.url ?? null, input.title ?? null, input.sessionId)
+
+  if (!registeredSessions.has(input.sessionId)) {
+    await attachSessionRuntime({
+      id: input.sessionId,
+      provider: session.provider,
+      transcriptPath: session.transcriptPath,
+      rawDir,
+    })
+  }
+
+  publishCaptureEvent(input.sessionId, {
+    type: 'status',
+    sessionId: input.sessionId,
+    status: 'active',
   })
-  return active
+  return getCaptureSession(input.sessionId) as CaptureSessionSummary
 }
 
-/**
- * Re-attach ASR for DB-active meetings that already have audio on disk.
- * Never spawn ASR for empty zombies — that crash-looped the packaged server.
- * Prefer lazy rehydrate via feedCaptureChunk; this exists for tests / recovery tools.
- */
+export async function interruptMeetingCapture(
+  sessionId: string,
+): Promise<CaptureSessionSummary | null> {
+  await drainAsrQueue(sessionId)
+  await flushAsrRemainder(sessionId)
+  const session = getCaptureSession(sessionId)
+  if (!session) return null
+  if (session.status === 'stopped' || session.status === 'error') return session
+
+  const reg = registeredSessions.get(sessionId)
+  if (reg?.byokSession) {
+    await reg.byokSession.stop().catch(() => undefined)
+  }
+  await unregisterAsrSession(sessionId)
+  registeredSessions.delete(sessionId)
+  await unregisterMicAsrSession(sessionId)
+
+  sqlite()
+    .prepare(`UPDATE capture_sessions SET status = 'interrupted' WHERE id = ?`)
+    .run(sessionId)
+  publishCaptureEvent(sessionId, {
+    type: 'status',
+    sessionId,
+    status: 'interrupted',
+  })
+  return getCaptureSession(sessionId)
+}
+
+export async function pauseMeetingCapture(
+  sessionId: string,
+): Promise<CaptureSessionSummary | null> {
+  sqlite()
+    .prepare(`UPDATE capture_sessions SET status = 'paused' WHERE id = ?`)
+    .run(sessionId)
+  publishCaptureEvent(sessionId, {
+    type: 'status',
+    sessionId,
+    status: 'paused',
+  })
+  return getCaptureSession(sessionId)
+}
+
+export async function unpauseMeetingCapture(
+  sessionId: string,
+): Promise<CaptureSessionSummary | null> {
+  sqlite()
+    .prepare(`UPDATE capture_sessions SET status = 'active' WHERE id = ?`)
+    .run(sessionId)
+  publishCaptureEvent(sessionId, {
+    type: 'status',
+    sessionId,
+    status: 'active',
+  })
+  return getCaptureSession(sessionId)
+}
+
+/** @deprecated Prefer attach via start/resume — kept for tests. */
 export async function rehydrateActiveCaptureSessions(): Promise<number> {
   const rows = sqlite()
     .prepare<CaptureSessionDbRow, []>(
@@ -205,43 +452,40 @@ export async function rehydrateActiveCaptureSessions(): Promise<number> {
     const streamPath = sessionDir
       ? join(sessionDir, 'audio-chunks', 'stream.webm')
       : null
-    if (!streamPath || !existsSync(streamPath)) {
-      logger.info('Skipping rehydrate for empty active capture session', {
-        sessionId: session.id,
-      })
-      continue
-    }
-    const active = await rehydrateSession(session).catch((err: unknown) => {
-      logger.warn('Failed to rehydrate capture session', {
-        sessionId: session.id,
-        err,
-      })
-      void failMeetingCapture(
-        session.id,
-        err instanceof Error ? err.message : String(err),
-      ).catch(() => undefined)
-      return null
+    if (!streamPath || !existsSync(streamPath)) continue
+    if (!session.transcriptPath) continue
+    await attachSessionRuntime({
+      id: session.id,
+      provider: session.provider,
+      transcriptPath: session.transcriptPath,
+      rawDir: join(sessionDir!, 'audio-chunks'),
     })
-    if (active) restored++
+    restored++
   }
   return restored
 }
 
-/** Mark abandoned DB-active meetings as stopped (not mid-call restarts). */
 export function reconcileStaleActiveCaptureSessions(now = Date.now()): number {
   const rows = sqlite()
     .prepare<
-      { id: string; started_at: number; transcript_path: string | null },
+      {
+        id: string
+        started_at: number
+        transcript_path: string | null
+        last_chunk_at: number | null
+        status: string
+      },
       []
     >(
-      `SELECT id, started_at, transcript_path FROM capture_sessions
-       WHERE kind = 'meeting' AND status = 'active'`,
+      `SELECT id, started_at, transcript_path, last_chunk_at, status FROM capture_sessions
+       WHERE kind = 'meeting' AND status IN ('active', 'interrupted')`,
     )
     .all()
   let stopped = 0
   for (const row of rows) {
     if (isSessionRecording(row.id)) continue
     const age = now - row.started_at
+    const last = row.last_chunk_at ?? row.started_at
     const sessionDir = row.transcript_path?.replace(/\/transcript\.jsonl$/, '')
     const streamPath = sessionDir
       ? join(sessionDir, 'audio-chunks', 'stream.webm')
@@ -249,12 +493,16 @@ export function reconcileStaleActiveCaptureSessions(now = Date.now()): number {
     const hasAudio = streamPath ? existsSync(streamPath) : false
     const abandonedEmpty = !hasAudio && age >= EMPTY_ACTIVE_SESSION_MS
     const abandonedOld = age >= STALE_ACTIVE_SESSION_MS
-    if (!abandonedEmpty && !abandonedOld) continue
+    const resumeExpired =
+      row.status === 'interrupted' && now - last >= ROOM_RESUME_TTL_MS
+    if (!abandonedEmpty && !abandonedOld && !resumeExpired) continue
     sqlite()
       .prepare(
         `UPDATE capture_sessions SET status = 'stopped', ended_at = ? WHERE id = ?`,
       )
       .run(now, row.id)
+    void unregisterAsrSession(row.id)
+    registeredSessions.delete(row.id)
     stopped++
   }
   return stopped
@@ -266,23 +514,26 @@ export async function feedCaptureChunk(input: {
   mimeType: string
   data: Uint8Array
   capturedAt?: number
+  track?: CaptureAudioTrack
 }): Promise<void> {
-  const prior = feedQueues.get(input.sessionId) ?? Promise.resolve()
+  const track = input.track ?? 'mixed'
+  const queueKey = `${input.sessionId}:${track}`
+  const prior = feedQueues.get(queueKey) ?? Promise.resolve()
   let release!: () => void
   const gate = new Promise<void>((resolve) => {
     release = resolve
   })
   feedQueues.set(
-    input.sessionId,
+    queueKey,
     prior.then(() => gate),
   )
   await prior
   try {
-    await feedCaptureChunkInner(input)
+    await feedCaptureChunkInner({ ...input, track })
   } finally {
     release()
-    if (feedQueues.get(input.sessionId) === gate) {
-      feedQueues.delete(input.sessionId)
+    if (feedQueues.get(queueKey) === gate) {
+      feedQueues.delete(queueKey)
     }
   }
 }
@@ -293,55 +544,155 @@ async function feedCaptureChunkInner(input: {
   mimeType: string
   data: Uint8Array
   capturedAt?: number
+  track: CaptureAudioTrack
 }): Promise<void> {
   await refreshCapturePauseState()
-  assertCaptureNotPaused()
-  let active = activeSessions.get(input.sessionId)
-  if (!active) {
-    const session = getCaptureSession(input.sessionId)
-    if (session?.status === 'active') {
+  // Never refuse persist for load/battery — only ASR may defer.
+
+  const session = getCaptureSession(input.sessionId)
+  if (
+    !session ||
+    (session.status !== 'active' &&
+      session.status !== 'interrupted' &&
+      session.status !== 'paused')
+  ) {
+    throw new Error(`Capture session not active: ${input.sessionId}`)
+  }
+  if (session.status === 'paused') {
+    throw new Error(`Capture session paused: ${input.sessionId}`)
+  }
+  if (!session.transcriptPath) {
+    throw new Error(
+      `Capture session missing transcript path: ${input.sessionId}`,
+    )
+  }
+
+  const streamPath = await persistCaptureChunkFiles(
+    { id: input.sessionId, transcriptPath: session.transcriptPath },
+    input,
+  )
+
+  const now = input.capturedAt ?? Date.now()
+  sqlite()
+    .prepare(
+      `UPDATE capture_sessions
+       SET last_chunk_at = ?, status = CASE WHEN status = 'interrupted' THEN 'active' ELSE status END
+       WHERE id = ?`,
+    )
+    .run(now, input.sessionId)
+
+  if (isAsrDeferredGlobally()) {
+    publishCaptureEvent(input.sessionId, {
+      type: 'status',
+      sessionId: input.sessionId,
+      status: session.status,
+      asrDeferred: true,
+    })
+    return
+  }
+
+  const energy = estimateChunkEnergy(input.data)
+  const vad = shouldEnqueueAsr({
+    sessionId: input.sessionId,
+    energy,
+  })
+  if (!vad.enqueue) {
+    // Silent slice: keep disk bytes, skip ASR job.
+    return
+  }
+
+  // Mic uses a parallel ASR session key so incremental watermarks/sequences
+  // do not collide with the tab/mixed stream. Segments land in the same
+  // transcript with speaker: 'self'.
+  if (input.track === 'mic') {
+    const micAsrId = micAsrSessionId(input.sessionId)
+    enqueueAsrFeed(micAsrId, async () => {
       try {
-        active = (await rehydrateSession(session)) ?? undefined
+        await ensureMicAsrSession(input.sessionId)
+        await enqueueAsrJob({
+          sessionId: micAsrId,
+          sequence: input.sequence,
+          audioPath: streamPath,
+          capturedAt: now,
+          mimeType: input.mimeType,
+          force: vad.forced,
+        })
+        noteAsrText(input.sessionId, now)
       } catch (err: unknown) {
-        // Keep accepting audio on disk. Next chunk will retry ASR spawn.
-        logger.warn('Lazy capture rehydrate failed; persisting audio only', {
+        logger.warn('Mic ASR feed failed; audio retained on disk', {
           sessionId: input.sessionId,
+          sequence: input.sequence,
           err,
         })
-        await persistCaptureChunkFiles(session, input)
-        return
       }
-    }
+    })
+    return
   }
-  if (!active) throw new Error(`Capture session not active: ${input.sessionId}`)
+
   const chunk: AudioChunk = {
     sessionId: input.sessionId,
     sequence: input.sequence,
     mimeType: input.mimeType,
     data: input.data,
-    capturedAt: input.capturedAt ?? Date.now(),
+    capturedAt: now,
+    track: input.track,
   }
-  const streamPath = await persistCaptureChunkFiles(
-    {
-      id: input.sessionId,
-      transcriptPath: active.transcriptPath,
-    },
-    input,
-  )
 
-  // Persist first, return success, ASR in the background. Awaiting Whisper here
-  // previously held the HTTP request for 10–30s and hard-killed the agent
-  // server in a restart loop (port flips → empty transcripts).
-  const providerSession = active.providerSession
-  const asrChunk = {
-    ...chunk,
-    data: new Uint8Array(await readFile(streamPath)),
-  }
   enqueueAsrFeed(input.sessionId, async () => {
     try {
-      await providerSession.feedChunk(asrChunk)
+      let reg = registeredSessions.get(input.sessionId)
+      if (!reg) {
+        const row = getCaptureSession(input.sessionId)
+        if (!row?.transcriptPath) return
+        const sessionDir = row.transcriptPath.replace(
+          /\/transcript\.jsonl$/,
+          '',
+        )
+        await attachSessionRuntime({
+          id: input.sessionId,
+          provider: row.provider,
+          transcriptPath: row.transcriptPath,
+          rawDir: join(sessionDir, 'audio-chunks'),
+        })
+        reg = registeredSessions.get(input.sessionId)
+      }
+      if (!reg) return
+
+      if (reg.byokSession) {
+        const decodable = new Uint8Array(await readFile(streamPath))
+        await reg.byokSession.feedChunk({ ...chunk, data: decodable })
+        sqlite()
+          .prepare(
+            `UPDATE capture_sessions SET last_asr_sequence = ? WHERE id = ?`,
+          )
+          .run(input.sequence, input.sessionId)
+        noteAsrText(input.sessionId, now)
+        return
+      }
+
+      await enqueueAsrJob({
+        sessionId: input.sessionId,
+        sequence: input.sequence,
+        audioPath: streamPath,
+        capturedAt: now,
+        mimeType: input.mimeType,
+        force: vad.forced,
+      })
+      sqlite()
+        .prepare(
+          `UPDATE capture_sessions SET last_asr_sequence = ? WHERE id = ?`,
+        )
+        .run(input.sequence, input.sessionId)
+      const sessionDir = reg.transcriptPath.replace(/\/transcript\.jsonl$/, '')
+      const prev = await readAsrState(sessionDir)
+      await writeAsrState(sessionDir, {
+        lastContiguousSequence: input.sequence,
+        asrPcmOffset: prev?.asrPcmOffset ?? 0,
+        lastFinalAt: now,
+      })
+      noteAsrText(input.sessionId, now)
     } catch (err: unknown) {
-      logger.warn('ASR feed failed; audio retained on disk', {
+      logger.warn('ASR rehydrate/feed failed; audio retained on disk', {
         sessionId: input.sessionId,
         sequence: input.sequence,
         err,
@@ -350,12 +701,55 @@ async function feedCaptureChunkInner(input: {
   })
 }
 
+function micAsrSessionId(sessionId: string): string {
+  return `${sessionId}__mic`
+}
+
+async function ensureMicAsrSession(parentSessionId: string): Promise<void> {
+  const micId = micAsrSessionId(parentSessionId)
+  if (registeredSessions.has(micId)) return
+  const parent = getCaptureSession(parentSessionId)
+  if (!parent?.transcriptPath) return
+  const sessionDir = parent.transcriptPath.replace(/\/transcript\.jsonl$/, '')
+
+  const onSegment = (segment: TranscriptSegment) => {
+    const labeled: TranscriptSegment = {
+      ...segment,
+      sessionId: parentSessionId,
+      speaker: segment.speaker ?? 'self',
+    }
+    void appendTranscript(parent.transcriptPath!, labeled).then(() => {
+      publishCaptureEvent(parentSessionId, {
+        type: 'segment',
+        segment: labeled,
+      })
+    })
+  }
+
+  await registerAsrSession(micId, {
+    onPartial: onSegment,
+    onFinal: onSegment,
+  })
+  registeredSessions.set(micId, {
+    transcriptPath: parent.transcriptPath,
+    rawDir: join(sessionDir, 'audio-chunks'),
+    provider: parent.provider,
+  })
+}
+
+async function unregisterMicAsrSession(sessionId: string): Promise<void> {
+  const micId = micAsrSessionId(sessionId)
+  await unregisterAsrSession(micId)
+  registeredSessions.delete(micId)
+}
+
 async function persistCaptureChunkFiles(
   session: { id: string; transcriptPath: string | null },
   input: {
     sessionId: string
     sequence: number
     data: Uint8Array
+    track: CaptureAudioTrack
   },
 ): Promise<string> {
   if (!session.transcriptPath) {
@@ -364,11 +758,14 @@ async function persistCaptureChunkFiles(
   const sessionDir = session.transcriptPath.replace(/\/transcript\.jsonl$/, '')
   const rawDir = join(sessionDir, 'audio-chunks')
   await mkdir(rawDir, { recursive: true })
-  await writeFile(
-    join(rawDir, `${String(input.sequence).padStart(8, '0')}.chunk`),
-    input.data,
-  )
-  const streamPath = join(rawDir, 'stream.webm')
+
+  const seqName = `${String(input.sequence).padStart(8, '0')}`
+  const chunkName =
+    input.track === 'mic' ? `mic-${seqName}.chunk` : `${seqName}.chunk`
+  const streamName = input.track === 'mic' ? 'mic-stream.webm' : 'stream.webm'
+
+  await writeFile(join(rawDir, chunkName), input.data)
+  const streamPath = join(rawDir, streamName)
   if (input.sequence === 0) {
     await writeFile(streamPath, input.data)
   } else {
@@ -386,6 +783,40 @@ function enqueueAsrFeed(sessionId: string, task: () => Promise<void>): void {
       asrQueues.delete(sessionId)
     }
   })
+}
+
+async function drainAsrQueue(sessionId: string): Promise<void> {
+  const pending = asrQueues.get(sessionId)
+  if (pending) await pending.catch(() => undefined)
+  await drainAsrSession(sessionId)
+  const micId = micAsrSessionId(sessionId)
+  const micPending = asrQueues.get(micId)
+  if (micPending) await micPending.catch(() => undefined)
+  await drainAsrSession(micId)
+}
+
+/** Force-decode any audio still below the sidecar min-window threshold. */
+async function flushAsrRemainder(sessionId: string): Promise<void> {
+  const session = getCaptureSession(sessionId)
+  if (!session?.transcriptPath) return
+  const sessionDir = session.transcriptPath.replace(/\/transcript\.jsonl$/, '')
+  const streamPath = join(sessionDir, 'audio-chunks', 'stream.webm')
+  if (!existsSync(streamPath)) return
+  if (!registeredSessions.has(sessionId)) return
+  const sequence = (session.lastAsrSequence ?? -1) + 1
+  try {
+    await enqueueAsrJob({
+      sessionId,
+      sequence,
+      audioPath: streamPath,
+      capturedAt: Date.now(),
+      mimeType: 'audio/webm',
+      force: true,
+    })
+    await drainAsrSession(sessionId)
+  } catch (err: unknown) {
+    logger.warn('ASR flush on stop failed', { sessionId, err })
+  }
 }
 
 export async function appendPageSnapshot(input: {
@@ -408,11 +839,16 @@ export async function appendPageSnapshot(input: {
 export async function stopMeetingCapture(
   sessionId: string,
 ): Promise<CaptureSessionSummary | null> {
-  const active = activeSessions.get(sessionId)
-  if (active) {
-    await active.providerSession.stop()
-    activeSessions.delete(sessionId)
+  await drainAsrQueue(sessionId)
+  await flushAsrRemainder(sessionId)
+  const reg = registeredSessions.get(sessionId)
+  if (reg?.byokSession) {
+    await reg.byokSession.stop().catch(() => undefined)
   }
+  await unregisterAsrSession(sessionId)
+  registeredSessions.delete(sessionId)
+  await unregisterMicAsrSession(sessionId)
+
   const session = getCaptureSession(sessionId)
   if (!session) return null
   const endedAt = Date.now()
@@ -438,6 +874,11 @@ export async function stopMeetingCapture(
        WHERE id = ?`,
     )
     .run(endedAt, node.id, sessionId)
+  publishCaptureEvent(sessionId, {
+    type: 'status',
+    sessionId,
+    status: 'stopped',
+  })
   return getCaptureSession(sessionId)
 }
 
@@ -445,11 +886,15 @@ export async function failMeetingCapture(
   sessionId: string,
   errorMessage: string,
 ): Promise<CaptureSessionSummary | null> {
-  const active = activeSessions.get(sessionId)
-  if (active) {
-    await active.providerSession.stop().catch(() => undefined)
-    activeSessions.delete(sessionId)
+  await drainAsrQueue(sessionId)
+  const reg = registeredSessions.get(sessionId)
+  if (reg?.byokSession) {
+    await reg.byokSession.stop().catch(() => undefined)
   }
+  await unregisterAsrSession(sessionId)
+  registeredSessions.delete(sessionId)
+  await unregisterMicAsrSession(sessionId)
+
   const session = getCaptureSession(sessionId)
   if (!session) return null
   const endedAt = Date.now()
@@ -461,7 +906,34 @@ export async function failMeetingCapture(
        WHERE id = ?`,
     )
     .run(endedAt, title, sessionId)
+  publishCaptureEvent(sessionId, {
+    type: 'status',
+    sessionId,
+    status: 'error',
+  })
   return getCaptureSession(sessionId)
+}
+
+export async function deleteMeetingCapture(
+  sessionId: string,
+): Promise<boolean> {
+  await failMeetingCapture(sessionId, 'deleted').catch(() => undefined)
+  const session = getCaptureSession(sessionId)
+  if (!session) {
+    sqlite().prepare(`DELETE FROM capture_sessions WHERE id = ?`).run(sessionId)
+    return true
+  }
+  if (session.transcriptPath) {
+    const sessionDir = session.transcriptPath.replace(
+      /\/transcript\.jsonl$/,
+      '',
+    )
+    await rm(sessionDir, { recursive: true, force: true }).catch(
+      () => undefined,
+    )
+  }
+  sqlite().prepare(`DELETE FROM capture_sessions WHERE id = ?`).run(sessionId)
+  return true
 }
 
 export function listCaptureSessions(
@@ -496,11 +968,11 @@ export function getCaptureSession(id: string): CaptureSessionSummary | null {
 }
 
 export function activeCaptureSessionCount(): number {
-  return activeSessions.size
+  return registeredAsrSessionCount() || registeredSessions.size
 }
 
 export function isSessionRecording(id: string): boolean {
-  return activeSessions.has(id)
+  return registeredSessions.has(id)
 }
 
 async function appendTranscript(
@@ -524,6 +996,12 @@ interface CaptureSessionDbRow {
   transcript_path: string | null
   summary_path: string | null
   graph_node_id: string | null
+  site: string | null
+  room_key: string | null
+  last_chunk_at: number | null
+  asr_watermark_pcm: number | null
+  last_asr_sequence: number | null
+  include_mic: number | null
 }
 
 function rowToSummary(row: CaptureSessionDbRow): CaptureSessionSummary {
@@ -541,5 +1019,11 @@ function rowToSummary(row: CaptureSessionDbRow): CaptureSessionSummary {
     transcriptPath: row.transcript_path,
     summaryPath: row.summary_path,
     graphNodeId: row.graph_node_id,
+    site: (row.site as MeetingSite | null) ?? null,
+    roomKey: row.room_key,
+    lastChunkAt: row.last_chunk_at,
+    asrWatermarkPcm: row.asr_watermark_pcm ?? 0,
+    lastAsrSequence: row.last_asr_sequence ?? -1,
+    includeMic: Boolean(row.include_mic),
   }
 }

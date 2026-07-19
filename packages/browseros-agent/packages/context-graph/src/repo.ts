@@ -329,6 +329,61 @@ export function search(
   return out
 }
 
+// Titles that identify BrowserOS's own new tab / shell pages
+const APP_TITLES = new Set([
+  'pane chat',
+  'pane',
+  'new tab',
+  'browseros',
+  'newtab',
+])
+
+function isInternalOrAppUri(
+  uri: string | null,
+  title?: string | null,
+): boolean {
+  if (!uri) return true
+
+  // tab: URI scheme used by the extension for open tabs
+  if (uri.startsWith('tab:')) {
+    // Allow only if the underlying URL passes checks below
+    const inner = uri.slice(4)
+    return isInternalOrAppUri(inner, title)
+  }
+
+  // Filter by title — these are BrowserOS's own shell pages regardless of URL
+  if (title && APP_TITLES.has(title.trim().toLowerCase())) {
+    return true
+  }
+
+  try {
+    const url = new URL(uri)
+    const protocol = url.protocol.toLowerCase()
+    const hostname = url.hostname.toLowerCase()
+
+    if (
+      protocol === 'pane:' ||
+      protocol === 'chrome-extension:' ||
+      protocol === 'chrome:'
+    ) {
+      return true
+    }
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return true
+    }
+    return false
+  } catch {
+    if (
+      uri.startsWith('pane:') ||
+      uri.startsWith('chrome-extension:') ||
+      uri.startsWith('chrome:')
+    ) {
+      return true
+    }
+    return false
+  }
+}
+
 export function currentWork(
   db: GraphSqlDatabase,
   bucketId: string,
@@ -350,12 +405,13 @@ export function currentWork(
     const nodes: GraphNode[] = []
     for (const row of rows) {
       const node = rowToNode(row)
-      if (
-        (kind === 'page' || kind === 'tab') &&
-        denied.size > 0 &&
-        isDeniedUri(node.uri, denied)
-      ) {
-        continue
+      if (kind === 'page' || kind === 'tab') {
+        if (isInternalOrAppUri(node.uri, node.title)) {
+          continue
+        }
+        if (denied.size > 0 && isDeniedUri(node.uri, denied)) {
+          continue
+        }
       }
       nodes.push(node)
       if (nodes.length >= limit) break

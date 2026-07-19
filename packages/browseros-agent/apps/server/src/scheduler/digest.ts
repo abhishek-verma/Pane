@@ -83,11 +83,26 @@ export function assembleDailyDigestMarkdown(options?: {
 
   let memoryBullets: string[] = []
   try {
+    const PLACEHOLDER_PATTERNS = [
+      /^#/, // markdown header lines
+      /agent notes live here/i, // default memory template comment
+      /keep entries short and durable/i, // default memory template comment
+      /^\s*$/,
+    ]
     memoryBullets = listEntries({
       layer: 'memory',
       status: 'active',
       limit: MAX_MEMORY_BULLETS,
-    }).map((e) => e.content.split('\n')[0]?.slice(0, 160))
+    })
+      .map((e) =>
+        e.content
+          .split('\n')
+          .find((l) => l.trim() && !l.startsWith('#'))
+          ?.trim(),
+      )
+      .filter((l): l is string => Boolean(l))
+      .filter((l) => !PLACEHOLDER_PATTERNS.some((p) => p.test(l)))
+      .map((l) => l.slice(0, 160))
   } catch {
     memoryBullets = []
   }
@@ -95,51 +110,115 @@ export function assembleDailyDigestMarkdown(options?: {
   const lines: string[] = [
     `# Daily digest — ${stamp}`,
     '',
-    `_Assembled ${new Date(now).toISOString()} (template; no LLM)._`,
+    `_${new Date(now).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}_`,
     '',
-    '## Pending tasks',
   ]
 
-  if (pending.length === 0) {
-    lines.push('- None')
-  } else {
+  // --- Pending tasks ---
+  if (pending.length > 0) {
+    lines.push('## Tasks to do')
     for (const t of pending) {
-      lines.push(`- [${t.status}] ${t.title}`)
+      lines.push(`- ${t.title}`)
     }
+    lines.push('')
   }
 
-  lines.push('', '## Recent activity')
-  if (events.length === 0) {
-    lines.push('- No graph events in the last 24h')
-  } else {
-    const byTool = new Map<string, number>()
+  // --- Human-readable activity summary ---
+  if (events.length > 0) {
+    // Group by meaningful user-facing categories
+    const pagesVisited = new Set<string>()
+    const researchUrls: string[] = []
+    const agentRuns: string[] = []
+
     for (const e of events) {
-      const key = e.tool_name ?? '(unknown)'
-      byTool.set(key, (byTool.get(key) ?? 0) + 1)
+      const tool = e.tool_name ?? ''
+      try {
+        const payload = JSON.parse(e.payload_json) as Record<string, unknown>
+        if (tool === 'navigate' || tool === 'read' || tool === 'snapshot') {
+          const url = (payload.url ??
+            (payload.args as Record<string, unknown> | undefined)?.url ??
+            '') as string
+          if (
+            url &&
+            !url.includes('chrome-extension') &&
+            !url.includes('localhost')
+          ) {
+            try {
+              const { hostname } = new URL(url)
+              pagesVisited.add(hostname.replace('www.', ''))
+            } catch {
+              /* ignore bad urls */
+            }
+          }
+        } else if (tool === 'capture_research_page') {
+          const url = (payload.url ?? '') as string
+          if (url && researchUrls.length < 5) researchUrls.push(url)
+        } else if (tool === 'run_agent' || tool === 'schedule_agent') {
+          const name = (payload.name ??
+            payload.skill ??
+            payload.description ??
+            '') as string
+          if (name) agentRuns.push(String(name).slice(0, 80))
+        }
+      } catch {
+        /* ignore parse errors */
+      }
     }
-    for (const [tool, count] of [...byTool.entries()].sort(
-      (a, b) => b[1] - a[1],
-    )) {
-      lines.push(`- ${tool}: ${count}`)
+
+    let hasActivity = false
+
+    if (pagesVisited.size > 0) {
+      hasActivity = true
+      lines.push('## Sites you visited')
+      for (const host of [...pagesVisited].slice(0, 8)) {
+        lines.push(`- ${host}`)
+      }
+      lines.push('')
     }
-    lines.push('', '### Latest events')
-    for (const e of events.slice(0, 12)) {
-      const when = new Date(e.created_at).toLocaleString()
-      const snippet = e.payload_json.slice(0, 120).replace(/\s+/g, ' ')
-      lines.push(`- ${when} · ${e.tool_name ?? '?'} — ${snippet}`)
+
+    if (researchUrls.length > 0) {
+      hasActivity = true
+      lines.push('## Research captured')
+      for (const url of researchUrls) {
+        try {
+          const u = new URL(url)
+          lines.push(
+            `- ${u.hostname.replace('www.', '')}${u.pathname.length > 1 ? u.pathname : ''}`,
+          )
+        } catch {
+          lines.push(`- ${url.slice(0, 80)}`)
+        }
+      }
+      lines.push('')
+    }
+
+    if (agentRuns.length > 0) {
+      hasActivity = true
+      lines.push('## Agent runs')
+      for (const r of agentRuns.slice(0, 5)) {
+        lines.push(`- ${r}`)
+      }
+      lines.push('')
+    }
+
+    if (!hasActivity) {
+      lines.push("## Yesterday's activity")
+      lines.push(
+        `- ${events.length} background action${events.length === 1 ? '' : 's'} recorded`,
+      )
+      lines.push('')
     }
   }
 
-  lines.push('', '## Memory snapshot')
-  if (memoryBullets.length === 0) {
-    lines.push('- (empty)')
-  } else {
+  // --- Memory snapshot ---
+  if (memoryBullets.length > 0) {
+    lines.push('## Notes about you')
     for (const b of memoryBullets) {
       lines.push(`- ${b}`)
     }
+    lines.push('')
   }
 
-  lines.push('')
   return lines.join('\n')
 }
 

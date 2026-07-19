@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it } from 'bun:test'
+import { detectMeetingRoom } from '@browseros/capture/meeting-urls'
 import {
   isMeetingHost,
   isMeetingRoomUrl,
@@ -13,7 +14,7 @@ import {
   meetingRoomLabel,
 } from './meeting-urls'
 
-describe('meeting url heuristics', () => {
+describe('meeting-urls (app re-export)', () => {
   it('detects in-call Google Meet room URLs', () => {
     expect(isMeetingRoomUrl('https://meet.google.com/bdb-xbat-xzr')).toBe(true)
     expect(isMeetingRoomUrl('https://meet.google.com/abc-defg-hij')).toBe(true)
@@ -29,23 +30,25 @@ describe('meeting url heuristics', () => {
     expect(
       isMeetingRoomUrl('https://teams.microsoft.com/l/meetup-join/abc'),
     ).toBe(true)
-    expect(isMeetingRoomUrl('https://example.com/docs')).toBe(false)
   })
 
-  it('isMeetingUrl aliases room detection', () => {
+  it('isMeetingUrl aliases isMeetingRoomUrl', () => {
     expect(isMeetingUrl('https://meet.google.com/bdb-xbat-xzr')).toBe(true)
     expect(isMeetingUrl('https://meet.google.com/landing')).toBe(false)
   })
 
-  it('detects meeting hosts separately from rooms', () => {
+  it('detects meeting hosts for consent', () => {
     expect(isMeetingHost('https://meet.google.com/landing')).toBe(true)
-    expect(isMeetingHost('https://example.com/')).toBe(false)
+    expect(isMeetingHost('https://app.slack.com/huddle/T1/C1')).toBe(true)
   })
 
-  it('extracts hostnames and room labels', () => {
+  it('extracts labels and room keys', () => {
     expect(meetingHostname('https://meet.google.com/x')).toBe('meet.google.com')
     expect(meetingRoomLabel('https://meet.google.com/bdb-xbat-xzr')).toBe(
       'bdb-xbat-xzr',
     )
+    expect(
+      detectMeetingRoom('https://app.slack.com/huddle/T1/C2')?.roomKey,
+    ).toBe('slack:t1/c2')
   })
 })

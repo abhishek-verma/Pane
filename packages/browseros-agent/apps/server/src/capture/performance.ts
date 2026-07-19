@@ -2,34 +2,60 @@
  * @license
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * Admission split:
+ * - New sessions may be refused (battery/disk/load).
+ * - Chunk persist for active sessions is never blocked.
+ * - ASR enqueue may be deferred when load-saturated.
  */
 
 import { readdir, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { detectOnBattery, getPauseOnBatteryPref } from '../context/battery'
 import { getCaptureDir } from '../lib/browseros-dir'
-import { activeCaptureSessionCount } from './meeting-pipeline'
+import { registeredAsrSessionCount } from './shared-asr-worker'
 
 export const DEFAULT_RAW_RETENTION_DAYS = 7
 export const DEFAULT_TRANSCRIPT_RETENTION_DAYS = 90
 export const DEFAULT_DISK_PAUSE_BYTES = 5 * 1024 * 1024 * 1024
+export const MAX_CONCURRENT_MEETINGS = 2
 
-let pausedReason: 'battery' | 'disk' | 'load' | null = null
+let refuseNewReason: 'battery' | 'disk' | 'load' | null = null
+let asrDeferred = false
 
+/** @deprecated Use getRefuseNewSessionsReason — kept for callers that expect pause. */
 export function setCapturePausedReason(
   reason: 'battery' | 'disk' | 'load' | null,
 ): void {
-  pausedReason = reason
+  refuseNewReason = reason
 }
 
 export function getCapturePausedReason(): 'battery' | 'disk' | 'load' | null {
-  return pausedReason
+  return refuseNewReason
 }
 
-export function assertCaptureNotPaused(): void {
-  if (pausedReason) {
-    throw new Error(`Capture paused (${pausedReason})`)
+export function getRefuseNewSessionsReason():
+  | 'battery'
+  | 'disk'
+  | 'load'
+  | null {
+  return refuseNewReason
+}
+
+export function isAsrDeferredGlobally(): boolean {
+  return asrDeferred
+}
+
+/** Throws only when starting a *new* meeting should be refused. */
+export function assertCanStartNewCapture(): void {
+  if (refuseNewReason) {
+    throw new Error(`Capture paused (${refuseNewReason})`)
   }
+}
+
+/** @deprecated Do not use on chunk persist path. */
+export function assertCaptureNotPaused(): void {
+  assertCanStartNewCapture()
 }
 
 export async function refreshCapturePauseState(): Promise<void> {
@@ -39,40 +65,49 @@ export async function refreshCapturePauseState(): Promise<void> {
   if (pauseCaptureOnBattery) {
     const onBattery = await detectOnBattery()
     if (onBattery === true) {
-      pausedReason = 'battery'
+      refuseNewReason = 'battery'
+      asrDeferred = true
       return
     }
   }
   const diskUsageBytes = await directorySize(getCaptureDir())
   if (diskUsageBytes > DEFAULT_DISK_PAUSE_BYTES) {
-    pausedReason = 'disk'
+    refuseNewReason = 'disk'
+    asrDeferred = true
     return
   }
-  if (activeCaptureSessionCount() > 2) {
-    pausedReason = 'load'
+  const active = registeredAsrSessionCount()
+  if (active > MAX_CONCURRENT_MEETINGS) {
+    refuseNewReason = 'load'
+    asrDeferred = true
     return
   }
-  if (
-    pausedReason === 'battery' ||
-    pausedReason === 'disk' ||
-    pausedReason === 'load'
-  ) {
-    pausedReason = null
+  // At capacity for new sessions, but ASR still runs for existing.
+  if (active >= MAX_CONCURRENT_MEETINGS) {
+    refuseNewReason = 'load'
+    asrDeferred = false
+    return
   }
+  refuseNewReason = null
+  asrDeferred = false
 }
 
 export async function getCaptureStatus(): Promise<{
   paused: boolean
   reason: 'battery' | 'disk' | 'load' | null
+  refuseNewSessions: boolean
+  asrDeferred: boolean
   diskUsageBytes: number
   activeSessions: number
 }> {
   await refreshCapturePauseState()
   return {
-    paused: pausedReason !== null,
-    reason: pausedReason,
+    paused: refuseNewReason !== null,
+    reason: refuseNewReason,
+    refuseNewSessions: refuseNewReason !== null,
+    asrDeferred,
     diskUsageBytes: await directorySize(getCaptureDir()),
-    activeSessions: activeCaptureSessionCount(),
+    activeSessions: registeredAsrSessionCount(),
   }
 }
 
@@ -118,12 +153,13 @@ async function* walk(path: string): AsyncGenerator<string> {
     return
   }
   for (const entry of entries) {
-    const fullPath = join(path, entry)
-    const info = await stat(fullPath)
-    if (info.isDirectory()) {
-      yield* walk(fullPath)
-    } else {
-      yield fullPath
+    const full = join(path, entry)
+    try {
+      const info = await stat(full)
+      if (info.isDirectory()) yield* walk(full)
+      else yield full
+    } catch {
+      /* ignore */
     }
   }
 }

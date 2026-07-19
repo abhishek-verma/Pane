@@ -37,6 +37,32 @@ const sourceMigrationsDir = fileURLToPath(
   new URL('./migrations', import.meta.url),
 )
 
+/**
+ * Fixes a one-time timestamp skew: migration 0010_passive_capture was applied
+ * by an older server build that stored created_at=1783692000000, but the
+ * current journal uses when=1783789148142. Drizzle uses MAX(created_at) to
+ * determine pending migrations, so the lower stored value causes 0010 (and
+ * everything after it) to re-run on every startup, crashing with "table
+ * already exists". This repair runs once and is a no-op after that.
+ */
+function repairMigrationTimestamps(sqlite: BunDatabase): void {
+  try {
+    sqlite
+      .prepare(
+        `UPDATE __drizzle_migrations
+         SET created_at = ?
+         WHERE hash = ? AND created_at < ?`,
+      )
+      .run(
+        1783789148142,
+        '2a8e26ac7a12b6375af5289f1ac0f79c2576933a295d1119ade43aff2b85450e',
+        1783789148142,
+      )
+  } catch {
+    // Table may not exist yet on a fresh DB — migrate() will create it.
+  }
+}
+
 /** Opens BrowserOS SQLite and applies checked-in Drizzle migrations before callers use the DB. */
 export function openBrowserOsDatabase(options: OpenDbOptions): DbHandle {
   const migrationsDir = resolveMigrationsDir(options)
@@ -49,6 +75,7 @@ export function openBrowserOsDatabase(options: OpenDbOptions): DbHandle {
   const db = drizzle(sqlite, { schema })
   if (options.runMigrations !== false) {
     if (migrationsDir) {
+      repairMigrationTimestamps(sqlite)
       migrate(db, { migrationsFolder: migrationsDir })
       ensureCaptureSchema(sqlite)
     } else {
@@ -196,6 +223,12 @@ const captureSchemaStatements = [
       transcript_path text,
       summary_path text,
       graph_node_id text,
+      site text,
+      room_key text,
+      last_chunk_at integer,
+      asr_watermark_pcm integer DEFAULT 0,
+      last_asr_sequence integer DEFAULT -1,
+      include_mic integer DEFAULT 0,
       FOREIGN KEY (bucket_id) REFERENCES buckets(id) ON UPDATE no action ON DELETE no action,
       FOREIGN KEY (graph_node_id) REFERENCES graph_nodes(id) ON UPDATE no action ON DELETE no action
     )
@@ -207,6 +240,10 @@ const captureSchemaStatements = [
   `
     CREATE INDEX IF NOT EXISTS capture_sessions_status_idx
     ON capture_sessions (status)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS capture_sessions_room_resume_idx
+    ON capture_sessions (bucket_id, site, room_key, status)
   `,
   `
     CREATE TABLE IF NOT EXISTS research_threads (
@@ -329,8 +366,13 @@ export const currentMigrationHistory = [
   },
   {
     tag: '0011_home_widgets',
-    hash: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2',
+    hash: 'e93df2334cdd3c209ae30a21dd13c3cdfdc61b5f64f66df1e8f6089fb068d95b',
     createdAt: 1784000000000,
+  },
+  {
+    tag: '0012_capture_continuity',
+    hash: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde01',
+    createdAt: 1784500000000,
   },
 ]
 
@@ -731,6 +773,12 @@ const currentSchemaStatements = [
       transcript_path text,
       summary_path text,
       graph_node_id text,
+      site text,
+      room_key text,
+      last_chunk_at integer,
+      asr_watermark_pcm integer DEFAULT 0,
+      last_asr_sequence integer DEFAULT -1,
+      include_mic integer DEFAULT 0,
       FOREIGN KEY (bucket_id) REFERENCES buckets(id) ON UPDATE no action ON DELETE no action,
       FOREIGN KEY (graph_node_id) REFERENCES graph_nodes(id) ON UPDATE no action ON DELETE no action
     )
@@ -743,6 +791,11 @@ const currentSchemaStatements = [
     CREATE INDEX IF NOT EXISTS capture_sessions_status_idx
     ON capture_sessions (status)
   `,
+  `
+    CREATE INDEX IF NOT EXISTS capture_sessions_room_resume_idx
+    ON capture_sessions (bucket_id, site, room_key, status)
+  `,
+
   `
     CREATE TABLE IF NOT EXISTS research_threads (
       id text PRIMARY KEY NOT NULL,

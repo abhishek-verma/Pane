@@ -13,16 +13,21 @@ import {
   useCaptureMeetings,
   useCaptureStatus,
   useCaptureTranscript,
+  useDeleteMeeting,
 } from './useCaptureApi'
 
-function dedupeTranscriptFinals<T extends { kind: string; text: string }>(
-  segments: T[],
-): T[] {
-  const finals = segments.filter((s) => s.kind === 'final')
+function dedupeTranscriptFinals<
+  T extends { kind: string; text?: string; speaker?: string },
+>(segments: T[]): T[] {
+  const finals = segments.filter((s) => s.kind === 'final' || s.kind === 'gap')
   const deduped: T[] = []
   let lastText = ''
   for (const segment of finals) {
-    const text = segment.text.trim()
+    if (segment.kind === 'gap') {
+      deduped.push(segment)
+      continue
+    }
+    const text = (segment.text ?? '').trim()
     if (!text || text === lastText) continue
     if (lastText && text.startsWith(lastText)) continue
     deduped.push(segment)
@@ -60,8 +65,10 @@ export const CapturePage: FC = () => {
     meetings.sessions.find((s) => s.id === selectedSessionId) ?? null
   const transcript = useCaptureTranscript(
     selectedSessionId,
-    activeSelectedSession?.status === 'active',
+    activeSelectedSession?.status === 'active' ||
+      activeSelectedSession?.status === 'interrupted',
   )
+  const deleteMeeting = useDeleteMeeting()
 
   const visibleSessions = [...meetings.sessions]
     .filter((session) => !session.url || isMeetingRoomUrl(session.url))
@@ -92,7 +99,14 @@ export const CapturePage: FC = () => {
           <h1 className="font-semibold text-lg tracking-tight">Meetings</h1>
           {status.data?.paused && (
             <span className="rounded-full bg-amber-100 px-2.5 py-0.5 font-medium text-[11px] text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-              Paused
+              {status.data.asrDeferred
+                ? 'Saving audio — transcript catching up'
+                : 'Not accepting new meetings'}
+            </span>
+          )}
+          {transcript.live && (
+            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 font-medium text-[11px] text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+              Live
             </span>
           )}
         </div>
@@ -133,12 +147,15 @@ export const CapturePage: FC = () => {
             !meetings.error &&
             visibleSessions.length === 0 && (
               <p className="px-2 py-6 text-center text-muted-foreground text-xs">
-                No meetings yet. Join a Google Meet with capture enabled.
+                No meetings yet. Join a Meet/Zoom/Teams/Slack/Webex tab with
+                capture enabled. Pane transcribes locally on your machine —
+                others may not see a recording indicator.
               </p>
             )}
           {visibleSessions.map((session) => {
             const isSelected = session.id === selectedSessionId
-            const isActive = session.status === 'active'
+            const isLive =
+              session.status === 'active' || session.status === 'interrupted'
             return (
               <button
                 type="button"
@@ -151,12 +168,20 @@ export const CapturePage: FC = () => {
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  {isActive && (
+                  {session.status === 'active' && (
                     <span className="inline-block h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
+                  )}
+                  {session.status === 'interrupted' && (
+                    <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
                   )}
                   <span className="truncate font-medium text-xs">
                     {session.title ?? 'Meeting'}
                   </span>
+                  {isLive && session.status === 'interrupted' && (
+                    <span className="text-[10px] text-amber-600">
+                      Reconnect
+                    </span>
+                  )}
                 </div>
                 <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
                   <span>{formatRelativeTime(session.startedAt)}</span>
@@ -202,14 +227,29 @@ export const CapturePage: FC = () => {
                       )}
                   </span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2 text-[11px]"
-                  onClick={() => transcript.refetch()}
-                >
-                  Reload
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[11px]"
+                    onClick={() => transcript.refetch()}
+                  >
+                    Reload
+                  </Button>
+                  {selectedSessionId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[11px] text-destructive"
+                      onClick={() => {
+                        void deleteMeeting.mutateAsync(selectedSessionId)
+                        setSelectedSessionId(null)
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Transcript body */}
@@ -244,9 +284,22 @@ export const CapturePage: FC = () => {
                         },
                       )}
                     </span>
-                    <span className="text-[13px] leading-relaxed">
-                      {segment.text}
-                    </span>
+                    {segment.kind === 'gap' ? (
+                      <span className="text-[12px] text-muted-foreground italic">
+                        — gap (reconnected) —
+                      </span>
+                    ) : (
+                      <>
+                        {segment.speaker && (
+                          <span className="mr-1.5 font-medium text-[11px] text-muted-foreground">
+                            {segment.speaker}:
+                          </span>
+                        )}
+                        <span className="text-[13px] leading-relaxed">
+                          {segment.text}
+                        </span>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

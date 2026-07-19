@@ -19,6 +19,7 @@ import {
   stopMeetingCapture,
 } from '../../src/capture/meeting-pipeline'
 import { setCapturePausedReason } from '../../src/capture/performance'
+import { resetSharedAsrWorkerForTests } from '../../src/capture/shared-asr-worker'
 import { setPauseOnBatteryPref } from '../../src/context/battery'
 import { closeDb, getDbHandle, initializeDb } from '../../src/lib/db'
 
@@ -27,6 +28,7 @@ describe('meeting capture pipeline', () => {
     const dir = mkdtempSync(join(tmpdir(), 'browseros-capture-pipeline-'))
     process.env.BROWSEROS_DIR = dir
     process.env.BROWSEROS_ASR_MOCK = '1'
+    resetSharedAsrWorkerForTests()
     closeDb()
     initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
     setCaptureConsent({
@@ -61,9 +63,7 @@ describe('meeting capture pipeline', () => {
       data: new TextEncoder().encode('fake-audio'),
     })
 
-    // ASR runs after disk persist on a background queue.
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
+    // stopMeetingCapture drains the ASR queue (rehydrate + feed).
     const stopped = await stopMeetingCapture(session.id)
     expect(stopped?.status).toBe('stopped')
     const transcriptPath = getCaptureSession(session.id)?.transcriptPath
@@ -95,7 +95,6 @@ describe('meeting capture pipeline', () => {
       data: new TextEncoder().encode('chunk-b'),
     })
 
-    await new Promise((resolve) => setTimeout(resolve, 600))
     await stopMeetingCapture(session.id)
 
     const transcript = await readFile(
@@ -130,14 +129,13 @@ describe('meeting capture pipeline', () => {
     const restored = await rehydrateActiveCaptureSessions()
     expect(restored).toBe(0)
 
-    // Lazy rehydrate on the first real chunk still works.
+    // Lazy rehydrate happens on the ASR queue after disk persist.
     await feedCaptureChunk({
       sessionId: session.id,
       sequence: 0,
       mimeType: 'audio/webm',
       data: new TextEncoder().encode('after-restart'),
     })
-    await new Promise((resolve) => setTimeout(resolve, 250))
     await stopMeetingCapture(session.id)
 
     const transcript = await readFile(
@@ -183,7 +181,6 @@ describe('meeting capture pipeline', () => {
       mimeType: 'audio/webm',
       data: new TextEncoder().encode('after-rehydrate'),
     })
-    await new Promise((resolve) => setTimeout(resolve, 250))
     await stopMeetingCapture(session.id)
 
     const transcript = await readFile(
@@ -234,14 +231,13 @@ describe('meeting capture pipeline', () => {
       )
       .run(session.id)
 
-    // No explicit rehydrate — feedCaptureChunk should restore from DB.
+    // No explicit rehydrate — ASR queue restores from DB after persist.
     await feedCaptureChunk({
       sessionId: session.id,
       sequence: 0,
       mimeType: 'audio/webm',
       data: new TextEncoder().encode('auto-rehydrate'),
     })
-    await new Promise((resolve) => setTimeout(resolve, 250))
     await stopMeetingCapture(session.id)
 
     const transcript = await readFile(

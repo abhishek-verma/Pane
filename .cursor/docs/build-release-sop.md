@@ -2,24 +2,55 @@
 
 ## Key rules
 
-- **Never run `git reset --hard` in the Chromium source without explicit user confirmation.** It resets all patched files and forces a near-full recompile (4+ hours). Ask first.
-- **Never run `git clean -fdq` in the Chromium source without explicit user confirmation.** Same reason.
+- **Never run** `git reset --hard` **in the Chromium source without explicit user confirmation.** It resets all patched files and forces a near-full recompile (4+ hours). Ask first.
+- **Never run** `git clean -fdq` **in the Chromium source without explicit user confirmation.** Same reason.
 - A full build (with `clean` + `gclient sync`) is only needed when the Chromium base tag changes or the tree is at an unknown state.
 - An incremental build (no reset, no gclient sync) reuses compiled objects and only recompiles files whose content actually changed. It takes minutes, not hours.
+- **Never bump BROWSEROS_PATCH unless you intend to ship a new browser release.** Even a version-only change cascades through `chrome/VERSION` → `version_info.h` and forces recompilation of ~7,000+ files. Only bump the version when you're ready to build a new release DMG.
+- **`-j` is not a valid siso flag.** Siso uses `-local_jobs N` (not `-j N`) to cap parallel jobs.
 
 ---
 
+## Build parallelism guide (16–18GB RAM MacBook)
+
+Siso runs the actual Chromium compilation. Too many parallel jobs = swap, slowness, and 30GB RAM pressure.
+
+| `-local_jobs` | RAM estimate | Speed | When to use |
+|---|---|---|---|
+| 4 | ~4–6 GB | slowest (~90 min) | background, machine still usable |
+| 8 | ~8–10 GB | fast (~45 min) | recommended default |
+| 16 | ~16–20 GB | fastest but risky | only if nothing else is running |
+
+**Recommended compile command:**
+```bash
+cd /Users/abhishek/chromium/src
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+export PATH="$HOME/chromium/depot_tools:$PATH"
+/Users/abhishek/chromium/src/third_party/siso/cipd/siso ninja \
+  --offline -local_jobs 8 -C out/Default_arm64 chrome chromedriver
+```
+
+**What `-j` does in autoninja:** autoninja passes `-j` to ninja (not siso). When siso is the backend, `-j` is silently ignored or rejected — always use `-local_jobs` directly with the siso binary.
+
+---
+
+
+
 ## Components and their versioning
 
-| Component | Version file | Current |
-|-----------|-------------|---------|
-| Browser | `packages/browseros/resources/BROWSEROS_VERSION` | `0.47.0.x` (BROWSEROS_PATCH) |
-| Extension | `packages/browseros-agent/apps/app/package.json` | `0.0.x` |
-| Server | `packages/browseros-agent/package.json` (server version) | auto |
+
+| Component | Version file                                             | Current                      |
+| --------- | -------------------------------------------------------- | ---------------------------- |
+| Browser   | `packages/browseros/resources/BROWSEROS_VERSION`         | `0.47.0.x` (BROWSEROS_PATCH) |
+| Extension | `packages/browseros-agent/apps/app/package.json`         | `0.0.x`                      |
+| Server    | `packages/browseros-agent/package.json` (server version) | auto                         |
+
 
 The browser's Chromium base tag is fixed at `148.0.7778.97`. The displayed Chromium version is `148.0.7949.97` (from `chrome/VERSION`).
 
 ---
+
+
 
 ## Incremental release (most common — new extension or browser patch changes)
 
@@ -31,17 +62,23 @@ Use this when: changing extension UI, server logic, browser C++ patches, or just
 git add ... && git commit && git push origin main
 ```
 
+
+
 ### 2. Bump versions
 
 **Extension** — edit `packages/browseros-agent/apps/app/package.json`:
+
 ```json
 "version": "0.0.103"
 ```
 
 **Browser** — edit `packages/browseros/resources/BROWSEROS_VERSION`:
+
 ```
 BROWSEROS_PATCH=6
 ```
+
+
 
 ### 3. Build the extension
 
@@ -64,6 +101,8 @@ AGENT_EXTENSION_PRIVATE_KEY="$(cat /path/to/secrets/pane-release/agent-extension
     --expected-app-id biedncddmddkpapdplhcnkhhplnfgbif
 ```
 
+
+
 ### 5. Publish the extension CRX to GitHub
 
 ```bash
@@ -85,6 +124,7 @@ Verify the CRX URL returns HTTP 302: `curl -sI "https://github.com/abhishek-verm
 ### 6. Update the bundled extension manifest
 
 Edit `updates/extensions/bundled-manifest.xml`:
+
 ```xml
 <updatecheck codebase="https://github.com/abhishek-verma/Pane/releases/download/agent-extension%2Fv0.0.103/pane-agent-0.0.103.crx" version="0.0.103"/>
 ```
@@ -111,6 +151,8 @@ git commit -m "chore: bump browser to v0.47.0.6 and extension to v0.0.103"
 git push origin main
 ```
 
+
+
 ### 9. Start the incremental browser build
 
 ```bash
@@ -136,6 +178,8 @@ gh release create "browser/v$VERSION" \
   "$METADATA#pane-browser-release-metadata.json"
 ```
 
+
+
 ### 11. Update the appcast
 
 ```bash
@@ -144,10 +188,13 @@ uv run browseros ota browser appcast --version "$VERSION" --dmg "$DMG"
 ```
 
 Then copy the generated appcast to the canonical location and verify it:
+
 ```bash
 cp packages/browseros/updates/browser/appcast.xml updates/browser/appcast.xml
 cat updates/browser/appcast.xml | grep -A5 "$VERSION"
 ```
+
+
 
 ### 12. Commit and push appcast, then merge via PR
 
@@ -158,6 +205,8 @@ git push origin main
 ```
 
 ---
+
+
 
 ## Full build (Chromium base tag change or clean slate)
 
@@ -181,6 +230,8 @@ The full config (`release.macos.arm64.unsigned.local.yaml`) runs: `clean → git
 
 ---
 
+
+
 ## Patch file rules
 
 Patch files live in `packages/browseros/chromium_patches/`. Each file is a `git diff` patch applied to the Chromium source via `git apply`.
@@ -197,7 +248,8 @@ grep -c "^+" packages/browseros/chromium_patches/path/to/file.cc
 ```
 
 When editing patch files:
-- Context lines start with a single space (` `)
+
+- Context lines start with a single space ( ``)
 - Removed lines start with `-`
 - Added lines start with `+`
 - The hunk header `@@ -old_start,old_count +new_start,new_count @@` must account for ALL lines in the hunk including trailing context
@@ -205,34 +257,65 @@ When editing patch files:
 
 ---
 
+
+
 ## Secrets location
 
-| Secret | Path |
-|--------|------|
+
+| Secret              | Path                                       |
+| ------------------- | ------------------------------------------ |
 | Sparkle private key | `secrets/pane-release/sparkle-private.b64` |
 | Agent extension PEM | `secrets/pane-release/agent-extension.pem` |
-| Claw extension PEM | `secrets/pane-release/claw-extension.pem` |
+| Claw extension PEM  | `secrets/pane-release/claw-extension.pem`  |
+
 
 `packages/browseros/.env` contains `SPARKLE_PRIVATE_KEY` and `CHROMIUM_SRC` for the build scripts.
 
 ---
 
+
+
 ## Build configs
 
-| Config | Use | Modules |
-|--------|-----|---------|
-| `release.macos.arm64.unsigned.incremental.yaml` | Incremental release (tree already set up) | sparkle_setup → resources → bundled_extensions → chromium_replace → string_replaces → series_patches → patches → configure → compile → package_macos → sparkle_sign |
-| `release.macos.arm64.unsigned.local.yaml` | Full build without R2 (local machine, no cloud creds) | clean → git_setup → (all above) |
+
+| Config                                          | Use                                                   | Modules                                                                                                                                                             |
+| ----------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `release.macos.arm64.unsigned.incremental.yaml` | Incremental release (tree already set up)             | sparkle_setup → resources → bundled_extensions → chromium_replace → string_replaces → series_patches → patches → configure → compile → package_macos → sparkle_sign |
+| `release.macos.arm64.unsigned.local.yaml`       | Full build without R2 (local machine, no cloud creds) | clean → git_setup → (all above)                                                                                                                                     |
+
 
 ---
 
+
+
 ## Common mistakes and how to avoid them
 
-| Mistake | Consequence | Fix |
-|---------|-------------|-----|
-| Running `git reset --hard` in Chromium src without asking | Invalidates all compiled objects, forces 4+ hour recompile | Always ask user first |
-| Incorrect `+N` count in new-file patch hunk | File truncated silently, leads to `unterminated #ifdef` or missing functions | Run `--check` before building |
-| Patch context lines that don't match actual source | `git apply` fails with "patch does not apply" | Check the actual source lines, regenerate context |
-| Using tag URL without `%2F` encoding in codebase XML | CRX download returns 404 | Always encode `/` as `%2F` in release asset URLs |
-| Bundled manifest pointing to old extension version | Browser bundles stale extension | Update `updates/extensions/bundled-manifest.xml` before browser build |
-| Appcast written to wrong path | Auto-update doesn't see new release | Copy from `packages/browseros/updates/browser/appcast.xml` to `updates/browser/appcast.xml` |
+
+| Mistake                                                   | Consequence                                                                  | Fix                                                                                                                                                                                                                           |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Running `git reset --hard` in Chromium src without asking | Invalidates all compiled objects, forces 4+ hour recompile                   | Always ask user first                                                                                                                                                                                                         |
+| Incorrect `+N` count in new-file patch hunk               | File truncated silently, leads to `unterminated #ifdef` or missing functions | Run `--check` before building                                                                                                                                                                                                 |
+| Patch context lines that don't match actual source        | `git apply` fails with "patch does not apply"                                | Check the actual source lines, regenerate context                                                                                                                                                                             |
+| Using tag URL without `%2F` encoding in codebase XML      | CRX download returns 404                                                     | Always encode `/` as `%2F` in release asset URLs                                                                                                                                                                              |
+| Bundled manifest pointing to old extension version        | Browser bundles stale extension                                              | Update `updates/extensions/bundled-manifest.xml` before browser build                                                                                                                                                         |
+| Appcast written to wrong path                             | Auto-update doesn't see new release                                          | Copy from `packages/browseros/updates/browser/appcast.xml` to `updates/browser/appcast.xml`                                                                                                                                   |
+| Inline `<script>` block in an extension HTML entrypoint   | CSP blocks it (`script-src 'self'`); all pages that HTML serves go blank     | Extract to `apps/app/public/<name>.js` and reference as `<script src="/<name>.js">`. Only raw IIFEs survive the Vite build; `type="module"` inline scripts are fine — WXT bundles them. Never add `unsafe-inline` to the CSP. |
+
+
+---
+
+
+
+## Extension not working in a freshly built browser
+
+If the new-tab page shows "Could not load home widgets" and the side panel doesn't load:
+
+**1. Agent server not running (most common)**
+
+All extension UI calls `http://127.0.0.1:9200`. `ERR_CONNECTION_REFUSED` means the server isn't up.
+
+**2. CSP inline script violation**
+
+Symptom: console shows `Executing inline script violates the following Content Security Policy directive 'script-src 'self''`.
+
+Cause: an inline `<script>` block (not `type="module"`) survived in a built HTML entrypoint. MV3 extensions cannot execute inline scripts.
