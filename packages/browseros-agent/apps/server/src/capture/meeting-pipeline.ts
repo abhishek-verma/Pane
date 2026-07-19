@@ -7,7 +7,7 @@
 import { existsSync } from 'node:fs'
 import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { detectMeetingRoom } from '@browseros/capture/meeting-urls'
+import { detectMeetingRoomForCapture } from '@browseros/capture/meeting-urls'
 import { ByokTranscriptionProvider } from '@browseros/capture/providers'
 import type {
   AudioChunk,
@@ -22,7 +22,7 @@ import { graphAddEvent, graphUpsertNode } from '../context/repo'
 import { getCaptureDir } from '../lib/browseros-dir'
 import { getDbHandle } from '../lib/db'
 import { logger } from '../lib/logger'
-import { requireCaptureConsent } from './consent'
+import { listCaptureConsents, requireCaptureConsent } from './consent'
 import {
   assertCanStartNewCapture,
   isAsrDeferredGlobally,
@@ -36,6 +36,11 @@ import {
   registeredAsrSessionCount,
   unregisterAsrSession,
 } from './shared-asr-worker'
+import {
+  bindSpeakerTimelineSession,
+  clearSpeakerTimeline,
+  resolveSpeakerAt,
+} from './speaker-timeline'
 import { publishCaptureEvent } from './transcript-events'
 import { estimateChunkEnergy, noteAsrText, shouldEnqueueAsr } from './vad'
 
@@ -144,7 +149,10 @@ export async function startMeetingCapture(input: {
     requireCaptureConsent(input.url, 'meeting')
   }
 
-  const detected = detectMeetingRoom(input.url)
+  const allowedHosts = listCaptureConsents()
+    .filter((c) => c.class === 'meeting' && c.allowed)
+    .map((c) => c.domain)
+  const detected = detectMeetingRoomForCapture(input.url, allowedHosts)
   const site = detected?.site ?? null
   const roomKey = detected?.roomKey ?? null
 
@@ -242,15 +250,33 @@ export async function startMeetingCapture(input: {
   return getCaptureSession(id) as CaptureSessionSummary
 }
 
+function stampSpeaker(
+  sessionId: string,
+  segment: TranscriptSegment,
+): TranscriptSegment {
+  if (segment.speaker || segment.kind === 'gap') return segment
+  const hit = resolveSpeakerAt(sessionId, segment.capturedAt)
+  if (!hit) return segment
+  return {
+    ...segment,
+    speaker: hit.isLocalSelf ? hit.displayName || 'You' : hit.displayName,
+    confidence: segment.confidence ?? hit.confidence,
+  }
+}
+
 async function attachSessionRuntime(input: {
   id: string
   provider: TranscriptionProviderId
   transcriptPath: string
   rawDir: string
 }): Promise<void> {
+  const sessionDir = input.transcriptPath.replace(/\/transcript\.jsonl$/, '')
+  bindSpeakerTimelineSession(input.id, sessionDir)
+
   const onSegment = (segment: TranscriptSegment) => {
-    void appendTranscript(input.transcriptPath, segment).then(() => {
-      publishCaptureEvent(input.id, { type: 'segment', segment })
+    const labeled = stampSpeaker(input.id, segment)
+    void appendTranscript(input.transcriptPath, labeled).then(() => {
+      publishCaptureEvent(input.id, { type: 'segment', segment: labeled })
     })
   }
 
@@ -394,6 +420,7 @@ export async function interruptMeetingCapture(
   await unregisterAsrSession(sessionId)
   registeredSessions.delete(sessionId)
   await unregisterMicAsrSession(sessionId)
+  clearSpeakerTimeline(sessionId)
 
   sqlite()
     .prepare(`UPDATE capture_sessions SET status = 'interrupted' WHERE id = ?`)
@@ -848,6 +875,7 @@ export async function stopMeetingCapture(
   await unregisterAsrSession(sessionId)
   registeredSessions.delete(sessionId)
   await unregisterMicAsrSession(sessionId)
+  clearSpeakerTimeline(sessionId)
 
   const session = getCaptureSession(sessionId)
   if (!session) return null
@@ -894,6 +922,7 @@ export async function failMeetingCapture(
   await unregisterAsrSession(sessionId)
   registeredSessions.delete(sessionId)
   await unregisterMicAsrSession(sessionId)
+  clearSpeakerTimeline(sessionId)
 
   const session = getCaptureSession(sessionId)
   if (!session) return null

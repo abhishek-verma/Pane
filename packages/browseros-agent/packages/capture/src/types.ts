@@ -15,7 +15,13 @@ export type TranscriptionProviderId =
   | 'local-faster-whisper'
   | 'openai-byok'
   | 'deepgram-byok'
-export type MeetingSite = 'meet' | 'zoom' | 'teams' | 'slack' | 'webex'
+export type MeetingSite =
+  | 'meet'
+  | 'zoom'
+  | 'teams'
+  | 'slack'
+  | 'webex'
+  | 'generic'
 export type CaptureAudioTrack = 'mixed' | 'mic'
 export type MeetingCallState = 'prejoin' | 'in-call' | 'left' | 'unknown'
 

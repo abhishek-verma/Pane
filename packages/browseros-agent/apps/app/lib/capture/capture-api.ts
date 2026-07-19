@@ -199,3 +199,28 @@ export async function fetchCaptureConsents(bucketId?: string): Promise<
   }
   return json.consents
 }
+
+export async function postSpeakerObservation(
+  sessionId: string,
+  observation: {
+    displayName: string
+    isLocalSelf?: boolean
+    confidence: number
+    observedAt: number
+    source: string
+    localSpeaking?: boolean
+    participants?: Array<{ displayName: string; isLocalSelf?: boolean }>
+  },
+): Promise<void> {
+  const res = await captureApiFetch(
+    `${await baseUrl()}/capture/meetings/${encodeURIComponent(sessionId)}/speaker`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(observation),
+    },
+  )
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`speaker observation failed (${res.status})`)
+  }
+}

@@ -65,13 +65,18 @@ export const CapturePage: FC = () => {
     meetings.sessions.find((s) => s.id === selectedSessionId) ?? null
   const transcript = useCaptureTranscript(
     selectedSessionId,
-    activeSelectedSession?.status === 'active' ||
-      activeSelectedSession?.status === 'interrupted',
+    activeSelectedSession?.status === 'active',
   )
   const deleteMeeting = useDeleteMeeting()
 
   const visibleSessions = [...meetings.sessions]
-    .filter((session) => !session.url || isMeetingRoomUrl(session.url))
+    .filter(
+      (session) =>
+        !session.url ||
+        isMeetingRoomUrl(session.url) ||
+        session.site === 'generic' ||
+        Boolean(session.roomKey?.startsWith('generic:')),
+    )
     .sort((a, b) => b.startedAt - a.startedAt)
 
   useEffect(() => {
@@ -104,7 +109,7 @@ export const CapturePage: FC = () => {
                 : 'Not accepting new meetings'}
             </span>
           )}
-          {transcript.live && (
+          {transcript.live && activeSelectedSession?.status === 'active' && (
             <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 font-medium text-[11px] text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
               Live
             </span>
@@ -154,8 +159,6 @@ export const CapturePage: FC = () => {
             )}
           {visibleSessions.map((session) => {
             const isSelected = session.id === selectedSessionId
-            const isLive =
-              session.status === 'active' || session.status === 'interrupted'
             return (
               <button
                 type="button"
@@ -177,7 +180,7 @@ export const CapturePage: FC = () => {
                   <span className="truncate font-medium text-xs">
                     {session.title ?? 'Meeting'}
                   </span>
-                  {isLive && session.status === 'interrupted' && (
+                  {session.status === 'interrupted' && (
                     <span className="text-[10px] text-amber-600">
                       Reconnect
                     </span>

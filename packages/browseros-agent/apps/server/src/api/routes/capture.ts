@@ -34,6 +34,10 @@ import {
   pruneCaptureRetention,
 } from '../../capture/performance'
 import {
+  recordSpeakerObservation,
+  setSessionParticipants,
+} from '../../capture/speaker-timeline'
+import {
   getCaptureEventCursor,
   subscribeCaptureEvents,
 } from '../../capture/transcript-events'
@@ -79,6 +83,18 @@ const PageSnapshotSchema = z.object({
   url: z.string().optional(),
   text: z.string(),
   capturedAt: z.number().optional(),
+})
+
+const SpeakerObservationSchema = z.object({
+  displayName: z.string().min(1),
+  isLocalSelf: z.boolean().optional(),
+  confidence: z.number().min(0).max(1),
+  observedAt: z.number(),
+  source: z.string().min(1),
+  localSpeaking: z.boolean().optional(),
+  participants: z
+    .array(z.object({ displayName: z.string().min(1) }))
+    .optional(),
 })
 
 const BrowsingObservationSchema = z.object({
@@ -340,6 +356,43 @@ export function createCaptureRoutes() {
     .post('/page-snapshot', async (c) => {
       const body = PageSnapshotSchema.parse(await c.req.json())
       await appendPageSnapshot(body)
+      return c.json({ ok: true })
+    })
+    .post('/meetings/:id/speaker', async (c) => {
+      const sessionId = c.req.param('id')
+      const session = getCaptureSession(sessionId)
+      if (!session) return c.json({ error: 'Not found' }, 404)
+      if (
+        session.status !== 'active' &&
+        session.status !== 'interrupted' &&
+        session.status !== 'paused'
+      ) {
+        return c.json({ error: 'Session not active' }, 409)
+      }
+      let body: z.infer<typeof SpeakerObservationSchema>
+      try {
+        body = SpeakerObservationSchema.parse(await c.req.json())
+      } catch {
+        return c.json({ error: 'Invalid body' }, 400)
+      }
+      if (body.participants) {
+        setSessionParticipants(sessionId, body.participants)
+        const capturedAt = body.observedAt
+        await appendPageSnapshot({
+          sessionId,
+          title: 'participants',
+          text: JSON.stringify(body.participants),
+          capturedAt,
+        }).catch(() => null)
+      }
+      recordSpeakerObservation(sessionId, {
+        displayName: body.displayName,
+        isLocalSelf: body.isLocalSelf,
+        confidence: body.confidence,
+        observedAt: body.observedAt,
+        source: body.source,
+        localSpeaking: body.localSpeaking,
+      })
       return c.json({ ok: true })
     })
     .post('/browsing/observe', async (c) => {

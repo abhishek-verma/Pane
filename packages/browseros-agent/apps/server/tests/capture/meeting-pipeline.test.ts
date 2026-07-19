@@ -20,6 +20,7 @@ import {
 } from '../../src/capture/meeting-pipeline'
 import { setCapturePausedReason } from '../../src/capture/performance'
 import { resetSharedAsrWorkerForTests } from '../../src/capture/shared-asr-worker'
+import { recordSpeakerObservation } from '../../src/capture/speaker-timeline'
 import { setPauseOnBatteryPref } from '../../src/context/battery'
 import { closeDb, getDbHandle, initializeDb } from '../../src/lib/db'
 
@@ -245,5 +246,81 @@ describe('meeting capture pipeline', () => {
       'utf8',
     )
     expect(transcript).toContain('chunk 0')
+  })
+
+  it('stamps speaker from timeline onto ASR finals (B-T4)', async () => {
+    const session = await startMeetingCapture({
+      tabId: 42,
+      bucketId: 'default',
+      url: 'https://meet.google.com/abc-defg-hij',
+      provider: 'local-faster-whisper',
+      requireConsent: true,
+    })
+    expect(session.site).toBe('meet')
+
+    recordSpeakerObservation(session.id, {
+      displayName: 'Ada',
+      confidence: 0.9,
+      observedAt: Date.now(),
+      source: 'dom-active',
+    })
+
+    await feedCaptureChunk({
+      sessionId: session.id,
+      sequence: 0,
+      mimeType: 'audio/webm',
+      data: new TextEncoder().encode('fake-audio'),
+      capturedAt: Date.now(),
+    })
+    await stopMeetingCapture(session.id)
+
+    const transcript = await readFile(
+      getCaptureSession(session.id)?.transcriptPath as string,
+      'utf8',
+    )
+    expect(transcript).toContain('"speaker":"Ada"')
+  })
+
+  it('leaves speaker undefined when no observation (B-T6)', async () => {
+    const session = await startMeetingCapture({
+      tabId: 42,
+      bucketId: 'default',
+      url: 'https://meet.google.com/abc-defg-hij',
+      provider: 'local-faster-whisper',
+      requireConsent: true,
+    })
+
+    await feedCaptureChunk({
+      sessionId: session.id,
+      sequence: 0,
+      mimeType: 'audio/webm',
+      data: new TextEncoder().encode('fake-audio'),
+    })
+    await stopMeetingCapture(session.id)
+
+    const transcript = await readFile(
+      getCaptureSession(session.id)?.transcriptPath as string,
+      'utf8',
+    )
+    expect(transcript).toContain('chunk 0')
+    expect(transcript).not.toContain('"speaker"')
+  })
+
+  it('accepts generic site when domain is allowlisted (A-T6)', async () => {
+    setCaptureConsent({
+      domain: 'example.com',
+      class: 'meeting',
+      allowed: true,
+    })
+    const session = await startMeetingCapture({
+      tabId: 7,
+      bucketId: 'default',
+      url: 'https://example.com/room/xyz',
+      provider: 'local-faster-whisper',
+      requireConsent: true,
+    })
+    expect(session.site).toBe('generic')
+    expect(session.roomKey).toBe('generic:example.com/room/xyz')
+    await stopMeetingCapture(session.id)
   })
 })

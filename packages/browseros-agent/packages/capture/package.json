@@ -20,6 +20,14 @@
       "types": "./src/meeting-in-call.ts",
       "default": "./src/meeting-in-call.ts"
     },
+    "./meeting-lifecycle": {
+      "types": "./src/meeting-lifecycle.ts",
+      "default": "./src/meeting-lifecycle.ts"
+    },
+    "./adapters": {
+      "types": "./src/adapters/index.ts",
+      "default": "./src/adapters/index.ts"
+    },
     "./webm-chunks": {
       "types": "./src/webm-chunks.ts",
       "default": "./src/webm-chunks.ts"

@@ -14,6 +14,8 @@ export const RuntimeMessageType = {
   captureAudioStop: 'runtime.captureAudioStop',
   /** Background → offscreen: list active recorder session ids. */
   captureAudioStatus: 'runtime.captureAudioStatus',
+  /** Background → offscreen: mic RMS speaking hint for speaker labels. */
+  captureMicSpeaking: 'runtime.captureMicSpeaking',
 } as const
 
 export interface RuntimeTabIdResponse {
@@ -74,6 +76,14 @@ export interface RuntimeCaptureAudioStatusResponse {
   }>
 }
 
+export interface RuntimeCaptureMicSpeakingData {
+  sessionId: string
+}
+
+export interface RuntimeCaptureMicSpeakingResponse {
+  localSpeaking: boolean
+}
+
 type RuntimeMessagesProtocol = {
   [RuntimeMessageType.getTabId](): RuntimeTabIdResponse
   [RuntimeMessageType.authSuccess](): void
@@ -93,6 +103,9 @@ type RuntimeMessagesProtocol = {
     data: RuntimeCaptureAudioStopData,
   ): RuntimeCaptureAudioStopResponse
   [RuntimeMessageType.captureAudioStatus](): RuntimeCaptureAudioStatusResponse
+  [RuntimeMessageType.captureMicSpeaking](
+    data: RuntimeCaptureMicSpeakingData,
+  ): RuntimeCaptureMicSpeakingResponse
 }
 
 const { sendMessage, onMessage } =
