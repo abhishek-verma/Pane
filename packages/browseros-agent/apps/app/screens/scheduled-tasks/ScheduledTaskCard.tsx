@@ -114,7 +114,7 @@ export const ScheduledTaskCard: FC<ScheduledTaskCardProps> = ({
   )
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:border-[var(--accent-orange)]/50 hover:shadow-sm">
+    <div className="rounded-md border border-border bg-card p-4 transition-colors hover:border-[var(--accent-orange)]/50">
       <div className="flex items-start gap-4">
         <Switch
           checked={job.enabled}

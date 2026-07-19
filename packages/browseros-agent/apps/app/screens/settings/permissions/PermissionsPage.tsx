@@ -222,7 +222,7 @@ export const PermissionsPage: FC = () => {
       </div>
 
       {/* Section 1: Context Indexing (Denylist Only) */}
-      <section className="space-y-4 rounded-xl border border-border/50 bg-card p-5">
+      <section className="space-y-4 rounded-md border border-border/50 bg-card p-5">
         <div>
           <h2 className="font-medium text-base text-card-foreground">
             Context Indexing
@@ -311,7 +311,7 @@ export const PermissionsPage: FC = () => {
       </section>
 
       {/* Section 2: Passive Capture */}
-      <section className="space-y-4 rounded-xl border border-border/50 bg-card p-5">
+      <section className="space-y-4 rounded-md border border-border/50 bg-card p-5">
         <div>
           <h2 className="font-medium text-base text-card-foreground">
             Passive Capture
@@ -358,7 +358,7 @@ export const PermissionsPage: FC = () => {
       </section>
 
       {/* Section 3: Meeting Capture */}
-      <section className="space-y-4 rounded-xl border border-border/50 bg-card p-5">
+      <section className="space-y-4 rounded-md border border-border/50 bg-card p-5">
         <div>
           <h2 className="font-medium text-base text-card-foreground">
             Meeting Capture

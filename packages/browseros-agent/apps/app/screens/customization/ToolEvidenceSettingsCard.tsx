@@ -12,7 +12,7 @@ export const ToolEvidenceSettingsCard: FC = () => {
   } = useScreenshotPrefs()
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="rounded-md border border-border bg-card p-6">
       <h3 className="mb-1 font-semibold text-lg">Tool evidence in chat</h3>
       <p className="mb-4 text-muted-foreground text-xs">
         Control how browser screenshots appear in agent tool cards.

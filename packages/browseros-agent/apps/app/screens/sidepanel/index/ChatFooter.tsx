@@ -133,7 +133,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
               data-state={isTabMentionOpen ? 'open' : 'closed'}
               aria-expanded={isTabMentionOpen}
               aria-haspopup="dialog"
-              className="flex cursor-pointer items-center gap-1 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
+              className="flex cursor-pointer items-center gap-1 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
               title="Attach tabs (@)"
             >
               <Layers className="h-4 w-4" />
@@ -149,7 +149,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
               <button
                 type="button"
                 className={cn(
-                  'flex cursor-pointer items-center gap-1 rounded-lg p-1.5 transition-colors hover:bg-muted/50 data-[state=open]:bg-accent',
+                  'flex cursor-pointer items-center gap-1 rounded-md p-1.5 transition-colors hover:bg-muted/50 data-[state=open]:bg-accent',
                   selectedFolder
                     ? 'text-foreground'
                     : 'text-muted-foreground hover:text-foreground',
@@ -178,7 +178,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
                   '_blank',
                 )
               }
-              className="flex cursor-pointer items-center gap-1 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              className="flex cursor-pointer items-center gap-1 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
               title="Connect apps"
             >
               <PlugZap className="h-4 w-4" />

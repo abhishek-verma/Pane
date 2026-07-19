@@ -92,7 +92,7 @@ export const Personalize = () => {
               onOpenChange={(open) =>
                 setExpandedSection(open ? section.key : null)
               }
-              className="w-full rounded-xl border border-border/50 bg-card hover:border-border"
+              className="w-full rounded-md border border-border/50 bg-card hover:border-border"
             >
               <CollapsibleTrigger asChild>
                 <Button
@@ -120,7 +120,7 @@ export const Personalize = () => {
                       Template (click to copy):
                     </p>
                     <div className="relative">
-                      <pre className="styled-scrollbar overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-accent/50 p-4 text-foreground text-xs">
+                      <pre className="styled-scrollbar overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-border bg-accent/50 p-4 text-foreground text-xs">
                         {templates[section.key].template}
                       </pre>
                       <Button
@@ -143,7 +143,7 @@ export const Personalize = () => {
                     <p className="mb-2 font-medium text-muted-foreground text-xs">
                       Example:
                     </p>
-                    <pre className="styled-scrollbar overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-border/30 bg-muted/30 p-4 text-muted-foreground text-xs">
+                    <pre className="styled-scrollbar overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-border/30 bg-muted/30 p-4 text-muted-foreground text-xs">
                       {templates[section.key].example}
                     </pre>
                   </div>

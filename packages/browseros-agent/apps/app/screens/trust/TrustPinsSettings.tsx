@@ -40,7 +40,7 @@ export const TrustPinsSettings: FC = () => {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border bg-card p-4 shadow-sm">
+    <div className="space-y-4 rounded-md border bg-card p-4">
       <div>
         <h2 className="font-medium text-base">Trust pins</h2>
         <p className="mt-1 text-muted-foreground text-sm">

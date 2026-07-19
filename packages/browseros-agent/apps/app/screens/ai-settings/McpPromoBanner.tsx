@@ -17,8 +17,8 @@ export const McpPromoBanner: FC = () => {
   }
 
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition-all hover:shadow-md">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10">
+    <div className="flex items-center gap-4 rounded-md border border-border bg-card p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--accent-orange)]/10">
         <Server className="h-5 w-5 text-[var(--accent-orange)]" />
       </div>
       <div className="min-w-0 flex-1">

@@ -1,6 +1,6 @@
 import { Check, Copy } from 'lucide-react'
 import { type FC, useState } from 'react'
-import { agentPeekClass, agentTraceClass } from '@/lib/agent-chat/surfaces'
+import { agentTraceClass } from '@/lib/agent-chat/surfaces'
 import {
   TERMINAL_OUTPUT_CLAMP_CHARS,
   type ToolEvidence,
@@ -94,8 +94,8 @@ export const TerminalCard: FC<{ evidence: ToolEvidence }> = ({ evidence }) => {
 
       {clamped ? (
         <pre
-          className={agentPeekClass(
-            'mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap p-2 font-mono text-[11px] text-muted-foreground leading-snug',
+          className={cn(
+            'agent-peek-scroll mt-1.5 w-full min-w-0 whitespace-pre-wrap p-2 font-mono text-[11px] text-muted-foreground leading-snug',
           )}
         >
           {terminal.truncated ? (

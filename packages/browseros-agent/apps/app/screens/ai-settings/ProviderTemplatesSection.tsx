@@ -56,7 +56,7 @@ export const ProviderTemplatesSection: FC<ProviderTemplatesSectionProps> = ({
 
   return (
     <Collapsible defaultOpen className="group/collapsible">
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
+      <div className="rounded-md border border-border bg-card p-6">
         <CollapsibleTrigger className="mb-4 flex w-full items-center justify-between text-left">
           <div>
             <h3 className="font-semibold text-lg">Quick provider templates</h3>

@@ -283,7 +283,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
           <button
             type="button"
             onClick={voice.onStopRecording}
-            className="cursor-pointer rounded-full bg-red-600 p-2 text-white shadow-sm transition-all duration-200 hover:bg-red-900"
+            className="cursor-pointer rounded-full bg-red-600 p-2 text-white transition-colors duration-200 hover:bg-red-900"
           >
             <Square className="h-3.5 w-3.5" />
             <span className="sr-only">Stop recording</span>
@@ -323,7 +323,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
           <button
             type="button"
             onClick={onStop}
-            className="cursor-pointer rounded-full bg-red-600 p-2 text-white shadow-sm transition-all duration-200 hover:bg-red-900"
+            className="cursor-pointer rounded-full bg-red-600 p-2 text-white transition-colors duration-200 hover:bg-red-900"
           >
             <SquareStop className="h-3.5 w-3.5" />
             <span className="sr-only">Stop</span>
@@ -340,7 +340,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             voice?.isRecording ||
             voice?.isTranscribing
           }
-          className="cursor-pointer rounded-full bg-[var(--accent-orange)] p-2 text-white shadow-sm transition-all duration-200 hover:bg-[var(--accent-orange-bright)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="cursor-pointer rounded-full bg-[var(--accent-orange)] p-2 text-white transition-colors duration-200 hover:bg-[var(--accent-orange-bright)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Send className="h-3.5 w-3.5" />
           <span className="sr-only">Send</span>

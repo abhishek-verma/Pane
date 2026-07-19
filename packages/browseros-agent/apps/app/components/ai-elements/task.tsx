@@ -45,7 +45,11 @@ export const Task = ({
   className,
   ...props
 }: TaskProps) => (
-  <Collapsible className={cn(className)} defaultOpen={defaultOpen} {...props} />
+  <Collapsible
+    className={cn('w-full min-w-0', className)}
+    defaultOpen={defaultOpen}
+    {...props}
+  />
 )
 
 export type TaskTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
@@ -82,12 +86,12 @@ export const TaskContent = ({
 }: TaskContentProps) => (
   <CollapsibleContent
     className={cn(
-      'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
+      'data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 min-w-0 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in',
       className,
     )}
     {...props}
   >
-    <div className="mt-2 space-y-1 border-muted border-l-2 pl-3">
+    <div className="mt-2 min-w-0 space-y-1 border-muted border-l-2 pl-3">
       {children}
     </div>
   </CollapsibleContent>

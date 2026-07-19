@@ -24,7 +24,7 @@ export const CodingAgentTemplateCard: FC<CodingAgentTemplateCardProps> = ({
     <button
       type="button"
       onClick={() => onCreate(adapter.id)}
-      className="group relative flex w-full items-center gap-3 rounded-lg border border-border bg-background p-4 text-left transition-all hover:border-[var(--accent-orange)] hover:shadow-md"
+      className="group relative flex w-full items-center gap-3 rounded-md border border-border bg-background p-4 text-left transition-colors hover:border-[var(--accent-orange)]"
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <AdapterIcon

@@ -151,7 +151,7 @@ export const ToolEvidenceList: FC<{
   }, [highlightToolCallId])
 
   return (
-    <div className="flex flex-col gap-[var(--agent-trace-gap)]">
+    <div className="flex w-full min-w-0 flex-col gap-[var(--agent-trace-gap)]">
       {canReplay ? (
         safeReplayIndex != null ? (
           <StepReplayBar
@@ -185,7 +185,10 @@ export const ToolEvidenceList: FC<{
           <div
             key={key}
             ref={highlighted ? highlightRef : undefined}
-            className={cn(highlighted && 'agent-trace-highlight')}
+            className={cn(
+              'w-full min-w-0',
+              highlighted && 'agent-trace-highlight',
+            )}
           >
             <SpecializedCard
               evidence={evidence}

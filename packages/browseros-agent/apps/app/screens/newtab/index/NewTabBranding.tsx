@@ -13,7 +13,7 @@ export const NewTabBranding: FC = () => {
             damping: 20,
             stiffness: 300,
           }}
-          className="flex items-center justify-center rounded-xl bg-transparent"
+          className="flex items-center justify-center rounded-md bg-transparent"
         >
           <PaneWordmark size="xl" />
         </motion.div>

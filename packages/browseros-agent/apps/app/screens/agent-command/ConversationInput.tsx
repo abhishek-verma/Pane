@@ -95,7 +95,7 @@ function InputActionButton({
       size="icon"
       disabled={disabled}
       title={streaming && hasContent ? 'Queue message' : undefined}
-      className="h-10 w-10 flex-shrink-0 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
+      className="h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
     >
       {showSpinner ? (
         <Loader2 className="h-5 w-5 animate-spin" />
@@ -115,7 +115,7 @@ function StopButton({ onStop }: { onStop: () => void }) {
       onClick={onStop}
       title="Stop current turn — queued messages will start next."
       aria-label="Stop current turn"
-      className="h-8 w-8 flex-shrink-0 rounded-lg bg-destructive/10 text-destructive transition-colors hover:bg-destructive/15 hover:text-destructive"
+      className="h-8 w-8 flex-shrink-0 rounded-md bg-destructive/10 text-destructive transition-colors hover:bg-destructive/15 hover:text-destructive"
     >
       <Square className="h-3.5 w-3.5 fill-current" />
     </Button>
@@ -129,7 +129,7 @@ function VoiceModeEntryButton({ onClick }: { onClick: () => void }) {
       variant="ghost"
       size="icon"
       onClick={onClick}
-      className="h-10 w-10 flex-shrink-0 rounded-xl text-muted-foreground transition-colors hover:text-foreground"
+      className="h-10 w-10 flex-shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground"
       title="Open voice mode"
       aria-label="Open voice mode"
     >
@@ -155,7 +155,7 @@ function VoiceButton({
         type="button"
         size="icon"
         onClick={onStop}
-        className="h-10 w-10 flex-shrink-0 rounded-xl bg-red-600 text-white hover:bg-red-700"
+        className="h-10 w-10 flex-shrink-0 rounded-full bg-red-600 text-white hover:bg-red-700"
       >
         <Square className="h-4 w-4" />
       </Button>
@@ -169,7 +169,7 @@ function VoiceButton({
         variant="ghost"
         size="icon"
         disabled
-        className="h-10 w-10 flex-shrink-0 rounded-xl"
+        className="h-10 w-10 flex-shrink-0 rounded-md"
       >
         <Loader2 className="h-5 w-5 animate-spin" />
       </Button>
@@ -182,7 +182,7 @@ function VoiceButton({
       variant="ghost"
       size="icon"
       onClick={onStart}
-      className="h-10 w-10 flex-shrink-0 rounded-xl text-muted-foreground transition-colors hover:text-foreground"
+      className="h-10 w-10 flex-shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground"
       title="Voice input"
     >
       <Mic className="h-5 w-5" />
@@ -556,7 +556,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
             isExpandedDraft ? 'items-end' : 'items-center',
           )}
         >
-          <BotInputIcon variant={variant} />
+          <BotInputIcon />
           <div className="flex-1">
             <Textarea
               ref={textareaRef}
@@ -716,16 +716,9 @@ function AttachmentChip({
   )
 }
 
-function BotInputIcon({ variant }: { variant: 'home' | 'conversation' }) {
+function BotInputIcon() {
   return (
-    <div
-      className={cn(
-        'flex items-center justify-center text-[var(--accent-orange)]',
-        variant === 'home'
-          ? 'h-8 w-8 rounded-lg bg-[var(--accent-orange)]/10'
-          : 'h-8 w-8 rounded-lg bg-[var(--accent-orange)]/10',
-      )}
-    >
+    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]">
       <Bot className="h-4 w-4" />
     </div>
   )
