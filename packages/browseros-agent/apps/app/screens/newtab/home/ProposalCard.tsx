@@ -25,7 +25,7 @@ export const ProposalCard: FC<ProposalCardProps> = ({
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className="rounded-[var(--radius)] border border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/5 p-4">
+    <div className="rounded-md border border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/5 p-4">
       <div className="mb-2 flex items-start gap-2">
         <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-orange)]" />
         <div className="min-w-0 flex-1">

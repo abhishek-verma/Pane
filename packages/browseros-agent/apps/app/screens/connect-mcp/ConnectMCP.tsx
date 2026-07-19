@@ -33,9 +33,9 @@ export const ConnectMCP: FC = () => {
   return (
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
       {/* Header */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
+      <div className="rounded-md border border-border bg-card p-6">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-orange)]/10">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[var(--accent-orange)]/10">
             <Server className="h-6 w-6 text-[var(--accent-orange)]" />
           </div>
           <div className="flex-1">
@@ -60,15 +60,15 @@ export const ConnectMCP: FC = () => {
 
       {/* Created Servers */}
       {createdServers.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
+        <div className="rounded-md border border-border bg-card p-6">
           <h3 className="mb-4 font-semibold text-lg">Your Connected Apps</h3>
           <div className="space-y-3">
             {createdServers.map((server) => (
               <div
                 key={server.id}
-                className="flex items-center gap-4 rounded-lg border border-border bg-background p-4 transition-all hover:border-[var(--accent-orange)]/50 hover:shadow-sm"
+                className="flex items-center gap-4 rounded-md border border-border bg-background p-4 transition-colors hover:border-[var(--accent-orange)]/50"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--accent-orange)]/10">
                   <Server className="h-5 w-5 text-[var(--accent-orange)]" />
                 </div>
                 <div className="flex-1">

@@ -51,7 +51,7 @@ export const FileChangeCard: FC<{
             </p>
           ) : null}
           {peek.length > 0 ? (
-            <div className={agentPeekClass('mt-1.5')}>
+            <div className={agentPeekClass('mt-1.5 min-w-0 max-w-full')}>
               <DiffLines lines={peek} maxLines={DIFF_PEEK_LINES} />
               <div className="agent-peek-fade" />
             </div>

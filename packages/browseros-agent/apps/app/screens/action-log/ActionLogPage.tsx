@@ -84,10 +84,7 @@ export const ActionLogPage: FC = () => {
 
       <ul className="space-y-3">
         {entries.map((entry) => (
-          <li
-            key={entry.id}
-            className="rounded-lg border bg-card p-4 text-sm shadow-sm"
-          >
+          <li key={entry.id} className="rounded-md border bg-card p-4 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="font-medium">{entry.toolName}</div>
               <div className="text-muted-foreground text-xs">

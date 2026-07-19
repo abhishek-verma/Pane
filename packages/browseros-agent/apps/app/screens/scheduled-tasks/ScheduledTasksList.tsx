@@ -25,8 +25,8 @@ export const ScheduledTasksList: FC<ScheduledTasksListProps> = ({
 }) => {
   if (jobs.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="rounded-lg border border-border border-dashed py-8 text-center">
+      <div className="rounded-md border border-border bg-card p-6">
+        <div className="rounded-md border border-border border-dashed py-8 text-center">
           <p className="text-muted-foreground text-sm">
             No scheduled tasks yet. Create one to automate recurring tasks.
           </p>

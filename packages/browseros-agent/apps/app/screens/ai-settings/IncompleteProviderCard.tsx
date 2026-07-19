@@ -29,8 +29,8 @@ export const IncompleteProviderCard: FC<IncompleteProviderCardProps> = ({
   onDelete,
 }) => {
   return (
-    <div className="flex w-full items-center gap-4 rounded-xl border border-amber-500/50 border-dashed bg-amber-500/5 p-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+    <div className="flex w-full items-center gap-4 rounded-md border border-amber-500/50 border-dashed bg-amber-500/5 p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-500">
         <ProviderIcon type={provider.type as ProviderType} size={24} />
       </div>
       <div className="min-w-0 flex-1">

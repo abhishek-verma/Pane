@@ -200,7 +200,7 @@ export const CapturePage: FC = () => {
 
         {/* Right: transcript */}
         <div
-          className="overflow-y-auto rounded-xl border border-border/40 bg-card/50"
+          className="overflow-y-auto rounded-md border border-border/40 bg-card/50"
           style={{ maxHeight: 'calc(100vh - 180px)' }}
         >
           {!selectedSessionId && (

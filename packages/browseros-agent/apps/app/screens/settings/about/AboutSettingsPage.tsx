@@ -14,7 +14,7 @@ export const AboutSettingsPage: FC = () => {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <section className="space-y-4 rounded-xl border border-border/50 bg-card p-5">
+        <section className="space-y-4 rounded-md border border-border/50 bg-card p-5">
           <h2 className="font-medium text-base text-card-foreground">
             Project Details
           </h2>
@@ -47,7 +47,7 @@ export const AboutSettingsPage: FC = () => {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-xl border border-border/50 bg-card p-5">
+        <section className="space-y-4 rounded-md border border-border/50 bg-card p-5">
           <h2 className="font-medium text-base text-card-foreground">
             System Info
           </h2>
@@ -76,7 +76,7 @@ export const AboutSettingsPage: FC = () => {
         </section>
       </div>
 
-      <div className="rounded-xl border border-border/50 bg-muted/20 p-5 text-center text-muted-foreground text-xs">
+      <div className="rounded-md border border-border/50 bg-muted/20 p-5 text-center text-muted-foreground text-xs">
         <Info className="mx-auto mb-2 size-4 text-muted-foreground" />
         Built with ❤️ for a private, autonomous web.
       </div>

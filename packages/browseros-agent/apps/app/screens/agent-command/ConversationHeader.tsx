@@ -69,7 +69,7 @@ export const ConversationHeader: FC<ConversationHeaderProps> = ({
           variant="ghost"
           size="icon"
           onClick={onGoHome}
-          className="size-8 shrink-0 rounded-xl lg:hidden"
+          className="size-8 shrink-0 rounded-md lg:hidden"
           title={backLabel}
         >
           <BackIcon className="size-4" />

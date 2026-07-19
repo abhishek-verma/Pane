@@ -96,7 +96,13 @@ const FIXTURES: ToolEvidenceSource[] = [
     state: 'output-available',
     input: { page: 1 },
     output: {
-      content: [{ type: 'text', text: 'Accessibility tree…' }],
+      content: [
+        {
+          type: 'text',
+          // Wide single line — must scroll inside the peek, not the page.
+          text: `Accessibility tree ${'x'.repeat(240)} end`,
+        },
+      ],
     },
   },
   {

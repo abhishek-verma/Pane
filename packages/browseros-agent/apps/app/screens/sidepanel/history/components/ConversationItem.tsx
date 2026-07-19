@@ -47,7 +47,7 @@ export const ConversationItem: FC<ConversationItemProps> = ({
     <>
       <Link
         to={`/?conversationId=${conversation.id}`}
-        className={`group flex w-full items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 ${
+        className={`group flex w-full items-start gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-muted/50 ${
           isActive ? 'bg-muted/70' : ''
         }`}
       >

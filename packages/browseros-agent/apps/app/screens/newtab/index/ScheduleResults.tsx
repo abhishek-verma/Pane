@@ -109,7 +109,7 @@ export const ScheduleResults: FC = () => {
       <CollapsibleTrigger asChild>
         <Button
           variant="ghost"
-          className="group flex h-auto w-full items-center justify-between rounded-xl border border-border/50 bg-card/50 p-3 transition-all hover:border-border hover:bg-card"
+          className="group flex h-auto w-full items-center justify-between rounded-md border border-border/50 bg-card/50 p-3 transition-colors hover:border-border hover:bg-card"
         >
           <div className="flex items-center gap-3">
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -134,7 +134,7 @@ export const ScheduleResults: FC = () => {
             key={run.id}
             variant="ghost"
             onClick={() => viewRun(run)}
-            className="h-auto w-full justify-start rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-border"
+            className="h-auto w-full justify-start rounded-md border border-border/50 bg-card p-4 text-left transition-colors hover:border-border"
           >
             <div className="flex w-full items-start gap-3">
               {getStatusIcon(run.status)}

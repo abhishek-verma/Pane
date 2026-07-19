@@ -45,9 +45,9 @@ export const RecentSites: FC = () => {
             <a
               key={site.url}
               href={site.url}
-              className="group flex flex-col items-center gap-2 transition-transform hover:scale-110"
+              className="group flex flex-col items-center gap-2"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border/50 bg-card shadow-sm transition-all group-hover:border-[var(--accent-orange)]/30 group-hover:shadow-md">
+              <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/50 bg-card transition-colors group-hover:border-[var(--accent-orange)]/40 group-hover:bg-[var(--accent-orange)]/5">
                 {icon ? (
                   <RecentSiteIcon src={icon} alt={site.name} />
                 ) : (

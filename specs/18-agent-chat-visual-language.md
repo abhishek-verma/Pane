@@ -2,11 +2,9 @@
 
 ## Summary
 
-The side-panel agent should feel like a **calm developer console**, not a stack of white rounded cards. Conversation prose stays primary. Tool work, reasoning, and status are quiet transcript metadata — inspectable, never decorative.
+Pane’s product UI — side-panel agent, new-tab agent surfaces, settings, and shared chrome — should feel like one **calm developer console**. Conversation prose stays primary in chat. Settings and home use the same restrained radius, hairline borders, and muted fills — not a stack of soft white rounded marketing cards.
 
-This standard applies to: side-panel chat, shared new-tab chat using the same components, tool-evidence rows, approvals, and the composer chrome. It does **not** redesign settings/home marketing cards.
-
-Inspired by patterns from Hermes WebUI’s UI/UX guide (prose-first hierarchy, almost no transcript shadows, tool rows as disclosure not chat messages) and Cursor/Hermes-class agent UIs — adapted to Pane’s orange brand and Geist type.
+Inspired by Hermes WebUI / Cursor-class agent UIs, adapted to Pane’s orange brand and Geist type.
 
 > **Status:** implemented baseline on `feat/agent-chat-visual-language`.
 
@@ -14,15 +12,15 @@ Inspired by patterns from Hermes WebUI’s UI/UX guide (prose-first hierarchy, a
 
 ## Goals
 
-1. Remove the “soft white card stack” look from the agent transcript.
-2. Make specialized tool evidence scannable as a **timeline rail**, not floating panels.
-3. Keep progressive disclosure (peek → modal / expand) from [17](./17-agent-tool-call-visibility.md).
+1. One visual language across chat, settings, home, and extension chrome.
+2. Reduce “old school” heavy rounding; prefer small radii and square tool traces.
+3. Keep progressive disclosure for tool evidence (spec 17).
 4. Stay on-brand: one orange accent, Geist / Geist Mono, light + dark.
 
 ## Non-goals
 
-- Redesigning Settings, Adaptive Home widgets, or onboarding marketing cards.
 - Pixel-cloning Hermes or Cursor.
+- Redesigning onboarding video/marketing storytelling layouts (only inherit radius/tokens).
 - Introducing a new UI framework or large animation system.
 
 ---
@@ -43,10 +41,11 @@ Inspired by patterns from Hermes WebUI’s UI/UX guide (prose-first hierarchy, a
 |---------|-------|------|--------|--------|
 | Assistant prose | none | none | none | none |
 | User message | `rounded-md` (small) | muted tint only | none | none |
-| Tool traces | **square** (`rounded-none`) | none / hairline tint | **left rail 2px** only | none |
-| Diff peek / code | square | `muted/30` | none (inherits rail) | none |
-| Composer field | `rounded-md` | `muted/40` | hairline | none |
-| Modals / popovers | existing dialog radius | popover | yes | allowed |
+| Tool traces | **square** | none / hairline tint | **left rail 2px** only | none |
+| Settings / home panels | `rounded-md` | `bg-card` or transparent | hairline | none (static) |
+| Shared `Card` | `rounded-md` | `bg-card` | hairline | none by default |
+| Composer field | `rounded-md` | muted | hairline | none |
+| Modals / menus | existing dialog radius | popover | yes | allowed |
 
 **Rules**
 
@@ -136,6 +135,8 @@ Utility classes: `.agent-trace`, `.agent-trace-browser`, `.agent-trace-error`, `
 - User can still open full diff modal and expand generics.
 - Light and dark both remain legible.
 - Spec 17 behavior unchanged; only chrome/visual weight changes.
+- Settings AI provider list and side-panel chat feel like the same product (radius, borders, no soft card gallery).
+- Expanding a wide tool output scrolls inside the peek; the chat column does not shift horizontally.
 
 ---
 

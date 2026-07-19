@@ -22,7 +22,7 @@ export const AgentTile: FC<AgentTileProps> = ({
   lastUsedAt,
 }) => (
   <div className="relative shrink-0">
-    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+    <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted text-muted-foreground">
       <AdapterIcon adapter={adapter} className="h-6 w-6" />
     </div>
     <LivenessDot

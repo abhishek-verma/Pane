@@ -52,7 +52,7 @@ export const EmptyHomeState: FC = () => {
   const starters = BUILTIN_TEMPLATES.filter((t) => STARTER_IDS.includes(t.id))
 
   return (
-    <div className="space-y-4 rounded-[var(--radius)] border border-border/60 border-dashed p-5">
+    <div className="space-y-4 rounded-md border border-border/60 border-dashed p-5">
       <p className="text-center text-muted-foreground text-sm">
         As you work, Pane will surface your meetings, open threads, and
         scheduled tasks here.
@@ -69,7 +69,7 @@ export const EmptyHomeState: FC = () => {
               type="button"
               onClick={() => addMutation.mutate(t.id)}
               disabled={addMutation.isPending}
-              className="flex w-full items-center gap-3 rounded-lg border border-border/50 bg-card p-3 text-left transition-colors hover:border-[var(--accent-orange)]/40 hover:bg-[var(--accent-orange)]/5 disabled:opacity-50"
+              className="flex w-full items-center gap-3 rounded-md border border-border/50 bg-card p-3 text-left transition-colors hover:border-[var(--accent-orange)]/40 hover:bg-[var(--accent-orange)]/5 disabled:opacity-50"
             >
               <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div>

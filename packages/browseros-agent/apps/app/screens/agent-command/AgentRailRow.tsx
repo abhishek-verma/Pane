@@ -37,7 +37,7 @@ export const AgentRailRow: FC<AgentRailRowProps> = ({
       type="button"
       onClick={onSelect}
       className={cn(
-        'group w-full rounded-2xl border px-3 py-3 text-left transition-colors',
+        'group w-full rounded-md border px-3 py-3 text-left transition-colors',
         active
           ? 'border-[var(--accent-orange)]/30 bg-[var(--accent-orange)]/8'
           : 'border-transparent bg-transparent hover:border-border/60 hover:bg-card',

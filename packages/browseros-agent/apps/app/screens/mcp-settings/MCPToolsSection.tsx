@@ -29,7 +29,7 @@ export const MCPToolsSection: FC<MCPToolsSectionProps> = ({
       onOpenChange={setIsOpen}
       className="group/collapsible"
     >
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
+      <div className="rounded-md border border-border bg-card p-6">
         <div className="flex items-start justify-between gap-3">
           <CollapsibleTrigger className="flex flex-1 items-center justify-between text-left">
             <div>
@@ -74,7 +74,7 @@ export const MCPToolsSection: FC<MCPToolsSectionProps> = ({
               {tools.map((tool) => (
                 <div
                   key={tool.name}
-                  className="rounded-lg border border-border bg-background p-4 transition-all hover:border-[var(--accent-orange)]/50 hover:shadow-sm"
+                  className="rounded-md border border-border bg-background p-4 transition-colors hover:border-[var(--accent-orange)]/50"
                 >
                   <div className="mb-2 flex items-start gap-2">
                     <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-orange)]" />

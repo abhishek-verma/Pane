@@ -98,13 +98,13 @@ export const IntegrationsSection: FC<IntegrationsSectionProps> = ({
       )}
 
       {agentsQuery.data && agents.length === 0 && (
-        <div className="rounded-lg border border-border border-dashed bg-card px-4 py-6 text-center text-muted-foreground text-sm">
+        <div className="rounded-md border border-border border-dashed bg-card px-4 py-6 text-center text-muted-foreground text-sm">
           No supported agents found on this system.
         </div>
       )}
 
       {agents.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="overflow-hidden rounded-md border border-border bg-card">
           {agents.map((agent, index) => (
             <Fragment key={agent.id}>
               {index > 0 && (
@@ -238,7 +238,7 @@ const AgentRow: FC<AgentRowProps> = ({
 }
 
 const SkeletonList: FC = () => (
-  <div className="overflow-hidden rounded-lg border border-border bg-card">
+  <div className="overflow-hidden rounded-md border border-border bg-card">
     {[0, 1, 2].map((i) => (
       <Fragment key={i}>
         {i > 0 && <div className="border-border border-t" aria-hidden />}
@@ -259,7 +259,7 @@ const ErrorPanel: FC<{ message: string; onRetry: () => void }> = ({
   message,
   onRetry,
 }) => (
-  <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+  <div className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3">
     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
     <div className="space-y-1.5 text-sm">
       <div className="font-medium text-destructive">Could not load agents</div>

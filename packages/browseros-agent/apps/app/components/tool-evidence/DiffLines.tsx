@@ -12,7 +12,7 @@ export const DiffLines: FC<{
   return (
     <pre
       className={cn(
-        'overflow-x-auto font-mono text-[11px] leading-4',
+        'min-w-0 max-w-full overflow-x-auto font-mono text-[11px] leading-4',
         className,
       )}
     >

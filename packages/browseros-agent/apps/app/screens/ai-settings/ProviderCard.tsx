@@ -36,10 +36,10 @@ export const ProviderCard: FC<ProviderCardProps> = ({
     <label
       htmlFor={inputId}
       className={cn(
-        'group flex w-full cursor-pointer items-center gap-4 rounded-xl border p-4 text-left transition-all',
+        'group flex w-full cursor-pointer items-center gap-4 rounded-md border p-4 text-left transition-colors',
         isSelected
-          ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]/5 shadow-md'
-          : 'border-border bg-card hover:border-[var(--accent-orange)]/50 hover:shadow-sm',
+          ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]/5'
+          : 'border-border bg-card hover:border-[var(--accent-orange)]/50',
       )}
     >
       <input
@@ -60,7 +60,7 @@ export const ProviderCard: FC<ProviderCardProps> = ({
       >
         {isSelected && <Check className="h-3 w-3 text-white" />}
       </div>
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]">
         {isBuiltIn ? (
           <PaneIcon size={24} />
         ) : (

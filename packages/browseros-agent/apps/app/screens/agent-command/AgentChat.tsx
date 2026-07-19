@@ -59,12 +59,12 @@ function ConversationErrorState({
 }) {
   return (
     <div className="flex h-full items-center justify-center px-6 py-12">
-      <div className="max-w-md rounded-2xl border border-border/60 bg-card px-5 py-4 text-center shadow-sm">
+      <div className="max-w-md rounded-md border border-border/60 bg-card px-5 py-4 text-center">
         <p className="text-sm">{message}</p>
         <button
           type="button"
           onClick={onRetry}
-          className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 font-medium text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-foreground"
+          className="mt-3 inline-flex items-center gap-2 rounded-md border border-border/60 px-3 py-1.5 font-medium text-muted-foreground text-xs transition-colors hover:bg-accent hover:text-foreground"
         >
           <RefreshCw className="size-3.5" />
           Retry
@@ -158,7 +158,7 @@ export const AgentChat: FC<AgentChatProps> = ({
                 />
               ))}
               {error ? (
-                <div className="rounded-xl border border-border/60 bg-card px-4 py-3 text-muted-foreground text-sm">
+                <div className="rounded-md border border-border/60 bg-card px-4 py-3 text-muted-foreground text-sm">
                   {error.message}
                 </div>
               ) : null}

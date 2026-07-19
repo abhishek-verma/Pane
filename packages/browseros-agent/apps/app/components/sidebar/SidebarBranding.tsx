@@ -69,7 +69,7 @@ export const SidebarBranding: FC<SidebarBrandingProps> = ({
   const brandContent = (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-lg p-1.5 text-left transition-colors',
+        'flex items-center gap-2 rounded-md p-1.5 text-left transition-colors',
         hasDropdownItems ? 'cursor-pointer hover:bg-sidebar-accent' : '',
         expanded ? 'pr-3' : '',
       )}

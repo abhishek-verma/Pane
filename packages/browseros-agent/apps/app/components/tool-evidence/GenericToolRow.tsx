@@ -17,7 +17,7 @@ export const GenericToolRow: FC<{ evidence: ToolEvidence }> = ({
   const title = g?.title ?? evidence.title
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <Collapsible open={open} onOpenChange={setOpen} className="w-full min-w-0">
       <CollapsibleTrigger className="flex w-full items-center gap-2 py-1 text-left text-muted-foreground text-xs hover:text-foreground">
         <ToolStatusIcon state={evidence.state} />
         <span className="min-w-0 flex-1 truncate">{title}</span>
@@ -28,9 +28,9 @@ export const GenericToolRow: FC<{ evidence: ToolEvidence }> = ({
           )}
         />
       </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-2 pb-2 pl-5">
+      <CollapsibleContent className="min-w-0 space-y-2 pb-2 pl-5">
         {evidence.errorText ? (
-          <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-[11px] text-destructive">
+          <pre className="agent-peek-scroll max-h-32 whitespace-pre-wrap p-2 font-mono text-[11px] text-destructive">
             {evidence.errorText}
           </pre>
         ) : null}
@@ -39,21 +39,21 @@ export const GenericToolRow: FC<{ evidence: ToolEvidence }> = ({
         ) : (
           <>
             {g?.inputJson ? (
-              <div>
+              <div className="min-w-0">
                 <p className="mb-0.5 text-[10px] text-muted-foreground uppercase tracking-wide">
                   Parameters
                 </p>
-                <pre className="agent-peek max-h-40 overflow-auto p-2 font-mono text-[11px]">
+                <pre className="agent-peek-scroll agent-peek-scroll-pre p-2 font-mono text-[11px]">
                   {g.inputJson}
                 </pre>
               </div>
             ) : null}
             {g?.outputText ? (
-              <div>
+              <div className="min-w-0">
                 <p className="mb-0.5 text-[10px] text-muted-foreground uppercase tracking-wide">
                   Result
                 </p>
-                <pre className="agent-peek max-h-40 overflow-auto p-2 font-mono text-[11px]">
+                <pre className="agent-peek-scroll agent-peek-scroll-pre p-2 font-mono text-[11px]">
                   {g.outputText}
                 </pre>
               </div>

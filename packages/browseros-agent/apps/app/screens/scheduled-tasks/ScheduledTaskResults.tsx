@@ -94,7 +94,7 @@ export const ScheduledTaskResults: FC<ScheduledTaskResultsProps> = ({
           key={run.id}
           variant="ghost"
           onClick={() => onViewRun(run)}
-          className="h-auto w-full justify-start rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-border"
+          className="h-auto w-full justify-start rounded-md border border-border/50 bg-card p-4 text-left transition-colors hover:border-border"
         >
           <div className="flex w-full items-start gap-3">
             {getStatusIcon(run.status)}

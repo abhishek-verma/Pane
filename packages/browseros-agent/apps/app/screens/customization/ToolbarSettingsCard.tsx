@@ -132,7 +132,7 @@ export const ToolbarSettingsCard: FC = () => {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="rounded-md border border-border bg-card p-6">
       <h3 className="mb-4 font-semibold text-lg">Toolbar Settings</h3>
 
       <div className="space-y-4">

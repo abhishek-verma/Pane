@@ -44,7 +44,7 @@ const AITabActionCard: FC<{ action: AITabAction }> = ({ action }) => {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--accent-orange)]/10">
           <FileText className="h-4 w-4 text-[var(--accent-orange)]" />
         </div>
         <div className="flex-1">
@@ -69,7 +69,7 @@ const BrowserOSActionCard: FC<{ action: BrowserOSAction }> = ({ action }) => {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-start gap-2">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10">
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-[var(--accent-orange)]/10">
           {isAgent ? (
             <Bot className="h-4 w-4 text-[var(--accent-orange)]" />
           ) : (

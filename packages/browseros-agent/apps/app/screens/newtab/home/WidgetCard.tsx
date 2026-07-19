@@ -327,7 +327,7 @@ export const WidgetCard: FC<WidgetCardProps> = ({
 
   return (
     <article
-      className="group relative rounded-[var(--radius)] border border-border/40 bg-card/70 p-4 shadow-sm backdrop-blur-md transition-all duration-300 hover:scale-[1.01] hover:border-[var(--accent-orange)]/30 hover:shadow-md"
+      className="group relative rounded-md border border-border/40 bg-card/70 p-4 transition-colors hover:border-[var(--accent-orange)]/30 hover:bg-card"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >

@@ -43,7 +43,7 @@ export const DeviceCodeDialog: FC<DeviceCodeDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center gap-4 py-4">
-          <div className="flex items-center gap-3 rounded-xl border-2 border-[var(--accent-orange)]/40 border-dashed bg-[var(--accent-orange)]/5 px-6 py-4">
+          <div className="flex items-center gap-3 rounded-md border-2 border-[var(--accent-orange)]/40 border-dashed bg-[var(--accent-orange)]/5 px-6 py-4">
             <code className="font-bold font-mono text-2xl text-foreground tracking-widest">
               {deviceCode?.userCode}
             </code>

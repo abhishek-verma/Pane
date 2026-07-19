@@ -3,9 +3,9 @@ import type { FC } from 'react'
 
 export const CustomizationHeader: FC = () => {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="rounded-md border border-border bg-card p-6">
       <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-orange)]/10">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-[var(--accent-orange)]/10">
           <Palette className="h-6 w-6 text-[var(--accent-orange)]" />
         </div>
         <div className="flex-1">

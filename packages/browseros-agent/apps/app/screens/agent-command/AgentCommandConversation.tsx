@@ -342,7 +342,7 @@ export const AgentCommandConversation: FC<AgentCommandConversationProps> = ({
               variant="ghost"
               size="icon"
               onClick={() => navigate(backPath)}
-              className="size-8 rounded-xl"
+              className="size-8 rounded-md"
               title="Back to home"
             >
               <ArrowLeft className="size-4" />
@@ -372,7 +372,7 @@ export const AgentCommandConversation: FC<AgentCommandConversationProps> = ({
                       `${agentPathPrefix}/${resolvedAgentId}/sessions/${crypto.randomUUID()}`,
                     )
                   }
-                  className="size-8 rounded-xl"
+                  className="size-8 rounded-md"
                   title="New conversation"
                 >
                   <Plus className="size-4" />

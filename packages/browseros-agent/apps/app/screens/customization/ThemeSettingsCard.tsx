@@ -14,7 +14,7 @@ export const ThemeSettingsCard: FC = () => {
   const { theme, setTheme } = useTheme()
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-sm transition-all hover:shadow-md">
+    <div className="rounded-md border border-border bg-card p-6">
       <h3 className="mb-1 font-semibold text-lg">App Theme</h3>
       <p className="mb-4 text-muted-foreground text-xs">
         Customize the visual appearance of Pane. Select between light mode, dark
@@ -30,7 +30,7 @@ export const ThemeSettingsCard: FC = () => {
               type="button"
               onClick={() => setTheme(value)}
               className={cn(
-                'flex flex-col items-center justify-center gap-2.5 rounded-lg border p-4 font-medium text-sm transition-all hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                'flex flex-col items-center justify-center gap-2.5 rounded-md border p-4 font-medium text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                 isActive
                   ? 'border-primary bg-primary/5 text-primary'
                   : 'border-border text-muted-foreground hover:text-foreground',

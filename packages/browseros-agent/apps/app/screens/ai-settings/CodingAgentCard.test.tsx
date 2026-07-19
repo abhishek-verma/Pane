@@ -77,7 +77,7 @@ describe('CodingAgentCard', () => {
   it('renders a Codex agent with the provider-card shell and metadata', () => {
     const html = renderCard()
 
-    expect(html).toContain('rounded-xl border p-4')
+    expect(html).toContain('rounded-md border p-4')
     expect(html).toContain('agent')
     expect(html).toContain('Codex · gpt-5.5 · medium')
     expect(html).toContain('aria-label="Codex"')
@@ -116,6 +116,7 @@ describe('CodingAgentCard', () => {
 
     expect(html).toContain('checked')
     expect(html).toContain('DEFAULT')
-    expect(html).toContain('bg-[var(--accent-orange)]/5 shadow-md')
+    expect(html).not.toContain('shadow-md')
+    expect(html).toContain('bg-[var(--accent-orange)]/5')
   })
 })
