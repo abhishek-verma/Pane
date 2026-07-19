@@ -33,6 +33,60 @@ async function segmentCountForSession(
   return segments.filter((s) => s.kind !== 'partial').length
 }
 
+async function readSummaryFile(summaryPath: string | null): Promise<string> {
+  if (!summaryPath) return ''
+  try {
+    return await readFile(summaryPath, 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+function formatTranscriptToolText(
+  sessionId: string,
+  status: string,
+  formatted: Awaited<ReturnType<typeof loadFormattedTranscript>>,
+  maxChars: number,
+): { text: string } {
+  if (!formatted.text) {
+    return {
+      text: `No transcript text for ${sessionId} yet (status=${status}, segments=${formatted.segmentCount}).`,
+    }
+  }
+  return {
+    text: formatted.truncated
+      ? `${formatted.text}\n\n(truncated at ${maxChars} chars; ${formatted.segmentCount} segments total)`
+      : formatted.text,
+  }
+}
+
+function formatFullCaptureRead(input: {
+  session: NonNullable<ReturnType<typeof getCaptureSession>>
+  formatted: Awaited<ReturnType<typeof loadFormattedTranscript>>
+  summaryBody: string
+}): { text: string } {
+  const { session, formatted, summaryBody } = input
+  const header = [
+    `# Meeting capture ${session.id}`,
+    `status: ${session.status}`,
+    `title: ${session.title ?? '(none)'}`,
+    `url: ${session.url ?? '(none)'}`,
+    `site/room: ${session.site ?? 'unknown'} / ${session.roomKey ?? '(none)'}`,
+    `started: ${formatCaptureWhen(session.startedAt)}`,
+    `ended: ${session.endedAt ? formatCaptureWhen(session.endedAt) : '(active)'}`,
+    `provider: ${session.provider}`,
+    `segments: ${formatted.segmentCount}${formatted.truncated ? ' (transcript truncated below)' : ''}`,
+    '',
+  ].join('\n')
+  const summarySection = summaryBody.trim()
+    ? `## Summary\n\n${summaryBody.trim()}\n\n`
+    : '## Summary\n\n_(none yet — transcript below)_\n\n'
+  const transcriptSection = formatted.text
+    ? `## Transcript\n\n${formatted.text}`
+    : '## Transcript\n\n_(empty)_'
+  return { text: `${header}${summarySection}${transcriptSection}` }
+}
+
 export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
   return {
     capture_start: tool({
@@ -130,33 +184,18 @@ export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
           return { text: JSON.stringify(session, null, 2) }
         }
 
-        const formatted = await loadFormattedTranscript(
-          session,
-          maxChars ?? CAPTURE_TRANSCRIPT_MAX_CHARS,
-        )
-
+        const limit = maxChars ?? CAPTURE_TRANSCRIPT_MAX_CHARS
+        const formatted = await loadFormattedTranscript(session, limit)
         if (mode === 'transcript') {
-          if (!formatted.text) {
-            return {
-              text: `No transcript text for ${sessionId} yet (status=${session.status}, segments=${formatted.segmentCount}).`,
-            }
-          }
-          return {
-            text: formatted.truncated
-              ? `${formatted.text}\n\n(truncated at ${maxChars ?? CAPTURE_TRANSCRIPT_MAX_CHARS} chars; ${formatted.segmentCount} segments total)`
-              : formatted.text,
-          }
+          return formatTranscriptToolText(
+            sessionId,
+            session.status,
+            formatted,
+            limit,
+          )
         }
 
-        let summaryBody = ''
-        if (session.summaryPath) {
-          try {
-            summaryBody = await readFile(session.summaryPath, 'utf8')
-          } catch {
-            summaryBody = ''
-          }
-        }
-
+        const summaryBody = await readSummaryFile(session.summaryPath)
         if (mode === 'summary') {
           return {
             text:
@@ -165,28 +204,7 @@ export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
           }
         }
 
-        const header = [
-          `# Meeting capture ${session.id}`,
-          `status: ${session.status}`,
-          `title: ${session.title ?? '(none)'}`,
-          `url: ${session.url ?? '(none)'}`,
-          `site/room: ${session.site ?? 'unknown'} / ${session.roomKey ?? '(none)'}`,
-          `started: ${formatCaptureWhen(session.startedAt)}`,
-          `ended: ${session.endedAt ? formatCaptureWhen(session.endedAt) : '(active)'}`,
-          `provider: ${session.provider}`,
-          `segments: ${formatted.segmentCount}${formatted.truncated ? ' (transcript truncated below)' : ''}`,
-          '',
-        ].join('\n')
-
-        const summarySection = summaryBody.trim()
-          ? `## Summary\n\n${summaryBody.trim()}\n\n`
-          : '## Summary\n\n_(none yet — transcript below)_\n\n'
-
-        const transcriptSection = formatted.text
-          ? `## Transcript\n\n${formatted.text}`
-          : '## Transcript\n\n_(empty)_'
-
-        return { text: `${header}${summarySection}${transcriptSection}` }
+        return formatFullCaptureRead({ session, formatted, summaryBody })
       },
     }),
   }
