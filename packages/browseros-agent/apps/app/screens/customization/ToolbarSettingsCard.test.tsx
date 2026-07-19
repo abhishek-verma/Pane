@@ -1,4 +1,12 @@
-import { beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from 'bun:test'
 import { type ComponentProps, createElement, type FC } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
@@ -221,6 +229,9 @@ mock.module('@/lib/messaging/runtime/runtimeMessages', () => ({
       throw sendRuntimeMessageError
     }
   },
+  // Keep the named export present so later suites are not poisoned by Bun's
+  // process-global mock.module graph.
+  onRuntimeMessage: () => () => {},
 }))
 
 let ToolbarSettingsCard: FC
@@ -230,6 +241,10 @@ beforeAll(async () => {
   const module = await import('./ToolbarSettingsCard')
   ToolbarSettingsCard = module.ToolbarSettingsCard
   loadToolbarSettingsState = module.loadToolbarSettingsState
+})
+
+afterAll(() => {
+  mock.restore()
 })
 
 beforeEach(() => {

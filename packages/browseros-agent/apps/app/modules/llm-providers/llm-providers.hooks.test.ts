@@ -1,4 +1,12 @@
-import { beforeAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+} from 'bun:test'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import {
   resolveDefaultProviderId,
@@ -68,7 +76,7 @@ mock.module('@/lib/browseros/prefs', () => ({
   },
 }))
 
-mock.module('../../lib/llm-providers/storage', () => ({
+const storageMock = {
   DEFAULT_PROVIDER_ID: 'browseros',
   createDefaultBrowserOSProvider: createBrowserOSProvider,
   createDefaultProvidersConfig: () => [createBrowserOSProvider()],
@@ -89,11 +97,32 @@ mock.module('../../lib/llm-providers/storage', () => ({
     },
     watch: () => () => {},
   },
-}))
+  resolveStoredChatProvider: async (
+    preferredProviderId?: string | null,
+    _cloudOnly = false,
+  ) => {
+    const providers =
+      (storageValues.get('local:llm-providers') as LlmProviderConfig[]) ?? []
+    const preferredId =
+      preferredProviderId ??
+      (storageValues.get('local:default-provider-id') as string | undefined) ??
+      'browseros'
+    return providers.find((p) => p.id === preferredId) ?? providers[0] ?? null
+  },
+}
+
+// Mock both the alias and relative specifier so Bun does not leave one path
+// pointing at an incomplete module graph for later suites.
+mock.module('@/lib/llm-providers/storage', () => storageMock)
+mock.module('../../lib/llm-providers/storage', () => storageMock)
 
 mock.module('@/lib/llm-providers/uploadLlmProvidersToGraphql', () => ({
   uploadLlmProvidersToGraphql: async () => {},
 }))
+
+afterAll(() => {
+  mock.restore()
+})
 
 const timestamp = 1000
 

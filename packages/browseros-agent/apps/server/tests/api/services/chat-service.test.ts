@@ -1,4 +1,5 @@
-import { describe, expect, it, mock } from 'bun:test'
+import { afterAll, describe, expect, it, mock } from 'bun:test'
+import * as realAi from 'ai'
 
 interface MockMessage {
   id: string
@@ -52,6 +53,7 @@ const resolveLLMConfigSpy = mock(async () => ({
 }))
 
 mock.module('ai', () => ({
+  ...realAi,
   createAgentUIStreamResponse: createAgentUIStreamResponseSpy,
 }))
 
@@ -73,6 +75,13 @@ mock.module('../../../src/lib/logger', () => ({
     error: mock(() => {}),
   },
 }))
+
+afterAll(() => {
+  mock.restore()
+  // mock.restore() does not always clear mock.module; re-bind the real package
+  // so later suites that import `{ tool }` from `ai` are not poisoned.
+  mock.module('ai', () => realAi)
+})
 
 const { ChatService } = await import('../../../src/api/services/chat-service')
 
