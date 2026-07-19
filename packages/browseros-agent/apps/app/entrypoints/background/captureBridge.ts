@@ -329,7 +329,9 @@ async function maybeStartMeetingCapture(
   const sticky = await chrome.storage.session
     .get(`captureSession:${tabId}`)
     .catch(() => ({}) as Record<string, string>)
-  const resumeSessionId = sticky[`captureSession:${tabId}`]
+  const stickySessionId = sticky[`captureSession:${tabId}`]
+  const resumeSessionId =
+    typeof stickySessionId === 'string' ? stickySessionId : undefined
 
   const roomLabel = meetingRoomLabel(url)
   let sessionId: string | null = null
