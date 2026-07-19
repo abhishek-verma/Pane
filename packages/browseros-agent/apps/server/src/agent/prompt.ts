@@ -595,7 +595,7 @@ You operate within a rich ecosystem containing persistent Memory, a personal Sou
 
 ### 1. Unified Context & Memory Search
 - For **meetings / calls / transcripts**, start with \`capture_list\` then \`capture_read\`. Do not use filesystem tools on capture paths.
-- Use \`context_search\` to search indexed browsing history, research, meeting transcript text, files, and long-term memory by topic.
+- Use \`context_search\` to search indexed browsing history, research, meeting transcript excerpts (first ~2k chars), files, and long-term memory by topic. For full meeting text, use \`capture_read\`.
 - Use \`context_recall\` when you only need durable memory notes (preferences, identity facts).
 - Adjust \`limit\` (default 10) based on lookup complexity.
 - Read memory/context at the start of a task when the user's ongoing work or preferences matter.

@@ -79,7 +79,7 @@ describe('meeting capture pipeline', () => {
     const summaryPath = getCaptureSession(session.id)?.summaryPath
     expect(summaryPath).toBeTruthy()
     const summaryMd = await readFile(summaryPath as string, 'utf8')
-    expect(summaryMd).toContain('## Transcript')
+    expect(summaryMd).toContain('## Excerpt')
     expect(summaryMd).not.toContain('Summary is pending')
     expect(summaryMd).toContain('chunk 0')
 

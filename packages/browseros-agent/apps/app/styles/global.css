@@ -682,11 +682,7 @@
   inset-inline: 0;
   bottom: 0;
   height: 1.5rem;
-  background: linear-gradient(
-    to top,
-    var(--background),
-    transparent
-  );
+  background: linear-gradient(to top, var(--background), transparent);
 }
 
 .agent-user-bubble {
@@ -774,7 +770,9 @@
   padding: 0.625rem 0.25rem;
   text-align: left;
   font-size: 0.75rem;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
 }
 
 .agent-suggestion:hover {

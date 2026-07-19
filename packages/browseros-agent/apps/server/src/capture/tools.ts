@@ -178,6 +178,12 @@ export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
         const session = getCaptureSession(sessionId)
         if (!session)
           return { text: `Capture not found: ${sessionId}`, isError: true }
+        if (session.bucketId !== getBucketId()) {
+          return {
+            text: `Capture ${sessionId} is in bucket "${session.bucketId}", not the active bucket "${getBucketId()}".`,
+            isError: true,
+          }
+        }
 
         const mode = include ?? 'full'
         if (mode === 'meta') {

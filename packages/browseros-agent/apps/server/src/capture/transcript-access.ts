@@ -132,6 +132,9 @@ export function isPlaceholderMeetingGraphSummary(
   return Boolean(summary?.startsWith(PLACEHOLDER_GRAPH_SUMMARY_PREFIX))
 }
 
+/** Short excerpt for summary.md — full text comes from capture_read transcript. */
+const SUMMARY_EXCERPT_CHARS = 600
+
 export async function buildMeetingSummaryMarkdown(input: {
   session: CaptureSessionSummary
   transcriptText: string
@@ -140,6 +143,10 @@ export async function buildMeetingSummaryMarkdown(input: {
 }): Promise<string> {
   const { session, transcriptText, segmentCount, truncated } = input
   const duration = formatCaptureDurationMs(session.startedAt, session.endedAt)
+  const excerpt =
+    transcriptText.length > SUMMARY_EXCERPT_CHARS
+      ? `${transcriptText.slice(0, SUMMARY_EXCERPT_CHARS)}\n\n…(excerpt; use capture_read include=transcript for full text)`
+      : transcriptText
   const lines = [
     `# ${session.title ?? 'Meeting capture'}`,
     '',
@@ -149,11 +156,11 @@ export async function buildMeetingSummaryMarkdown(input: {
     `- Started: ${formatCaptureWhen(session.startedAt)}`,
     `- Ended: ${session.endedAt ? formatCaptureWhen(session.endedAt) : '(active)'}`,
     `- Duration: ${duration}`,
-    `- Transcript segments: ${segmentCount}${truncated ? ' (excerpt truncated)' : ''}`,
+    `- Transcript segments: ${segmentCount}${truncated ? ' (source truncated)' : ''}`,
     '',
-    '## Transcript',
+    '## Excerpt',
     '',
-    transcriptText || '_No transcript text yet._',
+    excerpt || '_No transcript text yet._',
     '',
   ]
   return lines.join('\n')
