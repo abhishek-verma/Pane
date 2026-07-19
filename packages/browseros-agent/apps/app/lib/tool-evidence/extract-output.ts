@@ -56,11 +56,18 @@ export function extractToolOutput(output: unknown): ExtractedToolOutput {
   }
 
   const isError = rec.isError === true
-  const structured =
+  let structured =
     asRecord(rec.structuredContent) ??
     (asRecord(rec.structured) && !('content' in rec)
       ? asRecord(rec.structured)
       : null)
+
+  // Legacy screenshot payloads duplicated base64 under structuredContent.image.
+  // Strip it so UI state does not retain a second copy.
+  if (structured && typeof structured.image === 'string') {
+    const { image: _dup, ...rest } = structured
+    structured = rest
+  }
 
   if (Array.isArray(rec.content)) {
     return { ...extractFromParts(rec.content), structured, isError }

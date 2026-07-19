@@ -49,6 +49,9 @@ async function resolveWindowId(): Promise<number | null> {
  * Connects to agent-server `/screencast` while `enabled`. Tears down the
  * WebSocket when disabled or on unmount. `pageId` is optional — when
  * omitted the server follows the window's active page.
+ *
+ * Frame updates are coalesced to one React state write per animation frame
+ * (latest-wins) so high-rate JPEG streams cannot flood the renderer.
  */
 export function useLiveWatch(
   pageId: number | undefined,
@@ -68,6 +71,27 @@ export function useLiveWatch(
     let cancelled = false
     let ws: WebSocket | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+    let rafId: number | undefined
+    let pendingJpeg: string | null = null
+
+    const flushFrame = () => {
+      rafId = undefined
+      if (cancelled || pendingJpeg == null) return
+      const jpeg = pendingJpeg
+      pendingJpeg = null
+      setState((prev) => ({
+        ...prev,
+        status: 'connected',
+        jpegBase64: jpeg,
+        error: undefined,
+      }))
+    }
+
+    const scheduleFrame = (jpeg: string) => {
+      pendingJpeg = jpeg
+      if (rafId != null) return
+      rafId = requestAnimationFrame(flushFrame)
+    }
 
     setState((prev) => ({
       status: 'connecting',
@@ -123,12 +147,7 @@ export function useLiveWatch(
           return
         }
         if (msg.type === 'frame' && typeof msg.data === 'string') {
-          setState((prev) => ({
-            ...prev,
-            status: 'connected',
-            jpegBase64: msg.data,
-            error: undefined,
-          }))
+          scheduleFrame(msg.data)
           return
         }
         if (msg.type === 'status') {
@@ -172,6 +191,8 @@ export function useLiveWatch(
 
     return () => {
       cancelled = true
+      if (rafId != null) cancelAnimationFrame(rafId)
+      pendingJpeg = null
       if (reconnectTimer) clearTimeout(reconnectTimer)
       if (ws) {
         ws.onclose = null

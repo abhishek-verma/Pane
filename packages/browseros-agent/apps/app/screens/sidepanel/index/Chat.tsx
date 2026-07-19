@@ -15,7 +15,10 @@ import {
   SIDEPANEL_VOICE_TRANSCRIPTION_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
-import { resolveWatchPageId } from '@/lib/tool-evidence/resolve-watch-target'
+import {
+  resolveWatchPageId,
+  shouldEnableLiveWatch,
+} from '@/lib/tool-evidence/resolve-watch-target'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import type { ChatMode } from '@/modules/chat/chat-types'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
@@ -183,7 +186,8 @@ export const Chat = () => {
   }
 
   const isStreaming = status === 'streaming' || status === 'submitted'
-  const showLiveWatch = mode === 'agent' && isStreaming
+  const showLiveWatch =
+    mode === 'agent' && shouldEnableLiveWatch(messages, isStreaming)
   const watchPageId = showLiveWatch ? resolveWatchPageId(messages) : undefined
 
   return (

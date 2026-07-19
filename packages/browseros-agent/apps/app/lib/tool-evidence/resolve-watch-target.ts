@@ -1,6 +1,18 @@
 import type { UIMessage } from 'ai'
 import { classifyToolVisibility } from './classify'
 
+function toolNameFromPart(part: { type?: string; toolName?: string }): string {
+  return (
+    part.toolName ??
+    (part.type?.startsWith('tool-') ? part.type.slice('tool-'.length) : '')
+  )
+}
+
+function isBrowserWatchTool(toolName: string): boolean {
+  const kind = classifyToolVisibility(toolName)
+  return kind === 'browser-action' || kind === 'screenshot'
+}
+
 /** Positive integer `input.page` from the newest browser tool part, if any. */
 export function resolveWatchPageId(messages: UIMessage[]): number | undefined {
   for (let mi = messages.length - 1; mi >= 0; mi--) {
@@ -16,12 +28,8 @@ export function resolveWatchPageId(messages: UIMessage[]): number | undefined {
       if (!part.type?.startsWith('tool-') && part.type !== 'dynamic-tool') {
         continue
       }
-      const toolName =
-        part.toolName ??
-        (part.type?.startsWith('tool-') ? part.type.slice('tool-'.length) : '')
-      if (!toolName) continue
-      const kind = classifyToolVisibility(toolName)
-      if (kind !== 'browser-action' && kind !== 'screenshot') continue
+      const toolName = toolNameFromPart(part)
+      if (!toolName || !isBrowserWatchTool(toolName)) continue
       const page = part.input?.page
       if (typeof page === 'number' && Number.isInteger(page) && page > 0) {
         return page
@@ -29,6 +37,30 @@ export function resolveWatchPageId(messages: UIMessage[]): number | undefined {
     }
   }
   return undefined
+}
+
+/**
+ * LiveWatch only while the agent is streaming *and* the newest assistant
+ * message already has a browser/screenshot tool (in progress or completed).
+ * Avoids opening the screencast WS for pure reasoning / file-only turns.
+ */
+export function shouldEnableLiveWatch(
+  messages: UIMessage[],
+  isStreaming: boolean,
+): boolean {
+  if (!isStreaming) return false
+  for (let mi = messages.length - 1; mi >= 0; mi--) {
+    const message = messages[mi]
+    if (message.role !== 'assistant') continue
+    for (const part of message.parts ?? []) {
+      const p = part as { type?: string; toolName?: string }
+      if (!p.type?.startsWith('tool-') && p.type !== 'dynamic-tool') continue
+      const toolName = toolNameFromPart(p)
+      if (toolName && isBrowserWatchTool(toolName)) return true
+    }
+    return false
+  }
+  return false
 }
 
 export function httpToWsBase(httpBase: string): string {

@@ -4,6 +4,7 @@ import {
   buildScreencastWsUrl,
   httpToWsBase,
   resolveWatchPageId,
+  shouldEnableLiveWatch,
 } from './resolve-watch-target'
 
 describe('resolveWatchPageId', () => {
@@ -61,6 +62,55 @@ describe('resolveWatchPageId', () => {
     ] as unknown as UIMessage[]
 
     expect(resolveWatchPageId(messages)).toBeUndefined()
+  })
+})
+
+describe('shouldEnableLiveWatch', () => {
+  it('is false when not streaming', () => {
+    const messages = [
+      {
+        id: '1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'a',
+            state: 'output-available',
+            input: { page: 3 },
+          },
+        ],
+      },
+    ] as unknown as UIMessage[]
+    expect(shouldEnableLiveWatch(messages, false)).toBe(false)
+  })
+
+  it('is false while streaming without browser tools', () => {
+    const messages = [
+      {
+        id: '1',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'thinking…' }],
+      },
+    ] as unknown as UIMessage[]
+    expect(shouldEnableLiveWatch(messages, true)).toBe(false)
+  })
+
+  it('is true while streaming with a browser tool on the newest assistant', () => {
+    const messages = [
+      {
+        id: '1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-navigate',
+            toolCallId: 'a',
+            state: 'input-available',
+            input: { page: 2, url: 'https://example.com' },
+          },
+        ],
+      },
+    ] as unknown as UIMessage[]
+    expect(shouldEnableLiveWatch(messages, true)).toBe(true)
   })
 })
 

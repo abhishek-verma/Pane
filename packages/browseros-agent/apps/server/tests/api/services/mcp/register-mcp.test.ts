@@ -91,6 +91,7 @@ describe('registerTools', () => {
     'context_current_work',
     'context_search',
     'context_recall',
+    'session_search',
     'tasks_list',
     'tasks_add',
     'tasks_done',
