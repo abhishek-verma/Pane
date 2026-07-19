@@ -6,7 +6,7 @@ When the Pane agent acts — editing a file, clicking a button, running a comman
 
 This is a **product refinement of the existing tool transcript**, not a new surface. It deepens what [03 — Agent Modes & The Loop](./03-agent-modes-and-the-loop.md) already calls for ("tool batches… with input/output") and what [01 — Product Principles](./01-product-principles.md) requires. It does **not** replace approvals ([10](./10-trust-privacy-security.md)), the Action Log, tab glow, or the claw-app cockpit screencast.
 
-> **Status:** draft v0.1 — decision-ready product spec.
+> **Status:** implemented on `tool-vis/integration` (Phases 1–3). Demo gallery: `#/dev/tool-evidence`.
 >
 > **Primary ICP:** knowledge-worker expand path (side-panel Agent) and developer wedge (workspace file edits visible while browsing). Both need to *see* what just happened without leaving chat.
 >
