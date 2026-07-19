@@ -2,6 +2,8 @@ export type ToolVisibilityKind =
   | 'file-change'
   | 'browser-action'
   | 'screenshot'
+  | 'terminal'
+  | 'app-send'
   | 'generic'
 
 export type ToolEvidenceState =
@@ -37,6 +39,20 @@ export interface BrowserActionDetail {
   media: ToolMedia[]
 }
 
+export interface TerminalDetail {
+  command: string
+  exitCode?: number
+  stdout?: string
+  stderr?: string
+  truncated?: boolean
+}
+
+export interface AppSendDetail {
+  title: string
+  destination?: string
+  summary?: string
+}
+
 export interface GenericToolDetail {
   title: string
   subtitle?: string
@@ -56,6 +72,8 @@ export interface ToolEvidence {
   errorText?: string
   file?: FileChangeDetail
   browser?: BrowserActionDetail
+  terminal?: TerminalDetail
+  appSend?: AppSendDetail
   generic?: GenericToolDetail
 }
 
@@ -63,3 +81,5 @@ export const DIFF_PEEK_LINES = 10
 export const DIFF_MODAL_SOFT_CAP_LINES = 5000
 export const CREATE_PREVIEW_MAX_BYTES = 200_000
 export const GENERIC_JSON_MAX_CHARS = 20_000
+export const TERMINAL_OUTPUT_CLAMP_CHARS = 4_000
+export const APP_SEND_SUMMARY_MAX_CHARS = 500

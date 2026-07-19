@@ -65,4 +65,71 @@ describe('buildToolEvidence', () => {
         e.browser?.pageDiffSummary == null,
     ).toBeTruthy()
   })
+
+  test('filesystem_bash → specialized terminal card', () => {
+    const e = buildToolEvidence({
+      toolCallId: 'c5',
+      toolName: 'filesystem_bash',
+      state: 'output-available',
+      input: { command: 'npm test' },
+      output: {
+        content: [{ type: 'text', text: 'PASS lib/foo.test.ts\n' }],
+      },
+    })
+    expect(e.kind).toBe('terminal')
+    expect(e.specialized).toBe(true)
+    expect(e.terminal?.command).toBe('npm test')
+    expect(e.terminal?.exitCode).toBe(0)
+    expect(e.title).toBe('$ npm test')
+  })
+
+  test('filesystem_bash non-zero exit → error terminal card', () => {
+    const e = buildToolEvidence({
+      toolCallId: 'c6',
+      toolName: 'filesystem_bash',
+      state: 'output-available',
+      input: { command: 'false' },
+      output: {
+        content: [{ type: 'text', text: 'boom\n\n[Exit code: 1]' }],
+        isError: true,
+      },
+    })
+    expect(e.kind).toBe('terminal')
+    expect(e.state).toBe('error')
+    expect(e.terminal?.exitCode).toBe(1)
+    expect(e.terminal?.stdout).toBe('boom')
+  })
+
+  test('execute_action → specialized app-send card', () => {
+    const e = buildToolEvidence({
+      toolCallId: 'c7',
+      toolName: 'execute_action',
+      state: 'output-available',
+      input: {
+        server_name: 'slack',
+        action_name: 'chat_postMessage',
+        channel: '#eng',
+      },
+      output: {
+        content: [{ type: 'text', text: '{"ok":true,"ts":"1.2"}' }],
+      },
+    })
+    expect(e.kind).toBe('app-send')
+    expect(e.specialized).toBe(true)
+    expect(e.appSend?.title).toContain('slack')
+    expect(e.appSend?.destination).toBe('#eng')
+  })
+
+  test('browser act still specialized (not app-send)', () => {
+    const e = buildToolEvidence({
+      toolCallId: 'c8',
+      toolName: 'act',
+      state: 'output-available',
+      input: { kind: 'click', ref: 'e12' },
+      output: { content: [{ type: 'text', text: 'ok (click)' }] },
+    })
+    expect(e.kind).toBe('browser-action')
+    expect(e.specialized).toBe(true)
+    expect(e.browser).toBeTruthy()
+  })
 })
