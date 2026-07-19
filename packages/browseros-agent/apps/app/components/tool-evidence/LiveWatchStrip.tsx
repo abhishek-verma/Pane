@@ -59,7 +59,7 @@ export const LiveWatchStrip: FC<LiveWatchStripProps> = ({
   return (
     <div
       className={cn(
-        'border-border/40 border-b bg-background/80 px-3 py-2 backdrop-blur-md',
+        'border-border/40 border-b bg-background/70 px-3 py-2',
         className,
       )}
     >
@@ -84,7 +84,7 @@ export const LiveWatchStrip: FC<LiveWatchStripProps> = ({
           </span>
         ) : null}
       </div>
-      <div className="relative flex h-[96px] items-center justify-center overflow-hidden rounded-md border border-border/50 bg-muted/30">
+      <div className="relative flex h-[96px] items-center justify-center overflow-hidden bg-muted/25">
         {displayedSrc ? (
           <img
             src={displayedSrc}

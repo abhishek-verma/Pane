@@ -103,7 +103,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   }, [])
 
   return (
-    <footer className="border-border/40 border-t bg-background/80 backdrop-blur-md">
+    <footer className="agent-composer-shell">
       <ChatAttachedTabs tabs={attachedTabs} onRemoveTab={onRemoveTab} />
       {visibleSelectedText && (
         <ChatSelectedText

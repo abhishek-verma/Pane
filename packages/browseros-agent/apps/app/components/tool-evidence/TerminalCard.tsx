@@ -1,5 +1,6 @@
 import { Check, Copy } from 'lucide-react'
 import { type FC, useState } from 'react'
+import { agentPeekClass, agentTraceClass } from '@/lib/agent-chat/surfaces'
 import {
   TERMINAL_OUTPUT_CLAMP_CHARS,
   type ToolEvidence,
@@ -22,7 +23,7 @@ const CopyChip: FC<{ label: string; text: string }> = ({ label, text }) => {
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-1 rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+      className="inline-flex items-center gap-1 px-0.5 py-0.5 text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
       onClick={async (e) => {
         e.stopPropagation()
         const ok = await copyText(text)
@@ -62,9 +63,8 @@ export const TerminalCard: FC<{ evidence: ToolEvidence }> = ({ evidence }) => {
 
   return (
     <div
-      className={cn(
-        'w-full rounded-md border border-border/60 bg-card/40 px-2.5 py-2',
-        evidence.state === 'error' && 'border-destructive/40',
+      className={agentTraceClass(
+        evidence.state === 'error' ? 'error' : 'default',
       )}
     >
       <div className="flex items-center gap-2">
@@ -75,10 +75,10 @@ export const TerminalCard: FC<{ evidence: ToolEvidence }> = ({ evidence }) => {
         {exitLabel ? (
           <span
             className={cn(
-              'shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] tabular-nums',
+              'shrink-0 font-mono text-[10px] tabular-nums',
               exitOk
-                ? 'bg-green-500/15 text-green-600 dark:text-green-400'
-                : 'bg-destructive/15 text-destructive',
+                ? 'text-green-600 dark:text-green-400'
+                : 'text-destructive',
             )}
           >
             {exitLabel}
@@ -93,7 +93,11 @@ export const TerminalCard: FC<{ evidence: ToolEvidence }> = ({ evidence }) => {
       ) : null}
 
       {clamped ? (
-        <pre className="mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-2 font-mono text-[11px] text-muted-foreground leading-snug">
+        <pre
+          className={agentPeekClass(
+            'mt-1.5 max-h-32 overflow-auto whitespace-pre-wrap p-2 font-mono text-[11px] text-muted-foreground leading-snug',
+          )}
+        >
           {terminal.truncated ? (
             <span className="mb-1 block text-[10px] text-muted-foreground/80">
               Output truncated
@@ -105,7 +109,7 @@ export const TerminalCard: FC<{ evidence: ToolEvidence }> = ({ evidence }) => {
         <p className="mt-1 text-[11px] text-muted-foreground">(no output)</p>
       ) : null}
 
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
+      <div className="mt-1.5 flex flex-wrap gap-2">
         <CopyChip label="Copy command" text={command} />
         <CopyChip label="Copy output" text={output} />
       </div>

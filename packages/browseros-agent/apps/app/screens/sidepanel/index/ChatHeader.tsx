@@ -51,7 +51,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
   }
 
   return (
-    <header className="flex items-center justify-between border-border/40 border-b bg-background/80 px-3 py-2.5 backdrop-blur-md">
+    <header className="flex items-center justify-between border-border/40 border-b bg-background/90 px-3 py-2 backdrop-blur-md">
       <div className="flex items-center gap-2">
         {/* Provider Selector */}
         <ChatProviderSelector
@@ -61,7 +61,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
         >
           <button
             type="button"
-            className="group relative inline-flex cursor-pointer items-center gap-2 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
+            className="group relative inline-flex cursor-pointer items-center gap-2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
             title="Change AI Provider"
           >
             {selectedProvider.kind === 'acp' ? (
@@ -94,7 +94,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
           <button
             type="button"
             onClick={onNewConversation}
-            className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+            className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
             title="New conversation"
           >
             <Plus className="h-4 w-4" />
@@ -106,7 +106,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
             <button
               type="button"
               onClick={handleNewConversationFromHistory}
-              className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
               title="New conversation"
             >
               <Plus className="h-4 w-4" />
@@ -114,7 +114,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
           ) : (
             <Link
               to="/history"
-              className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+              className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
               title="Chat history"
             >
               <History className="h-4 w-4" />
@@ -125,7 +125,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
           href={productRepositoryUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
           title="Star on Github"
         >
           <Github className="h-4 w-4" />
@@ -135,7 +135,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
           href="/app.html#/settings"
           target="_blank"
           rel="noopener noreferrer"
-          className="cursor-pointer rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
           title="Settings"
         >
           <SettingsIcon className="h-4 w-4" />

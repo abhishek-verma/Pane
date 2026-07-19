@@ -1,8 +1,8 @@
 import { type FC, useState } from 'react'
+import { agentPeekClass, agentTraceClass } from '@/lib/agent-chat/surfaces'
 import { openActionLog } from '@/lib/tool-evidence/action-log-link'
 import { formatFileStats } from '@/lib/tool-evidence/file-evidence'
 import { DIFF_PEEK_LINES, type ToolEvidence } from '@/lib/tool-evidence/types'
-import { cn } from '@/lib/utils'
 import { useWorkspace } from '@/modules/workspace/workspace.hooks'
 import { DiffLines } from './DiffLines'
 import { DiffModal } from './DiffModal'
@@ -25,15 +25,14 @@ export const FileChangeCard: FC<{
   return (
     <>
       <div
-        className={cn(
-          'w-full rounded-md border border-border/60 bg-card/40 px-2.5 py-2',
-          evidence.state === 'error' && 'border-destructive/40',
+        className={agentTraceClass(
+          evidence.state === 'error' ? 'error' : 'default',
         )}
       >
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="w-full text-left transition-colors hover:opacity-90"
+          className="w-full text-left transition-opacity hover:opacity-90"
         >
           <div className="flex items-center gap-2">
             <ToolStatusIcon state={evidence.state} />
@@ -52,9 +51,9 @@ export const FileChangeCard: FC<{
             </p>
           ) : null}
           {peek.length > 0 ? (
-            <div className="relative mt-1.5 max-h-[7.5rem] overflow-hidden rounded bg-muted/40">
+            <div className={agentPeekClass('mt-1.5')}>
               <DiffLines lines={peek} maxLines={DIFF_PEEK_LINES} />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-card to-transparent" />
+              <div className="agent-peek-fade" />
             </div>
           ) : null}
         </button>

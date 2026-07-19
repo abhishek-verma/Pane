@@ -237,7 +237,7 @@ function CalmContextControls({
             <button
               type="button"
               className={cn(
-                'inline-flex h-6 max-w-[200px] items-center gap-1.5 rounded-full border border-border bg-accent/40 pr-2 pl-2.5 text-[11.5px] text-foreground transition-colors',
+                'inline-flex h-6 max-w-[200px] items-center gap-1.5 rounded-md border border-border/60 bg-accent/30 pr-2 pl-2.5 text-[11.5px] text-foreground transition-colors',
                 'hover:border-border hover:bg-accent/70 data-[state=open]:border-border data-[state=open]:bg-accent/70',
               )}
             >
@@ -263,7 +263,7 @@ function CalmContextControls({
       <WorkspaceSelector>
         <button
           type="button"
-          className="inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
+          className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
         >
           <Folder className="size-3" />
           <span>Workspace</span>
@@ -280,7 +280,7 @@ function CalmContextControls({
         <button
           type="button"
           className={cn(
-            'inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] transition-colors data-[state=open]:bg-accent data-[state=open]:text-foreground',
+            'inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] transition-colors data-[state=open]:bg-accent data-[state=open]:text-foreground',
             selectedTabs.length > 0
               ? 'bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90'
               : 'text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -305,7 +305,7 @@ function CalmContextControls({
         onClick={onAttachClick}
         disabled={attachDisabled || !attachmentsEnabled}
         title="Attach files"
-        className="inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Paperclip className="size-3" />
         <span>Attach</span>
@@ -318,7 +318,7 @@ function CalmContextControls({
             '_blank',
           )
         }
-        className="inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         <PlugZap className="size-3" />
         <span>Apps</span>
@@ -343,7 +343,7 @@ function CalmContextControls({
 
 function HomeShell({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-[1.55rem] border border-border/60 bg-card/95 shadow-sm transition-[border-color,box-shadow] duration-150 focus-within:border-[var(--accent-orange)]/40 focus-within:shadow-[0_0_0_4px_color-mix(in_oklch,var(--accent-orange)_15%,transparent),0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="agent-composer-field overflow-hidden transition-[border-color] duration-150 focus-within:border-[var(--accent-orange)]">
       {children}
     </div>
   )
@@ -351,7 +351,7 @@ function HomeShell({ children }: { children: ReactNode }) {
 
 function ConversationShell({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-[1.35rem] border border-border/50 bg-background/95 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur-md transition-[border-color,box-shadow] duration-150 focus-within:border-[var(--accent-orange)]/40 focus-within:shadow-[0_0_0_4px_color-mix(in_oklch,var(--accent-orange)_15%,transparent),0_10px_30px_rgba(15,23,42,0.06)]">
+    <div className="agent-composer-field overflow-hidden bg-background/95 transition-[border-color] duration-150 focus-within:border-[var(--accent-orange)]">
       {children}
     </div>
   )

@@ -18,7 +18,7 @@ export const ChatAttachedTabs: FC<ChatAttachedTabsProps> = ({
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className="flex min-w-0 max-w-[200px] flex-shrink-0 items-center gap-1.5 rounded-lg border border-border bg-accent/50 px-2 py-1.5"
+            className="flex min-w-0 max-w-[200px] flex-shrink-0 items-center gap-1.5 rounded-md border border-border/50 bg-muted/40 px-2 py-1"
           >
             <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border border-border bg-background">
               {tab.favIconUrl ? (

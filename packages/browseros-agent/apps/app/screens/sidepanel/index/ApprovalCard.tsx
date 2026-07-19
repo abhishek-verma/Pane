@@ -255,7 +255,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   }
 
   return (
-    <div className="mt-2 rounded-md border border-yellow-500/30 bg-yellow-500/5 p-3 text-sm">
+    <div className="agent-approval mt-2 text-sm">
       {approvalPreview && (
         <pre className="mb-3 max-h-40 overflow-auto whitespace-pre-wrap text-xs">
           {approvalPreview}
