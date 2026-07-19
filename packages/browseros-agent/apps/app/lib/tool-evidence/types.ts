@@ -3,6 +3,7 @@ export type ToolVisibilityKind =
   | 'browser-action'
   | 'screenshot'
   | 'terminal'
+  | 'app-send'
   | 'generic'
 
 export type ToolEvidenceState =
@@ -46,6 +47,12 @@ export interface TerminalDetail {
   truncated?: boolean
 }
 
+export interface AppSendDetail {
+  title: string
+  destination?: string
+  summary?: string
+}
+
 export interface GenericToolDetail {
   title: string
   subtitle?: string
@@ -66,6 +73,7 @@ export interface ToolEvidence {
   file?: FileChangeDetail
   browser?: BrowserActionDetail
   terminal?: TerminalDetail
+  appSend?: AppSendDetail
   generic?: GenericToolDetail
 }
 
@@ -74,3 +82,4 @@ export const DIFF_MODAL_SOFT_CAP_LINES = 5000
 export const CREATE_PREVIEW_MAX_BYTES = 200_000
 export const GENERIC_JSON_MAX_CHARS = 20_000
 export const TERMINAL_OUTPUT_CLAMP_CHARS = 4_000
+export const APP_SEND_SUMMARY_MAX_CHARS = 500

@@ -3,6 +3,7 @@ import { type FC, type ReactNode, useEffect, useState } from 'react'
 import { Task, TaskContent, TaskTrigger } from '@/components/ai-elements/task'
 import { buildToolEvidence } from '@/lib/tool-evidence/build-tool-evidence'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
+import { AppSendCard } from './AppSendCard'
 import { BrowserActionCard } from './BrowserActionCard'
 import { FileChangeCard } from './FileChangeCard'
 import { GenericToolRow } from './GenericToolRow'
@@ -29,6 +30,8 @@ function SpecializedCard({ evidence }: { evidence: ToolEvidence }) {
       return <FileChangeCard evidence={evidence} />
     case 'terminal':
       return <TerminalCard evidence={evidence} />
+    case 'app-send':
+      return <AppSendCard evidence={evidence} />
     case 'browser-action':
     case 'screenshot':
       return <BrowserActionCard evidence={evidence} />

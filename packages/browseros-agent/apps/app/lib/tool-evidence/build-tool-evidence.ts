@@ -1,3 +1,4 @@
+import { buildAppSendDetail } from './app-send-evidence'
 import { buildBrowserActionDetail } from './browser-evidence'
 import { classifyToolVisibility, isSpecializedKind } from './classify'
 import { type ExtractedToolOutput, extractToolOutput } from './extract-output'
@@ -39,6 +40,7 @@ function runningTitleFor(
     const command = typeof input.command === 'string' ? input.command : ''
     return command ? `$ ${command}` : 'Running command…'
   }
+  if (kind === 'app-send') return label ?? 'Sending…'
   return label ?? toolName
 }
 
@@ -73,6 +75,7 @@ function buildRunningEvidence(args: {
         ? { path: args.input.path, kind: 'edit', diffLines: [] }
         : undefined,
     terminal: args.kind === 'terminal' ? { command } : undefined,
+    appSend: args.kind === 'app-send' ? { title } : undefined,
   }
 }
 
@@ -222,6 +225,26 @@ export function buildToolEvidence(args: BuildToolEvidenceArgs): ToolEvidence {
       title: terminal.command ? `$ ${terminal.command}` : 'Command',
       errorText,
       terminal,
+    }
+  }
+
+  if (kind === 'app-send' && (state === 'completed' || state === 'error')) {
+    const appSend = buildAppSendDetail({
+      toolName,
+      input,
+      outputText: extracted.text,
+      label: args.label,
+      subject: args.subject,
+    })
+    return {
+      toolCallId: args.toolCallId,
+      toolName,
+      kind,
+      state: resolvedState,
+      specialized: true,
+      title: appSend.title,
+      errorText,
+      appSend,
     }
   }
 

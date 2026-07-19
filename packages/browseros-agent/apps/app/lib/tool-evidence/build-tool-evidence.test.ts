@@ -100,7 +100,27 @@ describe('buildToolEvidence', () => {
     expect(e.terminal?.stdout).toBe('boom')
   })
 
-  test('browser act still specialized', () => {
+  test('execute_action → specialized app-send card', () => {
+    const e = buildToolEvidence({
+      toolCallId: 'c7',
+      toolName: 'execute_action',
+      state: 'output-available',
+      input: {
+        server_name: 'slack',
+        action_name: 'chat_postMessage',
+        channel: '#eng',
+      },
+      output: {
+        content: [{ type: 'text', text: '{"ok":true,"ts":"1.2"}' }],
+      },
+    })
+    expect(e.kind).toBe('app-send')
+    expect(e.specialized).toBe(true)
+    expect(e.appSend?.title).toContain('slack')
+    expect(e.appSend?.destination).toBe('#eng')
+  })
+
+  test('browser act still specialized (not app-send)', () => {
     const e = buildToolEvidence({
       toolCallId: 'c8',
       toolName: 'act',
