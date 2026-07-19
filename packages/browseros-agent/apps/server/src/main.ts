@@ -14,7 +14,10 @@ import { CdpBackend } from '@browseros/browser-core/backends/cdp'
 import { Browser } from '@browseros/browser-core/browser'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
 import { createHttpServer } from './api/server'
-import { reconcileStaleActiveCaptureSessions } from './capture/meeting-pipeline'
+import {
+  reconcileStaleActiveCaptureSessions,
+  reindexPlaceholderMeetingCaptures,
+} from './capture/meeting-pipeline'
 import { startCaptureRetentionMonitor } from './capture/retention-monitor'
 import type { ServerConfig } from './config'
 import { startBatteryIngestMonitor } from './context/battery'
@@ -43,6 +46,7 @@ import { metrics } from './lib/metrics'
 import { isPortInUseError } from './lib/port-binding'
 import { Sentry } from './lib/sentry'
 import { createUnavailableBrowser } from './lib/unavailable-browser'
+import { ensureBuiltinSkills } from './memory/builtin-skills'
 import { startMemoryReviewMonitor } from './memory/review-job'
 import { startDailyDigestMonitor } from './scheduler/digest'
 import { VERSION } from './version'
@@ -214,6 +218,18 @@ export class Application {
     if (stopped > 0) {
       logger.info('Stopped stale capture sessions on startup', { stopped })
     }
+    void reindexPlaceholderMeetingCaptures()
+      .then((reindexed) => {
+        if (reindexed > 0) {
+          logger.info('Reindexed placeholder meeting captures', { reindexed })
+        }
+      })
+      .catch((err: unknown) => {
+        logger.warn('Meeting capture reindex failed', { err: String(err) })
+      })
+    void ensureBuiltinSkills().catch((err: unknown) => {
+      logger.warn('Builtin skills seed failed', { err: String(err) })
+    })
 
     // Home proposal job — initial run 10 minutes after startup, then every 24h
     setTimeout(

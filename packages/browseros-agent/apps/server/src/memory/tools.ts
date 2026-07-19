@@ -13,7 +13,7 @@ import {
   archiveSkill,
   checkMemoryAddBudget,
   installSkillFromSource,
-  loadSkillBody,
+  loadSkill,
   SkillFetchError,
 } from './skills'
 import {
@@ -125,27 +125,29 @@ export function buildMemoryToolSet(
         })
         if (skills.length === 0) return { text: 'No active skills.' }
         return {
-          text: skills.map((s) => `- ${s.name}: ${s.description}`).join('\n'),
+          text: skills
+            .map((s) => `- ${s.name} (id=${s.id}): ${s.description}`)
+            .join('\n'),
         }
       },
     }),
     skills_load: tool({
       description:
-        'Load a full SKILL.md body by id/name. Prefer skills_list first.',
+        'Load a full SKILL.md body by skill id or name. Prefer skills_list first.',
       inputSchema: z.object({
-        id: z.string().min(1),
+        id: z.string().min(1).describe('Skill id or name from skills_list'),
       }),
       execute: async ({ id }) => {
-        const body = await loadSkillBody(id)
-        if (!body) return { text: `Skill not found: ${id}`, isError: true }
+        const loaded = await loadSkill(id)
+        if (!loaded) return { text: `Skill not found: ${id}`, isError: true }
         const runId = getRunId?.()
         if (runId) {
-          noteSkillLoaded(runId, id)
+          noteSkillLoaded(runId, loaded.id)
         } else {
           // MCP / one-shot: no run lifecycle — count as successful use.
-          recordSkillOutcome(id, true)
+          recordSkillOutcome(loaded.id, true)
         }
-        return { text: body }
+        return { text: loaded.body }
       },
     }),
     skills_install: tool({

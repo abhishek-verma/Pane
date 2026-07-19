@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { readFile } from 'node:fs/promises'
 import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
@@ -13,10 +14,24 @@ import {
   stopMeetingCapture,
 } from './meeting-pipeline'
 import { getCaptureStatus } from './performance'
+import {
+  CAPTURE_TRANSCRIPT_MAX_CHARS,
+  formatCaptureListLine,
+  formatCaptureWhen,
+  loadFormattedTranscript,
+  readTranscriptSegments,
+} from './transcript-access'
 
 const promotedField = {
   [PROMOTED_ARG]: z.boolean().optional(),
 } as const
+
+async function segmentCountForSession(
+  transcriptPath: string | null,
+): Promise<number> {
+  const segments = await readTranscriptSegments(transcriptPath)
+  return segments.filter((s) => s.kind !== 'partial').length
+}
 
 export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
   return {
@@ -58,35 +73,120 @@ export function buildCaptureToolSet(getBucketId: () => string): ToolSet {
       execute: async () => ({ text: JSON.stringify(await getCaptureStatus()) }),
     }),
     capture_list: tool({
-      description: 'List local capture sessions in the active bucket.',
+      description:
+        'List local meeting capture sessions (Pane-recorded Meet/Zoom/Teams/etc.). Prefer this over context_search or filesystem tools when the user asks about meetings, calls, or transcripts. Returns status, time, duration, site/room, id, and segment counts.',
       inputSchema: z.object({
         bucketId: z.string().optional(),
+        limit: z.number().int().min(1).max(50).optional(),
       }),
-      execute: async ({ bucketId }) => {
+      execute: async ({ bucketId, limit }) => {
         const sessions = listCaptureSessions({
           bucketId: bucketId || getBucketId(),
         })
         if (sessions.length === 0) return { text: 'No capture sessions.' }
+        const capped = sessions.slice(0, limit ?? 20)
+        const lines = await Promise.all(
+          capped.map(async (s) =>
+            formatCaptureListLine(s, {
+              segmentCount: await segmentCountForSession(s.transcriptPath),
+            }),
+          ),
+        )
+        const more =
+          sessions.length > capped.length
+            ? `\n…and ${sessions.length - capped.length} older session(s). Pass a higher limit or filter by reading a specific sessionId.`
+            : ''
         return {
-          text: sessions
-            .map(
-              (s) =>
-                `- [${s.status}] ${s.title ?? s.url ?? s.id} (${s.id}) bucket=${s.bucketId}`,
-            )
-            .join('\n'),
+          text: `Local meeting captures (newest first). Use capture_read with a sessionId to get the transcript.\n${lines.join('\n')}${more}`,
         }
       },
     }),
     capture_read: tool({
-      description: 'Read metadata for one local capture session.',
+      description:
+        'Read a local meeting capture. Default include="full" returns metadata plus summary and transcript text. Use this for meeting notes/transcripts — do not use filesystem_read or filesystem_bash on ~/.browseros/capture paths.',
       inputSchema: z.object({
         sessionId: z.string().min(1),
+        include: z
+          .enum(['meta', 'transcript', 'summary', 'full'])
+          .optional()
+          .describe(
+            'meta = JSON metadata only; transcript = spoken text; summary = summary.md; full = metadata + summary + transcript (default).',
+          ),
+        maxChars: z
+          .number()
+          .int()
+          .min(500)
+          .max(CAPTURE_TRANSCRIPT_MAX_CHARS)
+          .optional()
+          .describe('Max transcript characters to return (default 15000).'),
       }),
-      execute: async ({ sessionId }) => {
+      execute: async ({ sessionId, include, maxChars }) => {
         const session = getCaptureSession(sessionId)
         if (!session)
           return { text: `Capture not found: ${sessionId}`, isError: true }
-        return { text: JSON.stringify(session) }
+
+        const mode = include ?? 'full'
+        if (mode === 'meta') {
+          return { text: JSON.stringify(session, null, 2) }
+        }
+
+        const formatted = await loadFormattedTranscript(
+          session,
+          maxChars ?? CAPTURE_TRANSCRIPT_MAX_CHARS,
+        )
+
+        if (mode === 'transcript') {
+          if (!formatted.text) {
+            return {
+              text: `No transcript text for ${sessionId} yet (status=${session.status}, segments=${formatted.segmentCount}).`,
+            }
+          }
+          return {
+            text: formatted.truncated
+              ? `${formatted.text}\n\n(truncated at ${maxChars ?? CAPTURE_TRANSCRIPT_MAX_CHARS} chars; ${formatted.segmentCount} segments total)`
+              : formatted.text,
+          }
+        }
+
+        let summaryBody = ''
+        if (session.summaryPath) {
+          try {
+            summaryBody = await readFile(session.summaryPath, 'utf8')
+          } catch {
+            summaryBody = ''
+          }
+        }
+
+        if (mode === 'summary') {
+          return {
+            text:
+              summaryBody.trim() ||
+              `No summary file for ${sessionId}. Transcript segments: ${formatted.segmentCount}.`,
+          }
+        }
+
+        const header = [
+          `# Meeting capture ${session.id}`,
+          `status: ${session.status}`,
+          `title: ${session.title ?? '(none)'}`,
+          `url: ${session.url ?? '(none)'}`,
+          `site/room: ${session.site ?? 'unknown'} / ${session.roomKey ?? '(none)'}`,
+          `started: ${formatCaptureWhen(session.startedAt)}`,
+          `ended: ${session.endedAt ? formatCaptureWhen(session.endedAt) : '(active)'}`,
+          `provider: ${session.provider}`,
+          `segments: ${formatted.segmentCount}${formatted.truncated ? ' (transcript truncated below)' : ''}`,
+          '',
+        ].join('\n')
+
+        const summarySection = summaryBody.trim()
+          ? `## Summary\n\n${summaryBody.trim()}\n\n`
+          : '## Summary\n\n_(none yet — transcript below)_\n\n'
+
+        const transcriptSection = formatted.text
+          ? `## Transcript\n\n${formatted.text}`
+          : '## Transcript\n\n_(empty)_'
+
+        return { text: `${header}${summarySection}${transcriptSection}` }
       },
     }),
   }
