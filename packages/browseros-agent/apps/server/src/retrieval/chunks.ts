@@ -72,12 +72,30 @@ export function deleteChunksForSource(
     .run(sourceKind, sourceId)
 }
 
+function isDeniedUri(uri: string | null, denied: Set<string>): boolean {
+  if (!uri || denied.size === 0) return false
+  try {
+    const host = new URL(uri).hostname.toLowerCase()
+    if (denied.has(host)) return true
+    for (const d of denied) {
+      if (host === d || host.endsWith(`.${d}`)) return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
 /** Brute-force cosine search (sqlite-vec-compatible blob layout). */
 export function searchChunks(
   bucketId: string,
   queryVec: Float32Array,
   limit: number,
+  options?: { deniedHosts?: Set<string> | string[] },
 ): VectorHit[] {
+  const denied = new Set(
+    [...(options?.deniedHosts ?? [])].map((h) => h.toLowerCase()),
+  )
   const rows = getDbHandle()
     .sqlite.prepare(
       `SELECT id, bucket_id, source_kind, source_id, kind, title, uri, text, embedding
@@ -97,6 +115,7 @@ export function searchChunks(
 
   const scored: VectorHit[] = []
   for (const row of rows) {
+    if (isDeniedUri(row.uri, denied)) continue
     const vec = unpackEmbedding(row.embedding)
     const score = cosineSimilarity(queryVec, vec)
     if (score <= 0) continue
@@ -113,6 +132,15 @@ export function searchChunks(
   }
   scored.sort((a, b) => b.score - a.score)
   return scored.slice(0, limit)
+}
+
+/** Delete all embedding chunks for a chat session (uri = chat:&lt;sessionId&gt;). */
+export function deleteChunksForChatSession(sessionId: string): void {
+  getDbHandle()
+    .sqlite.prepare(
+      `DELETE FROM embedding_chunks WHERE source_kind = 'chat' AND uri = ?`,
+    )
+    .run(`chat:${sessionId}`)
 }
 
 export function chunkCount(bucketId?: string): number {

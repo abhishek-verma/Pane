@@ -6,6 +6,7 @@
 
 import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { toOrFtsMatchQuery } from '@browseros/retrieval/fts'
+import { tokenize } from '@browseros/retrieval/normalize'
 import { type RetrieveOptions, retrieve } from '@browseros/retrieval/retrieve'
 import type {
   LexicalCandidate,
@@ -145,7 +146,11 @@ export async function hybridSearch(
     query,
     {
       searchLexical: (normalized, limit) => {
-        const tokens = normalized.tokens
+        // Fall back to raw tokens if stopword stripping emptied the query.
+        const tokens =
+          normalized.tokens.length > 0
+            ? normalized.tokens
+            : tokenize(normalized.raw).filter(Boolean)
         if (tokens.length === 0) return []
         const per = Math.max(4, Math.ceil(limit / 2))
         return [
@@ -160,7 +165,8 @@ export async function hybridSearch(
         : undefined,
       embedClient: options.lexicalOnly ? undefined : createEmbedClient(),
       searchVectors: hasVectors
-        ? (vec, limit) => searchChunks(bucketId, vec, limit)
+        ? (vec, limit) =>
+            searchChunks(bucketId, vec, limit, { deniedHosts: denied })
         : undefined,
     },
     {

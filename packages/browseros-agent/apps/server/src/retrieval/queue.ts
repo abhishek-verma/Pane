@@ -64,7 +64,21 @@ export function enqueueEmbed(input: {
     )
 }
 
+/** Reclaim rows stuck in processing after a crash (older than 2 minutes). */
+export function reclaimStaleProcessing(staleMs = 120_000): number {
+  const cutoff = now() - staleMs
+  const result = getDbHandle()
+    .sqlite.prepare(
+      `UPDATE embed_queue
+       SET status = 'pending', updated_at = ?
+       WHERE status = 'processing' AND updated_at < ?`,
+    )
+    .run(now(), cutoff)
+  return Number(result.changes ?? 0)
+}
+
 export function claimPending(limit = 8): EmbedQueueItem[] {
+  reclaimStaleProcessing()
   const db = getDbHandle().sqlite
   const rows = db
     .prepare(

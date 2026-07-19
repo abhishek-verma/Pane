@@ -176,6 +176,8 @@ export async function forgetMemoryEntry(
       .run(now(), id)
     try {
       removeMemoryFts(id)
+      const { deleteChunksForSource } = await import('../retrieval/chunks')
+      deleteChunksForSource('memory', id)
     } catch {
       /* ignore */
     }
