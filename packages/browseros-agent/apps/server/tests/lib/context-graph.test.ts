@@ -184,7 +184,7 @@ describe('context graph store', () => {
   it('sanitizes FTS match queries', () => {
     expect(toFtsMatchQuery('')).toBeNull()
     expect(toFtsMatchQuery('  ')).toBeNull()
-    expect(toFtsMatchQuery('hello world')).toBe('"hello"* "world"*')
+    expect(toFtsMatchQuery('hello world')).toBe('"hello"* OR "world"*')
     expect(toFtsMatchQuery('drop"table')).toBe('"droptable"*')
   })
 

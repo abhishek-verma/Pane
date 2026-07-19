@@ -460,8 +460,8 @@ export function toFtsMatchQuery(raw: string): string | null {
     .map((t) => t.replace(/["'*(){}[\]^~:]+/g, ''))
     .filter((t) => t.length > 0)
   if (tokens.length === 0) return null
-  // Prefix match each token; quote to avoid FTS operators from user text.
-  return tokens.map((t) => `"${t}"*`).join(' ')
+  // OR of prefix matches — AND over-constrained natural-language agent queries.
+  return tokens.map((t) => `"${t}"*`).join(' OR ')
 }
 
 function normalizeDeniedHosts(denied?: Set<string> | string[]): Set<string> {

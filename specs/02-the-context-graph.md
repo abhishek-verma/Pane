@@ -24,7 +24,7 @@ The full graph below is the destination. **The thin edge ships only what the dev
 | Browser — history, sessions, bookmarks, login presence | Expansion layer | Not needed to prove the wedge |
 | App domain (Gmail/Slack/Linear objects) | Expansion layer | Not a dev-wedge need |
 | Memory domain | Expansion layer | Memory rebuild is its own intrinsic surface |
-| Embeddings / semantic index | Later (opt-in) | FTS5 is enough for the thin edge |
+| Embeddings / hybrid semantic index | ✅ (local default) | Hybrid `context.search`: FTS OR + coverage + on-device embeddings (RRF); lexical-only degrade if worker cold |
 
 The thin edge is the smallest graph that lets the agent answer "what page am I on, what repo am I working in, and what did the last run do?" — which is exactly what the wedge flow needs.
 
@@ -38,7 +38,7 @@ The thin edge is the smallest graph that lets the agent answer "what page am I o
 
 ## Non-goals
 
-- Building a knowledge graph with named-entity extraction and ontology. The Context Graph is a structured activity + reference store, not a semantic knowledge base. (Optional semantic index is a later layer.)
+- Building a knowledge graph with named-entity extraction and ontology. The Context Graph is a structured activity + reference store with hybrid FTS + local embeddings for retrieval, not a curated entity ontology.
 - Replacing the browser's own history/bookmark/tab stores. Pane's native stores remain the source of truth; the graph references and indexes them.
 - Cross-user or team-shared context. That is a later, opt-in, cloud surface.
 
@@ -160,8 +160,9 @@ The agent queries the graph through a small set of **context tools** (registered
 
 | Tool | Purpose |
 |------|---------|
-| `context.search` | FTS + optional semantic search across granted nodes |
-| `context.recall` | "What was I working on around X?" — temporal recall over the activity log |
+| `context.search` | **Hybrid NL search** (local FTS OR + coverage + on-device embeddings via RRF) across granted nodes, memory, chats, and indexed files. The tool owns query strategy; the agent passes the user question. |
+| `context.recall` | Durable memory notes (soul/user/memory) by topic tokens |
+| `session.search` | Past conversation archive ("did we discuss X?") |
 | `context.related` | Given a node, return linked nodes (e.g. "files attached to this task") |
 | `context.current_work` | Snapshot of what the user is doing right now (active tab, active workspace, recent agent run) |
 | `context.attach` | Attach a node to the current task/conversation (manual grounding) |
@@ -214,16 +215,16 @@ A graph that's 20% built but makes the wedge flow excellent beats a 100%-built g
 - Browser history → ships with `context.search` (expansion layer).
 - App objects → ship with the integrations that produce them (expansion layer).
 - Memory → ships with the memory loop (its own intrinsic surface).
-- Embeddings → ship only when FTS5 proves insufficient, and opt-in.
+- **Hybrid retrieval (FTS + local embeddings)** → default for `context.search`. Lexical arm always works; semantic arm runs when the local vector index has rows. Degrades to lexical-only if the embed worker is cold.
 
 No "build the graph and they will come." Each layer earns its place by powering a shipped feature.
 
 ## Index privacy
 
-The local index (FTS5 + optional embeddings) contains page content and file text. Privacy rules:
+The local index (FTS5 + on-device embedding chunks) contains page content, file text, memory, and chat excerpts. Privacy rules:
 
 - The index lives only on disk (`~/.browseros/db/`), never sent to a model; the agent queries it via tools and only the matching snippets enter the prompt.
-- Embeddings, if on, run on-device by default; cloud embeddings are opt-in per-workspace and the content sent is labeled.
+- **Embeddings run on-device by default** (embed worker + local vectors). Cloud embeddings remain out of scope / explicit opt-in later; content must never leave the device for embedding without a separate grant.
 - Indexing skips incognito/private windows and `denied`/`ephemeral` context.
 - The user can wipe the index (and only the index) without deleting the graph structure, and can exclude paths/origins from indexing.
 
@@ -231,8 +232,8 @@ The local index (FTS5 + optional embeddings) contains page content and file text
 
 The graph must not make browsing worse. Hard rules:
 
-- **FTS5 first; embeddings opt-in.** The default index is FTS5 (cheap, ~ms). On-device embeddings are an opt-in upgrade for semantic recall, run idle-priority on GPU/NPU when available, and pause on battery/under-load.
-- **Indexing is cadenced, not per-event.** Page/file indexing is batched on a short cadence, not synchronous with every navigation, so the browser stays snappy.
+- **Hybrid on by default locally; pause under load.** Lexical FTS is always available (~ms). On-device embeddings run idle-priority in a dedicated worker, pause on battery/under-load, and query timeouts skip the semantic arm for that call (lexical still returns).
+- **Indexing is cadenced, not per-event.** Page/file/chat embedding is queued and drained on a short idle cadence, not synchronous with every navigation.
 - **Disk + CPU budgets enforced in CI** (a browsing-quality regression test): opening/closing tabs and navigating with the graph on must be within X% of the bare-browser baseline. A regression that breaches the budget fails the build.
 
 ---
@@ -272,7 +273,7 @@ Pull this feature back if:
 
 ## Open questions
 
-1. **Embeddings on-device vs. opt-in cloud?** Local embeddings (e.g. small model in the server) preserve privacy but cost RAM/CPU. Cloud embeddings are cheap but leak content. *Lean: on-device by default, cloud embeddings opt-in per-workspace.*
+1. **Embeddings on-device vs. opt-in cloud?** *Resolved for v1: on-device hybrid by default (embed worker + local vectors). Cloud embeddings stay out of scope until an explicit per-workspace opt-in ships.*
 2. **How much of the graph syncs to the cloud** when the user opts into sync? *Lean: tasks, memory, skills, and a node-index (not page/file content) by default; full content sync is a second explicit opt-in.*
 3. **Do we expose the graph as a public MCP resource** so any MCP client can query it, or only via Pane's own tools? *Lean: yes, as a versioned MCP resource, since it advances the developer-surface wedge.*
 4. **Retention defaults** for the activity log. Hermes uses unbounded SQLite; Pane should have a sane default (e.g. 90 days raw, indefinite summarized) with a control.

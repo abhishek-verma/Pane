@@ -153,8 +153,9 @@ Pane records consented Meet/Zoom/Teams (and similar) calls locally:
 - Do **not** use generic filesystem or shell tools on capture storage paths; always use \`capture_read\`
 
 ### Context, Memory, Tasks & Home
-- \`context_search\` → keyword/FTS search over indexed browsing, research, meeting excerpts, files, and memory (not semantic embeddings)
-- \`context_recall\` → long-term memory notes only (soul/user/memory layers)
+- \`context_search\` → hybrid NL search (local FTS + semantic embeddings) over browsing, research, meeting excerpts, files, memory, and past chats. Pass the user question; do not invent long keyword lists
+- \`context_recall\` → durable memory notes only (soul/user/memory layers; token match)
+- \`session_search\` → past Pane chat conversations ("did we discuss X?")
 - \`context_current_work\` → what's open / recent (tabs, pages, meetings, files, terminal, runs)
 - \`memory_add\` / \`memory_replace\` / \`memory_remove\` → durable short facts
 - \`tasks_list\` / \`tasks_add\` / \`tasks_done\` → local task inbox
@@ -325,8 +326,9 @@ function getToolSelection(
 | Multi-step browser SDK script on the server | \`run\` |
 | Need visual proof | \`screenshot\` |
 | Recent meetings, calls, or transcripts | \`capture_list\` then \`capture_read\` |
-| Topic search across indexed activity + memory | \`context_search\` |
+| Topic search across indexed activity + memory + chats | \`context_search\` |
 | Durable personal facts / preferences only | \`context_recall\` |
+| Past conversation archive | \`session_search\` |
 | What's open or recently active | \`context_current_work\` |
 | New-tab home widgets | \`home_widget_list\` / propose / add / remove |
 ${workspaceRows}| Group browser tabs | \`tab_groups\` (page ids from \`tabs\`) |
@@ -453,7 +455,7 @@ You can read, write, search, and execute files in this directory:
 - \`filesystem_write\` → create or overwrite files
 - \`filesystem_edit\` → targeted find-and-replace edits
 - \`filesystem_ls\` → list directory contents
-- \`filesystem_find\` → search for files by name pattern
+- \`filesystem_find\` → search for files by name pattern (case-insensitive by default)
 - \`filesystem_grep\` → search file contents by regex
 - \`filesystem_bash\` → execute shell commands (workspace only; not private Pane state)
 - \`terminal_sessions\` → list reusable bash sessions and their cwd (pair with \`filesystem_bash\` sessionId)
@@ -600,8 +602,9 @@ function getMemoryAndSkillsGuidance(
 
 ### 1. Unified Context & Memory Search
 - For **meetings / calls / transcripts**, start with \`capture_list\` then \`capture_read\`. Do not use filesystem tools on capture paths.
-- Use \`context_search\` to search indexed browsing history, research, meeting transcript excerpts (first ~2k chars), files, and long-term memory by topic. For full meeting text, use \`capture_read\`.
+- Use \`context_search\` with the user's natural question (or a short topic). It runs hybrid FTS + local embeddings. Do not hand-craft long AND keyword lists. If it returns suggestions after a miss, follow them (\`filesystem_ls\`, \`capture_list\`, \`session_search\`). For full meeting text, use \`capture_read\`.
 - Use \`context_recall\` when you only need durable memory notes (preferences, identity facts).
+- Use \`session_search\` when the user asks about a prior chat ("did we discuss…").
 - Adjust \`limit\` (default 10) based on lookup complexity.
 - Read memory/context at the start of a task when the user's ongoing work or preferences matter.
 `

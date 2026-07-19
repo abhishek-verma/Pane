@@ -79,6 +79,7 @@
     "@browseros/cdp-protocol": "workspace:*",
     "@browseros/context-graph": "workspace:*",
     "@browseros/memory": "workspace:*",
+    "@browseros/retrieval": "workspace:*",
     "@browseros/shared": "workspace:*",
     "@hono/mcp": "^0.2.5",
     "@hono/zod-validator": "^0.4.3",

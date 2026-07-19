@@ -27,9 +27,13 @@ import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpSe
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
 import { finalizeSkillOutcomesForRun } from '../../memory/skill-outcomes'
+import { indexWorkspaceFiles } from '../../retrieval/workspace-index'
 import { defaultWorkspace } from '../../tools/filesystem/workspace'
 import type { BrowserContext, ChatRequest } from '../types'
 import { resolveBrowserContextPageIds } from '../utils/resolve-browser-context-page-ids'
+
+/** Roots already crawled into graph + embed queue this process lifetime. */
+const indexedWorkspaceRoots = new Set<string>()
 
 export interface ChatServiceDeps {
   sessionStore: SessionStore
@@ -103,6 +107,28 @@ export class ChatService {
 
     const gateContext = session?.gateContext ?? this.createGateContext(request)
     this.refreshGateContext(gateContext, request)
+
+    if (
+      request.userWorkingDir &&
+      !indexedWorkspaceRoots.has(request.userWorkingDir)
+    ) {
+      indexedWorkspaceRoots.add(request.userWorkingDir)
+      void indexWorkspaceFiles({
+        root: request.userWorkingDir,
+        bucketId: request.bucketId ?? 'default',
+      })
+        .then((n) => {
+          if (n > 0) {
+            logger.info('Indexed workspace files for retrieval', {
+              root: request.userWorkingDir,
+              files: n,
+            })
+          }
+        })
+        .catch((err: unknown) => {
+          logger.warn('Workspace index failed', { err: String(err) })
+        })
+    }
 
     const agentConfig: ResolvedAgentConfig = {
       conversationId: request.conversationId,

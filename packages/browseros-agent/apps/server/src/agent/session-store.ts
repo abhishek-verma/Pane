@@ -136,6 +136,33 @@ export class SessionStore {
         createdAt: now + i,
       }))
       await db.insert(chatMessages).values(rows)
+      try {
+        const { clearChatFtsForSession, syncChatFts } = await import(
+          '../retrieval/chat-fts'
+        )
+        const { enqueueEmbed } = await import('../retrieval/queue')
+        clearChatFtsForSession(sessionId)
+        for (const row of rows) {
+          if (row.role !== 'user' && row.role !== 'assistant') continue
+          syncChatFts({
+            id: row.id,
+            sessionId: row.sessionId,
+            role: row.role,
+            content: row.content,
+          })
+          enqueueEmbed({
+            bucketId: 'default',
+            sourceKind: 'chat',
+            sourceId: row.id,
+            kind: 'chat',
+            title: `${row.role} · ${sessionId.slice(0, 8)}`,
+            uri: `chat:${sessionId}`,
+            text: row.content,
+          })
+        }
+      } catch {
+        /* retrieval indexes optional in tests */
+      }
     }
   }
 

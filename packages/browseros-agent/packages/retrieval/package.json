@@ -1,0 +1,43 @@
+{
+  "name": "@browseros/retrieval",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "exports": {
+    "./normalize": {
+      "types": "./src/normalize.ts",
+      "default": "./src/normalize.ts"
+    },
+    "./fts": {
+      "types": "./src/fts.ts",
+      "default": "./src/fts.ts"
+    },
+    "./rrf": {
+      "types": "./src/rrf.ts",
+      "default": "./src/rrf.ts"
+    },
+    "./vector": {
+      "types": "./src/vector.ts",
+      "default": "./src/vector.ts"
+    },
+    "./retrieve": {
+      "types": "./src/retrieve.ts",
+      "default": "./src/retrieve.ts"
+    },
+    "./types": {
+      "types": "./src/types.ts",
+      "default": "./src/types.ts"
+    },
+    "./constants": {
+      "types": "./src/constants.ts",
+      "default": "./src/constants.ts"
+    },
+    "./hash-embed": {
+      "types": "./src/hash-embed.ts",
+      "default": "./src/hash-embed.ts"
+    }
+  }
+}

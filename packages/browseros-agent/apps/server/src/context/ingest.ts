@@ -11,7 +11,33 @@
 
 import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { logger } from '../lib/logger'
+import { enqueueEmbed } from '../retrieval/queue'
 import { graphAddEdge, graphAddEvent, graphUpsertNode } from './repo'
+
+function enqueueNodeEmbed(node: {
+  id: string
+  bucketId: string
+  kind: string
+  title: string | null
+  uri: string | null
+  summary: string | null
+}): void {
+  const text = [node.title, node.uri, node.summary].filter(Boolean).join('\n')
+  if (!text.trim()) return
+  try {
+    enqueueEmbed({
+      bucketId: node.bucketId,
+      sourceKind: 'graph',
+      sourceId: node.id,
+      kind: node.kind,
+      title: node.title,
+      uri: node.uri,
+      text,
+    })
+  } catch {
+    /* embed_queue may be missing in older test DBs */
+  }
+}
 
 export interface IngestBrowserContext {
   activeTab?: { url?: string; title?: string; pageId?: number }
@@ -193,6 +219,7 @@ function writeIngest(
         matchByUri: true,
       })
       nodeId = page.id
+      enqueueNodeEmbed(page)
       const tabUri =
         input.browserContext?.activeTab?.pageId != null
           ? `tab:${input.browserContext.activeTab.pageId}`
@@ -229,6 +256,7 @@ function writeIngest(
         matchByUri: true,
       })
       nodeId = page.id
+      enqueueNodeEmbed(page)
     }
   } else if (
     toolName === 'filesystem_write' ||
@@ -236,16 +264,19 @@ function writeIngest(
     toolName === 'filesystem_read'
   ) {
     if (path) {
+      // Index a richer chunk for reads so vault markdown is searchable.
+      const summaryCap = toolName === 'filesystem_read' ? SUMMARY_CAP : 500
       const file = graphUpsertNode({
         bucketId,
         kind: 'file',
         title: path.split('/').pop() ?? path,
         uri: path,
-        summary: resultSummary.slice(0, 500) || null,
+        summary: resultSummary.slice(0, summaryCap) || null,
         provenance: `tool:${toolName}`,
         matchByUri: true,
       })
       nodeId = file.id
+      enqueueNodeEmbed(file)
       if (toolName !== 'filesystem_read' && input.workspace?.root) {
         const ws = graphUpsertNode({
           bucketId,
