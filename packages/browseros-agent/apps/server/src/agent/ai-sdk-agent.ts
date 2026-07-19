@@ -325,8 +325,13 @@ export class AiSdkAgent {
       agentMemoryContent,
       skillIndexContent,
       chatMode: config.resolvedConfig.chatMode,
-      connectedApps: config.browserContext?.enabledMcpServers,
-      declinedApps: config.resolvedConfig.declinedApps,
+      // Chat mode strips external MCP tools; do not advertise connected apps there.
+      connectedApps: config.resolvedConfig.chatMode
+        ? undefined
+        : config.browserContext?.enabledMcpServers,
+      declinedApps: config.resolvedConfig.chatMode
+        ? undefined
+        : config.resolvedConfig.declinedApps,
       origin: config.resolvedConfig.origin,
       generatedOutputReadAvailable: 'filesystem_read' in filesystemTools,
     })

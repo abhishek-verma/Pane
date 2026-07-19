@@ -7,7 +7,7 @@
  * index is not empty on a fresh install.
  */
 
-import { installSkillFromBody } from './store'
+import { getSkill, installSkillFromBody } from './store'
 
 export const BUILTIN_MEETINGS_SKILL_ID = 'builtin-meetings'
 export const BUILTIN_BROWSER_OBSERVE_SKILL_ID = 'builtin-browser-observe'
@@ -114,7 +114,10 @@ export async function ensureBuiltinSkills(
   options: { memoriesRoot?: string } = {},
 ): Promise<void> {
   for (const skill of BUILTIN_SKILLS) {
-    // Always reinstall so skill text stays current across upgrades.
+    const existing = getSkill(skill.id)
+    // Respect user archive — do not reactivate on prompt load / startup.
+    if (existing?.status === 'archived') continue
+    // Refresh body when active/staged so upgrades stay current; install if missing.
     await installSkillFromBody({
       id: skill.id,
       body: skill.body,

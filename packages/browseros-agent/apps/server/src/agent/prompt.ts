@@ -348,6 +348,8 @@ function getExternalIntegrations(
   _exclude: Set<string>,
   options?: BuildSystemPromptOptions,
 ): string {
+  // Chat mode strips external MCP tools — never advertise them there.
+  if (options?.chatMode) return ''
   // In-process AiSdkAgent does not wire Klavis/Strata discovery tools. Only
   // describe MCP servers that actually appear in the tool list / declined list.
   if (!options?.connectedApps?.length && !options?.declinedApps?.length) {

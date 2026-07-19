@@ -303,6 +303,15 @@ describe('mode-aware framing', () => {
     expect(prompt).toContain('capture_list')
   })
 
+  it('chat mode omits external integrations even when apps are connected', () => {
+    const prompt = buildChatMode({
+      connectedApps: ['Gmail'],
+      declinedApps: ['Slack'],
+    })
+    expect(prompt).not.toContain('<external_integrations>')
+    expect(prompt).not.toContain('Gmail')
+  })
+
   it('chat mode does not include retired memory error recovery', () => {
     const prompt = buildChatMode()
     expect(prompt).not.toContain('### Memory errors')
