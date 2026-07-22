@@ -27,7 +27,7 @@ describe('settleIncompleteToolParts', () => {
       ]),
     ]
     expect(settleIncompleteToolParts(messages, 'Aborted')).toBe(1)
-    const part = messages[0]!.parts[0] as { state: string; errorText?: string }
+    const part = messages[0]?.parts[0] as { state: string; errorText?: string }
     expect(part.state).toBe('output-error')
     expect(part.errorText).toContain('Aborted')
   })
@@ -44,7 +44,7 @@ describe('settleIncompleteToolParts', () => {
       ]),
     ]
     expect(settleIncompleteToolParts(messages)).toBe(1)
-    expect((messages[0]!.parts[0] as { state: string }).state).toBe(
+    expect((messages[0]?.parts[0] as { state: string }).state).toBe(
       'output-error',
     )
   })
@@ -91,7 +91,7 @@ describe('migrateLegacyToolStates', () => {
       ]),
     ]
     expect(migrateLegacyToolStates(messages)).toBe(1)
-    expect((messages[0]!.parts[0] as { state: string }).state).toBe(
+    expect((messages[0]?.parts[0] as { state: string }).state).toBe(
       'output-available',
     )
   })
@@ -108,7 +108,7 @@ describe('migrateLegacyToolStates', () => {
       ]),
     ]
     expect(migrateLegacyToolStates(messages)).toBe(1)
-    expect((messages[0]!.parts[0] as { state: string }).state).toBe(
+    expect((messages[0]?.parts[0] as { state: string }).state).toBe(
       'input-available',
     )
   })
@@ -125,7 +125,7 @@ describe('migrateLegacyToolStates', () => {
       ]),
     ]
     expect(migrateLegacyToolStates(messages)).toBe(1)
-    expect((messages[0]!.parts[0] as { state: string }).state).toBe(
+    expect((messages[0]?.parts[0] as { state: string }).state).toBe(
       'input-streaming',
     )
   })
@@ -208,7 +208,7 @@ describe('prepareMessagesForAgentTurn', () => {
     expect(result.sanitizedCount).toBe(1)
     expect(result.changed).toBe(true)
     expect(result.messages).toHaveLength(1)
-    expect(result.messages[0]!.role).toBe('user')
+    expect(result.messages[0]?.role).toBe('user')
   })
 
   it('is a no-op (changed=false) on an already-clean transcript', () => {
@@ -243,7 +243,7 @@ describe('prepareMessagesForAgentTurn', () => {
       settleIncomplete: true,
     })
     expect(result.settledApprovals).toBe(0)
-    expect((result.messages[1]!.parts[0] as { state: string }).state).toBe(
+    expect((result.messages[1]?.parts[0] as { state: string }).state).toBe(
       'approval-responded',
     )
   })
