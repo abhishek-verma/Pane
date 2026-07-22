@@ -87,7 +87,9 @@ export function sanitizeMessagesForToolset(
  * All assistant/tool image outputs are stripped immediately (no keep-recent
  * window). Recent thumbs are lazy-loaded from the tool-images API.
  *
- * Returns `true` when any image data was moved to the store.
+ * Also removes legacy `structuredContent.image` duplicates.
+ *
+ * Returns `true` when any image data was moved/removed.
  *
  * The function mutates `messages` **in-place** so `session.agent.messages` is
  * also updated without requiring a reference swap at the call site.
@@ -109,38 +111,66 @@ export function stripUIImageOutputs(
       const output = anyPart.output
       if (!output || typeof output !== 'object') continue
       const rec = output as Record<string, unknown>
-      if (!Array.isArray(rec.content)) continue
-      let stripped = false
-      const newContent = (rec.content as unknown[]).map((item) => {
-        if (
-          typeof item !== 'object' ||
-          item === null ||
-          (item as Record<string, unknown>).type !== 'image'
-        ) {
+      let outputChanged = false
+      let nextRec = rec
+
+      if (Array.isArray(rec.content)) {
+        let contentStripped = false
+        const newContent = (rec.content as unknown[]).map((item) => {
+          if (
+            typeof item !== 'object' ||
+            item === null ||
+            (item as Record<string, unknown>).type !== 'image'
+          ) {
+            return item
+          }
+          const imgPart = item as Record<string, unknown>
+          if (imgPart.stripped === true) return item
+          const data = imgPart.data
+          const mimeType = imgPart.mimeType ?? imgPart.mediaType
+          const toolCallId = anyPart.toolCallId
+          if (
+            typeof data === 'string' &&
+            data.length > 0 &&
+            typeof mimeType === 'string' &&
+            typeof toolCallId === 'string'
+          ) {
+            imageStore.store(sessionId, toolCallId, data, mimeType)
+            contentStripped = true
+            const { data: _removed, ...rest } = imgPart
+            return { ...rest, stripped: true }
+          }
           return item
+        })
+        if (contentStripped) {
+          nextRec = { ...nextRec, content: newContent }
+          outputChanged = true
         }
-        const imgPart = item as Record<string, unknown>
-        if (imgPart.stripped === true) return item
-        const data = imgPart.data
-        const mimeType = imgPart.mimeType ?? imgPart.mediaType
-        const toolCallId = anyPart.toolCallId
-        if (
-          typeof data === 'string' &&
-          data.length > 0 &&
-          typeof mimeType === 'string' &&
-          typeof toolCallId === 'string'
-        ) {
-          imageStore.store(sessionId, toolCallId, data, mimeType)
-          stripped = true
-          // Return the item without the data field; keep type/mimeType for
-          // the UI to detect and lazy-load.
-          const { data: _removed, ...rest } = imgPart
-          return { ...rest, stripped: true }
+      }
+
+      // Legacy screenshot payloads duplicated base64 under structuredContent.image.
+      const structured = nextRec.structuredContent
+      if (
+        structured &&
+        typeof structured === 'object' &&
+        !Array.isArray(structured)
+      ) {
+        const sc = structured as Record<string, unknown>
+        if (typeof sc.image === 'string' && sc.image.length > 0) {
+          const toolCallId = anyPart.toolCallId
+          const mimeType =
+            typeof sc.format === 'string' ? `image/${sc.format}` : 'image/jpeg'
+          if (typeof toolCallId === 'string') {
+            imageStore.store(sessionId, toolCallId, sc.image, mimeType)
+          }
+          const { image: _dup, ...rest } = sc
+          nextRec = { ...nextRec, structuredContent: rest }
+          outputChanged = true
         }
-        return item
-      })
-      if (stripped) {
-        anyPart.output = { ...rec, content: newContent }
+      }
+
+      if (outputChanged) {
+        anyPart.output = nextRec
         anyStripped = true
       }
     }

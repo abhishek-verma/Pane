@@ -50,4 +50,36 @@ describe('stripFatInlineImagesFromMessages', () => {
     const large = estimateUiMessagesBytes([makeMsg('y'.repeat(10_000))])
     expect(large).toBeGreaterThan(small)
   })
+
+  test('drops legacy structuredContent.image duplicates', () => {
+    const messages: UIMessage[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-screenshot',
+            toolCallId: 'c1',
+            toolName: 'screenshot',
+            state: 'result',
+            input: {},
+            output: {
+              content: [{ type: 'text', text: 'ok' }],
+              structuredContent: {
+                image: 'A'.repeat(100_001),
+                page: 1,
+              },
+              isError: false,
+            },
+          } as unknown as UIMessage['parts'][number],
+        ],
+      },
+    ]
+    const next = stripFatInlineImagesFromMessages(messages)
+    const part = next[0]?.parts[0] as Record<string, unknown>
+    const output = part.output as Record<string, unknown>
+    const structured = output.structuredContent as Record<string, unknown>
+    expect(structured.image).toBeUndefined()
+    expect(structured.page).toBe(1)
+  })
 })

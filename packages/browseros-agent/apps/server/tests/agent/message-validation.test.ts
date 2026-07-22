@@ -311,6 +311,41 @@ describe('stripUIImageOutputs', () => {
     ])
   })
 
+  it('strips legacy structuredContent.image duplicates', () => {
+    const store = new MockImageStore()
+    const part = {
+      type: 'tool-screenshot',
+      toolCallId: 'c-legacy',
+      toolName: 'screenshot',
+      state: 'result',
+      input: {},
+      output: {
+        content: [{ type: 'text', text: 'ok' }],
+        structuredContent: {
+          image: 'LEGACY_B64',
+          format: 'jpeg',
+          page: 1,
+        },
+        isError: false,
+      },
+    } as unknown as UIMessage['parts'][number]
+
+    const messages: UIMessage[] = [
+      makeUserMessage('u'),
+      makeAssistantMessage([part]),
+    ]
+
+    const stripped = stripUIImageOutputs(messages, 'sess', store as never)
+    expect(stripped).toBe(true)
+    expect(store.stored).toHaveLength(1)
+    expect(store.stored[0]?.toolCallId).toBe('c-legacy')
+    const out = (messages[1]?.parts[0] as Record<string, unknown>)
+      .output as Record<string, unknown>
+    const sc = out.structuredContent as Record<string, unknown>
+    expect(sc.image).toBeUndefined()
+    expect(sc.page).toBe(1)
+  })
+
   it('messages with no image content are unaffected', () => {
     const store = new MockImageStore()
     const textOnlyPart = {

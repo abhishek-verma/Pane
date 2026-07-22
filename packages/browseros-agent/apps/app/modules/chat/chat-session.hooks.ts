@@ -34,7 +34,7 @@ import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import {
-  estimateUiMessagesBytes,
+  isPoisonSessionPayload,
   stripFatInlineImagesFromMessages,
 } from '@/lib/tool-evidence/strip-inline-images'
 import {
@@ -583,6 +583,17 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     if (!conversationIdParam) return
     if (restoredConversationId === conversationIdParam) return
 
+    const quarantineAndOpenBlank = (reason: string) => {
+      sentry.captureMessage(reason, {
+        level: 'warning',
+        extra: { conversationId: conversationIdParam },
+      })
+      setRestoredConversationId(conversationIdParam)
+      setSearchParams({}, { replace: true })
+      setMessages([])
+      setConversationId(crypto.randomUUID())
+    }
+
     if (useCloudHistory) {
       if (!isRemoteConversationFetched) return
 
@@ -592,6 +603,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             .filter((node): node is NonNullable<typeof node> => node !== null)
             .map((node) => node.message as UIMessage),
         )
+        if (isPoisonSessionPayload(restoredMessages)) {
+          quarantineAndOpenBlank(
+            'chat.restore.quarantined_oversized_conversation',
+          )
+          return
+        }
 
         setConversationId(
           conversationIdParam as ReturnType<typeof crypto.randomUUID>,
@@ -621,18 +638,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         )
         // Poison-session safe open: if the payload is still enormous after
         // stripping images, start a blank chat instead of crash-looping.
-        if (estimateUiMessagesBytes(safeMessages) > 2_000_000) {
-          sentry.captureMessage(
+        if (isPoisonSessionPayload(safeMessages)) {
+          quarantineAndOpenBlank(
             'chat.restore.quarantined_oversized_conversation',
-            {
-              level: 'warning',
-              extra: { conversationId: conversationIdParam },
-            },
           )
-          setRestoredConversationId(conversationIdParam)
-          setSearchParams({}, { replace: true })
-          setMessages([])
-          setConversationId(crypto.randomUUID())
           return
         }
         setConversationId(
