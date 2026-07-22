@@ -325,15 +325,37 @@ export class SessionStore {
       .all()
 
     return rows.map((r) => {
-      let content = r.content
+      let content: unknown = r.content
       try {
         content = JSON.parse(r.content)
-      } catch {}
+      } catch {
+        /* keep raw string */
+      }
+
+      // Persist writes `parts` JSON. Tolerate legacy rows that stored a full
+      // UIMessage object so poison-session recovery does not 500.
+      if (
+        content &&
+        typeof content === 'object' &&
+        !Array.isArray(content) &&
+        Array.isArray((content as { parts?: unknown }).parts)
+      ) {
+        const full = content as {
+          id?: string
+          role?: string
+          parts: UIMessage['parts']
+        }
+        return {
+          id: typeof full.id === 'string' ? full.id : r.id,
+          role: (full.role ?? r.role) as UIMessage['role'],
+          parts: full.parts,
+        } as UIMessage
+      }
 
       return {
         id: r.id,
         role: r.role as UIMessage['role'],
-        parts: Array.isArray(content) ? content : undefined,
+        parts: Array.isArray(content) ? content : [],
         content: typeof content === 'string' ? content : '',
       } as UIMessage
     })

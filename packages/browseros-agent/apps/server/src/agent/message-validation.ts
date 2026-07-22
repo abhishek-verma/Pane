@@ -84,11 +84,10 @@ export function sanitizeMessagesForToolset(
  * Strips base64 image data from UIMessage tool-output parts, persisting each
  * stripped image to `imageStore` so the UI can lazy-load via the tool-images API.
  *
- * Images in the most recent `keepRecentN` assistant messages are left intact
- * to avoid flicker during an active agent run. All older assistant messages
- * have their image data replaced with a `{stripped:true}` placeholder while
- * the `structuredContent` metadata (page, format, bytes) is preserved so the
- * card can still render a meaningful "Screenshot unavailable" / lazy-load state.
+ * All assistant/tool image outputs are stripped immediately (no keep-recent
+ * window). Recent thumbs are lazy-loaded from the tool-images API.
+ *
+ * Returns `true` when any image data was moved to the store.
  *
  * The function mutates `messages` **in-place** so `session.agent.messages` is
  * also updated without requiring a reference swap at the call site.
@@ -97,25 +96,10 @@ export function stripUIImageOutputs(
   messages: UIMessage[],
   sessionId: string,
   imageStore: ToolImageStore,
-  keepRecentN = 3,
-): void {
-  // Identify indices of assistant messages (newest first) so we can skip the
-  // most recent `keepRecentN`.
-  const assistantIndices: number[] = []
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i]?.role === 'assistant') {
-      assistantIndices.push(i)
-    }
-  }
+): boolean {
+  let anyStripped = false
 
-  // Messages at positions 0..keepRecentN-1 in assistantIndices are the newest
-  // ones — leave them alone.
-  const indicesToStrip = new Set(assistantIndices.slice(keepRecentN))
-  if (indicesToStrip.size === 0) return
-
-  for (const msgIdx of indicesToStrip) {
-    const msg = messages[msgIdx]
-    if (!msg) continue
+  for (const msg of messages) {
     for (const part of msg.parts) {
       if (typeof part.type !== 'string' || !part.type.startsWith('tool-'))
         continue
@@ -136,11 +120,13 @@ export function stripUIImageOutputs(
           return item
         }
         const imgPart = item as Record<string, unknown>
+        if (imgPart.stripped === true) return item
         const data = imgPart.data
         const mimeType = imgPart.mimeType ?? imgPart.mediaType
         const toolCallId = anyPart.toolCallId
         if (
           typeof data === 'string' &&
+          data.length > 0 &&
           typeof mimeType === 'string' &&
           typeof toolCallId === 'string'
         ) {
@@ -155,7 +141,19 @@ export function stripUIImageOutputs(
       })
       if (stripped) {
         anyPart.output = { ...rec, content: newContent }
+        anyStripped = true
       }
     }
+  }
+
+  return anyStripped
+}
+
+/** Approximate serialized size of messages for poison-session gates. */
+export function estimateMessagesJsonBytes(messages: UIMessage[]): number {
+  try {
+    return JSON.stringify(messages).length
+  } catch {
+    return Number.POSITIVE_INFINITY
   }
 }

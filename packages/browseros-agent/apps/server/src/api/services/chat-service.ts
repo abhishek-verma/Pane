@@ -344,6 +344,7 @@ export class ChatService {
         browserosId: this.deps.browserosId,
         aiSdkDevtoolsEnabled: this.deps.aiSdkDevtoolsEnabled,
         outputFileAccess,
+        imageStore: sessionStore.imageStore,
       })
       session = {
         agent,
@@ -360,10 +361,20 @@ export class ChatService {
       // previousConversation summary (tool parts survive a server restart).
       const persisted = await sessionStore.loadMessages(request.conversationId)
       if (persisted.length > 0) {
-        session.agent.messages = filterValidMessages(persisted)
+        const hydrated = filterValidMessages(persisted)
+        const backfilled = stripUIImageOutputs(
+          hydrated,
+          request.conversationId,
+          sessionStore.imageStore,
+        )
+        session.agent.messages = hydrated
+        if (backfilled) {
+          void this.checkpointMessages(request.conversationId, hydrated, false)
+        }
         logger.info('Hydrated session from persisted messages', {
           conversationId: request.conversationId,
           messageCount: session.agent.messages.length,
+          backfilled,
         })
       }
     }
@@ -604,10 +615,9 @@ export class ChatService {
     syncIndexes: boolean,
   ): Promise<void> {
     try {
-      // Strip base64 image data from old assistant messages in-place.
-      // This bounds both session.agent.messages (server RAM) and what we write
-      // to SQLite. The most recent 3 assistant messages keep their images
-      // intact so the UI does not flicker during an active run.
+      // Belt-and-suspenders: tool-adapter strips at execute time, but any
+      // legacy or missed inline image data is moved to ToolImageStore here
+      // before writing SQLite / keeping session.agent.messages bounded.
       stripUIImageOutputs(
         messages,
         conversationId,
@@ -694,13 +704,40 @@ export class ChatService {
     if (!exists) {
       const live = this.deps.sessionStore.get(conversationId)
       if (!live) return null
-      return {
-        id: conversationId,
-        messages: filterValidMessages(live.agent.messages),
-      }
+      const messages = filterValidMessages(live.agent.messages)
+      // Never serve inline image bytes to the client.
+      stripUIImageOutputs(
+        messages,
+        conversationId,
+        this.deps.sessionStore.imageStore,
+      )
+      return { id: conversationId, messages }
     }
     const messages = await this.deps.sessionStore.loadMessages(conversationId)
-    return { id: conversationId, messages: filterValidMessages(messages) }
+    const valid = filterValidMessages(messages)
+    // Lazy backfill: migrate fat legacy rows into tool_images and rewrite
+    // chat_messages so the next open stays thin (poison-session recovery).
+    const stripped = stripUIImageOutputs(
+      valid,
+      conversationId,
+      this.deps.sessionStore.imageStore,
+    )
+    if (stripped) {
+      try {
+        await this.deps.sessionStore.persistMessages(conversationId, valid, {
+          syncIndexes: false,
+        })
+        logger.info('Backfilled inline tool images for conversation', {
+          conversationId,
+        })
+      } catch (err: unknown) {
+        logger.warn('Failed to persist image backfill', {
+          conversationId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
+    return { id: conversationId, messages: valid }
   }
 
   async importConversations(
@@ -772,6 +809,7 @@ export class ChatService {
       browserosId: this.deps.browserosId,
       aiSdkDevtoolsEnabled: this.deps.aiSdkDevtoolsEnabled,
       outputFileAccess,
+      imageStore: this.deps.sessionStore.imageStore,
     })
     const newSession: AgentSession = {
       agent,

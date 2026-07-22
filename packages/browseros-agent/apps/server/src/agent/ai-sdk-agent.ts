@@ -42,6 +42,7 @@ import {
 import { buildNudgeToolSet } from './nudge-tools'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
+import type { ToolImageStore } from './session-store'
 import { buildBrowserToolSet } from './tool-adapter'
 import { wrapToolSetWithGate } from './trust/gate'
 import type { ResolvedAgentConfig } from './types'
@@ -53,6 +54,8 @@ export interface AiSdkAgentConfig {
   browserosId?: string
   aiSdkDevtoolsEnabled?: boolean
   outputFileAccess?: BrowserOutputFileAccess
+  /** When set, browser tool stills are stored and stripped from UIMessage/SSE. */
+  imageStore?: ToolImageStore
 }
 
 /** Builds filesystem tools for model-backed sessions, with scoped readback outside full workspace mode. */
@@ -138,6 +141,8 @@ export class AiSdkAgent {
       : buildBrowserToolSet(config.browserSession, {
           readOnly: config.resolvedConfig.chatMode,
           outputFileAccess,
+          sessionId: config.resolvedConfig.conversationId,
+          imageStore: config.imageStore,
         })
     const reservedBrowserToolNames = new Set(Object.keys(allBrowserTools))
     const chatModeAllowedTools = CHAT_MODE_ALLOWED_TOOLS
