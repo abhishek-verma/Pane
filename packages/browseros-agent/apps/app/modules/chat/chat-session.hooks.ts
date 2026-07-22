@@ -59,13 +59,11 @@ import {
   toProviderOption,
 } from './chat-session-request'
 import type { ChatMode } from './chat-types'
-import {
-  collectToolApprovalResponses,
-  settleUnresolvedToolApprovalsInMessages,
-} from './collect-tool-approval-responses'
+import { collectToolApprovalResponses } from './collect-tool-approval-responses'
 import { addContentFilterNotice } from './content-filter-notice'
 import { useExecutionHistoryTracker } from './execution-history-tracker.hooks'
 import { useNotifyActiveTab } from './notify-active-tab.hooks'
+import { prepareMessagesForClientTurn } from './prepare-messages-for-turn'
 import { useRemoteConversationSave } from './remote-conversation-save.hooks'
 import { toLlmProviderConfig } from './sidepanel-chat-targets'
 
@@ -551,6 +549,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     },
   })
 
+  // A Stop click (or the cross-window stopAgentStorage signal) can land
+  // mid-tool-call, leaving an input-available/input-streaming part with no
+  // result. Settle those locally so the card does not look permanently
+  // "running" and the next message does not round-trip a dangling tool-call
+  // into MissingToolResultsError on the server.
+  const stopAndSettle = useCallback(() => {
+    stop()
+    setMessages((current) => prepareMessagesForClientTurn(current))
+  }, [stop, setMessages])
+
   // Remove messages with empty parts (e.g. interrupted assistant responses)
   // to prevent AI SDK validation errors on subsequent sends
   useEffect(() => {
@@ -586,6 +594,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     if (!conversationIdParam) return
     if (restoredConversationId === conversationIdParam) return
 
+    // Loading a different conversation while this one is still streaming
+    // would otherwise leave that stream running against a swapped-out
+    // conversationId and land its tool parts on the wrong transcript.
+    stop()
+
     const quarantineAndOpenBlank = (reason: string) => {
       sentry.captureMessage(reason, {
         level: 'warning',
@@ -613,11 +626,14 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           return
         }
 
+        // A saved transcript can carry approval/tool parts left mid-flight
+        // by a stream that was interrupted before it was ever persisted.
+        const preparedMessages = prepareMessagesForClientTurn(restoredMessages)
         setConversationId(
           conversationIdParam as ReturnType<typeof crypto.randomUUID>,
         )
-        setMessages(restoredMessages)
-        markMessagesAsSaved(conversationIdParam, restoredMessages)
+        setMessages(preparedMessages)
+        markMessagesAsSaved(conversationIdParam, preparedMessages)
       }
       setRestoredConversationId(conversationIdParam)
       setSearchParams({}, { replace: true })
@@ -650,7 +666,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         setConversationId(
           conversation.id as ReturnType<typeof crypto.randomUUID>,
         )
-        setMessages(safeMessages)
+        setMessages(prepareMessagesForClientTurn(safeMessages))
         setRestoredConversationId(conversationIdParam)
         setSearchParams({}, { replace: true })
       } catch (error) {
@@ -795,11 +811,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         conversationId: conversationIdRef.current,
         promptText: text,
       })
-      // New user turns supersede pending Approve/Deny cards. Settle locally so
-      // the UI drops the cards, and the server settles its session copy to avoid
+      // New user turns supersede pending Approve/Deny cards and any tool left
+      // mid-flight by a prior Stop/abort. Settle both locally so the UI drops
+      // the cards, and the server settles its session copy to avoid
       // MissingToolResultsError. Do not use addToolApprovalResponse here — that
       // would trigger an empty approval-resume via sendAutomaticallyWhen.
-      setMessages((current) => settleUnresolvedToolApprovalsInMessages(current))
+      setMessages((current) => prepareMessagesForClientTurn(current))
       baseSendMessage({ text })
     },
     [baseSendMessage, setMessages, startExecutionTask, trackMessageSent],
@@ -864,7 +881,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   useEffect(() => {
     const unwatch = stopAgentStorage.watch((signal) => {
       if (signal && signal.conversationId === conversationIdRef.current) {
-        stop()
+        stopAndSettle()
         track(GLOW_STOP_CLICKED_EVENT)
         stopAgentStorage.setValue(null)
       }
@@ -1058,7 +1075,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     messages,
     sendMessage,
     status,
-    stop,
+    stop: stopAndSettle,
     providers,
     selectedProvider,
     isLoading: isLoadingProviders || isLoadingAgentUrl,
