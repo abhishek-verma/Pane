@@ -25,7 +25,8 @@ export const BrowserActionCard: FC<{
 }> = ({ evidence, conversationId, highlighted = false }) => {
   const [open, setOpen] = useState(false)
   const [revealed, setRevealed] = useState(false)
-  const [imageFailed, setImageFailed] = useState(false)
+  // Track which src failed so a new src/tool identity can retry automatically.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const [nearViewport, setNearViewport] = useState(false)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const { showBrowserScreenshots, blurScreenshotsUntilClick } =
@@ -48,16 +49,18 @@ export const BrowserActionCard: FC<{
     return () => observer.disconnect()
   }, [])
 
-  if (!browser) return null
-
-  const media = browser.media[0]
+  const media = browser?.media[0]
   // If no inline image but the server stripped one, build a lazy-load URL.
-  const strippedMeta = !media ? (browser.strippedImages?.[0] ?? null) : null
+  const strippedMeta =
+    browser && !media ? (browser.strippedImages?.[0] ?? null) : null
   const strippedSrc =
     strippedMeta && serverBaseUrl && conversationId
       ? `${serverBaseUrl}/chat/${conversationId}/tool-images/${evidence.toolCallId}`
       : null
 
+  const imgSrc = media ? toSrc(media.data, media.mimeType) : (strippedSrc ?? '')
+  const imgMimeType = media?.mimeType ?? strippedMeta?.mimeType ?? 'image/png'
+  const imageFailed = failedSrc != null && failedSrc === imgSrc
   const hasImageSource = Boolean(media || strippedSrc)
   const showImageSlot = hasImageSource && showBrowserScreenshots && !imageFailed
   // Only decode the bitmap when near the viewport (or force-mounted for replay).
@@ -70,14 +73,18 @@ export const BrowserActionCard: FC<{
   })
   const blurred = mountImage && blurScreenshotsUntilClick && !revealed
 
+  // Close the lightbox when the thumb demounts so it does not reopen on remount.
+  useEffect(() => {
+    if (!mountImage) setOpen(false)
+  }, [mountImage])
+
   const onThumbClick = () => {
     if (!mountImage) return
     if (blurred) setRevealed(true)
     setOpen(true)
   }
 
-  const imgSrc = media ? toSrc(media.data, media.mimeType) : (strippedSrc ?? '')
-  const imgMimeType = media?.mimeType ?? strippedMeta?.mimeType ?? 'image/png'
+  if (!browser) return null
 
   return (
     <>
@@ -110,7 +117,7 @@ export const BrowserActionCard: FC<{
                 src={imgSrc}
                 alt={browser.caption}
                 loading="lazy"
-                onError={() => setImageFailed(true)}
+                onError={() => setFailedSrc(imgSrc)}
                 className={cn(
                   'aspect-video max-h-40 w-full object-cover object-top opacity-95 transition-[filter,opacity]',
                   blurred && 'blur-md',
