@@ -84,6 +84,28 @@ class ApplyStringReplacementsTest(unittest.TestCase):
 
         self.assertEqual(other.read_text(), "<grit>Chromium</grit>\n")
 
+    def test_grit_message_name_ids_are_preserved(self):
+        """Chrome→Pane must not rename IDS_* identifiers referenced by C++."""
+        self.chromium.add_file(
+            "chrome/app/generated_resources.grd",
+            (
+                '<grit><message name="IDS_IMPORT_FROM_CHROME" '
+                'desc="browser combo box: Google Chrome">\n'
+                "  Google Chrome\n"
+                "</message></grit>\n"
+            ),
+        )
+
+        self.assertTrue(apply_string_replacements_impl(self.ctx))
+
+        content = (
+            self.chromium.src / "chrome" / "app" / "generated_resources.grd"
+        ).read_text()
+        self.assertIn('name="IDS_IMPORT_FROM_CHROME"', content)
+        self.assertNotIn("IDS_IMPORT_FROM_PANE", content)
+        # Visible label still gets rebranded.
+        self.assertIn("Pane", content)
+
 
 class StringReplacesModuleValidateTest(unittest.TestCase):
     def test_missing_chromium_src_raises_validation_error(self):

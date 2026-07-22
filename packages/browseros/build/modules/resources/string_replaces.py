@@ -51,6 +51,27 @@ target_files = [
 ]
 
 
+def _replace_outside_name_attrs(content: str, pattern: str, replacement: str) -> tuple[str, int]:
+    """Apply a regex replace, but never rewrite XML name="..." attributes.
+
+    Branding rules like Chrome→Pane must not rename grit IDs such as
+    IDS_IMPORT_FROM_CHROME (C++ still references the original identifier).
+    """
+    parts = re.split(r'(name="[^"]*")', content)
+    matches = 0
+    out: list[str] = []
+    for part in parts:
+        if part.startswith('name="'):
+            out.append(part)
+            continue
+        found = len(re.findall(pattern, part))
+        if found:
+            part = re.sub(pattern, replacement, part)
+            matches += found
+        out.append(part)
+    return "".join(out), matches
+
+
 def apply_string_replacements_impl(ctx: Context) -> bool:
     """Internal implementation for applying string replacements"""
 
@@ -75,11 +96,23 @@ def apply_string_replacements_impl(ctx: Context) -> bool:
 
             # Apply each replacement
             for pattern, replacement in branding_replacements:
-                matches = len(re.findall(pattern, content))
+                content, matches = _replace_outside_name_attrs(
+                    content, pattern, replacement
+                )
                 if matches > 0:
-                    content = re.sub(pattern, replacement, content)
                     replacement_count += matches
                     log_info(f"    ✓ Replaced {matches} occurrences of '{pattern}'")
+
+            # Importer source label must stay "Google Chrome" (user imports FROM
+            # Chrome into Pane). Branding passes above would otherwise rewrite it.
+            restored = re.sub(
+                r'(<message name="IDS_IMPORT_FROM_CHROME"[^>]*>)\s*Pane\s*(</message>)',
+                r"\1\n          Google Chrome\n        \2",
+                content,
+            )
+            if restored != content:
+                content = restored
+                log_info('    ✓ Restored IDS_IMPORT_FROM_CHROME label to "Google Chrome"')
 
             # Write back if changes were made
             if content != original_content:
