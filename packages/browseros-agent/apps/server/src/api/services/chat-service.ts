@@ -17,6 +17,7 @@ import { isAcpProvider } from '../../agent/acp-providers'
 import { AiSdkAgent } from '../../agent/ai-sdk-agent'
 import { createDurableAgentUIStreamResponse } from '../../agent/durable-agent-ui-stream'
 import { formatUserMessage } from '../../agent/format-message'
+import { prepareMessagesForAgentTurn } from '../../agent/message-repair'
 import {
   filterValidMessages,
   sanitizeMessagesForToolset,
@@ -24,11 +25,7 @@ import {
 } from '../../agent/message-validation'
 import { runTracker } from '../../agent/run-tracker'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
-import {
-  applyToolApprovalDecisions,
-  repairInvalidToolApprovalParts,
-  settleUnresolvedToolApprovals,
-} from '../../agent/tool-approval-resolve'
+import { applyToolApprovalDecisions } from '../../agent/tool-approval-resolve'
 import type { ResolvedAgentConfig } from '../../agent/types'
 import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpServers'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
@@ -372,14 +369,32 @@ export class ChatService {
           request.conversationId,
           sessionStore.imageStore,
         )
-        session.agent.messages = hydrated
-        if (backfilled) {
-          void this.checkpointMessages(request.conversationId, hydrated, false)
+        // A server restart or crash can leave tool parts mid-flight
+        // (input-available with no result) or carrying legacy AI SDK
+        // states (state:'result'/'call') from an older persisted session.
+        // Repair before this transcript is ever handed to the loop again,
+        // otherwise the very next turn dies with MissingToolResultsError or
+        // "Type validation failed".
+        const prepared = prepareMessagesForAgentTurn(hydrated, {
+          toolNames: session.agent.toolNames,
+          settleApprovals: true,
+          settleIncomplete: true,
+          approvalReason: 'Session restored before the tool finished',
+          incompleteReason: 'Session restored before the tool finished',
+        })
+        session.agent.messages = prepared.messages
+        if (backfilled || prepared.changed) {
+          void this.checkpointMessages(
+            request.conversationId,
+            session.agent.messages,
+            false,
+          )
         }
         logger.info('Hydrated session from persisted messages', {
           conversationId: request.conversationId,
           messageCount: session.agent.messages.length,
           backfilled,
+          repaired: prepared.changed,
         })
       }
     }
@@ -429,13 +444,20 @@ export class ChatService {
         })
       }
 
-      const repairedApprovals = repairInvalidToolApprovalParts(
-        session.agent.messages,
-      )
-      if (repairedApprovals > 0) {
+      // settleApprovals stays false: the responses we just applied above are
+      // exactly the approval-responded parts settling here would deny.
+      // settleIncomplete still runs — a prior aborted resume can leave an
+      // unrelated tool call mid-flight alongside the one being resumed.
+      const prepared = prepareMessagesForAgentTurn(session.agent.messages, {
+        settleApprovals: false,
+        settleIncomplete: true,
+        incompleteReason: 'Interrupted before a previous resume finished',
+      })
+      session.agent.messages = prepared.messages
+      if (prepared.repairedApprovals > 0) {
         logger.warn('Repaired invalid tool approval parts before resume', {
           conversationId: request.conversationId,
-          repaired: repairedApprovals,
+          repaired: prepared.repairedApprovals,
         })
       }
 
@@ -506,22 +528,23 @@ export class ChatService {
         ? `${contextChanges.map((c) => `[Context: ${c}]`).join('\n')}\n\n`
         : ''
 
-    // A new user turn supersedes any still-pending tool approvals. Auto-deny
-    // them so convertToModelMessages cannot emit orphan tool-calls (SDK
+    // A new user turn supersedes any still-pending tool approvals and any
+    // tool call left mid-flight by a prior abort/crash. Settle both so
+    // convertToModelMessages cannot emit orphan tool-calls (SDK
     // MissingToolResultsError / "Something went wrong" dead-end).
-    const settledApprovals = settleUnresolvedToolApprovals(
-      session.agent.messages,
-    )
-    const repairedApprovals = repairInvalidToolApprovalParts(
-      session.agent.messages,
-    )
-    if (settledApprovals > 0 || repairedApprovals > 0) {
+    const turnPrepared = prepareMessagesForAgentTurn(session.agent.messages, {
+      settleApprovals: true,
+      settleIncomplete: true,
+    })
+    session.agent.messages = turnPrepared.messages
+    if (turnPrepared.changed) {
       logger.info(
         'Auto-denied pending tool approvals before new user message',
         {
           conversationId: request.conversationId,
-          settled: settledApprovals,
-          repaired: repairedApprovals,
+          settled: turnPrepared.settledApprovals,
+          repaired: turnPrepared.repairedApprovals,
+          settledIncomplete: turnPrepared.settledIncomplete,
         },
       )
       await this.checkpointMessages(

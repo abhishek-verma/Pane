@@ -21,10 +21,7 @@ import {
 
 type ToolPartLike = {
   type?: string
-  state?: string
   toolCallId?: string
-  errorText?: string
-  output?: unknown
 }
 
 function isToolPart(part: unknown): part is ToolPartLike {
@@ -34,6 +31,14 @@ function isToolPart(part: unknown): part is ToolPartLike {
     typeof type === 'string' &&
     (type === 'dynamic-tool' || type.startsWith('tool-'))
   )
+}
+
+// Legacy/off-schema tool-part states (pre-v5 `toolInvocation` shape, or
+// mid-flight states an abort left behind) are not part of the current
+// UIMessage tool-part discriminated union, so state/errorText are read and
+// written through an untyped view rather than the real part type.
+function asMutableToolPart(part: ToolPartLike): Record<string, unknown> {
+  return part as Record<string, unknown>
 }
 
 /**
@@ -47,14 +52,16 @@ export function migrateLegacyToolStates(messages: UIMessage[]): number {
     if (msg.role !== 'assistant') continue
     for (const part of msg.parts) {
       if (!isToolPart(part)) continue
-      if (part.state === 'result') {
-        part.state = 'output-available'
+      const mutable = asMutableToolPart(part)
+      const state = mutable.state
+      if (state === 'result') {
+        mutable.state = 'output-available'
         migrated++
-      } else if (part.state === 'call') {
-        part.state = 'input-available'
+      } else if (state === 'call') {
+        mutable.state = 'input-available'
         migrated++
-      } else if (part.state === 'partial-call') {
-        part.state = 'input-streaming'
+      } else if (state === 'partial-call') {
+        mutable.state = 'input-streaming'
         migrated++
       }
     }
@@ -81,14 +88,15 @@ export function settleIncompleteToolParts(
     if (msg.role !== 'assistant') continue
     for (const part of msg.parts) {
       if (!isToolPart(part) || !part.toolCallId) continue
+      const mutable = asMutableToolPart(part)
       if (
-        part.state !== 'input-available' &&
-        part.state !== 'input-streaming'
+        mutable.state !== 'input-available' &&
+        mutable.state !== 'input-streaming'
       ) {
         continue
       }
-      part.state = 'output-error'
-      part.errorText = reason
+      mutable.state = 'output-error'
+      mutable.errorText = reason
       settled++
     }
   }

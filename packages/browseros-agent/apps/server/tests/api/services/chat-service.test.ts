@@ -91,7 +91,18 @@ afterAll(() => {
 
 const { ChatService } = await import('../../../src/api/services/chat-service')
 
-function createSessionStore() {
+function createSessionStore(
+  overrides: {
+    loadMessages?: (
+      conversationId: string,
+    ) => Promise<StoredSession['agent']['messages']>
+    persistMessages?: (
+      conversationId: string,
+      messages: StoredSession['agent']['messages'],
+      options?: { syncIndexes: boolean },
+    ) => Promise<void>
+  } = {},
+) {
   const sessions = new Map<string, StoredSession>()
   return {
     get(conversationId: string) {
@@ -103,10 +114,17 @@ function createSessionStore() {
     remove(conversationId: string) {
       return sessions.delete(conversationId)
     },
-    async loadMessages(_conversationId: string) {
+    async loadMessages(conversationId: string) {
+      if (overrides.loadMessages) return overrides.loadMessages(conversationId)
       return [] as StoredSession['agent']['messages']
     },
-    async persistMessages() {},
+    async persistMessages(
+      conversationId: string,
+      messages: StoredSession['agent']['messages'],
+      options?: { syncIndexes: boolean },
+    ) {
+      await overrides.persistMessages?.(conversationId, messages, options)
+    },
     async delete(conversationId: string) {
       const session = sessions.get(conversationId)
       if (!session) return false
@@ -782,5 +800,149 @@ describe('ChatService tool approval resume', () => {
     expect(agent.messages.at(-1)?.parts[0]?.text).toBe(
       'never mind, do something else',
     )
+  })
+})
+
+describe('ChatService message repair on hydrate and new turns', () => {
+  it('repairs legacy/incomplete tool states from a persisted transcript before the next turn', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const agent = createFakeAgent()
+    agent.toolNames = new Set(['evaluate', 'act'])
+    agentToReturn = agent
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({
+        messages: (uiMessages ?? agent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    // A prior server crash left an input-available tool call mid-flight and
+    // a legacy state:'result' part from an older AI SDK version. Both must
+    // be repaired before validateUIMessages ever sees this transcript again.
+    const persisted: MockMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'run stuff' }],
+      },
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-evaluate',
+            toolCallId: 'call-legacy',
+            state: 'result',
+            input: { expression: '1' },
+            output: { ok: true },
+          } as never,
+          {
+            type: 'tool-act',
+            toolCallId: 'call-stuck',
+            state: 'input-available',
+            input: { kind: 'click' },
+          } as never,
+        ],
+      },
+    ]
+
+    let persistedAtCheckpoint: unknown[] | undefined
+    const sessionStore = createSessionStore({
+      loadMessages: async () => persisted,
+      persistMessages: async (_id, messages) => {
+        persistedAtCheckpoint = messages
+      },
+    })
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'continue',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+
+    const assistantParts = persistedAtCheckpoint?.find(
+      (m) => (m as MockMessage).id === 'asst-1',
+    )?.parts as Array<{ state?: string }> | undefined
+    expect(assistantParts?.[0]?.state).toBe('output-available')
+    expect(assistantParts?.[1]?.state).toBe('output-error')
+  })
+
+  it('does not settle the just-applied approval-responded parts during an approval resume', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const agent = createFakeAgent()
+    agent.toolNames = new Set(['filesystem_write'])
+    agent.messages.push(
+      { id: 'user-1', role: 'user', parts: [{ type: 'text', text: 'write' }] },
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-filesystem_write',
+            toolCallId: 'call-1',
+            state: 'approval-requested',
+            input: { path: 'a.txt', content: 'hi' },
+            approval: { id: 'approval-1' },
+          } as never,
+        ],
+      },
+    )
+
+    let stateAtStreamStart: string | undefined
+    agentToReturn = agent
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      stateAtStreamStart = (
+        agent.messages[1]?.parts[0] as { state?: string } | undefined
+      )?.state
+      await onFinish({
+        messages: (uiMessages ?? agent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: '',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+        toolApprovalResponses: [
+          {
+            approvalId: 'approval-1',
+            toolCallId: 'call-1',
+            toolName: 'filesystem_write',
+            approved: true,
+          },
+        ],
+      } as never,
+      new AbortController().signal,
+    )
+
+    // Must stay approval-responded — settleUnresolvedToolApprovals would
+    // otherwise deny the approval the user just granted.
+    expect(stateAtStreamStart).toBe('approval-responded')
   })
 })

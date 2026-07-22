@@ -71,6 +71,15 @@ export function sanitizeMessagesForToolset(
           const toolName = part.type.slice(5)
           if (!toolNames.has(toolName)) return false
         }
+        // Dynamic (MCP) tool parts carry the name in `toolName` instead of
+        // the discriminated `type` — a disconnected MCP server leaves these
+        // behind the same way a removed static tool does.
+        if (part.type === 'dynamic-tool') {
+          const toolName = (part as { toolName?: string }).toolName
+          if (typeof toolName === 'string' && !toolNames.has(toolName)) {
+            return false
+          }
+        }
         return true
       })
 

@@ -586,6 +586,49 @@ describe('sanitizeMessagesForToolset', () => {
     expect(result).toHaveLength(0)
   })
 
+  it('strips dynamic-tool parts whose toolName is not in the toolset', () => {
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        { type: 'text', text: 'Calling an MCP tool...' },
+        {
+          type: 'dynamic-tool',
+          toolCallId: 'call-1',
+          toolName: 'notion_search',
+          state: 'output-available',
+          input: {},
+          output: {},
+        } as unknown as UIMessage['parts'][number],
+      ]),
+    ]
+
+    const result = sanitizeMessagesForToolset(messages, noFilesystemTools)
+    expect(result).toHaveLength(1)
+    expect(result[0].parts).toHaveLength(1)
+    expect(result[0].parts[0].type).toBe('text')
+  })
+
+  it('keeps dynamic-tool parts whose toolName is still in the toolset', () => {
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        {
+          type: 'dynamic-tool',
+          toolCallId: 'call-1',
+          toolName: 'notion_search',
+          state: 'output-available',
+          input: {},
+          output: {},
+        } as unknown as UIMessage['parts'][number],
+      ]),
+    ]
+
+    const result = sanitizeMessagesForToolset(
+      messages,
+      new Set(['notion_search']),
+    )
+    expect(result).toHaveLength(1)
+    expect(result[0].parts).toHaveLength(1)
+  })
+
   it('handles empty toolset (all tools removed)', () => {
     const messages: UIMessage[] = [
       makeAssistantMessage([
