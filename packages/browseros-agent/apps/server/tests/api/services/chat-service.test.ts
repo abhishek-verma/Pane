@@ -709,4 +709,78 @@ describe('ChatService tool approval resume', () => {
     }
     expect(streamedTool.state).toBe('approval-responded')
   })
+
+  it('auto-denies pending approvals when a new user message arrives', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const agent = createFakeAgent()
+    agent.toolNames = new Set(['evaluate'])
+    agent.messages.push(
+      {
+        id: 'user-1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'run title' }],
+      },
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-evaluate',
+            toolCallId: 'call-1',
+            state: 'approval-requested',
+            input: { expression: 'document.title' },
+            approval: { id: 'approval-1' },
+          } as never,
+        ],
+      },
+    )
+
+    let settledAtStreamStart: {
+      state?: string
+      approval?: { approved?: boolean }
+    } | null = null
+    agentToReturn = agent
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      settledAtStreamStart = (agent.messages[1]?.parts[0] ?? null) as never
+      await onFinish({
+        messages: (uiMessages ?? agent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent,
+      mcpServerKey: '',
+    } as never)
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'never mind, do something else',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+
+    expect(settledAtStreamStart?.state).toBe('output-denied')
+    expect(settledAtStreamStart?.approval?.approved).toBe(false)
+    expect(agent.messages.map((m) => m.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+    ])
+    expect(agent.messages.at(-1)?.parts[0]?.text).toBe(
+      'never mind, do something else',
+    )
+  })
 })

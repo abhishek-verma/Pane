@@ -60,30 +60,34 @@ function withBrowserToolTimeout(signal?: AbortSignal): AbortSignal {
 function contentToModelOutput(
   content: ContentBlock[],
 ): LanguageModelV2ToolResultOutput {
-  const hasImages = content.some(
-    (c) => c.type === 'image' && 'data' in c && c.data,
-  )
+  const parts: Array<
+    | { type: 'text'; text: string }
+    | { type: 'media'; data: string; mediaType: string }
+  > = []
+  for (const c of content) {
+    if (c.type === 'text') {
+      parts.push({ type: 'text', text: c.text })
+      continue
+    }
+    if (c.type === 'image' && typeof c.data === 'string' && c.data.length > 0) {
+      parts.push({
+        type: 'media',
+        data: c.data,
+        mediaType: c.mimeType,
+      })
+    }
+    // Image without bytes (stripped / missing): omit — never invent stub text.
+  }
+
+  const hasImages = parts.some((p) => p.type === 'media')
   if (!hasImages) {
-    const text = content
-      .filter((c): c is ContentBlock & { type: 'text' } => c.type === 'text')
-      .map((c) => c.text)
+    const text = parts
+      .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+      .map((p) => p.text)
       .join('\n')
     return { type: 'text', value: text || 'Success' }
   }
-  return {
-    type: 'content',
-    value: content.map((c) => {
-      if (c.type === 'text') return { type: 'text' as const, text: c.text }
-      if (c.type === 'image' && typeof c.data === 'string') {
-        return {
-          type: 'media' as const,
-          data: c.data,
-          mediaType: c.mimeType,
-        }
-      }
-      return { type: 'text' as const, text: '[Image]' }
-    }),
-  }
+  return { type: 'content', value: parts }
 }
 
 /** Maps browser-mcp ToolResult into the AI SDK tool execute return shape. */

@@ -36,12 +36,16 @@ export class ToolImageStore {
     this.ready = true
   }
 
+  /**
+   * Persist image bytes. Returns false on failure so callers can omit the
+   * image instead of leaving a stripped placeholder that cannot be loaded.
+   */
   store(
     sessionId: string,
     toolCallId: string,
     data: string,
     mimeType: string,
-  ): void {
+  ): boolean {
     try {
       this.ensureTable()
       const sqlite = getDbHandle().sqlite
@@ -52,11 +56,13 @@ export class ToolImageStore {
            VALUES (?, ?, ?, ?, ?)`,
         )
         .run(toolCallId, sessionId, buf, mimeType, Date.now())
+      return true
     } catch (err) {
       logger.warn('ToolImageStore: failed to store image', {
         toolCallId,
         error: err instanceof Error ? err.message : String(err),
       })
+      return false
     }
   }
 

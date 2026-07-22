@@ -133,20 +133,10 @@ export class ScreencastManager {
     )
     this.active = session
 
-    // Backgrounded tabs don't composite — startScreencast attaches but
-    // emits zero frames until something invalidates the surface.
-    // bringToFront foregrounds the tab in its window so the compositor
-    // wakes. setWebLifecycleState alone is not enough.
-    await resolved.session.Page.bringToFront().catch((err) => {
-      logger.warn('bringToFront failed', {
-        targetId: resolved.targetId,
-        error: err instanceof Error ? err.message : String(err),
-      })
-    })
-
-    // `connected` is sent after bringToFront so it doubles as the
-    // focus-restore signal for the agent-company SSE proxy — see
-    // screencast-proxy.ts.
+    // Do not call Page.bringToFront() here. Auto LiveWatch used to steal the
+    // user's active tab whenever the agent ran browser tools. Backgrounded
+    // tabs may emit fewer frames until the user visits them; that is fine —
+    // the product rule is the user stays on their current tab.
     this.send(ws, {
       type: 'status',
       status: 'connected',

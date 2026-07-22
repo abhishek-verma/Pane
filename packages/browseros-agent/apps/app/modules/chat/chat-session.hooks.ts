@@ -59,7 +59,10 @@ import {
   toProviderOption,
 } from './chat-session-request'
 import type { ChatMode } from './chat-types'
-import { collectToolApprovalResponses } from './collect-tool-approval-responses'
+import {
+  collectToolApprovalResponses,
+  settleUnresolvedToolApprovalsInMessages,
+} from './collect-tool-approval-responses'
 import { addContentFilterNotice } from './content-filter-notice'
 import { useExecutionHistoryTracker } from './execution-history-tracker.hooks'
 import { useNotifyActiveTab } from './notify-active-tab.hooks'
@@ -792,9 +795,14 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         conversationId: conversationIdRef.current,
         promptText: text,
       })
+      // New user turns supersede pending Approve/Deny cards. Settle locally so
+      // the UI drops the cards, and the server settles its session copy to avoid
+      // MissingToolResultsError. Do not use addToolApprovalResponse here — that
+      // would trigger an empty approval-resume via sendAutomaticallyWhen.
+      setMessages((current) => settleUnresolvedToolApprovalsInMessages(current))
       baseSendMessage({ text })
     },
-    [baseSendMessage, startExecutionTask, trackMessageSent],
+    [baseSendMessage, setMessages, startExecutionTask, trackMessageSent],
   )
 
   useEffect(() => {

@@ -55,10 +55,10 @@ async function waitForFrame(
 }
 
 describeIfNative('ScreencastManager', () => {
-  // Uses a visible window — bringToFront wakes the compositor reliably
-  // there. Hidden-window subscribers get the connected status but
-  // depend on subsequent invalidations for frames (Chromium pauses
-  // composition for off-screen windows).
+  // Uses a visible window so Chromium composites frames without
+  // Page.bringToFront (we no longer steal the user's active tab).
+  // Hidden-window subscribers get connected status but may depend on
+  // subsequent invalidations for frames.
   it('subscribes, emits frames, displaces a prior subscriber, and stops on unsubscribe', async () => {
     await withBrowser(async ({ browser }) => {
       const { windowId } = await browser.session.windows.create()

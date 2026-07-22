@@ -546,7 +546,7 @@ describe('compaction E2E — trigger logic', () => {
     expect(result.messages).toHaveLength(3)
     expect(output.type).toBe('text')
     expect(output.value).toContain('Captured screenshot')
-    expect(output.value).toContain('[Image]')
+    expect(output.value).not.toContain('[Image]')
     expect(output.value).not.toContain('x'.repeat(100))
   })
 })

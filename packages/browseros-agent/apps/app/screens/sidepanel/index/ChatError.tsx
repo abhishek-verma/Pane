@@ -46,6 +46,16 @@ function parseErrorMessage(
     }
   }
 
+  if (
+    message.includes('MissingToolResults') ||
+    message.includes('Tool result is missing for tool call') ||
+    message.includes('still waiting for approval')
+  ) {
+    return {
+      text: 'A tool was still waiting for approval. Approve or deny it, or send your message again.',
+    }
+  }
+
   // Detect credit exhaustion from gateway (Pane provider only)
   if (
     isBrowserosProvider &&

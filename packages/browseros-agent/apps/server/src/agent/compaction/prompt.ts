@@ -132,11 +132,11 @@ function extractTextContent(content: UserContent): string {
   for (const part of content) {
     if (part.type === 'text') {
       texts.push(part.text)
-    } else if (part.type === 'image') {
-      texts.push('[Image]')
     } else if (part.type === 'file') {
+      // Keep filename-level file markers; omit image binaries entirely.
       texts.push('[File]')
     }
+    // Image parts are omitted — no stub placeholder in summarizer transcripts.
   }
   return texts.join(' ')
 }

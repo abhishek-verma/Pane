@@ -466,7 +466,7 @@ describe('stripBinaryContent', () => {
     expect(countBinaryParts(msgs)).toBe(2)
     expect(output.type).toBe('text')
     expect(output.value).toContain('Before image')
-    expect(output.value).toContain('[Image]')
+    expect(output.value).not.toContain('[Image]')
     expect(output.value).toContain('[File: report.pdf]')
     expect(output.value).not.toContain('abcd')
     expect(output.value).not.toContain('efgh')
@@ -532,7 +532,7 @@ describe('normalizeMessagesForModel', () => {
     expect(output.type).toBe('text')
     if (output.type === 'text') {
       expect(output.value).toContain('Captured screenshot')
-      expect(output.value).toContain('[Image]')
+      expect(output.value).not.toContain('[Image]')
       expect(output.value).not.toContain('abcd')
     }
 
@@ -911,7 +911,7 @@ describe('reduceToolOutputs', () => {
 
     expect(output.type).toBe('text')
     expect(output.value).toContain('Captured screenshot')
-    expect(output.value).toContain('[Image]')
+    expect(output.value).not.toContain('[Image]')
     expect(output.value).not.toContain('x'.repeat(100))
   })
 })
@@ -1043,13 +1043,13 @@ describe('messagesToTranscript', () => {
     ])
 
     expect(transcript).toContain('[Tool Result] snapshot: Captured screenshot')
-    expect(transcript).toContain('[Image]')
+    expect(transcript).not.toContain('[Image]')
     expect(transcript).not.toContain('x'.repeat(100))
   })
 
-  it('replaces images with [Image]', () => {
+  it('omits image binaries from transcripts (keeps surrounding text)', () => {
     const transcript = messagesToTranscript([userMsgWithImage('look at this')])
-    expect(transcript).toContain('[Image]')
+    expect(transcript).not.toContain('[Image]')
     expect(transcript).toContain('look at this')
   })
 
@@ -1234,7 +1234,14 @@ describe('getCurrentTokenCount — Pi-style additive', () => {
     )
 
     const result = getCurrentTokenCount(steps, msgs, config)
-    const trailing = estimateTokens(msgs.slice(-2), config.imageTokenEstimate)
+    // Match getCurrentTokenCount: per-message estimates (not sliced together).
+    const trailing = msgs
+      .slice(-2)
+      .reduce(
+        (sum, message) =>
+          sum + estimateTokens([message], config.imageTokenEstimate),
+        0,
+      )
 
     expect(result).toBe(50_000 + 500 + trailing)
   })

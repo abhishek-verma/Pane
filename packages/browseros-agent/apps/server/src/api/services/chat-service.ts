@@ -24,6 +24,10 @@ import {
 } from '../../agent/message-validation'
 import { runTracker } from '../../agent/run-tracker'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
+import {
+  applyToolApprovalDecisions,
+  settleUnresolvedToolApprovals,
+} from '../../agent/tool-approval-resolve'
 import type { ResolvedAgentConfig } from '../../agent/types'
 import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpServers'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
@@ -401,15 +405,28 @@ export class ChatService {
     // Approval resume: the custom transport drops AI SDK approval-response
     // parts, so the client sends `toolApprovalResponses` and we patch the
     // stored transcript before re-running the loop (no new user message).
-    if (request.toolApprovalResponses?.length) {
-      this.applyToolApprovalResponses(
+    // Empty/whitespace message distinguishes resume from a new user turn that
+    // may also carry leftover approval payloads.
+    const isApprovalResume =
+      !!request.toolApprovalResponses?.length && !request.message?.trim()
+
+    if (isApprovalResume) {
+      const { patched, unmatched } = applyToolApprovalDecisions(
         session.agent.messages,
-        request.toolApprovalResponses,
+        request.toolApprovalResponses ?? [],
       )
       logger.info('Applied tool approval responses', {
         conversationId: request.conversationId,
-        count: request.toolApprovalResponses.length,
+        count: request.toolApprovalResponses?.length,
+        patched,
+        unmatchedCount: unmatched.length,
       })
+      if (unmatched.length > 0) {
+        logger.warn('Unmatched tool approval responses', {
+          conversationId: request.conversationId,
+          unmatched,
+        })
+      }
 
       await this.checkpointMessages(
         request.conversationId,
@@ -477,6 +494,27 @@ export class ChatService {
       contextChanges.length > 0
         ? `${contextChanges.map((c) => `[Context: ${c}]`).join('\n')}\n\n`
         : ''
+
+    // A new user turn supersedes any still-pending tool approvals. Auto-deny
+    // them so convertToModelMessages cannot emit orphan tool-calls (SDK
+    // MissingToolResultsError / "Something went wrong" dead-end).
+    const settledApprovals = settleUnresolvedToolApprovals(
+      session.agent.messages,
+    )
+    if (settledApprovals > 0) {
+      logger.info(
+        'Auto-denied pending tool approvals before new user message',
+        {
+          conversationId: request.conversationId,
+          settled: settledApprovals,
+        },
+      )
+      await this.checkpointMessages(
+        request.conversationId,
+        session.agent.messages,
+        false,
+      )
+    }
 
     // Persist the *raw* user text in session.agent.messages so it
     // round-trips clean to the client's useChat state and to any
@@ -826,55 +864,6 @@ export class ChatService {
     )
     this.deps.sessionStore.set(request.conversationId, newSession)
     return newSession
-  }
-
-  /**
-   * Patches stored assistant tool parts with client approval decisions so the
-   * AI SDK can convert them to `tool-approval-response` model messages and
-   * re-execute approved tools (or surface denials).
-   */
-  private applyToolApprovalResponses(
-    messages: UIMessage[],
-    responses: Array<{
-      approvalId: string
-      toolCallId: string
-      toolName: string
-      approved: boolean
-      reason?: string
-      input?: Record<string, unknown>
-    }>,
-  ): void {
-    const responseMap = new Map(responses.map((r) => [r.approvalId, r]))
-    for (const msg of messages) {
-      if (msg.role !== 'assistant') continue
-      for (const part of msg.parts) {
-        const toolPart = part as {
-          state?: string
-          toolCallId?: string
-          input?: Record<string, unknown>
-          approval?: { id: string; approved?: boolean; reason?: string }
-        }
-        if (
-          toolPart.state !== 'approval-requested' ||
-          !toolPart.approval?.id ||
-          !responseMap.has(toolPart.approval.id)
-        ) {
-          continue
-        }
-        const resp = responseMap.get(toolPart.approval.id)
-        if (!resp) continue
-        toolPart.state = 'approval-responded'
-        toolPart.approval = {
-          ...toolPart.approval,
-          approved: resp.approved,
-          reason: resp.reason,
-        }
-        // Prefer the client-edited input when the user changed args before approve.
-        if (resp.input) {
-          toolPart.input = resp.input
-        }
-      }
-    }
   }
 
   private buildMcpServerKey(browserContext?: BrowserContext): string {

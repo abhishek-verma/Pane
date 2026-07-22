@@ -11,10 +11,38 @@ import {
   createAgentUIStream,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  MissingToolResultsError,
   type UIMessage,
   type UIMessageStreamOnFinishCallback,
   type UIMessageStreamOnStepFinishCallback,
 } from 'ai'
+
+/** User-facing stream error text (never leak raw SDK stack names). */
+export function formatAgentStreamError(error: unknown): string {
+  if (
+    MissingToolResultsError.isInstance(error) ||
+    isMissingToolResults(error)
+  ) {
+    return 'A tool was still waiting for approval when the next message was sent. Approve or deny the pending action, or send your message again.'
+  }
+  if (error instanceof Error && error.message.trim()) {
+    // Keep short; avoid dumping multi-line SDK stacks into the chat UI.
+    const firstLine = error.message.split('\n')[0]?.trim() ?? ''
+    return firstLine.length > 280 ? `${firstLine.slice(0, 277)}...` : firstLine
+  }
+  return 'An error occurred.'
+}
+
+function isMissingToolResults(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const name = (error as { name?: string }).name
+  const message = (error as { message?: string }).message ?? ''
+  return (
+    name === 'AI_MissingToolResultsError' ||
+    name === 'MissingToolResultsError' ||
+    message.includes('Tool result is missing for tool call')
+  )
+}
 
 export type DurableAgentUIStreamParams = {
   // biome-ignore lint/suspicious/noExplicitAny: Agent generics vary by tool set
@@ -50,6 +78,7 @@ export async function createDurableAgentUIStreamResponse(
     originalMessages: uiMessages,
     onStepFinish,
     onFinish,
+    onError: formatAgentStreamError,
     execute: async ({ writer }) => {
       // Omit onFinish/onStepFinish so createAgentUIStream returns raw chunks;
       // createUIMessageStream owns message-level persistence callbacks.
