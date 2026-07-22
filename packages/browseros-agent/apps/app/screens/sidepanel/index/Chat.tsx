@@ -55,6 +55,7 @@ export const Chat = () => {
     approveTool,
     denyTool,
     promoteTool,
+    retryLastTurn,
   } = useChatSessionContext()
 
   const voice = useVoiceInput()
@@ -224,7 +225,11 @@ export const Chat = () => {
           />
         )}
         {chatError && (
-          <ChatError error={chatError} providerType={selectedProvider?.type} />
+          <ChatError
+            error={chatError}
+            providerType={selectedProvider?.type}
+            onRetry={retryLastTurn}
+          />
         )}
       </main>
 

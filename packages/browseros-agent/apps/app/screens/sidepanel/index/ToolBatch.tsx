@@ -1,4 +1,4 @@
-import { type FC, useMemo } from 'react'
+import { type FC, useCallback, useMemo } from 'react'
 import { ToolEvidenceList } from '@/components/tool-evidence/ToolEvidenceList'
 import { ApprovalCard, isDryRunPreview } from './ApprovalCard'
 import type { ToolInvocationInfo } from './getMessageSegments'
@@ -29,20 +29,28 @@ export const ToolBatch: FC<ToolBatchProps> = ({
   onDeny,
   onPromote,
 }) => {
-  const hasActionableTool = tools.some(
-    (t) =>
-      t.state === 'approval-requested' ||
-      (t.state === 'output-available' && isDryRunPreview(t)),
+  // Approve/Deny (and the resume-failed Retry/Deny variant) are only ever
+  // actionable on the last message. A historical turn's tool part cannot be
+  // resumed — the SDK only accepts approval responses against the transcript
+  // it currently holds — so treating it as actionable there would offer a
+  // button that silently no-ops.
+  const isActionableState = useCallback(
+    (t: ToolInvocationInfo) =>
+      isLastMessage &&
+      (t.state === 'approval-requested' ||
+        t.state === 'approval-responded' ||
+        (t.state === 'output-available' && isDryRunPreview(t))),
+    [isLastMessage],
   )
+
+  const hasActionableTool = tools.some(isActionableState)
   const preferGenericsOpen =
     isLastMessage && isLastBatch && (isStreaming || hasActionableTool)
 
   const evidenceTools = useMemo(
     () =>
       tools.map((tool) => {
-        const isApproval =
-          tool.state === 'approval-requested' ||
-          (tool.state === 'output-available' && isDryRunPreview(tool))
+        const isApproval = isActionableState(tool)
         return {
           toolCallId: tool.toolCallId,
           toolName: tool.toolName,
@@ -62,7 +70,7 @@ export const ToolBatch: FC<ToolBatchProps> = ({
             : undefined,
         }
       }),
-    [tools, onApprove, onDeny, onPromote],
+    [tools, isActionableState, onApprove, onDeny, onPromote],
   )
 
   return (

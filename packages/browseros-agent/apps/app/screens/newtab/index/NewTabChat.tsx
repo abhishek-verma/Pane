@@ -68,6 +68,7 @@ export const NewTabChat: FC = () => {
     approveTool,
     denyTool,
     promoteTool,
+    retryLastTurn,
   } = useChatActions({
     events: {
       modeChanged: NEWTAB_CHAT_MODE_CHANGED_EVENT,
@@ -213,7 +214,11 @@ export const NewTabChat: FC = () => {
           />
         )}
         {chatError && (
-          <ChatError error={chatError} providerType={selectedProvider?.type} />
+          <ChatError
+            error={chatError}
+            providerType={selectedProvider?.type}
+            onRetry={retryLastTurn}
+          />
         )}
       </main>
 

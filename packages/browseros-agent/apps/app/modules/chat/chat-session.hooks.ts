@@ -362,6 +362,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     stop,
     error: chatError,
     addToolApprovalResponse,
+    clearError,
+    regenerate,
   } = useChat({
     // The AI SDK does not auto-resume after `addToolApprovalResponse` unless
     // `sendAutomaticallyWhen` is configured. Without this, approving/denying a
@@ -558,6 +560,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     stop()
     setMessages((current) => prepareMessagesForClientTurn(current))
   }, [stop, setMessages])
+
+  // "Try again" on a ChatError card. Settle any orphaned tool/approval parts
+  // the failed turn left behind, clear the error so status flips back to
+  // ready, then regenerate — this drops the poisoned last assistant message
+  // and resends the last user message through the normal transport path.
+  const retryLastTurn = useCallback(() => {
+    setMessages((current) => prepareMessagesForClientTurn(current))
+    clearError()
+    void regenerate()
+  }, [setMessages, clearError, regenerate])
 
   // Remove messages with empty parts (e.g. interrupted assistant responses)
   // to prevent AI SDK validation errors on subsequent sends
@@ -1076,6 +1088,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     sendMessage,
     status,
     stop: stopAndSettle,
+    retryLastTurn,
     providers,
     selectedProvider,
     isLoading: isLoadingProviders || isLoadingAgentUrl,

@@ -175,6 +175,12 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   const preview = extractOutputText(tool.output)
   const waitingApproval = tool.state === 'approval-requested'
   const dryRun = tool.state === 'output-available' && isDryRunPreview(tool)
+  // The user already answered (Approve/Deny), but the resume that should
+  // have executed the tool never landed — aborted mid-flight, a server
+  // restart, or a dropped request. Without this the card just falls through
+  // to `return null` and the tool looks permanently stuck "running" with no
+  // way to recover short of retyping the whole message.
+  const resumeFailed = tool.state === 'approval-responded'
 
   const handleAllowAlways = async () => {
     if (!isPinnable || !consequenceClass) return
@@ -227,7 +233,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
     setArgsError(null)
   }, [stringifiedInput])
 
-  if (!waitingApproval && !dryRun) return null
+  if (!waitingApproval && !dryRun && !resumeFailed) return null
 
   const resolveArgs = (): Record<string, unknown> | null => {
     if (!editing) return tool.input
@@ -252,6 +258,32 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
     const args = resolveArgs()
     if (!args) return
     void onPromote?.(tool, args)
+  }
+
+  if (resumeFailed) {
+    return (
+      <div className="agent-approval mt-2 text-sm">
+        <p className="mb-3 text-muted-foreground text-xs">
+          This approval didn't reach the server, so the action never ran. Retry
+          to run it now, or deny to drop it.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={handleApprove}>
+            Retry
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const id = tool.approval?.id
+              if (id) onDeny?.(id)
+            }}
+          >
+            Deny
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
