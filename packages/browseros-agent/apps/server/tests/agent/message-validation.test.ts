@@ -60,8 +60,9 @@ class MockImageStore {
     toolCallId: string,
     data: string,
     mimeType: string,
-  ): void {
+  ): boolean {
     this.stored.push({ sessionId, toolCallId, data, mimeType })
+    return true
   }
 
   get(_toolCallId: string): null {
@@ -112,6 +113,23 @@ describe('stripUIImageOutputs', () => {
     const content = output.content as Array<Record<string, unknown>>
     expect(content[0]?.stripped).toBe(true)
     expect(content[0]?.data).toBeUndefined()
+  })
+
+  it('omits images when the blob store write fails (no dead placeholder)', () => {
+    const store = new MockImageStore()
+    store.store = () => false
+    const messages: UIMessage[] = [
+      makeUserMessage('Do browser stuff'),
+      makeAssistantMessage([makeScreenshotPart('c-fail', 'DEADBEEF')]),
+    ]
+
+    const stripped = stripUIImageOutputs(messages, 'sess-1', store as never)
+
+    expect(stripped).toBe(true)
+    const part = messages[1]?.parts[0] as Record<string, unknown>
+    const output = part.output as Record<string, unknown>
+    const content = output.content as Array<Record<string, unknown>>
+    expect(content).toEqual([])
   })
 
   it('strips every image in a single long assistant turn (21-image fixture)', () => {

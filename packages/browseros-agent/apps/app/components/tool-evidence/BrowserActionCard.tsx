@@ -1,6 +1,10 @@
-import { type FC, useState } from 'react'
+import { type FC, useEffect, useRef, useState } from 'react'
 import { agentTraceClass } from '@/lib/agent-chat/surfaces'
 import { openActionLog } from '@/lib/tool-evidence/action-log-link'
+import {
+  shouldMountBrowserThumb,
+  THUMB_ROOT_MARGIN,
+} from '@/lib/tool-evidence/browser-thumb-mount'
 import { useScreenshotPrefs } from '@/lib/tool-evidence/screenshot-prefs'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
 import { cn } from '@/lib/utils'
@@ -16,13 +20,34 @@ function toSrc(data: string, mimeType: string): string {
 export const BrowserActionCard: FC<{
   evidence: ToolEvidence
   conversationId?: string
-}> = ({ evidence, conversationId }) => {
+  /** Force-mount the thumb (e.g. step replay highlight) even if offscreen. */
+  highlighted?: boolean
+}> = ({ evidence, conversationId, highlighted = false }) => {
   const [open, setOpen] = useState(false)
   const [revealed, setRevealed] = useState(false)
+  const [imageFailed, setImageFailed] = useState(false)
+  const [nearViewport, setNearViewport] = useState(false)
+  const cardRef = useRef<HTMLDivElement | null>(null)
   const { showBrowserScreenshots, blurScreenshotsUntilClick } =
     useScreenshotPrefs()
   const { baseUrl: serverBaseUrl } = useAgentServerUrl()
   const browser = evidence.browser
+
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (!entry) return
+        setNearViewport(entry.isIntersecting)
+      },
+      { root: null, rootMargin: THUMB_ROOT_MARGIN, threshold: 0 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   if (!browser) return null
 
   const media = browser.media[0]
@@ -33,10 +58,20 @@ export const BrowserActionCard: FC<{
       ? `${serverBaseUrl}/chat/${conversationId}/tool-images/${evidence.toolCallId}`
       : null
 
-  const showImage = Boolean(media || strippedSrc) && showBrowserScreenshots
-  const blurred = showImage && blurScreenshotsUntilClick && !revealed
+  const hasImageSource = Boolean(media || strippedSrc)
+  const showImageSlot = hasImageSource && showBrowserScreenshots && !imageFailed
+  // Only decode the bitmap when near the viewport (or force-mounted for replay).
+  const mountImage = shouldMountBrowserThumb({
+    nearViewport,
+    highlighted,
+    hasImageSource,
+    showBrowserScreenshots,
+    imageFailed,
+  })
+  const blurred = mountImage && blurScreenshotsUntilClick && !revealed
 
   const onThumbClick = () => {
+    if (!mountImage) return
     if (blurred) setRevealed(true)
     setOpen(true)
   }
@@ -47,6 +82,7 @@ export const BrowserActionCard: FC<{
   return (
     <>
       <div
+        ref={cardRef}
         className={agentTraceClass(
           evidence.state === 'error' ? 'error' : 'browser',
         )}
@@ -62,21 +98,31 @@ export const BrowserActionCard: FC<{
             {evidence.errorText}
           </p>
         ) : null}
-        {showImage ? (
+        {showImageSlot ? (
           <button
             type="button"
             className="mt-1.5 block w-full overflow-hidden"
             onClick={onThumbClick}
+            disabled={!mountImage}
           >
-            <img
-              src={imgSrc}
-              alt={browser.caption}
-              loading="lazy"
-              className={cn(
-                'aspect-video max-h-40 w-full object-cover object-top opacity-95 transition-[filter,opacity]',
-                blurred && 'blur-md',
-              )}
-            />
+            {mountImage ? (
+              <img
+                src={imgSrc}
+                alt={browser.caption}
+                loading="lazy"
+                onError={() => setImageFailed(true)}
+                className={cn(
+                  'aspect-video max-h-40 w-full object-cover object-top opacity-95 transition-[filter,opacity]',
+                  blurred && 'blur-md',
+                )}
+              />
+            ) : (
+              // Reserved box keeps layout stable while the bitmap is demounted.
+              <div
+                aria-hidden
+                className="aspect-video max-h-40 w-full bg-muted/40"
+              />
+            )}
             {blurred ? (
               <span className="mt-1 block text-center text-[10px] text-muted-foreground">
                 Click to reveal
@@ -104,7 +150,7 @@ export const BrowserActionCard: FC<{
           </button>
         </div>
       </div>
-      {showImage ? (
+      {mountImage ? (
         <ImageLightbox
           open={open}
           onOpenChange={setOpen}

@@ -20,12 +20,13 @@ class MockImageStore {
     toolCallId: string,
     data: string,
     mimeType: string,
-  ): void {
+  ): boolean {
     this.stored.push({ sessionId, toolCallId, data, mimeType })
     this.byId.set(toolCallId, {
       data: Buffer.from(data, 'base64'),
       mimeType,
     })
+    return true
   }
 
   get(toolCallId: string): { data: Buffer; mimeType: string } | null {
@@ -144,15 +145,33 @@ describe('rehydrateImagesForModel', () => {
     expect(img.mimeType).toBe('image/jpeg')
   })
 
-  it('returns [Image] text stub on store miss (no crash)', () => {
+  it('omits missing images on store miss (keeps surrounding text)', () => {
     const store = new MockImageStore()
     const content: ContentBlock[] = [
+      { type: 'text', text: '[Page 1 diff]\n+ button' },
       { type: 'image', mimeType: 'image/png', stripped: true },
     ]
     const rehydrated = rehydrateImagesForModel(content, {
       toolCallId: 'missing',
       imageStore: store as never,
     })
-    expect(rehydrated).toEqual([{ type: 'text', text: '[Image]' }])
+    expect(rehydrated).toEqual([
+      { type: 'text', text: '[Page 1 diff]\n+ button' },
+    ])
+  })
+
+  it('omits image blocks when persistence fails', () => {
+    const store = new MockImageStore()
+    store.store = () => false
+    const content: ContentBlock[] = [
+      { type: 'text', text: 'ok' },
+      { type: 'image', data: 'QUJD', mimeType: 'image/jpeg' },
+    ]
+    const next = stripAndStoreImages(content, {
+      sessionId: 's',
+      toolCallId: 't',
+      imageStore: store as never,
+    })
+    expect(next).toEqual([{ type: 'text', text: 'ok' }])
   })
 })

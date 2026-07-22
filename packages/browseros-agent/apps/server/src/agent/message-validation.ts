@@ -116,16 +116,21 @@ export function stripUIImageOutputs(
 
       if (Array.isArray(rec.content)) {
         let contentStripped = false
-        const newContent = (rec.content as unknown[]).map((item) => {
+        const newContent: unknown[] = []
+        for (const item of rec.content as unknown[]) {
           if (
             typeof item !== 'object' ||
             item === null ||
             (item as Record<string, unknown>).type !== 'image'
           ) {
-            return item
+            newContent.push(item)
+            continue
           }
           const imgPart = item as Record<string, unknown>
-          if (imgPart.stripped === true) return item
+          if (imgPart.stripped === true) {
+            newContent.push(item)
+            continue
+          }
           const data = imgPart.data
           const mimeType = imgPart.mimeType ?? imgPart.mediaType
           const toolCallId = anyPart.toolCallId
@@ -135,13 +140,22 @@ export function stripUIImageOutputs(
             typeof mimeType === 'string' &&
             typeof toolCallId === 'string'
           ) {
-            imageStore.store(sessionId, toolCallId, data, mimeType)
             contentStripped = true
-            const { data: _removed, ...rest } = imgPart
-            return { ...rest, stripped: true }
+            if (imageStore.store(sessionId, toolCallId, data, mimeType)) {
+              const { data: _removed, ...rest } = imgPart
+              newContent.push({ ...rest, stripped: true })
+            }
+            // Store failed: omit the image so we never leave fat bytes or a
+            // dead lazy-load placeholder in UIMessage state.
+            continue
           }
-          return item
-        })
+          // Incomplete image part without usable bytes — omit.
+          if (typeof data === 'string' && data.length > 0) {
+            contentStripped = true
+            continue
+          }
+          newContent.push(item)
+        }
         if (contentStripped) {
           nextRec = { ...nextRec, content: newContent }
           outputChanged = true
@@ -163,6 +177,8 @@ export function stripUIImageOutputs(
           if (typeof toolCallId === 'string') {
             imageStore.store(sessionId, toolCallId, sc.image, mimeType)
           }
+          // Always drop the duplicate base64 from structuredContent (OOM risk),
+          // whether or not the blob store write succeeded.
           const { image: _dup, ...rest } = sc
           nextRec = { ...nextRec, structuredContent: rest }
           outputChanged = true

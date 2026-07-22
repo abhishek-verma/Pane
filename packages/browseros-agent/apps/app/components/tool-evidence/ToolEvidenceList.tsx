@@ -1,5 +1,12 @@
 import { BotIcon, Play } from 'lucide-react'
-import { type FC, type ReactNode, useEffect, useRef, useState } from 'react'
+import {
+  type FC,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { Task, TaskContent, TaskTrigger } from '@/components/ai-elements/task'
 import { Button } from '@/components/ui/button'
 import { buildToolEvidence } from '@/lib/tool-evidence/build-tool-evidence'
@@ -33,10 +40,12 @@ function SpecializedCard({
   evidence,
   editCount,
   conversationId,
+  highlighted,
 }: {
   evidence: ToolEvidence
   editCount?: number
   conversationId?: string
+  highlighted?: boolean
 }) {
   switch (evidence.kind) {
     case 'file-change':
@@ -57,21 +66,11 @@ function SpecializedCard({
         <BrowserActionCard
           evidence={evidence}
           conversationId={conversationId}
+          highlighted={highlighted}
         />
       )
     default:
       return <GenericToolRow evidence={evidence} />
-  }
-}
-
-/** Max browser/screenshot thumbs mounted at once (older cards stay caption-only). */
-const MAX_MOUNTED_BROWSER_IMAGES = 3
-
-function withoutBrowserMedia(evidence: ToolEvidence): ToolEvidence {
-  if (!evidence.browser?.media.length) return evidence
-  return {
-    ...evidence,
-    browser: { ...evidence.browser, media: [] },
   }
 }
 
@@ -95,31 +94,42 @@ export const ToolEvidenceList: FC<{
   const chatSession = useOptionalChatSessionContext()
   const conversationId = conversationIdProp ?? chatSession?.conversationId
 
-  const items = tools.map((t) => ({
-    source: t,
-    evidence: buildToolEvidence({
-      toolCallId: t.toolCallId,
-      toolName: t.toolName,
-      state: t.state,
-      input: t.input,
-      output: t.output,
-      errorText: t.errorText,
-      label: t.label,
-      subject: t.subject,
-      detailsUnavailable: t.detailsUnavailable,
-    }),
-  }))
-
-  const approvals = items.filter((i) => i.source.isApproval)
-  const specialized = items.filter(
-    (i) => !i.source.isApproval && i.evidence.specialized,
-  )
-  const generics = items.filter(
-    (i) => !i.source.isApproval && !i.evidence.specialized,
+  // Parent ChatMessageRow/ToolBatch keep `tools` stable for completed messages.
+  const items = useMemo(
+    () =>
+      tools.map((t) => ({
+        source: t,
+        evidence: buildToolEvidence({
+          toolCallId: t.toolCallId,
+          toolName: t.toolName,
+          state: t.state,
+          input: t.input,
+          output: t.output,
+          errorText: t.errorText,
+          label: t.label,
+          subject: t.subject,
+          detailsUnavailable: t.detailsUnavailable,
+        }),
+      })),
+    [tools],
   )
 
-  const coalesced = coalesceConsecutiveFileEdits(
-    specialized.map((s) => s.evidence),
+  const approvals = useMemo(
+    () => items.filter((i) => i.source.isApproval),
+    [items],
+  )
+  const specialized = useMemo(
+    () => items.filter((i) => !i.source.isApproval && i.evidence.specialized),
+    [items],
+  )
+  const generics = useMemo(
+    () => items.filter((i) => !i.source.isApproval && !i.evidence.specialized),
+    [items],
+  )
+
+  const coalesced = useMemo(
+    () => coalesceConsecutiveFileEdits(specialized.map((s) => s.evidence)),
+    [specialized],
   )
 
   const errorCount = generics.filter((g) => g.evidence.state === 'error').length
@@ -151,20 +161,6 @@ export const ToolEvidenceList: FC<{
     (safeReplayIndex != null
       ? coalesced[safeReplayIndex]?.evidence.toolCallId
       : undefined)
-
-  const browserImageIds = coalesced
-    .filter(
-      (c) =>
-        (c.evidence.kind === 'browser-action' ||
-          c.evidence.kind === 'screenshot') &&
-        (c.evidence.browser?.media.length ?? 0) > 0,
-    )
-    .map((c) => c.evidence.toolCallId)
-  const mountImageIds = new Set(
-    browserImageIds.slice(-MAX_MOUNTED_BROWSER_IMAGES),
-  )
-  // Keep the highlighted/replayed card mounted even if it is older than N.
-  if (highlightToolCallId) mountImageIds.add(highlightToolCallId)
 
   const highlightRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -216,13 +212,10 @@ export const ToolEvidenceList: FC<{
             )}
           >
             <SpecializedCard
-              evidence={
-                mountImageIds.has(evidence.toolCallId)
-                  ? evidence
-                  : withoutBrowserMedia(evidence)
-              }
+              evidence={evidence}
               editCount={editCount}
               conversationId={conversationId}
+              highlighted={highlighted}
             />
           </div>
         )

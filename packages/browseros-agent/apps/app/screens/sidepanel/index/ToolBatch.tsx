@@ -1,4 +1,4 @@
-import type { FC } from 'react'
+import { type FC, useMemo } from 'react'
 import { ToolEvidenceList } from '@/components/tool-evidence/ToolEvidenceList'
 import { ApprovalCard, isDryRunPreview } from './ApprovalCard'
 import type { ToolInvocationInfo } from './getMessageSegments'
@@ -37,11 +37,9 @@ export const ToolBatch: FC<ToolBatchProps> = ({
   const preferGenericsOpen =
     isLastMessage && isLastBatch && (isStreaming || hasActionableTool)
 
-  return (
-    <ToolEvidenceList
-      preferGenericsOpen={preferGenericsOpen}
-      allowStepReplay={!isStreaming}
-      tools={tools.map((tool) => {
+  const evidenceTools = useMemo(
+    () =>
+      tools.map((tool) => {
         const isApproval =
           tool.state === 'approval-requested' ||
           (tool.state === 'output-available' && isDryRunPreview(tool))
@@ -63,7 +61,15 @@ export const ToolBatch: FC<ToolBatchProps> = ({
               )
             : undefined,
         }
-      })}
+      }),
+    [tools, onApprove, onDeny, onPromote],
+  )
+
+  return (
+    <ToolEvidenceList
+      preferGenericsOpen={preferGenericsOpen}
+      allowStepReplay={!isStreaming}
+      tools={evidenceTools}
     />
   )
 }

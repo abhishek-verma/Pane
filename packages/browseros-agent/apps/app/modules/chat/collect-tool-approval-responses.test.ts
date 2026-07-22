@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import type { UIMessage } from 'ai'
-import { collectToolApprovalResponses } from './collect-tool-approval-responses'
+import {
+  collectToolApprovalResponses,
+  hasPendingToolApprovals,
+  settleUnresolvedToolApprovalsInMessages,
+} from './collect-tool-approval-responses'
 
 describe('collectToolApprovalResponses', () => {
   test('collects only from the latest assistant message', () => {
@@ -59,5 +63,36 @@ describe('collectToolApprovalResponses', () => {
         input: { path: 'hello.txt', content: 'hi' },
       },
     ])
+  })
+})
+
+describe('settleUnresolvedToolApprovalsInMessages', () => {
+  test('auto-denies approval-requested parts when a new user turn supersedes them', () => {
+    const messages: UIMessage[] = [
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-evaluate',
+            toolCallId: 'call-1',
+            state: 'approval-requested',
+            input: { expression: 'document.title' },
+            approval: { id: 'approval-1' },
+          },
+        ],
+      },
+    ]
+
+    expect(hasPendingToolApprovals(messages)).toBe(true)
+    const settled = settleUnresolvedToolApprovalsInMessages(messages)
+    expect(hasPendingToolApprovals(settled)).toBe(false)
+    const part = settled[0]?.parts[0] as {
+      state?: string
+      approval?: { approved?: boolean; reason?: string }
+    }
+    expect(part.state).toBe('output-denied')
+    expect(part.approval?.approved).toBe(false)
+    expect(part.approval?.reason).toContain('Superseded')
   })
 })

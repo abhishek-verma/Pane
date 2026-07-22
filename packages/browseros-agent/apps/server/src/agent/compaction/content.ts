@@ -31,8 +31,9 @@ function formatFileId(fileId: string | Record<string, string>): string {
 }
 
 function formatFilePlaceholder(mediaType?: string, filename?: string): string {
+  // Image binaries are omitted (empty) — no stub placeholder text.
   if (mediaType?.startsWith('image/')) {
-    return '[Image]'
+    return ''
   }
   return filename ? `[File: ${filename}]` : '[File]'
 }
@@ -51,7 +52,8 @@ function toolResultContentPartToText(part: ToolResultContentPart): string {
       return part.text
     case 'media':
     case 'image-data':
-      return '[Image]'
+      // Omit image bytes from text conversions — keep surrounding tool text.
+      return ''
     case 'file-data':
       return part.filename ? `[File: ${part.filename}]` : '[File]'
     case 'file-url':
@@ -156,18 +158,24 @@ function stripToolMessage(msg: ToolModelMessage): ToolModelMessage {
 function stripUserContent(content: UserContent): UserContent {
   if (typeof content === 'string') return content
 
-  return content.map((part) => {
+  const next = content.flatMap((part) => {
     if (part.type === 'image') {
-      return { type: 'text' as const, text: '[Image]' }
+      return []
     }
     if (part.type === 'file') {
-      return {
-        type: 'text' as const,
-        text: formatFilePlaceholder(part.mediaType, part.filename),
-      }
+      const placeholder = formatFilePlaceholder(part.mediaType, part.filename)
+      if (!placeholder) return []
+      return [
+        {
+          type: 'text' as const,
+          text: placeholder,
+        },
+      ]
     }
-    return part
+    return [part]
   })
+  // Image-only user turns become an empty string rather than stub text.
+  return next.length > 0 ? next : ''
 }
 
 function stripUserMessage(msg: UserModelMessage): UserModelMessage {
@@ -180,18 +188,22 @@ function stripUserMessage(msg: UserModelMessage): UserModelMessage {
 function stripAssistantContent(content: AssistantContent): AssistantContent {
   if (typeof content === 'string') return content
 
-  return content.map((part) => {
+  const next: Exclude<AssistantContent, string> = []
+  for (const part of content) {
     if (part.type === 'file') {
-      return {
-        type: 'text' as const,
-        text: formatFilePlaceholder(part.mediaType, part.filename),
+      const placeholder = formatFilePlaceholder(part.mediaType, part.filename)
+      if (placeholder) {
+        next.push({ type: 'text', text: placeholder })
       }
+      continue
     }
     if (part.type === 'tool-result') {
-      return { ...part, output: stripToolResultOutput(part.output) }
+      next.push({ ...part, output: stripToolResultOutput(part.output) })
+      continue
     }
-    return part
-  })
+    next.push(part)
+  }
+  return next
 }
 
 function stripAssistantMessage(
