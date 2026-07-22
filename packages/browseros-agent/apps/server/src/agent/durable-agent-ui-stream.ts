@@ -23,7 +23,7 @@ export function formatAgentStreamError(error: unknown): string {
     MissingToolResultsError.isInstance(error) ||
     isMissingToolResults(error)
   ) {
-    return 'A tool was still waiting for approval when the next message was sent. Approve or deny the pending action, or send your message again.'
+    return 'A tool call was interrupted or still waiting for approval. Approve or deny the pending action, or send your message again to continue.'
   }
   if (isTypeValidationError(error)) {
     return 'Chat history had an invalid tool approval state. Send your message again to continue.'
