@@ -101,16 +101,16 @@ export function settleUnresolvedToolApprovalsInMessages(
       changed = true
       return {
         ...part,
-        state: 'output-denied',
+        state: 'output-denied' as const,
         approval: {
           ...part.approval,
-          approved: false,
+          approved: false as const,
           reason,
         },
-      }
+      } as typeof part
     })
     if (!partsChanged) return message
     return { ...message, parts }
   })
-  return changed ? next : messages
+  return changed ? (next as UIMessage[]) : messages
 }
