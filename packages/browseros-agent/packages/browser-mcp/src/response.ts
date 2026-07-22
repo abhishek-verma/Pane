@@ -7,6 +7,52 @@ import { formatSnapshotResult } from './tools/snapshot-format'
 export type ContentItem =
   | { type: 'text'; text: string }
   | { type: 'image'; data: string; mimeType: string }
+  /** Image bytes moved to ToolImageStore; UI lazy-loads via tool-images API. */
+  | { type: 'image'; mimeType: string; stripped: true; data?: never }
+
+export const POST_ACTION_SCREENSHOT_FORMAT = 'jpeg' as const
+export const POST_ACTION_SCREENSHOT_QUALITY = 80
+export const POST_ACTION_SCREENSHOT_SIZE = { width: 1024, height: 768 } as const
+
+/** Builds CDP captureScreenshot options for act/navigate post-action stills. */
+export function buildPostActionScreenshotOptions(viewport: {
+  pageX: number
+  pageY: number
+  clientWidth: number
+  clientHeight: number
+}): {
+  format: 'jpeg'
+  quality: number
+  captureBeyondViewport: false
+  clip: {
+    x: number
+    y: number
+    width: number
+    height: number
+    scale: number
+  }
+} {
+  const scale =
+    viewport.clientWidth > 0 && viewport.clientHeight > 0
+      ? Math.min(
+          1,
+          POST_ACTION_SCREENSHOT_SIZE.width / viewport.clientWidth,
+          POST_ACTION_SCREENSHOT_SIZE.height / viewport.clientHeight,
+        )
+      : 1
+  return {
+    format: POST_ACTION_SCREENSHOT_FORMAT,
+    quality: POST_ACTION_SCREENSHOT_QUALITY,
+    captureBeyondViewport: false,
+    clip: {
+      x: viewport.pageX,
+      y: viewport.pageY,
+      width: viewport.clientWidth,
+      height: viewport.clientHeight,
+      scale,
+    },
+  }
+}
 
 type PostAction =
   | SnapshotPostAction
@@ -129,12 +175,13 @@ export class ToolResponse {
         const { session: pageSession } = await session.pages.getSession(
           action.page,
         )
-        const result = await pageSession.Page.captureScreenshot({
-          format: 'png',
-          captureBeyondViewport: false,
-        })
+        const metrics = await pageSession.Page.getLayoutMetrics()
+        const viewport = metrics.cssLayoutViewport ?? metrics.layoutViewport
+        const result = await pageSession.Page.captureScreenshot(
+          buildPostActionScreenshotOptions(viewport),
+        )
         this.text(`[Page ${action.page} screenshot]`)
-        this.image(result.data, 'image/png')
+        this.image(result.data, 'image/jpeg')
         return
       }
       case 'diff': {

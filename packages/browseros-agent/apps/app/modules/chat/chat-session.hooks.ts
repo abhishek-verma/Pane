@@ -34,6 +34,10 @@ import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import {
+  isPoisonSessionPayload,
+  stripFatInlineImagesFromMessages,
+} from '@/lib/tool-evidence/strip-inline-images'
+import {
   formatReplayOutputForTool,
   patchToolInvocationInput,
   patchToolInvocationOutput,
@@ -579,14 +583,32 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     if (!conversationIdParam) return
     if (restoredConversationId === conversationIdParam) return
 
+    const quarantineAndOpenBlank = (reason: string) => {
+      sentry.captureMessage(reason, {
+        level: 'warning',
+        extra: { conversationId: conversationIdParam },
+      })
+      setRestoredConversationId(conversationIdParam)
+      setSearchParams({}, { replace: true })
+      setMessages([])
+      setConversationId(crypto.randomUUID())
+    }
+
     if (useCloudHistory) {
       if (!isRemoteConversationFetched) return
 
       if (remoteConversationData?.conversation) {
-        const restoredMessages =
+        const restoredMessages = stripFatInlineImagesFromMessages(
           remoteConversationData.conversation.conversationMessages.nodes
             .filter((node): node is NonNullable<typeof node> => node !== null)
-            .map((node) => node.message as UIMessage)
+            .map((node) => node.message as UIMessage),
+        )
+        if (isPoisonSessionPayload(restoredMessages)) {
+          quarantineAndOpenBlank(
+            'chat.restore.quarantined_oversized_conversation',
+          )
+          return
+        }
 
         setConversationId(
           conversationIdParam as ReturnType<typeof crypto.randomUUID>,
@@ -611,16 +633,30 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           conversationIdParam,
           baseUrl,
         )
+        const safeMessages = stripFatInlineImagesFromMessages(
+          conversation.messages,
+        )
+        // Poison-session safe open: if the payload is still enormous after
+        // stripping images, start a blank chat instead of crash-looping.
+        if (isPoisonSessionPayload(safeMessages)) {
+          quarantineAndOpenBlank(
+            'chat.restore.quarantined_oversized_conversation',
+          )
+          return
+        }
         setConversationId(
           conversation.id as ReturnType<typeof crypto.randomUUID>,
         )
-        setMessages(conversation.messages)
+        setMessages(safeMessages)
         setRestoredConversationId(conversationIdParam)
         setSearchParams({}, { replace: true })
       } catch (error) {
         sentry.captureException(error)
-        // Leave conversationId in the URL so the user can retry; do not pretend
-        // restore succeeded with an empty thread.
+        // Safe open: clear the deep-link so we do not crash-loop the same id.
+        setRestoredConversationId(conversationIdParam)
+        setSearchParams({}, { replace: true })
+        setMessages([])
+        setConversationId(crypto.randomUUID())
       }
     }
     void restoreFromServer()

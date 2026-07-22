@@ -64,6 +64,50 @@ describe('SessionStore Persistence', () => {
     expect(session).toBeDefined()
     expect(session?.id).toBe(sessionId)
   })
+
+  it('loadMessages tolerates rows that stored a full UIMessage object', async () => {
+    const store = new SessionStore()
+    const sessionId = 'legacy-full-msg'
+    const now = Date.now()
+    const db = getDb()
+    await db.insert(chatSessions).values({
+      id: sessionId,
+      createdAt: now,
+      updatedAt: now,
+    })
+    const { chatMessages } = await import(
+      '../../src/lib/db/schema/chat-sessions'
+    )
+    await db.insert(chatMessages).values({
+      id: `${sessionId}-1`,
+      sessionId,
+      role: 'assistant',
+      content: JSON.stringify({
+        id: 'msg-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'c1',
+            toolName: 'act',
+            state: 'output-available',
+            input: {},
+            output: {
+              content: [{ type: 'image', data: 'AAAA', mimeType: 'image/png' }],
+            },
+          },
+        ],
+      }),
+      createdAt: now,
+    })
+
+    const loaded = await store.loadMessages(sessionId)
+    expect(loaded).toHaveLength(1)
+    expect(loaded[0]?.parts).toHaveLength(1)
+    expect((loaded[0]?.parts[0] as { toolCallId?: string }).toolCallId).toBe(
+      'c1',
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------

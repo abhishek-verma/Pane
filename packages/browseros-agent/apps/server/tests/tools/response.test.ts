@@ -181,12 +181,24 @@ describe('ToolResponse', () => {
     response.text('ok')
     response.includeScreenshot(1)
 
+    let captureOptions: unknown
     const session = createSession({
       pages: {
         getSession: async () => ({
           session: {
             Page: {
-              captureScreenshot: async () => ({ data: 'fake-png-base64' }),
+              getLayoutMetrics: async () => ({
+                cssLayoutViewport: {
+                  pageX: 0,
+                  pageY: 0,
+                  clientWidth: 1280,
+                  clientHeight: 720,
+                },
+              }),
+              captureScreenshot: async (options: unknown) => {
+                captureOptions = options
+                return { data: 'fake-jpeg-base64' }
+              },
             },
           },
         }),
@@ -202,8 +214,20 @@ describe('ToolResponse', () => {
     assert.ok(image)
     assert.strictEqual(image?.type, 'image')
     if (image?.type === 'image') {
-      assert.strictEqual(image.data, 'fake-png-base64')
-      assert.strictEqual(image.mimeType, 'image/png')
+      assert.strictEqual(image.data, 'fake-jpeg-base64')
+      assert.strictEqual(image.mimeType, 'image/jpeg')
     }
+    assert.deepStrictEqual(captureOptions, {
+      format: 'jpeg',
+      quality: 80,
+      captureBeyondViewport: false,
+      clip: {
+        x: 0,
+        y: 0,
+        width: 1280,
+        height: 720,
+        scale: 0.8,
+      },
+    })
   })
 })

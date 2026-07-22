@@ -15,14 +15,24 @@ import {
 } from '@browseros/browser-mcp/tools/framework'
 import { type ToolSet, tool } from 'ai'
 import { metrics } from '../lib/metrics'
+import type { ToolImageStore } from './session-store'
+import {
+  rehydrateImagesForModel,
+  stripAndStoreImages,
+} from './tool-image-strip'
 
 export interface BrowserToolSetOptions {
   readOnly?: boolean
   outputFileAccess?: BrowserOutputFileAccess
+  /** Conversation id used as ToolImageStore session key. */
+  sessionId?: string
+  /** When set, tool results store image blobs and return stripped UI content. */
+  imageStore?: ToolImageStore
 }
 
 interface ToolExecuteOptions {
   abortSignal?: AbortSignal
+  toolCallId?: string
 }
 
 const BROWSER_TOOL_TIMEOUT_MS = 120_000
@@ -50,7 +60,9 @@ function withBrowserToolTimeout(signal?: AbortSignal): AbortSignal {
 function contentToModelOutput(
   content: ContentBlock[],
 ): LanguageModelV2ToolResultOutput {
-  const hasImages = content.some((c) => c.type === 'image')
+  const hasImages = content.some(
+    (c) => c.type === 'image' && 'data' in c && c.data,
+  )
   if (!hasImages) {
     const text = content
       .filter((c): c is ContentBlock & { type: 'text' } => c.type === 'text')
@@ -60,18 +72,35 @@ function contentToModelOutput(
   }
   return {
     type: 'content',
-    value: content.map((c) =>
-      c.type === 'text'
-        ? { type: 'text' as const, text: c.text }
-        : { type: 'media' as const, data: c.data, mediaType: c.mimeType },
-    ),
+    value: content.map((c) => {
+      if (c.type === 'text') return { type: 'text' as const, text: c.text }
+      if (c.type === 'image' && typeof c.data === 'string') {
+        return {
+          type: 'media' as const,
+          data: c.data,
+          mediaType: c.mimeType,
+        }
+      }
+      return { type: 'text' as const, text: '[Image]' }
+    }),
   }
 }
 
 /** Maps browser-mcp ToolResult into the AI SDK tool execute return shape. */
-export function toBrowserToolExecuteResult(result: BrowserToolResult) {
+export function toBrowserToolExecuteResult(
+  result: BrowserToolResult,
+  options?: {
+    sessionId: string
+    toolCallId: string
+    imageStore: ToolImageStore
+  },
+) {
+  const content =
+    options && result.content?.length
+      ? stripAndStoreImages(result.content, options)
+      : result.content
   return {
-    content: result.content,
+    content,
     isError: result.isError ?? false,
     ...(result.structuredContent !== undefined && {
       structuredContent: result.structuredContent,
@@ -85,6 +114,7 @@ export function buildBrowserToolSet(
   options: BrowserToolSetOptions = {},
 ): ToolSet {
   const toolSet: ToolSet = {}
+  const { sessionId, imageStore } = options
 
   for (const def of BROWSER_TOOLS) {
     toolSet[def.name] = tool({
@@ -139,9 +169,18 @@ export function buildBrowserToolSet(
           success: !result.isError,
           source: 'chat',
         })
+
+        const toolCallId = executeOptions?.toolCallId
+        if (sessionId && imageStore && toolCallId) {
+          return toBrowserToolExecuteResult(result, {
+            sessionId,
+            toolCallId,
+            imageStore,
+          })
+        }
         return toBrowserToolExecuteResult(result)
       },
-      toModelOutput: ({ output }) => {
+      toModelOutput: ({ toolCallId, output }) => {
         const result = output as { content: ContentBlock[]; isError: boolean }
         if (result.isError) {
           const text = result.content
@@ -155,7 +194,14 @@ export function buildBrowserToolSet(
         if (!result.content?.length) {
           return { type: 'text', value: 'Success' }
         }
-        return contentToModelOutput(result.content)
+        const forModel =
+          imageStore && toolCallId
+            ? rehydrateImagesForModel(result.content, {
+                toolCallId,
+                imageStore,
+              })
+            : result.content
+        return contentToModelOutput(forModel)
       },
     })
   }

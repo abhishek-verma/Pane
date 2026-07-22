@@ -41,6 +41,7 @@ function extractFromParts(
       texts.push(rec.text)
     else if (typeof rec.text === 'string' && !rec.type) texts.push(rec.text)
     if (rec.type === 'image' || rec.type === 'media') {
+      // Prefer stripped marker over empty/partial data so cards lazy-load.
       if (rec.stripped === true) {
         const mimeType =
           typeof rec.mimeType === 'string'
@@ -49,8 +50,16 @@ function extractFromParts(
               ? rec.mediaType
               : 'image/png'
         strippedImages.push({ stripped: true, mimeType })
-      } else {
+      } else if (typeof rec.data === 'string' && rec.data.length > 0) {
         pushImage(images, rec)
+      } else if (rec.type === 'image') {
+        const mimeType =
+          typeof rec.mimeType === 'string'
+            ? rec.mimeType
+            : typeof rec.mediaType === 'string'
+              ? rec.mediaType
+              : 'image/png'
+        strippedImages.push({ stripped: true, mimeType })
       }
     }
   }
