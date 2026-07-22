@@ -59,7 +59,10 @@ import {
   toProviderOption,
 } from './chat-session-request'
 import type { ChatMode } from './chat-types'
-import { collectToolApprovalResponses } from './collect-tool-approval-responses'
+import {
+  collectToolApprovalResponses,
+  hasPendingToolApprovals,
+} from './collect-tool-approval-responses'
 import { addContentFilterNotice } from './content-filter-notice'
 import { useExecutionHistoryTracker } from './execution-history-tracker.hooks'
 import { useNotifyActiveTab } from './notify-active-tab.hooks'
@@ -226,8 +229,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   useEffect(() => {
     agentUrlErrorRef.current = agentUrlError
   }, [agentUrlError])
-
-  const canSend = !isLoadingAgentUrl && !agentUrlError && !!agentServerUrl
 
   const providers: Provider[] = chatTargets.map(toProviderOption)
 
@@ -550,6 +551,34 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       })
     },
   })
+
+  // `addToolApprovalResponse` flips the tool part to `approval-responded`
+  // synchronously but only kicks off the actual resume request (and the
+  // `status` transition to 'submitted') after a couple of microtask ticks
+  // (`this.jobExecutor.run` + the async `shouldSendAutomatically` check).
+  // `status` briefly still reads 'ready' in that window, so a fast second
+  // click on Send would race the resume request against a brand-new turn
+  // mutating the same transcript. This flag closes that window; the server
+  // mutex is the second line of defense if it is ever missed.
+  const [approvalResumeInFlight, setApprovalResumeInFlight] = useState(false)
+  useEffect(() => {
+    // Once the SDK actually starts the resume (or the turn errors out
+    // without resuming — e.g. more approvals are still pending), `status`
+    // itself takes over as the busy signal.
+    if (status !== 'ready') setApprovalResumeInFlight(false)
+  }, [status])
+
+  // Disabled while: agent URL isn't ready, a resume was just triggered but
+  // hasn't flipped `status` yet (see above), or an approval card is still
+  // waiting on the user — sending a new message in that state would
+  // silently supersede/auto-deny the pending approval via a race instead of
+  // an explicit Deny.
+  const canSend =
+    !isLoadingAgentUrl &&
+    !agentUrlError &&
+    !!agentServerUrl &&
+    !approvalResumeInFlight &&
+    !hasPendingToolApprovals(messages)
 
   // A Stop click (or the cross-window stopAgentStorage signal) can land
   // mid-tool-call, leaving an input-available/input-streaming part with no
@@ -1059,6 +1088,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           patchToolInvocationInput(current, tool.toolCallId, args),
         )
       }
+      setApprovalResumeInFlight(true)
       addToolApprovalResponse?.({ id: approvalId, approved: true })
     },
     [addToolApprovalResponse, setMessages],
@@ -1066,6 +1096,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   const denyTool = useCallback(
     (approvalId: string) => {
+      setApprovalResumeInFlight(true)
       addToolApprovalResponse?.({ id: approvalId, approved: false })
     },
     [addToolApprovalResponse],

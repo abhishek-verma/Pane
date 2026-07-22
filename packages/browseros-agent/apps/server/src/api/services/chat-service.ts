@@ -54,8 +54,68 @@ export interface ChatServiceDeps {
   resourcesDir?: string | null
 }
 
+/**
+ * Ceiling on how long a single conversation's mutex may be held before a
+ * stuck stream (onFinish never fires — cancelled response body that the
+ * runtime never reads, unexpected SDK bug, etc.) is force-released. Without
+ * this a single wedged turn would permanently block every future message in
+ * that conversation, which is worse than the race the mutex prevents.
+ * Generous because legitimate agent loops can run for many minutes.
+ */
+const CONVERSATION_LOCK_WATCHDOG_MS = 15 * 60 * 1000
+
 export class ChatService {
   constructor(private deps: ChatServiceDeps) {}
+
+  /**
+   * Per-conversation FIFO queue. Approval-resume and new-user-turn requests
+   * for the same conversation must not read/mutate `session.agent.messages`
+   * concurrently — otherwise one turn's settle/checkpoint can clobber the
+   * other's in-flight patch (e.g. Approve a card and instantly send a new
+   * message). Held from request entry until the stream's `onFinish` fires
+   * (or the turn throws before ever starting a stream), not just until the
+   * `Response` object is constructed — the actual transcript mutation
+   * continues for as long as the stream runs.
+   */
+  private readonly conversationLocks = new Map<string, Promise<void>>()
+
+  private async withConversationLock<T>(
+    conversationId: string,
+    fn: (release: () => void) => Promise<T>,
+  ): Promise<T> {
+    const prev = this.conversationLocks.get(conversationId) ?? Promise.resolve()
+    let releaseGate!: () => void
+    const gate = new Promise<void>((resolve) => {
+      releaseGate = resolve
+    })
+    const chained = prev.then(() => gate)
+    this.conversationLocks.set(conversationId, chained)
+
+    let released = false
+    const release = () => {
+      if (released) return
+      released = true
+      clearTimeout(watchdog)
+      releaseGate()
+      if (this.conversationLocks.get(conversationId) === chained) {
+        this.conversationLocks.delete(conversationId)
+      }
+    }
+    const watchdog = setTimeout(() => {
+      logger.warn('Conversation lock watchdog forced release', {
+        conversationId,
+      })
+      release()
+    }, CONVERSATION_LOCK_WATCHDOG_MS)
+
+    await prev
+    try {
+      return await fn(release)
+    } catch (err) {
+      release()
+      throw err
+    }
+  }
 
   private createGateContext(request: ChatRequest): GateContext {
     const pins = (request.trustPins ?? {}) as Partial<
@@ -78,6 +138,7 @@ export class ChatService {
   private refreshGateContext(
     gateContext: GateContext,
     request: ChatRequest,
+    options?: { resetConsequentialCount?: boolean },
   ): void {
     gateContext.pins = (request.trustPins ?? {}) as Partial<
       Record<ConsequenceClass, TrustPin>
@@ -85,17 +146,35 @@ export class ChatService {
     gateContext.browserContext = request.browserContext
     gateContext.workspaceRoot = request.userWorkingDir
     gateContext.isNewUser = Object.keys(gateContext.pins).length === 0
-    gateContext.runConsequentialCount.count = 0
+    // The blast-radius counter tracks how many consequential tools a pin has
+    // auto-executed in the current "auto-pilot" stretch. Resetting it here
+    // unconditionally used to also reset it on an approval-resume turn — a
+    // continuation of the very stretch it is supposed to cap, not a new one —
+    // which let a pinned auto-exec chain unlimited tools via repeated Approve
+    // clicks. Only new user turns start a fresh stretch.
+    if (options?.resetConsequentialCount !== false) {
+      gateContext.runConsequentialCount.count = 0
+    }
     gateContext.conversationId = request.conversationId
     gateContext.unattended = Boolean(request.isScheduledTask)
     gateContext.scheduledRunId = request.scheduledRunId
     gateContext.idempotencyKey = request.idempotencyKey
   }
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: chat request orchestration; refactor tracked separately
   async processMessage(
     request: ChatRequest,
     abortSignal: AbortSignal,
+  ): Promise<Response> {
+    return this.withConversationLock(request.conversationId, (release) =>
+      this.processMessageLocked(request, abortSignal, release),
+    )
+  }
+
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: chat request orchestration; refactor tracked separately
+  private async processMessageLocked(
+    request: ChatRequest,
+    abortSignal: AbortSignal,
+    release: () => void,
   ): Promise<Response> {
     const { sessionStore } = this.deps
 
@@ -109,8 +188,19 @@ export class ChatService {
     let session = sessionStore.get(request.conversationId)
     const isFirstTurn = !session
 
+    // Approval resume: the custom transport drops AI SDK approval-response
+    // parts, so the client sends `toolApprovalResponses` and we patch the
+    // stored transcript before re-running the loop (no new user message).
+    // Empty/whitespace message distinguishes resume from a new user turn
+    // that may also carry leftover approval payloads. Computed early so
+    // refreshGateContext can tell resume turns from fresh ones (Task 6).
+    const isApprovalResume =
+      !!request.toolApprovalResponses?.length && !request.message?.trim()
+
     const gateContext = session?.gateContext ?? this.createGateContext(request)
-    this.refreshGateContext(gateContext, request)
+    this.refreshGateContext(gateContext, request, {
+      resetConsequentialCount: !isApprovalResume,
+    })
 
     if (
       request.userWorkingDir &&
@@ -375,9 +465,16 @@ export class ChatService {
         // Repair before this transcript is ever handed to the loop again,
         // otherwise the very next turn dies with MissingToolResultsError or
         // "Type validation failed".
+        //
+        // settleApprovals must stay off when this same request is itself an
+        // approval resume — otherwise this auto-denies the pending
+        // approval-requested part (matches "Session restored...") a few
+        // lines before the isApprovalResume block below ever gets a chance
+        // to apply the user's actual decision, silently turning every
+        // first-turn-after-restart Approve into a no-op Deny.
         const prepared = prepareMessagesForAgentTurn(hydrated, {
           toolNames: session.agent.toolNames,
-          settleApprovals: true,
+          settleApprovals: !isApprovalResume,
           settleIncomplete: true,
           approvalReason: 'Session restored before the tool finished',
           incompleteReason: 'Session restored before the tool finished',
@@ -417,14 +514,6 @@ export class ChatService {
         messageCount: request.previousConversation.length,
       })
     }
-
-    // Approval resume: the custom transport drops AI SDK approval-response
-    // parts, so the client sends `toolApprovalResponses` and we patch the
-    // stored transcript before re-running the loop (no new user message).
-    // Empty/whitespace message distinguishes resume from a new user turn that
-    // may also carry leftover approval payloads.
-    const isApprovalResume =
-      !!request.toolApprovalResponses?.length && !request.message?.trim()
 
     if (isApprovalResume) {
       const { patched, unmatched } = applyToolApprovalDecisions(
@@ -501,6 +590,7 @@ export class ChatService {
           } finally {
             finalizeSkillOutcomesForRun(runId, !abortSignal.aborted)
             runTracker.endRun(runId)
+            release()
           }
         },
       })
@@ -680,6 +770,7 @@ export class ChatService {
         } finally {
           finalizeSkillOutcomesForRun(runId, !abortSignal.aborted)
           runTracker.endRun(runId)
+          release()
         }
       },
     })
@@ -896,8 +987,27 @@ export class ChatService {
       outputFileAccess,
       gateContext: session.gateContext,
     }
+    // A pending approval or mid-flight tool call can reference a tool that
+    // is about to be dropped by the sanitize step below (MCP/workspace
+    // change mid-conversation). Settle both before sanitizing, otherwise
+    // Approve silently no-ops against a tool part that no longer exists, or
+    // the orphaned approval-responded part fails validateUIMessages on the
+    // next turn.
+    const rebuildPrepared = prepareMessagesForAgentTurn(previousMessages, {
+      settleApprovals: true,
+      settleIncomplete: true,
+      approvalReason: 'Tool no longer available after session rebuild',
+      incompleteReason: 'Tool no longer available after session rebuild',
+    })
+    if (rebuildPrepared.settledApprovals || rebuildPrepared.settledIncomplete) {
+      logger.info('Settled pending tool state before session rebuild', {
+        conversationId: request.conversationId,
+        settledApprovals: rebuildPrepared.settledApprovals,
+        settledIncomplete: rebuildPrepared.settledIncomplete,
+      })
+    }
     newSession.agent.messages = sanitizeMessagesForToolset(
-      previousMessages,
+      rebuildPrepared.messages,
       agent.toolNames,
     )
     this.deps.sessionStore.set(request.conversationId, newSession)

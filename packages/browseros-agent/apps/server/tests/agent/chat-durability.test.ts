@@ -186,6 +186,10 @@ describe('Chat durability checkpoints', () => {
     ]
     await store.persistMessages(conversationId, prior as UIMessage[])
     agentToReturn = makeAgent(structuredClone(prior))
+    // Hydrate sanitizes tool parts against the current toolset (Task 2);
+    // an empty toolset would strip the pending `tool-filesystem_write` part
+    // before the approval resume below ever sees it.
+    agentToReturn.toolNames = new Set(['filesystem_write'])
 
     let sawCheckpointBeforeFinish = false
     streamResponseHandler = async ({ onFinish }) => {

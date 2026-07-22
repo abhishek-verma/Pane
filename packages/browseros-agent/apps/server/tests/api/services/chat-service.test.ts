@@ -945,4 +945,360 @@ describe('ChatService message repair on hydrate and new turns', () => {
     // otherwise deny the approval the user just granted.
     expect(stateAtStreamStart).toBe('approval-responded')
   })
+
+  it('applies the resume decision on the very first request after a server restart', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    // No in-memory session yet (server just restarted) — only a durable
+    // transcript with a still-pending approval. The first request for this
+    // conversation is itself the approval resume: hydrate must not auto-deny
+    // the pending part before applyToolApprovalDecisions gets to it.
+    const conversationId = crypto.randomUUID()
+    const persisted: MockMessage[] = [
+      {
+        id: 'user-1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'write hello.txt' }],
+      },
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-filesystem_write',
+            toolCallId: 'call-1',
+            state: 'approval-requested',
+            input: { path: 'hello.txt', content: 'hi' },
+            approval: { id: 'approval-1' },
+          } as never,
+        ],
+      },
+    ]
+
+    const agent = createFakeAgent()
+    agent.toolNames = new Set(['filesystem_write'])
+    agentToReturn = agent
+    let stateAtStreamStart: string | undefined
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      stateAtStreamStart = (
+        agent.messages[1]?.parts[0] as { state?: string } | undefined
+      )?.state
+      await onFinish({
+        messages: (uiMessages ?? agent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    const sessionStore = createSessionStore({
+      loadMessages: async () => persisted,
+    })
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: '',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+        toolApprovalResponses: [
+          {
+            approvalId: 'approval-1',
+            toolCallId: 'call-1',
+            toolName: 'filesystem_write',
+            approved: true,
+          },
+        ],
+      } as never,
+      new AbortController().signal,
+    )
+
+    expect(stateAtStreamStart).toBe('approval-responded')
+  })
+})
+
+describe('ChatService conversation mutex', () => {
+  it('serializes overlapping processMessage calls for the same conversation', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const agent = createFakeAgent()
+    agent.toolNames = new Set(['evaluate'])
+    agentToReturn = agent
+
+    const captured: Array<{
+      onFinish: (args: {
+        messages: MockMessage[]
+        isAborted?: boolean
+      }) => Promise<void>
+      uiMessages: MockMessage[]
+    }> = []
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      // Response resolves immediately (matches production: the Response
+      // object is handed back long before onFinish fires) — onFinish is
+      // invoked later, explicitly, by the test.
+      captured.push({ onFinish, uiMessages: uiMessages ?? agent.messages })
+      return new Response('ok')
+    }
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+
+    const requestA = {
+      conversationId,
+      message: 'first message',
+      mode: 'agent',
+      origin: 'sidepanel',
+      isScheduledTask: false,
+    } as never
+    const requestB = {
+      conversationId,
+      message: 'second message',
+      mode: 'agent',
+      origin: 'sidepanel',
+      isScheduledTask: false,
+    } as never
+
+    const pA = service.processMessage(requestA, new AbortController().signal)
+    await pA
+    expect(captured).toHaveLength(1)
+
+    // B is queued behind A's lock, which A has not released yet (A's
+    // onFinish has not been called). B's setup must not run — no second
+    // user message may be appended — until A finishes.
+    const pB = service.processMessage(requestB, new AbortController().signal)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(captured).toHaveLength(1)
+    expect(
+      agent.messages.some((m) => m.parts[0]?.text === 'second message'),
+    ).toBe(false)
+
+    // Release A by finishing its stream.
+    await captured[0]?.onFinish({ messages: captured[0]?.uiMessages ?? [] })
+    await pB
+
+    expect(captured).toHaveLength(2)
+    expect(
+      agent.messages.some((m) => m.parts[0]?.text === 'second message'),
+    ).toBe(true)
+  })
+
+  it('releases the lock on a synchronous failure so the conversation is not wedged', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => {
+      throw new Error('boom')
+    })
+
+    const conversationId = crypto.randomUUID()
+    const service = new ChatService(createChatServiceDeps())
+
+    await expect(
+      service.processMessage(
+        {
+          conversationId,
+          message: 'hello',
+          mode: 'agent',
+          origin: 'sidepanel',
+          isScheduledTask: false,
+        } as never,
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow('boom')
+
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+    const agent = createFakeAgent()
+    agentToReturn = agent
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({ messages: uiMessages ?? agent.messages })
+      return new Response('ok')
+    }
+
+    // Must not hang — the failed first call must have released the lock.
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'hello again',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+  })
+})
+
+describe('ChatService blast-radius counter', () => {
+  it('does not reset runConsequentialCount on approval resume, but does on a new user turn', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const agent = createFakeAgent()
+    agent.toolNames = new Set(['filesystem_write'])
+    agent.messages.push(
+      { id: 'user-1', role: 'user', parts: [{ type: 'text', text: 'write' }] },
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-filesystem_write',
+            toolCallId: 'call-1',
+            state: 'approval-requested',
+            input: { path: 'a.txt', content: 'hi' },
+            approval: { id: 'approval-1' },
+          } as never,
+        ],
+      },
+    )
+    agentToReturn = agent
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({
+        messages: (uiMessages ?? agent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    const gateContext = {
+      pins: {},
+      runConsequentialCount: { count: 5 },
+      isNewUser: false,
+      surface: 'loop',
+    }
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent,
+      mcpServerKey: '',
+      gateContext,
+    } as never)
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+
+    // Approval resume: count must survive untouched.
+    await service.processMessage(
+      {
+        conversationId,
+        message: '',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+        toolApprovalResponses: [
+          {
+            approvalId: 'approval-1',
+            toolCallId: 'call-1',
+            toolName: 'filesystem_write',
+            approved: true,
+          },
+        ],
+      } as never,
+      new AbortController().signal,
+    )
+    expect(gateContext.runConsequentialCount.count).toBe(5)
+
+    // A brand new user turn starts a fresh auto-pilot stretch.
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'do something else',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+    expect(gateContext.runConsequentialCount.count).toBe(0)
+  })
+})
+
+describe('ChatService session rebuild settles pending tool state', () => {
+  it('settles a pending approval before sanitizing on a workspace change mid-conversation', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const firstAgent = createFakeAgent()
+    firstAgent.toolNames = new Set(['evaluate'])
+    firstAgent.messages.push(
+      {
+        id: 'user-1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'run something' }],
+      },
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-evaluate',
+            toolCallId: 'call-1',
+            state: 'approval-requested',
+            input: { expression: '1' },
+            approval: { id: 'approval-1' },
+          } as never,
+        ],
+      },
+    )
+
+    // Same toolset before/after — the rebuild here is triggered by the
+    // workspace change, not a toolset change, so `tool-evaluate` survives
+    // the sanitize step and the settled state is directly observable.
+    const secondAgent = createFakeAgent()
+    secondAgent.toolNames = new Set(['evaluate'])
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent: firstAgent,
+      mcpServerKey: '',
+      workingDir: undefined,
+    } as never)
+
+    agentToReturn = secondAgent
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({
+        messages: (uiMessages ?? secondAgent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'continue',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+        userWorkingDir: '/tmp/new-workspace',
+      } as never,
+      new AbortController().signal,
+    )
+
+    // Before this fix the pending approval would either survive as a
+    // dangling `approval-requested` part (failing the next resume/turn) or
+    // be silently dropped by sanitize as if the user's earlier Approve/Deny
+    // click never happened. It must land in a terminal, explicit state.
+    const settledPart = secondAgent.messages
+      .find((m) => m.id === 'asst-1')
+      ?.parts.find(
+        (p) => (p as { toolCallId?: string }).toolCallId === 'call-1',
+      ) as { state?: string } | undefined
+    expect(settledPart?.state).toBe('output-denied')
+  })
 })

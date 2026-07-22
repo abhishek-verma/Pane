@@ -101,18 +101,46 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   onDeny,
   onPromote,
 }) => {
-  const { conversationId } = useChatSessionContext()
+  const { conversationId, selectedProvider } = useChatSessionContext()
   const [workspaceRoot, setWorkspaceRoot] = useState<string | undefined>()
   const [activeTabUrl, setActiveTabUrl] = useState<string | undefined>()
+  // `deriveClass` reads `workspaceRoot`/`activeTab.url` — both start
+  // `undefined` and that is indistinguishable from "resolved: nothing
+  // selected". Track resolution explicitly so Allow-for-this-chat/Always
+  // cannot pin the wrong (default) class against a call that would
+  // actually have derived a different one once real context loaded.
+  const [contextReady, setContextReady] = useState(false)
 
   useEffect(() => {
-    selectedWorkspaceStorage.getValue().then((folder) => {
+    let cancelled = false
+    Promise.all([
+      selectedWorkspaceStorage.getValue(),
+      chrome.tabs.query({ active: true, currentWindow: true }),
+    ]).then(([folder, tabs]) => {
+      if (cancelled) return
       setWorkspaceRoot(folder?.path)
-    })
-    chrome.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
       setActiveTabUrl(tabs[0]?.url)
+      setContextReady(true)
     })
+    return () => {
+      cancelled = true
+    }
   }, [])
+
+  const [editing, setEditing] = useState(false)
+  const [argsText, setArgsText] = useState('')
+  const [argsError, setArgsError] = useState<string | null>(null)
+
+  const stringifiedInput = JSON.stringify(tool.input ?? {})
+
+  useEffect(() => {
+    try {
+      setArgsText(JSON.stringify(JSON.parse(stringifiedInput), null, 2))
+    } catch {
+      setArgsText(stringifiedInput)
+    }
+    setArgsError(null)
+  }, [stringifiedInput])
 
   const gateCtx = {
     pins: {},
@@ -129,15 +157,22 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
     isNewUser: false,
     surface: 'loop' as const,
   }
+  // Derive from the edited args (if the user is editing) rather than always
+  // `tool.input` — editing the path/command can change which consequence
+  // class the call belongs to (e.g. moving a write outside the workspace
+  // root), and pinning the pre-edit class would be silently wrong.
+  const editedArgsForClass = editing ? parseEditedArgs(argsText) : null
+  const argsForClass = editedArgsForClass ?? (tool.input as object | null) ?? {}
   const consequenceClass = deriveClass(
     tool.toolName,
-    (tool.input ?? {}) as Record<string, unknown>,
+    argsForClass as Record<string, unknown>,
     gateCtx,
   )
 
   const isPinnable =
-    consequenceClass &&
+    !!consequenceClass &&
     (PINNABLE_CLASSES as readonly string[]).includes(consequenceClass)
+  const isAcpTarget = selectedProvider?.kind === 'acp'
 
   const updatePin = async (
     cls: PinnableClass,
@@ -183,7 +218,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   const resumeFailed = tool.state === 'approval-responded'
 
   const handleAllowAlways = async () => {
-    if (!isPinnable || !consequenceClass) return
+    if (!contextReady || !isPinnable || !consequenceClass) return
     await updatePin(consequenceClass as PinnableClass, {
       pinned: true,
       expiresAt: undefined,
@@ -196,7 +231,8 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   }
 
   const handleAllowSession = async () => {
-    if (!isPinnable || !consequenceClass || !conversationId) return
+    if (!contextReady || !isPinnable || !consequenceClass || !conversationId)
+      return
     await updateConversationPin(
       conversationId,
       consequenceClass as PinnableClass,
@@ -218,22 +254,29 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
           (tool.input ?? {}) as Record<string, unknown>,
         )
       : '')
-  const [editing, setEditing] = useState(false)
-  const [argsText, setArgsText] = useState('')
-  const [argsError, setArgsError] = useState<string | null>(null)
-
-  const stringifiedInput = JSON.stringify(tool.input ?? {})
-
-  useEffect(() => {
-    try {
-      setArgsText(JSON.stringify(JSON.parse(stringifiedInput), null, 2))
-    } catch {
-      setArgsText(stringifiedInput)
-    }
-    setArgsError(null)
-  }, [stringifiedInput])
 
   if (!waitingApproval && !dryRun && !resumeFailed) return null
+
+  // Pane's Approve/Deny only resumes the LLM /chat loop this transcript was
+  // recorded against. If the user has since switched to an ACP agent (or
+  // restored an older LLM conversation while ACP is the active target),
+  // clicking Approve here would POST toolApprovalResponses somewhere that
+  // does not understand them — a silent no-op at best. Explain instead of
+  // offering a button that cannot work.
+  if (isAcpTarget) {
+    return (
+      <div className="agent-approval mt-2 text-sm">
+        {approvalPreview && (
+          <pre className="mb-3 max-h-40 overflow-auto whitespace-pre-wrap text-xs">
+            {approvalPreview}
+          </pre>
+        )}
+        <p className="text-muted-foreground text-xs">
+          Switch to an LLM chat to approve or deny this browser action.
+        </p>
+      </div>
+    )
+  }
 
   const resolveArgs = (): Record<string, unknown> | null => {
     if (!editing) return tool.input
@@ -337,11 +380,17 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleAllowSession}>
+                    <DropdownMenuItem
+                      disabled={!contextReady}
+                      onClick={handleAllowSession}
+                    >
                       Allow for this chat:{' '}
                       {TRUST_SCOPE_LABELS[consequenceClass as PinnableClass]}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleAllowAlways}>
+                    <DropdownMenuItem
+                      disabled={!contextReady}
+                      onClick={handleAllowAlways}
+                    >
                       Allow always:{' '}
                       {TRUST_SCOPE_LABELS[consequenceClass as PinnableClass]}
                     </DropdownMenuItem>
@@ -382,11 +431,17 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleAllowSession}>
+                    <DropdownMenuItem
+                      disabled={!contextReady}
+                      onClick={handleAllowSession}
+                    >
                       Allow for this chat:{' '}
                       {TRUST_SCOPE_LABELS[consequenceClass as PinnableClass]}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleAllowAlways}>
+                    <DropdownMenuItem
+                      disabled={!contextReady}
+                      onClick={handleAllowAlways}
+                    >
                       Allow always:{' '}
                       {TRUST_SCOPE_LABELS[consequenceClass as PinnableClass]}
                     </DropdownMenuItem>
