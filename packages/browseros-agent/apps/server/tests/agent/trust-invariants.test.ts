@@ -13,7 +13,11 @@ import {
 } from '@browseros/shared/trust/consequence-class'
 import { tool } from 'ai'
 import { z } from 'zod'
-import { gateExecute, wrapToolWithGate } from '../../src/agent/trust/gate'
+import {
+  gateExecute,
+  hasExistingApprovalResponse,
+  wrapToolWithGate,
+} from '../../src/agent/trust/gate'
 import { closeDb, initializeDb } from '../../src/lib/db'
 import {
   appendCompletedStep,
@@ -483,6 +487,51 @@ describe('wrapToolWithGate loop surface', () => {
     const wrapped = wrapToolWithGate('filesystem_bash', makeTool(), () => ctx)
     const needs = await wrapped.needsApproval?.({ command: 'ls' }, execOptions)
     expect(needs).toBe(false)
+  })
+
+  it('still reports needsApproval=true on pinned resume when ModelMessages already have an approval response', async () => {
+    // Regression: "Allow for this chat" then Approve used to deny the approval
+    // as fabricated because needsApproval returned false under the pin.
+    const ctx = makeCtx({
+      surface: 'loop',
+      pins: { system: { pinned: true } },
+      isNewUser: false,
+    })
+    const wrapped = wrapToolWithGate('filesystem_bash', makeTool(), () => ctx)
+    const modelMessages = [
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'tc1',
+            toolName: 'filesystem_bash',
+            input: { command: 'ls' },
+          },
+          {
+            type: 'tool-approval-request',
+            approvalId: 'ap1',
+            toolCallId: 'tc1',
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-approval-response',
+            approvalId: 'ap1',
+            approved: true,
+          },
+        ],
+      },
+    ]
+    expect(hasExistingApprovalResponse(modelMessages, 'tc1')).toBe(true)
+    const needs = await wrapped.needsApproval?.(
+      { command: 'ls' },
+      { toolCallId: 'tc1', messages: modelMessages },
+    )
+    expect(needs).toBe(true)
   })
 
   it('pauses once the blast-radius cap is reached even when pinned', async () => {

@@ -94,13 +94,18 @@ export function applyToolApprovalDecisions(
 }
 
 /**
- * Auto-deny every remaining `approval-requested` tool so a new user turn cannot
- * leave orphan tool-calls without results.
+ * Auto-deny unresolved tool approvals so a new user turn cannot leave orphan
+ * tool-calls without results.
  *
- * Must use `output-denied` (not merely `approval-responded`): convertToModelMessages
- * only emits a tool-result for denied tools once state is `output-denied`. The
- * approval-resume path lets the SDK emit that itself; a superseding user turn
- * skips resume, so we materialize the denial here.
+ * Covers:
+ * - `approval-requested` (never answered)
+ * - `approval-responded` (answered, but tool never executed — e.g. aborted
+ *   resume). convertToModelMessages only emits a tool-result for denials once
+ *   state is `output-denied`; `approval-responded` alone emits an approval
+ *   response with no result, which breaks later turns.
+ *
+ * The approval-resume path lets the SDK settle executed tools itself; a
+ * superseding user turn skips resume, so we materialize the denial here.
  */
 export function settleUnresolvedToolApprovals(
   messages: UIMessage[],
@@ -111,8 +116,13 @@ export function settleUnresolvedToolApprovals(
     if (msg.role !== 'assistant') continue
     for (const part of msg.parts) {
       if (!isToolPart(part)) continue
-      if (part.state !== 'approval-requested' || !part.approval?.id) continue
-      if (!part.toolCallId) continue
+      if (!part.toolCallId || !part.approval?.id) continue
+      if (
+        part.state !== 'approval-requested' &&
+        part.state !== 'approval-responded'
+      ) {
+        continue
+      }
       part.state = 'output-denied'
       part.approval = {
         ...part.approval,
@@ -150,4 +160,54 @@ export function listPendingToolApprovals(
     }
   }
   return pending
+}
+
+/**
+ * Repair tool parts that would fail AI SDK `validateUIMessages` (invalid_union)
+ * and leave the session stuck on "Type validation failed".
+ *
+ * - `approval-responded` / `output-denied` missing `approval.id` or `approved`
+ * - `approval-requested` missing `approval.id`
+ */
+export function repairInvalidToolApprovalParts(messages: UIMessage[]): number {
+  let repaired = 0
+  for (const msg of messages) {
+    if (msg.role !== 'assistant') continue
+    for (const part of msg.parts) {
+      if (!isToolPart(part)) continue
+      if (!part.toolCallId) continue
+
+      if (part.state === 'approval-requested') {
+        if (!part.approval?.id) {
+          part.state = 'output-denied'
+          part.approval = {
+            id: `repaired-${part.toolCallId}`,
+            approved: false,
+            reason: 'Invalid approval request (missing id)',
+          }
+          repaired++
+        }
+        continue
+      }
+
+      if (
+        part.state === 'approval-responded' ||
+        part.state === 'output-denied'
+      ) {
+        const missingId = !part.approval?.id
+        const missingApproved = part.approval?.approved == null
+        if (!missingId && !missingApproved) continue
+        part.state = 'output-denied'
+        part.approval = {
+          id: part.approval?.id ?? `repaired-${part.toolCallId}`,
+          approved: false,
+          reason:
+            part.approval?.reason ??
+            'Invalid approval state repaired before resume',
+        }
+        repaired++
+      }
+    }
+  }
+  return repaired
 }

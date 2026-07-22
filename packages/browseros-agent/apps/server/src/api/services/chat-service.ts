@@ -26,6 +26,7 @@ import { runTracker } from '../../agent/run-tracker'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
 import {
   applyToolApprovalDecisions,
+  repairInvalidToolApprovalParts,
   settleUnresolvedToolApprovals,
 } from '../../agent/tool-approval-resolve'
 import type { ResolvedAgentConfig } from '../../agent/types'
@@ -428,6 +429,16 @@ export class ChatService {
         })
       }
 
+      const repairedApprovals = repairInvalidToolApprovalParts(
+        session.agent.messages,
+      )
+      if (repairedApprovals > 0) {
+        logger.warn('Repaired invalid tool approval parts before resume', {
+          conversationId: request.conversationId,
+          repaired: repairedApprovals,
+        })
+      }
+
       await this.checkpointMessages(
         request.conversationId,
         session.agent.messages,
@@ -501,12 +512,16 @@ export class ChatService {
     const settledApprovals = settleUnresolvedToolApprovals(
       session.agent.messages,
     )
-    if (settledApprovals > 0) {
+    const repairedApprovals = repairInvalidToolApprovalParts(
+      session.agent.messages,
+    )
+    if (settledApprovals > 0 || repairedApprovals > 0) {
       logger.info(
         'Auto-denied pending tool approvals before new user message',
         {
           conversationId: request.conversationId,
           settled: settledApprovals,
+          repaired: repairedApprovals,
         },
       )
       await this.checkpointMessages(

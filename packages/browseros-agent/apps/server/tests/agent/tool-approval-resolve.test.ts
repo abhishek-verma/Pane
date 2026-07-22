@@ -3,6 +3,7 @@ import type { UIMessage } from 'ai'
 import {
   applyToolApprovalDecisions,
   listPendingToolApprovals,
+  repairInvalidToolApprovalParts,
   settleUnresolvedToolApprovals,
 } from '../../src/agent/tool-approval-resolve'
 
@@ -89,5 +90,56 @@ describe('tool-approval-resolve', () => {
     expect(part.state).toBe('output-denied')
     expect(part.approval?.approved).toBe(false)
     expect(part.approval?.reason).toContain('Superseded')
+  })
+
+  it('settleUnresolvedToolApprovals also settles approval-responded orphans', () => {
+    const messages: UIMessage[] = [
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-evaluate',
+            toolCallId: 'call-1',
+            state: 'approval-responded',
+            input: { expression: '1' },
+            approval: { id: 'approval-1', approved: true },
+          } as never,
+        ],
+      },
+    ]
+    expect(settleUnresolvedToolApprovals(messages)).toBe(1)
+    const part = messages[0]?.parts[0] as {
+      state?: string
+      approval?: { approved?: boolean }
+    }
+    expect(part.state).toBe('output-denied')
+    expect(part.approval?.approved).toBe(false)
+  })
+
+  it('repairInvalidToolApprovalParts fixes approval-responded missing approved', () => {
+    const messages: UIMessage[] = [
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-evaluate',
+            toolCallId: 'call-1',
+            state: 'approval-responded',
+            input: { expression: '1' },
+            approval: { id: 'approval-1' },
+          } as never,
+        ],
+      },
+    ]
+    expect(repairInvalidToolApprovalParts(messages)).toBe(1)
+    const part = messages[0]?.parts[0] as {
+      state?: string
+      approval?: { approved?: boolean; id?: string }
+    }
+    expect(part.state).toBe('output-denied')
+    expect(part.approval?.approved).toBe(false)
+    expect(part.approval?.id).toBe('approval-1')
   })
 })

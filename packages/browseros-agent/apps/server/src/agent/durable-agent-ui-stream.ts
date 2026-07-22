@@ -25,6 +25,9 @@ export function formatAgentStreamError(error: unknown): string {
   ) {
     return 'A tool was still waiting for approval when the next message was sent. Approve or deny the pending action, or send your message again.'
   }
+  if (isTypeValidationError(error)) {
+    return 'Chat history had an invalid tool approval state. Send your message again to continue.'
+  }
   if (error instanceof Error && error.message.trim()) {
     // Keep short; avoid dumping multi-line SDK stacks into the chat UI.
     const firstLine = error.message.split('\n')[0]?.trim() ?? ''
@@ -41,6 +44,17 @@ function isMissingToolResults(error: unknown): boolean {
     name === 'AI_MissingToolResultsError' ||
     name === 'MissingToolResultsError' ||
     message.includes('Tool result is missing for tool call')
+  )
+}
+
+function isTypeValidationError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const name = (error as { name?: string }).name
+  const message = (error as { message?: string }).message ?? ''
+  return (
+    name === 'AI_TypeValidationError' ||
+    name === 'TypeValidationError' ||
+    message.startsWith('Type validation failed')
   )
 }
 

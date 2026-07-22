@@ -80,11 +80,12 @@ export function hasPendingToolApprovals(messages: UIMessage[]): boolean {
 }
 
 /**
- * Auto-deny every remaining `approval-requested` tool part so a new user turn
- * does not leave Approve/Deny cards stuck in the UI.
+ * Auto-deny unresolved tool approvals so a new user turn does not leave
+ * Approve/Deny cards stuck or orphan tool-calls without results.
  *
- * Uses `output-denied` so convertToModelMessages emits a tool-result (same as
- * the server settle path). `approval-responded` alone is only for resume turns.
+ * Settles both `approval-requested` and `approval-responded` into
+ * `output-denied` (same as the server settle path). `approval-responded` alone
+ * is only valid for resume turns where the SDK will execute the tool.
  */
 export function settleUnresolvedToolApprovalsInMessages(
   messages: UIMessage[],
@@ -96,7 +97,13 @@ export function settleUnresolvedToolApprovalsInMessages(
     let partsChanged = false
     const parts = (message.parts ?? []).map((part) => {
       if (!isToolPart(part)) return part
-      if (part.state !== 'approval-requested' || !part.approval?.id) return part
+      if (!part.approval?.id) return part
+      if (
+        part.state !== 'approval-requested' &&
+        part.state !== 'approval-responded'
+      ) {
+        return part
+      }
       partsChanged = true
       changed = true
       return {

@@ -22,4 +22,14 @@ describe('formatAgentStreamError', () => {
   it('returns a short first line for other errors', () => {
     expect(formatAgentStreamError(new Error('boom\nstack'))).toBe('boom')
   })
+
+  it('maps Type validation failures to a short recovery hint', () => {
+    expect(
+      formatAgentStreamError({
+        name: 'AI_TypeValidationError',
+        message:
+          'Type validation failed: Value: [{"id":"u1","role":"user"}].\nError message: [...]',
+      }),
+    ).toContain('invalid tool approval state')
+  })
 })

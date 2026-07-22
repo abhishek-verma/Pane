@@ -95,4 +95,30 @@ describe('settleUnresolvedToolApprovalsInMessages', () => {
     expect(part.approval?.approved).toBe(false)
     expect(part.approval?.reason).toContain('Superseded')
   })
+
+  test('also settles approval-responded orphans left by an aborted resume', () => {
+    const messages: UIMessage[] = [
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-evaluate',
+            toolCallId: 'call-1',
+            state: 'approval-responded',
+            input: { expression: '1' },
+            approval: { id: 'approval-1', approved: true },
+          },
+        ],
+      },
+    ]
+
+    const settled = settleUnresolvedToolApprovalsInMessages(messages)
+    const part = settled[0]?.parts[0] as {
+      state?: string
+      approval?: { approved?: boolean }
+    }
+    expect(part.state).toBe('output-denied')
+    expect(part.approval?.approved).toBe(false)
+  })
 })

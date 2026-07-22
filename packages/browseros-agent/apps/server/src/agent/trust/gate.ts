@@ -186,6 +186,87 @@ function buildLoopApprovalPreview(
 }
 
 /**
+ * True when the transcript already carries a user decision for this tool call.
+ *
+ * The AI SDK passes ModelMessage[] into needsApproval (content parts), not
+ * UIMessages (parts). Older code only inspected `message.parts`, so the check
+ * never matched and pinned resumes denied the user's Approve.
+ */
+export function hasExistingApprovalResponse(
+  messages: unknown[] | undefined,
+  toolCallId: string,
+): boolean {
+  if (!messages?.length || !toolCallId) return false
+
+  const approvalIds = new Set<string>()
+  for (const message of messages) {
+    if (!message || typeof message !== 'object') continue
+    const msg = message as {
+      role?: string
+      content?: unknown
+      parts?: unknown
+    }
+
+    // ModelMessage path (what the SDK actually passes on resume).
+    if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+      for (const part of msg.content) {
+        if (
+          part &&
+          typeof part === 'object' &&
+          (part as { type?: string }).type === 'tool-approval-request' &&
+          (part as { toolCallId?: string }).toolCallId === toolCallId &&
+          typeof (part as { approvalId?: string }).approvalId === 'string'
+        ) {
+          approvalIds.add((part as { approvalId: string }).approvalId)
+        }
+      }
+    }
+
+    // UIMessage path (defensive; used by older callers / tests).
+    if (msg.role === 'assistant' && Array.isArray(msg.parts)) {
+      for (const part of msg.parts) {
+        if (!part || typeof part !== 'object') continue
+        const p = part as {
+          type?: string
+          toolCallId?: string
+          state?: string
+          approval?: { id?: string; approved?: boolean }
+        }
+        if (
+          (p.type === 'dynamic-tool' || p.type?.startsWith('tool-')) &&
+          p.toolCallId === toolCallId &&
+          (p.state === 'approval-responded' || p.state === 'output-denied') &&
+          p.approval?.approved != null
+        ) {
+          return true
+        }
+      }
+    }
+  }
+
+  if (approvalIds.size === 0) return false
+
+  for (const message of messages) {
+    if (!message || typeof message !== 'object') continue
+    const msg = message as { role?: string; content?: unknown }
+    if (msg.role !== 'tool' || !Array.isArray(msg.content)) continue
+    for (const part of msg.content) {
+      if (
+        part &&
+        typeof part === 'object' &&
+        (part as { type?: string }).type === 'tool-approval-response' &&
+        typeof (part as { approvalId?: string }).approvalId === 'string' &&
+        approvalIds.has((part as { approvalId: string }).approvalId)
+      ) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+/**
  * Wraps an AI SDK tool with the trust gate for the in-process agent loop.
  *
  * Loop-surface semantics (the model is the caller):
@@ -216,23 +297,17 @@ export function wrapToolWithGate<T extends Tool>(
       input,
       options?: { toolCallId?: string; messages?: any[] },
     ) => {
-      if (options?.toolCallId && options.messages) {
-        const toolCallId = options.toolCallId
-        const messages = options.messages
-        for (const message of messages) {
-          if (message.role !== 'assistant' || !message.parts) continue
-          for (const part of message.parts) {
-            if (
-              (part.type === 'dynamic-tool' ||
-                part.type?.startsWith('tool-')) &&
-              part.toolCallId === toolCallId
-            ) {
-              if (part.state === 'approval-responded') {
-                return true
-              }
-            }
-          }
-        }
+      // On approval resume the SDK re-calls needsApproval. Returning false here
+      // (e.g. because a pin is now active after "Allow for this chat") makes
+      // validateApprovedToolApprovals treat the user's Approve as fabricated
+      // and deny it — which re-prompts forever. If this toolCallId already has
+      // an approval response in the transcript, keep returning true.
+      if (
+        options?.toolCallId &&
+        options.messages &&
+        hasExistingApprovalResponse(options.messages, options.toolCallId)
+      ) {
+        return true
       }
 
       const ctx = { ...ctxProvider(), surface: 'loop' as const }
