@@ -2,24 +2,30 @@ import {
   ArrowDown,
   ArrowRight,
   Bot,
+  CalendarClock,
   Code2,
   FolderOpen,
+  KeyRound,
   LinkIcon,
+  Lock,
   Plug,
 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import DiscordLogo from '@/assets/discord-logo.svg'
 import GithubLogo from '@/assets/github-logo.svg'
 import SlackLogo from '@/assets/slack-logo.svg'
+import { PaneMark } from '@/components/branding/PaneMark'
 import { PillIndicator } from '@/components/elements/pill-indicator'
 import { Button } from '@/components/ui/button'
 import {
   AGENT_MODE_DEMO_URL,
   AGENTIC_CODING_DEMO_URL,
-  BROWSER_OS_INTRO_VIDEO_URL,
   COWORK_DEMO_URL,
   MCP_SERVER_DEMO_URL,
+  PANE_INTRO_VIDEO_URL,
+  SCHEDULED_TASKS_DEMO_URL,
 } from '@/lib/constants/mediaUrls'
+import { PRODUCT_NAME, PRODUCT_TAGLINE } from '@/lib/constants/product'
 import {
   discordUrl,
   productRepositoryUrl,
@@ -31,81 +37,134 @@ import { VideoFrame } from './VideoFrame'
 
 const features: Feature[] = [
   {
-    id: 'agent',
-    Icon: Bot,
-    tag: 'AI AGENT',
-    title: 'Built-in AI Agent',
-    description:
-      'Describe any task and watch Pane execute it—clicking, typing, and navigating for you.',
-    detailedDescription:
-      'The Pane Agent turns your words into browser actions. Describe what you need in plain English—fill out this form, extract data from that page, navigate through these steps—and the agent handles the rest. It clicks buttons, types text, navigates between pages, and completes multi-step browser tasks automatically. Everything runs locally on your machine with your own API keys, so your data stays private.',
-    highlights: [
-      'Multi-tab execution — run agents in multiple tabs simultaneously',
-      'Smart navigation — automatically finds and interacts with page elements',
-      'Form filling — completes forms with intelligent context understanding',
-      'Data extraction — pulls structured data from any webpage',
-      'Auto-save sessions — pick up where you left off from the Pane panel',
-    ],
-    videoDuration: '2:22',
-    gridClass: 'md:col-span-2',
-    videoUrl: AGENT_MODE_DEMO_URL,
-  },
-  {
     id: 'mcp-server',
     Icon: Plug,
-    tag: 'MCP',
-    title: 'Pane as MCP Server',
+    tag: 'DEV WEDGE',
+    title: "Your coding agent's real browser",
     description:
-      'Connect Claude Code, Gemini CLI, or any MCP client to control your browser with 31 tools.',
+      'Point Claude Code, Cursor, or Gemini CLI at Pane. One MCP URL. Your real session — localhost, logins, console — not a fake WebDriver tab.',
     detailedDescription:
-      'Pane includes a built-in MCP server that lets AI coding agents control your browser. Claude Code can open tabs, click elements, fill forms, take screenshots, and read page content—all through natural language commands. Unlike Chrome DevTools MCP which requires debug profiles and separate servers, Pane works out of the box. Just copy the URL from settings and connect.',
+      'Pane ships a built-in MCP server so AI coding agents drive the same browser you already use. Open tabs, click, type, screenshot, read the page, and pull console errors through natural language. No separate debug profile. No headless stand-in. Copy the URL from Settings → Pane as MCP and connect in one line.',
     highlights: [
-      'One-line setup — run `claude mcp add` with your server URL to connect',
-      '31 browser tools — tabs, clicks, typing, screenshots, bookmarks, history',
-      'Works everywhere — Claude Code, Gemini CLI, Codex, Cursor, Zed',
-      'Authenticated access — extract data from logged-in pages like LinkedIn',
+      'One-line setup — `claude mcp add pane <url>` from Settings',
+      'Real session — localhost, authenticated apps, your extensions',
+      'Works with Claude Code, Cursor, Gemini CLI, Codex, and more',
+      'Browser tools plus workspace access when you grant a folder',
     ],
-    videoDuration: '1:40',
-    gridClass: 'md:col-span-1',
+    gridClass: 'md:col-span-2',
     videoUrl: MCP_SERVER_DEMO_URL,
+  },
+  {
+    id: 'agent',
+    Icon: Bot,
+    tag: 'AGENT',
+    title: 'Built-in AI agent',
+    description:
+      'Describe a task. Pane clicks, types, and navigates in the tabs you already have open.',
+    detailedDescription:
+      'Chat about the page you are on, or hand the agent a multi-step job. It works in your real browser session — the same logins, the same localhost, the same cookies. Everything stays on your machine. You bring the model (API key, OAuth subscription, or local).',
+    highlights: [
+      'Chat grounded in the current page',
+      'Multi-step browser tasks — navigate, fill forms, extract data',
+      'Runs locally with your own model credentials',
+      'Pick up recent conversations from the Pane panel',
+    ],
+    gridClass: 'md:col-span-1',
+    videoUrl: AGENT_MODE_DEMO_URL,
   },
   {
     id: 'cowork',
     Icon: FolderOpen,
-    tag: 'FILES',
-    title: 'Cowork',
+    tag: 'WORKSPACE',
+    title: 'Cowork: web + files + terminal',
     description:
-      'Give the agent access to local files. Research the web, then save reports to your computer.',
+      'Grant a folder. Research on the web, then write the report to disk — or run a command in that workspace.',
     detailedDescription:
-      'Cowork lets the agent read and write files on your computer. Select a folder and the agent can read documents, write reports, and run shell commands—all while browsing the web. Research a topic online and generate an HTML report. Scrape product data and save it as a spreadsheet. The agent is sandboxed to your selected folder and cannot access anything outside it.',
+      'Cowork lets the agent read and write files and run shell commands inside a folder you choose. Scrape a page and save a spreadsheet. Draft a markdown brief from a research thread. The agent is sandboxed to that folder and cannot touch the rest of your machine without another grant.',
     highlights: [
-      'Read & write files — create reports, spreadsheets, and markdown documents',
-      'Run shell commands — execute commands within your selected folder',
-      'Browser + files — combine web research with local file operations',
-      'Sandboxed security — agent can only access the folder you select',
+      'Read and write reports, spreadsheets, and markdown',
+      'Run shell commands inside the granted folder',
+      'Browser and local files in one task loop',
+      'Sandboxed to the folder you select',
     ],
-    gridClass: 'md:col-span-2',
-    videoUrl: COWORK_DEMO_URL || undefined,
+    gridClass: 'md:col-span-1',
+    videoUrl: COWORK_DEMO_URL,
   },
   {
     id: 'agentic-coding',
     Icon: Code2,
     tag: 'DEV',
-    title: 'Agentic Coding',
+    title: 'Test, read errors, fix',
     description:
-      'Claude Code tests your web app, reads console errors, and fixes your code in one loop.',
+      'Claude Code opens your localhost app in Pane, finds the bug, and patches the code in one loop.',
     detailedDescription:
-      'The killer workflow for frontend developers. Claude Code connects to Pane, opens your localhost app, clicks through the UI, reads console errors and network failures, then goes back to your codebase to fix the bugs—all in one continuous loop. No more switching between terminal and browser. No more copy-pasting error messages. Just describe the issue and let the agent debug it end-to-end.',
+      'The developer loop Pane is built for: connect your coding agent, open the app you are shipping, reproduce the issue, read console and network failures, then fix the code without copy-pasting between terminal and browser. Same session you dogfood in. No separate automation browser.',
     highlights: [
-      'Test & fix loop — Claude navigates your app, finds bugs, and patches them',
-      'Console access — read browser console and network errors from your terminal',
-      'Screenshot debugging — Claude captures screenshots to understand visual issues',
-      'Rapid prototyping — build UIs faster with AI that sees your work',
+      'Reproduce UI bugs in your real session',
+      'Console and network errors available to the agent',
+      'Screenshots when visual context helps',
+      'Browser, repo, and shell as one workflow',
+    ],
+    gridClass: 'md:col-span-2',
+    videoUrl: AGENTIC_CODING_DEMO_URL,
+  },
+  {
+    id: 'your-models',
+    Icon: KeyRound,
+    tag: 'MODELS',
+    title: 'Your models, your keys',
+    description:
+      'API key, ChatGPT Pro / Copilot / Qwen OAuth, or Ollama on your machine. No Pane account. No credits meter.',
+    detailedDescription:
+      'Pane does not force a hosted model or a Pane login. Connect the provider you already pay for, paste an API key, or point at a local runtime. Chat works well with lighter and local models. Agent mode wants a strong reasoning model — Claude Sonnet or Opus are good defaults.',
+    highlights: [
+      'OAuth for ChatGPT Pro, GitHub Copilot, and Qwen',
+      'Bring your own API keys for major providers',
+      'Local models via Ollama or LM Studio for Chat',
+      'No required Pane account or hosted credits',
+    ],
+    gridClass: 'md:col-span-2',
+  },
+  {
+    id: 'scheduled-tasks',
+    Icon: CalendarClock,
+    tag: 'AUTOMATION',
+    title: 'Scheduled tasks, local',
+    description:
+      'Write a prompt once, set a cadence, and let the agent run it again — on your machine, not a Pane cloud cron.',
+    detailedDescription:
+      'Scheduled Tasks reuse the same agent that runs in your session. Daily briefings, recurring research pulls, or a Monday competitor scan — store the prompt, pick an interval, and Pane fires it when the browser is open. If the laptop was asleep, the task runs when you open Pane again.',
+    highlights: [
+      'Minute, hourly, or daily schedules',
+      'Same agent tools as interactive chat',
+      'Runs locally via the browser alarm system',
+      'Catch up when Pane opens after sleep',
     ],
     gridClass: 'md:col-span-1',
-    videoUrl: AGENTIC_CODING_DEMO_URL || undefined,
+    videoUrl: SCHEDULED_TASKS_DEMO_URL,
+  },
+  {
+    id: 'local-first',
+    Icon: Lock,
+    tag: 'TRUST',
+    title: 'Local-first by design',
+    description:
+      'Open source. Your browsing and agent work stay on your machine. No Pane servers required to use the product.',
+    detailedDescription:
+      'Pane is a Chromium fork under AGPL-3.0. Cloud sync, hosted inference, and usage metering from the upstream BrowserOS product are off in Pane builds. You can daily-drive it: import from Chrome, keep extensions, use vertical tabs, and run full uBlock Origin. The long game is memory, capture, and a browser that becomes yours — still local-first.',
+    highlights: [
+      'No Pane account required',
+      'No Pane-operated cloud for core features',
+      'Chrome import, extensions, vertical tabs, ad blocking',
+      'Roadmap: memory, capture, adaptive home — on your machine',
+    ],
+    gridClass: 'md:col-span-3',
   },
 ]
+
+const hasAnyFeatureMedia = features.some(
+  (feature) => feature.videoUrl || feature.gifUrl,
+)
 
 /**
  * @public
@@ -131,18 +190,36 @@ export const FeaturesPage: FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
       <section className="relative border-border/40 border-b">
         <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
-          <div className="space-y-8 text-center">
-            {/* Header */}
+          <div className="space-y-10 text-center">
             <div className="space-y-6">
               <PillIndicator
                 text="WELCOME"
                 className={`transition-all delay-100 duration-700 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
               />
 
+              <div
+                className={cn(
+                  'flex justify-center transition-all delay-150 duration-700',
+                  mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
+                )}
+              >
+                <PaneMark size={56} className="text-[var(--accent-orange)]" />
+              </div>
+
               <div className="space-y-4">
+                <p
+                  className={cn(
+                    'font-medium text-[var(--accent-orange)] text-sm uppercase tracking-[0.2em]',
+                    'transition-all delay-200 duration-700',
+                    mounted
+                      ? 'translate-y-0 opacity-100'
+                      : 'translate-y-4 opacity-0',
+                  )}
+                >
+                  {PRODUCT_TAGLINE}
+                </p>
                 <h1
                   className={cn(
                     'font-bold text-4xl leading-tight tracking-tight md:text-5xl',
@@ -150,8 +227,10 @@ export const FeaturesPage: FC = () => {
                     mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
                   )}
                 >
-                  Why Switch to{' '}
-                  <span className="text-[var(--accent-orange)]">Pane?</span>
+                  Why switch to{' '}
+                  <span className="text-[var(--accent-orange)]">
+                    {PRODUCT_NAME}?
+                  </span>
                 </h1>
                 <p
                   className={cn(
@@ -162,33 +241,67 @@ export const FeaturesPage: FC = () => {
                       : 'translate-y-4 opacity-0',
                   )}
                 >
-                  Watch our launch video to understand the vision of Pane and
-                  key features!
+                  An open-source browser where the agent is native to your
+                  session. Your tabs, your files, your models. No Pane account.
+                  No Pane cloud.
                 </p>
               </div>
             </div>
 
-            {/* Centered Large Video */}
-            <VideoFrame
-              title="Pane demo"
-              className={cn(
-                'transition-all delay-500 duration-700',
-                mounted
-                  ? 'translate-y-0 opacity-100'
-                  : 'translate-y-4 opacity-0',
-              )}
-            >
-              <video
-                className="h-full w-full"
-                src={BROWSER_OS_INTRO_VIDEO_URL}
-                title="Pane MCP Server Demonstration"
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-              />
-            </VideoFrame>
+            {PANE_INTRO_VIDEO_URL ? (
+              <VideoFrame
+                title={`${PRODUCT_NAME} demo`}
+                className={cn(
+                  'transition-all delay-500 duration-700',
+                  mounted
+                    ? 'translate-y-0 opacity-100'
+                    : 'translate-y-4 opacity-0',
+                )}
+              >
+                <video
+                  className="h-full w-full"
+                  src={PANE_INTRO_VIDEO_URL}
+                  title={`${PRODUCT_NAME} demonstration`}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
+                />
+              </VideoFrame>
+            ) : (
+              <div
+                className={cn(
+                  'mx-auto grid max-w-3xl gap-6 text-left sm:grid-cols-3 sm:gap-8',
+                  'transition-all delay-500 duration-700',
+                  mounted
+                    ? 'translate-y-0 opacity-100'
+                    : 'translate-y-4 opacity-0',
+                )}
+              >
+                {[
+                  {
+                    title: 'Agent in the browser',
+                    body: 'Not a sidebar glued onto Chrome. Not a remote daemon.',
+                  },
+                  {
+                    title: 'Developer wedge',
+                    body: 'MCP for Claude Code and Cursor against your real session.',
+                  },
+                  {
+                    title: 'Local-complete',
+                    body: 'BYOK, cowork, schedules — without Pane servers.',
+                  },
+                ].map((item) => (
+                  <div key={item.title} className="space-y-1.5">
+                    <p className="font-semibold text-sm">{item.title}</p>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {item.body}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -201,30 +314,28 @@ export const FeaturesPage: FC = () => {
         >
           <div className="text-center">
             <p className="mb-2 font-medium text-muted-foreground text-xs">
-              Scroll for Features
+              Scroll for features
             </p>
             <ArrowDown className="mx-auto h-6 w-6 text-[var(--accent-orange)]" />
           </div>
         </div>
       </section>
 
-      {/* Features Bento Grid */}
       <section className="mx-auto max-w-7xl px-6 py-16 md:py-20">
         <div className="mb-12 space-y-3 text-center">
           <p className="font-semibold text-muted-foreground text-xs uppercase tracking-widest">
             FEATURES
           </p>
           <h2 className="font-bold text-3xl tracking-tight md:text-4xl">
-            Explore What&apos;s{' '}
-            <span className="text-[var(--accent-orange)]">Possible</span>
+            What you can use{' '}
+            <span className="text-[var(--accent-orange)]">today</span>
           </h2>
           <p className="mx-auto max-w-2xl text-muted-foreground">
-            Skim the highlights below, then click any card to see a focused
-            walkthrough with video and deeper details.
+            The foundation that ships now. Memory, capture, and a browser that
+            becomes yours over time are what we are building next.
           </p>
         </div>
 
-        {/* Bento Grid */}
         {mounted && (
           <div className="grid gap-4 md:grid-cols-3">
             {features.map((feature, index) => (
@@ -240,7 +351,9 @@ export const FeaturesPage: FC = () => {
 
         <div className="mt-8 text-center">
           <p className="text-muted-foreground text-sm">
-            💡 Tip: Click any card to open a focused walkthrough with video
+            {hasAnyFeatureMedia
+              ? 'Tip: click any card for a walkthrough with video and deeper detail'
+              : 'Tip: click any card for the full story and highlights'}
           </p>
         </div>
       </section>
@@ -250,8 +363,10 @@ export const FeaturesPage: FC = () => {
           <div className="mb-8 flex items-center gap-3">
             <LinkIcon className="h-6 w-6 text-[var(--accent-orange)]" />
             <h2 className="font-bold text-3xl">
-              Join our community and help us improve{' '}
-              <span className="text-[var(--accent-orange)]">Pane!</span>
+              Follow the build and shape{' '}
+              <span className="text-[var(--accent-orange)]">
+                {PRODUCT_NAME}
+              </span>
             </h2>
           </div>
 
@@ -275,7 +390,7 @@ export const FeaturesPage: FC = () => {
                     Join Discord
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    To suggest features / provide feedback
+                    Suggest features and share feedback
                   </p>
                 </div>
               </a>
@@ -300,18 +415,17 @@ export const FeaturesPage: FC = () => {
                     Join Slack
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    To suggest features / provide feedback
+                    Suggest features and share feedback
                   </p>
                 </div>
               </a>
             ) : null}
 
-            {/* GitHub */}
             <a
               href={productRepositoryUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="community-card group flex items-start gap-4 rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-[var(--accent-orange)]/50 hover:bg-card/80 hover:shadow-[var(--accent-orange)]/5 hover:shadow-lg"
+              className="community-card group flex items-start gap-4 rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-[var(--accent-orange)]/50 hover:bg-card/80 hover:shadow-[var(--accent-orange)]/5 hover:shadow-lg md:col-span-2"
             >
               <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-foreground/10 transition-all group-hover:scale-110 group-hover:bg-foreground/20">
                 <img
@@ -325,7 +439,8 @@ export const FeaturesPage: FC = () => {
                   GitHub
                 </h3>
                 <p className="text-muted-foreground text-sm">
-                  Source, docs, and releases
+                  Source, docs, specs, and releases — star it, open issues, or
+                  contribute
                 </p>
               </div>
             </a>
@@ -340,7 +455,7 @@ export const FeaturesPage: FC = () => {
             size="lg"
             className="bg-[var(--accent-orange)] text-white shadow-[var(--accent-orange)]/25 shadow-lg hover:bg-[var(--accent-orange)]/90"
           >
-            Start Using Pane
+            Start using {PRODUCT_NAME}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
