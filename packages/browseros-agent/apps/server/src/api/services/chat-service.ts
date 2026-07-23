@@ -138,7 +138,6 @@ export class ChatService {
   private refreshGateContext(
     gateContext: GateContext,
     request: ChatRequest,
-    options?: { resetConsequentialCount?: boolean },
   ): void {
     gateContext.pins = (request.trustPins ?? {}) as Partial<
       Record<ConsequenceClass, TrustPin>
@@ -146,15 +145,9 @@ export class ChatService {
     gateContext.browserContext = request.browserContext
     gateContext.workspaceRoot = request.userWorkingDir
     gateContext.isNewUser = Object.keys(gateContext.pins).length === 0
-    // The blast-radius counter tracks how many consequential tools a pin has
-    // auto-executed in the current "auto-pilot" stretch. Resetting it here
-    // unconditionally used to also reset it on an approval-resume turn — a
-    // continuation of the very stretch it is supposed to cap, not a new one —
-    // which let a pinned auto-exec chain unlimited tools via repeated Approve
-    // clicks. Only new user turns start a fresh stretch.
-    if (options?.resetConsequentialCount !== false) {
-      gateContext.runConsequentialCount.count = 0
-    }
+    // Counter is informational only now (pins are uncapped). Reset each
+    // request so logs stay per-turn.
+    gateContext.runConsequentialCount.count = 0
     gateContext.conversationId = request.conversationId
     gateContext.unattended = Boolean(request.isScheduledTask)
     gateContext.scheduledRunId = request.scheduledRunId
@@ -192,15 +185,12 @@ export class ChatService {
     // parts, so the client sends `toolApprovalResponses` and we patch the
     // stored transcript before re-running the loop (no new user message).
     // Empty/whitespace message distinguishes resume from a new user turn
-    // that may also carry leftover approval payloads. Computed early so
-    // refreshGateContext can tell resume turns from fresh ones (Task 6).
+    // that may also carry leftover approval payloads.
     const isApprovalResume =
       !!request.toolApprovalResponses?.length && !request.message?.trim()
 
     const gateContext = session?.gateContext ?? this.createGateContext(request)
-    this.refreshGateContext(gateContext, request, {
-      resetConsequentialCount: !isApprovalResume,
-    })
+    this.refreshGateContext(gateContext, request)
 
     if (
       request.userWorkingDir &&
