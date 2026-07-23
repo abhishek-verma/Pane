@@ -637,9 +637,33 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // result. Settle those locally so the card does not look permanently
   // "running" and the next message does not round-trip a dangling tool-call
   // into MissingToolResultsError on the server.
+  //
+  // During an approval resume, do NOT force-deny already-approved
+  // (`approval-responded`) parts — the server may have already executed them.
+  // Settle unanswered approvals only, then reconcile from the server transcript.
   const stopAndSettle = useCallback(() => {
     stop()
-    setMessages((current) => prepareMessagesForClientTurn(current))
+    const hadResponded = hasApprovalRespondedParts(messagesRef.current)
+    setMessages((current) =>
+      prepareMessagesForClientTurn(current, {
+        settleApprovals: 'requested-only',
+        approvalReason: 'Interrupted before approval',
+        incompleteReason: 'Interrupted before the tool finished',
+      }),
+    )
+    if (!hadResponded) return
+    const conversationId = conversationIdRef.current
+    const baseUrl = agentUrlRef.current
+    if (!conversationId || !baseUrl) return
+    void fetchChatConversation(conversationId, baseUrl)
+      .then((detail) => {
+        setMessages((current) =>
+          reconcileClientToolStatesFromServer(current, detail.messages),
+        )
+      })
+      .catch(() => {
+        // Best-effort; stuck approval-responded keeps the Retry UI.
+      })
   }, [stop, setMessages])
 
   // "Try again" on a ChatError card. Settle any orphaned tool/approval parts

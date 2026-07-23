@@ -79,17 +79,12 @@ export function hasPendingToolApprovals(messages: UIMessage[]): boolean {
   return false
 }
 
-/**
- * Auto-deny unresolved tool approvals so a new user turn does not leave
- * Approve/Deny cards stuck or orphan tool-calls without results.
- *
- * Settles both `approval-requested` and `approval-responded` into
- * `output-denied` (same as the server settle path). `approval-responded` alone
- * is only valid for resume turns where the SDK will execute the tool.
- */
-export function settleUnresolvedToolApprovalsInMessages(
+type SettleApprovalMode = 'all-unresolved' | 'requested-only'
+
+function settleToolApprovalsInMessages(
   messages: UIMessage[],
-  reason = 'Superseded by a new user message',
+  mode: SettleApprovalMode,
+  reason: string,
 ): UIMessage[] {
   let changed = false
   const next = messages.map((message) => {
@@ -98,10 +93,11 @@ export function settleUnresolvedToolApprovalsInMessages(
     const parts = (message.parts ?? []).map((part) => {
       if (!isToolPart(part)) return part
       if (!part.approval?.id) return part
-      if (
-        part.state !== 'approval-requested' &&
-        part.state !== 'approval-responded'
-      ) {
+      const isRequested = part.state === 'approval-requested'
+      const isResponded = part.state === 'approval-responded'
+      if (mode === 'requested-only') {
+        if (!isRequested) return part
+      } else if (!isRequested && !isResponded) {
         return part
       }
       partsChanged = true
@@ -120,4 +116,31 @@ export function settleUnresolvedToolApprovalsInMessages(
     return { ...message, parts }
   })
   return changed ? (next as UIMessage[]) : messages
+}
+
+/**
+ * Auto-deny unresolved tool approvals so a new user turn does not leave
+ * Approve/Deny cards stuck or orphan tool-calls without results.
+ *
+ * Settles both `approval-requested` and `approval-responded` into
+ * `output-denied` (same as the server settle path). `approval-responded` alone
+ * is only valid for resume turns where the SDK will execute the tool.
+ */
+export function settleUnresolvedToolApprovalsInMessages(
+  messages: UIMessage[],
+  reason = 'Superseded by a new user message',
+): UIMessage[] {
+  return settleToolApprovalsInMessages(messages, 'all-unresolved', reason)
+}
+
+/**
+ * Stop-path settle: deny unanswered approvals only. Leave
+ * `approval-responded` alone so reconcile can sync already-approved tools
+ * the server may have executed before the abort landed.
+ */
+export function settleApprovalRequestedOnlyInMessages(
+  messages: UIMessage[],
+  reason = 'Interrupted before approval',
+): UIMessage[] {
+  return settleToolApprovalsInMessages(messages, 'requested-only', reason)
 }

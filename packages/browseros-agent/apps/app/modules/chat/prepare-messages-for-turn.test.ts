@@ -148,6 +148,37 @@ describe('prepareMessagesForClientTurn', () => {
     expect(part.state).toBe('approval-responded')
   })
 
+  test('settleApprovals: requested-only denies pending but keeps responded', () => {
+    const messages: UIMessage[] = [
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'call-1',
+            state: 'approval-requested',
+            input: {},
+            approval: { id: 'a1' },
+          },
+          {
+            type: 'tool-act',
+            toolCallId: 'call-2',
+            state: 'approval-responded',
+            input: {},
+            approval: { id: 'a2', approved: true },
+          },
+        ],
+      },
+    ]
+    const prepared = prepareMessagesForClientTurn(messages, {
+      settleApprovals: 'requested-only',
+    })
+    const parts = prepared[0]?.parts as Array<{ state?: string }>
+    expect(parts[0]?.state).toBe('output-denied')
+    expect(parts[1]?.state).toBe('approval-responded')
+  })
+
   test('settleIncomplete: false leaves input-available parts alone', () => {
     const messages: UIMessage[] = [
       {

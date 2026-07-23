@@ -1,5 +1,8 @@
 import type { UIMessage } from 'ai'
-import { settleUnresolvedToolApprovalsInMessages } from './collect-tool-approval-responses'
+import {
+  settleApprovalRequestedOnlyInMessages,
+  settleUnresolvedToolApprovalsInMessages,
+} from './collect-tool-approval-responses'
 
 type ToolPartLike = {
   type?: string
@@ -58,7 +61,8 @@ export function settleIncompleteToolPartsInMessages(
 }
 
 export type PrepareClientTurnOptions = {
-  settleApprovals?: boolean
+  /** `true`/default: settle all unresolved. `requested-only`: Stop path. */
+  settleApprovals?: boolean | 'requested-only'
   settleIncomplete?: boolean
   approvalReason?: string
   incompleteReason?: string
@@ -75,7 +79,10 @@ export function prepareMessagesForClientTurn(
   options: PrepareClientTurnOptions = {},
 ): UIMessage[] {
   let next = messages
-  if (options.settleApprovals !== false) {
+  const settle = options.settleApprovals
+  if (settle === 'requested-only') {
+    next = settleApprovalRequestedOnlyInMessages(next, options.approvalReason)
+  } else if (settle !== false) {
     next = settleUnresolvedToolApprovalsInMessages(next, options.approvalReason)
   }
   if (options.settleIncomplete !== false) {

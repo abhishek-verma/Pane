@@ -3,6 +3,7 @@ import type { UIMessage } from 'ai'
 import {
   collectToolApprovalResponses,
   hasPendingToolApprovals,
+  settleApprovalRequestedOnlyInMessages,
   settleUnresolvedToolApprovalsInMessages,
 } from './collect-tool-approval-responses'
 
@@ -120,5 +121,41 @@ describe('settleUnresolvedToolApprovalsInMessages', () => {
     }
     expect(part.state).toBe('output-denied')
     expect(part.approval?.approved).toBe(false)
+  })
+})
+
+describe('settleApprovalRequestedOnlyInMessages', () => {
+  test('settles approval-requested but leaves approval-responded alone', () => {
+    const messages: UIMessage[] = [
+      {
+        id: 'a',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'c1',
+            state: 'approval-requested',
+            input: {},
+            approval: { id: 'apr-1' },
+          },
+          {
+            type: 'tool-act',
+            toolCallId: 'c2',
+            state: 'approval-responded',
+            input: {},
+            approval: { id: 'apr-2', approved: true },
+          },
+        ],
+      },
+    ]
+    const next = settleApprovalRequestedOnlyInMessages(messages, 'Stopped')
+    const parts = next[0]!.parts as Array<{
+      state?: string
+      approval?: { approved?: boolean; reason?: string }
+    }>
+    expect(parts[0]?.state).toBe('output-denied')
+    expect(parts[0]?.approval?.reason).toBe('Stopped')
+    expect(parts[1]?.state).toBe('approval-responded')
+    expect(parts[1]?.approval?.approved).toBe(true)
   })
 })
