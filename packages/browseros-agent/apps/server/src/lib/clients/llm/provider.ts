@@ -21,6 +21,7 @@ import { logger } from '../../logger'
 import { createOpenRouterCompatibleFetch } from '../../openrouter-fetch'
 import { createCodexFetch } from '../oauth/codex-fetch'
 import { createCopilotFetch } from '../oauth/copilot-fetch'
+import { transformCerebrasRequestBody } from './cerebras'
 import {
   createMockBrowserOSLanguageModel,
   shouldUseMockBrowserOSLLM,
@@ -168,6 +169,7 @@ function createCerebrasModel(config: ResolvedLLMConfig): LanguageModel {
     name: 'cerebras',
     baseURL: config.baseUrl,
     apiKey: config.apiKey,
+    transformRequestBody: transformCerebrasRequestBody,
   })(config.model)
 }
 

@@ -38,6 +38,25 @@ import { VideoFrame } from './VideoFrame'
 /** Pane-only capabilities — the reason the fork exists. */
 const uniqueFeatures: Feature[] = [
   {
+    id: 'soul',
+    Icon: Sparkles,
+    tag: 'THE THESIS',
+    title: 'A browser with a soul',
+    description:
+      'Not the same chatbot for every user. Pane takes a shape that fits your life — persona, memory, capture, and skills that compound on your machine until the browser stops feeling generic.',
+    detailedDescription:
+      'The soul is the combination that makes Pane yours: a persona that can be chief of staff, job-search partner, or research buddy; memory grounded in what you actually browsed and did, not only what you typed into chat; meetings and research captured in the tab so they do not evaporate; skills written when you repeat a workflow, staged for your approval; context scoped into buckets so work and personal life stay apart; a homepage that rearranges around your day. Chief of staff if you are building a company. Job-search partner if you are looking for what is next. Research buddy if you are learning. Whatever else you need — because Pane learns your rhythms and grows more personal every week you use it. All local. No Pane cloud profile.',
+    highlights: [
+      'Persona that fits the role you need right now — editable and switchable',
+      'Memory from real activity: tabs, files, terminal, meetings, research threads',
+      'Skills that appear when you repeat work successfully — you approve before they run',
+      'Capture that stays in the browser: meeting notes without a bot, research that survives the tab close',
+      'Buckets so work, job hunt, and personal life do not bleed into each other',
+      'A home and agent that get more useful the longer you use Pane',
+    ],
+    gridClass: 'md:col-span-3',
+  },
+  {
     id: 'learning-loop',
     Icon: Brain,
     tag: 'ONLY IN PANE',
@@ -45,7 +64,7 @@ const uniqueFeatures: Feature[] = [
     description:
       'Pane watches real browsing, files, and terminal activity (with consent) and turns repeat work into memory and skills — not just chat transcripts.',
     detailedDescription:
-      'Most agents only remember what you typed into a chat. Pane learns from what you actually did: the dashboard you open every Monday, the export path you always take, the conventions in your repo. Facts land in plain local files (SOUL.md, USER.md, MEMORY.md). Repeated workflows become staged skills you can approve. Nothing auto-activates without you. The loop runs on your machine — no Pane cloud required.',
+      'Most agents only remember what you typed into a chat. Pane learns from what you actually did: the dashboard you open every Monday, the export path you always take, the conventions in your repo. Facts land in plain local memory files. Repeated workflows become staged skills you can approve. Nothing auto-activates without you. The loop runs on your machine — no Pane cloud required.',
     highlights: [
       'Activity-grounded memory — from browsing and work, not only conversation',
       'Auto-proposed skills from workflows you repeat',
@@ -104,23 +123,6 @@ const uniqueFeatures: Feature[] = [
       'Demotes stale widgets so home stays useful',
     ],
     gridClass: 'md:col-span-2',
-  },
-  {
-    id: 'soul',
-    Icon: Sparkles,
-    tag: 'ONLY IN PANE',
-    title: 'A browser with a soul',
-    description:
-      'Chief of staff, job-search partner, research buddy — Pane’s persona lives in SOUL.md and can shift with your context bucket.',
-    detailedDescription:
-      'SOUL.md is who Pane is for you right now: role, voice, boundaries. Onboarding seeds a persona from what you want Pane for first. You can edit the file anytime, or let Pane propose a shift when your life changes (for example, switching into job-search mode). Persona can follow the active bucket so work Pane and personal Pane stay distinct — still plain text on disk, never a hidden cloud profile.',
-    highlights: [
-      'Personas seeded from onboarding ICP',
-      'Editable SOUL.md — inspectable, not a black box',
-      'Shifts with Work vs Personal buckets',
-      'Same agent, different roles when you need them',
-    ],
-    gridClass: 'md:col-span-3',
   },
 ]
 
@@ -370,9 +372,9 @@ export const FeaturesPage: FC = () => {
             does
           </h2>
           <p className="mx-auto max-w-2xl text-muted-foreground">
-            These are the capabilities that need the agent to <em>be</em> the
-            browser — continuous learning, native capture, and a home that
-            compounds with you.
+            A browser with a soul: persona, memory, capture, and skills that
+            compound — because the agent <em>is</em> the browser, not a guest in
+            it.
           </p>
         </div>
 
