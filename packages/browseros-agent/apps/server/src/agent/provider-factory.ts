@@ -20,6 +20,7 @@ import {
 import { resolveAcpSpawnCommand } from '../lib/agents/host-acp/launcher'
 import { getBrowserosDir } from '../lib/browseros-dir'
 import { createBrowserOSFetch } from '../lib/browseros-fetch'
+import { transformCerebrasRequestBody } from '../lib/clients/llm/cerebras'
 import {
   createMockBrowserOSLanguageModel,
   shouldUseMockBrowserOSLLM,
@@ -430,6 +431,7 @@ function createCerebrasFactory(
     name: 'cerebras',
     baseURL: config.baseUrl,
     apiKey: config.apiKey,
+    transformRequestBody: transformCerebrasRequestBody,
   })
 }
 
