@@ -1,4 +1,4 @@
-import { Bot, FileText, Globe, Sparkles } from 'lucide-react'
+import { FileText, Globe } from 'lucide-react'
 import type { FC } from 'react'
 import type {
   AITabAction,
@@ -64,27 +64,11 @@ const AITabActionCard: FC<{ action: AITabAction }> = ({ action }) => {
 }
 
 const BrowserOSActionCard: FC<{ action: BrowserOSAction }> = ({ action }) => {
-  const isAgent = action.mode === 'agent'
-
+  // Render like a normal user bubble: message text + optional tab pills.
+  // Do not show Bot/Agent chrome — that reads as agent authorship.
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-start gap-2">
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-[var(--accent-orange)]/10">
-          {isAgent ? (
-            <Bot className="h-4 w-4 text-[var(--accent-orange)]" />
-          ) : (
-            <Sparkles className="h-4 w-4 text-[var(--accent-orange)]" />
-          )}
-        </div>
-        <div className="flex-1">
-          <div className="mb-0.5 flex items-center gap-1.5">
-            <span className="rounded bg-[var(--accent-orange)]/10 px-1.5 py-0.5 font-medium text-[10px] text-[var(--accent-orange)] uppercase">
-              {isAgent ? 'Agent' : 'Chat'}
-            </span>
-          </div>
-          <div className="text-foreground text-sm">{action.message}</div>
-        </div>
-      </div>
+      <div className="text-foreground text-sm">{action.message}</div>
       {action.tabs ? <AttachedTabs tabs={action.tabs} /> : null}
     </div>
   )
