@@ -64,6 +64,15 @@ export interface ChatServiceDeps {
  */
 const CONVERSATION_LOCK_WATCHDOG_MS = 15 * 60 * 1000
 
+/**
+ * When the client aborts the SSE (Stop / navigation), `onFinish` sometimes
+ * never runs — the runtime drops the cancelled response body. Without a
+ * faster path than the 15m watchdog, Retry / the next message hang behind
+ * the still-held conversation lock ("Running the approved action…" forever).
+ * Give onFinish a short grace window to checkpoint, then force-release.
+ */
+const CONVERSATION_LOCK_ABORT_RELEASE_MS = 2_000
+
 export class ChatService {
   constructor(private deps: ChatServiceDeps) {}
 
@@ -81,6 +90,7 @@ export class ChatService {
 
   private async withConversationLock<T>(
     conversationId: string,
+    abortSignal: AbortSignal,
     fn: (release: () => void) => Promise<T>,
   ): Promise<T> {
     const prev = this.conversationLocks.get(conversationId) ?? Promise.resolve()
@@ -92,10 +102,12 @@ export class ChatService {
     this.conversationLocks.set(conversationId, chained)
 
     let released = false
+    let abortReleaseTimer: ReturnType<typeof setTimeout> | undefined
     const release = () => {
       if (released) return
       released = true
       clearTimeout(watchdog)
+      if (abortReleaseTimer !== undefined) clearTimeout(abortReleaseTimer)
       releaseGate()
       if (this.conversationLocks.get(conversationId) === chained) {
         this.conversationLocks.delete(conversationId)
@@ -107,6 +119,25 @@ export class ChatService {
       })
       release()
     }, CONVERSATION_LOCK_WATCHDOG_MS)
+
+    const scheduleAbortRelease = () => {
+      if (released || abortReleaseTimer !== undefined) return
+      abortReleaseTimer = setTimeout(() => {
+        if (released) return
+        logger.warn(
+          'Conversation lock released after client abort without onFinish',
+          { conversationId },
+        )
+        release()
+      }, CONVERSATION_LOCK_ABORT_RELEASE_MS)
+    }
+    if (abortSignal.aborted) {
+      scheduleAbortRelease()
+    } else {
+      abortSignal.addEventListener('abort', scheduleAbortRelease, {
+        once: true,
+      })
+    }
 
     await prev
     try {
@@ -158,8 +189,10 @@ export class ChatService {
     request: ChatRequest,
     abortSignal: AbortSignal,
   ): Promise<Response> {
-    return this.withConversationLock(request.conversationId, (release) =>
-      this.processMessageLocked(request, abortSignal, release),
+    return this.withConversationLock(
+      request.conversationId,
+      abortSignal,
+      (release) => this.processMessageLocked(request, abortSignal, release),
     )
   }
 

@@ -648,6 +648,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // Settle unanswered approvals only, then reconcile from the server transcript.
   const stopAndSettle = useCallback(() => {
     stop()
+    // Stop aborts the in-flight resume SSE; clear the local gate so Retry
+    // is not treated as a second click against a still-"running" resume.
+    setApprovalResumeInFlight(false)
     const hadResponded = hasApprovalRespondedParts(messagesRef.current)
     setMessages((current) =>
       prepareMessagesForClientTurn(current, {

@@ -1136,6 +1136,81 @@ describe('ChatService conversation mutex', () => {
       new AbortController().signal,
     )
   })
+
+  it('releases the lock after client abort when onFinish never fires', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const agent = createFakeAgent()
+    agentToReturn = agent
+
+    const captured: Array<{
+      onFinish: (args: {
+        messages: MockMessage[]
+        isAborted?: boolean
+      }) => Promise<void>
+    }> = []
+    streamResponseHandler = async ({ onFinish }) => {
+      captured.push({ onFinish })
+      // Simulate a cancelled response body: Response returns, onFinish never
+      // runs (the dogfood Stop → Retry hang).
+      return new Response('ok')
+    }
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+
+    const abortA = new AbortController()
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'first',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      abortA.signal,
+    )
+    expect(captured).toHaveLength(1)
+
+    abortA.abort()
+
+    const pB = service.processMessage(
+      {
+        conversationId,
+        message: 'retry after stop',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+
+    // Still locked during the abort grace window.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(captured).toHaveLength(1)
+
+    // After CONVERSATION_LOCK_ABORT_RELEASE_MS (2s), B must proceed without
+    // ever calling A's onFinish — otherwise Retry hangs for up to 15m.
+    await Promise.race([
+      pB,
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error('lock not released after client abort')),
+          3500,
+        ),
+      ),
+    ])
+    expect(captured).toHaveLength(2)
+    expect(
+      agent.messages.some((m) => m.parts[0]?.text === 'retry after stop'),
+    ).toBe(true)
+  })
 })
 
 describe('ChatService session rebuild settles pending tool state', () => {

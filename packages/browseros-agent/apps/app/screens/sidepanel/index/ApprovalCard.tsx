@@ -357,8 +357,8 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
     return (
       <div className="agent-approval mt-2 text-sm">
         <p className="mb-3 text-muted-foreground text-xs">
-          This approval finished on the server but the chat UI did not update.
-          Retry to sync and run it again, or deny to drop it.
+          This approval may still need to sync with the server. Retry to sync or
+          resume, or Deny to drop it.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={handleApprove}>
