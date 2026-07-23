@@ -119,48 +119,41 @@ export const BentoCard: FC<BentoCardProps> = ({ feature, mounted, index }) => {
               </button>
             </DialogClose>
 
-            {/* Video at Top - Large */}
-            <div className="bg-muted p-8 pb-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <span className="inline-block rounded-md bg-[var(--accent-orange)]/10 px-2.5 py-0.5 font-semibold text-[var(--accent-orange)] text-xs">
-                    {feature.tag}
-                  </span>
-                  <h2 className="font-bold text-2xl">{feature.title}</h2>
-                </div>
-
-                {/* Large Video placeholder */}
-                {feature.videoUrl && (
-                  <VideoFrame title={feature.title}>
-                    <video
-                      className="h-full w-full rounded-xl object-cover"
-                      src={feature.videoUrl}
-                      title={feature.title}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      controls
-                    />
-                  </VideoFrame>
-                )}
-                {feature.gifUrl && !feature.videoUrl && (
-                  <div className="relative overflow-hidden rounded-xl border border-border bg-background shadow-lg">
-                    <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-muted to-background">
-                      <div className="space-y-3 text-center">
-                        <img
-                          className="h-full w-full object-cover"
-                          src={feature.gifUrl}
-                          alt={feature.title}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
+            <div className="space-y-4 bg-muted p-8 pb-6">
+              <div className="flex items-center gap-3 pr-10">
+                <span className="inline-block rounded-md bg-[var(--accent-orange)]/10 px-2.5 py-0.5 font-semibold text-[var(--accent-orange)] text-xs">
+                  {feature.tag}
+                </span>
+                <h2 className="font-bold text-2xl">{feature.title}</h2>
               </div>
+
+              {feature.videoUrl ? (
+                <VideoFrame title={feature.title}>
+                  <video
+                    className="h-full w-full rounded-xl object-cover"
+                    src={feature.videoUrl}
+                    title={feature.title}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls
+                  />
+                </VideoFrame>
+              ) : null}
+              {feature.gifUrl && !feature.videoUrl ? (
+                <div className="relative overflow-hidden rounded-xl border border-border bg-background shadow-lg">
+                  <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-muted to-background">
+                    <img
+                      className="h-full w-full object-cover"
+                      src={feature.gifUrl}
+                      alt={feature.title}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
 
-            {/* Feature Details */}
             <div className="space-y-5 p-8 pt-6">
               <p className="text-foreground leading-relaxed">
                 {feature.detailedDescription}
