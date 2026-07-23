@@ -149,7 +149,7 @@ describe('settleApprovalRequestedOnlyInMessages', () => {
       },
     ]
     const next = settleApprovalRequestedOnlyInMessages(messages, 'Stopped')
-    const parts = next[0]!.parts as Array<{
+    const parts = next[0]?.parts as Array<{
       state?: string
       approval?: { approved?: boolean; reason?: string }
     }>
