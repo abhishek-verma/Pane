@@ -70,10 +70,15 @@ import { useNotifyActiveTab } from './notify-active-tab.hooks'
 import { prepareMessagesForClientTurn } from './prepare-messages-for-turn'
 import {
   hasApprovalRespondedParts,
-  reconcileClientToolStatesFromServer,
+  hasAssistantText,
+  hydrateClientMessagesFromServer,
 } from './reconcile-tool-states'
 import { useRemoteConversationSave } from './remote-conversation-save.hooks'
 import { toLlmProviderConfig } from './sidepanel-chat-targets'
+
+/** How long status may stay submitted/streaming with no message growth
+ *  before we ask the server whether the turn already finished. */
+const STUCK_STREAM_HYDRATE_MS = 12_000
 
 const getLastMessageText = (messages: UIMessage[]) => {
   const lastMessage = messages[messages.length - 1]
@@ -593,11 +598,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     }
   }, [status, messages, approvalResumeInFlight])
 
-  // After an approval resume finishes, the SSE merge can leave local parts
-  // stuck at `approval-responded` even though the server already executed
-  // them (live evidence: server SQLite shows output-available while the UI
-  // still offers Retry). Reconcile from the server transcript once we go
-  // idle so the false "didn't reach the server" cards clear themselves.
+  // When a turn settles, the SSE merge can leave the client behind the
+  // server transcript: stuck `approval-responded` cards, or a completed
+  // tool+text assistant turn the UI never painted (silent reply). Hydrate
+  // from SQLite once we go idle.
   useEffect(() => {
     const prev = prevStatusRef.current
     prevStatusRef.current = status
@@ -605,7 +609,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       (prev === 'submitted' || prev === 'streaming') &&
       (status === 'ready' || status === 'error')
     if (!becameIdle) return
-    if (!hasApprovalRespondedParts(messagesRef.current)) return
     const conversationId = conversationIdRef.current
     const baseUrl = agentUrlRef.current
     if (!conversationId || !baseUrl) return
@@ -613,27 +616,115 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     void fetchChatConversation(conversationId, baseUrl)
       .then((detail) => {
         if (cancelled) return
-        setMessages((current) =>
-          reconcileClientToolStatesFromServer(current, detail.messages),
-        )
+        setMessages((current) => {
+          const { messages: next } = hydrateClientMessagesFromServer(
+            current,
+            detail.messages,
+          )
+          return next
+        })
       })
       .catch(() => {
-        // Best-effort; the Retry card remains if sync fails.
+        // Best-effort; Retry / silent-reply stay until the next turn.
       })
     return () => {
       cancelled = true
     }
   }, [status, setMessages])
 
-  // Disabled while: agent URL isn't ready, a resume was just triggered but
-  // hasn't flipped `status` yet (see above), or an approval card is still
-  // waiting on the user — sending a new message in that state would
-  // silently supersede/auto-deny the pending approval via a race instead of
-  // an explicit Deny.
+  // Safety net when status never settles (SSE finish dropped but server
+  // already checkpointed). Track message growth; if the transcript is
+  // idle while status stays submitted/streaming, fetch SQLite and hydrate.
+  const stuckHydrateInFlightRef = useRef(false)
+  const lastMessageGrowthAtRef = useRef(Date.now())
+  const messagesGrowthKey = `${messages.length}:${messages[messages.length - 1]?.id ?? ''}:${messages[messages.length - 1]?.parts?.length ?? 0}`
+  useEffect(() => {
+    // messagesGrowthKey is the intentional trigger: any transcript growth
+    // resets the stuck-stream quiet window.
+    void messagesGrowthKey
+    lastMessageGrowthAtRef.current = Date.now()
+  }, [messagesGrowthKey])
+
+  useEffect(() => {
+    const busy = status === 'submitted' || status === 'streaming'
+    if (!busy) {
+      stuckHydrateInFlightRef.current = false
+      return
+    }
+    const conversationId = conversationIdRef.current
+    const baseUrl = agentUrlRef.current
+    if (!conversationId || !baseUrl) return
+
+    let cancelled = false
+    const timer = setInterval(() => {
+      if (cancelled || stuckHydrateInFlightRef.current) return
+      if (
+        Date.now() - lastMessageGrowthAtRef.current <
+        STUCK_STREAM_HYDRATE_MS
+      ) {
+        return
+      }
+      stuckHydrateInFlightRef.current = true
+      void fetchChatConversation(conversationId, baseUrl)
+        .then((detail) => {
+          if (cancelled) return
+          // Require assistant text so a mid-turn onStepFinish checkpoint
+          // (tools done, next model step still running) cannot abort a live
+          // agent loop. Idle hydrate (becameIdle) covers tool-only finals.
+          const serverAssistant = [...detail.messages]
+            .reverse()
+            .find((m) => m.role === 'assistant')
+          if (!hasAssistantText(serverAssistant)) {
+            // Still mid-turn on the server; wait another quiet window.
+            lastMessageGrowthAtRef.current = Date.now()
+            return
+          }
+
+          let hydrated = false
+          setMessages((current) => {
+            const result = hydrateClientMessagesFromServer(
+              current,
+              detail.messages,
+            )
+            hydrated = result.hydratedAssistantTurn
+            return result.messages
+          })
+          if (hydrated) {
+            // Abort the orphaned SSE so status can leave submitted/streaming.
+            // Prefer stop() over stopAndSettle: server already finished, and
+            // settle would falsely deny any approval-responded parts.
+            void stop()
+            clearError()
+          } else {
+            // Client already matches; avoid fetch-spamming while still busy.
+            lastMessageGrowthAtRef.current = Date.now()
+          }
+        })
+        .catch(() => {
+          lastMessageGrowthAtRef.current = Date.now()
+        })
+        .finally(() => {
+          stuckHydrateInFlightRef.current = false
+        })
+    }, 2_000)
+
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [status, setMessages, stop, clearError])
+
+  // Disabled while: agent URL isn't ready, a turn is in flight, a resume
+  // was just triggered but hasn't flipped `status` yet, or an approval
+  // card is still waiting on the user. Sending while status is still
+  // submitted/streaming orphans the prior activeResponse in AI SDK
+  // (makeRequest overwrites it without abort) and is how silent-reply
+  // desyncs deepen into a second turn.
   const canSend =
     !isLoadingAgentUrl &&
     !agentUrlError &&
     !!agentServerUrl &&
+    (status === 'ready' || status === 'error') &&
     !approvalResumeInFlight &&
     !hasPendingToolApprovals(messages)
 
@@ -665,9 +756,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     if (!conversationId || !baseUrl) return
     void fetchChatConversation(conversationId, baseUrl)
       .then((detail) => {
-        setMessages((current) =>
-          reconcileClientToolStatesFromServer(current, detail.messages),
-        )
+        setMessages((current) => {
+          const { messages: next } = hydrateClientMessagesFromServer(
+            current,
+            detail.messages,
+          )
+          return next
+        })
       })
       .catch(() => {
         // Best-effort; stuck approval-responded keeps the Retry UI.
@@ -685,9 +780,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }, [setMessages, clearError, regenerate])
 
   // Remove messages with empty parts (e.g. interrupted assistant responses)
-  // to prevent AI SDK validation errors on subsequent sends
+  // to prevent AI SDK validation errors on subsequent sends. Skip while a
+  // turn is in flight — an assistant shell can briefly have empty parts
+  // between the stream start chunk and the first content part.
   useEffect(() => {
-    if (status === 'streaming') return
+    if (status === 'streaming' || status === 'submitted') return
     if (messages.some((m) => !m.parts?.length)) {
       setMessages(messages.filter((m) => m.parts?.length > 0))
     }
@@ -944,6 +1041,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         conversationId: conversationIdRef.current,
         promptText: text,
       })
+      // AI SDK makeRequest overwrites activeResponse without aborting the
+      // prior fetch. Abort any wedged stream first so a new turn cannot
+      // orphan the previous SSE consumer (silent-reply desync family).
+      if (status === 'submitted' || status === 'streaming') {
+        void stop()
+      }
       // New user turns supersede pending Approve/Deny cards and any tool left
       // mid-flight by a prior Stop/abort. Settle both locally so the UI drops
       // the cards, and the server settles its session copy to avoid
@@ -952,7 +1055,14 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       setMessages((current) => prepareMessagesForClientTurn(current))
       baseSendMessage({ text })
     },
-    [baseSendMessage, setMessages, startExecutionTask, trackMessageSent],
+    [
+      baseSendMessage,
+      setMessages,
+      startExecutionTask,
+      status,
+      stop,
+      trackMessageSent,
+    ],
   )
 
   useEffect(() => {
@@ -1187,7 +1297,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             const detail = await fetchChatConversation(conversationId, baseUrl)
             let thisToolStillStuck = true
             setMessages((current) => {
-              const next = reconcileClientToolStatesFromServer(
+              const { messages: next } = hydrateClientMessagesFromServer(
                 current,
                 detail.messages,
               )
