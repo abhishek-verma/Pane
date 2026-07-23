@@ -4,7 +4,6 @@ import {
   deriveClass,
   describeToolCall,
   type GateContext,
-  getBlastRadiusCap,
   isConsequentialClass,
   isPinActive,
   isPromoted,
@@ -276,8 +275,9 @@ export function hasExistingApprovalResponse(
  * - Every consequential class pauses via `needsApproval` rather than
  *   returning a dry-run preview to the model. This keeps the model's context
  *   honest: it never continues on the assumption that an action ran.
- * - The blast-radius cap is enforced here (auto-execution via a pin pauses
- *   once the cap is reached). Explicit approvals bypass the cap.
+ * - An active trust pin (Allow always / Allow for this chat) means the class
+ *   auto-executes with no per-turn budget. Session pins last for the chat;
+ *   always pins persist in settings.
  */
 export function wrapToolWithGate<T extends Tool>(
   toolName: string,
@@ -315,12 +315,8 @@ export function wrapToolWithGate<T extends Tool>(
       const cls = deriveClass(toolName, args, ctx)
       if (!isConsequentialClass(cls)) return false
       if (isPromoted(args)) return false
-      if (
-        isPinActive(ctx, cls) &&
-        ctx.runConsequentialCount.count < getBlastRadiusCap(ctx)
-      ) {
-        return false
-      }
+      // Allow always / Allow for this chat: run without re-prompting. No budget.
+      if (isPinActive(ctx, cls)) return false
 
       const preview = buildLoopApprovalPreview(toolName, args)
 
@@ -389,10 +385,7 @@ export function wrapToolWithGate<T extends Tool>(
         if (outcome === 'approved') {
           // Channel approve resumes through the same execute path as pin/promote.
           // We do not set __promoted on the schema — outcome map is the proof.
-        } else if (
-          !isPinActive(ctx, cls) ||
-          ctx.runConsequentialCount.count >= getBlastRadiusCap(ctx)
-        ) {
+        } else if (!isPinActive(ctx, cls)) {
           // Unattended without a resolved channel outcome and no pin — refuse.
           const msg =
             'Unattended consequential action blocked (no channel approval).'

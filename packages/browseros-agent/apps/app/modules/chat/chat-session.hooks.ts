@@ -67,6 +67,10 @@ import { addContentFilterNotice } from './content-filter-notice'
 import { useExecutionHistoryTracker } from './execution-history-tracker.hooks'
 import { useNotifyActiveTab } from './notify-active-tab.hooks'
 import { prepareMessagesForClientTurn } from './prepare-messages-for-turn'
+import {
+  hasApprovalRespondedParts,
+  reconcileClientToolStatesFromServer,
+} from './reconcile-tool-states'
 import { useRemoteConversationSave } from './remote-conversation-save.hooks'
 import { toLlmProviderConfig } from './sidepanel-chat-targets'
 
@@ -461,8 +465,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         const agentSessionId =
           agentSessionStrategy === 'main' ? 'main' : conversationIdRef.current
 
+        // Read pins from storage (not only the ref) so "Allow always" that
+        // just wrote to storage is included in this same approval-resume
+        // request. The ref can lag one tick behind storage.watch.
         const convoPins = await conversationTrustStorage.getValue()
         const activeConvoPins = convoPins[conversationIdRef.current] ?? {}
+        const storedPins = await trustPinsStorage.getValue()
+        trustPinsRef.current = storedPins ?? {}
         const mergedPins = { ...trustPinsRef.current }
         for (const [cls, isTrusted] of Object.entries(activeConvoPins)) {
           if (isTrusted) {
@@ -561,12 +570,55 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // mutating the same transcript. This flag closes that window; the server
   // mutex is the second line of defense if it is ever missed.
   const [approvalResumeInFlight, setApprovalResumeInFlight] = useState(false)
+  const prevStatusRef = useRef(status)
   useEffect(() => {
-    // Once the SDK actually starts the resume (or the turn errors out
-    // without resuming — e.g. more approvals are still pending), `status`
-    // itself takes over as the busy signal.
-    if (status !== 'ready') setApprovalResumeInFlight(false)
-  }, [status])
+    // Once the SDK actually starts the resume, `status` takes over as the
+    // busy signal.
+    if (status !== 'ready') {
+      setApprovalResumeInFlight(false)
+      return
+    }
+    // sendAutomaticallyWhen withholds the resume while any sibling tool is
+    // still approval-requested, so status stays 'ready' after the first
+    // Approve/Deny. Clear the flag in that case or the remaining cards
+    // silently no-op (approveTool/denyTool early-return) and canSend stays
+    // false until reload.
+    if (approvalResumeInFlight && hasPendingToolApprovals(messages)) {
+      setApprovalResumeInFlight(false)
+    }
+  }, [status, messages, approvalResumeInFlight])
+
+  // After an approval resume finishes, the SSE merge can leave local parts
+  // stuck at `approval-responded` even though the server already executed
+  // them (live evidence: server SQLite shows output-available while the UI
+  // still offers Retry). Reconcile from the server transcript once we go
+  // idle so the false "didn't reach the server" cards clear themselves.
+  useEffect(() => {
+    const prev = prevStatusRef.current
+    prevStatusRef.current = status
+    const becameIdle =
+      (prev === 'submitted' || prev === 'streaming') &&
+      (status === 'ready' || status === 'error')
+    if (!becameIdle) return
+    if (!hasApprovalRespondedParts(messagesRef.current)) return
+    const conversationId = conversationIdRef.current
+    const baseUrl = agentUrlRef.current
+    if (!conversationId || !baseUrl) return
+    let cancelled = false
+    void fetchChatConversation(conversationId, baseUrl)
+      .then((detail) => {
+        if (cancelled) return
+        setMessages((current) =>
+          reconcileClientToolStatesFromServer(current, detail.messages),
+        )
+      })
+      .catch(() => {
+        // Best-effort; the Retry card remains if sync fails.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [status, setMessages])
 
   // Disabled while: agent URL isn't ready, a resume was just triggered but
   // hasn't flipped `status` yet (see above), or an approval card is still
@@ -1032,6 +1084,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
       const convoPins = await conversationTrustStorage.getValue()
       const activeConvoPins = convoPins[conversationIdRef.current] ?? {}
+      const storedPins = await trustPinsStorage.getValue()
+      trustPinsRef.current = storedPins ?? {}
       const mergedPins = { ...trustPinsRef.current }
       for (const [cls, isTrusted] of Object.entries(activeConvoPins)) {
         if (isTrusted) {
@@ -1077,6 +1131,50 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       tool: ToolInvocationInfo,
       args: Record<string, unknown>,
     ) => {
+      // A second Approve/Retry while a resume is already in flight aborts the
+      // first SSE stream in useChat, which is exactly how local parts get
+      // stuck at approval-responded after the server already finished.
+      if (approvalResumeInFlight) return
+
+      // Retry path: the part is already approval-responded. Prefer syncing
+      // from the server first — often the action already ran and only the
+      // local UI is stale. Re-POSTing in that case just storms resumes.
+      if (tool.state === 'approval-responded') {
+        const conversationId = conversationIdRef.current
+        const baseUrl = agentUrlRef.current
+        if (conversationId && baseUrl) {
+          try {
+            const detail = await fetchChatConversation(conversationId, baseUrl)
+            let thisToolStillStuck = true
+            setMessages((current) => {
+              const next = reconcileClientToolStatesFromServer(
+                current,
+                detail.messages,
+              )
+              for (const message of next) {
+                if (message.role !== 'assistant') continue
+                for (const part of message.parts ?? []) {
+                  if (
+                    part &&
+                    typeof part === 'object' &&
+                    'toolCallId' in part &&
+                    (part as { toolCallId?: string }).toolCallId ===
+                      tool.toolCallId &&
+                    (part as { state?: string }).state !== 'approval-responded'
+                  ) {
+                    thisToolStillStuck = false
+                  }
+                }
+              }
+              return next
+            })
+            if (!thisToolStillStuck) return
+          } catch {
+            // Fall through to a real resume attempt.
+          }
+        }
+      }
+
       const argsChanged =
         JSON.stringify(args) !== JSON.stringify(tool.input ?? {})
       if (argsChanged) {
@@ -1091,15 +1189,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       setApprovalResumeInFlight(true)
       addToolApprovalResponse?.({ id: approvalId, approved: true })
     },
-    [addToolApprovalResponse, setMessages],
+    [addToolApprovalResponse, setMessages, approvalResumeInFlight],
   )
 
   const denyTool = useCallback(
     (approvalId: string) => {
+      if (approvalResumeInFlight) return
       setApprovalResumeInFlight(true)
       addToolApprovalResponse?.({ id: approvalId, approved: false })
     },
-    [addToolApprovalResponse],
+    [addToolApprovalResponse, approvalResumeInFlight],
   )
 
   const promoteTool = useCallback(

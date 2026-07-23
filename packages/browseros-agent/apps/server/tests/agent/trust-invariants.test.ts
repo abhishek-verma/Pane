@@ -3,11 +3,9 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
-  BLAST_RADIUS_CAP_NEW_USER,
   decideGate,
   deriveClass,
   type GateContext,
-  getBlastRadiusCap,
   isConsequentialClass,
   isPinActive,
 } from '@browseros/shared/trust/consequence-class'
@@ -153,15 +151,15 @@ describe('decideGate', () => {
     expect(decision.action).toBe('needs-approval')
   })
 
-  it('enforces blast-radius cap for new users', () => {
-    const ctx = makeCtx({ surface: 'mcp' })
-    ctx.runConsequentialCount.count = BLAST_RADIUS_CAP_NEW_USER
-    const decision = decideGate(
-      'filesystem_bash',
-      { command: 'ls', __promoted: true },
-      ctx,
-    )
-    expect(decision.action).toBe('blast-radius-cap')
+  it('does not apply a blast-radius budget when a pin is active', () => {
+    const ctx = makeCtx({
+      surface: 'mcp',
+      pins: { system: { pinned: true } },
+      isNewUser: false,
+    })
+    ctx.runConsequentialCount.count = 10_000
+    const decision = decideGate('filesystem_bash', { command: 'ls' }, ctx)
+    expect(decision.action).toBe('execute')
   })
 
   it('ignores expired pins', () => {
@@ -179,14 +177,6 @@ describe('decideGate', () => {
       isNewUser: false,
     })
     expect(isPinActive(ctx, 'spend')).toBe(true)
-  })
-
-  it('raises cap when any pin is active', () => {
-    const ctx = makeCtx({
-      pins: { system: { pinned: true } },
-      isNewUser: false,
-    })
-    expect(getBlastRadiusCap(ctx)).toBeGreaterThan(BLAST_RADIUS_CAP_NEW_USER)
   })
 })
 
@@ -478,7 +468,7 @@ describe('wrapToolWithGate loop surface', () => {
     expect(needs).toBe(false)
   })
 
-  it('does not pause when a pin is active and under the cap', async () => {
+  it('does not pause when a pin is active', async () => {
     const ctx = makeCtx({
       surface: 'loop',
       pins: { system: { pinned: true } },
@@ -534,16 +524,17 @@ describe('wrapToolWithGate loop surface', () => {
     expect(needs).toBe(true)
   })
 
-  it('pauses once the blast-radius cap is reached even when pinned', async () => {
+  it('keeps auto-executing under a pin with no per-turn budget', async () => {
     const ctx = makeCtx({
       surface: 'loop',
-      pins: { system: { pinned: true } },
+      pins: { 'write-external': { pinned: true } },
       isNewUser: false,
     })
-    ctx.runConsequentialCount.count = getBlastRadiusCap(ctx)
-    const wrapped = wrapToolWithGate('filesystem_bash', makeTool(), () => ctx)
-    const needs = await wrapped.needsApproval?.({ command: 'ls' }, execOptions)
-    expect(needs).toBe(true)
+    ctx.runConsequentialCount.count = 10_000
+    const wrapped = wrapToolWithGate('act', makeTool(), () => ctx)
+    expect(
+      await wrapped.needsApproval?.({ kind: 'click', ref: 'e1' }, execOptions),
+    ).toBe(false)
   })
 
   it('runs the underlying tool when execute is invoked (post-approval) and increments the counter', async () => {

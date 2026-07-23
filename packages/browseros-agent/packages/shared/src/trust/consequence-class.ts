@@ -9,8 +9,10 @@ export type ConsequenceClass =
 
 export const PROMOTED_ARG = '__promoted' as const
 
+/** @deprecated Unused — pins no longer have a per-turn auto-exec budget. */
 export const BLAST_RADIUS_CAP_NEW_USER = 1
-export const BLAST_RADIUS_CAP_PINNED = 10
+/** @deprecated Unused — pins no longer have a per-turn auto-exec budget. */
+export const BLAST_RADIUS_CAP_PINNED = Number.POSITIVE_INFINITY
 
 const CONSEQUENTIAL_CLASSES = new Set<ConsequenceClass>([
   'write-local',
@@ -141,6 +143,7 @@ export function isPinActive(ctx: GateContext, cls: ConsequenceClass): boolean {
   return true
 }
 
+/** @deprecated Pins are uncapped; kept for older callers/tests. */
 export function getBlastRadiusCap(ctx: GateContext): number {
   const hasAnyPin = Object.values(ctx.pins).some(
     (pin) =>
@@ -289,6 +292,7 @@ export type GateDecision =
       preview: string
       decision: 'dry-run' | 'approval-requested'
     }
+  /** @deprecated Blast-radius budgets were removed; never returned. */
   | { action: 'blast-radius-cap'; preview: string }
 
 export function decideGate(
@@ -302,12 +306,10 @@ export function decideGate(
   const promoted = isPromoted(args)
   const pinActive = isPinActive(ctx, cls)
 
-  const wouldExecute =
-    cls === 'write-local'
-      ? ctx.surface === 'loop'
-        ? promoted || pinActive
-        : promoted || pinActive
-      : promoted
+  // Allow always / Allow for this chat: execute. No per-turn budget.
+  if (pinActive) return { action: 'execute' }
+
+  const wouldExecute = promoted
 
   if (!wouldExecute) {
     if (cls === 'write-local' && ctx.surface === 'loop') {
@@ -317,17 +319,6 @@ export function decideGate(
       action: 'dry-run',
       preview: buildPreview(toolName, args, ctx, cls),
       decision: cls === 'write-local' ? 'approval-requested' : 'dry-run',
-    }
-  }
-
-  if (
-    isConsequentialClass(cls) &&
-    ctx.runConsequentialCount.count >= getBlastRadiusCap(ctx)
-  ) {
-    return {
-      action: 'blast-radius-cap',
-      preview:
-        'Blast-radius cap reached for this run. Pin trust in Settings to raise it.',
     }
   }
 

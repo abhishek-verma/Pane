@@ -101,7 +101,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   onDeny,
   onPromote,
 }) => {
-  const { conversationId, selectedProvider } = useChatSessionContext()
+  const { conversationId, selectedProvider, status } = useChatSessionContext()
   const [workspaceRoot, setWorkspaceRoot] = useState<string | undefined>()
   const [activeTabUrl, setActiveTabUrl] = useState<string | undefined>()
   // `deriveClass` reads `workspaceRoot`/`activeTab.url` — both start
@@ -110,6 +110,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   // cannot pin the wrong (default) class against a call that would
   // actually have derived a different one once real context loaded.
   const [contextReady, setContextReady] = useState(false)
+  const resumeInFlight = status === 'submitted' || status === 'streaming'
 
   useEffect(() => {
     let cancelled = false
@@ -210,12 +211,13 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   const preview = extractOutputText(tool.output)
   const waitingApproval = tool.state === 'approval-requested'
   const dryRun = tool.state === 'output-available' && isDryRunPreview(tool)
-  // The user already answered (Approve/Deny), but the resume that should
-  // have executed the tool never landed — aborted mid-flight, a server
-  // restart, or a dropped request. Without this the card just falls through
-  // to `return null` and the tool looks permanently stuck "running" with no
-  // way to recover short of retyping the whole message.
-  const resumeFailed = tool.state === 'approval-responded'
+  // `approval-responded` means the user already clicked Approve/Deny.
+  // While the resume request is in flight that is the *normal* state — not
+  // a failure. Only treat it as failed once chat is idle again and the
+  // part still hasn't moved to a terminal state (stream drop / desync).
+  const approvalResponded = tool.state === 'approval-responded'
+  const resumePending = approvalResponded && resumeInFlight
+  const resumeFailed = approvalResponded && !resumeInFlight
 
   const handleAllowAlways = async () => {
     if (!contextReady || !isPinnable || !consequenceClass) return
@@ -255,7 +257,9 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
         )
       : '')
 
-  if (!waitingApproval && !dryRun && !resumeFailed) return null
+  if (!waitingApproval && !dryRun && !resumePending && !resumeFailed) {
+    return null
+  }
 
   // Pane's Approve/Deny only resumes the LLM /chat loop this transcript was
   // recorded against. If the user has since switched to an ACP agent (or
@@ -290,6 +294,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   }
 
   const handleApprove = () => {
+    if (resumeInFlight) return
     const id = tool.approval?.id
     if (!id) return
     const args = resolveArgs()
@@ -303,12 +308,22 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
     void onPromote?.(tool, args)
   }
 
+  if (resumePending) {
+    return (
+      <div className="agent-approval mt-2 text-sm">
+        <p className="text-muted-foreground text-xs">
+          Running the approved action…
+        </p>
+      </div>
+    )
+  }
+
   if (resumeFailed) {
     return (
       <div className="agent-approval mt-2 text-sm">
         <p className="mb-3 text-muted-foreground text-xs">
-          This approval didn't reach the server, so the action never ran. Retry
-          to run it now, or deny to drop it.
+          This approval finished on the server but the chat UI did not update.
+          Retry to sync and run it again, or deny to drop it.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={handleApprove}>
@@ -318,6 +333,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
             size="sm"
             variant="outline"
             onClick={() => {
+              if (resumeInFlight) return
               const id = tool.approval?.id
               if (id) onDeny?.(id)
             }}
