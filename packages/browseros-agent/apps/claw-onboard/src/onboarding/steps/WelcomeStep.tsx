@@ -16,16 +16,17 @@ export function WelcomeStep({ onPrimary, onSkip }: WelcomeStepProps) {
         The browser your agents <Em>drive</Em>.
       </DisplayHeading>
       <StepCopy>
-        Logged in as you, fast, and under your control. Set-up takes about two
-        minutes. Import your logins, connect to Claude, and run your first task.
+        Logged in as you, fast, and under your control. Import logins, add a
+        model, connect Claude if you want, then open Pane. Every step can be
+        skipped and finished later in Settings.
       </StepCopy>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" size="lg" onClick={onPrimary}>
           <Zap className="size-4" />
-          Set up . about 2 min
+          Set up Pane
         </Button>
         <Button type="button" size="lg" variant="ghost" onClick={onSkip}>
-          I&rsquo;ve done this before . reconnect
+          Skip setup . open Pane
         </Button>
       </div>
     </StepWrap>

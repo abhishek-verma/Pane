@@ -11,6 +11,7 @@ function render(phase: ConnectPhase): string {
         phase={phase}
         onAddToClaude={() => undefined}
         onContinue={() => undefined}
+        onSkip={() => undefined}
       />
     </MemoryRouter>,
   )
@@ -23,6 +24,7 @@ describe('ConnectStep', () => {
     expect(html).toContain('or use the CLI')
     expect(html).toContain('claude mcp add pane')
     expect(html).toContain('--transport http')
+    expect(html).toContain('Set up later in Settings')
   })
 
   it('shows the Connecting state and disables the button while connecting', () => {

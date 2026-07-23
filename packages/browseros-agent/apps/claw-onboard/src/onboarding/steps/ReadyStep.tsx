@@ -17,8 +17,8 @@ export function ReadyStep({ onDone }: ReadyStepProps) {
         You&rsquo;re <Em>set</Em>.
       </DisplayHeading>
       <StepCopy>
-        Open Claude and try one of these. The task runs here, in Pane. You
-        watch, approve, and audit.
+        Open Pane to chat, add a model in Settings → AI, or connect Claude via
+        Settings → MCP. Anything you skipped is one click away later.
       </StepCopy>
       <div className="mb-6 flex flex-col gap-2.5">
         {STARTER_PROMPTS.slice(0, 2).map((prompt) => (

@@ -53,10 +53,11 @@ describe('WelcomeStep', () => {
     )
 
     expect(html).toContain('The browser your agents')
-    expect(html).toContain('Set up')
+    expect(html).toContain('Set up Pane')
+    expect(html).toContain('Skip setup')
   })
 
-  it('wires the reconnect CTA to skip setup', () => {
+  it('wires the skip CTA to leave setup', () => {
     let skipped = false
     const tree = WelcomeStep({
       onPrimary: () => undefined,
@@ -65,10 +66,10 @@ describe('WelcomeStep', () => {
       },
     })
 
-    const reconnectButton = findClickableByText(tree, 'reconnect')
-    expect(reconnectButton).not.toBeNull()
+    const skipButton = findClickableByText(tree, 'Skip setup')
+    expect(skipButton).not.toBeNull()
 
-    reconnectButton?.props.onClick?.()
+    skipButton?.props.onClick?.()
     expect(skipped).toBe(true)
   })
 })

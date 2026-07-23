@@ -24,12 +24,14 @@ import {
   onboardingFormResolver,
 } from './onboarding-v2.schemas'
 import type { ConnectPhase, ImportPhase, Step } from './onboarding-v2.types'
+import { CaptureStep } from './steps/CaptureStep'
 import { ConnectStep } from './steps/ConnectStep'
 import { ImportStep } from './steps/ImportStep'
+import { ProvidersStep } from './steps/ProvidersStep'
 import { ReadyStep } from './steps/ReadyStep'
 import { WelcomeStep } from './steps/WelcomeStep'
 
-const TOTAL_STEPS = 4
+const TOTAL_STEPS = 6
 const FAKE_CONNECT_DELAY_MS = 1700
 const BROWSEROS_NEW_TAB_URL = 'chrome://newtab'
 
@@ -39,7 +41,7 @@ const initialOnboardingState: BrowserOSOnboardingState = {
   sources: [],
 }
 
-/** Maps Chromium importer status into the local four-step onboarding screen state. */
+/** Maps Chromium importer status into the local import screen state. */
 export function importPhaseFor(
   status: BrowserOSImportStatus,
   hasPreparedForImport: boolean,
@@ -56,7 +58,7 @@ export function openBrowserOsNewTab() {
   window.location.assign(BROWSEROS_NEW_TAB_URL)
 }
 
-/** Runs the standalone four-step BrowserClaw onboarding flow. */
+/** Runs the standalone BrowserClaw onboarding flow. */
 export function OnboardingV2() {
   const form = useForm<OnboardingFormValues>({
     resolver: onboardingFormResolver,
@@ -130,11 +132,15 @@ export function OnboardingV2() {
     openBrowserOsNewTab()
   }
 
+  function goTo(next: Step) {
+    setStep(next)
+  }
+
   return (
     <Form {...form}>
       <OnboardingShell step={step} totalSteps={TOTAL_STEPS}>
         {step === 0 && (
-          <WelcomeStep onPrimary={() => setStep(1)} onSkip={() => setStep(3)} />
+          <WelcomeStep onPrimary={() => goTo(1)} onSkip={finishOnboarding} />
         )}
         {step === 1 && (
           <ImportStep
@@ -144,17 +150,25 @@ export function OnboardingV2() {
             onQuitChrome={prepareForImport}
             onImport={startImport}
             onRefresh={() => bridge.refreshSources()}
-            onContinue={() => setStep(2)}
+            onContinue={() => goTo(2)}
+            onSkip={() => goTo(2)}
           />
         )}
         {step === 2 && (
+          <ProvidersStep onContinue={() => goTo(3)} onSkip={() => goTo(3)} />
+        )}
+        {step === 3 && (
           <ConnectStep
             phase={connectPhase}
             onAddToClaude={() => setConnectPhase('connecting')}
-            onContinue={() => setStep(3)}
+            onContinue={() => goTo(4)}
+            onSkip={() => goTo(4)}
           />
         )}
-        {step === 3 && <ReadyStep onDone={finishOnboarding} />}
+        {step === 4 && (
+          <CaptureStep onContinue={() => goTo(5)} onSkip={() => goTo(5)} />
+        )}
+        {step === 5 && <ReadyStep onDone={finishOnboarding} />}
       </OnboardingShell>
     </Form>
   )

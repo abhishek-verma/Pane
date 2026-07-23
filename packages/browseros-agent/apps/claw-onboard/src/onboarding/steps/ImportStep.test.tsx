@@ -46,6 +46,7 @@ function Harness({
         onImport={() => undefined}
         onRefresh={() => undefined}
         onContinue={() => undefined}
+        onSkip={() => undefined}
       />
     </Form>
   )
@@ -67,6 +68,12 @@ describe('ImportStep', () => {
     const html = render('pre-quit')
     expect(html).toContain('Chrome is open')
     expect(html).toContain('Quit Chrome for me')
+    expect(html).toContain('Set up later in Settings')
+  })
+
+  it('offers skip during the picker phase', () => {
+    const html = render('picker')
+    expect(html).toContain('Set up later in Settings')
   })
 
   it('renders the picker, the Keychain notice, and an Import button in picker phase', () => {
@@ -137,7 +144,7 @@ describe('ImportStep', () => {
     expect(html).not.toContain('Choose a browser profile to import')
   })
 
-  it('renders the success card and Connect-to-Claude CTA in imported phase', () => {
+  it('renders the success card and Continue CTA in imported phase', () => {
     const html = render(
       'imported',
       readyState({
@@ -150,7 +157,8 @@ describe('ImportStep', () => {
     )
     expect(html).toContain('Imported 7 items from Work')
     expect(html).toContain('History, Bookmarks')
-    expect(html).toContain('Connect to Claude')
+    expect(html).toContain('Continue')
+    expect(html).toContain('Set up later in Settings')
   })
 
   it('does not fabricate a success summary when progress is missing', () => {

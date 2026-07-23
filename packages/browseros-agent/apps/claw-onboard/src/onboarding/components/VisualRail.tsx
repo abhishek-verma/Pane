@@ -1,9 +1,15 @@
 import { Lock, ShieldCheck, Zap } from 'lucide-react'
 import { PaneMark } from '@/components/branding/PaneMark'
 import { PaneWordmark } from '@/components/branding/PaneWordmark'
+import {
+  onboardingPlatformLabel,
+  PANE_ONBOARDING_VERSION,
+} from '../pane-build-info'
 
 /** Renders the persistent Pane visual rail beside the onboarding steps. */
 export function VisualRail() {
+  const footer = `${onboardingPlatformLabel()} · Pane ${PANE_ONBOARDING_VERSION}`
+
   return (
     <div
       className="relative flex w-[360px] shrink-0 flex-col justify-between overflow-hidden border-border border-r p-9"
@@ -51,9 +57,7 @@ export function VisualRail() {
           })}
         </div>
       </div>
-      <div className="relative text-[11.5px] text-ink-3">
-        Mac . v1.0 . signed build
-      </div>
+      <div className="relative text-[11.5px] text-ink-3">{footer}</div>
     </div>
   )
 }

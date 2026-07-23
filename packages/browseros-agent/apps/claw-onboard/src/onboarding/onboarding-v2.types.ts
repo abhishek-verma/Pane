@@ -8,7 +8,8 @@
  * separately.
  */
 
-export type Step = 0 | 1 | 2 | 3
+/** Welcome → Import → Providers → Connect → Capture → Ready */
+export type Step = 0 | 1 | 2 | 3 | 4 | 5
 
 export type ImportPhase =
   | 'pre-quit'

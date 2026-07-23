@@ -9,6 +9,7 @@ import { ImportedSummaryCard } from '../components/ImportedSummaryCard'
 import { ImportingProgressCard } from '../components/ImportingProgressCard'
 import { ImportSourceTile } from '../components/ImportSourceTile'
 import { MacKeychainNotice } from '../components/MacKeychainNotice'
+import { SkipLaterButton } from '../components/SkipLaterButton'
 import { StepWrap } from '../components/StepWrap'
 import {
   completedImportItemCount,
@@ -29,6 +30,7 @@ interface ImportStepProps {
   onImport: () => void
   onRefresh: () => void
   onContinue: () => void
+  onSkip: () => void
 }
 
 /** Renders the browser import step across quit, picker, progress, and success states. */
@@ -40,6 +42,7 @@ export function ImportStep({
   onImport,
   onRefresh,
   onContinue,
+  onSkip,
 }: ImportStepProps) {
   const selectedSourceId = form.watch('selectedSourceId')
   const selectedSource = selectedSourceById(state.sources, selectedSourceId)
@@ -76,7 +79,14 @@ export function ImportStep({
         again. Sessions stay in a local vault on this Mac.
       </StepCopy>
 
-      {phase === 'pre-quit' && <ChromeQuitNotice onQuitChrome={onQuitChrome} />}
+      {phase === 'pre-quit' && (
+        <>
+          <ChromeQuitNotice onQuitChrome={onQuitChrome} />
+          <div className="mt-3">
+            <SkipLaterButton onClick={onSkip} />
+          </div>
+        </>
+      )}
 
       {phase === 'picker' && (
         <>
@@ -130,28 +140,36 @@ export function ImportStep({
             </div>
           )}
           <MacKeychainNotice />
-          <Button
-            type="button"
-            size="lg"
-            onClick={onImport}
-            disabled={!isPickerValid}
-          >
-            <Download className="size-4" />
-            {selectedSource && hasSelectableItems
-              ? `Import ${selectedItems.length} items from ${sourceName}`
-              : selectedSource
-                ? 'No supported import items'
-                : 'Pick an import source'}
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              size="lg"
+              onClick={onImport}
+              disabled={!isPickerValid}
+            >
+              <Download className="size-4" />
+              {selectedSource && hasSelectableItems
+                ? `Import ${selectedItems.length} items from ${sourceName}`
+                : selectedSource
+                  ? 'No supported import items'
+                  : 'Pick an import source'}
+            </Button>
+            <SkipLaterButton onClick={onSkip} />
+          </div>
         </>
       )}
 
       {phase === 'importing' && (
-        <ImportingProgressCard
-          currentItemLabel={currentItemLabel}
-          progress={completedItems}
-          total={totalItems}
-        />
+        <>
+          <ImportingProgressCard
+            currentItemLabel={currentItemLabel}
+            progress={completedItems}
+            total={totalItems}
+          />
+          <div className="mt-3">
+            <SkipLaterButton onClick={onSkip} />
+          </div>
+        </>
       )}
 
       {phase === 'failed' && (
@@ -180,6 +198,7 @@ export function ImportStep({
               <RefreshCw className="size-4" />
               Refresh sources
             </Button>
+            <SkipLaterButton onClick={onSkip} />
           </div>
         </>
       )}
@@ -191,10 +210,13 @@ export function ImportStep({
             itemSummary={importedItemSummary}
             sourceName={sourceName}
           />
-          <Button type="button" size="lg" onClick={onContinue}>
-            <ArrowRight className="size-4" />
-            Connect to Claude
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" size="lg" onClick={onContinue}>
+              <ArrowRight className="size-4" />
+              Continue
+            </Button>
+            <SkipLaterButton onClick={onSkip} />
+          </div>
         </>
       )}
     </StepWrap>
