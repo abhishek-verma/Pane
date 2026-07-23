@@ -119,6 +119,82 @@ describe('reconcileClientToolStatesFromServer', () => {
 
     expect(reconcileClientToolStatesFromServer(client, server)).toBe(client)
   })
+
+  test('upgrades stop-raced output-denied when server has output-available', () => {
+    const client: UIMessage[] = [
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'call-1',
+            state: 'output-denied',
+            input: {},
+            approval: {
+              id: 'apr-1',
+              approved: false,
+              reason: 'Interrupted',
+            },
+          },
+        ],
+      },
+    ]
+    const server: UIMessage[] = [
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'call-1',
+            state: 'output-available',
+            input: {},
+            approval: { id: 'apr-1', approved: true },
+            output: { content: [{ type: 'text', text: 'ok' }] },
+          },
+        ],
+      },
+    ]
+    const next = reconcileClientToolStatesFromServer(client, server)
+    expect((next[0]?.parts[0] as { state?: string }).state).toBe(
+      'output-available',
+    )
+  })
+
+  test('does not upgrade true denial when server is also output-denied', () => {
+    const client: UIMessage[] = [
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'call-1',
+            state: 'output-denied',
+            input: {},
+            approval: { id: 'apr-1', approved: false },
+          },
+        ],
+      },
+    ]
+    const server: UIMessage[] = [
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'call-1',
+            state: 'output-denied',
+            input: {},
+            approval: { id: 'apr-1', approved: false },
+          },
+        ],
+      },
+    ]
+    expect(reconcileClientToolStatesFromServer(client, server)).toBe(client)
+  })
 })
 
 describe('hasApprovalRespondedParts', () => {

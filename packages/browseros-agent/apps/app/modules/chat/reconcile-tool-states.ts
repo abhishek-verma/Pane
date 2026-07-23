@@ -22,6 +22,9 @@ const TERMINAL_TOOL_STATES = new Set([
   'denied',
 ])
 
+/** Server terminals that mean the tool actually ran (or failed while running). */
+const STOP_RACE_UPGRADEABLE = new Set(['output-available', 'output-error'])
+
 /** True when any assistant tool part is still stuck in approval-responded. */
 export function hasApprovalRespondedParts(messages: UIMessage[]): boolean {
   for (const message of messages) {
@@ -40,9 +43,13 @@ export function hasApprovalRespondedParts(messages: UIMessage[]): boolean {
  * parts stuck at `approval-responded` even though the server already executed
  * (or denied) them.
  *
- * Only upgrades client parts that are still `approval-responded` /
- * `approval-requested` to a terminal server state for the same toolCallId.
- * Never overwrites a client's newer terminal state with an older server one.
+ * Upgrades:
+ * - client `approval-responded` / `approval-requested` → any server terminal
+ * - client `output-denied` → server `output-available` / `output-error` only
+ *   (Stop raced a resume that already executed; never overwrite a true denial
+ *   when the server is also `output-denied`)
+ *
+ * Never overwrites other client terminals with an older server state.
  */
 export function reconcileClientToolStatesFromServer(
   clientMessages: UIMessage[],
@@ -65,14 +72,17 @@ export function reconcileClientToolStatesFromServer(
     let partsChanged = false
     const parts = (message.parts ?? []).map((part) => {
       if (!isToolPart(part) || !part.toolCallId) return part
-      if (
-        part.state !== 'approval-responded' &&
-        part.state !== 'approval-requested'
-      ) {
-        return part
-      }
       const serverPart = serverByCallId.get(part.toolCallId)
       if (!serverPart) return part
+
+      const canUpgradeStuck =
+        part.state === 'approval-responded' ||
+        part.state === 'approval-requested'
+      const serverState = String(serverPart.state ?? '')
+      const canUpgradeStopRace =
+        part.state === 'output-denied' && STOP_RACE_UPGRADEABLE.has(serverState)
+      if (!canUpgradeStuck && !canUpgradeStopRace) return part
+
       partsChanged = true
       changed = true
       return { ...part, ...serverPart } as typeof part

@@ -27,6 +27,10 @@ import {
 import type { ChatAction } from '@/lib/chat-actions/types'
 import { ChatMessageActions } from './ChatMessageActions'
 import { ConnectAppCard } from './ConnectAppCard'
+import {
+  type ChatMessageRowProps,
+  chatMessageRowPropsEqual,
+} from './chat-message-row-props'
 import { getMessageSegments } from './getMessageSegments'
 import {
   getMessageWindowSlice,
@@ -45,16 +49,9 @@ export interface ChatMessagesProps {
   onClickLike: (messageId: string) => void
   disliked: Record<string, boolean>
   onClickDislike: (messageId: string, comment?: string) => void
-  onApprove?: (
-    approvalId: string,
-    tool: import('./getMessageSegments').ToolInvocationInfo,
-    args: Record<string, unknown>,
-  ) => void
-  onDeny?: (approvalId: string) => void
-  onPromote?: (
-    tool: import('./getMessageSegments').ToolInvocationInfo,
-    args: Record<string, unknown>,
-  ) => void | Promise<void>
+  onApprove?: ChatMessageRowProps['onApprove']
+  onDeny?: ChatMessageRowProps['onDeny']
+  onPromote?: ChatMessageRowProps['onPromote']
 }
 
 function findScrollParent(el: HTMLElement | null): HTMLElement | null {
@@ -73,34 +70,6 @@ function findScrollParent(el: HTMLElement | null): HTMLElement | null {
   return document.scrollingElement instanceof HTMLElement
     ? document.scrollingElement
     : null
-}
-
-interface ChatMessageRowProps {
-  message: UIMessage
-  isLastMessage: boolean
-  isStreaming: boolean
-  action?: ChatAction
-  liked: boolean
-  disliked: boolean
-  onClickLike: (messageId: string) => void
-  onClickDislike: (messageId: string, comment?: string) => void
-  onApprove?: ChatMessagesProps['onApprove']
-  onDeny?: ChatMessagesProps['onDeny']
-  onPromote?: ChatMessagesProps['onPromote']
-}
-
-function chatMessageRowPropsEqual(
-  prev: ChatMessageRowProps,
-  next: ChatMessageRowProps,
-): boolean {
-  return (
-    prev.message === next.message &&
-    prev.isLastMessage === next.isLastMessage &&
-    prev.isStreaming === next.isStreaming &&
-    prev.action === next.action &&
-    prev.liked === next.liked &&
-    prev.disliked === next.disliked
-  )
 }
 
 const ChatMessageRow = memo(function ChatMessageRow({

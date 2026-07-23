@@ -23,7 +23,9 @@ import {
   trustPinsStorage,
 } from '@/lib/trust/trust-pins-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
+import { deriveApprovalCardPhase } from '@/modules/chat/approval-card-phase'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
+import { hasPendingToolApprovals } from '@/modules/chat/collect-tool-approval-responses'
 import type { ToolInvocationInfo } from './getMessageSegments'
 
 function extractOutputText(output: unknown): string {
@@ -101,7 +103,13 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   onDeny,
   onPromote,
 }) => {
-  const { conversationId, selectedProvider, status } = useChatSessionContext()
+  const {
+    conversationId,
+    selectedProvider,
+    status,
+    messages,
+    approvalResumeInFlight,
+  } = useChatSessionContext()
   const [workspaceRoot, setWorkspaceRoot] = useState<string | undefined>()
   const [activeTabUrl, setActiveTabUrl] = useState<string | undefined>()
   // `deriveClass` reads `workspaceRoot`/`activeTab.url` — both start
@@ -110,7 +118,8 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   // cannot pin the wrong (default) class against a call that would
   // actually have derived a different one once real context loaded.
   const [contextReady, setContextReady] = useState(false)
-  const resumeInFlight = status === 'submitted' || status === 'streaming'
+  const resumeInFlight =
+    approvalResumeInFlight || status === 'submitted' || status === 'streaming'
 
   useEffect(() => {
     let cancelled = false
@@ -209,15 +218,19 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   }
 
   const preview = extractOutputText(tool.output)
-  const waitingApproval = tool.state === 'approval-requested'
-  const dryRun = tool.state === 'output-available' && isDryRunPreview(tool)
-  // `approval-responded` means the user already clicked Approve/Deny.
-  // While the resume request is in flight that is the *normal* state — not
-  // a failure. Only treat it as failed once chat is idle again and the
-  // part still hasn't moved to a terminal state (stream drop / desync).
-  const approvalResponded = tool.state === 'approval-responded'
-  const resumePending = approvalResponded && resumeInFlight
-  const resumeFailed = approvalResponded && !resumeInFlight
+  const phase = deriveApprovalCardPhase({
+    toolState: tool.state,
+    approved: tool.approval?.approved,
+    chatStatus: status,
+    approvalResumeInFlight,
+    hasPendingSiblingApprovals: hasPendingToolApprovals(messages),
+    isDryRun: tool.state === 'output-available' && isDryRunPreview(tool),
+  })
+  const waitingApproval = phase === 'waiting'
+  const dryRun = phase === 'dry-run'
+  const waitingSiblings = phase === 'waiting-siblings'
+  const resumePending = phase === 'resume-pending'
+  const resumeFailed = phase === 'resume-failed'
 
   const handleAllowAlways = async () => {
     if (!contextReady || !isPinnable || !consequenceClass) return
@@ -257,7 +270,13 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
         )
       : '')
 
-  if (!waitingApproval && !dryRun && !resumePending && !resumeFailed) {
+  if (
+    !waitingApproval &&
+    !dryRun &&
+    !waitingSiblings &&
+    !resumePending &&
+    !resumeFailed
+  ) {
     return null
   }
 
@@ -294,7 +313,9 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   }
 
   const handleApprove = () => {
-    if (resumeInFlight) return
+    // Still-pending cards must stay clickable while siblings wait. Only block
+    // Retry (already approval-responded) when a resume is actually in flight.
+    if (resumeInFlight && tool.state !== 'approval-requested') return
     const id = tool.approval?.id
     if (!id) return
     const args = resolveArgs()
@@ -308,11 +329,25 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
     void onPromote?.(tool, args)
   }
 
+  if (waitingSiblings) {
+    return (
+      <div className="agent-approval mt-2 text-sm">
+        <p className="text-muted-foreground text-xs">
+          {tool.approval?.approved === false
+            ? 'Denied — waiting for other approvals…'
+            : 'Waiting for other approvals…'}
+        </p>
+      </div>
+    )
+  }
+
   if (resumePending) {
     return (
       <div className="agent-approval mt-2 text-sm">
         <p className="text-muted-foreground text-xs">
-          Running the approved action…
+          {tool.approval?.approved === false
+            ? 'Submitting denial…'
+            : 'Running the approved action…'}
         </p>
       </div>
     )
@@ -322,8 +357,8 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
     return (
       <div className="agent-approval mt-2 text-sm">
         <p className="mb-3 text-muted-foreground text-xs">
-          This approval finished on the server but the chat UI did not update.
-          Retry to sync and run it again, or deny to drop it.
+          This approval may still need to sync with the server. Retry to sync or
+          resume, or Deny to drop it.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={handleApprove}>
