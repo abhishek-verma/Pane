@@ -1,9 +1,9 @@
 diff --git a/chrome/browser/ui/webui/browseros_welcome.h b/chrome/browser/ui/webui/browseros_welcome.h
 new file mode 100644
-index 0000000000000..89503c57538ad
+index 0000000000..e9c4bcd6cf
 --- /dev/null
 +++ b/chrome/browser/ui/webui/browseros_welcome.h
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,344 @@
 +#ifndef CHROME_BROWSER_UI_WEBUI_BROWSEROS_WELCOME_H_
 +#define CHROME_BROWSER_UI_WEBUI_BROWSEROS_WELCOME_H_
 +
@@ -194,6 +194,12 @@ index 0000000000000..89503c57538ad
 +</head>
 +<body>
 +<section class="hero">
++ <div style="display:flex;justify-content:center;align-items:center;gap:.55rem;margin-bottom:1rem;">
++  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="36" height="36" role="img" aria-label="Pane" style="color:#FB651F">
++   <path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
++  </svg>
++  <span style="font-weight:800;font-size:1.35rem;letter-spacing:-.02em;color:var(--text);">Pane<span style="display:inline-block;width:.32em;height:.32em;margin-left:.06em;margin-bottom:.14em;background:currentColor;vertical-align:bottom;"></span></span>
++ </div>
 + <h1>The Open Source <span class="accent">Agentic</span> <span class="accent">Browser</span></h1>
 + <p>Pane is an AI-powered browser that lets you build and run agents to automate tedious tasks. It looks like Chrome but reimagined for the AI era.</p>
 +</section>
@@ -235,7 +241,7 @@ index 0000000000000..89503c57538ad
 +    Step 2: BYOK (Bring Your Own Keys)
 +   </h3>
 +   <p class="muted">You have full control over your AI models!</p>
-+   <p class="muted" style="margin-top:.35rem">Once setup completes (~1–2 min), visit <code>chrome://browseros/settings</code> to configure your API keys.</p>
++   <p class="muted" style="margin-top:.35rem">Once setup completes (~1–2 min), open Pane Settings from the sidebar to configure your API keys.</p>
 +   <div class="note">Note: You can even run everything locally using Ollama!</div>
 +  </div>
 + </div>
@@ -247,7 +253,7 @@ index 0000000000000..89503c57538ad
 +   </span>
 +   Step 3: All done!
 +  </div>
-+  <div class="muted" style="margin-top:.4rem">You're ready to use Pane, have fun! This page can be always accessed again at <a href="chrome://browseros-welcome"><code>chrome://browseros-welcome</code></a></div>
++  <div class="muted" style="margin-top:.4rem">You&rsquo;re ready to use Pane. Have fun!</div>
 + </div>
 +</section>
 +
@@ -314,24 +320,6 @@ index 0000000000000..89503c57538ad
 +    </svg>
 +   </span>
 +   GitHub
-+  </a>
-+  <a href="https://dub.sh/browserOS-slack">
-+   <span class="icon" aria-hidden="true">
-+    <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-+     <title>Slack</title>
-+     <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
-+    </svg>
-+   </span>
-+   Slack
-+  </a>
-+  <a href="https://x.com/browserOS_ai">
-+   <span class="icon" aria-hidden="true">
-+    <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-+     <title>X</title>
-+     <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/>
-+    </svg>
-+   </span>
-+   Twitter
 +  </a>
 + </p>
 + <p class="subtle" style="text-align:center;">Have questions or want to contribute? We'd love to hear from you.</p>

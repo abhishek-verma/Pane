@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000..70ad8710a3
 --- /dev/null
 +++ b/chrome/browser/browseros/extensions/browseros_extension_loader.cc
-@@ -0,0 +1,269 @@
+@@ -0,0 +1,264 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -30,12 +30,6 @@ index 0000000000..70ad8710a3
 +#include "extensions/common/verifier_formats.h"
 +
 +namespace browseros {
-+
-+namespace {
-+
-+constexpr base::TimeDelta kImmediateInstallDelay = base::Seconds(2);
-+
-+}  // namespace
 +
 +BrowserOSExtensionLoader::BrowserOSExtensionLoader(Profile* profile)
 +    : profile_(profile) {
@@ -144,19 +138,20 @@ index 0000000000..70ad8710a3
 +  LOG(INFO) << "browseros: Startup complete (from_bundled=" << from_bundled
 +            << ")";
 +
++  // Install on the next task so ExternalProvider can finish claiming prefs,
++  // but do not delay further. A multi-second wait let startup paint
++  // chrome://newtab before the agent NTP override existed.
 +  if (from_bundled) {
-+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
++    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
 +        FROM_HERE,
 +        base::BindOnce(
 +            &BrowserOSExtensionLoader::InstallBundledExtensionsNow,
-+            weak_ptr_factory_.GetWeakPtr()),
-+        kImmediateInstallDelay);
++            weak_ptr_factory_.GetWeakPtr()));
 +  } else {
-+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
++    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
 +        FROM_HERE,
 +        base::BindOnce(&BrowserOSExtensionLoader::InstallRemoteExtensionsNow,
-+                       weak_ptr_factory_.GetWeakPtr(), last_config_.Clone()),
-+        kImmediateInstallDelay);
++                       weak_ptr_factory_.GetWeakPtr(), last_config_.Clone()));
 +  }
 +
 +  // Maintainer owns the config now

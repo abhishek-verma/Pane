@@ -35,13 +35,13 @@ export const AboutSettingsPage: FC = () => {
                 <span>GitHub Repository</span>
               </a>
               <a
-                href="https://browseros.com"
+                href={productRepositoryUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 font-medium text-[var(--accent-orange)] hover:underline"
               >
                 <Globe className="size-4" />
-                <span>Official Website</span>
+                <span>Project home</span>
               </a>
             </div>
           </div>
