@@ -572,11 +572,21 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const [approvalResumeInFlight, setApprovalResumeInFlight] = useState(false)
   const prevStatusRef = useRef(status)
   useEffect(() => {
-    // Once the SDK actually starts the resume (or the turn errors out
-    // without resuming — e.g. more approvals are still pending), `status`
-    // itself takes over as the busy signal.
-    if (status !== 'ready') setApprovalResumeInFlight(false)
-  }, [status])
+    // Once the SDK actually starts the resume, `status` takes over as the
+    // busy signal.
+    if (status !== 'ready') {
+      setApprovalResumeInFlight(false)
+      return
+    }
+    // sendAutomaticallyWhen withholds the resume while any sibling tool is
+    // still approval-requested, so status stays 'ready' after the first
+    // Approve/Deny. Clear the flag in that case or the remaining cards
+    // silently no-op (approveTool/denyTool early-return) and canSend stays
+    // false until reload.
+    if (approvalResumeInFlight && hasPendingToolApprovals(messages)) {
+      setApprovalResumeInFlight(false)
+    }
+  }, [status, messages, approvalResumeInFlight])
 
   // After an approval resume finishes, the SSE merge can leave local parts
   // stuck at `approval-responded` even though the server already executed
