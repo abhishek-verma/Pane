@@ -1223,6 +1223,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     selectedProvider,
     isLoading: isLoadingProviders || isLoadingAgentUrl,
     canSend,
+    approvalResumeInFlight,
     isSyncing: !isIntegrationsSynced,
     isRestoringConversation,
     agentUrlError,
