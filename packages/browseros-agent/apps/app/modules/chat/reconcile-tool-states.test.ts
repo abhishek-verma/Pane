@@ -154,6 +154,7 @@ describe('hasApprovalRespondedParts', () => {
               toolCallId: 'c1',
               state: 'output-available',
               input: {},
+              output: 'ok',
             },
           ],
         },
