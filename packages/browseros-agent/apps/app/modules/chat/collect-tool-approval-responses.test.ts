@@ -3,6 +3,7 @@ import type { UIMessage } from 'ai'
 import {
   collectToolApprovalResponses,
   hasPendingToolApprovals,
+  hasPendingToolApprovalsExcluding,
   settleApprovalRequestedOnlyInMessages,
   settleUnresolvedToolApprovalsInMessages,
 } from './collect-tool-approval-responses'
@@ -64,6 +65,63 @@ describe('collectToolApprovalResponses', () => {
         input: { path: 'hello.txt', content: 'hi' },
       },
     ])
+  })
+})
+
+describe('hasPendingToolApprovalsExcluding', () => {
+  const twoPending: UIMessage[] = [
+    {
+      id: 'asst-1',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'tool-filesystem_write',
+          toolCallId: 'call-a',
+          state: 'approval-requested',
+          input: { path: 'a.txt' },
+          approval: { id: 'approval-a' },
+        },
+        {
+          type: 'tool-filesystem_write',
+          toolCallId: 'call-b',
+          state: 'approval-requested',
+          input: { path: 'b.txt' },
+          approval: { id: 'approval-b' },
+        },
+      ],
+    },
+  ]
+
+  test('reports siblings still pending when excluding the card being answered', () => {
+    expect(hasPendingToolApprovalsExcluding(twoPending, 'call-a')).toBe(true)
+    expect(hasPendingToolApprovalsExcluding(twoPending, 'call-b')).toBe(true)
+  })
+
+  test('false when the excluded id is the only remaining pending approval', () => {
+    const oneLeft: UIMessage[] = [
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-filesystem_write',
+            toolCallId: 'call-a',
+            state: 'approval-responded',
+            input: { path: 'a.txt' },
+            approval: { id: 'approval-a', approved: true },
+          },
+          {
+            type: 'tool-filesystem_write',
+            toolCallId: 'call-b',
+            state: 'approval-requested',
+            input: { path: 'b.txt' },
+            approval: { id: 'approval-b' },
+          },
+        ],
+      },
+    ]
+    expect(hasPendingToolApprovalsExcluding(oneLeft, 'call-b')).toBe(false)
+    expect(hasPendingToolApprovalsExcluding(oneLeft, 'call-a')).toBe(true)
   })
 })
 

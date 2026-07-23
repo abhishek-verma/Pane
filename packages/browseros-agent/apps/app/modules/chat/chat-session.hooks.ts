@@ -62,6 +62,7 @@ import type { ChatMode } from './chat-types'
 import {
   collectToolApprovalResponses,
   hasPendingToolApprovals,
+  hasPendingToolApprovalsExcluding,
 } from './collect-tool-approval-responses'
 import { addContentFilterNotice } from './content-filter-notice'
 import { useExecutionHistoryTracker } from './execution-history-tracker.hooks'
@@ -570,6 +571,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // mutating the same transcript. This flag closes that window; the server
   // mutex is the second line of defense if it is ever missed.
   const [approvalResumeInFlight, setApprovalResumeInFlight] = useState(false)
+  // Ref so Approve/Deny handlers always read the live gate even if a memoized
+  // message row still holds a stale callback identity from a prior render.
+  const approvalResumeInFlightRef = useRef(false)
+  approvalResumeInFlightRef.current = approvalResumeInFlight
   const prevStatusRef = useRef(status)
   useEffect(() => {
     // Once the SDK actually starts the resume, `status` takes over as the
@@ -743,9 +748,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           return
         }
 
-        // A saved transcript can carry approval/tool parts left mid-flight
-        // by a stream that was interrupted before it was ever persisted.
-        const preparedMessages = prepareMessagesForClientTurn(restoredMessages)
+        // History restore must not force-deny already-answered approvals.
+        // Default settle turns stop-raced `approval-responded` into a false
+        // `output-denied` even when the tool side effect already ran.
+        const preparedMessages = prepareMessagesForClientTurn(
+          restoredMessages,
+          { settleApprovals: false },
+        )
         setConversationId(
           conversationIdParam as ReturnType<typeof crypto.randomUUID>,
         )
@@ -783,7 +792,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         setConversationId(
           conversation.id as ReturnType<typeof crypto.randomUUID>,
         )
-        setMessages(prepareMessagesForClientTurn(safeMessages))
+        setMessages(
+          prepareMessagesForClientTurn(safeMessages, {
+            settleApprovals: false,
+          }),
+        )
         setRestoredConversationId(conversationIdParam)
         setSearchParams({}, { replace: true })
       } catch (error) {
@@ -1158,7 +1171,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       // A second Approve/Retry while a resume is already in flight aborts the
       // first SSE stream in useChat, which is exactly how local parts get
       // stuck at approval-responded after the server already finished.
-      if (approvalResumeInFlight) return
+      if (approvalResumeInFlightRef.current) return
 
       // Retry path: the part is already approval-responded. Prefer syncing
       // from the server first — often the action already ran and only the
@@ -1210,19 +1223,44 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           patchToolInvocationInput(current, tool.toolCallId, args),
         )
       }
-      setApprovalResumeInFlight(true)
+      // Arm the resume gate only when this answer unblocks sendAutomaticallyWhen.
+      // Answering the first of N siblings must not leave the flag true while
+      // status stays 'ready' — that stuck a memoized Approve handler as a no-op.
+      if (
+        !hasPendingToolApprovalsExcluding(messagesRef.current, tool.toolCallId)
+      ) {
+        setApprovalResumeInFlight(true)
+      }
       addToolApprovalResponse?.({ id: approvalId, approved: true })
     },
-    [addToolApprovalResponse, setMessages, approvalResumeInFlight],
+    [addToolApprovalResponse, setMessages],
   )
 
   const denyTool = useCallback(
     (approvalId: string) => {
-      if (approvalResumeInFlight) return
-      setApprovalResumeInFlight(true)
+      if (approvalResumeInFlightRef.current) return
+      let toolCallId: string | undefined
+      for (const message of messagesRef.current) {
+        if (message.role !== 'assistant') continue
+        for (const part of message.parts ?? []) {
+          if (
+            part &&
+            typeof part === 'object' &&
+            'approval' in part &&
+            (part as { approval?: { id?: string } }).approval?.id ===
+              approvalId &&
+            'toolCallId' in part
+          ) {
+            toolCallId = (part as { toolCallId?: string }).toolCallId
+          }
+        }
+      }
+      if (!hasPendingToolApprovalsExcluding(messagesRef.current, toolCallId)) {
+        setApprovalResumeInFlight(true)
+      }
       addToolApprovalResponse?.({ id: approvalId, approved: false })
     },
-    [addToolApprovalResponse, approvalResumeInFlight],
+    [addToolApprovalResponse],
   )
 
   const promoteTool = useCallback(

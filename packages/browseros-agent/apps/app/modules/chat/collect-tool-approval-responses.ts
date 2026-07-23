@@ -69,11 +69,27 @@ export function collectToolApprovalResponses(
 
 /** True when any assistant tool part is still waiting on Approve/Deny. */
 export function hasPendingToolApprovals(messages: UIMessage[]): boolean {
+  return hasPendingToolApprovalsExcluding(messages)
+}
+
+/**
+ * True when some other tool (not `excludeToolCallId`) is still
+ * `approval-requested`. Used so answering the first sibling does not arm the
+ * resume-in-flight gate while `sendAutomaticallyWhen` is still withholding.
+ */
+export function hasPendingToolApprovalsExcluding(
+  messages: UIMessage[],
+  excludeToolCallId?: string,
+): boolean {
   for (const message of messages) {
     if (message.role !== 'assistant') continue
     for (const part of message.parts ?? []) {
       if (!isToolPart(part)) continue
-      if (part.state === 'approval-requested' && part.approval?.id) return true
+      if (part.state !== 'approval-requested' || !part.approval?.id) continue
+      if (excludeToolCallId && part.toolCallId === excludeToolCallId) {
+        continue
+      }
+      return true
     }
   }
   return false

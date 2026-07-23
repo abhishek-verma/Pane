@@ -313,7 +313,9 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   }
 
   const handleApprove = () => {
-    if (resumeInFlight) return
+    // Still-pending cards must stay clickable while siblings wait. Only block
+    // Retry (already approval-responded) when a resume is actually in flight.
+    if (resumeInFlight && tool.state !== 'approval-requested') return
     const id = tool.approval?.id
     if (!id) return
     const args = resolveArgs()
