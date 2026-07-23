@@ -1,14 +1,16 @@
 import {
   ArrowDown,
   ArrowRight,
+  BookOpen,
   Bot,
-  CalendarClock,
-  Code2,
+  Brain,
   FolderOpen,
-  KeyRound,
+  Home,
   LinkIcon,
   Lock,
+  Mic,
   Plug,
+  Sparkles,
 } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import DiscordLogo from '@/assets/discord-logo.svg'
@@ -19,11 +21,9 @@ import { PillIndicator } from '@/components/elements/pill-indicator'
 import { Button } from '@/components/ui/button'
 import {
   AGENT_MODE_DEMO_URL,
-  AGENTIC_CODING_DEMO_URL,
   COWORK_DEMO_URL,
   MCP_SERVER_DEMO_URL,
   PANE_INTRO_VIDEO_URL,
-  SCHEDULED_TASKS_DEMO_URL,
 } from '@/lib/constants/mediaUrls'
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from '@/lib/constants/product'
 import {
@@ -35,21 +35,111 @@ import { cn } from '@/lib/utils'
 import { BentoCard, type Feature } from './BentoCard'
 import { VideoFrame } from './VideoFrame'
 
-const features: Feature[] = [
+/** Pane-only capabilities — the reason the fork exists. */
+const uniqueFeatures: Feature[] = [
+  {
+    id: 'learning-loop',
+    Icon: Brain,
+    tag: 'ONLY IN PANE',
+    title: 'Gets smarter from how you work',
+    description:
+      'Pane watches real browsing, files, and terminal activity (with consent) and turns repeat work into memory and skills — not just chat transcripts.',
+    detailedDescription:
+      'Most agents only remember what you typed into a chat. Pane learns from what you actually did: the dashboard you open every Monday, the export path you always take, the conventions in your repo. Facts land in plain local files (SOUL.md, USER.md, MEMORY.md). Repeated workflows become staged skills you can approve. Nothing auto-activates without you. The loop runs on your machine — no Pane cloud required.',
+    highlights: [
+      'Activity-grounded memory — from browsing and work, not only conversation',
+      'Auto-proposed skills from workflows you repeat',
+      'Staged for your review — you approve before a skill goes live',
+      'Open files you can read, edit, and delete anytime',
+    ],
+    gridClass: 'md:col-span-2',
+  },
+  {
+    id: 'meeting-capture',
+    Icon: Mic,
+    tag: 'ONLY IN PANE',
+    title: 'Meeting notes without a bot',
+    description:
+      'Meet, Zoom, or Teams in a tab? Pane records and transcribes locally. No Otter bot joining the call. No vendor cloud recording.',
+    detailedDescription:
+      'Because Pane is the browser, web meetings already live in a tab. Capture tab audio (and your mic if you allow it), transcribe on-device with a local speech model, and file notes in a meeting bucket the agent can recall later. Per-domain consent, a visible recording indicator, one click to stop or delete. Optional BYOK to a provider transcription API if you want speed — never through a Pane server.',
+    highlights: [
+      'Native tab capture — no third-party bot in the meeting',
+      'Local transcription by default (faster-whisper class)',
+      'Summaries, decisions, and action items on your machine',
+      'Ask later: "what did we decide about X last week?"',
+    ],
+    gridClass: 'md:col-span-1',
+  },
+  {
+    id: 'browsing-learnings',
+    Icon: BookOpen,
+    tag: 'ONLY IN PANE',
+    title: 'Research that survives the tab close',
+    description:
+      'Opt in and Pane threads the pages you open toward a question — quotes, sources, and a chain you can turn into an outline later.',
+    detailedDescription:
+      'Research is multi-tab and multi-day. Pane’s research bucket records the chain of pages (not a flat history), keeps verbatim quotes for citable retrieval, and lets you ask for a lit review or outline with links back to the source tabs. Broader browsing learnings can extract facts and workflow fragments from domains you allow. Everything is off by default, pauseable, and scoped into buckets so work does not bleed into personal life.',
+    highlights: [
+      'Research threads with source URLs and timestamps',
+      'Verbatim quotes so claims stay citable',
+      'Browsing learnings feed memory and skill proposals',
+      'Buckets: Work, Personal, Research, Meetings — separate scopes',
+    ],
+    gridClass: 'md:col-span-1',
+  },
+  {
+    id: 'adaptive-home',
+    Icon: Home,
+    tag: 'ONLY IN PANE',
+    title: 'A homepage that becomes yours',
+    description:
+      'New tab is not a static link grid. Widgets for tasks, captures, skills, and digests — including ones Pane proposes from how you work.',
+    detailedDescription:
+      'Pane’s home evolves with your rhythms. Built-in templates cover open tasks, pending approvals, next scheduled run, active research, and a daily digest. Create custom widgets in natural language. Accept or dismiss agent-proposed ones. Unused widgets demote themselves so the page stays calm. The same local context graph that powers memory and capture powers what shows up when you open a tab.',
+    highlights: [
+      'Widgets bound to tasks, capture, skills, and your graph',
+      'Agent-proposed widgets you can accept or dismiss',
+      'Create your own with a plain-language request',
+      'Demotes stale widgets so home stays useful',
+    ],
+    gridClass: 'md:col-span-2',
+  },
+  {
+    id: 'soul',
+    Icon: Sparkles,
+    tag: 'ONLY IN PANE',
+    title: 'A browser with a soul',
+    description:
+      'Chief of staff, job-search partner, research buddy — Pane’s persona lives in SOUL.md and can shift with your context bucket.',
+    detailedDescription:
+      'SOUL.md is who Pane is for you right now: role, voice, boundaries. Onboarding seeds a persona from what you want Pane for first. You can edit the file anytime, or let Pane propose a shift when your life changes (for example, switching into job-search mode). Persona can follow the active bucket so work Pane and personal Pane stay distinct — still plain text on disk, never a hidden cloud profile.',
+    highlights: [
+      'Personas seeded from onboarding ICP',
+      'Editable SOUL.md — inspectable, not a black box',
+      'Shifts with Work vs Personal buckets',
+      'Same agent, different roles when you need them',
+    ],
+    gridClass: 'md:col-span-3',
+  },
+]
+
+/** Shared substrate (also in BrowserOS) — still useful, secondary on this page. */
+const foundationFeatures: Feature[] = [
   {
     id: 'mcp-server',
     Icon: Plug,
-    tag: 'DEV WEDGE',
+    tag: 'MCP',
     title: "Your coding agent's real browser",
     description:
-      'Point Claude Code, Cursor, or Gemini CLI at Pane. One MCP URL. Your real session — localhost, logins, console — not a fake WebDriver tab.',
+      'Point Claude Code or Cursor at Pane. One MCP URL. Localhost, logins, console — your real session.',
     detailedDescription:
-      'Pane ships a built-in MCP server so AI coding agents drive the same browser you already use. Open tabs, click, type, screenshot, read the page, and pull console errors through natural language. No separate debug profile. No headless stand-in. Copy the URL from Settings → Pane as MCP and connect in one line.',
+      'Pane ships a built-in MCP server so coding agents drive the browser you already use. Open tabs, click, type, screenshot, read the page, pull console errors. No separate debug profile. Copy the URL from Settings → Pane as MCP and connect in one line.',
     highlights: [
-      'One-line setup — `claude mcp add pane <url>` from Settings',
-      'Real session — localhost, authenticated apps, your extensions',
-      'Works with Claude Code, Cursor, Gemini CLI, Codex, and more',
-      'Browser tools plus workspace access when you grant a folder',
+      'One-line setup from Settings',
+      'Real session — not a fake WebDriver tab',
+      'Works with Claude Code, Cursor, Gemini CLI, Codex',
+      'Pairs with workspace access when you grant a folder',
     ],
     gridClass: 'md:col-span-2',
     videoUrl: MCP_SERVER_DEMO_URL,
@@ -62,12 +152,12 @@ const features: Feature[] = [
     description:
       'Describe a task. Pane clicks, types, and navigates in the tabs you already have open.',
     detailedDescription:
-      'Chat about the page you are on, or hand the agent a multi-step job. It works in your real browser session — the same logins, the same localhost, the same cookies. Everything stays on your machine. You bring the model (API key, OAuth subscription, or local).',
+      'Chat about the page you are on, or hand the agent a multi-step job in your real session. You bring the model — API key, OAuth subscription, or local. No Pane account. No credits meter.',
     highlights: [
       'Chat grounded in the current page',
-      'Multi-step browser tasks — navigate, fill forms, extract data',
-      'Runs locally with your own model credentials',
-      'Pick up recent conversations from the Pane panel',
+      'Multi-step browser automation',
+      'Your models, your keys',
+      'Scheduled tasks run the same agent locally',
     ],
     gridClass: 'md:col-span-1',
     videoUrl: AGENT_MODE_DEMO_URL,
@@ -76,72 +166,19 @@ const features: Feature[] = [
     id: 'cowork',
     Icon: FolderOpen,
     tag: 'WORKSPACE',
-    title: 'Cowork: web + files + terminal',
+    title: 'Web + files + terminal',
     description:
-      'Grant a folder. Research on the web, then write the report to disk — or run a command in that workspace.',
+      'Grant a folder. Research online, write the report to disk, run a command — sandboxed to what you allowed.',
     detailedDescription:
-      'Cowork lets the agent read and write files and run shell commands inside a folder you choose. Scrape a page and save a spreadsheet. Draft a markdown brief from a research thread. The agent is sandboxed to that folder and cannot touch the rest of your machine without another grant.',
+      'Cowork lets the agent read and write files and run shell commands inside a folder you choose. Browser and machine in one loop. Sandboxed to that folder.',
     highlights: [
-      'Read and write reports, spreadsheets, and markdown',
-      'Run shell commands inside the granted folder',
-      'Browser and local files in one task loop',
-      'Sandboxed to the folder you select',
+      'Read and write local files',
+      'Shell inside the granted folder',
+      'Browser and disk in one task',
+      'You pick the sandbox boundary',
     ],
-    gridClass: 'md:col-span-1',
+    gridClass: 'md:col-span-2',
     videoUrl: COWORK_DEMO_URL,
-  },
-  {
-    id: 'agentic-coding',
-    Icon: Code2,
-    tag: 'DEV',
-    title: 'Test, read errors, fix',
-    description:
-      'Claude Code opens your localhost app in Pane, finds the bug, and patches the code in one loop.',
-    detailedDescription:
-      'The developer loop Pane is built for: connect your coding agent, open the app you are shipping, reproduce the issue, read console and network failures, then fix the code without copy-pasting between terminal and browser. Same session you dogfood in. No separate automation browser.',
-    highlights: [
-      'Reproduce UI bugs in your real session',
-      'Console and network errors available to the agent',
-      'Screenshots when visual context helps',
-      'Browser, repo, and shell as one workflow',
-    ],
-    gridClass: 'md:col-span-2',
-    videoUrl: AGENTIC_CODING_DEMO_URL,
-  },
-  {
-    id: 'your-models',
-    Icon: KeyRound,
-    tag: 'MODELS',
-    title: 'Your models, your keys',
-    description:
-      'API key, ChatGPT Pro / Copilot / Qwen OAuth, or Ollama on your machine. No Pane account. No credits meter.',
-    detailedDescription:
-      'Pane does not force a hosted model or a Pane login. Connect the provider you already pay for, paste an API key, or point at a local runtime. Chat works well with lighter and local models. Agent mode wants a strong reasoning model — Claude Sonnet or Opus are good defaults.',
-    highlights: [
-      'OAuth for ChatGPT Pro, GitHub Copilot, and Qwen',
-      'Bring your own API keys for major providers',
-      'Local models via Ollama or LM Studio for Chat',
-      'No required Pane account or hosted credits',
-    ],
-    gridClass: 'md:col-span-2',
-  },
-  {
-    id: 'scheduled-tasks',
-    Icon: CalendarClock,
-    tag: 'AUTOMATION',
-    title: 'Scheduled tasks, local',
-    description:
-      'Write a prompt once, set a cadence, and let the agent run it again — on your machine, not a Pane cloud cron.',
-    detailedDescription:
-      'Scheduled Tasks reuse the same agent that runs in your session. Daily briefings, recurring research pulls, or a Monday competitor scan — store the prompt, pick an interval, and Pane fires it when the browser is open. If the laptop was asleep, the task runs when you open Pane again.',
-    highlights: [
-      'Minute, hourly, or daily schedules',
-      'Same agent tools as interactive chat',
-      'Runs locally via the browser alarm system',
-      'Catch up when Pane opens after sleep',
-    ],
-    gridClass: 'md:col-span-1',
-    videoUrl: SCHEDULED_TASKS_DEMO_URL,
   },
   {
     id: 'local-first',
@@ -149,20 +186,22 @@ const features: Feature[] = [
     tag: 'TRUST',
     title: 'Local-first by design',
     description:
-      'Open source. Your browsing and agent work stay on your machine. No Pane servers required to use the product.',
+      'Open source. Capture, memory, and agent work stay on your machine. No Pane servers required.',
     detailedDescription:
-      'Pane is a Chromium fork under AGPL-3.0. Cloud sync, hosted inference, and usage metering from the upstream BrowserOS product are off in Pane builds. You can daily-drive it: import from Chrome, keep extensions, use vertical tabs, and run full uBlock Origin. The long game is memory, capture, and a browser that becomes yours — still local-first.',
+      'Pane is AGPL-3.0. Upstream BrowserOS cloud surfaces — sync, hosted inference, credits — are off in Pane builds. Consent for capture is off by default. Memory and skills are plain files. Import Chrome, keep extensions, use vertical tabs and full uBlock Origin.',
     highlights: [
       'No Pane account required',
-      'No Pane-operated cloud for core features',
-      'Chrome import, extensions, vertical tabs, ad blocking',
-      'Roadmap: memory, capture, adaptive home — on your machine',
+      'Capture and memory stay local',
+      'Consent off by default, per-domain controls',
+      'Chrome import, extensions, daily-driver Chromium',
     ],
-    gridClass: 'md:col-span-3',
+    gridClass: 'md:col-span-1',
   },
 ]
 
-const hasAnyFeatureMedia = features.some(
+const allFeatures = [...uniqueFeatures, ...foundationFeatures]
+
+const hasAnyFeatureMedia = allFeatures.some(
   (feature) => feature.videoUrl || feature.gifUrl,
 )
 
@@ -227,9 +266,9 @@ export const FeaturesPage: FC = () => {
                     mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
                   )}
                 >
-                  Why switch to{' '}
+                  A browser that{' '}
                   <span className="text-[var(--accent-orange)]">
-                    {PRODUCT_NAME}?
+                    becomes yours
                   </span>
                 </h1>
                 <p
@@ -241,9 +280,9 @@ export const FeaturesPage: FC = () => {
                       : 'translate-y-4 opacity-0',
                   )}
                 >
-                  An open-source browser where the agent is native to your
-                  session. Your tabs, your files, your models. No Pane account.
-                  No Pane cloud.
+                  Pane is not another chat sidebar. It learns from how you work,
+                  captures meetings in the tab (no bot), and keeps memory on
+                  your machine — beyond what a generic agentic browser offers.
                 </p>
               </div>
             </div>
@@ -281,16 +320,16 @@ export const FeaturesPage: FC = () => {
               >
                 {[
                   {
-                    title: 'Agent in the browser',
-                    body: 'Not a sidebar glued onto Chrome. Not a remote daemon.',
+                    title: 'Learns continuously',
+                    body: 'Memory and skills from real activity, not only chat.',
                   },
                   {
-                    title: 'Developer wedge',
-                    body: 'MCP for Claude Code and Cursor against your real session.',
+                    title: 'Captures natively',
+                    body: 'Meetings and research in-tab — no Otter, no extra app.',
                   },
                   {
-                    title: 'Local-complete',
-                    body: 'BYOK, cowork, schedules — without Pane servers.',
+                    title: 'Stays local',
+                    body: 'No Pane account. No Pane cloud for core features.',
                   },
                 ].map((item) => (
                   <div key={item.title} className="space-y-1.5">
@@ -324,26 +363,56 @@ export const FeaturesPage: FC = () => {
       <section className="mx-auto max-w-7xl px-6 py-16 md:py-20">
         <div className="mb-12 space-y-3 text-center">
           <p className="font-semibold text-muted-foreground text-xs uppercase tracking-widest">
-            FEATURES
+            WHY PANE
           </p>
           <h2 className="font-bold text-3xl tracking-tight md:text-4xl">
-            What you can use{' '}
-            <span className="text-[var(--accent-orange)]">today</span>
+            What only <span className="text-[var(--accent-orange)]">Pane</span>{' '}
+            does
           </h2>
           <p className="mx-auto max-w-2xl text-muted-foreground">
-            The foundation that ships now. Memory, capture, and a browser that
-            becomes yours over time are what we are building next.
+            These are the capabilities that need the agent to <em>be</em> the
+            browser — continuous learning, native capture, and a home that
+            compounds with you.
           </p>
         </div>
 
         {mounted && (
           <div className="grid gap-4 md:grid-cols-3">
-            {features.map((feature, index) => (
+            {uniqueFeatures.map((feature, index) => (
               <BentoCard
                 key={feature.id}
                 feature={feature}
                 mounted={mounted}
                 index={index}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mx-auto max-w-7xl border-border/40 border-t px-6 py-16 md:py-20">
+        <div className="mb-12 space-y-3 text-center">
+          <p className="font-semibold text-muted-foreground text-xs uppercase tracking-widest">
+            ALSO SHIPS
+          </p>
+          <h2 className="font-bold text-3xl tracking-tight md:text-4xl">
+            Agent, MCP, and workspace{' '}
+            <span className="text-[var(--accent-orange)]">foundation</span>
+          </h2>
+          <p className="mx-auto max-w-2xl text-muted-foreground">
+            The daily-driver substrate: drive your real browser from Claude
+            Code, automate tasks, grant a folder, bring your own model.
+          </p>
+        </div>
+
+        {mounted && (
+          <div className="grid gap-4 md:grid-cols-3">
+            {foundationFeatures.map((feature, index) => (
+              <BentoCard
+                key={feature.id}
+                feature={feature}
+                mounted={mounted}
+                index={index + uniqueFeatures.length}
               />
             ))}
           </div>
