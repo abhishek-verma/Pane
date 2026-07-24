@@ -1,5 +1,6 @@
-import { beforeAll, describe, expect, it, mock } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { ChatActiveTurnInfo } from '@/lib/conversations/chat-turn-api'
+import * as realChatTurnApi from '@/lib/conversations/chat-turn-api'
 
 const fetchActiveChatTurn = mock(
   async (): Promise<ChatActiveTurnInfo | null> => null,
@@ -8,26 +9,29 @@ const cancelChatTurn = mock(async () => ({ cancelled: true }))
 const attachChatTurnStream = mock(async () => {})
 
 mock.module('@/lib/conversations/chat-turn-api', () => ({
+  ...realChatTurnApi,
   fetchActiveChatTurn,
   cancelChatTurn,
   attachChatTurnStream,
 }))
 
-mock.module('@/lib/browseros/agent-fetch', () => ({
-  agentFetch: mock(async () => new Response('{}')),
-}))
-
-mock.module('@/lib/browseros/helpers', () => ({
-  getAgentServerUrl: mock(async () => 'http://127.0.0.1:9200'),
-}))
-
 const { ChatTurnController } = await import('./chat-turn-controller')
 
+afterAll(() => {
+  mock.restore()
+  // mock.restore() does not always clear mock.module; re-bind the real module
+  // so later suites are not poisoned by incomplete named-export mocks.
+  mock.module('@/lib/conversations/chat-turn-api', () => realChatTurnApi)
+})
+
 describe('ChatTurnController', () => {
-  beforeAll(() => {
-    fetchActiveChatTurn.mockClear()
-    cancelChatTurn.mockClear()
-    attachChatTurnStream.mockClear()
+  beforeEach(() => {
+    fetchActiveChatTurn.mockReset()
+    fetchActiveChatTurn.mockImplementation(async () => null)
+    cancelChatTurn.mockReset()
+    cancelChatTurn.mockImplementation(async () => ({ cancelled: true }))
+    attachChatTurnStream.mockReset()
+    attachChatTurnStream.mockImplementation(async () => {})
   })
 
   it('noteStartedTurn marks the turn active', () => {
@@ -73,7 +77,6 @@ describe('ChatTurnController', () => {
       prompt: null,
       truncated: false,
     }))
-    attachChatTurnStream.mockClear()
     const controller = new ChatTurnController()
     const ok = await controller.restoreAndAttach({
       conversationId: 'conv-9',
