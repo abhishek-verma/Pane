@@ -114,7 +114,7 @@ export class ChatTurnController {
   }): Promise<boolean> {
     this.setConversationId(input.conversationId)
     const active = await fetchActiveChatTurn(input.conversationId)
-    if (!active || active.status !== 'running') {
+    if (active?.status !== 'running') {
       this.activeTurn = null
       this.emit()
       return false
@@ -128,7 +128,7 @@ export class ChatTurnController {
 
   /** Re-attach after switch-back when we already know the turn is running. */
   attachToCurrent(onMessages: (messages: UIMessage[]) => void): void {
-    if (!this.activeTurn || this.activeTurn.status !== 'running') return
+    if (this.activeTurn?.status !== 'running') return
     this.beginAttach(onMessages)
   }
 
@@ -164,18 +164,25 @@ export class ChatTurnController {
       })
   }
 
-  /** Poll /active while UI thinks it might still be running. */
+  /**
+   * Poll /active while UI thinks it might still be running.
+   * On probe failure, keep the prior liveness (do not false-unstick).
+   */
   async refreshActive(): Promise<boolean> {
     const conversationId = this.conversationId
     if (!conversationId) return false
-    const active = await fetchActiveChatTurn(conversationId)
-    if (!active || active.status !== 'running') {
-      this.activeTurn = null
+    try {
+      const active = await fetchActiveChatTurn(conversationId)
+      if (active?.status !== 'running') {
+        this.activeTurn = null
+        this.emit()
+        return false
+      }
+      this.activeTurn = active
       this.emit()
-      return false
+      return true
+    } catch {
+      return this.isTurnActive
     }
-    this.activeTurn = active
-    this.emit()
-    return true
   }
 }

@@ -21,6 +21,11 @@ export interface ChatActiveTurnInfo {
   truncated: boolean
 }
 
+/**
+ * Returns the live turn, or null when the server reports none.
+ * Throws on transport / non-OK responses so callers do not treat probe
+ * failures as "inactive" (which would false-unstick or clobber live UI).
+ */
 export async function fetchActiveChatTurn(
   conversationId: string,
   baseUrl?: string,
@@ -29,7 +34,9 @@ export async function fetchActiveChatTurn(
   const response = await agentFetch(
     `${url}/chat/${encodeURIComponent(conversationId)}/active`,
   )
-  if (!response.ok) return null
+  if (!response.ok) {
+    throw new Error(`Failed to fetch active chat turn (${response.status})`)
+  }
   const body = (await response.json()) as {
     active: ChatActiveTurnInfo | null
   }

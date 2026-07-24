@@ -587,10 +587,21 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         isAbort,
         isError,
       })
-      // Starter SSE ended (detach or finish). Refresh server liveness — if the
-      // turn is still running we keep busy via the turn controller.
+      // Starter SSE ended (detach or finish). If the turn is still running,
+      // reattach so checkpoints keep flowing after the POST body closes.
       void turnControllerRef.current.refreshActive().then((stillActive) => {
-        if (!stillActive) turnControllerRef.current.markInactive()
+        if (!stillActive) {
+          turnControllerRef.current.markInactive()
+          return
+        }
+        turnControllerRef.current.attachToCurrent((next) => {
+          setMessages(
+            prepareMessagesForClientTurn(next, {
+              settleApprovals: false,
+              settleIncomplete: false,
+            }),
+          )
+        })
       })
     },
   })
@@ -880,21 +891,27 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const restoreFromServer = async (options?: {
       /** When cloud sync is on but a turn is live, prefer SQLite + attach. */
       preferLiveOnly?: boolean
-    }) => {
+    }): Promise<'restored' | 'inactive' | 'unknown'> => {
       try {
         const baseUrl = agentUrlRef.current
         if (!baseUrl) {
           // Keep conversationId in the URL until the agent URL resolves so the
           // effect can retry; do not mark restored or clear the query param.
-          return false
+          return 'unknown'
         }
         const restoredId = conversationIdParam as ReturnType<
           typeof crypto.randomUUID
         >
-        const active = await fetchActiveChatTurn(restoredId, baseUrl)
+        let active: Awaited<ReturnType<typeof fetchActiveChatTurn>>
+        try {
+          active = await fetchActiveChatTurn(restoredId, baseUrl)
+        } catch {
+          // Probe failed — never treat as inactive for cloud fallthrough.
+          return 'unknown'
+        }
         const running = active?.status === 'running'
         if (options?.preferLiveOnly && !running) {
-          return false
+          return 'inactive'
         }
 
         const conversation = await fetchChatConversation(
@@ -910,7 +927,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           quarantineAndOpenBlank(
             'chat.restore.quarantined_oversized_conversation',
           )
-          return true
+          return 'restored'
         }
         setConversationId(restoredId)
         conversationIdRef.current = restoredId
@@ -937,11 +954,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         } else {
           turnControllerRef.current.markInactive()
         }
-        return true
+        return 'restored'
       } catch (error) {
         if (options?.preferLiveOnly) {
-          // Fall through to GraphQL cloud history.
-          return false
+          return 'unknown'
         }
         sentry.captureException(error)
         // Safe open: clear the deep-link so we do not crash-loop the same id.
@@ -949,7 +965,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         setSearchParams({}, { replace: true })
         setMessages([])
         setConversationId(crypto.randomUUID())
-        return true
+        return 'restored'
       }
     }
 
@@ -957,8 +973,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       // Wait for agent URL so we can detect a live turn before GraphQL clobbers.
       if (!agentServerUrl) return
       // Never clobber a live turn with stale GraphQL history.
-      void restoreFromServer({ preferLiveOnly: true }).then((attachedLive) => {
-        if (attachedLive) return
+      void restoreFromServer({ preferLiveOnly: true }).then((result) => {
+        if (result === 'restored' || result === 'unknown') return
         if (!isRemoteConversationFetched) return
 
         if (remoteConversationData?.conversation) {

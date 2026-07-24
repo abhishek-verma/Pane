@@ -22,11 +22,24 @@ export const scheduledJobRuns = async () => {
     const current = (await scheduledJobRunStorage.getValue()) ?? []
     const now = Date.now()
 
-    const updated = current.map((run) => {
-      if (run.status !== 'running') return run
+    const updated = await Promise.all(
+      current.map(async (run) => {
+        if (run.status !== 'running') return run
 
-      const startedAt = new Date(run.startedAt).getTime()
-      if (now - startedAt > STALE_TIMEOUT_MS) {
+        const startedAt = new Date(run.startedAt).getTime()
+        if (now - startedAt <= STALE_TIMEOUT_MS) return run
+
+        // Explicitly cancel the server turn — detachable turns survive fetch abort alone.
+        const entry = runAbortControllers.get(run.id)
+        const conversationId = entry?.conversationId ?? run.conversationId
+        if (conversationId) {
+          await cancelChatTurn(conversationId, {
+            reason: 'scheduled-job-stale-timeout',
+          }).catch(() => {})
+        }
+        entry?.controller.abort()
+        runAbortControllers.delete(run.id)
+
         return {
           ...run,
           status: 'failed' as const,
@@ -35,9 +48,8 @@ export const scheduledJobRuns = async () => {
           // Keep completedSteps so a resume can skip consequential work.
           completedSteps: run.completedSteps ?? [],
         }
-      }
-      return run
-    })
+      }),
+    )
 
     await scheduledJobRunStorage.setValue(updated)
   }

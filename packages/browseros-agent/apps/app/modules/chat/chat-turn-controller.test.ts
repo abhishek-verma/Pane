@@ -92,4 +92,15 @@ describe('ChatTurnController', () => {
     expect(still).toBe(false)
     expect(controller.isTurnActive).toBe(false)
   })
+
+  it('refreshActive keeps prior liveness when the probe throws', async () => {
+    const controller = new ChatTurnController()
+    controller.noteStartedTurn('turn-1', 'conv-1')
+    fetchActiveChatTurn.mockImplementation(async () => {
+      throw new Error('network')
+    })
+    const still = await controller.refreshActive()
+    expect(still).toBe(true)
+    expect(controller.isTurnActive).toBe(true)
+  })
 })
