@@ -815,6 +815,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   useEffect(() => {
     if (!conversationIdParam) return
     if (restoredConversationId === conversationIdParam) return
+    // Home composer handoff (`?q=`) always starts a new chat. Do not restore
+    // a prior conversationId over that prompt (e.g. stale per-window resume).
+    if (searchParams.get('q')) return
 
     // Loading a different conversation while this one is still streaming
     // would otherwise leave that stream running against a swapped-out
@@ -917,12 +920,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     agentServerUrl,
   ])
 
-  // Per-window scope: resume this window's conversation when the panel
+  // Per-window scope: resume this window's conversation when the side panel
   // (re)mounts (e.g. closed + reopened) instead of starting a blank chat.
+  // Newtab /home/chat must not share that resume map — home handoffs always
+  // start a fresh session, and a stored sidepanel id would look like "append".
   // No-op in per-tab scope. Tab switches keep the same panel instance, so this
   // only matters for a fresh mount.
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only; reads refs
   useEffect(() => {
+    if (options?.origin === 'newtab') return
     let cancelled = false
     ;(async () => {
       if (!(await sidePanelPerWindowStorage.getValue())) return
@@ -948,13 +954,14 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   // Remember the conversation this window is on so a remount can resume it.
   useEffect(() => {
+    if (options?.origin === 'newtab') return
     const windowId = windowIdRef.current
     if (windowId == null) return
     ;(async () => {
       if (!(await sidePanelPerWindowStorage.getValue())) return
       await setWindowConversation(windowId, conversationId)
     })()
-  }, [conversationId])
+  }, [conversationId, options?.origin])
 
   // Keep messagesRef in sync on every change (cheap ref assignment)
   useEffect(() => {
@@ -1138,6 +1145,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const nextConvoId = crypto.randomUUID()
     setConversationId(nextConvoId)
     conversationIdRef.current = nextConvoId
+    // Clear before the next send — prepareSendMessagesRequest reads this ref
+    // synchronously, and setMessages([]) alone leaves stale history until the
+    // sync effect runs (home→sidepanel handoff was seeding previousConversation).
+    messagesRef.current = []
     setMessages([])
     setTextToAction(new Map())
     setLiked({})

@@ -85,6 +85,8 @@ export const NewTabChat: FC = () => {
   })
 
   // Send the initial message from URL query params (from /home search bar).
+  // Always mint a fresh conversation first — a remount alone is not enough if
+  // history restore raced ahead, and matches the sidepanel home-handoff contract.
   // Guarded by ref to prevent double-fire in React Strict Mode.
   // biome-ignore lint/correctness/useExhaustiveDependencies: must only run once on mount
   useEffect(() => {
@@ -95,6 +97,7 @@ export const NewTabChat: FC = () => {
     if (!query) return
 
     hasSentInitialRef.current = true
+    resetConversation()
     if (chatMode === 'chat' || chatMode === 'agent') {
       setMode(chatMode)
     }
