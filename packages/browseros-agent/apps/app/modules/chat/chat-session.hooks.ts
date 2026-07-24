@@ -23,6 +23,7 @@ import {
   PROVIDER_SELECTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { productFeatures } from '@/lib/constants/product-features'
+import { fetchActiveChatTurn } from '@/lib/conversations/chat-turn-api'
 import { formatConversationHistory } from '@/lib/conversations/formatConversationHistory'
 import { fetchChatConversation } from '@/lib/conversations/server-chat-history'
 import { declinedAppsStorage } from '@/lib/declined-apps/storage'
@@ -59,6 +60,7 @@ import {
   buildSidepanelPreparedSendMessagesRequest,
   toProviderOption,
 } from './chat-session-request'
+import { ChatTurnController } from './chat-turn-controller'
 import type { ChatMode } from './chat-types'
 import {
   collectToolApprovalResponses,
@@ -253,10 +255,19 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const conversationIdRef = useRef(conversationId)
   // The window this panel belongs to, resolved on mount in per-window scope.
   const windowIdRef = useRef<number | null>(null)
+  const turnControllerRef = useRef(new ChatTurnController())
+  const [isTurnActive, setIsTurnActive] = useState(false)
 
   useEffect(() => {
     conversationIdRef.current = conversationId
+    turnControllerRef.current.setConversationId(conversationId)
   }, [conversationId])
+
+  useEffect(() => {
+    return turnControllerRef.current.subscribe(({ isTurnActive: active }) => {
+      setIsTurnActive(active)
+    })
+  }, [])
 
   const {
     startTask: startExecutionTask,
@@ -406,7 +417,17 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       return hasAnyResponded
     },
     transport: new DefaultChatTransport({
-      fetch: agentFetch as typeof fetch,
+      fetch: (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const response = await agentFetch(input, init)
+        const turnId = response.headers.get('X-Turn-Id')
+        if (turnId) {
+          turnControllerRef.current.noteStartedTurn(
+            turnId,
+            conversationIdRef.current,
+          )
+        }
+        return response
+      }) as typeof fetch,
       prepareSendMessagesRequest: async ({ messages }) => {
         const target = selectedChatTargetRef.current
         const fallbackProvider =
@@ -566,6 +587,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         isAbort,
         isError,
       })
+      // Starter SSE ended (detach or finish). Refresh server liveness — if the
+      // turn is still running we keep busy via the turn controller.
+      void turnControllerRef.current.refreshActive().then((stillActive) => {
+        if (!stillActive) turnControllerRef.current.markInactive()
+      })
     },
   })
 
@@ -635,20 +661,26 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }, [status, setMessages])
 
   // Safety net when status never settles (SSE finish dropped but server
-  // already checkpointed). Track message growth; if the transcript is
-  // idle while status stays submitted/streaming, fetch SQLite and hydrate.
+  // already checkpointed). Never cancel a turn the server still reports active.
   const stuckHydrateInFlightRef = useRef(false)
   const lastMessageGrowthAtRef = useRef(Date.now())
-  const messagesGrowthKey = `${messages.length}:${messages[messages.length - 1]?.id ?? ''}:${messages[messages.length - 1]?.parts?.length ?? 0}`
+  const lastAssistant = messages[messages.length - 1]
+  const lastTextLen =
+    lastAssistant?.role === 'assistant'
+      ? (lastAssistant.parts ?? [])
+          .filter((p) => p.type === 'text' || p.type === 'reasoning')
+          .map((p) => ('text' in p ? String(p.text ?? '') : ''))
+          .join('').length
+      : 0
+  const messagesGrowthKey = `${messages.length}:${lastAssistant?.id ?? ''}:${lastAssistant?.parts?.length ?? 0}:${lastTextLen}`
   useEffect(() => {
-    // messagesGrowthKey is the intentional trigger: any transcript growth
-    // resets the stuck-stream quiet window.
     void messagesGrowthKey
     lastMessageGrowthAtRef.current = Date.now()
   }, [messagesGrowthKey])
 
   useEffect(() => {
-    const busy = status === 'submitted' || status === 'streaming'
+    const busy =
+      status === 'submitted' || status === 'streaming' || isTurnActive
     if (!busy) {
       stuckHydrateInFlightRef.current = false
       return
@@ -667,17 +699,22 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         return
       }
       stuckHydrateInFlightRef.current = true
-      void fetchChatConversation(conversationId, baseUrl)
-        .then((detail) => {
+      void (async () => {
+        try {
+          const stillActive = await turnControllerRef.current.refreshActive()
           if (cancelled) return
-          // Require assistant text so a mid-turn onStepFinish checkpoint
-          // (tools done, next model step still running) cannot abort a live
-          // agent loop. Idle hydrate (becameIdle) covers tool-only finals.
+          if (stillActive) {
+            // Live turn — never stop()/cancel from the watchdog.
+            lastMessageGrowthAtRef.current = Date.now()
+            return
+          }
+
+          const detail = await fetchChatConversation(conversationId, baseUrl)
+          if (cancelled) return
           const serverAssistant = [...detail.messages]
             .reverse()
             .find((m) => m.role === 'assistant')
           if (!hasAssistantText(serverAssistant)) {
-            // Still mid-turn on the server; wait another quiet window.
             lastMessageGrowthAtRef.current = Date.now()
             return
           }
@@ -692,29 +729,26 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             return result.messages
           })
           if (hydrated) {
-            // Abort the orphaned SSE so status can leave submitted/streaming.
-            // Prefer stop() over stopAndSettle: server already finished, and
-            // settle would falsely deny any approval-responded parts.
+            // Server turn finished; detach orphaned useChat SSE only.
             void stop()
+            turnControllerRef.current.markInactive()
             clearError()
           } else {
-            // Client already matches; avoid fetch-spamming while still busy.
             lastMessageGrowthAtRef.current = Date.now()
           }
-        })
-        .catch(() => {
+        } catch {
           lastMessageGrowthAtRef.current = Date.now()
-        })
-        .finally(() => {
+        } finally {
           stuckHydrateInFlightRef.current = false
-        })
+        }
+      })()
     }, 2_000)
 
     return () => {
       cancelled = true
       clearInterval(timer)
     }
-  }, [status, setMessages, stop, clearError])
+  }, [status, isTurnActive, setMessages, stop, clearError])
 
   // Disabled while: agent URL isn't ready, a turn is in flight, a resume
   // was just triggered but hasn't flipped `status` yet, or an approval
@@ -722,11 +756,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // submitted/streaming orphans the prior activeResponse in AI SDK
   // (makeRequest overwrites it without abort) and is how silent-reply
   // desyncs deepen into a second turn.
+  const useChatBusy = status === 'submitted' || status === 'streaming'
+  const isStreaming = useChatBusy || isTurnActive
+
   const canSend =
     !isLoadingAgentUrl &&
     !agentUrlError &&
     !!agentServerUrl &&
     (status === 'ready' || status === 'error') &&
+    !isTurnActive &&
     !approvalResumeInFlight &&
     !hasPendingToolApprovals(messages)
 
@@ -740,6 +778,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // (`approval-responded`) parts — the server may have already executed them.
   // Settle unanswered approvals only, then reconcile from the server transcript.
   const stopAndSettle = useCallback(() => {
+    void turnControllerRef.current.cancel('user-stop')
     stop()
     // Stop aborts the in-flight resume SSE; clear the local gate so Retry
     // is not treated as a second click against a still-"running" resume.
@@ -796,6 +835,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     messages,
     status,
     conversationId: conversationIdRef.current,
+    isTurnActive,
   })
 
   const {
@@ -821,9 +861,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     // a prior conversationId over that prompt (e.g. stale per-window resume).
     if (searchParams.get('q')) return
 
-    // Loading a different conversation while this one is still streaming
-    // would otherwise leave that stream running against a swapped-out
-    // conversationId and land its tool parts on the wrong transcript.
+    // Detach the local SSE subscriber only — do not cancel the server turn.
+    // The previous conversation keeps running; we reattach when returning.
+    turnControllerRef.current.detachAttachOnly()
     stop()
 
     const quarantineAndOpenBlank = (reason: string) => {
@@ -837,48 +877,26 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       setConversationId(crypto.randomUUID())
     }
 
-    if (useCloudHistory) {
-      if (!isRemoteConversationFetched) return
-
-      if (remoteConversationData?.conversation) {
-        const restoredMessages = stripFatInlineImagesFromMessages(
-          remoteConversationData.conversation.conversationMessages.nodes
-            .filter((node): node is NonNullable<typeof node> => node !== null)
-            .map((node) => node.message as UIMessage),
-        )
-        if (isPoisonSessionPayload(restoredMessages)) {
-          quarantineAndOpenBlank(
-            'chat.restore.quarantined_oversized_conversation',
-          )
-          return
-        }
-
-        // History restore must not force-deny already-answered approvals.
-        // Default settle turns stop-raced `approval-responded` into a false
-        // `output-denied` even when the tool side effect already ran.
-        const preparedMessages = prepareMessagesForClientTurn(
-          restoredMessages,
-          { settleApprovals: false },
-        )
-        setConversationId(
-          conversationIdParam as ReturnType<typeof crypto.randomUUID>,
-        )
-        setMessages(preparedMessages)
-        markMessagesAsSaved(conversationIdParam, preparedMessages)
-      }
-      setRestoredConversationId(conversationIdParam)
-      setSearchParams({}, { replace: true })
-      return
-    }
-
-    const restoreFromServer = async () => {
+    const restoreFromServer = async (options?: {
+      /** When cloud sync is on but a turn is live, prefer SQLite + attach. */
+      preferLiveOnly?: boolean
+    }) => {
       try {
         const baseUrl = agentUrlRef.current
         if (!baseUrl) {
           // Keep conversationId in the URL until the agent URL resolves so the
           // effect can retry; do not mark restored or clear the query param.
-          return
+          return false
         }
+        const restoredId = conversationIdParam as ReturnType<
+          typeof crypto.randomUUID
+        >
+        const active = await fetchActiveChatTurn(restoredId, baseUrl)
+        const running = active?.status === 'running'
+        if (options?.preferLiveOnly && !running) {
+          return false
+        }
+
         const conversation = await fetchChatConversation(
           conversationIdParam,
           baseUrl,
@@ -892,27 +910,89 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           quarantineAndOpenBlank(
             'chat.restore.quarantined_oversized_conversation',
           )
-          return
+          return true
         }
-        setConversationId(
-          conversation.id as ReturnType<typeof crypto.randomUUID>,
-        )
+        setConversationId(restoredId)
+        conversationIdRef.current = restoredId
         setMessages(
           prepareMessagesForClientTurn(safeMessages, {
             settleApprovals: false,
+            settleIncomplete: running ? false : undefined,
           }),
         )
         setRestoredConversationId(conversationIdParam)
         setSearchParams({}, { replace: true })
+        if (running) {
+          await turnControllerRef.current.restoreAndAttach({
+            conversationId: conversation.id,
+            onMessages: (next) => {
+              setMessages(
+                prepareMessagesForClientTurn(next, {
+                  settleApprovals: false,
+                  settleIncomplete: false,
+                }),
+              )
+            },
+          })
+        } else {
+          turnControllerRef.current.markInactive()
+        }
+        return true
       } catch (error) {
+        if (options?.preferLiveOnly) {
+          // Fall through to GraphQL cloud history.
+          return false
+        }
         sentry.captureException(error)
         // Safe open: clear the deep-link so we do not crash-loop the same id.
         setRestoredConversationId(conversationIdParam)
         setSearchParams({}, { replace: true })
         setMessages([])
         setConversationId(crypto.randomUUID())
+        return true
       }
     }
+
+    if (useCloudHistory) {
+      // Wait for agent URL so we can detect a live turn before GraphQL clobbers.
+      if (!agentServerUrl) return
+      // Never clobber a live turn with stale GraphQL history.
+      void restoreFromServer({ preferLiveOnly: true }).then((attachedLive) => {
+        if (attachedLive) return
+        if (!isRemoteConversationFetched) return
+
+        if (remoteConversationData?.conversation) {
+          const restoredMessages = stripFatInlineImagesFromMessages(
+            remoteConversationData.conversation.conversationMessages.nodes
+              .filter((node): node is NonNullable<typeof node> => node !== null)
+              .map((node) => node.message as UIMessage),
+          )
+          if (isPoisonSessionPayload(restoredMessages)) {
+            quarantineAndOpenBlank(
+              'chat.restore.quarantined_oversized_conversation',
+            )
+            return
+          }
+
+          // History restore must not force-deny already-answered approvals.
+          // Default settle turns stop-raced `approval-responded` into a false
+          // `output-denied` even when the tool side effect already ran.
+          const preparedMessages = prepareMessagesForClientTurn(
+            restoredMessages,
+            { settleApprovals: false },
+          )
+          setConversationId(
+            conversationIdParam as ReturnType<typeof crypto.randomUUID>,
+          )
+          setMessages(preparedMessages)
+          markMessagesAsSaved(conversationIdParam, preparedMessages)
+        }
+        setRestoredConversationId(conversationIdParam)
+        setSearchParams({}, { replace: true })
+      })
+      return
+    }
+
     void restoreFromServer()
   }, [
     conversationIdParam,
@@ -1050,9 +1130,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         conversationId: conversationIdRef.current,
         promptText: text,
       })
-      // AI SDK makeRequest overwrites activeResponse without aborting the
-      // prior fetch. Abort any wedged stream first so a new turn cannot
-      // orphan the previous SSE consumer (silent-reply desync family).
+      // Supersede any live server turn, then detach local SSE before sending.
+      void turnControllerRef.current.cancel('superseded-by-new-message')
       if (status === 'submitted' || status === 'streaming') {
         void stop()
       }
@@ -1142,6 +1221,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }, [])
 
   const resetConversationState = () => {
+    // New chat detaches only — prior conversation turns keep running.
+    turnControllerRef.current.detachAttachOnly()
+    turnControllerRef.current.markInactive()
     stop()
     void finishExecutionTask({ isAbort: true })
     const nextConvoId = crypto.randomUUID()
@@ -1391,6 +1473,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   const promoteTool = useCallback(
     async (tool: ToolInvocationInfo, args: Record<string, unknown>) => {
+      if (turnControllerRef.current.isTurnActive) {
+        throw new Error('Cannot replay tools while a turn is still running')
+      }
       await executeToolReplay(tool, args)
     },
     [executeToolReplay],
@@ -1405,6 +1490,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     messages,
     sendMessage,
     status,
+    isStreaming,
+    isTurnActive,
     stop: stopAndSettle,
     retryLastTurn,
     providers,

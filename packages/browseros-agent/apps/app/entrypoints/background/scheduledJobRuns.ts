@@ -1,3 +1,4 @@
+import { cancelChatTurn } from '@/lib/conversations/chat-turn-api'
 import { onScheduleMessage } from '@/lib/messaging/schedules/scheduleMessages'
 import { createAlarmFromJob } from '@/lib/schedules/createAlarmFromJob'
 import { getChatServerResponse } from '@/lib/schedules/getChatServerResponse'
@@ -11,7 +12,10 @@ const MAX_RUNS_PER_JOB = 15
 const STALE_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000
 
-const runAbortControllers = new Map<string, AbortController>()
+const runAbortControllers = new Map<
+  string,
+  { controller: AbortController; conversationId: string }
+>()
 
 export const scheduledJobRuns = async () => {
   const cleanupStaleJobRuns = async () => {
@@ -127,12 +131,18 @@ export const scheduledJobRuns = async () => {
     }
 
     const jobRun = await createJobRun(jobId, 'running')
+    const conversationId = crypto.randomUUID()
     const abortController = new AbortController()
-    runAbortControllers.set(jobRun.id, abortController)
+    runAbortControllers.set(jobRun.id, {
+      controller: abortController,
+      conversationId,
+    })
+    await updateJobRun(jobRun.id, { conversationId })
 
     try {
       const response = await getChatServerResponse({
         message: job.query,
+        conversationId,
         signal: abortController.signal,
         providerId: job.providerId,
         idempotencyKey: jobRun.idempotencyKey,
@@ -145,6 +155,7 @@ export const scheduledJobRuns = async () => {
         finalResult: response.finalResult,
         executionLog: response.executionLog,
         toolCalls: response.toolCalls,
+        conversationId: response.conversationId,
       })
     } catch (e) {
       const isCancelled = abortController.signal.aborted
@@ -236,11 +247,23 @@ export const scheduledJobRuns = async () => {
   })
 
   onScheduleMessage('cancelScheduledJobRun', async ({ data }) => {
-    const controller = runAbortControllers.get(data.runId)
-    if (!controller) {
+    const entry = runAbortControllers.get(data.runId)
+    if (!entry) {
+      // Run may have finished locally; still try cancel via stored conversationId.
+      const runs = (await scheduledJobRunStorage.getValue()) ?? []
+      const run = runs.find((r) => r.id === data.runId)
+      if (run?.conversationId) {
+        await cancelChatTurn(run.conversationId, {
+          reason: 'scheduled-job-cancelled',
+        }).catch(() => {})
+      }
       return { success: false, error: 'Run not found or already completed' }
     }
-    controller.abort()
+    // Explicit cancel API — do not rely on fetch abort alone.
+    await cancelChatTurn(entry.conversationId, {
+      reason: 'scheduled-job-cancelled',
+    }).catch(() => {})
+    entry.controller.abort()
     return { success: true }
   })
 

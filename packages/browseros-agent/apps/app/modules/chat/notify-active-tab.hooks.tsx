@@ -27,10 +27,13 @@ export const useNotifyActiveTab = ({
   messages,
   status,
   conversationId,
+  isTurnActive = false,
 }: {
   messages: UIMessage[]
   status: ChatStatus
   conversationId: string
+  /** Server turn still running after local SSE detach. */
+  isTurnActive?: boolean
 }) => {
   // Track the single tab currently glowing
   const activeTabIdRef = useRef<number | null>(null)
@@ -47,7 +50,8 @@ export const useNotifyActiveTab = ({
   const toolTabId = extractTabId(latestTool as ToolUIPart | null)
 
   useEffect(() => {
-    const isStreaming = status === 'streaming'
+    const isStreaming =
+      status === 'streaming' || status === 'submitted' || isTurnActive
 
     if (!isStreaming) {
       // Deactivate ALL tabs that were glowed during this stream
@@ -127,7 +131,7 @@ export const useNotifyActiveTab = ({
     return () => {
       cancelled = true
     }
-  }, [conversationId, status, hasToolCalls, toolTabId])
+  }, [conversationId, status, isTurnActive, hasToolCalls, toolTabId])
 
   return
 }

@@ -615,7 +615,7 @@ describe('createAgentRoutes', () => {
     }
   })
 
-  it('cancels the created-agent sidepanel turn when the request is aborted', async () => {
+  it('does not cancel the created-agent sidepanel turn when the request is aborted', async () => {
     const agent: AgentDefinition = {
       id: 'agent-1',
       name: 'Review bot',
@@ -642,14 +642,10 @@ describe('createAgentRoutes', () => {
     })
 
     expect(response.status).toBe(200)
+    // HTTP abort = detach only; Stop uses POST .../cancel.
     abortController.abort('sidepanel closed')
     await new Promise((r) => setTimeout(r, 0))
-    expect(blocking._cancelCalls).toEqual([
-      {
-        agentId: 'agent-1',
-        reason: 'sidepanel stream cancelled',
-      },
-    ])
+    expect(blocking._cancelCalls).toEqual([])
     blocking._unblock()
   })
 

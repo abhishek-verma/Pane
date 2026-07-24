@@ -39,6 +39,8 @@ export interface ScheduledJobRun {
   executionLog?: string
   toolCalls?: ToolCallExecution[]
   error?: string
+  /** Sidepanel conversation this run writes — for cancel + reopen/reattach. */
+  conversationId?: string
   /** Stable per scheduled fire: jobId + scheduledSlot or jobId + runId */
   idempotencyKey?: string
   /** Consequential steps completed before crash — used on resume */

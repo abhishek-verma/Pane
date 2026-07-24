@@ -25,6 +25,7 @@ import {
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning'
 import type { ChatAction } from '@/lib/chat-actions/types'
+import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import { ChatMessageActions } from './ChatMessageActions'
 import { ConnectAppCard } from './ConnectAppCard'
 import {
@@ -200,7 +201,9 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   onDeny,
   onPromote,
 }) => {
-  const isStreaming = status === 'streaming' || status === 'submitted'
+  const { isStreaming: sessionStreaming } = useChatSessionContext()
+  const isStreaming =
+    sessionStreaming || status === 'streaming' || status === 'submitted'
   const [windowSize, setWindowSize] = useState(MESSAGE_WINDOW_SIZE)
   const topSentinelRef = useRef<HTMLDivElement | null>(null)
   const scrollRestoreRef = useRef<{
