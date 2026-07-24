@@ -142,8 +142,12 @@ describe('getBrowserosDir', () => {
     try {
       await ensureBrowserosDir()
 
-      expect(existsSync(getSessionsDir())).toBe(true)
-      expect(existsSync(join(browserosDir, 'tool-output'))).toBe(true)
+      // Without an active profile context, startup only creates the install root
+      // + profiles/ container. Per-profile sessions/tool-output come later.
+      expect(existsSync(browserosDir)).toBe(true)
+      expect(existsSync(join(browserosDir, 'profiles'))).toBe(true)
+      expect(existsSync(getSessionsDir())).toBe(false)
+      expect(existsSync(join(browserosDir, 'tool-output'))).toBe(false)
       expect(existsSync(join(browserosDir, 'cache', 'vm'))).toBe(false)
       expect(existsSync(join(browserosDir, 'vm'))).toBe(false)
       expect(existsSync(join(browserosDir, 'lazy-monitoring'))).toBe(false)
