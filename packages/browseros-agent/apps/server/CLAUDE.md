@@ -53,6 +53,15 @@ apps/server/
 - CDP is required at runtime: pass `--cdp-port` or set `BROWSEROS_CDP_PORT`.
 - Tests live under `apps/server/tests/`; use the closest group runner before broad suites.
 
+## Chrome profile isolation
+
+User-data routes require `X-BrowserOS-Profile-Id` (see `@browseros/shared/constants/headers`). The extension sends the per-profile `browseros.metrics_client_id` (fallback UUID in `chrome.storage.local`).
+
+- Data roots: `<BROWSEROS_DIR>/profiles/<profileKey>/{db,memories,capture,sessions,tool-output}`.
+- Install-wide (no profile header): `server.json`, lockfile, identity, `/health`, `/status`, `/shutdown`.
+- `getDb()` / path helpers resolve via AsyncLocalStorage (`runWithProfile`). Background jobs use `forEachKnownProfile`.
+- First profile after upgrade claims legacy top-level `db/` / `memories/` / etc.; later profiles start empty.
+
 ## Release gate
 
 Server production resources must not package VM-only Lima resources. Keep `scripts/build/server/stage.test.ts` green: `scripts/build/config/server-prod-resources.json` should exclude `third_party/lima` and `resources/vm/` while still packaging Bun and DB migrations.

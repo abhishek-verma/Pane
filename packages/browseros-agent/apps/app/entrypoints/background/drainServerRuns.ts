@@ -6,6 +6,7 @@
  * Drains server `scheduled_runs` pending rows into `/chat` (trigger / keep-alive).
  */
 
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { drainPendingRunsOnce } from '@/lib/schedules/drainPendingRuns'
 import { getChatServerResponse } from '@/lib/schedules/getChatServerResponse'
@@ -24,7 +25,7 @@ export function drainServerRuns(): void {
     try {
       await drainPendingRunsOnce({
         getBaseUrl: getAgentServerUrl,
-        fetchFn: fetch.bind(globalThis),
+        fetchFn: agentFetch as typeof fetch,
         runChat: async ({ message, scheduledRunId, idempotencyKey }) => {
           const response = await getChatServerResponse({
             message,

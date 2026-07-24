@@ -1,3 +1,5 @@
+import { agentFetch } from '@/lib/browseros/agent-fetch'
+
 /** @public */
 export interface McpTool {
   name: string
@@ -73,7 +75,7 @@ async function postJsonRpc<T>(
   message: JsonRpcRequest,
   context: McpRequestContext,
 ): Promise<{ result: T; sessionId?: string }> {
-  const response = await fetch(serverUrl, {
+  const response = await agentFetch(serverUrl, {
     method: 'POST',
     headers: {
       ...buildMcpHeaders(context, 'application/json, text/event-stream'),
@@ -110,7 +112,7 @@ async function postJsonRpcNotification(
   message: JsonRpcRequest,
   context: McpRequestContext,
 ): Promise<void> {
-  const response = await fetch(serverUrl, {
+  const response = await agentFetch(serverUrl, {
     method: 'POST',
     headers: {
       ...buildMcpHeaders(context, 'application/json, text/event-stream'),
@@ -132,7 +134,7 @@ async function openOptionalSseStream(
   serverUrl: string,
   context: McpRequestContext,
 ): Promise<void> {
-  const response = await fetch(serverUrl, {
+  const response = await agentFetch(serverUrl, {
     method: 'GET',
     headers: buildMcpHeaders(context, 'text/event-stream'),
   })

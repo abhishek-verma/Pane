@@ -1,3 +1,4 @@
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { resolveStoredChatProvider } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
@@ -28,7 +29,7 @@ export async function refinePrompt(params: {
   const agentServerUrl = await getAgentServerUrl()
   const provider = await resolveProvider(params.providerId)
 
-  const response = await fetch(`${agentServerUrl}/refine-prompt`, {
+  const response = await agentFetch(`${agentServerUrl}/refine-prompt`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

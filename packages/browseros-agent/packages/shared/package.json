@@ -33,6 +33,10 @@
       "types": "./src/constants/paths.ts",
       "default": "./src/constants/paths.ts"
     },
+    "./constants/headers": {
+      "types": "./src/constants/headers.ts",
+      "default": "./src/constants/headers.ts"
+    },
     "./constants/hermes": {
       "types": "./src/constants/hermes.ts",
       "default": "./src/constants/hermes.ts"

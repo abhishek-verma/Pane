@@ -34,11 +34,11 @@ describe('resolveLLMConfig', () => {
     const browserosId = 'browseros-id'
     const dir = mkdtempSync(join(tmpdir(), 'browseros-llm-config-test-'))
     tempDirs.push(dir)
-    const handle = initializeDb({
+    initializeDb({
       dbPath: join(dir, 'db', 'browseros.sqlite'),
     })
-    initializeOAuth(handle.db, browserosId)
-    new OAuthTokenStore(handle.db).upsertTokens(browserosId, 'chatgpt-pro', {
+    initializeOAuth(browserosId)
+    new OAuthTokenStore().upsertTokens(browserosId, 'chatgpt-pro', {
       accessToken: 'access-token',
       refreshToken: 'refresh-token',
       expiresAt: Date.now() + 3600_000,

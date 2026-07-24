@@ -7,6 +7,7 @@
  * Idempotent — skips if persona-map already has a pin or bucket mapping.
  */
 
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { personaIdForIcp } from '@/lib/onboarding/icp'
 import {
   onboardingIcpStorage,
@@ -29,7 +30,7 @@ export async function seedMemoryFromOnboarding(
 
   // Skip if user already configured personas.
   try {
-    const personasRes = await fetch(`${root}/memory/personas`)
+    const personasRes = await agentFetch(`${root}/memory/personas`)
     if (personasRes.ok) {
       const body = (await personasRes.json()) as {
         map: { pinned: string | null; bucketPersonas: Record<string, string> }
@@ -48,7 +49,7 @@ export async function seedMemoryFromOnboarding(
 
   const personaId = personaIdForIcp(icp)
   try {
-    await fetch(`${root}/memory/personas/apply`, {
+    await agentFetch(`${root}/memory/personas/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ personaId, bucketId: 'default' }),
@@ -68,7 +69,7 @@ export async function seedMemoryFromOnboarding(
   ].filter((line): line is string => line != null)
 
   try {
-    await fetch(`${root}/memory/files/user`, {
+    await agentFetch(`${root}/memory/files/user`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: `${userLines.join('\n')}\n` }),

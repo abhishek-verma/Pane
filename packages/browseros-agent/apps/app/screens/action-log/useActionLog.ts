@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 export interface ActionLogEntry {
@@ -30,7 +31,7 @@ async function fetchActionLog(
     params.set('consequenceClass', filters.consequenceClass)
   }
   const query = params.toString()
-  const res = await fetch(
+  const res = await agentFetch(
     `${baseUrl.replace(/\/$/, '')}/action-log${query ? `?${query}` : ''}`,
   )
   if (!res.ok) {

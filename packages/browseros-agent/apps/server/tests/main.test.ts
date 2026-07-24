@@ -50,7 +50,7 @@ describe('Application.start', () => {
     expect(loggerError).not.toHaveBeenCalled()
   })
 
-  it('stores the database below the BrowserOS directory instead of the execution directory', async () => {
+  it('configures the database for lazy per-profile open under the BrowserOS directory', async () => {
     const originalBrowserosDir = process.env.BROWSEROS_DIR
     process.env.BROWSEROS_DIR = '/tmp/browseros-dogfood'
 
@@ -61,7 +61,6 @@ describe('Application.start', () => {
       await app.start()
 
       expect(initializeDb).toHaveBeenCalledWith({
-        dbPath: '/tmp/browseros-dogfood/db/browseros.sqlite',
         resourcesDir: config.resourcesDir,
       })
     } finally {

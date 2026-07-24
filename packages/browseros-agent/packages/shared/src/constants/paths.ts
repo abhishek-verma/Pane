@@ -13,6 +13,8 @@ export const PATHS = {
   CACHE_DIR_NAME: 'cache',
   DB_DIR_NAME: 'db',
   DB_FILE_NAME: 'browseros.sqlite',
+  /** Per Chrome-profile data roots live under `<browserosDir>/profiles/<key>/`. */
+  PROFILES_DIR_NAME: 'profiles',
   SESSIONS_DIR_NAME: 'sessions',
   TOOL_OUTPUT_DIR_NAME: 'tool-output',
   MEMORIES_DIR_NAME: 'memories',

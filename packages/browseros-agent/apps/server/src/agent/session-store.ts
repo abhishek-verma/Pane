@@ -6,7 +6,13 @@ import { asc, eq } from 'drizzle-orm'
 import { getDb, getDbHandle } from '../lib/db'
 import { chatMessages, chatSessions } from '../lib/db/schema/chat-sessions'
 import { logger } from '../lib/logger'
+import { tryGetProfileKey } from '../lib/profile-context'
 import type { AiSdkAgent } from './ai-sdk-agent'
+
+function liveSessionKey(conversationId: string): string {
+  const profile = tryGetProfileKey() ?? ''
+  return `${profile}:${conversationId}`
+}
 
 /**
  * Stores and retrieves raw screenshot/image blobs by toolCallId.
@@ -15,10 +21,11 @@ import type { AiSdkAgent } from './ai-sdk-agent'
  * when their parent chat session is deleted.
  */
 export class ToolImageStore {
-  private ready = false
+  private ensuredProfiles = new Set<string>()
 
   private ensureTable(): void {
-    if (this.ready) return
+    const profile = tryGetProfileKey() ?? '__explicit__'
+    if (this.ensuredProfiles.has(profile)) return
     const sqlite = getDbHandle().sqlite
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS tool_images (
@@ -33,7 +40,7 @@ export class ToolImageStore {
       CREATE INDEX IF NOT EXISTS tool_images_session_idx
       ON tool_images (session_id)
     `)
-    this.ready = true
+    this.ensuredProfiles.add(profile)
   }
 
   /**
@@ -132,24 +139,27 @@ export class SessionStore {
   readonly imageStore = new ToolImageStore()
 
   get(conversationId: string): AgentSession | undefined {
-    return this.sessions.get(conversationId)
+    return this.sessions.get(liveSessionKey(conversationId))
   }
 
   set(conversationId: string, session: AgentSession): void {
-    this.deletedSessions.delete(conversationId)
-    this.sessions.set(conversationId, session)
+    const key = liveSessionKey(conversationId)
+    this.deletedSessions.delete(key)
+    this.sessions.set(key, session)
     logger.info('Session added to store', {
       conversationId,
+      profileKey: tryGetProfileKey(),
       totalSessions: this.sessions.size,
     })
   }
 
   has(conversationId: string): boolean {
-    return this.sessions.has(conversationId)
+    return this.sessions.has(liveSessionKey(conversationId))
   }
 
   remove(conversationId: string): boolean {
-    const existed = this.sessions.delete(conversationId)
+    const key = liveSessionKey(conversationId)
+    const existed = this.sessions.delete(key)
     if (existed) {
       logger.info('Session removed from store (without dispose)', {
         conversationId,
@@ -160,7 +170,8 @@ export class SessionStore {
   }
 
   async delete(conversationId: string): Promise<boolean> {
-    const session = this.sessions.get(conversationId)
+    const key = liveSessionKey(conversationId)
+    const session = this.sessions.get(key)
     const db = getDb()
     const existing = await db
       .select({ id: chatSessions.id })
@@ -174,13 +185,13 @@ export class SessionStore {
 
     if (session) {
       await session.agent.dispose()
-      this.sessions.delete(conversationId)
+      this.sessions.delete(key)
     }
 
     const deleted = Boolean(existing || session)
     if (deleted) {
-      this.deletedSessions.add(conversationId)
-      this.persistLocks.delete(conversationId)
+      this.deletedSessions.add(key)
+      this.persistLocks.delete(key)
       this.imageStore.deleteForSession(conversationId)
       logger.info('Session deleted', {
         conversationId,
@@ -193,7 +204,7 @@ export class SessionStore {
   }
 
   async hasPersistedSession(conversationId: string): Promise<boolean> {
-    if (this.deletedSessions.has(conversationId)) return false
+    if (this.deletedSessions.has(liveSessionKey(conversationId))) return false
     const row = await getDb()
       .select({ id: chatSessions.id })
       .from(chatSessions)
@@ -212,13 +223,14 @@ export class SessionStore {
     options: PersistMessagesOptions = {},
   ): Promise<void> {
     const syncIndexes = options.syncIndexes !== false
-    const prev = this.persistLocks.get(sessionId) ?? Promise.resolve()
+    const lockKey = liveSessionKey(sessionId)
+    const prev = this.persistLocks.get(lockKey) ?? Promise.resolve()
     let release!: () => void
     const gate = new Promise<void>((resolve) => {
       release = resolve
     })
     this.persistLocks.set(
-      sessionId,
+      lockKey,
       prev.catch(() => {}).then(() => gate),
     )
     await prev.catch(() => {})
@@ -235,7 +247,7 @@ export class SessionStore {
     messages: UIMessage[],
     syncIndexes: boolean,
   ): Promise<void> {
-    if (this.deletedSessions.has(sessionId)) {
+    if (this.deletedSessions.has(liveSessionKey(sessionId))) {
       logger.info('Skipping persist for deleted session', { sessionId })
       return
     }

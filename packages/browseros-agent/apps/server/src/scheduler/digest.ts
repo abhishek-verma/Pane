@@ -14,6 +14,7 @@ import { DIGESTS_DIR } from '@browseros/memory/constants'
 import { detectOnBattery, getPauseOnBatteryPref } from '../context/battery'
 import { listTasks } from '../context/tasks-repo'
 import { getDbHandle } from '../lib/db'
+import { forEachKnownProfile } from '../lib/for-each-profile'
 import { logger } from '../lib/logger'
 import { ensureMemoriesLayout, readPromptFiles } from '../memory/files'
 import { listEntries } from '../memory/store'
@@ -314,18 +315,22 @@ async function tickDigest(): Promise<void> {
   const stamp = dateStamp(now)
   if (lastDigestDay === stamp) return
 
-  let hour = DEFAULT_DIGEST_HOUR
-  try {
-    const files = await readPromptFiles()
-    hour = parseDigestHourFromUserMd(files.user)
-  } catch {
-    // default
-  }
+  let anyWrote = false
+  await forEachKnownProfile(async () => {
+    let hour = DEFAULT_DIGEST_HOUR
+    try {
+      const files = await readPromptFiles()
+      hour = parseDigestHourFromUserMd(files.user)
+    } catch {
+      // default
+    }
 
-  if (now.getHours() < hour) return
+    if (now.getHours() < hour) return
 
-  const result = await runDailyDigest()
-  if (result.path) lastDigestDay = stamp
+    const result = await runDailyDigest()
+    if (result.path) anyWrote = true
+  })
+  if (anyWrote) lastDigestDay = stamp
 }
 
 /** Test helper */

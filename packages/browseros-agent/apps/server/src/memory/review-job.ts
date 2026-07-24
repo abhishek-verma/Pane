@@ -305,11 +305,17 @@ let reviewTimer: ReturnType<typeof setInterval> | null = null
 export function startMemoryReviewMonitor(): void {
   if (reviewTimer) return
   reviewTimer = setInterval(() => {
-    void runSkillReviewJob().catch((err) => {
-      logger.warn('skill review job failed', {
-        error: err instanceof Error ? err.message : String(err),
+    void import('../lib/for-each-profile')
+      .then(({ forEachKnownProfile }) =>
+        forEachKnownProfile(async () => {
+          await runSkillReviewJob()
+        }),
+      )
+      .catch((err) => {
+        logger.warn('skill review job failed', {
+          error: err instanceof Error ? err.message : String(err),
+        })
       })
-    })
   }, REVIEW_INTERVAL_MS)
   // Don't keep the process alive solely for the review timer.
   if (typeof reviewTimer === 'object' && 'unref' in reviewTimer) {

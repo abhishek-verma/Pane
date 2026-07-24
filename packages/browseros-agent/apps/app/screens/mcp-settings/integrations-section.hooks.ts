@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 export interface McpAgentRow {
@@ -21,7 +22,7 @@ interface MutationResponse {
 const AGENTS_QUERY_KEY = ['mcp-manager', 'agents'] as const
 
 async function fetchAgents(agentServerUrl: string): Promise<McpAgentRow[]> {
-  const res = await fetch(`${agentServerUrl}/mcp-manager/agents`)
+  const res = await agentFetch(`${agentServerUrl}/mcp-manager/agents`)
   if (!res.ok) {
     throw new Error(`Failed to list agents: ${res.status} ${res.statusText}`)
   }
@@ -35,7 +36,7 @@ async function callMutation(
   action: 'install' | 'uninstall',
   payload?: Record<string, unknown>,
 ): Promise<MutationResponse> {
-  const res = await fetch(
+  const res = await agentFetch(
     `${agentServerUrl}/mcp-manager/agents/${encodeURIComponent(agentId)}/${action}`,
     {
       method: 'POST',

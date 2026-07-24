@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import {
   CHATGPT_PRO_OAUTH_COMPLETED_EVENT,
   CHATGPT_PRO_OAUTH_DISCONNECTED_EVENT,
@@ -293,7 +294,7 @@ export const PaneAiPane: FC = () => {
     deleteRemoteProviderMutation.mutate({ rowId: providerToDelete.id })
 
     if (wasLastRemoteHermes && agentServerUrl) {
-      void fetch(`${agentServerUrl}/remote-hermes/destroy`, {
+      void agentFetch(`${agentServerUrl}/remote-hermes/destroy`, {
         method: 'POST',
       }).catch(() => {
         // Best-effort; Fly machine is leaked if this fails. User can
@@ -340,7 +341,7 @@ export const PaneAiPane: FC = () => {
   const handleSaveProvider = async (provider: LlmProviderConfig) => {
     await saveProvider(provider)
     if (provider.type === 'remote-hermes' && agentServerUrl) {
-      void fetch(`${agentServerUrl}/remote-hermes/start`, {
+      void agentFetch(`${agentServerUrl}/remote-hermes/start`, {
         method: 'POST',
       }).catch(() => {
         // Best-effort warm; user's first chat will still boot the VM if

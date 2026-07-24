@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 export interface DiagnosticsData {
@@ -48,7 +49,7 @@ export function useDiagnostics() {
   return useQuery<DiagnosticsData>({
     queryKey: DIAGNOSTICS_KEY,
     queryFn: async () => {
-      const res = await fetch(`${baseUrl}/diagnostics`)
+      const res = await agentFetch(`${baseUrl}/diagnostics`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res.json()
     },
@@ -62,7 +63,7 @@ export function useDiagnosticsLogs() {
   return useQuery<{ lines: string[]; file?: string; error?: string }>({
     queryKey: ['diagnostics-logs'],
     queryFn: async () => {
-      const res = await fetch(`${baseUrl}/diagnostics/logs?lines=200`)
+      const res = await agentFetch(`${baseUrl}/diagnostics/logs?lines=200`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res.json()
     },
@@ -76,9 +77,12 @@ export function useWipeContextIndex() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${baseUrl}/diagnostics/wipe-context-index`, {
-        method: 'POST',
-      })
+      const res = await agentFetch(
+        `${baseUrl}/diagnostics/wipe-context-index`,
+        {
+          method: 'POST',
+        },
+      )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res.json()
     },
@@ -91,7 +95,7 @@ export function useTestProvider() {
   const { baseUrl } = useAgentServerUrl()
   return useMutation({
     mutationFn: async (providerId: string) => {
-      const res = await fetch(`${baseUrl}/diagnostics/test-provider`, {
+      const res = await agentFetch(`${baseUrl}/diagnostics/test-provider`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providerId }),

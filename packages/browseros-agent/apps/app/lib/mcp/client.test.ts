@@ -1,7 +1,27 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import { createServer, type IncomingMessage, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { fetchMcpTools } from './client'
+
+mock.module('@wxt-dev/storage', () => ({
+  storage: {
+    defineItem: () => ({
+      getValue: async () => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+      setValue: async () => {},
+    }),
+  },
+}))
+
+mock.module('@/lib/browseros/profile-key', () => ({
+  getBrowserProfileKey: async () => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+  resetBrowserProfileKeyCacheForTests: () => {},
+}))
+
+mock.module('../browseros/profile-key', () => ({
+  getBrowserProfileKey: async () => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+  resetBrowserProfileKeyCacheForTests: () => {},
+}))
+
+const { fetchMcpTools } = await import('./client')
 
 const SCHEMA_COMPILATION_STACK_RE =
   /node_modules[/\\](?:zod|@modelcontextprotocol[/\\]sdk)[/\\]/

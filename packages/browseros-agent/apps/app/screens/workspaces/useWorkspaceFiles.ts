@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 export interface WorkspaceBrowseEntry {
@@ -20,7 +21,7 @@ async function fetchWorkspaceFiles(
   path: string,
 ): Promise<WorkspaceBrowseResult> {
   const params = new URLSearchParams({ root, path })
-  const res = await fetch(
+  const res = await agentFetch(
     `${baseUrl.replace(/\/$/, '')}/workspace/files?${params}`,
   )
   if (!res.ok) {
@@ -36,7 +37,7 @@ async function fetchWorkspaceFile(
   path: string,
 ): Promise<{ path: string; content: string }> {
   const params = new URLSearchParams({ root, path })
-  const res = await fetch(
+  const res = await agentFetch(
     `${baseUrl.replace(/\/$/, '')}/workspace/file?${params}`,
   )
   if (!res.ok) {

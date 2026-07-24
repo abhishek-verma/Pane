@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
 export interface OAuthStatus {
@@ -25,7 +26,7 @@ export function useOAuthStatus(provider: string): UseOAuthStatusReturn {
   async function fetchStatus(): Promise<OAuthStatus | null> {
     try {
       const serverUrl = await getAgentServerUrl()
-      const res = await fetch(`${serverUrl}/oauth/${provider}/status`)
+      const res = await agentFetch(`${serverUrl}/oauth/${provider}/status`)
       if (!res.ok) return null
       const data = (await res.json()) as OAuthStatus
       setStatus(data)
@@ -60,7 +61,7 @@ export function useOAuthStatus(provider: string): UseOAuthStatusReturn {
   async function disconnect() {
     try {
       const serverUrl = await getAgentServerUrl()
-      await fetch(`${serverUrl}/oauth/${provider}`, { method: 'DELETE' })
+      await agentFetch(`${serverUrl}/oauth/${provider}`, { method: 'DELETE' })
       setStatus({ authenticated: false, provider })
     } catch {
       // Best-effort disconnect

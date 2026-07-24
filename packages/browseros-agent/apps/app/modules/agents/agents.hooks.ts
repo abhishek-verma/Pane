@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { Feature } from '@/lib/browseros/capabilities'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
@@ -29,7 +30,7 @@ async function agentsFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(buildAgentApiUrl(baseUrl, path), init)
+  const res = await agentFetch(buildAgentApiUrl(baseUrl, path), init)
   if (!res.ok) {
     let message = `Request failed with status ${res.status}`
     try {
@@ -216,7 +217,7 @@ export async function chatWithHarnessAgent(
   const baseUrl = await getAgentServerUrl()
   const sessionId = options.sessionId ?? 'main'
   const path = buildSessionChatPath(baseUrl, agentId, sessionId)
-  return fetch(path, {
+  return agentFetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -254,7 +255,7 @@ export async function attachToHarnessTurn(
   if (typeof options.lastSeq === 'number') {
     headers['Last-Event-ID'] = String(options.lastSeq)
   }
-  return fetch(url.toString(), { signal: options.signal, headers })
+  return agentFetch(url.toString(), { signal: options.signal, headers })
 }
 
 export interface HarnessActiveTurnInfo {
@@ -278,7 +279,7 @@ export async function fetchActiveHarnessTurn(
   sessionId = 'main',
 ): Promise<HarnessActiveTurnInfo | null> {
   const baseUrl = await getAgentServerUrl()
-  const response = await fetch(
+  const response = await agentFetch(
     `${buildSessionChatPath(baseUrl, agentId, sessionId)}/active`,
   )
   if (!response.ok) return null
@@ -298,7 +299,7 @@ export async function cancelHarnessTurn(
   options: { sessionId?: string; turnId?: string; reason?: string } = {},
 ): Promise<{ cancelled: boolean }> {
   const baseUrl = await getAgentServerUrl()
-  const response = await fetch(
+  const response = await agentFetch(
     `${buildSessionChatPath(baseUrl, agentId, options.sessionId ?? 'main')}/cancel`,
     {
       method: 'POST',
@@ -340,7 +341,7 @@ async function enqueueHarnessMessage(
     sessionId === 'main'
       ? `${baseUrl}/agents/${encodeURIComponent(agentId)}/queue`
       : `${baseUrl}/agents/${encodeURIComponent(agentId)}/sessions/${encodeURIComponent(sessionId)}/queue`
-  const response = await fetch(path, {
+  const response = await agentFetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -368,7 +369,7 @@ async function removeHarnessQueuedMessage(
   messageId: string,
 ): Promise<{ removed: boolean }> {
   const baseUrl = await getAgentServerUrl()
-  const response = await fetch(
+  const response = await agentFetch(
     `${baseUrl}/agents/${encodeURIComponent(agentId)}/queue/${encodeURIComponent(
       messageId,
     )}`,

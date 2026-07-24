@@ -1,4 +1,5 @@
 import { createParser, type EventSourceMessage } from 'eventsource-parser'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { resolveStoredChatProvider } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
@@ -98,7 +99,7 @@ export async function getChatServerResponse(
     // biome-ignore lint/style/noNonNullAssertion: filter guarantees url exists
     .map((s) => ({ name: s.displayName, url: s.config!.url }))
 
-  const response = await fetch(`${agentServerUrl}/chat`, {
+  const response = await agentFetch(`${agentServerUrl}/chat`, {
     method: 'POST',
     signal: request.signal,
     headers: {

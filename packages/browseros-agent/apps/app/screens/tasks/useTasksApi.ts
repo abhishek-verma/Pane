@@ -5,6 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 const TASKS_QUERY_KEY = 'tasks'
@@ -34,7 +35,7 @@ export function useTasks(bucketId = 'default', status?: string) {
     queryFn: async () => {
       const params = new URLSearchParams({ bucketId })
       if (status) params.set('status', status)
-      const res = await fetch(
+      const res = await agentFetch(
         `${base(baseUrl as string)}/tasks?${params.toString()}`,
       )
       if (!res.ok) throw new Error(`Failed to load tasks (${res.status})`)
@@ -49,7 +50,7 @@ export function useTasks(bucketId = 'default', status?: string) {
 
   const create = useMutation({
     mutationFn: async (input: { title: string; notes?: string }) => {
-      const res = await fetch(`${base(baseUrl as string)}/tasks`, {
+      const res = await agentFetch(`${base(baseUrl as string)}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...input, bucketId }),
@@ -69,7 +70,7 @@ export function useTasks(bucketId = 'default', status?: string) {
       scheduledJobId?: string | null
     }) => {
       const { id, ...body } = input
-      const res = await fetch(`${base(baseUrl as string)}/tasks/${id}`, {
+      const res = await agentFetch(`${base(baseUrl as string)}/tasks/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

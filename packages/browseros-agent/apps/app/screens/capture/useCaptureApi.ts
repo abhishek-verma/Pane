@@ -6,6 +6,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 const CAPTURE_QUERY_KEY = 'capture'
@@ -56,7 +57,7 @@ async function captureFetch(
   url: string,
   init?: RequestInit,
 ): Promise<Response> {
-  return fetch(url, {
+  return agentFetch(url, {
     ...init,
     signal: AbortSignal.timeout(CAPTURE_FETCH_TIMEOUT_MS),
   })

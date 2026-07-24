@@ -21,6 +21,7 @@ mock.module('./prefs', () => ({
     SHOW_TOOLBAR_LABELS: 'browseros.show_toolbar_labels',
     VERTICAL_TABS_ENABLED: 'browseros.vertical_tabs_enabled',
     INSTALL_ID: 'browseros.metrics_install_id',
+    METRICS_CLIENT_ID: 'browseros.metrics_client_id',
   },
 }))
 

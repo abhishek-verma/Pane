@@ -32,12 +32,12 @@ import {
   cleanOldSessions,
   ensureBrowserosDir,
   getBrowserosDir,
-  getDbPath,
   removeServerConfigSync,
   writeServerConfig,
 } from './lib/browseros-dir'
 import { generateCdpToken } from './lib/cdp-token'
 import { initializeDb } from './lib/db'
+import { forEachKnownProfile } from './lib/for-each-profile'
 import { identity } from './lib/identity'
 import { serverLock } from './lib/lock-file'
 import { logger } from './lib/logger'
@@ -207,8 +207,8 @@ export class Application {
     await ensureBrowserosDir()
     await cleanOldSessions()
 
+    // Per-profile DBs open lazily on first request; resourcesDir is shared.
     initializeDb({
-      dbPath: getDbPath(),
       resourcesDir: this.config.resourcesDir,
     })
     subscribeTerminalIngest()
@@ -220,42 +220,52 @@ export class Application {
       logger.warn('Embed worker start failed', { err: String(err) })
     })
     try {
-      rebuildMemoryFts()
-      rebuildChatFts()
+      await forEachKnownProfile(() => {
+        rebuildMemoryFts()
+        rebuildChatFts()
+      })
     } catch (err) {
       logger.warn('Retrieval FTS rebuild failed', { err: String(err) })
     }
     startEmbedIndexer()
     // Do not spawn ASR sidecars on startup — that crash-looped the server when a
     // zombie "active" meeting lingered in the DB. Chunk upload rehydrates lazily.
-    const stopped = reconcileStaleActiveCaptureSessions()
+    let stopped = 0
+    await forEachKnownProfile(() => {
+      stopped += reconcileStaleActiveCaptureSessions()
+    })
     if (stopped > 0) {
       logger.info('Stopped stale capture sessions on startup', { stopped })
     }
-    void reindexPlaceholderMeetingCaptures()
-      .then((reindexed) => {
-        if (reindexed > 0) {
-          logger.info('Reindexed placeholder meeting captures', { reindexed })
-        }
-      })
-      .catch((err: unknown) => {
-        logger.warn('Meeting capture reindex failed', { err: String(err) })
-      })
-    void ensureBuiltinSkills().catch((err: unknown) => {
+    void forEachKnownProfile(async () => {
+      const reindexed = await reindexPlaceholderMeetingCaptures()
+      if (reindexed > 0) {
+        logger.info('Reindexed placeholder meeting captures', { reindexed })
+      }
+    }).catch((err: unknown) => {
+      logger.warn('Meeting capture reindex failed', { err: String(err) })
+    })
+    void forEachKnownProfile(async () => {
+      await ensureBuiltinSkills()
+    }).catch((err: unknown) => {
       logger.warn('Builtin skills seed failed', { err: String(err) })
     })
 
     // Home proposal job — initial run 10 minutes after startup, then every 24h
     setTimeout(
       () => {
-        void runProposalJob().catch((err: unknown) => {
+        void forEachKnownProfile(async () => {
+          await runProposalJob()
+        }).catch((err: unknown) => {
           logger.warn('Home proposal job startup error', { err })
         })
       },
       10 * 60 * 1000,
     )
     setInterval(() => {
-      void runProposalJob().catch((err: unknown) => {
+      void forEachKnownProfile(async () => {
+        await runProposalJob()
+      }).catch((err: unknown) => {
         logger.warn('Home proposal job error', { err })
       })
     }, PROPOSAL_INTERVAL_MS)

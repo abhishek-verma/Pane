@@ -6,6 +6,7 @@
  * Drains server OS-push queue into chrome.notifications.
  */
 
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import {
   type ChromeNotificationOptions,
@@ -51,7 +52,7 @@ export function drainOsPush(): void {
     try {
       const { deepLinks } = await drainOsPushQueueOnce({
         getBaseUrl: getAgentServerUrl,
-        fetchFn: fetch.bind(globalThis),
+        fetchFn: agentFetch as typeof fetch,
         createNotification: defaultCreateNotification,
       })
       for (const [id, link] of deepLinks) {

@@ -1,3 +1,4 @@
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import type { LlmProviderConfig } from './types'
 
 /**
@@ -21,7 +22,7 @@ export async function testProvider(
   const startTime = performance.now()
 
   try {
-    const response = await fetch(`${agentServerUrl}/test-provider`, {
+    const response = await agentFetch(`${agentServerUrl}/test-provider`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -1,3 +1,4 @@
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import type { ChatRequestBrowserContext } from '@/lib/messaging/server/buildChatRequestBody'
 
 export interface ReplayToolParams {
@@ -25,7 +26,7 @@ export async function replayToolOnServer(
   params: ReplayToolParams,
   signal?: AbortSignal,
 ): Promise<ReplayToolResponse> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/trust/replay`, {
+  const res = await agentFetch(`${baseUrl.replace(/\/$/, '')}/trust/replay`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),

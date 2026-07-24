@@ -6,6 +6,7 @@
  * Centralized execution registry for all widget actions.
  */
 
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
 type QueryClientLike = {
@@ -56,7 +57,7 @@ export async function executeWidgetAction(
 
     case 'resolve-approval':
       try {
-        const res = await fetch(`${base}/scheduler/approvals/resolve`, {
+        const res = await agentFetch(`${base}/scheduler/approvals/resolve`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: action.token }),
@@ -73,7 +74,7 @@ export async function executeWidgetAction(
 
     case 'complete-task':
       try {
-        const res = await fetch(`${base}/tasks/${action.taskId}`, {
+        const res = await agentFetch(`${base}/tasks/${action.taskId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'done' }),

@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import type { BrowserOsDatabase } from '../../db'
 import { OAuthCallbackServer } from './callback-server'
 import type { OAuthTokenManager } from './token-manager'
 import { OAuthTokenManager as OAuthTokenManagerImpl } from './token-manager'
@@ -12,13 +11,13 @@ import { OAuthTokenStore } from './token-store'
 
 let tokenManager: OAuthTokenManager | null = null
 
-/** Initializes the process OAuth manager using the BrowserOS Drizzle database. */
-export function initializeOAuth(
-  db: BrowserOsDatabase,
-  browserosId: string,
-): OAuthTokenManager {
+/**
+ * Initializes the process OAuth manager. Token rows resolve via getDb() under
+ * the active Chrome profile context.
+ */
+export function initializeOAuth(browserosId: string): OAuthTokenManager {
   shutdownOAuth()
-  const store = new OAuthTokenStore(db)
+  const store = new OAuthTokenStore()
   const callbackServer = new OAuthCallbackServer()
   tokenManager = new OAuthTokenManagerImpl(store, browserosId, callbackServer)
   callbackServer.setTokenManager(tokenManager)

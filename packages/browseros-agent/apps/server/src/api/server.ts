@@ -9,7 +9,6 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import { HttpAgentError } from '../agent/errors'
 import { TurnRegistry } from '../lib/agents/turns/active-turn-registry'
 import { initializeOAuth, shutdownOAuth } from '../lib/clients/oauth'
-import { getDb } from '../lib/db'
 import { logger } from '../lib/logger'
 import { Sentry } from '../lib/sentry'
 import { createApiRoutes } from './routes'
@@ -44,9 +43,7 @@ export async function createHttpServer(config: HttpServerConfig) {
   const { port, host = '0.0.0.0', browserosId } = config
 
   const { onShutdown } = config
-  const tokenManager = browserosId
-    ? initializeOAuth(getDb(), browserosId)
-    : null
+  const tokenManager = browserosId ? initializeOAuth(browserosId) : null
   if (!browserosId) shutdownOAuth()
 
   // Shared between createAgentRoutes (which owns the lifecycle) and

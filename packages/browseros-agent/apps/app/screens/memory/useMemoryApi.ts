@@ -5,6 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 const MEMORY_QUERY_KEY = 'memory'
@@ -20,7 +21,7 @@ export function useMemoryFiles() {
     queryKey: [MEMORY_QUERY_KEY, 'files', baseUrl],
     enabled: Boolean(baseUrl) && !urlLoading,
     queryFn: async () => {
-      const res = await fetch(`${base(baseUrl as string)}/memory/files`)
+      const res = await agentFetch(`${base(baseUrl as string)}/memory/files`)
       if (!res.ok)
         throw new Error(`Failed to load memory files (${res.status})`)
       return (await res.json()) as {
@@ -34,7 +35,7 @@ export function useMemoryFiles() {
       which: 'soul' | 'user' | 'memory'
       content: string
     }) => {
-      const res = await fetch(
+      const res = await agentFetch(
         `${base(baseUrl as string)}/memory/files/${input.which}`,
         {
           method: 'PUT',
@@ -60,7 +61,9 @@ export function useStagedSkills() {
     queryKey: [MEMORY_QUERY_KEY, 'staged', baseUrl],
     enabled: Boolean(baseUrl) && !urlLoading,
     queryFn: async () => {
-      const res = await fetch(`${base(baseUrl as string)}/memory/skills/staged`)
+      const res = await agentFetch(
+        `${base(baseUrl as string)}/memory/skills/staged`,
+      )
       if (!res.ok)
         throw new Error(`Failed to load staged skills (${res.status})`)
       return (await res.json()) as {
@@ -71,7 +74,7 @@ export function useStagedSkills() {
 
   const approve = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(
+      const res = await agentFetch(
         `${base(baseUrl as string)}/memory/skills/staged/approve`,
         {
           method: 'POST',
@@ -89,7 +92,7 @@ export function useStagedSkills() {
 
   const reject = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(
+      const res = await agentFetch(
         `${base(baseUrl as string)}/memory/skills/staged/reject`,
         {
           method: 'POST',
@@ -115,7 +118,7 @@ export function useMemorySkills() {
     queryKey: [MEMORY_QUERY_KEY, 'skills', baseUrl],
     enabled: Boolean(baseUrl) && !urlLoading,
     queryFn: async () => {
-      const res = await fetch(
+      const res = await agentFetch(
         `${base(baseUrl as string)}/memory/skills?status=active,staged,flagged,archived`,
       )
       if (!res.ok) throw new Error(`Failed to load skills (${res.status})`)
@@ -137,7 +140,7 @@ export function useMemorySkills() {
         source.startsWith('https://') || source.startsWith('http://')
           ? { url: source }
           : { path: source }
-      const res = await fetch(
+      const res = await agentFetch(
         `${base(baseUrl as string)}/memory/skills/import`,
         {
           method: 'POST',
@@ -155,7 +158,7 @@ export function useMemorySkills() {
 
   const archive = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(
+      const res = await agentFetch(
         `${base(baseUrl as string)}/memory/skills/${id}/archive`,
         { method: 'POST' },
       )
@@ -177,7 +180,7 @@ export function usePersonas() {
     queryKey: [MEMORY_QUERY_KEY, 'personas', baseUrl],
     enabled: Boolean(baseUrl) && !urlLoading,
     queryFn: async () => {
-      const res = await fetch(`${base(baseUrl as string)}/memory/personas`)
+      const res = await agentFetch(`${base(baseUrl as string)}/memory/personas`)
       if (!res.ok) throw new Error(`Failed to load personas (${res.status})`)
       return (await res.json()) as {
         personas: Array<{ id: string; label: string }>
@@ -188,7 +191,7 @@ export function usePersonas() {
 
   const apply = useMutation({
     mutationFn: async (personaId: string) => {
-      const res = await fetch(
+      const res = await agentFetch(
         `${base(baseUrl as string)}/memory/personas/apply`,
         {
           method: 'POST',

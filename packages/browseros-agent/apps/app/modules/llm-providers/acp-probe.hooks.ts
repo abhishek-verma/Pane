@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import type { ProviderType } from '@/lib/llm-providers/types'
 import { useAgentServerUrl } from '../browseros/agent-server-url.hooks'
 
@@ -83,7 +84,7 @@ export function useAcpProbe(opts: UseAcpProbeOptions) {
     enabled,
     staleTime: PROBE_STALE_TIME_MS,
     queryFn: async () => {
-      const res = await fetch(`${agentServerUrl}/acpx/probe`, {
+      const res = await agentFetch(`${agentServerUrl}/acpx/probe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

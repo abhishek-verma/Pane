@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import {
   type ClientAuthConfig,
   requestDeviceCode,
@@ -158,7 +159,7 @@ export function useOAuthProviderFlow(
     })
 
     startTokenPolling(auth, deviceData, codeVerifier, async (token) => {
-      await fetch(`${serverUrl}/oauth/${config.providerType}/token`, {
+      await agentFetch(`${serverUrl}/oauth/${config.providerType}/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(token),
@@ -168,7 +169,7 @@ export function useOAuthProviderFlow(
   }
 
   async function handleServerAuth(agentServerUrl: string) {
-    const res = await fetch(
+    const res = await agentFetch(
       `${agentServerUrl}/oauth/${config.providerType}/start`,
     )
 

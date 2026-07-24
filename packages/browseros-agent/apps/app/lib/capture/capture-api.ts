@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import type {
   CaptureClass,
@@ -20,7 +21,7 @@ async function captureApiFetch(
   url: string,
   init?: RequestInit,
 ): Promise<Response> {
-  return fetch(url, {
+  return agentFetch(url, {
     ...init,
     signal: AbortSignal.timeout(CAPTURE_API_TIMEOUT_MS),
   })

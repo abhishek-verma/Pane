@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Archive, RotateCcw, Trash2 } from 'lucide-react'
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
 interface WidgetEntry {
@@ -28,7 +29,7 @@ const WIDGETS_KEY = ['scheduler', 'home', 'widgets'] as const
 
 async function fetchWidgets(): Promise<WidgetEntry[]> {
   const base = await getAgentServerUrl()
-  const res = await fetch(`${base}/scheduler/home/widgets`)
+  const res = await agentFetch(`${base}/scheduler/home/widgets`)
   if (!res.ok) return []
   const data = (await res.json()) as { widgets: WidgetEntry[] }
   return data.widgets
@@ -54,7 +55,9 @@ export const HomeSettingsPage: FC = () => {
   const archiveMutation = useMutation({
     mutationFn: async (id: string) => {
       const base = await getAgentServerUrl()
-      await fetch(`${base}/scheduler/home/widgets/${id}`, { method: 'DELETE' })
+      await agentFetch(`${base}/scheduler/home/widgets/${id}`, {
+        method: 'DELETE',
+      })
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: WIDGETS_KEY }),
   })
@@ -62,7 +65,7 @@ export const HomeSettingsPage: FC = () => {
   const resetMutation = useMutation({
     mutationFn: async () => {
       const base = await getAgentServerUrl()
-      await fetch(`${base}/scheduler/home/reset`, { method: 'POST' })
+      await agentFetch(`${base}/scheduler/home/reset`, { method: 'POST' })
     },
     onSuccess: () => void qc.invalidateQueries({ queryKey: WIDGETS_KEY }),
   })

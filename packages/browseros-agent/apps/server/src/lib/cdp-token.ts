@@ -25,7 +25,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { PATHS } from '@browseros/shared/constants/paths'
-import { getBrowserosDir } from './browseros-dir'
+import { getInstallBrowserosDir } from './browseros-dir'
 
 /** Generates a cryptographically random CDP session token. */
 export function generateCdpToken(): string {
@@ -40,7 +40,10 @@ export function generateCdpToken(): string {
  * and reject the connection rather than allowing access.
  */
 export function getCdpToken(): string | null {
-  const configPath = join(getBrowserosDir(), PATHS.SERVER_CONFIG_FILE_NAME)
+  const configPath = join(
+    getInstallBrowserosDir(),
+    PATHS.SERVER_CONFIG_FILE_NAME,
+  )
 
   try {
     const raw = readFileSync(configPath, 'utf-8')

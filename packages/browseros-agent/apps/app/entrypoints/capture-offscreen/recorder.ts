@@ -7,6 +7,7 @@
  * Durable pending-upload buffer survives transient server failures.
  */
 
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import {
   onRuntimeMessage,
   RuntimeMessageType,
@@ -118,7 +119,7 @@ async function uploadCaptureChunk(input: {
 }): Promise<string> {
   const serverUrl = await resolveLiveServerUrl(input.serverUrl)
   const base = serverUrl.replace(/\/$/, '')
-  const res = await fetch(`${base}/capture/chunk`, {
+  const res = await agentFetch(`${base}/capture/chunk`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

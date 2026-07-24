@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
 interface CreditsInfo {
@@ -11,7 +12,7 @@ const CREDITS_QUERY_KEY = ['credits']
 
 async function fetchCredits(): Promise<CreditsInfo> {
   const baseUrl = await getAgentServerUrl()
-  const response = await fetch(`${baseUrl}/credits`)
+  const response = await agentFetch(`${baseUrl}/credits`)
   if (!response.ok)
     throw new Error(`Failed to fetch credits: ${response.status}`)
   return response.json()

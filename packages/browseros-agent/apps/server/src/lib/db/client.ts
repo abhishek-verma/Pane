@@ -27,7 +27,8 @@ export interface DbHandle {
 }
 
 export interface OpenDbOptions {
-  dbPath: string
+  /** When omitted, callers resolve the path (per-profile or install root). */
+  dbPath?: string
   resourcesDir?: string
   migrationsDir?: string
   runMigrations?: boolean
@@ -64,7 +65,9 @@ function repairMigrationTimestamps(sqlite: BunDatabase): void {
 }
 
 /** Opens BrowserOS SQLite and applies checked-in Drizzle migrations before callers use the DB. */
-export function openBrowserOsDatabase(options: OpenDbOptions): DbHandle {
+export function openBrowserOsDatabase(
+  options: OpenDbOptions & { dbPath: string },
+): DbHandle {
   const migrationsDir = resolveMigrationsDir(options)
   mkdirSync(dirname(options.dbPath), { recursive: true })
 

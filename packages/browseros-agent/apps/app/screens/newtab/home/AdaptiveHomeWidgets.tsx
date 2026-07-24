@@ -12,6 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { BUILTIN_TEMPLATES } from '@/lib/home/builtin-templates'
 import {
@@ -70,7 +71,7 @@ async function fetchHome(): Promise<HomeData> {
   // Perf / ship-gate: only /scheduler/home — never /chat or generateText.
   const url = `${base}/scheduler/home`
   if (url.includes('/chat')) homeLoaderCalledChat = true
-  const res = await fetch(url)
+  const res = await agentFetch(url)
   if (!res.ok) throw new Error(`Home load failed: ${res.status}`)
   return res.json() as Promise<HomeData>
 }
@@ -142,7 +143,7 @@ export const AdaptiveHomeWidgets: FC = () => {
       widget: string
     }) => {
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/scheduler/home/prefs`, {
+      const res = await agentFetch(`${base}/scheduler/home/prefs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(input),
@@ -155,7 +156,7 @@ export const AdaptiveHomeWidgets: FC = () => {
   const addProposalMutation = useMutation({
     mutationFn: async (widget: HomeWidget) => {
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/scheduler/home/widgets`, {
+      const res = await agentFetch(`${base}/scheduler/home/widgets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,7 +170,7 @@ export const AdaptiveHomeWidgets: FC = () => {
         }),
       })
       if (widget.id) {
-        await fetch(`${base}/scheduler/home/widgets/${widget.id}`, {
+        await agentFetch(`${base}/scheduler/home/widgets/${widget.id}`, {
           method: 'DELETE',
         })
       }
@@ -182,7 +183,7 @@ export const AdaptiveHomeWidgets: FC = () => {
     mutationFn: async (widget: HomeWidget) => {
       if (!widget.id) return
       const base = await getAgentServerUrl()
-      await fetch(`${base}/scheduler/home/widgets/${widget.id}`, {
+      await agentFetch(`${base}/scheduler/home/widgets/${widget.id}`, {
         method: 'DELETE',
       })
     },
@@ -193,7 +194,7 @@ export const AdaptiveHomeWidgets: FC = () => {
     mutationFn: async (widget: HomeWidget) => {
       if (!widget.id) return
       const base = await getAgentServerUrl()
-      await fetch(`${base}/scheduler/home/widgets/${widget.id}/action`, {
+      await agentFetch(`${base}/scheduler/home/widgets/${widget.id}/action`, {
         method: 'POST',
       })
       const action = widget.action
@@ -210,7 +211,7 @@ export const AdaptiveHomeWidgets: FC = () => {
       const template = BUILTIN_TEMPLATES.find((t) => t.id === templateId)
       if (!template) return
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/scheduler/home/widgets`, {
+      const res = await agentFetch(`${base}/scheduler/home/widgets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

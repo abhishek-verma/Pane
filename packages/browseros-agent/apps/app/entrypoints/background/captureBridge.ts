@@ -13,6 +13,7 @@ import {
   resolveCaptureAdapter,
 } from '@browseros/capture/adapters'
 import { decideCaptureLifecycle } from '@browseros/capture/meeting-lifecycle'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { browsingCaptureModeStorage } from '@/lib/capture/browsing-capture-mode'
 import {
@@ -173,7 +174,7 @@ async function _consentAllowed(
 async function isDomainDenied(url: string): Promise<boolean> {
   try {
     const serverUrl = (await getAgentServerUrl()).replace(/\/$/, '')
-    const res = await fetch(`${serverUrl}/context/grants?deniedOnly=true`)
+    const res = await agentFetch(`${serverUrl}/context/grants?deniedOnly=true`)
     if (!res.ok) return false
     const json = (await res.json()) as {
       grants: Array<{ domain: string; allowed: boolean }>

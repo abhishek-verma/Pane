@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Provider } from '@/components/chat/chatComponentTypes'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import {
   getWindowConversation,
   setWindowConversation,
@@ -405,6 +406,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       return hasAnyResponded
     },
     transport: new DefaultChatTransport({
+      fetch: agentFetch as typeof fetch,
       prepareSendMessagesRequest: async ({ messages }) => {
         const target = selectedChatTargetRef.current
         const fallbackProvider =

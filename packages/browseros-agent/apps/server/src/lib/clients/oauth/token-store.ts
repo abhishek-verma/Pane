@@ -5,7 +5,7 @@
  */
 
 import { and, eq } from 'drizzle-orm'
-import type { BrowserOsDatabase } from '../../db'
+import { getDb } from '../../db'
 import { type OAuthTokenRow, oauthTokens } from '../../db/schema'
 import type {
   OAuthStatus,
@@ -13,10 +13,8 @@ import type {
   StoredOAuthTokens,
 } from './token-manager'
 
-/** Persists OAuth tokens in the BrowserOS Drizzle database for server-managed LLM providers. */
+/** Persists OAuth tokens in the active profile's BrowserOS database. */
 export class OAuthTokenStore implements OAuthTokenStoreContract {
-  constructor(private readonly db: BrowserOsDatabase) {}
-
   upsertTokens(
     browserosId: string,
     provider: string,
@@ -32,7 +30,7 @@ export class OAuthTokenStore implements OAuthTokenStoreContract {
       accountId: tokens.accountId ?? null,
       updatedAt: Date.now(),
     }
-    this.db
+    getDb()
       .insert(oauthTokens)
       .values(row)
       .onConflictDoUpdate({
@@ -55,7 +53,7 @@ export class OAuthTokenStore implements OAuthTokenStoreContract {
   }
 
   deleteTokens(browserosId: string, provider: string): void {
-    this.db.delete(oauthTokens).where(tokenKey(browserosId, provider)).run()
+    getDb().delete(oauthTokens).where(tokenKey(browserosId, provider)).run()
   }
 
   getStatus(browserosId: string, provider: string): OAuthStatus {
@@ -69,7 +67,7 @@ export class OAuthTokenStore implements OAuthTokenStoreContract {
 
   private findRow(browserosId: string, provider: string): OAuthTokenRow | null {
     return (
-      this.db
+      getDb()
         .select()
         .from(oauthTokens)
         .where(tokenKey(browserosId, provider))

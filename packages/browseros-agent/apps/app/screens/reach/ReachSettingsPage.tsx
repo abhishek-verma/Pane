@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
 const REACH_KEY = ['reach', 'status'] as const
@@ -19,7 +20,7 @@ export const ReachSettingsPage: FC = () => {
     queryKey: REACH_KEY,
     queryFn: async () => {
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/reach/status`)
+      const res = await agentFetch(`${base}/reach/status`)
       if (!res.ok) throw new Error(`status ${res.status}`)
       return res.json() as Promise<{
         configured: Record<string, boolean>
@@ -37,7 +38,7 @@ export const ReachSettingsPage: FC = () => {
     queryKey: KEEP_KEY,
     queryFn: async () => {
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/scheduler/keep-alive`)
+      const res = await agentFetch(`${base}/scheduler/keep-alive`)
       if (!res.ok) throw new Error(`status ${res.status}`)
       return res.json() as Promise<{
         installed: boolean
@@ -61,7 +62,7 @@ export const ReachSettingsPage: FC = () => {
   const testSend = useMutation({
     mutationFn: async (transport?: string) => {
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/reach/test`, {
+      const res = await agentFetch(`${base}/reach/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transport }),
@@ -73,7 +74,7 @@ export const ReachSettingsPage: FC = () => {
   const saveTelegram = useMutation({
     mutationFn: async () => {
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/reach/telegram/config`, {
+      const res = await agentFetch(`${base}/reach/telegram/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ botToken }),
@@ -87,7 +88,7 @@ export const ReachSettingsPage: FC = () => {
   const saveEmail = useMutation({
     mutationFn: async () => {
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/reach/email/config`, {
+      const res = await agentFetch(`${base}/reach/email/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -103,7 +104,7 @@ export const ReachSettingsPage: FC = () => {
   const installKeepAlive = useMutation({
     mutationFn: async (install: boolean) => {
       const base = await getAgentServerUrl()
-      const res = await fetch(
+      const res = await agentFetch(
         `${base}/scheduler/keep-alive/${install ? 'install' : 'uninstall'}`,
         { method: 'POST' },
       )

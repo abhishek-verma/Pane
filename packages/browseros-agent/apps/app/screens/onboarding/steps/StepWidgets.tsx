@@ -10,6 +10,7 @@
 import { BookOpen, CheckCircle, FileText, RefreshCw } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { ONBOARDING_STEP_COMPLETED_EVENT } from '@/lib/constants/analyticsEvents'
 import { BUILTIN_TEMPLATES } from '@/lib/home/builtin-templates'
@@ -69,7 +70,7 @@ export const StepWidgets = ({ direction, onContinue }: StepWidgetsProps) => {
         for (const id of selected) {
           const tmpl = BUILTIN_TEMPLATES.find((t) => t.id === id)
           if (!tmpl) continue
-          await fetch(`${base}/scheduler/home/widgets`, {
+          await agentFetch(`${base}/scheduler/home/widgets`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

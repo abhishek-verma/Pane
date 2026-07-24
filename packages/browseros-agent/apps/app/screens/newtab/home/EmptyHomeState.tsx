@@ -10,6 +10,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { BookOpen, CheckCircle, FileText } from 'lucide-react'
 import type { FC } from 'react'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { BUILTIN_TEMPLATES } from '@/lib/home/builtin-templates'
 
@@ -31,7 +32,7 @@ export const EmptyHomeState: FC = () => {
       const template = BUILTIN_TEMPLATES.find((t) => t.id === templateId)
       if (!template) return
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/scheduler/home/widgets`, {
+      const res = await agentFetch(`${base}/scheduler/home/widgets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

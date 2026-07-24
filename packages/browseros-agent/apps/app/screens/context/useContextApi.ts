@@ -5,6 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 const CONTEXT_QUERY_KEY = 'context'
@@ -55,7 +56,7 @@ export function useContextBuckets() {
   const query = useQuery({
     queryKey: [CONTEXT_QUERY_KEY, 'buckets', baseUrl],
     queryFn: async () => {
-      const res = await fetch(`${base(baseUrl as string)}/context/buckets`)
+      const res = await agentFetch(`${base(baseUrl as string)}/context/buckets`)
       if (!res.ok) throw new Error(`Failed to load buckets (${res.status})`)
       const body = (await res.json()) as { buckets: Bucket[] }
       return body.buckets
@@ -75,7 +76,7 @@ export function useContextCurrent(bucketId: string) {
   const query = useQuery({
     queryKey: [CONTEXT_QUERY_KEY, 'current', baseUrl, bucketId],
     queryFn: async () => {
-      const res = await fetch(
+      const res = await agentFetch(
         `${base(baseUrl as string)}/context/current?bucketId=${encodeURIComponent(bucketId)}`,
       )
       if (!res.ok) throw new Error(`Failed to load context (${res.status})`)
@@ -108,7 +109,7 @@ export function useContextGrants(
     queryFn: async () => {
       const params = new URLSearchParams({ bucketId })
       if (options.deniedOnly) params.set('deniedOnly', 'true')
-      const res = await fetch(
+      const res = await agentFetch(
         `${base(baseUrl as string)}/context/grants?${params}`,
       )
       if (!res.ok) throw new Error(`Failed to load grants (${res.status})`)
@@ -122,11 +123,14 @@ export function useContextGrants(
 
   const setGrant = useMutation({
     mutationFn: async (input: { domain: string; allowed: boolean }) => {
-      const res = await fetch(`${base(baseUrl as string)}/context/grants`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...input, bucketId }),
-      })
+      const res = await agentFetch(
+        `${base(baseUrl as string)}/context/grants`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...input, bucketId }),
+        },
+      )
       if (!res.ok) throw new Error(`Failed to update grant (${res.status})`)
       return res.json()
     },
@@ -161,7 +165,9 @@ export function useContextSettings() {
   const query = useQuery({
     queryKey: [CONTEXT_QUERY_KEY, 'settings', baseUrl],
     queryFn: async () => {
-      const res = await fetch(`${base(baseUrl as string)}/context/settings`)
+      const res = await agentFetch(
+        `${base(baseUrl as string)}/context/settings`,
+      )
       if (!res.ok)
         throw new Error(`Failed to load context settings (${res.status})`)
       return (await res.json()) as ContextSettings
@@ -171,11 +177,14 @@ export function useContextSettings() {
 
   const updateSettings = useMutation({
     mutationFn: async (patch: Partial<ContextSettings>) => {
-      const res = await fetch(`${base(baseUrl as string)}/context/settings`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      })
+      const res = await agentFetch(
+        `${base(baseUrl as string)}/context/settings`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        },
+      )
       if (!res.ok) throw new Error(`Failed to update settings (${res.status})`)
       return res.json()
     },

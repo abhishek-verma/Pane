@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
 interface TriggerMatch {
@@ -32,7 +33,7 @@ const TRIGGERS_KEY = ['scheduler', 'triggers'] as const
 
 async function fetchTriggers(): Promise<TriggerRule[]> {
   const base = await getAgentServerUrl()
-  const res = await fetch(`${base}/scheduler/triggers`)
+  const res = await agentFetch(`${base}/scheduler/triggers`)
   if (!res.ok) throw new Error(`Failed to load triggers: ${res.status}`)
   const data = (await res.json()) as { rules: TriggerRule[] }
   return data.rules
@@ -60,7 +61,7 @@ export const TriggersPanel: FC = () => {
       const match: TriggerMatch = { toolName: toolName.trim() || undefined }
       const n = Number.parseInt(occurrenceN, 10)
       if (Number.isFinite(n) && n > 0) match.occurrenceN = n
-      const res = await fetch(`${base}/scheduler/triggers`, {
+      const res = await agentFetch(`${base}/scheduler/triggers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -84,7 +85,7 @@ export const TriggersPanel: FC = () => {
   const toggleMutation = useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/scheduler/triggers/${id}`, {
+      const res = await agentFetch(`${base}/scheduler/triggers/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
@@ -99,7 +100,7 @@ export const TriggersPanel: FC = () => {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const base = await getAgentServerUrl()
-      const res = await fetch(`${base}/scheduler/triggers/${id}`, {
+      const res = await agentFetch(`${base}/scheduler/triggers/${id}`, {
         method: 'DELETE',
       })
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`)

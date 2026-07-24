@@ -7,6 +7,7 @@
 import { OAUTH_CALLBACK_PORT } from '@browseros/shared/constants/ports'
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { logger } from '../../logger'
+import { runWithProfileAsync, tryGetProfileKey } from '../../profile-context'
 import type { OAuthCallbackServer } from './callback-server'
 import { getOAuthProvider, type OAuthProviderConfig } from './providers'
 
@@ -41,6 +42,8 @@ interface PendingOAuthFlow {
   state: string
   redirectBackUrl?: string
   createdAt: number
+  /** Chrome profile that started the flow (for callback DB writes). */
+  profileKey: string | null
 }
 
 interface OAuthTokenResponse {
@@ -108,6 +111,7 @@ export class OAuthTokenManager {
       state,
       redirectBackUrl,
       createdAt: Date.now(),
+      profileKey: tryGetProfileKey(),
     })
     this.cleanExpiredFlows()
 
@@ -137,60 +141,66 @@ export class OAuthTokenManager {
       throw new Error('OAuth flow expired. Please try again.')
     }
 
-    const provider = getOAuthProvider(flow.provider)
-    if (!provider) throw new Error(`Unknown OAuth provider: ${flow.provider}`)
+    const finish = async () => {
+      const provider = getOAuthProvider(flow.provider)
+      if (!provider) throw new Error(`Unknown OAuth provider: ${flow.provider}`)
 
-    const redirectUri = buildRedirectUri()
-    const tokenResponse = await fetch(provider.tokenEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: provider.clientId,
-        code,
-        redirect_uri: redirectUri,
-        code_verifier: flow.codeVerifier,
-      }),
-    })
-
-    if (!tokenResponse.ok) {
-      const error = await tokenResponse.text()
-      logger.error('OAuth token exchange failed', {
-        status: tokenResponse.status,
-        error,
+      const redirectUri = buildRedirectUri()
+      const tokenResponse = await fetch(provider.tokenEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: provider.clientId,
+          code,
+          redirect_uri: redirectUri,
+          code_verifier: flow.codeVerifier,
+        }),
       })
-      throw new Error(`Token exchange failed: ${tokenResponse.status}`)
+
+      if (!tokenResponse.ok) {
+        const error = await tokenResponse.text()
+        logger.error('OAuth token exchange failed', {
+          status: tokenResponse.status,
+          error,
+        })
+        throw new Error(`Token exchange failed: ${tokenResponse.status}`)
+      }
+
+      const data = (await tokenResponse.json()) as OAuthTokenResponse
+      if (!data.refresh_token) {
+        logger.warn(
+          'OAuth token response missing refresh_token — token refresh will not be available',
+          {
+            provider: flow.provider,
+          },
+        )
+      }
+      const { accountId, email } = parseAccessTokenClaims(data.access_token)
+
+      const tokens: StoredOAuthTokens = {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token ?? '',
+        expiresAt: Date.now() + data.expires_in * 1000,
+        email,
+        accountId,
+      }
+
+      this.store.upsertTokens(this.browserosId, flow.provider, tokens)
+      this.pendingFlows.delete(state)
+      this.stopCallbackIfIdle()
+
+      logger.info('OAuth authentication successful', {
+        provider: flow.provider,
+      })
+
+      return { tokens, redirectBackUrl: flow.redirectBackUrl }
     }
 
-    const data = (await tokenResponse.json()) as OAuthTokenResponse
-    if (!data.refresh_token) {
-      logger.warn(
-        'OAuth token response missing refresh_token — token refresh will not be available',
-        {
-          provider: flow.provider,
-        },
-      )
+    if (flow.profileKey) {
+      return runWithProfileAsync(flow.profileKey, finish)
     }
-    const { accountId, email } = parseAccessTokenClaims(data.access_token)
-
-    const tokens: StoredOAuthTokens = {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token ?? '',
-      expiresAt: Date.now() + data.expires_in * 1000,
-      email,
-      accountId,
-    }
-
-    this.store.upsertTokens(this.browserosId, flow.provider, tokens)
-    this.pendingFlows.delete(state)
-    this.stopCallbackIfIdle()
-
-    logger.info('OAuth authentication successful', {
-      provider: flow.provider,
-      email,
-    })
-
-    return { tokens, redirectBackUrl: flow.redirectBackUrl }
+    return finish()
   }
 
   // --- Device Code flow (GitHub Copilot) ---
@@ -256,6 +266,7 @@ export class OAuthTokenManager {
 
     // Start background polling with error handling
     this.activeDeviceFlows.add(providerId)
+    const profileKey = tryGetProfileKey()
     this.pollDeviceCode(
       providerId,
       provider,
@@ -263,6 +274,7 @@ export class OAuthTokenManager {
       data.interval,
       data.expires_in,
       codeVerifier,
+      profileKey,
     ).finally(() => this.activeDeviceFlows.delete(providerId))
 
     return {
@@ -279,6 +291,7 @@ export class OAuthTokenManager {
     initialInterval: number,
     expiresIn: number,
     codeVerifier?: string,
+    profileKey?: string | null,
   ): Promise<void> {
     let interval = initialInterval
     const deadline = Date.now() + expiresIn * 1000
@@ -330,7 +343,15 @@ export class OAuthTokenManager {
             email: undefined,
             accountId: undefined,
           }
-          this.store.upsertTokens(this.browserosId, providerId, tokens)
+          const upsert = () =>
+            this.store.upsertTokens(this.browserosId, providerId, tokens)
+          if (profileKey) {
+            await runWithProfileAsync(profileKey, async () => {
+              upsert()
+            })
+          } else {
+            upsert()
+          }
           logger.info('Device code OAuth successful', { provider: providerId })
           return
         }

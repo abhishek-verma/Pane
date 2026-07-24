@@ -34,7 +34,8 @@ describe('OAuth client setup', () => {
       dbPath: join(dir, 'db', 'browseros.sqlite'),
     })
 
-    const manager = initializeOAuth(handle.db, 'browseros-1')
+    const manager = initializeOAuth('browseros-1')
+    expect(handle).not.toBeNull()
 
     expect(getOAuthTokenManager()).toBe(manager)
     expect(manager.getStatus('qwen-code')).toEqual({
@@ -57,11 +58,11 @@ describe('OAuth client setup', () => {
   })
 
   it('stops and clears the current process token manager', () => {
-    const handle = initializeTestDb()
-    const firstManager = initializeOAuth(handle.db, 'browseros-1')
+    initializeTestDb()
+    const firstManager = initializeOAuth('browseros-1')
     const stopFirst = spyOn(firstManager, 'stopCallbackServer')
 
-    const secondManager = initializeOAuth(handle.db, 'browseros-2')
+    const secondManager = initializeOAuth('browseros-2')
 
     expect(stopFirst).toHaveBeenCalledTimes(1)
     expect(getOAuthTokenManager()).toBe(secondManager)

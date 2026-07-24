@@ -5,6 +5,7 @@
  */
 
 import type { UIMessage } from 'ai'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
 export interface ChatHistoryListItem {
@@ -26,7 +27,7 @@ export async function fetchChatHistoryList(
   baseUrl?: string,
 ): Promise<ChatHistoryListItem[]> {
   const url = await resolveBaseUrl(baseUrl)
-  const response = await fetch(`${url}/chat/history`)
+  const response = await agentFetch(`${url}/chat/history`)
   if (!response.ok) {
     throw new Error(`Failed to fetch chat history (${response.status})`)
   }
@@ -38,7 +39,7 @@ export async function fetchChatConversation(
   baseUrl?: string,
 ): Promise<ChatConversationDetail> {
   const url = await resolveBaseUrl(baseUrl)
-  const response = await fetch(
+  const response = await agentFetch(
     `${url}/chat/${encodeURIComponent(conversationId)}`,
   )
   if (!response.ok) {
@@ -54,7 +55,7 @@ export async function deleteChatConversation(
   baseUrl?: string,
 ): Promise<void> {
   const url = await resolveBaseUrl(baseUrl)
-  const response = await fetch(
+  const response = await agentFetch(
     `${url}/chat/${encodeURIComponent(conversationId)}`,
     { method: 'DELETE' },
   )
@@ -74,7 +75,7 @@ export async function importChatConversations(
   baseUrl?: string,
 ): Promise<{ imported: number; skipped: number }> {
   const url = await resolveBaseUrl(baseUrl)
-  const response = await fetch(`${url}/chat/import`, {
+  const response = await agentFetch(`${url}/chat/import`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ conversations }),

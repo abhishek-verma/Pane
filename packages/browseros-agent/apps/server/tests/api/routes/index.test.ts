@@ -3,10 +3,16 @@
  * Copyright 2025 BrowserOS
  */
 
-import { describe, expect, it, mock } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { BROWSEROS_PROFILE_ID_HEADER } from '@browseros/shared/constants/headers'
 import { Hono } from 'hono'
 import type { Env } from '../../../src/api/types'
 import { TurnRegistry } from '../../../src/lib/agents/turns/active-turn-registry'
+import { closeDb, initializeDb } from '../../../src/lib/db'
+import { resetLegacyClaimForTests } from '../../../src/lib/profile-legacy-migrate'
 
 mock.module('../../../src/lib/mcp-manager', () => ({
   humaniseInstallError: (err: unknown) => ({
@@ -19,6 +25,17 @@ mock.module('../../../src/lib/mcp-manager', () => ({
 }))
 
 const { createApiRoutes } = await import('../../../src/api/routes')
+
+const PROFILE = '44444444-4444-4444-8444-444444444444'
+
+function profileHeaders(
+  extra?: Record<string, string>,
+): Record<string, string> {
+  return {
+    [BROWSEROS_PROFILE_ID_HEADER]: PROFILE,
+    ...extra,
+  }
+}
 
 function createTestConfig() {
   return {
@@ -45,6 +62,20 @@ function createTestApp(agentRoutes = new Hono<Env>()) {
 }
 
 describe('createApiRoutes', () => {
+  beforeEach(() => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-routes-index-'))
+    process.env.BROWSEROS_DIR = dir
+    resetLegacyClaimForTests()
+    closeDb()
+    initializeDb({})
+  })
+
+  afterEach(() => {
+    closeDb()
+    delete process.env.BROWSEROS_DIR
+    resetLegacyClaimForTests()
+  })
+
   it('mounts the health route', async () => {
     const response = await createTestApp().request('/health')
 
@@ -56,7 +87,9 @@ describe('createApiRoutes', () => {
   })
 
   it('preserves the OAuth unavailable fallback', async () => {
-    const response = await createTestApp().request('/oauth/openai/status')
+    const response = await createTestApp().request('/oauth/openai/status', {
+      headers: profileHeaders(),
+    })
 
     expect(response.status).toBe(503)
     await expect(response.json()).resolves.toEqual({
@@ -65,7 +98,9 @@ describe('createApiRoutes', () => {
   })
 
   it('mounts the MCP manager routes', async () => {
-    const response = await createTestApp().request('/mcp-manager/agents')
+    const response = await createTestApp().request('/mcp-manager/agents', {
+      headers: profileHeaders(),
+    })
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ agents: [] })
@@ -79,16 +114,22 @@ describe('createApiRoutes', () => {
 
     const blocked = await app.request('/agents/guard-check', {
       method: 'POST',
+      headers: profileHeaders(),
     })
     expect(blocked.status).toBe(403)
 
     const allowed = await app.request('/agents/guard-check', {
       method: 'POST',
-      headers: {
+      headers: profileHeaders({
         Origin: 'chrome-extension://biedncddmddkpapdplhcnkhhplnfgbif',
-      },
+      }),
     })
     expect(allowed.status).toBe(200)
     await expect(allowed.json()).resolves.toEqual({ ok: true })
+  })
+
+  it('rejects user-data routes without a profile header', async () => {
+    const response = await createTestApp().request('/chat/history')
+    expect(response.status).toBe(400)
   })
 })

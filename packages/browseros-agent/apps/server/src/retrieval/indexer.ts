@@ -10,6 +10,7 @@ import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { hashEmbed } from '@browseros/retrieval/hash-embed'
 import { getPauseOnBatteryPref } from '../context/battery'
 import { getDbHandle } from '../lib/db'
+import { forEachKnownProfile } from '../lib/for-each-profile'
 import { logger } from '../lib/logger'
 import { extractChatPlainText } from './chat-text'
 import { upsertChunk } from './chunks'
@@ -205,30 +206,34 @@ export function backfillEmbedQueue(limit = 200): number {
 
 export function startEmbedIndexer(): void {
   if (timer) return
-  // Initial backfill + drain shortly after boot
+  // Initial backfill + drain shortly after boot (per Chrome profile)
   setTimeout(() => {
-    try {
-      const n = backfillEmbedQueue()
-      if (n > 0) logger.info('Embed backfill enqueued', { n })
-    } catch (err) {
-      logger.warn('Embed backfill failed', { err: String(err) })
-    }
-    void drainEmbedQueue().catch((err: unknown) => {
-      logger.warn('Embed drain failed', { err: String(err) })
+    void forEachKnownProfile(async () => {
+      try {
+        const n = backfillEmbedQueue()
+        if (n > 0) logger.info('Embed backfill enqueued', { n })
+      } catch (err) {
+        logger.warn('Embed backfill failed', { err: String(err) })
+      }
+      await drainEmbedQueue().catch((err: unknown) => {
+        logger.warn('Embed drain failed', { err: String(err) })
+      })
     })
   }, 5_000)
 
   timer = setInterval(() => {
-    void drainEmbedQueue().catch((err: unknown) => {
-      logger.warn('Embed drain failed', { err: String(err) })
-    })
-    if (pendingCount() < 4) {
-      try {
-        backfillEmbedQueue(50)
-      } catch {
-        /* ignore */
+    void forEachKnownProfile(async () => {
+      await drainEmbedQueue().catch((err: unknown) => {
+        logger.warn('Embed drain failed', { err: String(err) })
+      })
+      if (pendingCount() < 4) {
+        try {
+          backfillEmbedQueue(50)
+        } catch {
+          /* ignore */
+        }
       }
-    }
+    })
   }, 15_000)
   // Don't keep process alive solely for indexer in tests
   timer.unref?.()
