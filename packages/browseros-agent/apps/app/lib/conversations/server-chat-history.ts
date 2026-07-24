@@ -17,6 +17,11 @@ export interface ChatHistoryListItem {
 export interface ChatConversationDetail {
   id: string
   messages: UIMessage[]
+  activeTurn?: {
+    turnId: string
+    status: string
+    startedAt: number
+  } | null
 }
 
 async function resolveBaseUrl(baseUrl?: string): Promise<string> {

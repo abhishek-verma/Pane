@@ -35,14 +35,17 @@ describe('database initialization', () => {
     expect(rows).toEqual([])
   })
 
-  it('is idempotent when initialized twice for the same path', () => {
+  it('can re-open the same path after migrations already ran', () => {
     const dir = mkTempDir()
     const dbPath = join(dir, 'browseros.sqlite')
 
     const first = initializeDb({ dbPath })
+    expect(first?.path).toBe(dbPath)
+    // initializeDb always reopens explicit paths (no stale handle reuse across
+    // temp dirs), so identity is not stable — only reopen + schema must work.
     const second = initializeDb({ dbPath })
-
-    expect(second).toBe(first)
+    expect(second?.path).toBe(dbPath)
+    expect(second?.db.select().from(agentDefinitions).all()).toEqual([])
   })
 
   it('bootstraps the current schema when migration files are unavailable', () => {

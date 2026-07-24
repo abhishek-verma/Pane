@@ -56,6 +56,7 @@ export const Chat = () => {
     denyTool,
     promoteTool,
     retryLastTurn,
+    isStreaming: sessionStreaming,
   } = useChatSessionContext()
 
   const voice = useVoiceInput()
@@ -186,7 +187,8 @@ export const Chat = () => {
     onStopRecording: handleStopRecording,
   }
 
-  const isStreaming = status === 'streaming' || status === 'submitted'
+  const isStreaming =
+    sessionStreaming || status === 'streaming' || status === 'submitted'
   const showLiveWatch =
     mode === 'agent' && shouldEnableLiveWatch(messages, isStreaming)
   const watchPageId = showLiveWatch ? resolveWatchPageId(messages) : undefined

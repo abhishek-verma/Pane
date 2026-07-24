@@ -1021,7 +1021,7 @@ describe('ChatService message repair on hydrate and new turns', () => {
 })
 
 describe('ChatService conversation mutex', () => {
-  it('serializes overlapping processMessage calls for the same conversation', async () => {
+  it('supersedes an in-flight turn when a new user message arrives', async () => {
     resolveLLMConfigSpy.mockImplementation(async () => ({
       provider: 'openai',
       model: 'gpt-5',
@@ -1041,9 +1041,6 @@ describe('ChatService conversation mutex', () => {
       uiMessages: MockMessage[]
     }> = []
     streamResponseHandler = async ({ onFinish, uiMessages }) => {
-      // Response resolves immediately (matches production: the Response
-      // object is handed back long before onFinish fires) — onFinish is
-      // invoked later, explicitly, by the test.
       captured.push({ onFinish, uiMessages: uiMessages ?? agent.messages })
       return new Response('ok')
     }
@@ -1067,28 +1064,19 @@ describe('ChatService conversation mutex', () => {
       isScheduledTask: false,
     } as never
 
-    const pA = service.processMessage(requestA, new AbortController().signal)
-    await pA
+    await service.processMessage(requestA, new AbortController().signal)
     expect(captured).toHaveLength(1)
+    expect(await service.getActiveTurn(conversationId)).not.toBeNull()
 
-    // B is queued behind A's lock, which A has not released yet (A's
-    // onFinish has not been called). B's setup must not run — no second
-    // user message may be appended — until A finishes.
-    const pB = service.processMessage(requestB, new AbortController().signal)
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    expect(captured).toHaveLength(1)
-    expect(
-      agent.messages.some((m) => m.parts[0]?.text === 'second message'),
-    ).toBe(false)
-
-    // Release A by finishing its stream.
-    await captured[0]?.onFinish({ messages: captured[0]?.uiMessages ?? [] })
-    await pB
-
+    // New user prompt cancels A (unlocks) then starts B — does not queue forever.
+    await service.processMessage(requestB, new AbortController().signal)
     expect(captured).toHaveLength(2)
     expect(
       agent.messages.some((m) => m.parts[0]?.text === 'second message'),
     ).toBe(true)
+
+    await captured[1]?.onFinish({ messages: captured[1]?.uiMessages ?? [] })
+    expect(await service.getActiveTurn(conversationId)).toBeNull()
   })
 
   it('releases the lock on a synchronous failure so the conversation is not wedged', async () => {
@@ -1137,7 +1125,7 @@ describe('ChatService conversation mutex', () => {
     )
   })
 
-  it('releases the lock after client abort when onFinish never fires', async () => {
+  it('does not release the lock on client abort alone; cancelTurn does', async () => {
     resolveLLMConfigSpy.mockImplementation(async () => ({
       provider: 'openai',
       model: 'gpt-5',
@@ -1153,11 +1141,12 @@ describe('ChatService conversation mutex', () => {
         messages: MockMessage[]
         isAborted?: boolean
       }) => Promise<void>
+      abortSignal?: AbortSignal
     }> = []
-    streamResponseHandler = async ({ onFinish }) => {
-      captured.push({ onFinish })
+    streamResponseHandler = async ({ onFinish, abortSignal }) => {
+      captured.push({ onFinish, abortSignal })
       // Simulate a cancelled response body: Response returns, onFinish never
-      // runs (the dogfood Stop → Retry hang).
+      // runs until we explicitly settle — HTTP abort alone must not unlock.
       return new Response('ok')
     }
 
@@ -1177,10 +1166,24 @@ describe('ChatService conversation mutex', () => {
       abortA.signal,
     )
     expect(captured).toHaveLength(1)
+    expect(await service.getActiveTurn(conversationId)).not.toBeNull()
 
+    // Detach only — turn stays active, lock stays held.
     abortA.abort()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(await service.getActiveTurn(conversationId)).not.toBeNull()
 
-    const pB = service.processMessage(
+    // Explicit cancel unlocks so a superseding message can proceed.
+    expect(service.cancelTurn(conversationId, 'user-stop')).toBe(true)
+    expect(await service.getActiveTurn(conversationId)).toBeNull()
+
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      captured.push({ onFinish })
+      await onFinish({ messages: uiMessages ?? agent.messages })
+      return new Response('ok')
+    }
+
+    await service.processMessage(
       {
         conversationId,
         message: 'retry after stop',
@@ -1190,26 +1193,132 @@ describe('ChatService conversation mutex', () => {
       } as never,
       new AbortController().signal,
     )
-
-    // Still locked during the abort grace window.
-    await new Promise((resolve) => setTimeout(resolve, 50))
-    expect(captured).toHaveLength(1)
-
-    // After CONVERSATION_LOCK_ABORT_RELEASE_MS (2s), B must proceed without
-    // ever calling A's onFinish — otherwise Retry hangs for up to 15m.
-    await Promise.race([
-      pB,
-      new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error('lock not released after client abort')),
-          3500,
-        ),
-      ),
-    ])
-    expect(captured).toHaveLength(2)
+    expect(captured.length).toBeGreaterThanOrEqual(2)
     expect(
       agent.messages.some((m) => m.parts[0]?.text === 'retry after stop'),
     ).toBe(true)
+  })
+
+  it('attachTurn delivers a snapshot while the turn is still running after detach', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const agent = createFakeAgent()
+    agentToReturn = agent
+    let stepFinish:
+      | ((args: { messages: MockMessage[] }) => Promise<void>)
+      | undefined
+    streamResponseHandler = async ({ onStepFinish, onFinish }) => {
+      stepFinish = onStepFinish
+      void onFinish
+      return new Response('partial')
+    }
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+
+    const abortA = new AbortController()
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'research',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      abortA.signal,
+    )
+    abortA.abort()
+
+    await stepFinish?.({
+      messages: [
+        {
+          id: 'u1',
+          role: 'user',
+          parts: [{ type: 'text', text: 'research' }],
+        },
+        {
+          id: 'a1',
+          role: 'assistant',
+          parts: [{ type: 'text', text: 'still working' }],
+        },
+      ],
+    })
+
+    const attach = service.attachTurn({ conversationId })
+    expect(attach).not.toBeNull()
+    expect(attach?.headers.get('X-Turn-Id')).toBeTruthy()
+
+    expect(service.cancelTurn(conversationId, 'test-cleanup')).toBe(true)
+  })
+
+  it('scheduled fetch abort cancels the turn via unified cancel', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const agent = createFakeAgent()
+    agentToReturn = agent
+    streamResponseHandler = async () => new Response('ok')
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+
+    const abortA = new AbortController()
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'scheduled job',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: true,
+      } as never,
+      abortA.signal,
+    )
+    expect(await service.getActiveTurn(conversationId)).not.toBeNull()
+    abortA.abort()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(await service.getActiveTurn(conversationId)).toBeNull()
+  })
+
+  it('deleteSession cancels an active turn first', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+
+    const conversationId = crypto.randomUUID()
+    const agent = createFakeAgent()
+    agentToReturn = agent
+    streamResponseHandler = async () => new Response('ok')
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'bye',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+    expect(await service.getActiveTurn(conversationId)).not.toBeNull()
+    await service.deleteSession(conversationId)
+    expect(await service.getActiveTurn(conversationId)).toBeNull()
   })
 })
 

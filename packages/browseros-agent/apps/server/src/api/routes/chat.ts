@@ -125,6 +125,58 @@ export function createChatRoutes(deps: ChatRouteDeps) {
       }
     })
     .get(
+      '/:conversationId/active',
+      zValidator('param', ConversationIdParamSchema),
+      async (c) => {
+        const { conversationId } = c.req.valid('param')
+        const active = await service.getActiveTurn(conversationId)
+        return c.json({ active })
+      },
+    )
+    .get(
+      '/:conversationId/stream',
+      zValidator('param', ConversationIdParamSchema),
+      async (c) => {
+        const { conversationId } = c.req.valid('param')
+        const url = new URL(c.req.url)
+        const turnId = url.searchParams.get('turnId')?.trim() || undefined
+        const lastEventId =
+          c.req.header('Last-Event-ID') ??
+          url.searchParams.get('lastSeq') ??
+          undefined
+        const lastSeq =
+          lastEventId != null && lastEventId !== ''
+            ? Number.parseInt(lastEventId, 10)
+            : undefined
+        const response = service.attachTurn({
+          conversationId,
+          turnId,
+          lastSeq: Number.isFinite(lastSeq) ? lastSeq : undefined,
+          signal: c.req.raw.signal,
+        })
+        if (!response) {
+          return c.json({ error: 'No active turn for this conversation' }, 404)
+        }
+        return response
+      },
+    )
+    .post(
+      '/:conversationId/cancel',
+      zValidator('param', ConversationIdParamSchema),
+      async (c) => {
+        const { conversationId } = c.req.valid('param')
+        let reason: string | undefined
+        try {
+          const body = await c.req.json()
+          if (body && typeof body.reason === 'string') reason = body.reason
+        } catch {
+          // empty body is fine
+        }
+        const cancelled = service.cancelTurn(conversationId, reason)
+        return c.json({ cancelled })
+      },
+    )
+    .get(
       '/:conversationId',
       zValidator('param', ConversationIdParamSchema),
       async (c) => {
@@ -134,10 +186,12 @@ export function createChatRoutes(deps: ChatRouteDeps) {
           if (!conversation) {
             return c.json({ error: 'Conversation not found' }, 404)
           }
+          const active = await service.getActiveTurn(conversationId)
           // Cast away AI SDK UIMessage depth so Hono client inference stays finite.
           return c.json({
             id: conversation.id,
             messages: conversation.messages as unknown[],
+            activeTurn: active,
           })
         } catch (err) {
           logger.error('Failed to get conversation', {

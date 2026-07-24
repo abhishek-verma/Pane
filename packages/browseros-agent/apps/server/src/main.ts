@@ -13,6 +13,7 @@ import path from 'node:path'
 import { CdpBackend } from '@browseros/browser-core/backends/cdp'
 import { Browser } from '@browseros/browser-core/browser'
 import { EXIT_CODES } from '@browseros/shared/constants/exit-codes'
+import { reconcileStaleChatTurns } from './agent/chat-turns-store'
 import { createHttpServer } from './api/server'
 import {
   reconcileStaleActiveCaptureSessions,
@@ -231,11 +232,18 @@ export class Application {
     // Do not spawn ASR sidecars on startup — that crash-looped the server when a
     // zombie "active" meeting lingered in the DB. Chunk upload rehydrates lazily.
     let stopped = 0
+    let interruptedTurns = 0
     await forEachKnownProfile(() => {
       stopped += reconcileStaleActiveCaptureSessions()
+      interruptedTurns += reconcileStaleChatTurns()
     })
     if (stopped > 0) {
       logger.info('Stopped stale capture sessions on startup', { stopped })
+    }
+    if (interruptedTurns > 0) {
+      logger.info('Interrupted stale chat turns on startup', {
+        interruptedTurns,
+      })
     }
     void forEachKnownProfile(async () => {
       const reindexed = await reindexPlaceholderMeetingCaptures()

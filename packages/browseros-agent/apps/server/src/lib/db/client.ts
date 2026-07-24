@@ -382,6 +382,11 @@ export const currentMigrationHistory = [
     hash: 'b2c3d4e5f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde012',
     createdAt: 1785000000000,
   },
+  {
+    tag: '0014_chat_turns',
+    hash: 'c3d4e5f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde0123',
+    createdAt: 1785600000000,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -493,6 +498,25 @@ const currentSchemaStatements = [
   `
     CREATE INDEX IF NOT EXISTS chat_messages_created_idx
     ON chat_messages (created_at)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS chat_turns (
+      id text PRIMARY KEY NOT NULL,
+      session_id text NOT NULL,
+      status text NOT NULL,
+      started_at integer NOT NULL,
+      ended_at integer,
+      stop_reason text,
+      FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON UPDATE no action ON DELETE cascade
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS chat_turns_session_idx
+    ON chat_turns (session_id)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS chat_turns_status_idx
+    ON chat_turns (status)
   `,
   `
     CREATE TABLE IF NOT EXISTS action_log (

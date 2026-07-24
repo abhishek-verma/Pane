@@ -15,6 +15,20 @@ import type {
 import type { UIMessage } from 'ai'
 import { isAcpProvider } from '../../agent/acp-providers'
 import { AiSdkAgent } from '../../agent/ai-sdk-agent'
+import {
+  getDbRunningChatTurn,
+  insertRunningChatTurn,
+  interruptDbRunningChatTurn,
+  markChatTurnTerminal,
+} from '../../agent/chat-turns-store'
+import {
+  type ChatTurnInfo,
+  conversationTurnRegistry,
+} from '../../agent/conversation-turn-registry'
+import {
+  chatTurnAttachSseResponse,
+  detachableUiStreamResponse,
+} from '../../agent/detachable-ui-stream'
 import { createDurableAgentUIStreamResponse } from '../../agent/durable-agent-ui-stream'
 import { formatUserMessage } from '../../agent/format-message'
 import { prepareMessagesForAgentTurn } from '../../agent/message-repair'
@@ -64,33 +78,20 @@ export interface ChatServiceDeps {
  */
 const CONVERSATION_LOCK_WATCHDOG_MS = 15 * 60 * 1000
 
-/**
- * When the client aborts the SSE (Stop / navigation), `onFinish` sometimes
- * never runs — the runtime drops the cancelled response body. Without a
- * faster path than the 15m watchdog, Retry / the next message hang behind
- * the still-held conversation lock ("Running the approved action…" forever).
- * Give onFinish a short grace window to checkpoint, then force-release.
- */
-const CONVERSATION_LOCK_ABORT_RELEASE_MS = 2_000
-
 export class ChatService {
   constructor(private deps: ChatServiceDeps) {}
 
   /**
-   * Per-conversation FIFO queue. Approval-resume and new-user-turn requests
-   * for the same conversation must not read/mutate `session.agent.messages`
-   * concurrently — otherwise one turn's settle/checkpoint can clobber the
-   * other's in-flight patch (e.g. Approve a card and instantly send a new
-   * message). Held from request entry until the stream's `onFinish` fires
-   * (or the turn throws before ever starting a stream), not just until the
-   * `Response` object is constructed — the actual transcript mutation
-   * continues for as long as the stream runs.
+   * Per-conversation FIFO queue. Held from request entry until the turn's
+   * `onFinish` / cancel completes — not when the HTTP subscriber detaches.
+   * Client abort must not release this lock while the agent is still running.
    */
   private readonly conversationLocks = new Map<string, Promise<void>>()
+  /** Release callbacks for the in-flight turn, keyed by conversationId. */
+  private readonly turnLockReleases = new Map<string, () => void>()
 
   private async withConversationLock<T>(
     conversationId: string,
-    abortSignal: AbortSignal,
     fn: (release: () => void) => Promise<T>,
   ): Promise<T> {
     const prev = this.conversationLocks.get(conversationId) ?? Promise.resolve()
@@ -102,12 +103,10 @@ export class ChatService {
     this.conversationLocks.set(conversationId, chained)
 
     let released = false
-    let abortReleaseTimer: ReturnType<typeof setTimeout> | undefined
     const release = () => {
       if (released) return
       released = true
       clearTimeout(watchdog)
-      if (abortReleaseTimer !== undefined) clearTimeout(abortReleaseTimer)
       releaseGate()
       if (this.conversationLocks.get(conversationId) === chained) {
         this.conversationLocks.delete(conversationId)
@@ -119,25 +118,6 @@ export class ChatService {
       })
       release()
     }, CONVERSATION_LOCK_WATCHDOG_MS)
-
-    const scheduleAbortRelease = () => {
-      if (released || abortReleaseTimer !== undefined) return
-      abortReleaseTimer = setTimeout(() => {
-        if (released) return
-        logger.warn(
-          'Conversation lock released after client abort without onFinish',
-          { conversationId },
-        )
-        release()
-      }, CONVERSATION_LOCK_ABORT_RELEASE_MS)
-    }
-    if (abortSignal.aborted) {
-      scheduleAbortRelease()
-    } else {
-      abortSignal.addEventListener('abort', scheduleAbortRelease, {
-        once: true,
-      })
-    }
 
     await prev
     try {
@@ -189,11 +169,88 @@ export class ChatService {
     request: ChatRequest,
     abortSignal: AbortSignal,
   ): Promise<Response> {
-    return this.withConversationLock(
-      request.conversationId,
-      abortSignal,
-      (release) => this.processMessageLocked(request, abortSignal, release),
+    // Scheduled jobs have no UI reattach consumer; aborting their fetch means
+    // cancel the turn. Attended chat: abort = detach only.
+    if (request.isScheduledTask) {
+      const onAbort = () => {
+        this.cancelTurn(request.conversationId, 'scheduled-fetch-aborted')
+      }
+      if (abortSignal.aborted) onAbort()
+      else abortSignal.addEventListener('abort', onAbort, { once: true })
+    }
+
+    // Supersede before taking the conversation lock so cancel can unwind the
+    // prior turn and release its lock; otherwise a new prompt would queue
+    // forever behind a detached still-running turn.
+    const isApprovalResume =
+      !request.message.trim() &&
+      Array.isArray(request.toolApprovalResponses) &&
+      request.toolApprovalResponses.length > 0
+    if (!isApprovalResume) {
+      this.cancelTurn(request.conversationId, 'superseded-by-new-message')
+    }
+
+    return this.withConversationLock(request.conversationId, (release) =>
+      this.processMessageLocked(request, abortSignal, release),
     )
+  }
+
+  /** Active turn for a conversation (memory first; repairs DB split-brain). */
+  async getActiveTurn(conversationId: string): Promise<ChatTurnInfo | null> {
+    const live = conversationTurnRegistry.getActiveFor(conversationId)
+    if (live) {
+      return conversationTurnRegistry.describe(live.turnId)
+    }
+    const dbRunning = await getDbRunningChatTurn(conversationId)
+    if (dbRunning) {
+      await interruptDbRunningChatTurn(dbRunning.id, 'split-brain')
+    }
+    return null
+  }
+
+  /** Attach a subscriber to a running (or retained) turn. */
+  attachTurn(input: {
+    conversationId: string
+    turnId?: string
+    lastSeq?: number
+    signal?: AbortSignal
+  }): Response | null {
+    const turnId =
+      input.turnId ??
+      conversationTurnRegistry.getActiveFor(input.conversationId)?.turnId
+    if (!turnId) return null
+    const live = this.deps.sessionStore.get(input.conversationId)
+    const frames = conversationTurnRegistry.subscribe(turnId, {
+      fromSeq: input.lastSeq,
+      signal: input.signal,
+      fallbackMessages: live
+        ? filterValidMessages(live.agent.messages)
+        : undefined,
+    })
+    if (!frames) return null
+    return chatTurnAttachSseResponse(frames, {
+      turnId,
+      signal: input.signal,
+    })
+  }
+
+  /** Explicit cancel (Stop / supersede / delete / scheduled cancel). */
+  cancelTurn(conversationId: string, reason?: string): boolean {
+    const turn = conversationTurnRegistry.getActiveFor(conversationId)
+    if (!turn) return false
+    const cancelled = conversationTurnRegistry.cancel(turn.turnId, reason)
+    if (cancelled) {
+      void markChatTurnTerminal({
+        turnId: turn.turnId,
+        status: 'cancelled',
+        stopReason: reason ?? 'cancelled',
+      })
+      // Unlock even if onFinish never runs (cancelled body / hung SDK).
+      const release = this.turnLockReleases.get(conversationId)
+      this.turnLockReleases.delete(conversationId)
+      release?.()
+    }
+    return cancelled
   }
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: chat request orchestration; refactor tracked separately
@@ -583,38 +640,16 @@ export class ChatService {
       gateContext.runId = runId
       runTracker.startRun(runId)
 
-      return createDurableAgentUIStreamResponse({
-        agent: session.agent.toolLoopAgent,
+      return this.startDetachedUiTurn({
+        request,
+        session,
+        runId,
+        release,
+        httpSignal: abortSignal,
+        prompt: null,
         uiMessages: filterValidMessages(session.agent.messages),
-        abortSignal,
-        onStepFinish: async ({ messages }) => {
-          if (!session) return
+        applyStreamMessages: (messages) => {
           session.agent.messages = filterValidMessages(messages)
-          await this.checkpointMessages(
-            request.conversationId,
-            session.agent.messages,
-            false,
-          )
-        },
-        onFinish: async ({ messages, isAborted }) => {
-          try {
-            if (!session) return
-            session.agent.messages = filterValidMessages(messages)
-            await this.checkpointMessages(
-              request.conversationId,
-              session.agent.messages,
-              true,
-            )
-            logger.info('Agent execution complete', {
-              conversationId: request.conversationId,
-              totalMessages: session.agent.messages.length,
-              isAborted,
-            })
-          } finally {
-            finalizeSkillOutcomesForRun(runId, !abortSignal.aborted)
-            runTracker.endRun(runId)
-            release()
-          }
         },
       })
     }
@@ -756,47 +791,138 @@ export class ChatService {
       }
     }
 
-    return createDurableAgentUIStreamResponse({
-      agent: session.agent.toolLoopAgent,
+    return this.startDetachedUiTurn({
+      request,
+      session,
+      runId,
+      release,
+      httpSignal: abortSignal,
+      prompt: request.message,
       uiMessages: promptUiMessages,
-      abortSignal,
-      onStepFinish: async ({ messages }) => {
-        if (!session) return
-        applyStreamMessages(messages)
-        await this.checkpointMessages(
-          request.conversationId,
-          session.agent.messages,
-          false,
-        )
-      },
-      onFinish: async ({ messages, isAborted }) => {
-        try {
-          if (!session) return
-          applyStreamMessages(messages)
-          await this.checkpointMessages(
-            request.conversationId,
-            session.agent.messages,
-            true,
-          )
-
-          logger.info('Agent execution complete', {
-            conversationId: request.conversationId,
-            totalMessages: session.agent.messages.length,
-            isAborted,
-          })
-
-          if (session.hiddenPageId) {
-            const pageId = session.hiddenPageId
-            session.hiddenPageId = undefined
-            this.closeHiddenPage(pageId, request.conversationId)
-          }
-        } finally {
-          finalizeSkillOutcomesForRun(runId, !abortSignal.aborted)
-          runTracker.endRun(runId)
-          release()
+      applyStreamMessages,
+      onComplete: () => {
+        if (session.hiddenPageId) {
+          const pageId = session.hiddenPageId
+          session.hiddenPageId = undefined
+          this.closeHiddenPage(pageId, request.conversationId)
         }
       },
     })
+  }
+
+  /**
+   * Register a detached turn, run the AI SDK UI stream on the turn abort
+   * signal, tee so HTTP disconnect only detaches, and checkpoint snapshots
+   * for late joiners.
+   */
+  private async startDetachedUiTurn(input: {
+    request: ChatRequest
+    session: AgentSession
+    runId: string
+    release: () => void
+    httpSignal: AbortSignal
+    prompt: string | null
+    uiMessages: UIMessage[]
+    applyStreamMessages: (messages: UIMessage[]) => void
+    onComplete?: () => void
+  }): Promise<Response> {
+    const { request, session, runId, release, httpSignal } = input
+
+    // Cancel any leftover active turn (e.g. approval resume while one runs).
+    conversationTurnRegistry.cancelActiveFor(
+      request.conversationId,
+      'replaced-by-new-turn',
+    )
+
+    const turn = conversationTurnRegistry.register(request.conversationId, {
+      prompt: input.prompt,
+    })
+    await insertRunningChatTurn({
+      turnId: turn.turnId,
+      sessionId: request.conversationId,
+      startedAt: turn.startedAt,
+    })
+    this.turnLockReleases.set(request.conversationId, release)
+
+    const turnSignal = turn.abortController.signal
+    let settled = false
+    const settleTurn = async (isAborted: boolean) => {
+      if (settled) return
+      settled = true
+      const status = turnSignal.aborted || isAborted ? 'cancelled' : 'done'
+      if (conversationTurnRegistry.get(turn.turnId)?.status === 'running') {
+        conversationTurnRegistry.complete(
+          turn.turnId,
+          status === 'cancelled' ? 'cancelled' : 'done',
+        )
+      }
+      await markChatTurnTerminal({
+        turnId: turn.turnId,
+        status,
+        stopReason: turnSignal.aborted ? 'aborted' : null,
+      })
+      finalizeSkillOutcomesForRun(runId, !turnSignal.aborted && !isAborted)
+      runTracker.endRun(runId)
+      this.turnLockReleases.delete(request.conversationId)
+      release()
+    }
+
+    try {
+      const agentResponse = await createDurableAgentUIStreamResponse({
+        agent: session.agent.toolLoopAgent,
+        uiMessages: input.uiMessages,
+        abortSignal: turnSignal,
+        onStepFinish: async ({ messages }) => {
+          input.applyStreamMessages(messages)
+          await this.checkpointMessages(
+            request.conversationId,
+            session.agent.messages,
+            false,
+          )
+          const snapshot = filterValidMessages(session.agent.messages)
+          stripUIImageOutputs(
+            snapshot,
+            request.conversationId,
+            this.deps.sessionStore.imageStore,
+          )
+          conversationTurnRegistry.pushSnapshot(turn.turnId, snapshot)
+        },
+        onFinish: async ({ messages, isAborted }) => {
+          try {
+            input.applyStreamMessages(messages)
+            await this.checkpointMessages(
+              request.conversationId,
+              session.agent.messages,
+              true,
+            )
+            const snapshot = filterValidMessages(session.agent.messages)
+            stripUIImageOutputs(
+              snapshot,
+              request.conversationId,
+              this.deps.sessionStore.imageStore,
+            )
+            conversationTurnRegistry.pushSnapshot(turn.turnId, snapshot)
+            logger.info('Agent execution complete', {
+              conversationId: request.conversationId,
+              turnId: turn.turnId,
+              totalMessages: session.agent.messages.length,
+              isAborted,
+            })
+            input.onComplete?.()
+          } finally {
+            await settleTurn(Boolean(isAborted))
+          }
+        },
+      })
+
+      return detachableUiStreamResponse(agentResponse, {
+        httpSignal,
+        turnId: turn.turnId,
+      })
+    } catch (err) {
+      await settleTurn(true)
+      throw err
+    }
   }
 
   private async checkpointMessages(
@@ -830,6 +956,7 @@ export class ChatService {
   async deleteSession(
     conversationId: string,
   ): Promise<{ deleted: boolean; sessionCount: number }> {
+    this.cancelTurn(conversationId, 'conversation-deleted')
     const session = this.deps.sessionStore.get(conversationId)
     if (session?.hiddenPageId) {
       const pageId = session.hiddenPageId

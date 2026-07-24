@@ -222,27 +222,11 @@ export function createAgentRoutes(deps: AgentRouteDeps = {}) {
           throw err
         }
 
-        let didRequestCancel = false
-        const cancelStartedTurn = () => {
-          if (didRequestCancel) return
-          didRequestCancel = true
-          service.cancelTurn({
-            agentId: agent.id,
-            sessionId: parsed.agentSessionId,
-            turnId: started.turnId,
-            reason: 'sidepanel stream cancelled',
-          })
-        }
-        if (c.req.raw.signal.aborted) {
-          cancelStartedTurn()
-        } else {
-          c.req.raw.signal.addEventListener('abort', cancelStartedTurn, {
-            once: true,
-          })
-        }
-
+        // HTTP abort detaches this subscriber only; Stop uses POST .../cancel.
         const events = turnFramesToAgentEvents(started.frames, {
-          onCancel: cancelStartedTurn,
+          onCancel: () => {
+            // Stream consumer cancelled — do not cancel the underlying turn.
+          },
         })
 
         return createAcpUIMessageStreamResponse(events, {
