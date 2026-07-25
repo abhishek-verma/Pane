@@ -5,34 +5,11 @@
  */
 
 import { useEffect, useState } from 'react'
-import { loadProviders } from '@/lib/llm-providers/storage'
 import { onboardingCompletedStorage } from './onboardingStorage'
 
 export type OnboardingCompletedState =
   | { status: 'loading' }
   | { status: 'ready'; completed: boolean }
-
-/**
- * Existing installs never wrote `onboardingCompleted`. If they already have a
- * provider configured, treat them as complete so the new route gate does not
- * force them back through setup.
- */
-export async function resolveOnboardingCompleted(): Promise<boolean> {
-  const completed = await onboardingCompletedStorage.getValue()
-  if (completed) return true
-
-  try {
-    const providers = await loadProviders()
-    if (providers.length > 0) {
-      await onboardingCompletedStorage.setValue(true)
-      return true
-    }
-  } catch {
-    // Best-effort migration only.
-  }
-
-  return false
-}
 
 /** Subscribes to whether product onboarding has been marked complete. */
 export function useOnboardingCompleted(): OnboardingCompletedState {
@@ -43,9 +20,9 @@ export function useOnboardingCompleted(): OnboardingCompletedState {
   useEffect(() => {
     let cancelled = false
 
-    void resolveOnboardingCompleted().then((completed) => {
+    void onboardingCompletedStorage.getValue().then((completed) => {
       if (!cancelled) {
-        setState({ status: 'ready', completed })
+        setState({ status: 'ready', completed: Boolean(completed) })
       }
     })
 
