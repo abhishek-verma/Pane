@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { ChatActiveTurnInfo } from '@/lib/conversations/chat-turn-api'
 
 const fetchActiveChatTurn = mock(
@@ -7,7 +7,10 @@ const fetchActiveChatTurn = mock(
 const cancelChatTurn = mock(async () => ({ cancelled: true }))
 const attachChatTurnStream = mock(async () => {})
 
-// Do not import the real chat-turn-api module here — it pulls wxt/storage.
+// Do not import the real chat-turn-api module here — it pulls
+// agent-fetch → profile-key → @wxt-dev/storage (needs browser.runtime).
+// Also do not mock.restore(): Bun reloads the real module and the async
+// storage driver throws an unhandled error before the next suite.
 mock.module('@/lib/conversations/chat-turn-api', () => ({
   fetchActiveChatTurn,
   cancelChatTurn,
@@ -15,10 +18,6 @@ mock.module('@/lib/conversations/chat-turn-api', () => ({
 }))
 
 const { ChatTurnController } = await import('./chat-turn-controller')
-
-afterAll(() => {
-  mock.restore()
-})
 
 describe('ChatTurnController', () => {
   beforeEach(() => {
