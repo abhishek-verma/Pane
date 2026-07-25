@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useSessionInfo } from '@/lib/auth/sessionStorage'
 import { cloudAccountEnabled } from '@/lib/constants/product-features'
-import {
-  importHintDismissedAtStorage,
-  signInHintDismissedAtStorage,
-} from '@/lib/onboarding/onboardingStorage'
+import { signInHintDismissedAtStorage } from '@/lib/onboarding/onboardingStorage'
 
-export type HintType = 'import' | 'signin'
+export type HintType = 'signin'
 
 const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000
 
@@ -14,6 +11,7 @@ function isEligible(dismissedAt: number | null): boolean {
   return !dismissedAt || Date.now() - dismissedAt >= DISMISS_DURATION
 }
 
+/** Soft post-setup nudge. Import is owned by native first-run, not Home. */
 export function useActiveHint(): HintType | null {
   const [hint, setHint] = useState<HintType | null>(null)
   const { sessionInfo, isLoading } = useSessionInfo()
@@ -25,16 +23,6 @@ export function useActiveHint(): HintType | null {
     let timer: ReturnType<typeof setTimeout>
 
     async function resolve() {
-      const importDismissedAt = await importHintDismissedAtStorage.getValue()
-      if (cancelled) return
-
-      if (isEligible(importDismissedAt)) {
-        timer = setTimeout(() => {
-          if (!cancelled) setHint('import')
-        }, 2000)
-        return
-      }
-
       if (!cloudAccountEnabled || sessionInfo?.user) return
 
       const signinDismissedAt = await signInHintDismissedAtStorage.getValue()
@@ -47,7 +35,7 @@ export function useActiveHint(): HintType | null {
       }
     }
 
-    resolve()
+    void resolve()
     return () => {
       cancelled = true
       clearTimeout(timer)

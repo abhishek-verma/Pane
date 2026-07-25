@@ -219,6 +219,10 @@ export class ChatService {
       input.turnId ??
       conversationTurnRegistry.getActiveFor(input.conversationId)?.turnId
     if (!turnId) return null
+    const registered = conversationTurnRegistry.get(turnId)
+    if (!registered || registered.conversationId !== input.conversationId) {
+      return null
+    }
     const live = this.deps.sessionStore.get(input.conversationId)
     const frames = conversationTurnRegistry.subscribe(turnId, {
       fromSeq: input.lastSeq,

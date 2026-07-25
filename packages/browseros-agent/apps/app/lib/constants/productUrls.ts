@@ -84,9 +84,8 @@ export const changelogUrl = `${PANE_GITHUB_URL}/releases`
 
 /**
  * @public
- * TODO(pane-infra): Pane Discord invite URL
  */
-export const discordUrl: string | null = null
+export const discordUrl = 'https://discord.gg/652JHSyS4'
 
 /**
  * @public

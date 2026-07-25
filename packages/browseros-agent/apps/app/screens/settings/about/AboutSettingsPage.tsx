@@ -1,6 +1,6 @@
-import { Github, Globe, Info } from 'lucide-react'
+import { Github, Globe, Info, MessageCircle } from 'lucide-react'
 import type { FC } from 'react'
-import { productRepositoryUrl } from '@/lib/constants/productUrls'
+import { discordUrl, productRepositoryUrl } from '@/lib/constants/productUrls'
 
 export const AboutSettingsPage: FC = () => {
   return (
@@ -42,6 +42,15 @@ export const AboutSettingsPage: FC = () => {
               >
                 <Globe className="size-4" />
                 <span>Project home</span>
+              </a>
+              <a
+                href={discordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 font-medium text-[var(--accent-orange)] hover:underline"
+              >
+                <MessageCircle className="size-4" />
+                <span>Discord community</span>
               </a>
             </div>
           </div>

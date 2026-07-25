@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000..81c3bd5393
 --- /dev/null
 +++ b/chrome/browser/browseros/onboarding/BUILD.gn
-@@ -0,0 +1,56 @@
+@@ -0,0 +1,61 @@
 +# Copyright 2026 The Chromium Authors
 +# Use of this source code is governed by a BSD-style license that can be
 +# found in the LICENSE file.
@@ -42,6 +42,8 @@ index 0000000000..81c3bd5393
 +    "browseros_onboarding.h",
 +    "browseros_onboarding_prefs.cc",
 +    "browseros_onboarding_prefs.h",
++    "launch_after_agent_ready.cc",
++    "launch_after_agent_ready.h",
 +  ]
 +
 +  deps = [
@@ -57,6 +59,9 @@ index 0000000000..81c3bd5393
 +    "//components/user_data_importer/common",
 +    "//content/public/browser",
 +    "//content/public/common",
++    "//extensions/browser",
++    "//extensions/common",
 +    "//ui/webui",
++    "//url",
 +  ]
 +}

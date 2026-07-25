@@ -18,6 +18,7 @@ export const StepsLayout = () => {
   const stepIndex = steps.findIndex((each) => each.id === currentStep)
   const isLastStep = stepIndex >= 0 && stepIndex === steps.length - 1
   const canGoPrevious = stepIndex > 0
+  const previousStepId = canGoPrevious ? steps[stepIndex - 1].id : null
 
   const stepEntry = steps.find((each) => each.id === currentStep)
   const ActiveStep = stepEntry?.component ?? (() => null)
@@ -49,12 +50,11 @@ export const StepsLayout = () => {
   return (
     <RpcClientProvider>
       <div className="flex h-screen flex-col overflow-hidden bg-background">
-        {/* Progress Indicator */}
         <div className="border-border/40 border-b">
           <div className="mx-auto max-w-3xl px-6 py-5">
             <div className="relative flex items-center justify-between">
               {steps.map((step) => {
-                const isCompleted = step.id < currentStep
+                const isCompleted = stepIndex >= 0 && step.id < currentStep
                 const isActive = step.id === currentStep
 
                 return (
@@ -102,10 +102,9 @@ export const StepsLayout = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <main className="flex flex-1 items-center justify-center overflow-y-auto overflow-x-hidden px-6">
           <div className="w-full max-w-4xl">
-            <div className="relative h-[550px]">
+            <div className="relative min-h-[560px]">
               <AnimatePresence initial={false} custom={direction}>
                 <ActiveStep
                   key={currentStep}
@@ -119,8 +118,8 @@ export const StepsLayout = () => {
                 <NavLink
                   onClick={() => setDirection(-1)}
                   to={
-                    canGoPrevious
-                      ? `/onboarding/steps/${currentStep - 1}`
+                    previousStepId != null
+                      ? `/onboarding/steps/${previousStepId}`
                       : '/onboarding'
                   }
                 >

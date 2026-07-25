@@ -19,6 +19,7 @@ import {
   resolveWatchPageId,
   shouldEnableLiveWatch,
 } from '@/lib/tool-evidence/resolve-watch-target'
+import { isBenignClientRenderError } from '@/modules/chat/benign-client-render-error'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import type { ChatMode } from '@/modules/chat/chat-types'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
@@ -57,6 +58,7 @@ export const Chat = () => {
     promoteTool,
     retryLastTurn,
     isStreaming: sessionStreaming,
+    isTurnActive,
   } = useChatSessionContext()
 
   const voice = useVoiceInput()
@@ -226,7 +228,7 @@ export const Chat = () => {
             providerType={selectedProvider?.type}
           />
         )}
-        {chatError && (
+        {chatError && !isBenignClientRenderError(chatError) && (
           <ChatError
             error={chatError}
             providerType={selectedProvider?.type}
@@ -246,6 +248,7 @@ export const Chat = () => {
         status={status}
         onStop={handleStop}
         sendDisabled={!canSend}
+        isTurnActive={isTurnActive}
         attachedTabs={attachedTabs}
         onToggleTab={toggleTabSelection}
         onRemoveTab={removeTab}

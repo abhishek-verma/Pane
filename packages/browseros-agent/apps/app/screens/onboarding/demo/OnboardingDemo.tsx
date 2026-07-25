@@ -22,19 +22,17 @@ interface DemoSuggestion {
   appName?: string
 }
 
-function buildDefaultSuggestions(company?: string): DemoSuggestion[] {
+function buildDefaultSuggestions(name?: string): DemoSuggestion[] {
   return [
-    company
-      ? {
-          label: `Search for ${company} and summarize the latest news`,
-          query: `Search for ${company} and summarize the latest news about them`,
-          mode: 'agent' as const,
-        }
-      : {
-          label: "What's the top tech news today",
-          query: "What's the top tech news today? Give me a brief summary",
-          mode: 'agent' as const,
-        },
+    {
+      label: name
+        ? `Summarize today's top tech news for ${name}`
+        : "What's the top tech news today",
+      query: name
+        ? `Summarize today's top tech news briefly for ${name}`
+        : "What's the top tech news today? Give me a brief summary",
+      mode: 'agent' as const,
+    },
     {
       label: "What's the top news today",
       query:
@@ -57,7 +55,7 @@ export const OnboardingDemo = () => {
   const { baseUrl } = useAgentServerUrl()
   useEffect(() => {
     onboardingProfileStorage.getValue().then((profile) => {
-      setDemoSuggestions(buildDefaultSuggestions(profile?.company))
+      setDemoSuggestions(buildDefaultSuggestions(profile?.name))
     })
   }, [])
 

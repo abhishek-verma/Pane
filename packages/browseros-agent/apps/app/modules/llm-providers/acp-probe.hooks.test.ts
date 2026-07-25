@@ -1,5 +1,21 @@
-import { describe, expect, it } from 'bun:test'
-import { isAcpProbeEnabled, resolveAcpAgentId } from './acp-probe.hooks'
+import { describe, expect, it, mock } from 'bun:test'
+
+// acp-probe.hooks imports agentFetch → profile-key → @wxt-dev/storage.
+// Mock before import so bun-test does not hit browser.runtime (CI file order
+// often loads this suite before any other storage mock).
+mock.module('@wxt-dev/storage', () => ({
+  storage: {
+    defineItem: () => ({
+      getValue: async () => null,
+      setValue: async () => {},
+      watch: () => () => {},
+    }),
+  },
+}))
+
+const { isAcpProbeEnabled, resolveAcpAgentId } = await import(
+  './acp-probe.hooks'
+)
 
 describe('resolveAcpAgentId', () => {
   it('returns the built-in claude id for claude-code', () => {

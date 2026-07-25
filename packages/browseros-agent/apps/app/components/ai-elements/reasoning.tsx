@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 import { Shimmer } from './shimmer'
+import { streamdownLinkSafety } from './streamdown-external-link-modal'
 
 type ReasoningContextValue = {
   isStreaming: boolean
@@ -174,7 +175,7 @@ export const ReasoningContent = memo(
       {/* Don't forward Collapsible's HTMLAttributes into Streamdown —
           streamdown@2 narrowed `dir` from `string` to a literal union
           and the spread leaks Radix's incompatible type. */}
-      <Streamdown>{children}</Streamdown>
+      <Streamdown linkSafety={streamdownLinkSafety}>{children}</Streamdown>
     </CollapsibleContent>
   ),
 )

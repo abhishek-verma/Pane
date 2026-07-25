@@ -44,8 +44,10 @@ export const ToolBatch: FC<ToolBatchProps> = ({
   )
 
   const hasActionableTool = tools.some(isActionableState)
+  // Keep "more steps" collapsed while an approval needs action so the card
+  // stays above that block and stick-to-bottom does not bury it underneath.
   const preferGenericsOpen =
-    isLastMessage && isLastBatch && (isStreaming || hasActionableTool)
+    isLastMessage && isLastBatch && isStreaming && !hasActionableTool
 
   const evidenceTools = useMemo(
     () =>
