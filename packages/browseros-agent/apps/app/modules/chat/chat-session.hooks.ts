@@ -589,6 +589,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       }
       const responseMessage =
         nextMessages.find((each) => each.id === message.id) ?? message
+      if (!stillSameConversation()) return
       await finishExecutionTask({
         responseText: getLastMessageText([responseMessage]),
         isAbort,

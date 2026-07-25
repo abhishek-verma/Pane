@@ -35,13 +35,16 @@ export const StepSoul = ({ direction, onContinue }: StepSoulProps) => {
   const [activePersonaId, setActivePersonaId] = useState('default')
   const [saving, setSaving] = useState(false)
   const didSeedDefault = useRef(false)
+  /** When true, accept the next server soul payload into the textarea. */
+  const acceptServerSoul = useRef(true)
   const personas = usePersonas()
   const memory = useMemoryFiles()
 
   useEffect(() => {
-    if (memory.data?.files.soul != null) {
-      setSoulDraft(memory.data.files.soul)
-    }
+    if (!acceptServerSoul.current) return
+    if (memory.data?.files.soul == null) return
+    setSoulDraft(memory.data.files.soul)
+    acceptServerSoul.current = false
   }, [memory.data?.files.soul])
 
   useEffect(() => {
@@ -58,9 +61,11 @@ export const StepSoul = ({ direction, onContinue }: StepSoulProps) => {
       const pinned = map.pinned
       const bucketDefault = map.bucketPersonas?.default
       setActivePersonaId(pinned ?? bucketDefault ?? 'default')
+      acceptServerSoul.current = true
       return
     }
 
+    acceptServerSoul.current = true
     void personas.apply.mutateAsync('default').then(() => {
       setActivePersonaId('default')
     })
@@ -68,6 +73,7 @@ export const StepSoul = ({ direction, onContinue }: StepSoulProps) => {
 
   const handleApplyPersona = async (personaId: string) => {
     setActivePersonaId(personaId)
+    acceptServerSoul.current = true
     try {
       await personas.apply.mutateAsync(personaId)
     } catch {
@@ -139,7 +145,10 @@ export const StepSoul = ({ direction, onContinue }: StepSoulProps) => {
         <Textarea
           className="min-h-40 font-mono text-xs"
           value={soulDraft}
-          onChange={(e) => setSoulDraft(e.target.value)}
+          onChange={(e) => {
+            acceptServerSoul.current = false
+            setSoulDraft(e.target.value)
+          }}
           placeholder="Loading soul…"
         />
 
