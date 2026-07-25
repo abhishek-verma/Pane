@@ -47,7 +47,7 @@ This document is the product lens on the Pane workspace: who it serves, what it 
 | **Servers** | None. No Pane account, cloud, credits, or metering — by design |
 | **Chrome compatibility** | Extensions, import, familiar UX; MV2 support for full uBlock Origin |
 
-**Created by:** [Abhishek Verma](https://www.linkedin.com/in/abhi-vrma/) ([GitHub](http://github.com/abhishek-verma/) · [X](https://x.com/vrma_abhi)). Community on Discord.
+**Created by:** [Abhishek Verma](https://www.linkedin.com/in/abhi-vrma/) ([GitHub](http://github.com/abhishek-verma/) · [X](https://x.com/vrma_abhi)). Community on [Discord](https://discord.gg/652JHSyS4).
 
 ---
 
@@ -358,7 +358,7 @@ Inferred from product behavior and docs (not a financial forecast).
 | **browseros.com / files CDN** | Direct DMG, EXE, AppImage, deb downloads |
 | **GitHub** | Source, issues, feature requests (#99), releases |
 | **Docs + llms.txt** | SEO, LLM discoverability, self-serve setup |
-| **Discord / Slack / X** | Community support and feedback |
+| **[Discord](https://discord.gg/652JHSyS4)** / Slack / X | Community support and feedback |
 | **Developer content** | Claude Code demos, CLI install script, MCP comparisons |
 | **Eval viewer / benchmarks** | Credibility for agent quality (weekly CI eval) |
 

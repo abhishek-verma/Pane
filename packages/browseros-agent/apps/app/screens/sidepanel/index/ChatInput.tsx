@@ -34,6 +34,8 @@ interface ChatInputProps {
   onInputChange: (value: string) => void
   onSubmit: (e: FormEvent) => void
   onStop: () => void
+  /** True while useChat is busy OR a detached server turn is still running. */
+  isTurnActive?: boolean
   sendDisabled?: boolean
   selectedTabs: chrome.tabs.Tab[]
   onToggleTab: (tab: chrome.tabs.Tab) => void
@@ -58,6 +60,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       onInputChange,
       onSubmit: onSubmitProp,
       onStop,
+      isTurnActive = false,
       sendDisabled,
       selectedTabs,
       onToggleTab,
@@ -162,7 +165,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       [closeMention, openMentionAtCursor, toggleMentionAtCursor],
     )
 
-    const isBusy = status !== 'ready' && status !== 'error'
+    // After starter SSE ends (or on restore/reattach), status is ready/error
+    // while the server turn may still be running — Stop must still show.
+    const isBusy = isTurnActive || (status !== 'ready' && status !== 'error')
     const isSubmitDisabled = isBusy || sendDisabled
 
     const handleSubmit = (e: FormEvent) => {

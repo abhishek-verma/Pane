@@ -1,11 +1,12 @@
 import { storage } from '@wxt-dev/storage'
 import type { OnboardingIcp } from './icp'
 
-interface OnboardingProfile {
+export interface OnboardingProfile {
   name: string
-  role: string
-  company: string
-  description?: string
+  /** One-line about the user — required in onboarding. */
+  description: string
+  role?: string
+  company?: string
 }
 
 export const onboardingCompletedStorage = storage.defineItem<boolean>(
@@ -18,14 +19,9 @@ export const onboardingProfileStorage =
     fallback: null,
   })
 
-/** ICP answer from onboarding — seeds soul.md persona on first complete. */
+/** ICP / soul preset from onboarding — seeds SOUL.md persona on first complete. */
 export const onboardingIcpStorage = storage.defineItem<OnboardingIcp | null>(
   'local:onboardingIcp',
-  { fallback: null },
-)
-
-export const importHintDismissedAtStorage = storage.defineItem<number | null>(
-  'local:importHintDismissedAt',
   { fallback: null },
 )
 

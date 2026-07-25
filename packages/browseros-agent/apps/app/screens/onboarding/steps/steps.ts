@@ -3,10 +3,11 @@ import {
   productFeatures,
 } from '@/lib/constants/product-features'
 import { StepConnectApps } from './StepConnectApps'
-import { StepIcp } from './StepIcp'
 import { StepOne } from './StepOne'
+import { StepProvider } from './StepProvider'
+import { StepSoul } from './StepSoul'
 import { StepTwo } from './StepTwo'
-import { StepWidgets } from './StepWidgets'
+import { StepWorkspace } from './StepWorkspace'
 
 export const steps = [
   {
@@ -16,18 +17,23 @@ export const steps = [
   },
   {
     id: 2,
-    name: 'How you use Pane',
-    component: StepIcp,
+    name: 'Provider',
+    component: StepProvider,
   },
   {
     id: 3,
-    name: 'Starter widgets',
-    component: StepWidgets,
+    name: 'Soul',
+    component: StepSoul,
+  },
+  {
+    id: 4,
+    name: 'Workspace',
+    component: StepWorkspace,
   },
   ...(productFeatures.klavisIntegrations
     ? [
         {
-          id: 4,
+          id: 5,
           name: 'Connect Apps',
           component: StepConnectApps,
         },
@@ -36,7 +42,7 @@ export const steps = [
   ...(cloudAccountEnabled
     ? [
         {
-          id: productFeatures.klavisIntegrations ? 5 : 4,
+          id: productFeatures.klavisIntegrations ? 6 : 5,
           name: 'Sign In',
           component: StepTwo,
         },

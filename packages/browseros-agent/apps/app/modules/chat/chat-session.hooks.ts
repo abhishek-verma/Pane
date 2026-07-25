@@ -54,6 +54,7 @@ import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { useInvalidateCredits } from '@/modules/credits/credits.hooks'
 import { useGraphqlQuery } from '@/modules/graphql/graphql-query.hooks'
 import type { ToolInvocationInfo } from '@/screens/sidepanel/index/getMessageSegments'
+import { isBenignClientRenderError } from './benign-client-render-error'
 import { useChatRefs } from './chat-refs.hooks'
 import { GetConversationWithMessagesDocument } from './chat-session-document'
 import {
@@ -572,12 +573,18 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     },
     onFinish: async ({ message, messages, isAbort, isError, finishReason }) => {
       setVmStatus(null)
+      // Capture before any await — a conversation switch must not let this
+      // finish handler mutate the destination chat or reattach the old turn.
+      const finishedConversationId = conversationIdRef.current
+      const stillSameConversation = () =>
+        conversationIdRef.current === finishedConversationId
+
       const nextMessages = addContentFilterNotice(
         messages,
         message,
         finishReason,
       )
-      if (nextMessages !== messages) {
+      if (nextMessages !== messages && stillSameConversation()) {
         setMessages(nextMessages)
       }
       const responseMessage =
@@ -587,14 +594,20 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         isAbort,
         isError,
       })
-      // Starter SSE ended (detach or finish). If the turn is still running,
-      // reattach so checkpoints keep flowing after the POST body closes.
+      if (!stillSameConversation()) return
+      // Starter SSE ended (detach, client glitch, or finish). If the turn is
+      // still running, reattach so checkpoints keep flowing after the POST
+      // body closes. Do not clearError() here — a brief /active race after a
+      // real provider failure would wipe CREDITS_EXHAUSTED / rate-limit
+      // banners. React #185 is cleared by the benign-render-error effect.
       void turnControllerRef.current.refreshActive().then((stillActive) => {
+        if (!stillSameConversation()) return
         if (!stillActive) {
           turnControllerRef.current.markInactive()
           return
         }
         turnControllerRef.current.attachToCurrent((next) => {
+          if (!stillSameConversation()) return
           setMessages(
             prepareMessagesForClientTurn(next, {
               settleApprovals: false,
@@ -640,13 +653,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // When a turn settles, the SSE merge can leave the client behind the
   // server transcript: stuck `approval-responded` cards, or a completed
   // tool+text assistant turn the UI never painted (silent reply). Hydrate
-  // from SQLite once we go idle.
+  // from SQLite once we go idle. While a detached server turn is still
+  // running, defer (do not advance prevStatusRef) so hydrate still runs
+  // when isTurnActive clears — attach may have missed a final polish.
   useEffect(() => {
     const prev = prevStatusRef.current
-    prevStatusRef.current = status
     const becameIdle =
       (prev === 'submitted' || prev === 'streaming') &&
       (status === 'ready' || status === 'error')
+    if (becameIdle && isTurnActive) return
+    prevStatusRef.current = status
     if (!becameIdle) return
     const conversationId = conversationIdRef.current
     const baseUrl = agentUrlRef.current
@@ -669,7 +685,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     return () => {
       cancelled = true
     }
-  }, [status, setMessages])
+  }, [status, isTurnActive, setMessages])
+
+  // React #185 (max update depth) is a client render glitch. useChat stores it
+  // as chatError even when the server turn succeeded — auto-dismiss so the
+  // banner does not stick under a finished reply.
+  useEffect(() => {
+    if (!chatError || !isBenignClientRenderError(chatError)) return
+    clearError()
+  }, [chatError, clearError])
 
   // Safety net when status never settles (SSE finish dropped but server
   // already checkpointed). Never cancel a turn the server still reports active.
@@ -834,13 +858,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // Remove messages with empty parts (e.g. interrupted assistant responses)
   // to prevent AI SDK validation errors on subsequent sends. Skip while a
   // turn is in flight — an assistant shell can briefly have empty parts
-  // between the stream start chunk and the first content part.
+  // between the stream start chunk and the first content part. Also skip
+  // while a detached server turn is active (attach snapshots may briefly
+  // include empty shells).
   useEffect(() => {
-    if (status === 'streaming' || status === 'submitted') return
+    if (status === 'streaming' || status === 'submitted' || isTurnActive) return
     if (messages.some((m) => !m.parts?.length)) {
       setMessages(messages.filter((m) => m.parts?.length > 0))
     }
-  }, [messages, status, setMessages])
+  }, [messages, status, isTurnActive, setMessages])
 
   useNotifyActiveTab({
     messages,

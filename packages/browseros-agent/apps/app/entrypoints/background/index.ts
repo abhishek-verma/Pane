@@ -88,12 +88,9 @@ export default defineBackground(() => {
   })
 
   chrome.runtime.onInstalled.addListener((details) => {
-    if (details.reason === chrome.runtime.OnInstalledReason.INSTALL) {
-      chrome.tabs.create({
-        url: chrome.runtime.getURL('app.html#/onboarding'),
-      })
-    }
-
+    // Product onboarding is opened by the native first-run handoff (or the
+    // extension route gate on first NTP). Do not tabs.create here — that raced
+    // native completion and produced duplicate/missed setup tabs.
     if (details.reason === chrome.runtime.OnInstalledReason.UPDATE) {
       cleanupLegacyToolApprovalStorage().catch(() => null)
       checkAndShowChangelog().catch(() => null)

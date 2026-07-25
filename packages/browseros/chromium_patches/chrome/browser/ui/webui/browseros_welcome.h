@@ -303,7 +303,7 @@ index 0000000000..e9c4bcd6cf
 +<section>
 + <div class="section-head"><span class="label">🤝 Join our <span class="accent">community</span></span></div>
 + <p class="links" style="text-align:center; margin-top:1rem;">
-+  <a href="https://discord.gg/YKwjt5vuKr">
++  <a href="https://discord.gg/652JHSyS4">
 +   <span class="icon" aria-hidden="true">
 +    <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
 +     <title>Discord</title>

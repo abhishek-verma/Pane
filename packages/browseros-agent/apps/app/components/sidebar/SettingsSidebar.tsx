@@ -6,6 +6,7 @@ import {
   Compass,
   FolderKanban,
   LayoutDashboard,
+  MessageCircle,
   MessageSquare,
   Network,
   Palette,
@@ -18,7 +19,7 @@ import {
 import type { FC } from 'react'
 import { NavLink } from 'react-router'
 import type { Feature } from '@/lib/browseros/capabilities'
-import { productRepositoryUrl } from '@/lib/constants/productUrls'
+import { discordUrl, productRepositoryUrl } from '@/lib/constants/productUrls'
 import { cn } from '@/lib/utils'
 import { useCapabilities } from '@/modules/browseros/capabilities.hooks'
 
@@ -112,6 +113,7 @@ const primarySettingsSections: NavSection[] = [
 
 const helpItems: NavItem[] = [
   { name: 'GitHub', href: productRepositoryUrl, icon: BookOpen },
+  { name: 'Discord', href: discordUrl, icon: MessageCircle },
   { name: 'Features', to: '/onboarding/features', icon: Compass },
   { name: 'Revisit Onboarding', to: '/onboarding', icon: RotateCcw },
 ]

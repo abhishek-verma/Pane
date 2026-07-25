@@ -18,6 +18,19 @@ export type TextShimmerProps = {
   spread?: number
 }
 
+// Cache motion wrappers — `motion.create` inside render remounts every frame
+// and can contribute to React max-update-depth (#185) on the streaming path.
+const motionComponentCache = new Map<string, ReturnType<typeof motion.create>>()
+
+function getMotionComponent(as: keyof JSX.IntrinsicElements) {
+  const key = String(as)
+  const cached = motionComponentCache.get(key)
+  if (cached) return cached
+  const created = motion.create(as)
+  motionComponentCache.set(key, created)
+  return created
+}
+
 const ShimmerComponent = ({
   children,
   as: Component = 'p',
@@ -25,7 +38,7 @@ const ShimmerComponent = ({
   duration = 2,
   spread = 2,
 }: TextShimmerProps) => {
-  const MotionComponent = motion.create(
+  const MotionComponent = getMotionComponent(
     Component as keyof JSX.IntrinsicElements,
   )
 

@@ -21,6 +21,7 @@ import {
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
 import { VOICE_SUPPORTED } from '@/lib/voice/voice-supported'
+import { isBenignClientRenderError } from '@/modules/chat/benign-client-render-error'
 import { useChatActions } from '@/modules/chat-actions/chat-actions.hooks'
 import { ChatEmptyState } from '@/screens/sidepanel/index/ChatEmptyState'
 import { ChatError } from '@/screens/sidepanel/index/ChatError'
@@ -49,6 +50,7 @@ export const NewTabChat: FC = () => {
     onClickDislike,
     isRestoringConversation,
     isLoading,
+    isTurnActive,
     providers,
     selectedProvider,
     handleSelectProvider,
@@ -216,7 +218,7 @@ export const NewTabChat: FC = () => {
             providerType={selectedProvider?.type}
           />
         )}
-        {chatError && (
+        {chatError && !isBenignClientRenderError(chatError) && (
           <ChatError
             error={chatError}
             providerType={selectedProvider?.type}
@@ -235,6 +237,7 @@ export const NewTabChat: FC = () => {
           status={status}
           onStop={handleStop}
           sendDisabled={!canSend}
+          isTurnActive={isTurnActive}
           attachedTabs={attachedTabs}
           onToggleTab={toggleTabSelection}
           onRemoveTab={removeTab}

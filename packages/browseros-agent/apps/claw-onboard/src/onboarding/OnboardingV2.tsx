@@ -23,16 +23,12 @@ import {
   onboardingFormDefaults,
   onboardingFormResolver,
 } from './onboarding-v2.schemas'
-import type { ConnectPhase, ImportPhase, Step } from './onboarding-v2.types'
-import { CaptureStep } from './steps/CaptureStep'
-import { ConnectStep } from './steps/ConnectStep'
+import type { ImportPhase, Step } from './onboarding-v2.types'
 import { ImportStep } from './steps/ImportStep'
-import { ProvidersStep } from './steps/ProvidersStep'
 import { ReadyStep } from './steps/ReadyStep'
 import { WelcomeStep } from './steps/WelcomeStep'
 
-const TOTAL_STEPS = 6
-const FAKE_CONNECT_DELAY_MS = 1700
+const TOTAL_STEPS = 3
 const BROWSEROS_NEW_TAB_URL = 'chrome://newtab'
 
 const initialOnboardingState: BrowserOSOnboardingState = {
@@ -71,7 +67,6 @@ export function OnboardingV2() {
   const [onboardingState, setOnboardingState] =
     useState<BrowserOSOnboardingState>(initialOnboardingState)
   const [hasPreparedForImport, setHasPreparedForImport] = useState(false)
-  const [connectPhase, setConnectPhase] = useState<ConnectPhase>('idle')
   const didNotifyPageReady = useRef(false)
   const importPhase = importPhaseFor(
     onboardingState.status,
@@ -102,15 +97,6 @@ export function OnboardingV2() {
     }
   }, [form, onboardingState.sources])
 
-  useEffect(() => {
-    if (connectPhase !== 'connecting') return
-    const timer = window.setTimeout(
-      () => setConnectPhase('connected'),
-      FAKE_CONNECT_DELAY_MS,
-    )
-    return () => window.clearTimeout(timer)
-  }, [connectPhase])
-
   function prepareForImport() {
     setHasPreparedForImport(true)
     bridge.refreshSources()
@@ -128,8 +114,9 @@ export function OnboardingV2() {
   }
 
   function finishOnboarding() {
+    // C++ owns the first window URL (extension onboarding when the agent
+    // extension is loaded). Do not navigate this WebUI to chrome://newtab.
     bridge.complete()
-    openBrowserOsNewTab()
   }
 
   function goTo(next: Step) {
@@ -154,21 +141,7 @@ export function OnboardingV2() {
             onSkip={() => goTo(2)}
           />
         )}
-        {step === 2 && (
-          <ProvidersStep onContinue={() => goTo(3)} onSkip={() => goTo(3)} />
-        )}
-        {step === 3 && (
-          <ConnectStep
-            phase={connectPhase}
-            onAddToClaude={() => setConnectPhase('connecting')}
-            onContinue={() => goTo(4)}
-            onSkip={() => goTo(4)}
-          />
-        )}
-        {step === 4 && (
-          <CaptureStep onContinue={() => goTo(5)} onSkip={() => goTo(5)} />
-        )}
-        {step === 5 && <ReadyStep onDone={finishOnboarding} />}
+        {step === 2 && <ReadyStep onDone={finishOnboarding} />}
       </OnboardingShell>
     </Form>
   )

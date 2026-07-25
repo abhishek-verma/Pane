@@ -262,8 +262,11 @@ export class ConversationTurnRegistry {
       const messages =
         turn.buffer.latestSnapshot ?? options.fallbackMessages ?? null
       if (messages) {
+        // Use -1 when the ring is empty so the synthetic frame does not
+        // collide with the first real pushSnapshot (seq 0). Clients that
+        // dedupe by seq would otherwise drop the first checkpoint.
         initial.push({
-          seq: Math.max(turn.buffer.lastSeq, 0),
+          seq: turn.buffer.lastSeq >= 0 ? turn.buffer.lastSeq : -1,
           event: { type: 'snapshot', messages },
           createdAt: Date.now(),
         })

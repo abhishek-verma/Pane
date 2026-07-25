@@ -13,8 +13,8 @@ function render(): string {
 }
 
 describe('ReadyStep', () => {
-  it('renders the Open Pane CTA', () => {
-    expect(render()).toContain('Open Pane')
+  it('renders the Continue to Pane CTA', () => {
+    expect(render()).toContain('Continue to Pane')
   })
 
   it('renders the first two starter prompts from the fixture', () => {

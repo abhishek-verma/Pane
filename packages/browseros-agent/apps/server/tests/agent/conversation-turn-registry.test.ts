@@ -84,4 +84,26 @@ describe('ConversationTurnRegistry', () => {
     expect(frame.value?.event.type).toBe('snapshot')
     registry.cancel(turn.turnId, 'cleanup')
   })
+
+  it('cold attach with empty buffer uses seq -1 so the first real snapshot is seq 0', async () => {
+    const registry = new ConversationTurnRegistry()
+    const turn = registry.register('conv-6')
+    const stream = registry.subscribe(turn.turnId, {
+      fromSeq: -1,
+      fallbackMessages: [msg('u', 'prompt')],
+    })
+    const reader = stream!.getReader()
+    const cold = await reader.read()
+    expect(cold.value?.seq).toBe(-1)
+    expect(cold.value?.event.type).toBe('snapshot')
+
+    registry.pushSnapshot(turn.turnId, [msg('a', 'first checkpoint')])
+    const firstReal = await reader.read()
+    expect(firstReal.value?.seq).toBe(0)
+    expect(firstReal.value?.event.type).toBe('snapshot')
+    if (firstReal.value?.event.type === 'snapshot') {
+      expect(firstReal.value.event.messages[0]?.id).toBe('a')
+    }
+    registry.cancel(turn.turnId, 'cleanup')
+  })
 })

@@ -14,11 +14,11 @@ export function ReadyStep({ onDone }: ReadyStepProps) {
   return (
     <StepWrap>
       <DisplayHeading>
-        You&rsquo;re <Em>set</Em>.
+        Next: <Em>set up Pane</Em>.
       </DisplayHeading>
       <StepCopy>
-        Open Pane to chat, add a model in Settings → AI, or connect Claude via
-        Settings → MCP. Anything you skipped is one click away later.
+        Pane will open so you can add your name, a model, and how it should
+        sound. That takes about a minute, then you can chat.
       </StepCopy>
       <div className="mb-6 flex flex-col gap-2.5">
         {STARTER_PROMPTS.slice(0, 2).map((prompt) => (
@@ -27,7 +27,7 @@ export function ReadyStep({ onDone }: ReadyStepProps) {
       </div>
       <Button type="button" size="lg" onClick={onDone}>
         <Sparkles className="size-4" />
-        Open Pane
+        Continue to Pane
       </Button>
     </StepWrap>
   )

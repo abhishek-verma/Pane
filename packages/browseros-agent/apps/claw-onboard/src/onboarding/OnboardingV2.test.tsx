@@ -74,11 +74,11 @@ describe('OnboardingV2 shell', () => {
     expect(html).not.toContain('#FF5F57')
   })
 
-  it('renders six step dots', () => {
+  it('renders three step dots', () => {
     const html = renderApp()
     const matches = html.match(/data-step-dot="true"/g) ?? []
     expect(html).toContain('aria-label="Onboarding progress"')
-    expect(matches.length).toBe(6)
+    expect(matches.length).toBe(3)
   })
 
   it('shows the platform + Pane version footer, not a fake signed build string', () => {

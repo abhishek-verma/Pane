@@ -20,6 +20,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { streamdownLinkSafety } from './streamdown-external-link-modal'
 
 const themes = ['catppuccin-latte', 'catppuccin-mocha'] as [
   BundledTheme,
@@ -346,7 +347,7 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>
  * @public
  */
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
+  ({ className, linkSafety, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn(
         'size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_[data-streamdown="code-block"]]:w-[calc(100vw-64px)]! [&_[data-streamdown="table-wrapper"]]:w-[calc(100vw-64px)]!',
@@ -354,13 +355,15 @@ export const MessageResponse = memo(
       )}
       shikiTheme={themes}
       {...props}
+      linkSafety={linkSafety ?? streamdownLinkSafety}
     />
   ),
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children &&
     prevProps.mode === nextProps.mode &&
     prevProps.parseIncompleteMarkdown === nextProps.parseIncompleteMarkdown &&
-    prevProps.className === nextProps.className,
+    prevProps.className === nextProps.className &&
+    prevProps.linkSafety === nextProps.linkSafety,
 )
 
 MessageResponse.displayName = 'MessageResponse'

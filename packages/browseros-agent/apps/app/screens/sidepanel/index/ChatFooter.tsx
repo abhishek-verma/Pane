@@ -26,6 +26,8 @@ export interface ChatFooterProps {
   status: 'streaming' | 'submitted' | 'ready' | 'error'
   onStop: () => void
   sendDisabled?: boolean
+  /** Detached server turn still running (show Stop even when status is ready). */
+  isTurnActive?: boolean
   attachedTabs: chrome.tabs.Tab[]
   onToggleTab: (tab: chrome.tabs.Tab) => void
   onRemoveTab: (tabId?: number) => void
@@ -43,6 +45,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   status,
   onStop,
   sendDisabled,
+  isTurnActive,
   attachedTabs,
   onToggleTab,
   onRemoveTab,
@@ -196,6 +199,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
             status={status}
             mode={mode}
             sendDisabled={sendDisabled}
+            isTurnActive={isTurnActive}
             onInputChange={onInputChange}
             onSubmit={onSubmit}
             onStop={onStop}

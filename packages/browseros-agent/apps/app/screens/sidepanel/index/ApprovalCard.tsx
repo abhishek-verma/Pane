@@ -4,7 +4,7 @@ import {
 } from '@browseros/shared/trust/consequence-class'
 import { ChevronDown } from 'lucide-react'
 import type { FC } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import {
@@ -231,6 +231,31 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   const waitingSiblings = phase === 'waiting-siblings'
   const resumePending = phase === 'resume-pending'
   const resumeFailed = phase === 'resume-failed'
+  const needsAttention = waitingApproval || dryRun || resumeFailed
+  const rootRef = useRef<HTMLDivElement>(null)
+  // Scroll at most once per toolCallId so remounts / re-renders do not yank
+  // the viewport if the user scrolled away to read earlier context.
+  const didAutoScrollForRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!needsAttention) {
+      didAutoScrollForRef.current = null
+      return
+    }
+    if (didAutoScrollForRef.current === tool.toolCallId) return
+
+    const id = requestAnimationFrame(() => {
+      const el = rootRef.current
+      if (!el) return
+      didAutoScrollForRef.current = tool.toolCallId
+      const rect = el.getBoundingClientRect()
+      const viewH = window.innerHeight || document.documentElement.clientHeight
+      const visible = rect.top >= 0 && rect.bottom <= viewH
+      if (visible) return
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [needsAttention, tool.toolCallId])
 
   const handleAllowAlways = async () => {
     if (!contextReady || !isPinnable || !consequenceClass) return
@@ -288,7 +313,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   // offering a button that cannot work.
   if (isAcpTarget) {
     return (
-      <div className="agent-approval mt-2 text-sm">
+      <div ref={rootRef} className="agent-approval mt-2 text-sm">
         {approvalPreview && (
           <pre className="mb-3 max-h-40 overflow-auto whitespace-pre-wrap text-xs">
             {approvalPreview}
@@ -355,7 +380,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
 
   if (resumeFailed) {
     return (
-      <div className="agent-approval mt-2 text-sm">
+      <div ref={rootRef} className="agent-approval mt-2 text-sm">
         <p className="mb-3 text-muted-foreground text-xs">
           This approval may still need to sync with the server. Retry to sync or
           resume, or Deny to drop it.
@@ -381,7 +406,7 @@ export const ApprovalCard: FC<ApprovalCardProps> = ({
   }
 
   return (
-    <div className="agent-approval mt-2 text-sm">
+    <div ref={rootRef} className="agent-approval mt-2 text-sm">
       {approvalPreview && (
         <pre className="mb-3 max-h-40 overflow-auto whitespace-pre-wrap text-xs">
           {approvalPreview}

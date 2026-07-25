@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * On onboarding complete: seed SOUL.md persona + USER.md from ICP/profile.
- * Idempotent — skips if persona-map already has a pin or bucket mapping.
+ * Idempotent — skips persona apply if already configured (e.g. Soul step).
+ * Never overwrites an already-applied SOUL.md.
  */
 
 import { agentFetch } from '@/lib/browseros/agent-fetch'
@@ -28,7 +29,7 @@ export async function seedMemoryFromOnboarding(
     onboardingProfileStorage.getValue(),
   ])
 
-  // Skip if user already configured personas.
+  let personaAlreadySet = false
   try {
     const personasRes = await agentFetch(`${root}/memory/personas`)
     if (personasRes.ok) {
@@ -39,23 +40,24 @@ export async function seedMemoryFromOnboarding(
         body.map.pinned ||
         Object.keys(body.map.bucketPersonas ?? {}).length > 0
       ) {
-        return
+        personaAlreadySet = true
       }
     }
   } catch {
-    // Server may be down during onboarding — best-effort.
-    return
+    // Server may be down — still try USER.md below.
   }
 
-  const personaId = personaIdForIcp(icp)
-  try {
-    await agentFetch(`${root}/memory/personas/apply`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ personaId, bucketId: 'default' }),
-    })
-  } catch {
-    return
+  if (!personaAlreadySet) {
+    const personaId = personaIdForIcp(icp)
+    try {
+      await agentFetch(`${root}/memory/personas/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personaId, bucketId: 'default' }),
+      })
+    } catch {
+      // best-effort; USER.md write still runs
+    }
   }
 
   const userLines = [

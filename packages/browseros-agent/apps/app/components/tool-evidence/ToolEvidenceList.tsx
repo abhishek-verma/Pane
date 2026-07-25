@@ -142,7 +142,9 @@ export const ToolEvidenceList: FC<{
 
   const [genericsOpen, setGenericsOpen] = useState(preferGenericsOpen)
   useEffect(() => {
-    if (preferGenericsOpen) setGenericsOpen(true)
+    // Open while streaming; close when an approval appears (or stream ends)
+    // so expanded generics cannot push the approval off-screen.
+    setGenericsOpen(preferGenericsOpen)
   }, [preferGenericsOpen])
 
   const [replayIndex, setReplayIndex] = useState<number | null>(null)

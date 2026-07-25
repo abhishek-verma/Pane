@@ -238,7 +238,7 @@ Found a bug? [Open an issue](https://github.com/abhishek-verma/Pane/issues) with
 
 ### 💡 Suggest Features
 
-Have an idea? [Share it here](https://github.com/abhishek-verma/Pane/issues/) or chat with us on Discord(TBA).
+Have an idea? [Share it here](https://github.com/abhishek-verma/Pane/issues/) or chat with us on [Discord](https://discord.gg/652JHSyS4).
 
 ### 📚 Improve Documentation
 
@@ -262,7 +262,7 @@ Have an idea? [Share it here](https://github.com/abhishek-verma/Pane/issues/) or
 
 Stuck? Need clarification? We're here to help.
 
-- **Discord** - TBA
+- **[Discord](https://discord.gg/652JHSyS4)** - Chat with the community
 - **[GitHub Issues](https://github.com/abhishek-verma/Pane/issues)** - Bug reports and features
 
 ## Recognition
@@ -279,4 +279,4 @@ By contributing, you agree that your contributions will be licensed under AGPL-3
 
 Built with ❤️ from India
 
-Questions? Hit us up on Discord(TBA) or [Twitter](https://x.com/vrma_abhi).
+Questions? Hit us up on [Discord](https://discord.gg/652JHSyS4) or [Twitter](https://x.com/vrma_abhi).

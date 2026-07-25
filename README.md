@@ -29,7 +29,7 @@ Most software treats everyone the same. Pane is built to take a shape that fits 
 - **Research and study buddy** if you are learning — papers and threads that do not evaporate when you close a tab, citations back to sources, outlines from a week of browsing toward one question.
 - **Whatever else you need** — because Pane learns your workflows, writes skills when you repeat them, and scopes memory into buckets.
 
-> **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[GitHub](https://github.com/abhishek-verma/Pane)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
+> **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[GitHub](https://github.com/abhishek-verma/Pane)** · **[Discord](https://discord.gg/652JHSyS4)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
 
 
 
@@ -135,7 +135,7 @@ BrowserOS gave us a Chromium fork, an agent runtime, MCP tools, and a developer 
 
 ## Contributing
 
-Pane is early and moving fast. [Report bugs](https://github.com/abhishek-verma/Pane/issues), [suggest features](https://github.com/abhishek-verma/Pane/issues), or read the [contributing guide](CONTRIBUTING.md).
+Pane is early and moving fast. [Report bugs](https://github.com/abhishek-verma/Pane/issues), [suggest features](https://github.com/abhishek-verma/Pane/issues), join [Discord](https://discord.gg/652JHSyS4), or read the [contributing guide](CONTRIBUTING.md).
 
 Product specs live in `[specs/](specs/README.md)`. Architecture in `[specs/ARCHITECTURE-DESIGN.md](specs/ARCHITECTURE-DESIGN.md)`.
 
