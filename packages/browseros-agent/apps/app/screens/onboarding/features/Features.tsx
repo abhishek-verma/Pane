@@ -22,8 +22,16 @@ import { Button } from '@/components/ui/button'
 import {
   AGENT_MODE_DEMO_URL,
   COWORK_DEMO_URL,
+  DEVELOPER_COWORK_GIF_URL,
+  JOB_APPLICANT_GIF_URL,
   MCP_SERVER_DEMO_URL,
+  MEETING_CAPTURE_GIF_URL,
+  MORNING_BRIEFING_GIF_URL,
+  PANE_AS_MCP_GIF_URL,
   PANE_INTRO_VIDEO_URL,
+  PROFILES_GIF_URL,
+  RESEARCH_GIF_URL,
+  SKILLS_GIF_URL,
 } from '@/lib/constants/mediaUrls'
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from '@/lib/constants/product'
 import {
@@ -45,16 +53,17 @@ const uniqueFeatures: Feature[] = [
     description:
       'Not the same chatbot for every user. Pane takes a shape that fits your life — persona, memory, capture, and skills that compound on your machine until the browser stops feeling generic.',
     detailedDescription:
-      'The soul is the combination that makes Pane yours: a persona that can be chief of staff, job-search partner, or research buddy; memory grounded in what you actually browsed and did, not only what you typed into chat; meetings and research captured in the tab so they do not evaporate; skills written when you repeat a workflow, staged for your approval; context scoped into buckets so work and personal life stay apart; a homepage that rearranges around your day. Chief of staff if you are building a company. Job-search partner if you are looking for what is next. Research buddy if you are learning. Whatever else you need — because Pane learns your rhythms and grows more personal every week you use it. All local. No Pane cloud profile.',
+      'The soul is the combination that makes Pane yours: a persona that can be chief of staff, job-search partner, or research buddy; memory grounded in what you actually browsed and did, not only what you typed into chat; meetings and research captured in the tab so they do not evaporate; skills written when you repeat a workflow, staged for your approval; context scoped into profiles so work and personal life stay apart; a homepage that rearranges around your day. Chief of staff if you are building a company. Job-search partner if you are looking for what is next. Research buddy if you are learning. Whatever else you need — because Pane learns your rhythms and grows more personal every week you use it. All local. No Pane cloud profile.',
     highlights: [
       'Persona that fits the role you need right now — editable and switchable',
       'Memory from real activity: tabs, files, terminal, meetings, research threads',
       'Skills that appear when you repeat work successfully — you approve before they run',
       'Capture that stays in the browser: meeting notes without a bot, research that survives the tab close',
-      'Buckets so work, job hunt, and personal life do not bleed into each other',
+      'Profiles so work, job hunt, and personal life do not bleed into each other',
       'A home and agent that get more useful the longer you use Pane',
     ],
     gridClass: 'md:col-span-3',
+    gifUrl: PROFILES_GIF_URL,
   },
   {
     id: 'learning-loop',
@@ -72,6 +81,7 @@ const uniqueFeatures: Feature[] = [
       'Open files you can read, edit, and delete anytime',
     ],
     gridClass: 'md:col-span-2',
+    gifUrl: SKILLS_GIF_URL,
   },
   {
     id: 'meeting-capture',
@@ -81,7 +91,7 @@ const uniqueFeatures: Feature[] = [
     description:
       'Meet, Zoom, or Teams in a tab? Pane records and transcribes locally. No Otter bot joining the call. No vendor cloud recording.',
     detailedDescription:
-      'Because Pane is the browser, web meetings already live in a tab. Capture tab audio (and your mic if you allow it), transcribe on-device with a local speech model, and file notes in a meeting bucket the agent can recall later. Per-domain consent, a visible recording indicator, one click to stop or delete. Optional BYOK to a provider transcription API if you want speed — never through a Pane server.',
+      'Because Pane is the browser, web meetings already live in a tab. Capture tab audio (and your mic if you allow it), transcribe on-device with a local speech model, and file notes in a meeting profile the agent can recall later. Per-domain consent, a visible recording indicator, one click to stop or delete. Optional BYOK to a provider transcription API if you want speed — never through a Pane server.',
     highlights: [
       'Native tab capture — no third-party bot in the meeting',
       'Local transcription by default (faster-whisper class)',
@@ -89,6 +99,7 @@ const uniqueFeatures: Feature[] = [
       'Ask later: "what did we decide about X last week?"',
     ],
     gridClass: 'md:col-span-1',
+    gifUrl: MEETING_CAPTURE_GIF_URL,
   },
   {
     id: 'browsing-learnings',
@@ -98,14 +109,15 @@ const uniqueFeatures: Feature[] = [
     description:
       'Opt in and Pane threads the pages you open toward a question — quotes, sources, and a chain you can turn into an outline later.',
     detailedDescription:
-      'Research is multi-tab and multi-day. Pane’s research bucket records the chain of pages (not a flat history), keeps verbatim quotes for citable retrieval, and lets you ask for a lit review or outline with links back to the source tabs. Broader browsing learnings can extract facts and workflow fragments from domains you allow. Everything is off by default, pauseable, and scoped into buckets so work does not bleed into personal life.',
+      'Research is multi-tab and multi-day. Pane’s research profile records the chain of pages (not a flat history), keeps verbatim quotes for citable retrieval, and lets you ask for a lit review or outline with links back to the source tabs. Broader browsing learnings can extract facts and workflow fragments from domains you allow. Everything is off by default, pauseable, and scoped into profiles so work does not bleed into personal life.',
     highlights: [
       'Research threads with source URLs and timestamps',
       'Verbatim quotes so claims stay citable',
       'Browsing learnings feed memory and skill proposals',
-      'Buckets: Work, Personal, Research, Meetings — separate scopes',
+      'Profiles: Work, Personal, Research, Meetings — separate scopes',
     ],
     gridClass: 'md:col-span-1',
+    gifUrl: RESEARCH_GIF_URL,
   },
   {
     id: 'adaptive-home',
@@ -123,6 +135,7 @@ const uniqueFeatures: Feature[] = [
       'Demotes stale widgets so home stays useful',
     ],
     gridClass: 'md:col-span-2',
+    gifUrl: MORNING_BRIEFING_GIF_URL,
   },
 ]
 
@@ -145,6 +158,7 @@ const foundationFeatures: Feature[] = [
     ],
     gridClass: 'md:col-span-2',
     videoUrl: MCP_SERVER_DEMO_URL,
+    gifUrl: PANE_AS_MCP_GIF_URL,
   },
   {
     id: 'agent',
@@ -163,6 +177,7 @@ const foundationFeatures: Feature[] = [
     ],
     gridClass: 'md:col-span-1',
     videoUrl: AGENT_MODE_DEMO_URL,
+    gifUrl: JOB_APPLICANT_GIF_URL,
   },
   {
     id: 'cowork',
@@ -181,6 +196,7 @@ const foundationFeatures: Feature[] = [
     ],
     gridClass: 'md:col-span-2',
     videoUrl: COWORK_DEMO_URL,
+    gifUrl: DEVELOPER_COWORK_GIF_URL,
   },
   {
     id: 'local-first',

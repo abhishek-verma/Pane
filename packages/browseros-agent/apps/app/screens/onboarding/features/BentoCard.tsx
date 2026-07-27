@@ -142,10 +142,10 @@ export const BentoCard: FC<BentoCardProps> = ({ feature, mounted, index }) => {
                 </VideoFrame>
               ) : null}
               {feature.gifUrl && !feature.videoUrl ? (
-                <div className="relative overflow-hidden rounded-xl border border-border bg-background shadow-lg">
-                  <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-muted to-background">
+                <div className="relative overflow-hidden rounded-xl border border-border bg-[#f4f1ee] shadow-lg">
+                  <div className="flex aspect-video items-center justify-center">
                     <img
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain"
                       src={feature.gifUrl}
                       alt={feature.title}
                     />

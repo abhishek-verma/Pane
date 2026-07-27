@@ -1,0 +1,9 @@
+{
+  "name": "pane-readme-feature-gifs",
+  "private": true,
+  "type": "module",
+  "description": "Local tooling to export animated feature SVGs to GIFs",
+  "dependencies": {
+    "playwright": "^1.60.0"
+  }
+}

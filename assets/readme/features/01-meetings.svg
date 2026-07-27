@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Meeting notes without a bot — Pane records a call tab and answers from the transcript">
+  <defs>
+  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#f4f1ee"/>
+    <stop offset="50%" stop-color="#ebe7e2"/>
+    <stop offset="100%" stop-color="#e4dfd8"/>
+  </linearGradient>
+  <radialGradient id="glow" cx="70%" cy="40%" r="45%">
+    <stop offset="0%" stop-color="#e07a2f" stop-opacity="0.16"/>
+    <stop offset="55%" stop-color="#e07a2f" stop-opacity="0.05"/>
+    <stop offset="100%" stop-color="#e07a2f" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#f4a35f"/>
+    <stop offset="100%" stop-color="#df7327"/>
+  </linearGradient>
+  <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
+    <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.05"/>
+  </pattern>
+  <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+    <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#1c1814" flood-opacity="0.12"/>
+  </filter>
+  <clipPath id="win">
+    <rect x="40" y="36" width="880" height="468" rx="16"/>
+  </clipPath>
+  <style><![CDATA[
+
+  text, .font { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+  }
+
+
+  .rec-dot { animation: blink 1.4s steps(1) infinite; }
+  @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: 0.2; } }
+  .bar { transform-box: fill-box; transform-origin: center bottom; }
+  .b1 { animation: wave 1.1s ease-in-out infinite; }
+  .b2 { animation: wave 1.1s ease-in-out 0.15s infinite; }
+  .b3 { animation: wave 1.1s ease-in-out 0.3s infinite; }
+  .b4 { animation: wave 1.1s ease-in-out 0.08s infinite; }
+  .b5 { animation: wave 1.1s ease-in-out 0.22s infinite; }
+  @keyframes wave {
+    0%,100% { transform: scaleY(0.45); opacity: 0.55; }
+    50% { transform: scaleY(1); opacity: 1; }
+  }
+
+  ]]></style></defs>
+  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect width="960" height="540" fill="url(#grid)"/>
+  <rect width="960" height="540" fill="url(#glow)"/>
+
+
+  <g filter="url(#shadow)">
+    <rect x="40" y="36" width="880" height="468" rx="16" fill="#ffffff"/>
+  </g>
+  <g clip-path="url(#win)">
+    <rect x="40" y="36" width="880" height="468" fill="#ffffff"/>
+    <rect x="40" y="36" width="880" height="40" fill="#f5f2ef"/>
+    <line x1="40" y1="76" x2="920" y2="76" stroke="#1c1814" stroke-opacity="0.05"/>
+    <circle cx="62" cy="56" r="5" fill="#ff5f57"/>
+    <circle cx="80" cy="56" r="5" fill="#febc2e"/>
+    <circle cx="98" cy="56" r="5" fill="#28c840"/>
+    <g transform="translate(124 48)" stroke="#7a7268" stroke-opacity="0.85" stroke-width="1.4" stroke-linecap="round">
+      <rect x="0" y="0" width="16" height="16" rx="4.5" fill="none"/>
+      <line x1="6" y1="2" x2="6" y2="14"/>
+    </g>
+    <path d="M164 48 l-8 8 8 8" fill="none" stroke="#7a7268" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M184 48 l8 8 -8 8" fill="none" stroke="#c4bbb2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="208" y="44" width="520" height="24" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.05"/>
+    <text x="224" y="60" fill="#7a7268" font-size="12">meet.google.com/abc-defg-hij</text>
+    <line x1="620" y1="76" x2="620" y2="504" stroke="#1c1814" stroke-opacity="0.06"/>
+
+    <!-- main: call -->
+    <rect x="40" y="76" width="580" height="428" fill="#faf9f7"/>
+    <g class="rec-dot">
+      <circle cx="76" cy="110" r="5" fill="#e05a4f"/>
+    </g>
+    <text x="90" y="114" fill="#4a433c" font-size="12" font-weight="600">Recording locally</text>
+    <rect x="408" y="98" width="148" height="28" rx="14" fill="#f5f2ef" stroke="#5fb872" stroke-opacity="0.4"/>
+    <text x="482" y="116" text-anchor="middle" fill="#1f8f4e" font-size="11">No bot joined</text>
+
+    <circle cx="330" cy="244" r="52" fill="#fff7f0" stroke="#1c1814" stroke-opacity="0.06"/>
+    <circle cx="330" cy="236" r="20" fill="#cfc8c0"/>
+    <ellipse cx="330" cy="272" rx="28" ry="14" fill="#cfc8c0"/>
+    <text x="330" y="326" text-anchor="middle" fill="#1c1814" font-size="15" font-weight="600">Vendor pricing call</text>
+    <text x="330" y="348" text-anchor="middle" fill="#6b6258" font-size="12">You · Priya · Marcus</text>
+
+    <g transform="translate(264 376)">
+      <rect class="bar b1" x="0" y="8" width="7" height="28" rx="3.5" fill="#e07a2f"/>
+      <rect class="bar b2" x="14" y="2" width="7" height="40" rx="3.5" fill="#f4a35f"/>
+      <rect class="bar b3" x="28" y="10" width="7" height="24" rx="3.5" fill="#e07a2f"/>
+      <rect class="bar b4" x="42" y="0" width="7" height="44" rx="3.5" fill="#f4a35f"/>
+      <rect class="bar b5" x="56" y="6" width="7" height="32" rx="3.5" fill="#e07a2f"/>
+      <rect class="bar b2" x="70" y="4" width="7" height="36" rx="3.5" fill="#f4a35f"/>
+      <rect class="bar b3" x="84" y="12" width="7" height="20" rx="3.5" fill="#e07a2f"/>
+      <rect class="bar b1" x="98" y="3" width="7" height="38" rx="3.5" fill="#f4a35f"/>
+      <rect class="bar b4" x="112" y="9" width="7" height="26" rx="3.5" fill="#e07a2f"/>
+      <rect class="bar b5" x="126" y="1" width="7" height="42" rx="3.5" fill="#f4a35f"/>
+    </g>
+
+
+    <rect x="620" y="76" width="300" height="428" fill="#f3f0ec"/>
+    <g transform="translate(638 96) scale(0.14)">
+      <path fill="#e07a2f" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
+    </g>
+    <text x="660" y="108" fill="#3d3731" font-size="13" font-weight="600">Pane</text>
+    <circle cx="900" cy="102" r="4" fill="#5fb872"/>
+    <text x="888" y="107" text-anchor="end" fill="#8a8278" font-size="11">Meetings</text>
+
+    <text x="636" y="144" fill="#6b6258" font-size="11">Transcript · kept on device</text>
+    <text x="636" y="176" fill="#6b6258" font-size="11.5">0:42  Priya — annual is fine</text>
+    <text x="636" y="198" fill="#4a433c" font-size="11.5">1:08  You — flag the SLA</text>
+    <text x="636" y="220" fill="#6b6258" font-size="11.5">1:31  Marcus — legal by Wed</text>
+    <text x="636" y="242" fill="#4a433c" font-size="11.5">2:04  You — ship Friday</text>
+
+    <g transform="translate(636 272)">
+      <rect width="268" height="44" rx="12" fill="url(#accent)" fill-opacity="0.92"/>
+      <text x="14" y="18" fill="#2a1606" font-size="11.5">What did we decide</text>
+      <text x="14" y="34" fill="#2a1606" font-size="11.5">on pricing?</text>
+    </g>
+    <g transform="translate(636 330)">
+      <rect width="268" height="96" rx="12" fill="#fff7f0"/>
+      <text x="14" y="24" fill="#4a433c" font-size="11.5">Annual plan. Flag SLA.</text>
+      <text x="14" y="42" fill="#4a433c" font-size="11.5">Legal reviews by Wed.</text>
+      <text x="14" y="60" fill="#4a433c" font-size="11.5">Update ships Friday.</text>
+      <text x="14" y="82" fill="#8a8278" font-size="10.5">From this call tab</text>
+    </g>
+
+    <rect x="636" y="452" width="268" height="36" rx="18" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.07"/>
+    <text x="652" y="474" fill="#8a8278" font-size="12">Ask Pane anything</text>
+    <circle cx="886" cy="470" r="12" fill="url(#accent)"/>
+    <path d="M881 470h10M887 466l4 4-4 4" fill="none" stroke="#2a1606" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  </g>
+</svg>

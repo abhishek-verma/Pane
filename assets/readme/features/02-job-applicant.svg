@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Job applicant — Pane fills the application form, submits it, and tracks follow-up">
+  <defs>
+  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#f4f1ee"/>
+    <stop offset="50%" stop-color="#ebe7e2"/>
+    <stop offset="100%" stop-color="#e4dfd8"/>
+  </linearGradient>
+  <radialGradient id="glow" cx="70%" cy="40%" r="45%">
+    <stop offset="0%" stop-color="#e07a2f" stop-opacity="0.16"/>
+    <stop offset="55%" stop-color="#e07a2f" stop-opacity="0.05"/>
+    <stop offset="100%" stop-color="#e07a2f" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#f4a35f"/>
+    <stop offset="100%" stop-color="#df7327"/>
+  </linearGradient>
+  <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
+    <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.05"/>
+  </pattern>
+  <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+    <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#1c1814" flood-opacity="0.12"/>
+  </filter>
+  <clipPath id="win">
+    <rect x="40" y="36" width="880" height="468" rx="16"/>
+  </clipPath>
+  <style><![CDATA[
+
+  text, .font { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+  }
+
+
+  .score-fill {
+    transform-box: fill-box;
+    transform-origin: left center;
+    animation: fillBar 7s ease-out infinite;
+  }
+  @keyframes fillBar {
+    0%,5% { transform: scaleX(0.08); }
+    18%,90% { transform: scaleX(1); }
+    100% { transform: scaleX(0.08); }
+  }
+  .fld-name, .fld-email, .fld-resume, .fld-cover {
+    opacity: 0;
+    animation: typeIn 7s ease-in-out infinite both;
+  }
+  .fld-email { animation-delay: 0.7s; }
+  .fld-resume { animation-delay: 1.4s; }
+  .fld-cover { animation-delay: 2.1s; }
+  @keyframes typeIn {
+    0%,8% { opacity: 0; }
+    18%,78% { opacity: 1; }
+    90%,100% { opacity: 0; }
+  }
+  .focus1, .focus2, .focus3, .focus4 {
+    animation: focusRing 7s ease-in-out infinite both;
+  }
+  .focus2 { animation-delay: 0.7s; }
+  .focus3 { animation-delay: 1.4s; }
+  .focus4 { animation-delay: 2.1s; }
+  @keyframes focusRing {
+    0%,6% { stroke-opacity: 0; }
+    10%,18% { stroke-opacity: 0.7; }
+    26%,100% { stroke-opacity: 0; }
+  }
+  .submit-btn { animation: submitPress 7s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes submitPress {
+    0%,48% { transform: scale(1); }
+    52% { transform: scale(0.96); }
+    58%,100% { transform: scale(1); }
+  }
+  .form-dim { animation: dimForm 7s ease-in-out infinite; }
+  @keyframes dimForm {
+    0%,58% { opacity: 1; }
+    68%,88% { opacity: 0.35; }
+    96%,100% { opacity: 1; }
+  }
+  .success-inner { animation: successIn 7s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes successIn {
+    0%,58% { opacity: 0; transform: scale(0.86); }
+    68%,88% { opacity: 1; transform: scale(1); }
+    96%,100% { opacity: 0; transform: scale(0.92); }
+  }
+  .tick-circle {
+    fill: none;
+    stroke: #5fb872;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-dasharray: 180;
+    stroke-dashoffset: 180;
+    animation: drawCircle 7s ease-in-out infinite;
+  }
+  @keyframes drawCircle {
+    0%,60% { stroke-dashoffset: 180; }
+    70%,88% { stroke-dashoffset: 0; }
+    96%,100% { stroke-dashoffset: 180; }
+  }
+  .tick-mark {
+    fill: none;
+    stroke: #5fb872;
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 40;
+    stroke-dashoffset: 40;
+    animation: drawTick 7s ease-in-out infinite;
+  }
+  @keyframes drawTick {
+    0%,68% { stroke-dashoffset: 40; }
+    76%,88% { stroke-dashoffset: 0; }
+    96%,100% { stroke-dashoffset: 40; }
+  }
+  .agent-step1 { animation: stepOn 7s ease-in-out infinite; }
+  .agent-step2 { animation: stepOn 7s ease-in-out infinite; animation-delay: 1.2s; }
+  .agent-step3 { animation: stepOn 7s ease-in-out infinite; animation-delay: 2.8s; }
+  @keyframes stepOn {
+    0%,10% { opacity: 0.35; }
+    20%,78% { opacity: 1; }
+    90%,100% { opacity: 0.35; }
+  }
+
+  ]]></style></defs>
+  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect width="960" height="540" fill="url(#grid)"/>
+  <rect width="960" height="540" fill="url(#glow)"/>
+
+
+  <g filter="url(#shadow)">
+    <rect x="40" y="36" width="880" height="468" rx="16" fill="#ffffff"/>
+  </g>
+  <g clip-path="url(#win)">
+    <rect x="40" y="36" width="880" height="468" fill="#ffffff"/>
+    <rect x="40" y="36" width="880" height="40" fill="#f5f2ef"/>
+    <line x1="40" y1="76" x2="920" y2="76" stroke="#1c1814" stroke-opacity="0.05"/>
+    <circle cx="62" cy="56" r="5" fill="#ff5f57"/>
+    <circle cx="80" cy="56" r="5" fill="#febc2e"/>
+    <circle cx="98" cy="56" r="5" fill="#28c840"/>
+    <g transform="translate(124 48)" stroke="#7a7268" stroke-opacity="0.85" stroke-width="1.4" stroke-linecap="round">
+      <rect x="0" y="0" width="16" height="16" rx="4.5" fill="none"/>
+      <line x1="6" y1="2" x2="6" y2="14"/>
+    </g>
+    <path d="M164 48 l-8 8 8 8" fill="none" stroke="#7a7268" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M184 48 l8 8 -8 8" fill="none" stroke="#c4bbb2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="208" y="44" width="520" height="24" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.05"/>
+    <text x="224" y="60" fill="#7a7268" font-size="12">boards.greenhouse.io/acme/jobs/senior-pm/apply</text>
+    <line x1="620" y1="76" x2="620" y2="504" stroke="#1c1814" stroke-opacity="0.06"/>
+
+    <rect x="40" y="76" width="580" height="428" fill="#faf9f7"/>
+
+    <g class="form-dim">
+      <text x="68" y="106" fill="#1c1814" font-size="18" font-weight="600" letter-spacing="-0.02em">Apply · Senior Product Manager</text>
+
+      <text x="68" y="136" fill="#6b6258" font-size="11">Full name</text>
+      <rect class="focus1" x="68" y="144" width="524" height="40" rx="10" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5" stroke-opacity="0"/>
+      <text class="fld-name" x="82" y="169" fill="#1c1814" font-size="13">Alex Rivera</text>
+
+      <text x="68" y="208" fill="#6b6258" font-size="11">Email</text>
+      <rect class="focus2" x="68" y="216" width="524" height="40" rx="10" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5" stroke-opacity="0"/>
+      <text class="fld-email" x="82" y="241" fill="#1c1814" font-size="13">alex@example.com</text>
+
+      <text x="68" y="280" fill="#6b6258" font-size="11">Resume</text>
+      <rect class="focus3" x="68" y="288" width="524" height="40" rx="10" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5" stroke-opacity="0"/>
+      <text class="fld-resume" x="82" y="313" fill="#1c1814" font-size="13">Alex_Rivera_Resume.pdf</text>
+
+      <text x="68" y="352" fill="#6b6258" font-size="11">Cover note</text>
+      <rect class="focus4" x="68" y="360" width="524" height="56" rx="10" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5" stroke-opacity="0"/>
+      <text class="fld-cover" x="82" y="384" fill="#1c1814" font-size="12">Led 0→1 analytics · pricing experiments…</text>
+      <text class="fld-cover" x="82" y="402" fill="#6b6258" font-size="11">From your resume + this listing</text>
+
+      <g transform="translate(68 436)">
+        <g class="submit-btn">
+          <rect width="160" height="40" rx="10" fill="url(#accent)"/>
+          <text x="80" y="25" text-anchor="middle" fill="#2a1606" font-size="13" font-weight="600">Submit application</text>
+        </g>
+      </g>
+    </g>
+
+    <g transform="translate(330 286)">
+      <g class="success-inner">
+        <circle class="tick-circle" cx="0" cy="0" r="28"/>
+        <path class="tick-mark" d="M-12 1 l8 8 16-18"/>
+        <text x="0" y="56" text-anchor="middle" fill="#1c1814" font-size="15" font-weight="600">Application submitted</text>
+        <text x="0" y="78" text-anchor="middle" fill="#6b6258" font-size="12">Follow-up task created</text>
+      </g>
+    </g>
+
+
+    <rect x="620" y="76" width="300" height="428" fill="#f3f0ec"/>
+    <g transform="translate(638 96) scale(0.14)">
+      <path fill="#e07a2f" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
+    </g>
+    <text x="660" y="108" fill="#3d3731" font-size="13" font-weight="600">Pane</text>
+    <circle cx="900" cy="102" r="4" fill="#5fb872"/>
+    <text x="888" y="107" text-anchor="end" fill="#8a8278" font-size="11">Agent</text>
+
+    <g class="agent-step1" transform="translate(636 136)">
+      <rect width="268" height="64" rx="12" fill="#fff7f0" stroke="#e07a2f" stroke-opacity="0.35"/>
+      <text x="14" y="24" fill="#1c1814" font-size="13" font-weight="600">Fit score 86%</text>
+      <text x="14" y="44" fill="#6b6258" font-size="11">Matches your PM + B2B background</text>
+      <rect x="14" y="52" width="214" height="5" rx="2.5" fill="#e6e1db"/>
+      <rect class="score-fill" x="14" y="52" width="214" height="5" rx="2.5" fill="url(#accent)"/>
+    </g>
+    <g class="agent-step2" transform="translate(636 216)">
+      <rect width="268" height="88" rx="12" fill="#ffffff"/>
+      <text x="14" y="24" fill="#4a433c" font-size="12" font-weight="600">Filling application</text>
+      <text x="14" y="46" fill="#6b6258" font-size="11">Name · email · resume</text>
+      <text x="14" y="64" fill="#6b6258" font-size="11">Cover note from your background</text>
+      <text x="14" y="78" fill="#8a8278" font-size="10.5">Typing into the live form</text>
+    </g>
+    <g class="agent-step3" transform="translate(636 320)">
+      <rect width="268" height="64" rx="12" fill="#f5f2ef" stroke="#5fb872" stroke-opacity="0.4"/>
+      <circle cx="26" cy="32" r="9" fill="none" stroke="#5fb872" stroke-width="1.8"/>
+      <path d="M21 32l3.2 3.2 6.5-6.5" fill="none" stroke="#5fb872" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="46" y="28" fill="#1c1814" font-size="12" font-weight="600">Submitted · follow up Friday</text>
+      <text x="46" y="46" fill="#6b6258" font-size="11">Task · Job hunt profile</text>
+    </g>
+
+    <rect x="636" y="452" width="268" height="36" rx="18" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.07"/>
+    <text x="652" y="474" fill="#8a8278" font-size="12">Ask Pane anything</text>
+    <circle cx="886" cy="470" r="12" fill="url(#accent)"/>
+    <path d="M881 470h10M887 466l4 4-4 4" fill="none" stroke="#2a1606" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  </g>
+</svg>
