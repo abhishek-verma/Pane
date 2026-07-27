@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Chrome profiles keep Work, Job hunt, and Personal separate">
+  <defs>
+  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#f4f1ee"/>
+    <stop offset="50%" stop-color="#ebe7e2"/>
+    <stop offset="100%" stop-color="#e4dfd8"/>
+  </linearGradient>
+  <radialGradient id="glow" cx="70%" cy="40%" r="45%">
+    <stop offset="0%" stop-color="#e07a2f" stop-opacity="0.16"/>
+    <stop offset="55%" stop-color="#e07a2f" stop-opacity="0.05"/>
+    <stop offset="100%" stop-color="#e07a2f" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#f4a35f"/>
+    <stop offset="100%" stop-color="#df7327"/>
+  </linearGradient>
+  <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
+    <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.05"/>
+  </pattern>
+  <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+    <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#1c1814" flood-opacity="0.12"/>
+  </filter>
+  <clipPath id="win">
+    <rect x="40" y="36" width="880" height="468" rx="16"/>
+  </clipPath>
+  <style><![CDATA[
+
+  text, .font { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+  }
+
+
+  .slider { animation: slide 7s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+  @keyframes slide {
+    0%,26% { transform: translateX(0); }
+    34%,60% { transform: translateX(112px); }
+    68%,94% { transform: translateX(230px); }
+    100% { transform: translateX(0); }
+  }
+  .p1 { animation: show1 7s ease-in-out infinite; }
+  .p2 { animation: show2 7s ease-in-out infinite; }
+  .p3 { animation: show3 7s ease-in-out infinite; }
+  @keyframes show1 {
+    0%,26% { opacity: 1; }
+    34%,100% { opacity: 0; }
+  }
+  @keyframes show2 {
+    0%,32% { opacity: 0; }
+    38%,60% { opacity: 1; }
+    68%,100% { opacity: 0; }
+  }
+  @keyframes show3 {
+    0%,66% { opacity: 0; }
+    72%,94% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .t1 { animation: lab1 7s ease-in-out infinite; }
+  .t2 { animation: lab2 7s ease-in-out infinite; }
+  .t3 { animation: lab3 7s ease-in-out infinite; }
+  @keyframes lab1 {
+    0%,26% { fill: #2a1606; }
+    34%,100% { fill: #6b6258; }
+  }
+  @keyframes lab2 {
+    0%,32% { fill: #6b6258; }
+    38%,60% { fill: #2a1606; }
+    68%,100% { fill: #6b6258; }
+  }
+  @keyframes lab3 {
+    0%,66% { fill: #6b6258; }
+    72%,94% { fill: #2a1606; }
+    100% { fill: #6b6258; }
+  }
+
+  ]]></style></defs>
+  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect width="960" height="540" fill="url(#grid)"/>
+  <rect width="960" height="540" fill="url(#glow)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="40" y="36" width="880" height="468" rx="16" fill="#ffffff"/>
+  </g>
+  <g clip-path="url(#win)">
+    <rect x="40" y="36" width="880" height="468" fill="#ffffff"/>
+    <rect x="40" y="36" width="880" height="40" fill="#f5f2ef"/>
+    <line x1="40" y1="76" x2="920" y2="76" stroke="#1c1814" stroke-opacity="0.05"/>
+    <circle cx="62" cy="56" r="5" fill="#ff5f57"/>
+    <circle cx="80" cy="56" r="5" fill="#febc2e"/>
+    <circle cx="98" cy="56" r="5" fill="#28c840"/>
+    <rect x="208" y="44" width="520" height="24" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.05"/>
+    <text x="224" y="60" fill="#7a7268" font-size="12">pane://home</text>
+
+    <rect x="40" y="76" width="880" height="428" fill="#faf9f7"/>
+    <text x="68" y="112" fill="#1c1814" font-size="20" font-weight="600" letter-spacing="-0.02em">Same browser. Separate lives.</text>
+    <text x="68" y="136" fill="#6b6258" font-size="13">Chrome profiles keep memory, skills, and home scoped</text>
+
+    <!-- segmented control -->
+    <g transform="translate(68 164)">
+      <rect width="348" height="40" rx="20" fill="#f5f2ef"/>
+      <rect class="slider" x="4" y="4" width="104" height="32" rx="16" fill="url(#accent)"/>
+      <text class="t1" x="56" y="25" text-anchor="middle" font-size="12" font-weight="600">Work</text>
+      <text class="t2" x="168" y="25" text-anchor="middle" font-size="12" font-weight="600">Job hunt</text>
+      <text class="t3" x="286" y="25" text-anchor="middle" font-size="12" font-weight="600">Personal</text>
+    </g>
+
+    <!-- stacked content panels -->
+    <g class="p1" transform="translate(68 232)">
+      <rect width="400" height="80" rx="12" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.05"/>
+      <text x="20" y="34" fill="#1c1814" font-size="14" font-weight="600">Investor update · Q2 narrative</text>
+      <text x="20" y="56" fill="#6b6258" font-size="12">From vendor call + shipped PRs</text>
+      <rect x="420" y="0" width="400" height="80" rx="12" fill="#ffffff"/>
+      <text x="440" y="34" fill="#1c1814" font-size="14" font-weight="600">Pricing decision log</text>
+      <text x="440" y="56" fill="#6b6258" font-size="12">Annual plan · SLA flagged</text>
+    </g>
+    <g class="p2" transform="translate(68 232)">
+      <rect width="400" height="80" rx="12" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.05"/>
+      <text x="20" y="34" fill="#1c1814" font-size="14" font-weight="600">Acme PM · fit 86%</text>
+      <text x="20" y="56" fill="#6b6258" font-size="12">Follow up Friday · draft ready</text>
+      <rect x="420" y="0" width="400" height="80" rx="12" fill="#ffffff"/>
+      <text x="440" y="34" fill="#1c1814" font-size="14" font-weight="600">Interview prep · systems</text>
+      <text x="440" y="56" fill="#6b6258" font-size="12">From pages you already read</text>
+    </g>
+    <g class="p3" transform="translate(68 232)">
+      <rect width="400" height="80" rx="12" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.05"/>
+      <text x="20" y="34" fill="#1c1814" font-size="14" font-weight="600">Lisbon trip · restaurant shortlist</text>
+      <text x="20" y="56" fill="#6b6258" font-size="12">Threaded from travel tabs</text>
+      <rect x="420" y="0" width="400" height="80" rx="12" fill="#ffffff"/>
+      <text x="440" y="34" fill="#1c1814" font-size="14" font-weight="600">Family calendar nudge</text>
+      <text x="440" y="56" fill="#6b6258" font-size="12">Weekend plans · not in Work</text>
+    </g>
+
+    <g transform="translate(68 344)">
+      <rect width="820" height="72" rx="12" fill="#f5f2ef" stroke="#e07a2f" stroke-opacity="0.3"/>
+      <text x="24" y="30" fill="#1c1814" font-size="14" font-weight="600">Switch the profile — each keeps its own memory</text>
+      <text x="24" y="52" fill="#6b6258" font-size="12">Work never sees interview prep. Personal never sees investor notes.</text>
+    </g>
+  </g>
+</svg>

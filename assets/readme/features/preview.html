@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Pane README feature animations</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 32px;
+      background: #f4f1ee;
+      color: #1c1814;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+    h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+    p { color: #6b6258; margin: 0 0 28px; font-size: 14px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 28px;
+      max-width: 980px;
+    }
+    figure { margin: 0; }
+    figcaption {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #6b6258;
+    }
+    img, object {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid rgba(28,24,20,0.08);
+      display: block;
+      background: #ebe7e2;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pane feature animations</h1>
+  <p>Open locally to preview CSS motion on SVGs. For GitHub README and onboarding, run <code>node export-gifs.mjs</code> after regenerating SVGs (needs ffmpeg + local playwright).</p>
+  <div class="grid">
+    <figure>
+      <object type="image/svg+xml" data="01-meetings.svg"></object>
+      <figcaption>01 · Founder — meeting notes without a bot</figcaption>
+    </figure>
+    <figure>
+      <object type="image/svg+xml" data="02-job-applicant.svg"></object>
+      <figcaption>02 · Job applicant — fit, draft, follow-up</figcaption>
+    </figure>
+    <figure>
+      <object type="image/svg+xml" data="03-research.svg"></object>
+      <figcaption>03 · Marketer — research that survives the tab close</figcaption>
+    </figure>
+    <figure>
+      <object type="image/svg+xml" data="04-morning-briefing.svg"></object>
+      <figcaption>04 · Chief of staff — Monday morning briefing</figcaption>
+    </figure>
+    <figure>
+      <object type="image/svg+xml" data="05-developer-cowork.svg"></object>
+      <figcaption>05 · Developer — agent + cowork on localhost</figcaption>
+    </figure>
+    <figure>
+      <object type="image/svg+xml" data="06-skills.svg"></object>
+      <figcaption>06 · Ops — workflow becomes a staged skill</figcaption>
+    </figure>
+    <figure>
+      <object type="image/svg+xml" data="07-profiles.svg"></object>
+      <figcaption>07 · Multi-hat — Chrome profiles keep lives separate</figcaption>
+    </figure>
+    <figure>
+      <object type="image/svg+xml" data="08-pane-as-mcp.svg"></object>
+      <figcaption>08 · Power user — Pane as MCP</figcaption>
+    </figure>
+  </div>
+</body>
+</html>

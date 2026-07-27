@@ -1,32 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-label="Pane - A browser with a soul">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#120f0d"/>
-      <stop offset="50%" stop-color="#181311"/>
-      <stop offset="100%" stop-color="#211a15"/>
+      <stop offset="0%" stop-color="#f7f4f0"/>
+      <stop offset="50%" stop-color="#efebe6"/>
+      <stop offset="100%" stop-color="#e8e2db"/>
     </linearGradient>
     <radialGradient id="soulGlow" cx="68%" cy="46%" r="48%">
-      <stop offset="0%" stop-color="#e07a2f" stop-opacity="0.30"/>
-      <stop offset="55%" stop-color="#e07a2f" stop-opacity="0.07"/>
+      <stop offset="0%" stop-color="#e07a2f" stop-opacity="0.22"/>
+      <stop offset="55%" stop-color="#e07a2f" stop-opacity="0.06"/>
       <stop offset="100%" stop-color="#e07a2f" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="markFill" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f6efe7"/>
-      <stop offset="100%" stop-color="#ded4c8"/>
-    </linearGradient>
     <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#f4a35f"/>
       <stop offset="100%" stop-color="#df7327"/>
     </linearGradient>
     <linearGradient id="soulText" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#f6b277"/>
-      <stop offset="100%" stop-color="#e07a2f"/>
+      <stop offset="0%" stop-color="#e8923f"/>
+      <stop offset="100%" stop-color="#df7327"/>
     </linearGradient>
     <filter id="winShadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="26" stdDeviation="34" flood-color="#000" flood-opacity="0.55"/>
+      <feDropShadow dx="0" dy="18" stdDeviation="28" flood-color="#1c1814" flood-opacity="0.12"/>
     </filter>
     <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
-      <path d="M56 0H0V56" fill="none" stroke="#ffffff" stroke-opacity="0.03" stroke-width="1"/>
+      <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.045" stroke-width="1"/>
     </pattern>
     <clipPath id="winClip"><rect x="612" y="92" width="612" height="456" rx="16"/></clipPath>
   </defs>
@@ -39,35 +35,34 @@
   <g font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
     <g transform="translate(88 92)">
       <g transform="scale(0.5)">
-        <path fill="url(#markFill)" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
-        <rect x="66" y="66" width="24" height="24" fill="url(#accent)"/>
+        <path fill="url(#accent)" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
       </g>
-      <text x="66" y="40" fill="#f6efe7" font-size="34" font-weight="600" letter-spacing="-0.03em">Pane</text>
+      <text x="66" y="40" fill="#1c1814" font-size="34" font-weight="600" letter-spacing="-0.03em">Pane</text>
     </g>
 
-    <text x="86" y="250" fill="#f6efe7" font-size="66" font-weight="600" letter-spacing="-0.04em">A browser</text>
-    <text x="86" y="322" fill="#f6efe7" font-size="66" font-weight="600" letter-spacing="-0.04em">with a <tspan fill="url(#soulText)">soul</tspan></text>
+    <text x="86" y="250" fill="#1c1814" font-size="66" font-weight="600" letter-spacing="-0.04em">A browser</text>
+    <text x="86" y="322" fill="#1c1814" font-size="66" font-weight="600" letter-spacing="-0.04em">with a <tspan fill="url(#soulText)">soul</tspan></text>
 
-    <g fill="#b3a596" font-size="18.5" font-weight="400">
+    <g fill="#6b6258" font-size="18.5" font-weight="400">
       <text x="88" y="388">The open-source browser where the agent is</text>
       <text x="88" y="416">native. It knows your work, remembers you,</text>
       <text x="88" y="444">and becomes whatever you need it to be.</text>
     </g>
 
     <!-- value chips -->
-    <g transform="translate(88 486)" font-size="14" font-weight="500" fill="#e9ddcf">
+    <g transform="translate(88 486)" font-size="14" font-weight="500" fill="#3d3731">
       <g>
-        <rect x="0" y="0" width="156" height="34" rx="17" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.10"/>
+        <rect x="0" y="0" width="156" height="34" rx="17" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.08"/>
         <circle cx="22" cy="17" r="3.5" fill="url(#accent)"/>
         <text x="40" y="22">Open source</text>
       </g>
       <g transform="translate(168 0)">
-        <rect x="0" y="0" width="144" height="34" rx="17" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.10"/>
+        <rect x="0" y="0" width="144" height="34" rx="17" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.08"/>
         <circle cx="22" cy="17" r="3.5" fill="url(#accent)"/>
         <text x="40" y="22">Local-first</text>
       </g>
       <g transform="translate(324 0)">
-        <rect x="0" y="0" width="96" height="34" rx="17" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.10"/>
+        <rect x="0" y="0" width="96" height="34" rx="17" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.08"/>
         <circle cx="22" cy="17" r="3.5" fill="url(#accent)"/>
         <text x="40" y="22">Yours</text>
       </g>
@@ -76,93 +71,84 @@
 
   <!-- ============ RIGHT: PRODUCT WINDOW ============ -->
   <g filter="url(#winShadow)">
-    <rect x="612" y="92" width="612" height="456" rx="16" fill="#1b1613"/>
+    <rect x="612" y="92" width="612" height="456" rx="16" fill="#ffffff"/>
   </g>
   <g clip-path="url(#winClip)" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
-    <rect x="612" y="92" width="612" height="456" fill="#1b1613"/>
+    <rect x="612" y="92" width="612" height="456" fill="#ffffff"/>
 
-    <!-- combined title + nav bar (tabs live in the sidebar) -->
-    <rect x="612" y="92" width="612" height="40" fill="#1d1714"/>
-    <line x1="612" y1="132" x2="1224" y2="132" stroke="#ffffff" stroke-opacity="0.05"/>
+    <rect x="612" y="92" width="612" height="40" fill="#f5f2ef"/>
+    <line x1="612" y1="132" x2="1224" y2="132" stroke="#1c1814" stroke-opacity="0.08"/>
     <circle cx="634" cy="112" r="5" fill="#ff5f57"/>
     <circle cx="652" cy="112" r="5" fill="#febc2e"/>
     <circle cx="670" cy="112" r="5" fill="#28c840"/>
-    <!-- expand sidebar tabs button -->
-    <g transform="translate(696 104)" stroke="#9a8c7e" stroke-opacity="0.85" stroke-width="1.4" stroke-linecap="round">
+    <g transform="translate(696 104)" stroke="#7a7268" stroke-opacity="0.85" stroke-width="1.4" stroke-linecap="round">
       <rect x="0" y="0" width="16" height="16" rx="4.5" fill="none"/>
       <line x1="6" y1="2" x2="6" y2="14"/>
     </g>
-    <!-- back / forward -->
-    <path d="M736 104 l-8 8 8 8" fill="none" stroke="#9a8c7e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M756 104 l8 8 -8 8" fill="none" stroke="#4a4138" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <!-- address bar -->
-    <rect x="788" y="100" width="412" height="24" rx="12" fill="#15110e" stroke="#ffffff" stroke-opacity="0.05"/>
-    <text x="804" y="116" fill="#a89a8c" font-size="12">Pane Home</text>
+    <path d="M736 104 l-8 8 8 8" fill="none" stroke="#7a7268" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M756 104 l8 8 -8 8" fill="none" stroke="#c4bbb2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="788" y="100" width="412" height="24" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.08"/>
+    <text x="804" y="116" fill="#7a7268" font-size="12">Pane Home</text>
 
-    <!-- body divider -->
-    <line x1="960" y1="132" x2="960" y2="548" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/>
+    <line x1="960" y1="132" x2="960" y2="548" stroke="#1c1814" stroke-opacity="0.08" stroke-width="1"/>
 
-    <!-- MAIN: a new tab that knows your day -->
+    <!-- MAIN -->
     <g>
-      <text x="628" y="176" fill="#f1e7da" font-size="20" font-weight="600" letter-spacing="-0.02em">Good morning, Abhishek</text>
-      <text x="628" y="198" fill="#8a7d70" font-size="13">Here is what matters today.</text>
+      <text x="628" y="176" fill="#1c1814" font-size="20" font-weight="600" letter-spacing="-0.02em">Good morning, Abhishek</text>
+      <text x="628" y="198" fill="#6b6258" font-size="13">Here is what matters today.</text>
 
       <g transform="translate(628 218)">
-        <rect width="316" height="62" rx="12" fill="#221b17" stroke="#ffffff" stroke-opacity="0.05"/>
+        <rect width="316" height="62" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.06"/>
         <rect x="0" y="0" width="3" height="62" rx="1.5" fill="url(#accent)"/>
-        <text x="20" y="27" fill="#e9ddcf" font-size="13.5" font-weight="600">Standup in 18 min</text>
-        <text x="20" y="46" fill="#8a7d70" font-size="12">Notes and open items from last week ready</text>
+        <text x="20" y="27" fill="#1c1814" font-size="13.5" font-weight="600">Standup in 18 min</text>
+        <text x="20" y="46" fill="#6b6258" font-size="12">Notes and open items from last week ready</text>
       </g>
       <g transform="translate(628 288)">
-        <rect width="316" height="62" rx="12" fill="#221b17" stroke="#ffffff" stroke-opacity="0.05"/>
-        <rect x="0" y="0" width="3" height="62" rx="1.5" fill="#5fb872"/>
-        <text x="20" y="27" fill="#e9ddcf" font-size="13.5" font-weight="600">3 pull requests waiting on you</text>
-        <text x="20" y="46" fill="#8a7d70" font-size="12">Reviewed across two repos since Friday</text>
+        <rect width="316" height="62" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.06"/>
+        <rect x="0" y="0" width="3" height="62" rx="1.5" fill="#2f9e5b"/>
+        <text x="20" y="27" fill="#1c1814" font-size="13.5" font-weight="600">3 pull requests waiting on you</text>
+        <text x="20" y="46" fill="#6b6258" font-size="12">Reviewed across two repos since Friday</text>
       </g>
       <g transform="translate(628 358)">
-        <rect width="316" height="62" rx="12" fill="#221b17" stroke="#ffffff" stroke-opacity="0.05"/>
-        <rect x="0" y="0" width="3" height="62" rx="1.5" fill="#6f9fe0"/>
-        <text x="20" y="27" fill="#e9ddcf" font-size="13.5" font-weight="600">Resume: pricing research</text>
-        <text x="20" y="46" fill="#8a7d70" font-size="12">11 tabs threaded, sources kept and citable</text>
+        <rect width="316" height="62" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.06"/>
+        <rect x="0" y="0" width="3" height="62" rx="1.5" fill="#5a8fd4"/>
+        <text x="20" y="27" fill="#1c1814" font-size="13.5" font-weight="600">Resume: pricing research</text>
+        <text x="20" y="46" fill="#6b6258" font-size="12">11 tabs threaded, sources kept and citable</text>
       </g>
       <g transform="translate(628 428)">
-        <rect width="316" height="54" rx="12" fill="#1d1714" stroke="#e07a2f" stroke-opacity="0.35"/>
-        <circle cx="26" cy="27" r="9" fill="#e07a2f" fill-opacity="0.16"/>
-        <path d="M21 27l3 3 6-6" fill="none" stroke="#f4a35f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <text x="46" y="24" fill="#e9ddcf" font-size="12.5" font-weight="600">Run Friday competitor scan</text>
-        <text x="46" y="41" fill="#8a7d70" font-size="11.5">Skill Pane wrote from your routine</text>
+        <rect width="316" height="54" rx="12" fill="#fff7f0" stroke="#e07a2f" stroke-opacity="0.4"/>
+        <circle cx="26" cy="27" r="9" fill="#e07a2f" fill-opacity="0.14"/>
+        <path d="M21 27l3 3 6-6" fill="none" stroke="#df7327" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="46" y="24" fill="#1c1814" font-size="12.5" font-weight="600">Run Friday competitor scan</text>
+        <text x="46" y="41" fill="#6b6258" font-size="11.5">Skill Pane wrote from your routine</text>
       </g>
     </g>
 
     <!-- AGENT PANEL -->
     <g>
-      <rect x="960" y="132" width="264" height="416" fill="#161210"/>
+      <rect x="960" y="132" width="264" height="416" fill="#f3f0ec"/>
       <g transform="translate(976 156) scale(0.15)">
-        <path fill="#f6efe7" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
-        <rect x="66" y="66" width="24" height="24" fill="#e07a2f"/>
+        <path fill="#e07a2f" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
       </g>
-      <text x="998" y="168" fill="#cdbfb0" font-size="13" font-weight="600">Pane</text>
-      <circle cx="1196" cy="162" r="4" fill="#5fb872"/>
-      <text x="1108" y="168" fill="#6b5e51" font-size="11">on this tab</text>
+      <text x="998" y="168" fill="#3d3731" font-size="13" font-weight="600">Pane</text>
+      <circle cx="1196" cy="162" r="4" fill="#2f9e5b"/>
+      <text x="1108" y="168" fill="#8a8278" font-size="11">on this tab</text>
 
-      <!-- user bubble: right-aligned, padded from panel edge -->
       <g transform="translate(1002 194)">
-        <rect x="0" y="0" width="198" height="48" rx="13" fill="url(#accent)" fill-opacity="0.92"/>
+        <rect x="0" y="0" width="198" height="48" rx="13" fill="url(#accent)" fill-opacity="0.95"/>
         <text x="18" y="20" fill="#2a1606" font-size="11.5">What did I decide in</text>
         <text x="18" y="36" fill="#2a1606" font-size="11.5">yesterday's vendor call?</text>
       </g>
-      <!-- agent bubble: left-aligned -->
       <g transform="translate(976 260)">
-        <rect x="0" y="0" width="216" height="92" rx="13" fill="#241d18"/>
-        <text x="16" y="22" fill="#c2b4a4" font-size="11.5">You picked the annual plan,</text>
-        <text x="16" y="40" fill="#c2b4a4" font-size="11.5">flagged the SLA clause, and</text>
-        <text x="16" y="58" fill="#c2b4a4" font-size="11.5">asked legal to review by Wed.</text>
-        <text x="16" y="80" fill="#7d7064" font-size="10.5">From the call captured in this tab</text>
+        <rect x="0" y="0" width="216" height="92" rx="13" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.06"/>
+        <text x="16" y="22" fill="#4a433c" font-size="11.5">You picked the annual plan,</text>
+        <text x="16" y="40" fill="#4a433c" font-size="11.5">flagged the SLA clause, and</text>
+        <text x="16" y="58" fill="#4a433c" font-size="11.5">asked legal to review by Wed.</text>
+        <text x="16" y="80" fill="#8a8278" font-size="10.5">From the call captured in this tab</text>
       </g>
 
-      <!-- input -->
-      <rect x="976" y="504" width="232" height="36" rx="18" fill="#221b17" stroke="#ffffff" stroke-opacity="0.07"/>
-      <text x="992" y="526" fill="#7d7064" font-size="12">Ask Pane anything</text>
+      <rect x="976" y="504" width="232" height="36" rx="18" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.08"/>
+      <text x="992" y="526" fill="#8a8278" font-size="12">Ask Pane anything</text>
       <circle cx="1184" cy="522" r="12" fill="url(#accent)"/>
       <path d="M1179 522h10M1185 518l4 4-4 4" fill="none" stroke="#2a1606" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
