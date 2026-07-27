@@ -5,7 +5,7 @@ Created by **Abhishek Verma**
 
 Most of your work already happens in a browser. Tabs, logins, docs, dashboards, tickets, research, meetings. But the AI that is supposed to help you still lives somewhere else — in a chat tab, a desktop app, or a daemon you have to wire up yourself. You stop, copy context over, explain what you were doing, and hope it understands.
 
-**Pane is a browser with a soul** — an open-source Chromium fork where the agent is native to your session, learns from how you work, and becomes whatever you need it to be.
+**Pane is a browser with a soul** — an open-source Chromium fork where the agent is native to your work, learns from how you work, and becomes whatever you need it to be.
 
 Not a sidebar glued onto Chrome. Not a remote agent driving your browser from the outside. Not the same chatbot for every user. Pane sees your real tabs, remembers your patterns, reaches your files and terminal, and grows more personal over time. All on your machine. No Pane account. No Pane cloud.
 
