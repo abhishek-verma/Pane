@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
   <app appid="biedncddmddkpapdplhcnkhhplnfgbif">
-    <updatecheck codebase="https://github.com/abhishek-verma/Pane/releases/download/agent-extension%2Fv0.0.127/pane-agent-0.0.127.crx" version="0.0.127"/>
+    <updatecheck codebase="https://github.com/abhishek-verma/Pane/releases/download/agent-extension%2Fv0.0.131/pane-agent-0.0.131.crx" version="0.0.131"/>
   </app>
   <app appid="cmlhocfcmfhegcblpkphkcnoiglonenf">
     <updatecheck codebase="https://github.com/abhishek-verma/Pane/releases/download/claw-extension/v0.0.1/pane-claw-0.0.1.crx" version="0.0.1"/>
