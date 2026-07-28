@@ -168,6 +168,16 @@ function createFakeAgent() {
     toolNames: new Set<string>(),
     messages,
     appendUserMessage(text: string) {
+      // Mirror production: skip when the last user already has this raw text
+      // (previousConversation inject + append race).
+      const last = this.messages[this.messages.length - 1]
+      if (last?.role === 'user') {
+        const lastText = last.parts
+          .filter((p) => p.type === 'text')
+          .map((p) => p.text)
+          .join('\n')
+        if (lastText === text) return
+      }
       // Mirror production's id-per-call: a hardcoded constant would
       // collide on repeat calls in the same agent instance and corrupt
       // the id-diff logic the ACP onFinish branch relies on.

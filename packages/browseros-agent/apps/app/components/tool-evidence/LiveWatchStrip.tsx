@@ -1,5 +1,5 @@
 import { Globe } from 'lucide-react'
-import { type FC, useEffect, useRef, useState } from 'react'
+import type { FC } from 'react'
 import { cn } from '@/lib/utils'
 import { useLiveWatch } from './useLiveWatch'
 
@@ -13,8 +13,8 @@ export interface LiveWatchStripProps {
  * Compact live screencast strip for side-panel Agent mode while streaming.
  * Connects to agent-server `/screencast` via {@link useLiveWatch}.
  *
- * Uses a single blob URL (revoked on replace/unmount) instead of stacking
- * unique `data:` URLs per frame.
+ * The hook owns a single blob URL (revoked on replace/unmount) so this
+ * strip never stacks `data:` URLs or keeps base64 in React state.
  */
 export const LiveWatchStrip: FC<LiveWatchStripProps> = ({
   pageId,
@@ -22,60 +22,6 @@ export const LiveWatchStrip: FC<LiveWatchStripProps> = ({
   className,
 }) => {
   const watch = useLiveWatch(pageId, enabled)
-  const [blobSrc, setBlobSrc] = useState<string | null>(null)
-  const blobSrcRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (!watch.jpegBase64) {
-      if (blobSrcRef.current) {
-        URL.revokeObjectURL(blobSrcRef.current)
-        blobSrcRef.current = null
-      }
-      setBlobSrc(null)
-      return
-    }
-
-    let cancelled = false
-    let objectUrl: string | null = null
-    try {
-      const binary = atob(watch.jpegBase64)
-      const bytes = new Uint8Array(binary.length)
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i)
-      }
-      objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }))
-    } catch {
-      return
-    }
-
-    const img = new Image()
-    img.onload = () => {
-      if (cancelled) {
-        if (objectUrl) URL.revokeObjectURL(objectUrl)
-        return
-      }
-      if (blobSrcRef.current) URL.revokeObjectURL(blobSrcRef.current)
-      blobSrcRef.current = objectUrl
-      setBlobSrc(objectUrl)
-    }
-    img.onerror = () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-    img.src = objectUrl
-
-    return () => {
-      cancelled = true
-    }
-  }, [watch.jpegBase64])
-
-  useEffect(() => {
-    return () => {
-      if (blobSrcRef.current) {
-        URL.revokeObjectURL(blobSrcRef.current)
-        blobSrcRef.current = null
-      }
-    }
-  }, [])
 
   if (!enabled) return null
 
@@ -103,7 +49,7 @@ export const LiveWatchStrip: FC<LiveWatchStripProps> = ({
             aria-hidden
             className={cn(
               'size-1.5 shrink-0 rounded-full',
-              watch.status === 'connected' && watch.jpegBase64
+              watch.status === 'connected' && watch.blobUrl
                 ? 'animate-pulse bg-emerald-500'
                 : 'bg-muted-foreground/40',
             )}
@@ -119,18 +65,11 @@ export const LiveWatchStrip: FC<LiveWatchStripProps> = ({
         ) : null}
       </div>
       <div className="relative flex h-[96px] items-center justify-center overflow-hidden bg-muted/25">
-        {blobSrc ? (
+        {watch.blobUrl ? (
           <img
-            src={blobSrc}
+            src={watch.blobUrl}
             alt="Live agent view"
             className="h-full w-full object-cover object-top"
-            onError={() => {
-              if (blobSrcRef.current) {
-                URL.revokeObjectURL(blobSrcRef.current)
-                blobSrcRef.current = null
-              }
-              setBlobSrc(null)
-            }}
           />
         ) : (
           <div className="flex flex-col items-center gap-1 text-muted-foreground">

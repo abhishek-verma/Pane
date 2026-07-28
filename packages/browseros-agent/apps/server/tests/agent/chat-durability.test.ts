@@ -95,6 +95,14 @@ function makeAgent(seed: MockMessage[] = []): MockAgent {
     toolNames: new Set<string>(),
     messages,
     appendUserMessage(text: string) {
+      const last = messages[messages.length - 1]
+      if (last?.role === 'user') {
+        const lastText = last.parts
+          .filter((p) => p.type === 'text')
+          .map((p) => p.text)
+          .join('\n')
+        if (lastText === text) return
+      }
       messages.push({
         id: `u-${messages.length + 1}`,
         role: 'user',

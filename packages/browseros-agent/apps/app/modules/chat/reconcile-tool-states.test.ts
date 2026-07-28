@@ -548,4 +548,89 @@ describe('hydrateClientMessagesFromServer', () => {
       'output-available',
     )
   })
+
+  test('does not append a twin when SQLite rewrote the assistant id (equal content)', () => {
+    const client: UIMessage[] = [
+      { id: 'u-uuid', role: 'user', parts: [{ type: 'text', text: 'hi' }] },
+      {
+        id: 'asst-uuid',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'Noted. Updating that.' }],
+      },
+    ]
+    const server: UIMessage[] = [
+      {
+        id: 'convo-msg-0-1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'hi' }],
+      },
+      {
+        id: 'convo-msg-1-1',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'Noted. Updating that.' }],
+      },
+    ]
+    const result = hydrateClientMessagesFromServer(client, server)
+    expect(result.hydratedAssistantTurn).toBe(false)
+    expect(result.messages.filter((m) => m.role === 'assistant')).toHaveLength(
+      1,
+    )
+    expect(result.messages.map((m) => m.id)).toEqual(['u-uuid', 'asst-uuid'])
+  })
+
+  test('replaces same-turn assistant when server is ahead under a rewritten id', () => {
+    const client: UIMessage[] = [
+      { id: 'u-uuid', role: 'user', parts: [{ type: 'text', text: 'hi' }] },
+      {
+        id: 'asst-uuid',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-filesystem_write',
+            toolCallId: 'w1',
+            state: 'output-available',
+            input: {},
+            output: 'ok',
+          },
+        ],
+      },
+    ]
+    const server: UIMessage[] = [
+      {
+        id: 'convo-msg-0-1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'hi' }],
+      },
+      {
+        id: 'convo-msg-1-1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-filesystem_write',
+            toolCallId: 'w1',
+            state: 'output-available',
+            input: {},
+            output: 'ok',
+          },
+          { type: 'text', text: 'Created file' },
+        ],
+      },
+    ]
+    const result = hydrateClientMessagesFromServer(client, server)
+    expect(result.hydratedAssistantTurn).toBe(true)
+    expect(result.messages.filter((m) => m.role === 'assistant')).toHaveLength(
+      1,
+    )
+    expect(result.messages.map((m) => m.id)).toEqual([
+      'u-uuid',
+      'convo-msg-1-1',
+    ])
+    expect(
+      (
+        result.messages[1]?.parts?.find((p) => p.type === 'text') as {
+          text?: string
+        }
+      )?.text,
+    ).toBe('Created file')
+  })
 })

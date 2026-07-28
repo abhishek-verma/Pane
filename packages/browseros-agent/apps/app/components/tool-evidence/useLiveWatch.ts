@@ -11,8 +11,8 @@ export type LiveWatchStatus =
 
 export interface LiveWatchState {
   status: LiveWatchStatus
-  /** JPEG base64 (no data: prefix) */
-  jpegBase64: string | null
+  /** Object URL for the latest JPEG frame (revoked on replace/teardown). */
+  blobUrl: string | null
   url?: string
   error?: string
 }
@@ -32,6 +32,11 @@ interface ScreencastStatusMessage {
 
 type ScreencastMessage = ScreencastFrameMessage | ScreencastStatusMessage
 
+/** Floor between committed frames — bounds decode + React work under flood. */
+const MIN_FRAME_INTERVAL_MS = 100
+/** If an rAF callback is this late, drop the pending frame (event-loop lag). */
+const LAG_DROP_MS = 50
+
 async function resolveWindowId(): Promise<number | null> {
   try {
     const tabs = await chrome.tabs.query({
@@ -45,13 +50,27 @@ async function resolveWindowId(): Promise<number | null> {
   }
 }
 
+function jpegBase64ToBlobUrl(jpegBase64: string): string | null {
+  try {
+    const binary = atob(jpegBase64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    return URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }))
+  } catch {
+    return null
+  }
+}
+
 /**
  * Connects to agent-server `/screencast` while `enabled`. Tears down the
  * WebSocket when disabled or on unmount. `pageId` is optional — when
  * omitted the server follows the window's active page.
  *
- * Frame updates are coalesced to one React state write per animation frame
- * (latest-wins) so high-rate JPEG streams cannot flood the renderer.
+ * Frames are coalesced (latest-wins), rate-limited, and converted to a
+ * single blob URL so high-rate JPEG streams cannot flood V8 with base64
+ * strings held in React state.
  */
 export function useLiveWatch(
   pageId: number | undefined,
@@ -59,12 +78,15 @@ export function useLiveWatch(
 ): LiveWatchState {
   const [state, setState] = useState<LiveWatchState>({
     status: 'idle',
-    jpegBase64: null,
+    blobUrl: null,
   })
 
   useEffect(() => {
     if (!enabled) {
-      setState({ status: 'idle', jpegBase64: null })
+      setState((prev) => {
+        if (prev.blobUrl) URL.revokeObjectURL(prev.blobUrl)
+        return { status: 'idle', blobUrl: null }
+      })
       return
     }
 
@@ -73,29 +95,64 @@ export function useLiveWatch(
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined
     let rafId: number | undefined
     let pendingJpeg: string | null = null
+    let liveBlobUrl: string | null = null
+    let lastCommitAt = 0
+    let rafScheduledAt = 0
+
+    const revokeLive = () => {
+      if (liveBlobUrl) {
+        URL.revokeObjectURL(liveBlobUrl)
+        liveBlobUrl = null
+      }
+    }
+
+    const commitBlob = (jpeg: string) => {
+      const nextUrl = jpegBase64ToBlobUrl(jpeg)
+      if (!nextUrl || cancelled) {
+        if (nextUrl) URL.revokeObjectURL(nextUrl)
+        return
+      }
+      revokeLive()
+      liveBlobUrl = nextUrl
+      lastCommitAt = Date.now()
+      setState((prev) => ({
+        ...prev,
+        status: 'connected',
+        blobUrl: nextUrl,
+        error: undefined,
+      }))
+    }
 
     const flushFrame = () => {
       rafId = undefined
       if (cancelled || pendingJpeg == null) return
+      const lag = Date.now() - rafScheduledAt
+      if (lag > LAG_DROP_MS) {
+        // Event loop is behind — keep only the latest pending and try again.
+        rafScheduledAt = Date.now()
+        rafId = requestAnimationFrame(flushFrame)
+        return
+      }
+      if (Date.now() - lastCommitAt < MIN_FRAME_INTERVAL_MS) {
+        rafScheduledAt = Date.now()
+        rafId = requestAnimationFrame(flushFrame)
+        return
+      }
       const jpeg = pendingJpeg
       pendingJpeg = null
-      setState((prev) => ({
-        ...prev,
-        status: 'connected',
-        jpegBase64: jpeg,
-        error: undefined,
-      }))
+      commitBlob(jpeg)
     }
 
     const scheduleFrame = (jpeg: string) => {
       pendingJpeg = jpeg
       if (rafId != null) return
+      rafScheduledAt = Date.now()
       rafId = requestAnimationFrame(flushFrame)
     }
 
     setState((prev) => ({
       status: 'connecting',
-      jpegBase64: prev.jpegBase64,
+      blobUrl: prev.blobUrl,
       url: prev.url,
     }))
 
@@ -103,9 +160,10 @@ export function useLiveWatch(
       const windowId = await resolveWindowId()
       if (cancelled) return
       if (windowId == null) {
+        revokeLive()
         setState({
           status: 'error',
-          jpegBase64: null,
+          blobUrl: null,
           error: 'No active window',
         })
         return
@@ -116,9 +174,10 @@ export function useLiveWatch(
         httpBase = await getAgentServerUrl()
       } catch (err) {
         if (cancelled) return
+        revokeLive()
         setState({
           status: 'error',
-          jpegBase64: null,
+          blobUrl: null,
           error: err instanceof Error ? err.message : String(err),
         })
         return
@@ -201,6 +260,7 @@ export function useLiveWatch(
         ws.close()
         ws = null
       }
+      revokeLive()
     }
   }, [enabled, pageId])
 

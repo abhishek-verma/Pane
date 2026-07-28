@@ -291,15 +291,28 @@ export class SessionStore {
 
     if (messages.length === 0) return
 
-    const rows = messages.map((m, i) => ({
-      id: `${sessionId}-msg-${i}-${now}`,
-      sessionId,
-      role: m.role,
-      content: JSON.stringify(
-        m.parts ?? (m as { content?: string }).content ?? '',
-      ),
-      createdAt: now + i,
-    }))
+    // Prefer stable UIMessage.id as the row PK so stream → checkpoint →
+    // hydrate round-trips keep the same identity (idle hydrate must not
+    // treat a rewritten id as a missing assistant and append a twin).
+    const usedIds = new Set<string>()
+    const rows = messages.map((m, i) => {
+      const candidate = typeof m.id === 'string' ? m.id.trim() : ''
+      const id =
+        candidate.length > 0 && !usedIds.has(candidate)
+          ? candidate
+          : `${sessionId}-msg-${i}-${now}`
+      usedIds.add(id)
+      return {
+        id,
+        sessionId,
+        role: m.role,
+        content: JSON.stringify({
+          id,
+          parts: m.parts ?? [],
+        }),
+        createdAt: now + i,
+      }
+    })
     await db.insert(chatMessages).values(rows)
 
     if (!syncIndexes) return
@@ -350,8 +363,8 @@ export class SessionStore {
         /* keep raw string */
       }
 
-      // Persist writes `parts` JSON. Tolerate legacy rows that stored a full
-      // UIMessage object so poison-session recovery does not 500.
+      // Persist writes `{ id, parts }`. Tolerate legacy parts-only arrays and
+      // full UIMessage objects so poison-session recovery does not 500.
       if (
         content &&
         typeof content === 'object' &&

@@ -416,6 +416,16 @@ export class AiSdkAgent {
   }
 
   appendUserMessage(content: string): void {
+    const last = this._messages[this._messages.length - 1]
+    if (last?.role === 'user') {
+      const lastText = (last.parts ?? [])
+        .filter((part) => part.type === 'text')
+        .map((part) => ('text' in part ? String(part.text) : ''))
+        .join('\n')
+      // Idempotent when previousConversation already injected this turn's
+      // user text (client race) — do not push a duplicate raw user bubble.
+      if (lastText === content) return
+    }
     this._messages.push({
       id: crypto.randomUUID(),
       role: 'user',

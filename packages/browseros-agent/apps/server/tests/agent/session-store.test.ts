@@ -42,8 +42,12 @@ describe('SessionStore Persistence', () => {
     const sessionId = 'test-session-1'
 
     const messages: UIMessage[] = [
-      { id: '1', role: 'user', content: 'Hello' },
-      { id: '2', role: 'assistant', content: 'Hi there' },
+      { id: '1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
+      {
+        id: '2',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'Hi there' }],
+      },
     ]
 
     await store.persistMessages(sessionId, messages)
@@ -51,9 +55,11 @@ describe('SessionStore Persistence', () => {
     const loaded = await store.loadMessages(sessionId)
     expect(loaded.length).toBe(2)
     expect(loaded[0].role).toBe('user')
-    expect(loaded[0].content).toEqual('Hello')
+    expect(loaded[0].id).toBe('1')
+    expect(loaded[0].parts).toEqual([{ type: 'text', text: 'Hello' }])
     expect(loaded[1].role).toBe('assistant')
-    expect(loaded[1].content).toEqual('Hi there')
+    expect(loaded[1].id).toBe('2')
+    expect(loaded[1].parts).toEqual([{ type: 'text', text: 'Hi there' }])
 
     const db = getDb()
     const session = await db
@@ -63,6 +69,95 @@ describe('SessionStore Persistence', () => {
       .get()
     expect(session).toBeDefined()
     expect(session?.id).toBe(sessionId)
+  })
+
+  it('preserves UIMessage.id across persist/load and re-checkpoint', async () => {
+    const store = new SessionStore()
+    const sessionId = 'stable-ids'
+    const messages: UIMessage[] = [
+      {
+        id: 'user-uuid',
+        role: 'user',
+        parts: [{ type: 'text', text: 'hi' }],
+      },
+      {
+        id: 'asst-uuid',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'hello' }],
+      },
+    ]
+
+    await store.persistMessages(sessionId, messages, { syncIndexes: false })
+    let loaded = await store.loadMessages(sessionId)
+    expect(loaded.map((m) => m.id)).toEqual(['user-uuid', 'asst-uuid'])
+
+    const first = messages[0]
+    if (!first) throw new Error('expected user message')
+    const updated: UIMessage[] = [
+      first,
+      {
+        id: 'asst-uuid',
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: 'hello' },
+          { type: 'text', text: ' more' },
+        ],
+      },
+    ]
+    await store.persistMessages(sessionId, updated, { syncIndexes: false })
+    loaded = await store.loadMessages(sessionId)
+    expect(loaded.map((m) => m.id)).toEqual(['user-uuid', 'asst-uuid'])
+    expect(
+      (loaded[1]?.parts ?? [])
+        .filter((p) => p.type === 'text')
+        .map((p) => (p as { text?: string }).text)
+        .join(''),
+    ).toBe('hello more')
+  })
+
+  it('falls back to a generated id when UIMessage.id is missing', async () => {
+    const store = new SessionStore()
+    const sessionId = 'missing-id'
+    await store.persistMessages(
+      sessionId,
+      [
+        {
+          id: '',
+          role: 'user',
+          parts: [{ type: 'text', text: 'x' }],
+        } as UIMessage,
+      ],
+      { syncIndexes: false },
+    )
+    const loaded = await store.loadMessages(sessionId)
+    expect(loaded).toHaveLength(1)
+    expect(loaded[0]?.id.startsWith(`${sessionId}-msg-`)).toBe(true)
+  })
+
+  it('loads legacy parts-only rows using the synthetic row id', async () => {
+    const store = new SessionStore()
+    const sessionId = 'legacy-parts'
+    const now = Date.now()
+    const db = getDb()
+    await db.insert(chatSessions).values({
+      id: sessionId,
+      createdAt: now,
+      updatedAt: now,
+    })
+    const { chatMessages } = await import(
+      '../../src/lib/db/schema/chat-sessions'
+    )
+    await db.insert(chatMessages).values({
+      id: `${sessionId}-msg-0-${now}`,
+      sessionId,
+      role: 'user',
+      content: JSON.stringify([{ type: 'text', text: 'legacy' }]),
+      createdAt: now,
+    })
+    const loaded = await store.loadMessages(sessionId)
+    expect(loaded).toHaveLength(1)
+    expect(loaded[0]?.id).toBe(`${sessionId}-msg-0-${now}`)
+    expect(loaded[0]?.parts).toEqual([{ type: 'text', text: 'legacy' }])
   })
 
   it('loadMessages tolerates rows that stored a full UIMessage object', async () => {

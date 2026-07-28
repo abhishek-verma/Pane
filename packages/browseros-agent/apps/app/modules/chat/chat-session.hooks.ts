@@ -24,7 +24,10 @@ import {
 } from '@/lib/constants/analyticsEvents'
 import { productFeatures } from '@/lib/constants/product-features'
 import { fetchActiveChatTurn } from '@/lib/conversations/chat-turn-api'
-import { formatConversationHistory } from '@/lib/conversations/formatConversationHistory'
+import {
+  excludeInFlightUserMessage,
+  formatConversationHistory,
+} from '@/lib/conversations/formatConversationHistory'
 import { fetchChatConversation } from '@/lib/conversations/server-chat-history'
 import { declinedAppsStorage } from '@/lib/declined-apps/storage'
 import { resolveChatProvider } from '@/lib/llm-providers/provider-runtime'
@@ -473,18 +476,28 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         })
 
         const declinedApps = await declinedAppsStorage.getValue()
-        const previousMessages = messagesRef.current
-        const history =
-          previousMessages.length > 0
-            ? formatConversationHistory(previousMessages)
-            : undefined
-        const previousConversation = history?.length ? history : undefined
-
         // Approval decisions to replay on the server (see
         // `collectToolApprovalResponses`). Sent on resume turns so the server
         // can update its stored tool parts and re-run the loop.
         const toolApprovalResponses = collectToolApprovalResponses(messages)
         const isApprovalResume = toolApprovalResponses.length > 0
+
+        // Prefer the prepareSend `messages` snapshot over messagesRef: the ref
+        // is updated in an effect and often already includes the optimistic
+        // user by the time these awaits finish. previousConversation must be
+        // prior turns only (#263); request.message carries the in-flight user.
+        const inFlightUserText = isApprovalResume
+          ? ''
+          : getLastUserMessageText(messages)
+        const priorMessages = excludeInFlightUserMessage(
+          messages,
+          inFlightUserText,
+        )
+        const history =
+          priorMessages.length > 0
+            ? formatConversationHistory(priorMessages)
+            : undefined
+        const previousConversation = history?.length ? history : undefined
 
         const userSystemPrompt = getUserSystemPrompt(
           options?.origin,

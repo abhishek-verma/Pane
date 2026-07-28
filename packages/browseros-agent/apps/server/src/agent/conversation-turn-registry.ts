@@ -11,6 +11,7 @@
 import { randomUUID } from 'node:crypto'
 import type { UIMessage } from 'ai'
 import { logger } from '../lib/logger'
+import { estimateMessagesJsonBytes } from './message-validation'
 
 export type ChatTurnRunStatus = 'running' | 'done' | 'error' | 'cancelled'
 
@@ -169,6 +170,13 @@ export class ConversationTurnRegistry {
     const turn = this.turns.get(turnId)
     if (!turn || turn.status !== 'running') return null
     const frame = turn.buffer.push({ type: 'snapshot', messages })
+    logger.debug('Chat turn snapshot pushed', {
+      turnId,
+      conversationId: turn.conversationId,
+      seq: frame.seq,
+      messageCount: messages.length,
+      approxBytes: estimateMessagesJsonBytes(messages),
+    })
     this.fanout(turn, frame)
     return frame
   }

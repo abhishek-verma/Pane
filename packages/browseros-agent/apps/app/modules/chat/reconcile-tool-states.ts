@@ -187,12 +187,35 @@ function hasPendingApprovalRequested(messages: UIMessage[]): boolean {
   return false
 }
 
+function findLastUserIndex(messages: UIMessage[]): number {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === 'user') return i
+  }
+  return -1
+}
+
+/** Last assistant that belongs to the turn after the last user message. */
+function findAssistantAfterLastUser(
+  messages: UIMessage[],
+): { index: number; message: UIMessage } | null {
+  const userIdx = findLastUserIndex(messages)
+  for (let i = messages.length - 1; i > userIdx; i -= 1) {
+    const message = messages[i]
+    if (message?.role === 'assistant') return { index: i, message }
+  }
+  return null
+}
+
+/**
+ * True when the server assistant is further along than the client copy.
+ * Does not treat id mismatch alone as "ahead" — persist used to rewrite
+ * ids, and idle hydrate must replace the same turn rather than append.
+ */
 function serverAssistantIsAhead(
   client: UIMessage | undefined,
   server: UIMessage,
 ): boolean {
   if (!client) return true
-  if (client.id !== server.id) return true
 
   const clientParts = client.parts ?? []
   const serverParts = server.parts ?? []
@@ -238,7 +261,10 @@ export type HydrateClientMessagesResult = {
  * 1. Always run tool-state reconcile (approval-responded / stop-race upgrades).
  * 2. If the server's last assistant message is complete and ahead of the
  *    client (missing message, missing trailing text after tools, fewer
- *    terminal tool outputs), replace/append that assistant message.
+ *    terminal tool outputs), replace that assistant in-place when the client
+ *    already has an assistant after the last user (same turn — including
+ *    legacy id-rewritten SQLite rows). Append only when the client has no
+ *    assistant for that turn (true silent reply).
  *
  * Does not clobber in-progress approval-requested cards the user may still
  * be editing — those only receive tool-state overlays from step 1.
@@ -274,14 +300,22 @@ export function hydrateClientMessagesFromServer(
     }
   }
 
-  const clientAssistant = findLastAssistant(reconciled)
-  if (!serverAssistantIsAhead(clientAssistant, serverAssistant)) {
-    return {
-      messages: reconciled,
-      hydratedAssistantTurn: false,
+  const clientTurn = findAssistantAfterLastUser(reconciled)
+  if (clientTurn) {
+    if (!serverAssistantIsAhead(clientTurn.message, serverAssistant)) {
+      return {
+        messages: reconciled,
+        hydratedAssistantTurn: false,
+      }
     }
+    // Same turn position (assistant after last user). Replace in place —
+    // never append a twin when SQLite rewrote the id.
+    const next = reconciled.slice()
+    next[clientTurn.index] = serverAssistant
+    return { messages: next, hydratedAssistantTurn: true }
   }
 
+  // Client never got an assistant for this turn (SSE finish dropped).
   const existingIdx = findMessageIndexById(reconciled, serverAssistant.id)
   if (existingIdx >= 0) {
     const next = reconciled.slice()
@@ -289,8 +323,6 @@ export function hydrateClientMessagesFromServer(
     return { messages: next, hydratedAssistantTurn: true }
   }
 
-  // Client never got the assistant message (SSE finish dropped). Insert it
-  // after the matching preceding user message when possible; otherwise append.
   const serverIdx = findMessageIndexById(serverMessages, serverAssistant.id)
   const serverPrev = serverIdx > 0 ? serverMessages[serverIdx - 1] : undefined
   if (serverPrev?.role === 'user') {
