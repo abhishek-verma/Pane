@@ -315,6 +315,12 @@ Before the subsystems, four rules that govern the agent loop and prevent the mos
 - **Extension point:** `WidgetSource` (local templates + user specs; hosted marketplace = State B).
 - **Do not rebuild:** §4.10 ranking/hysteresis or underlying repos.
 
+### 4.13 Personalised Internet (private sites + home doorways)
+
+- **Substrate:** §4.10 / §4.12 home (`loadHomeWidgets`, composer on `AgentCommandHome`), SQLite + profile files, agent tools / MCP / trust classes, hybrid retrieval, scheduled runs for harvest.
+- **What it is:** per-profile private web of durable sites/pages (structured DSL JSON) + temp pages with Keep; agent mutates only via `applyPiMutation`; home gets additive `pi` doorways/continuity **without** removing widgets or redesigning the composer. Spec [20](./20-personalised-internet.md); homescreen narrative [19](./19-homescreen-of-personal-internet.md).
+- **Do not rebuild:** home composer, widget store/ranking, or freeform HTML page generation.
+
 ---
 
 ## 5. The "no redundant work" map

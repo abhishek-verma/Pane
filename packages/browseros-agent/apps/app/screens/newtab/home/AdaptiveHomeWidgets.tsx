@@ -20,6 +20,7 @@ import {
   RuntimeMessageType,
 } from '@/lib/messaging/runtime/runtimeMessages'
 import { executeWidgetAction } from '@/lib/widget-actions'
+import type { PiHomeProjection } from '@/screens/personal-internet/types'
 import { EmptyHomeState } from './EmptyHomeState'
 import { ProposalCard } from './ProposalCard'
 import { WidgetCard } from './WidgetCard'
@@ -56,6 +57,8 @@ export interface HomeData {
   widgets: HomeWidget[]
   proposals?: HomeWidget[]
   firstName?: string | null
+  /** Personalised Internet doorways + continuity (additive; may be empty). */
+  pi?: PiHomeProjection | null
 }
 
 const HOME_KEY = ['scheduler', 'home'] as const

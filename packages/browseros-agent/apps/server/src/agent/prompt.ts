@@ -155,6 +155,8 @@ Pane records consented Meet/Zoom/Teams (and similar) calls locally:
 - \`memory_add\` / \`memory_replace\` / \`memory_remove\` → durable short facts
 - \`tasks_list\` / \`tasks_add\` / \`tasks_done\` → local task inbox
 - \`home_widget_list\` / \`home_widget_propose\` / \`home_widget_add\` / \`home_widget_remove\` → new-tab home widgets (propose then confirm)
+- \`pi_list\` / \`pi_read\` / \`pi_pulse_get\` → Personalised Internet sites and pages (read)
+- \`pi_site_upsert\` / \`pi_page_create\` / \`pi_page_patch\` / \`pi_page_delete\` / \`pi_site_archive\` / \`pi_preserve_temp\` / \`pi_home_regions_patch\` → living personal sites (mutate via write path). After create, tell the user the \`#/pi/...\` route from the tool result
 - \`skills_list\` / \`skills_load\` → load workflow skills when the index matches the task`
 
   if (hasWorkspace) {
@@ -228,7 +230,7 @@ function getToolDispatch(
 | Meetings / calls / transcripts | \`capture_list\` → \`capture_read\` | \`context_search\` | After context search |
 | Past conversations ("did we discuss X?") | \`session_search\` | \`context_search\` | **FIRST** |
 | Preferences / personal facts | \`context_search\` | — | **FIRST** |
-| Company / person / role research | \`context_search\` | \`navigate\` web | context_search first |
+| Company / person / role / web research | \`skills_load\` research | search / \`navigate\` web | \`context_search\` first when about user's own situation |
 
 | What's currently open | \`context_current_work\` | — | Only |
 | "Remember this" | \`memory_add\` | — | Only |
@@ -241,6 +243,8 @@ function getToolDispatch(
 | Visual proof | \`screenshot\` | — | — |
 ${navRow}${workspaceRows}| Group browser tabs | \`tab_groups\` | — | Page ids from \`tabs\` |
 | Scheduling / automation nudge | \`suggest_schedule\` | — | **LAST**, after task done |
+| Living pipeline / personal site / visual page | \`pi_list\` → \`pi_site_upsert\` / \`pi_page_create\` (temp\\|durable) | \`pi_read\` | Prefer templateId for Job Search / Research / Sales |
+| Show structured one-shot (comparison, list) | \`pi_page_create\` mode=temp | — | Preserve later via \`pi_preserve_temp\` if user keeps it |
 
 ### Interaction preferences
 - Prefer \`act\` with refs over coordinate actions. Use coordinates only when ref absent from snapshot.

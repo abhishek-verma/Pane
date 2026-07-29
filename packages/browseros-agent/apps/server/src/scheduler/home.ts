@@ -187,6 +187,8 @@ export async function loadHomeWidgets(options?: {
   prefs: HomePrefs
   digestPath: string | null
   firstName: string | null
+  /** Additive Personalised Internet block — never drops widgets. */
+  pi: import('../personal-internet/types').PiHomeProjection
 }> {
   const bucketId = options?.bucketId ?? DEFAULT_BUCKET_ID
   const base = await ensureMemoriesLayout(options?.memoriesRoot)
@@ -456,7 +458,22 @@ export async function loadHomeWidgets(options?: {
   const widgets = rankWidgets(candidates, prefs, options?.previousOrder)
   const proposals = await loadStagedProposals(options?.widgetsDir)
   const firstName = extractFirstName(files.user)
-  return { widgets, proposals, prefs, digestPath, firstName }
+
+  let pi: import('../personal-internet/types').PiHomeProjection
+  try {
+    const { buildPiHomeProjection, emptyPiHomeProjection } = await import(
+      '../personal-internet/home-projection'
+    )
+    pi = await buildPiHomeProjection()
+    if (!pi) pi = emptyPiHomeProjection()
+  } catch {
+    const { emptyPiHomeProjection } = await import(
+      '../personal-internet/home-projection'
+    )
+    pi = emptyPiHomeProjection()
+  }
+
+  return { widgets, proposals, prefs, digestPath, firstName, pi }
 }
 
 function extractFirstName(userMd: string): string | null {

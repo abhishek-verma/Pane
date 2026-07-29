@@ -106,6 +106,13 @@
       "when": 1785600000000,
       "tag": "0014_chat_turns",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1786000000000,
+      "tag": "0015_personal_internet",
+      "breakpoints": true
     }
   ]
 }

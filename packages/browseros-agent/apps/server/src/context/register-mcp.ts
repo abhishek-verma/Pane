@@ -12,6 +12,7 @@ import { gateExecute } from '../agent/trust/gate'
 import { buildCaptureToolSet } from '../capture/tools'
 import { buildHomeWidgetToolSet } from '../home/tools'
 import { buildMemoryToolSet } from '../memory/tools'
+import { buildPersonalInternetToolSet } from '../personal-internet/tools'
 import { buildContextToolSet, buildTasksToolSet } from './tools'
 
 interface AiSdkToolLike {
@@ -47,6 +48,7 @@ export function registerContextMcpTools(
     ...buildMemoryToolSet(getBucketId),
     ...buildCaptureToolSet(getBucketId),
     ...buildHomeWidgetToolSet(),
+    ...buildPersonalInternetToolSet(getBucketId),
   } as unknown as Record<string, AiSdkToolLike>
 
   for (const [name, tool] of Object.entries(tools)) {

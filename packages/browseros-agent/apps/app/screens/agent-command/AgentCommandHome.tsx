@@ -21,6 +21,7 @@ import {
   AdaptiveHomeWidgets,
   type HomeData,
 } from '@/screens/newtab/home/AdaptiveHomeWidgets'
+import { PiHomeRegions } from '@/screens/newtab/home/PiHomeRegions'
 import { useActiveHint } from '@/screens/newtab/index/active-hint.hooks'
 import { RecentSites } from '@/screens/newtab/index/RecentSites'
 import { ScheduleResults } from '@/screens/newtab/index/ScheduleResults'
@@ -240,6 +241,7 @@ export const AgentCommandHome: FC = () => {
         </div>
 
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-12">
+          <PiHomeRegions data={homeData?.pi} />
           <AdaptiveHomeWidgets />
           <RecentSites />
           <ScheduleResults />

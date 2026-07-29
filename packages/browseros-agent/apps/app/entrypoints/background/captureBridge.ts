@@ -520,6 +520,10 @@ async function stopCaptureForTab(tabId: number): Promise<void> {
 }
 
 async function handleNavigation(tabId: number, url: string): Promise<void> {
+  // Best-effort Personalised Internet harvest wake (server gates on harvestEnabled).
+  const { notifyPiHostOpened } = await import('./piHostOpened')
+  notifyPiHostOpened(url)
+
   if (await isCapturableMeetingUrl(url)) {
     pendingMeetingTabs.set(tabId, url)
     ensurePendingMeetingPoll()

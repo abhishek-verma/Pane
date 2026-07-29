@@ -24,6 +24,9 @@ import { OnboardingDemo } from '@/screens/onboarding/demo/OnboardingDemo'
 import { FeaturesPage } from '@/screens/onboarding/features/Features'
 import { Onboarding } from '@/screens/onboarding/index/Onboarding'
 import { StepsLayout } from '@/screens/onboarding/steps/StepsLayout'
+import { LibraryPage } from '@/screens/personal-internet/LibraryPage'
+import { SitePage } from '@/screens/personal-internet/SitePage'
+import { TempPage } from '@/screens/personal-internet/TempPage'
 import { ReachSettingsPage } from '@/screens/reach/ReachSettingsPage'
 import { AboutSettingsPage } from '@/screens/settings/about/AboutSettingsPage'
 import { HomeSettingsPage } from '@/screens/settings/home/HomeSettingsPage'
@@ -100,6 +103,14 @@ export const App: FC = () => {
               path="workspaces"
               element={<Navigate to="/settings/workspaces" replace />}
             />
+
+            <Route path="pi/library" element={<LibraryPage />} />
+            <Route path="pi/sites/:siteId" element={<SitePage />} />
+            <Route
+              path="pi/sites/:siteId/pages/:pageId"
+              element={<SitePage />}
+            />
+            <Route path="pi/temp/:tempId" element={<TempPage />} />
           </Route>
 
           <Route element={<SettingsSidebarLayout />}>

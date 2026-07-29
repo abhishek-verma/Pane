@@ -13,6 +13,7 @@ import {
   BUILTIN_BROWSER_OBSERVE_SKILL_ID,
   BUILTIN_MEETINGS_SKILL_ID,
   BUILTIN_MEMORY_SKILL_ID,
+  BUILTIN_RESEARCH_SKILL_ID,
   ensureBuiltinSkills,
 } from '../../src/memory/builtin-skills'
 import { loadSkill } from '../../src/memory/skills'
@@ -34,7 +35,7 @@ describe('builtin skills', () => {
     closeDb()
   })
 
-  it('seeds meetings, browser-observe, and memory skills', async () => {
+  it('seeds meetings, browser-observe, memory, and research skills', async () => {
     await ensureBuiltinSkills({ memoriesRoot })
     const meetings = getSkill(BUILTIN_MEETINGS_SKILL_ID)
     expect(meetings?.status).toBe('active')
@@ -46,6 +47,7 @@ describe('builtin skills', () => {
       true,
     )
     expect(listed.some((s) => s.id === BUILTIN_MEMORY_SKILL_ID)).toBe(true)
+    expect(listed.some((s) => s.id === BUILTIN_RESEARCH_SKILL_ID)).toBe(true)
 
     const byName = await loadSkill('meetings', { memoriesRoot })
     expect(byName?.id).toBe(BUILTIN_MEETINGS_SKILL_ID)
@@ -60,6 +62,13 @@ describe('builtin skills', () => {
     const memory = await loadSkill('memory', { memoriesRoot })
     expect(memory?.id).toBe(BUILTIN_MEMORY_SKILL_ID)
     expect(memory?.body).toContain('memory_add')
+
+    const research = await loadSkill('research', { memoriesRoot })
+    expect(research?.id).toBe(BUILTIN_RESEARCH_SKILL_ID)
+    expect(research?.body).toContain('context_search')
+    expect(research?.body).toContain('search angles')
+    expect(research?.body).toContain('background tabs')
+    expect(research?.body).toContain('cited sources')
   })
 
   it('does not reactivate an archived builtin skill', async () => {

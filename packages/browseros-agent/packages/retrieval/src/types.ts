@@ -10,6 +10,8 @@ export type RetrievalSourceKind =
   | 'chat'
   | 'file_path'
   | 'embedding'
+  | 'pi_page'
+  | 'pi_record'
 
 export type RetrievalHint =
   | 'temporal'

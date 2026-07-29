@@ -32,6 +32,9 @@ describe('chat mode tool allowlist', () => {
       'skills_load',
       'home_widget_list',
       'filesystem_read',
+      'pi_list',
+      'pi_read',
+      'pi_pulse_get',
     ]) {
       expect(isChatModeToolAllowed(name)).toBe(true)
       expect(CHAT_MODE_ALLOWED_NON_BROWSER_TOOLS.has(name)).toBe(true)
@@ -56,6 +59,10 @@ describe('chat mode tool allowlist', () => {
       'filesystem_bash',
       'filesystem_write',
       'act',
+      'pi_site_upsert',
+      'pi_page_create',
+      'pi_page_patch',
+      'pi_home_regions_patch',
     ]) {
       expect(isChatModeToolAllowed(name)).toBe(false)
     }
