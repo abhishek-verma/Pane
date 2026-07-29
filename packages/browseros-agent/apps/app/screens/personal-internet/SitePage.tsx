@@ -9,10 +9,27 @@ import { Link, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { executePiAction } from '@/lib/pi-actions'
 import { PiPageRenderer } from './PiPageRenderer'
-import { usePiPage, usePiSite } from './usePiApi'
+import { RecordsPanel } from './RecordsPanel'
+import {
+  piPatch,
+  piPost,
+  usePiInvalidateListener,
+  usePiPage,
+  usePiSite,
+} from './usePiApi'
+
+function formatAsOf(iso?: string | null): string | null {
+  if (!iso) return null
+  try {
+    return new Date(iso).toLocaleString()
+  } catch {
+    return iso
+  }
+}
 
 export const SitePage: FC = () => {
   const { siteId, pageId } = useParams()
+  usePiInvalidateListener()
   const siteQuery = usePiSite(siteId)
   const resolvedPageId =
     pageId ??
@@ -20,6 +37,7 @@ export const SitePage: FC = () => {
     siteQuery.data?.pages[0]?.id
   const pageQuery = usePiPage(siteId, resolvedPageId)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
   if (siteQuery.isLoading || pageQuery.isLoading) {
     return (
@@ -34,6 +52,8 @@ export const SitePage: FC = () => {
 
   const { site, pulse, pages } = siteQuery.data
   const doc = pageQuery.data?.doc
+  const staleAt = pulse?.staleAt
+  const asOf = formatAsOf(pulse?.lastUpdatedAt)
 
   return (
     <div className="flex min-h-full flex-col">
@@ -43,10 +63,36 @@ export const SitePage: FC = () => {
           {pulse?.pulseLine ? (
             <div className="text-muted-foreground text-xs">
               {pulse.pulseLine}
+              {asOf ? ` · as of ${asOf}` : ''}
+              {staleAt ? (
+                <span className="ml-2 text-amber-700 dark:text-amber-300">
+                  Stale since {formatAsOf(staleAt)}
+                </span>
+              ) : null}
             </div>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={refreshing}
+            onClick={() => {
+              if (!siteId) return
+              setRefreshing(true)
+              void piPost('/pi/refresh', {
+                siteId,
+                trigger: 'manual-refresh',
+              })
+                .then(() => {
+                  void siteQuery.refetch()
+                  void pageQuery.refetch()
+                })
+                .finally(() => setRefreshing(false))
+            }}
+          >
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </Button>
           <Button asChild size="sm" variant="ghost">
             <Link to="/pi/library">Library</Link>
           </Button>
@@ -72,6 +118,14 @@ export const SitePage: FC = () => {
         <PiPageRenderer
           doc={doc}
           pendingKey={pendingKey}
+          onMoveCard={async (cardId, toColumnId) => {
+            if (!resolvedPageId) return
+            await piPatch(`/pi/pages/${resolvedPageId}`, {
+              ops: [{ op: 'moveBoardCard', cardId, toColumnId }],
+            })
+            void siteQuery.refetch()
+            void pageQuery.refetch()
+          }}
           onAction={async (action, ctx) => {
             if (ctx?.pendingKey) setPendingKey(ctx.pendingKey)
             try {
@@ -86,6 +140,7 @@ export const SitePage: FC = () => {
           No page content.
         </div>
       )}
+      {siteId ? <RecordsPanel siteId={siteId} /> : null}
     </div>
   )
 }

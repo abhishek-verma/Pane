@@ -63,6 +63,7 @@ const READ_CONTEXT_TOOLS = new Set([
   'pi_list',
   'pi_read',
   'pi_pulse_get',
+  'pi_record_list',
 ])
 
 const WRITE_LOCAL_TASK_TOOLS = new Set([
@@ -82,6 +83,8 @@ const WRITE_LOCAL_TASK_TOOLS = new Set([
   'pi_site_archive',
   'pi_preserve_temp',
   'pi_home_regions_patch',
+  'pi_record_upsert',
+  'pi_entity_ensure',
 ])
 
 const READ_CAPTURE_TOOLS = new Set([

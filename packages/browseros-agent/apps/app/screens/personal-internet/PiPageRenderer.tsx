@@ -7,6 +7,7 @@
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { BoardKanban } from './BoardKanban'
 import type { PiAction, PiNode, PiPageDoc } from './types'
 import { PiChartView } from './viz/PiChartView'
 import { PiMermaidView } from './viz/PiMermaidView'
@@ -23,19 +24,6 @@ export type PiActionHandler = (
   action: PiAction,
   ctx?: { pendingKey?: string },
 ) => void | Promise<void>
-
-function actionKey(action: PiAction): string {
-  switch (action.kind) {
-    case 'agent':
-      return `agent:${action.query}`
-    case 'open-external':
-      return `ext:${action.url}`
-    case 'open-internal':
-      return `int:${action.route}`
-    case 'local':
-      return `local:${action.op}`
-  }
-}
 
 function nodeKey(node: PiNode, path: string): string {
   switch (node.type) {
@@ -71,7 +59,8 @@ const PiNodeView: FC<{
   path: string
   onAction: PiActionHandler
   pendingKey?: string | null
-}> = ({ node, path, onAction, pendingKey }) => {
+  onMoveCard?: (cardId: string, toColumnId: string) => void | Promise<void>
+}> = ({ node, path, onAction, pendingKey, onMoveCard }) => {
   switch (node.type) {
     case 'title':
       return (
@@ -121,6 +110,7 @@ const PiNodeView: FC<{
                 path={childPath}
                 onAction={onAction}
                 pendingKey={pendingKey}
+                onMoveCard={onMoveCard}
               />
             )
           })}
@@ -191,59 +181,11 @@ const PiNodeView: FC<{
       )
     case 'board':
       return (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {node.columns.map((col) => (
-            <div
-              key={col.id}
-              className="rounded-lg border border-border/70 bg-card/40 p-3"
-            >
-              <div className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-                {col.title}
-              </div>
-              <div className="flex flex-col gap-2">
-                {col.cardIds.map((cardId) => {
-                  const card = node.cards.find((c) => c.id === cardId)
-                  if (!card) return null
-                  return (
-                    <div
-                      key={card.id}
-                      className="rounded-md border border-border/60 bg-background p-3 shadow-sm"
-                    >
-                      <div className="font-medium text-foreground">
-                        {card.title}
-                      </div>
-                      {card.subtitle ? (
-                        <div className="mt-0.5 text-muted-foreground text-xs">
-                          {card.subtitle}
-                        </div>
-                      ) : null}
-                      {card.actions?.length ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {card.actions.map((action) => (
-                            <Button
-                              key={actionKey(action)}
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void onAction(action)}
-                            >
-                              {action.kind === 'agent'
-                                ? action.query.split(' ').slice(0, 3).join(' ')
-                                : action.kind === 'open-external'
-                                  ? 'Open'
-                                  : action.kind === 'open-internal'
-                                    ? 'Open'
-                                    : action.op}
-                            </Button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
+        <BoardKanban
+          node={node}
+          onAction={(action) => void onAction(action)}
+          onMoveCard={onMoveCard}
+        />
       )
     case 'chart':
       return <PiChartView node={node} />
@@ -260,7 +202,8 @@ export const PiPageRenderer: FC<{
   doc: PiPageDoc
   onAction: PiActionHandler
   pendingKey?: string | null
-}> = ({ doc, onAction, pendingKey }) => {
+  onMoveCard?: (cardId: string, toColumnId: string) => void | Promise<void>
+}> = ({ doc, onAction, pendingKey, onMoveCard }) => {
   return (
     <div
       className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6"
@@ -280,6 +223,7 @@ export const PiPageRenderer: FC<{
               path={path}
               onAction={onAction}
               pendingKey={pendingKey}
+              onMoveCard={onMoveCard}
             />
           )
         })}

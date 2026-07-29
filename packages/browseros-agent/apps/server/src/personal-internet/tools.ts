@@ -9,12 +9,16 @@
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
 import { validatePageDoc } from './dsl'
+import { ensureAndMaterialize } from './materialize'
+import { entityRoute } from './paths'
+import { normalizeJobSearchRecord, parseRecordData } from './records'
 import {
   getPage,
   getPulse,
   getSite,
   getTemp,
   listPagesForSite,
+  listRecords,
   listSites,
   listTemps,
   readHomePrefs,
@@ -145,6 +149,98 @@ export function buildPersonalInternetToolSet(
         const pulse = getPulse(siteId)
         if (!pulse) return err(`no pulse for site: ${siteId}`)
         return ok({ pulse })
+      },
+    }),
+
+    pi_record_list: tool({
+      description:
+        'List Personalised Internet records for a site (source of truth for Job Search applications). Read-only. Prefer this over scraping board JSON when answering pipeline questions.',
+      inputSchema: z.object({
+        siteId: z.string().min(1),
+        type: z.string().optional(),
+      }),
+      execute: async ({ siteId, type }) => {
+        const site = getSite(siteId)
+        if (!site) return err(`site not found: ${siteId}`)
+        const records = listRecords(siteId)
+          .filter((r) => (type ? r.type === type : true))
+          .map((r) => {
+            const data = parseRecordData(r)
+            let entityKey: string | undefined
+            try {
+              entityKey = normalizeJobSearchRecord(data).entityKey
+            } catch {
+              entityKey =
+                typeof data.entityKey === 'string' ? data.entityKey : undefined
+            }
+            return {
+              id: r.id,
+              type: r.type,
+              version: r.version,
+              updatedAt: r.updatedAt,
+              data,
+              entityKey,
+              entityRoute: entityKey ? entityRoute(siteId, entityKey) : null,
+            }
+          })
+        return ok({ siteId, records, count: records.length })
+      },
+    }),
+
+    pi_record_upsert: tool({
+      description:
+        'Create or update a site record (Job Search SoT). Use recordType job-application with {company, role?, stage, url?, nextAction?, notes?}. Syncs board/chart by default. Do NOT invent companies. Prefer this over only patching board cards. Load skill "pi-sites".',
+      inputSchema: z.object({
+        siteId: z.string().min(1),
+        recordId: z.string().optional(),
+        recordType: z.string().min(1).default('job-application'),
+        data: z.record(z.unknown()),
+        syncBoard: z.boolean().optional().default(true),
+        expectedVersion: z.number().optional(),
+      }),
+      execute: async (input) => {
+        try {
+          const result = await applyPiMutation({
+            type: 'upsert-record',
+            siteId: input.siteId,
+            recordId: input.recordId,
+            recordType: input.recordType,
+            data: input.data as Record<string, unknown>,
+            syncBoard: input.syncBoard,
+            expectedVersion: input.expectedVersion,
+          })
+          return ok({
+            ...result,
+            piOpenRoute: result.route,
+            message: `Record saved. Pulse: ${result.pulseLine ?? 'n/a'}`,
+          })
+        } catch (e) {
+          return err(String(e))
+        }
+      },
+    }),
+
+    pi_entity_ensure: tool({
+      description:
+        'Ensure a per-company (entity) page exists for a Job Search site. Creates a stub at #/pi/sites/<siteId>/entities/<entityKey> and optionally enqueues materialize. Never create one mega details page for all companies — use this per entityKey.',
+      inputSchema: z.object({
+        siteId: z.string().min(1),
+        entityKey: z.string().min(1),
+        materialize: z.boolean().optional().default(true),
+      }),
+      execute: async ({ siteId, entityKey, materialize }) => {
+        try {
+          const result = await ensureAndMaterialize(siteId, entityKey, {
+            materialize,
+          })
+          return ok({
+            ...result,
+            piOpenRoute: result.entityRoute,
+            message: `Entity page ready. Open ${result.entityRoute}`,
+          })
+        } catch (e) {
+          return err(String(e))
+        }
       },
     }),
 

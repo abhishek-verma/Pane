@@ -142,7 +142,7 @@ export function completeScheduledRun(
   if (!existing) return null
   if (existing.status !== 'running') return null
   const now = Date.now()
-  return updateRunStatus(id, {
+  const updated = updateRunStatus(id, {
     status: outcome.status,
     result: outcome.result ?? existing.result,
     error: outcome.error ?? null,
@@ -153,6 +153,48 @@ export function completeScheduledRun(
     completedAt: now,
     startedAt: existing.startedAt ?? now,
   })
+  if (
+    existing.source === 'pi-materialize' &&
+    (outcome.status === 'completed' || outcome.status === 'failed')
+  ) {
+    // idempotency_key = pi-materialize:siteId:entityKey:pageId
+    const parts = existing.idempotencyKey.split(':')
+    const pageId = parts.length >= 4 ? parts.slice(3).join(':') : null
+    if (pageId) {
+      void import('../personal-internet/materialize')
+        .then(({ finalizeMaterializePageStatus }) =>
+          finalizeMaterializePageStatus(pageId, outcome.status === 'completed'),
+        )
+        .catch(() => undefined)
+    }
+  }
+  if (outcome.status === 'completed') {
+    if (existing.source === 'pi-harvest' && existing.sourceId) {
+      void import('../personal-internet/pulse')
+        .then(({ recomputePulse }) => {
+          const pulse = recomputePulse(existing.sourceId!)
+          if (pulse) {
+            return import('../personal-internet/store').then(
+              ({ upsertPulse }) =>
+                upsertPulse(existing.sourceId!, {
+                  ...pulse,
+                  staleAt: null,
+                }),
+            )
+          }
+        })
+        .catch(() => undefined)
+    }
+    void import('../personal-internet/refresh/bus')
+      .then(({ dispatchTrigger }) => {
+        dispatchTrigger({
+          triggerName: 'run-completed',
+          filterValue: existing.source,
+        })
+      })
+      .catch(() => undefined)
+  }
+  return updated
 }
 
 export function findRunByIdempotencyKey(

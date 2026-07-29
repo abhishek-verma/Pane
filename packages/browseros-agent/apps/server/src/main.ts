@@ -49,6 +49,7 @@ import { createUnavailableBrowser } from './lib/unavailable-browser'
 import { ensureBuiltinSkills } from './memory/builtin-skills'
 import { startMemoryReviewMonitor } from './memory/review-job'
 import { wireRefreshBus } from './personal-internet/refresh/bus'
+import { setHarvestOpenHostsProvider } from './personal-internet/refresh/runner'
 import {
   PI_REFRESH_INTERVAL_MS,
   runBrowserStartedCatchUp,
@@ -115,6 +116,24 @@ export class Application {
       }
       browser = new Browser(cdp)
     }
+
+    setHarvestOpenHostsProvider(async () => {
+      try {
+        const pages = await browser.listPages()
+        return pages
+          .map((p) => {
+            try {
+              return new URL(p.url).hostname
+            } catch {
+              return ''
+            }
+          })
+          .filter(Boolean)
+      } catch {
+        // CDP unavailable / server-only — affinity unknown, do not block.
+        return null
+      }
+    })
 
     const browserSession = browser.session
 
@@ -267,6 +286,10 @@ export class Application {
     // Personalised Internet refresh bus + temp sweeper
     wireRefreshBus()
     void forEachKnownProfile(async () => {
+      const { migrateSiteNewDayKindD } = await import(
+        './personal-internet/refresh/migrate-policies'
+      )
+      migrateSiteNewDayKindD()
       await runBrowserStartedCatchUp()
     }).catch((err: unknown) => {
       logger.warn('PI browser-started catch-up failed', { err: String(err) })

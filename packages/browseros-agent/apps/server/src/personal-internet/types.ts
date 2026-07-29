@@ -39,6 +39,14 @@ export type PiAction =
     }
   | { kind: 'agent'; query: string; metadata: Record<string, unknown> }
 
+/** Board/table row action with a visible label (preferred authoring shape). */
+export type PiLabeledAction = {
+  label: string
+  action: PiAction
+}
+
+export type PiCardAction = PiAction | PiLabeledAction
+
 export type PiNode =
   | { type: 'title'; text: string }
   | { type: 'text'; text: string }
@@ -82,7 +90,7 @@ export type PiNode =
         recordId?: string
         title: string
         subtitle?: string
-        actions?: PiAction[]
+        actions?: PiCardAction[]
       }>
     }
   /** Structured chart — renderer draws SVG from data (prefer over freeform svg). */
@@ -137,7 +145,7 @@ export type PiPatchOp =
         title: string
         subtitle?: string
         columnId: string
-        actions?: PiAction[]
+        actions?: PiCardAction[]
       }
     }
   | { op: 'moveBoardCard'; cardId: string; toColumnId: string }
@@ -169,6 +177,7 @@ export type PiDoorway = {
   pulseLine: string
   primaryRoute: string
   secondary?: PiUrgency
+  lastUpdatedAt?: string
 }
 
 export type PiContinuityBlock = {
@@ -185,6 +194,8 @@ export type PiHomeProjection = {
   continuity: PiContinuityBlock[]
   libraryCount: number
   generatedAt: string
+  /** Non-P0 active sites that could become doorways if pinned. */
+  proposeDoorways?: Array<{ siteId: string; name: string; route: string }>
 }
 
 export type PiRefreshPolicy = {

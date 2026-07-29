@@ -49,6 +49,7 @@ describe('pi tools + trust', () => {
     expect(deriveClass('pi_list', {}, ctx)).toBe('read')
     expect(deriveClass('pi_read', {}, ctx)).toBe('read')
     expect(deriveClass('pi_pulse_get', {}, ctx)).toBe('read')
+    expect(deriveClass('pi_record_list', {}, ctx)).toBe('read')
     expect(deriveClass('pi_site_upsert', {}, ctx)).toBe('write-local')
     expect(deriveClass('pi_page_create', {}, ctx)).toBe('write-local')
     expect(deriveClass('pi_page_patch', {}, ctx)).toBe('write-local')
@@ -56,6 +57,8 @@ describe('pi tools + trust', () => {
     expect(deriveClass('pi_site_archive', {}, ctx)).toBe('write-local')
     expect(deriveClass('pi_preserve_temp', {}, ctx)).toBe('write-local')
     expect(deriveClass('pi_home_regions_patch', {}, ctx)).toBe('write-local')
+    expect(deriveClass('pi_record_upsert', {}, ctx)).toBe('write-local')
+    expect(deriveClass('pi_entity_ensure', {}, ctx)).toBe('write-local')
     expect(deriveClass('pi_site_upsert', {}, ctx)).not.toBe('write-external')
   })
 
@@ -65,8 +68,10 @@ describe('pi tools + trust', () => {
     expect(filtered.pi_list).toBeTruthy()
     expect(filtered.pi_read).toBeTruthy()
     expect(filtered.pi_pulse_get).toBeTruthy()
+    expect(filtered.pi_record_list).toBeTruthy()
     expect(filtered.pi_site_upsert).toBeUndefined()
     expect(filtered.pi_page_create).toBeUndefined()
+    expect(filtered.pi_record_upsert).toBeUndefined()
   })
 
   it('site upsert + read roundtrip', async () => {

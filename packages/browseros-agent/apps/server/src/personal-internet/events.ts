@@ -21,6 +21,11 @@ export type PiEvent = {
 type Listener = (event: PiEvent) => void
 
 const listeners = new Set<Listener>()
+let lastMutationAt = 0
+
+export function getLastPiMutationAt(): number {
+  return lastMutationAt
+}
 
 export function onPiEvent(listener: Listener): () => void {
   listeners.add(listener)
@@ -31,7 +36,8 @@ export function emitPiEvent(
   name: PiEventName,
   payload: Omit<PiEvent, 'name' | 'at'> = {},
 ): void {
-  const event: PiEvent = { name, at: Date.now(), ...payload }
+  lastMutationAt = Date.now()
+  const event: PiEvent = { name, at: lastMutationAt, ...payload }
   for (const listener of listeners) {
     try {
       listener(event)

@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { agentFetch } from '@/lib/browseros/agent-fetch'
-import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { executeWidgetAction } from '@/lib/widget-actions'
 import type { PiAction } from '@/screens/personal-internet/types'
 
@@ -29,12 +28,40 @@ export async function executePiAction(action: PiAction): Promise<void> {
       }
       return
     case 'agent': {
+      const returnRoute =
+        typeof action.metadata?.returnRoute === 'string'
+          ? action.metadata.returnRoute
+          : undefined
       const prompt = [
         action.query,
         action.metadata && Object.keys(action.metadata).length
           ? `\n\nContext: ${JSON.stringify(action.metadata)}`
           : '',
       ].join('')
+
+      // Stay on the PI page when returnRoute is set; run the agent in the
+      // side panel so board/entity UI is not replaced by #/home/chat (X2).
+      if (returnRoute) {
+        const route = returnRoute.startsWith('#')
+          ? returnRoute.slice(1)
+          : returnRoute
+        await executeWidgetAction({ type: 'navigate-route', route })
+        try {
+          await openSidePanelWithSearch('open', {
+            query: prompt,
+            mode: 'agent',
+          })
+        } catch {
+          // Side panel unavailable (e.g. tests) — fall back to chat route.
+          await executeWidgetAction({
+            type: 'agent-with-context',
+            prompt,
+            context: action.metadata,
+          })
+        }
+        return
+      }
+
       await executeWidgetAction({
         type: 'agent-with-context',
         prompt,
@@ -43,31 +70,4 @@ export async function executePiAction(action: PiAction): Promise<void> {
       return
     }
   }
-}
-
-export async function invokePiActionApi(action: PiAction): Promise<{
-  mode: 'done' | 'agent'
-  route?: string
-}> {
-  if (action.kind !== 'agent') {
-    await executePiAction(action)
-    return { mode: 'done' }
-  }
-  const base = await getAgentServerUrl()
-  // Route expects the action fields at the top level (not wrapped).
-  const res = await agentFetch(`${base}/pi/actions/invoke`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(action),
-  })
-  if (!res.ok) {
-    await executePiAction(action)
-    return { mode: 'agent' }
-  }
-  const data = (await res.json()) as { mode?: string; route?: string }
-  if (data.mode === 'agent' || action.kind === 'agent') {
-    await executePiAction(action)
-    return { mode: 'agent', route: data.route }
-  }
-  return { mode: 'done', route: data.route }
 }

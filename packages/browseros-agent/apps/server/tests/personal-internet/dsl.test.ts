@@ -101,6 +101,71 @@ describe('pi dsl', () => {
     }
   })
 
+  it('accepts labeled and bare board card actions', () => {
+    const labeled = validatePageDoc({
+      version: 1,
+      title: 'Board',
+      nodes: [
+        {
+          type: 'board',
+          columns: [{ id: 'applied', title: 'Applied', cardIds: ['c1'] }],
+          cards: [
+            {
+              id: 'c1',
+              title: 'Acme',
+              actions: [
+                {
+                  label: 'Details',
+                  action: {
+                    kind: 'open-internal',
+                    route: '#/pi/sites/s1/entities/acme',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    const board = labeled.nodes[0]
+    expect(board.type).toBe('board')
+    if (board.type === 'board') {
+      expect(board.cards[0].actions?.[0]).toEqual({
+        label: 'Details',
+        action: {
+          kind: 'open-internal',
+          route: '#/pi/sites/s1/entities/acme',
+        },
+      })
+    }
+
+    const bare = validatePageDoc({
+      version: 1,
+      title: 'Board',
+      nodes: [
+        {
+          type: 'board',
+          columns: [{ id: 'applied', title: 'Applied', cardIds: ['c1'] }],
+          cards: [
+            {
+              id: 'c1',
+              title: 'Acme',
+              actions: [{ kind: 'open-external', url: 'https://example.com' }],
+            },
+          ],
+        },
+      ],
+    })
+    const board2 = bare.nodes[0]
+    expect(board2.type).toBe('board')
+    if (board2.type === 'board') {
+      expect(board2.cards[0].actions?.[0]).toEqual({
+        label: 'Open link',
+        action: { kind: 'open-external', url: 'https://example.com' },
+      })
+    }
+  })
+
   it('accepts chart and mermaid; sanitizes svg; rejects hostile svg', () => {
     const doc = validatePageDoc({
       version: 1,

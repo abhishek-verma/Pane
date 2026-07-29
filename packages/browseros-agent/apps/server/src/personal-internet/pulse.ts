@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { pageRoute, siteRoute } from './paths'
+import { entityRoute, pageRoute, siteRoute } from './paths'
 import { getSite, listPagesForSite, listRecords, upsertPulse } from './store'
 import type { PiPulse, PiSiteStatus, PiUrgency } from './types'
 
@@ -26,19 +26,33 @@ export function recomputePulse(siteId: string): PiPulse | null {
     const stage = String(data.stage ?? data.status ?? rec.type ?? 'items')
     counts[stage] = (counts[stage] ?? 0) + 1
     if (data.nextAction && typeof data.nextAction === 'string') {
+      const entityKey =
+        typeof data.entityKey === 'string' && data.entityKey.trim()
+          ? data.entityKey.trim()
+          : null
       const pages = listPagesForSite(siteId)
+      const company = String(data.company ?? data.name ?? '')
       const entityPage = pages.find(
         (p) =>
           p.kind === 'entity' &&
-          p.title.includes(String(data.company ?? data.name ?? '')),
+          (entityKey
+            ? p.title.toLowerCase().includes(company.toLowerCase()) ||
+              p.id.includes(entityKey)
+            : p.title.includes(company)),
       )
       urgencies.push({
         label: String(data.nextAction),
-        deepLink: entityPage
-          ? pageRoute(siteId, entityPage.id)
-          : siteRoute(siteId),
+        deepLink: entityKey
+          ? entityRoute(siteId, entityKey)
+          : entityPage
+            ? pageRoute(siteId, entityPage.id)
+            : siteRoute(siteId),
         agentQuery: `Follow up: ${data.nextAction}`,
-        metadata: { recordId: rec.id, siteId },
+        metadata: {
+          recordId: rec.id,
+          siteId,
+          ...(entityKey ? { entityKey } : {}),
+        },
       })
     }
   }

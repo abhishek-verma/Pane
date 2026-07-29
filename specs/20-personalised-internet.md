@@ -1,9 +1,10 @@
 # 20 — Personalised Internet
 
-**Status:** normative product + tech (v1 shipped in agent)
-**Audience:** engineers and agents extending private sites / home doorways
-**Companion:** [19 — Homescreen of the Personalised Internet](./19-homescreen-of-personal-internet.md) (front door); this doc owns **sites, pages, tools, refresh, storage**.
-**Implementation plan:** `.llm/plans/2026-07-29-personalised-internet.md`
+**Status:** operable ship — chassis + hero Job Search loops wired; dogfood gated on live harvest/materialize agent turns. Spec claims below match code, not aspirational storyboard from [19](./19-homescreen-of-personal-internet.md).  
+**Audience:** engineers and agents extending private sites / home doorways  
+**Companion:** [19 — Homescreen of the Personalised Internet](./19-homescreen-of-personal-internet.md) (north-star home narrative); this doc owns **sites, pages, tools, refresh, storage**.  
+**Implementation plan (chassis):** `.llm/plans/2026-07-29-personalised-internet.md`  
+**Operable ship plan (no half-bake):** `.llm/plans/2026-07-29-pi-operable-complete-ship.md`
 
 ---
 
@@ -35,6 +36,7 @@ Chat and markdown are not enough for multi-day operable state. Pages are.
 | --- | --- |
 | `#/home` | Composer + PI doorways/continuity (or empty-site starters) |
 | `#/pi/sites/:siteId` (+ `/pages/:pageId`) | Durable site / page |
+| `#/pi/sites/:siteId/entities/:entityKey` | Lazy per-entity page (stub → materialize) |
 | `#/pi/temp/:tempId` | Temp page with Keep / Discard |
 | `#/pi/library` | List sites (“My sites”) |
 
@@ -55,10 +57,12 @@ Page documents are versioned DSL JSON (`PiPageDoc`): title, text, note, badge, s
 
 ## 5. Agent tools & trust
 
-**Read:** `pi_list`, `pi_read`, `pi_pulse_get`  
-**Write-local:** `pi_site_upsert`, `pi_page_create`, `pi_page_patch`, `pi_page_delete`, `pi_site_archive`, `pi_preserve_temp`, `pi_home_regions_patch`
+**Read:** `pi_list`, `pi_read`, `pi_pulse_get`, `pi_record_list`  
+**Write-local:** `pi_site_upsert`, `pi_page_create`, `pi_page_patch`, `pi_page_delete`, `pi_site_archive`, `pi_preserve_temp`, `pi_home_regions_patch`, `pi_record_upsert`, `pi_entity_ensure`
 
 Registered in AI SDK tools, MCP, and `consequence-class` READ / WRITE_LOCAL sets. Chat mode keeps reads and drops writes.
+
+Job Search **source of truth** is `pi_records` (`job-application`); board/chart sync from records. Company details use entity routes — not one mega page.
 
 Create tools return `{ siteId, pageId, route: '#/pi/...' }` so the agent can show the user the page.
 
@@ -66,7 +70,7 @@ Create tools return `{ siteId, pageId, route: '#/pi/...' }` so the agent can sho
 
 ## 6. Home projection
 
-`buildPiHomeProjection()` (no LLM) → `{ doorways, continuity, libraryCount, generatedAt }` attached as `pi` on `/scheduler/home`. Doorways come from doorway-eligible active sites with pulse. Continuity is urgency/pulse-derived (empty OK; no fake blocks).
+`buildPiHomeProjection()` (no LLM) → `{ doorways, continuity, libraryCount, generatedAt }` attached as `pi` on `/scheduler/home`. Doorways come from doorway-eligible **active** sites with pulse (dormant demoted unless pinned). Continuity merges HOME.json, pulse urgencies, and pending approvals (empty OK; no fake blocks). Doorway may include `secondary` urgency action.
 
 ---
 
@@ -74,19 +78,19 @@ Create tools return `{ siteId, pageId, route: '#/pi/...' }` so the agent can sho
 
 | Kind | Role |
 | --- | --- |
-| A | Recompute pulse / home reproject (cheap, local) |
-| B | Structured sync stub |
-| C | Harvest — `scheduled_runs` source `pi-harvest` when `harvestEnabled`; default **off** |
-| D | Region revise (deferred / skip) |
+| A | Recompute pulse / home continuity reproject (cheap, local) |
+| B | Structured sync stub (no Gmail/Calendar product yet — do not claim in UI) |
+| C | Harvest — `scheduled_runs` source `pi-harvest` when `harvestEnabled`; guards: battery, quiet hours, host-tab affinity; skip → `staleAt` |
+| D | **Home:** continuity revise (local merge of approvals + doorway urgencies — not agent page authorship). **Site:** board/chart sync from records + pulse (template `new-day` is kind D). |
 | E | Full scheduled task (owned elsewhere) |
 
-Triggers include `site-updated`, `entity-mutated`, `manual-refresh`, `browser-started`, `host-opened` (extension → `POST /pi/hooks/host-opened`). Coalesce by target+kind; pre-event priority beats host-opened.
+Triggers include `site-updated`, `entity-mutated`, `manual-refresh`, `browser-started`, `host-opened` (extension → `POST /pi/hooks/host-opened`; drain nudged), `new-day` (once/local day), `home-focused`, `run-completed`, `meeting-ended`, `meeting-started` (active Pane capture — **not** calendar lead-time), `return-from-sleep`. Calendar `pre-event` (N min before) is reserved in home policy but **not emitted** without Calendar. Coalesce by target+kind; meeting-started / pre-event priority beats host-opened. Entity ensure enqueues `pi-materialize` and the UI nudges drain. Unshipped: `url-matched` / `host-closed`, Calendar lead-time warm-up.
 
 ---
 
 ## 8. HTTP API
 
-Mounted at `/pi` (profile-scoped): sites CRUD/archive/hard-delete, pages create/patch/delete, temps preserve/discard, library, actions invoke, refresh, host-opened hook.
+Mounted at `/pi` (profile-scoped): sites CRUD/archive/hard-delete, pages create/patch/delete, records list, entity ensure, temps preserve/discard, library, actions invoke, refresh, host-opened hook.
 
 ---
 

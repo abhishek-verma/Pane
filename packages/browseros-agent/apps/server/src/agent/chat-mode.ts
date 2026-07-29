@@ -33,6 +33,7 @@ export const CHAT_MODE_ALLOWED_NON_BROWSER_TOOLS = new Set([
   'pi_list',
   'pi_read',
   'pi_pulse_get',
+  'pi_record_list',
 ])
 
 export function isChatModeToolAllowed(toolName: string): boolean {

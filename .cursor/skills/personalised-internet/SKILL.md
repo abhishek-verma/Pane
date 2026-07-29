@@ -10,7 +10,7 @@ description: >-
 
 Private web **per browser profile**: durable sites + temp pages (structured DSL JSON, not freeform HTML). Agent authors via `pi_*`; home is only the front door (see **pi-home** skill).
 
-Normative: [specs/20-personalised-internet.md](../../../specs/20-personalised-internet.md). Plan: `.llm/plans/2026-07-29-personalised-internet.md`.
+Normative: [specs/20-personalised-internet.md](../../../specs/20-personalised-internet.md). Chassis plan: `.llm/plans/2026-07-29-personalised-internet.md`. Operable ship: `.llm/plans/2026-07-29-pi-operable-complete-ship.md`.
 
 ## Compatibility locks
 

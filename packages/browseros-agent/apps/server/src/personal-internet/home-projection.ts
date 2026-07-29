@@ -7,26 +7,55 @@
  */
 
 import { readFile } from 'node:fs/promises'
+import {
+  continuityFromApprovals,
+  mergeContinuityBlocks,
+} from './continuity-sources'
 import { homeRegionsFile, siteRoute } from './paths'
 import { recomputePulse } from './pulse'
 import { getPulse, listSites, readHomePrefs } from './store'
 import type { PiContinuityBlock, PiDoorway, PiHomeProjection } from './types'
 
+const DORMANT_DEMOTE = true
+const STALE_DEMOTE_MS = 14 * 24 * 60 * 60 * 1000
+
 export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
   const prefs = await readHomePrefs()
   const hidden = new Set(prefs.hiddenSiteIds)
   const pinned = new Set(prefs.pinnedSiteIds)
+  const now = Date.now()
 
   const sites = listSites({ status: ['active', 'dormant'] })
   const doorways: PiDoorway[] = []
+  const propose: Array<{ siteId: string; name: string; route: string }> = []
 
   for (const site of sites) {
     if (hidden.has(site.id)) continue
-    if (!site.doorwayEligible && !pinned.has(site.id)) continue
+    if (DORMANT_DEMOTE && site.status === 'dormant' && !pinned.has(site.id)) {
+      continue
+    }
+    if (!site.doorwayEligible && !pinned.has(site.id)) {
+      if (site.status === 'active') {
+        propose.push({
+          siteId: site.id,
+          name: site.name,
+          route: siteRoute(site.id),
+        })
+      }
+      continue
+    }
 
     let pulse = getPulse(site.id)
     if (!pulse) pulse = recomputePulse(site.id)
     if (!pulse) continue
+
+    // Demote very stale unpinned doorways to library-only (Ship Bar / B16).
+    if (!pinned.has(site.id) && pulse.lastUpdatedAt) {
+      const age = now - Date.parse(pulse.lastUpdatedAt)
+      if (Number.isFinite(age) && age > STALE_DEMOTE_MS) {
+        continue
+      }
+    }
 
     doorways.push({
       siteId: site.id,
@@ -35,6 +64,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
       pulseLine: pulse.pulseLine,
       primaryRoute: siteRoute(site.id),
       secondary: pulse.topUrgencies[0],
+      lastUpdatedAt: pulse.lastUpdatedAt,
     })
   }
 
@@ -56,6 +86,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
     continuity,
     libraryCount,
     generatedAt: new Date().toISOString(),
+    ...(propose.length > 0 ? { proposeDoorways: propose.slice(0, 3) } : {}),
   }
 }
 
@@ -93,7 +124,7 @@ async function loadContinuity(
     }
   }
 
-  return blocks.slice(0, 5)
+  return mergeContinuityBlocks(blocks, continuityFromApprovals(), 5)
 }
 
 /** Empty projection for error fallback — keeps /scheduler/home stable. */

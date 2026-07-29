@@ -43,6 +43,23 @@ describe('pi write-path and templates', () => {
       const t = getSiteTemplate(id)
       expect(() => validatePageDoc(t.indexDoc)).not.toThrow()
     }
+    const research = getSiteTemplate('research-hub')
+    const researchTable = research.indexDoc.nodes.find(
+      (n) => n.type === 'table',
+    )
+    expect(
+      researchTable?.type === 'table' && researchTable.rows.length,
+    ).toBeGreaterThan(0)
+    const sales = getSiteTemplate('sales-leads')
+    const salesTable = sales.indexDoc.nodes.find((n) => n.type === 'table')
+    expect(
+      salesTable?.type === 'table' && salesTable.rows.length,
+    ).toBeGreaterThan(0)
+    expect(
+      getSiteTemplate('job-search').policy.triggers.some(
+        (t) => t.name === 'new-day' && t.kind === 'D',
+      ),
+    ).toBe(true)
   })
 
   it('upserts job-search site and recomputes pulse', async () => {
