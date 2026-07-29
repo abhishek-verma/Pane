@@ -204,6 +204,8 @@ async function runOne(
         await syncBoardFromRecords(job.targetId)
         await syncChartFromRecords(job.targetId)
         recomputePulse(job.targetId)
+        const { emitPiEvent } = await import('../events')
+        emitPiEvent('site-updated', { siteId: job.targetId })
         return 'revised'
       }
       return 'skipped'

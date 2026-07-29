@@ -52,12 +52,7 @@ export async function executePiAction(action: PiAction): Promise<void> {
             mode: 'agent',
           })
         } catch {
-          // Side panel unavailable (e.g. tests) — fall back to chat route.
-          await executeWidgetAction({
-            type: 'agent-with-context',
-            prompt,
-            context: action.metadata,
-          })
+          // Side panel unavailable — stay on PI; do not navigate to #/home/chat.
         }
         return
       }

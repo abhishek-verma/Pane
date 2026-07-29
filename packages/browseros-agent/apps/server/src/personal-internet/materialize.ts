@@ -250,7 +250,7 @@ export function enqueueMaterializeRun(input: {
 
   const record = createRunRecord({
     source: 'pi-materialize',
-    sourceId: input.siteId,
+    sourceId: input.pageId,
     idempotencyKey,
     prompt,
     bucketId: input.bucketId ?? 'default',

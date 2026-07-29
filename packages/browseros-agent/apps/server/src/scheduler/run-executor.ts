@@ -157,9 +157,20 @@ export function completeScheduledRun(
     existing.source === 'pi-materialize' &&
     (outcome.status === 'completed' || outcome.status === 'failed')
   ) {
-    // idempotency_key = pi-materialize:siteId:entityKey:pageId
-    const parts = existing.idempotencyKey.split(':')
-    const pageId = parts.length >= 4 ? parts.slice(3).join(':') : null
+    // Prefer sourceId (= pageId). Fall back to parsing the idempotency key,
+    // stripping an optional trailing :r<ts> retry suffix.
+    let pageId = existing.sourceId
+    if (!pageId) {
+      const parts = existing.idempotencyKey.split(':')
+      if (parts.length >= 4) {
+        const rest = parts.slice(3)
+        if (rest.length >= 2 && /^r\d+$/.test(rest[rest.length - 1] ?? '')) {
+          pageId = rest.slice(0, -1).join(':')
+        } else {
+          pageId = rest.join(':')
+        }
+      }
+    }
     if (pageId) {
       void import('../personal-internet/materialize')
         .then(({ finalizeMaterializePageStatus }) =>
