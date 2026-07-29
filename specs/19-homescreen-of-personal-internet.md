@@ -1,9 +1,11 @@
 # 19 — Homescreen of the Personalised Internet
 
-**Status:** product deep dive / handoff for Personalised Internet work  
+**Status:** product deep dive / north-star narrative for Personalised Internet home  
 **Audience:** agent (or human) building Personalised Internet  
 **Scope:** the **homescreen only** — how new-tab home becomes the front door of a private web that grows with the user, including how **page-declared refresh triggers** keep home and personal pages current.  
 **Out of scope here:** personal-site use-case catalog, element DSL, token budgets, storage/routing of internal sites (owned by [20 — Personalised Internet](./20-personalised-internet.md)). Assume that plan’s framing is already known.
+
+**Honesty vs ship:** This doc is the **product storyboard**. What ships today is documented in [20](./20-personalised-internet.md). Do not treat continuous homepage authorship, calendar `pre-event` lead-time, ritual strips, or LinkedIn→doorway-before-home as default habits as implemented unless [20] says so. Shipped home continuity revise (kind D) is a **local merge** of approvals + doorway urgencies, not agent-authored homepage prose. Shipped meeting warm signal is `meeting-started` on **active Pane capture**, not N minutes before a calendar event.
 
 **Relationship to existing specs:**
 - Reframes [15 — Adaptive Home](./15-adaptive-home.md) from “collection of ranked widgets” → “evolving personal homepage.”
@@ -268,9 +270,9 @@ Group by how Pane learns the event. Pages subscribe by name + optional filter (h
 
 | Class | Example triggers | Typical use |
 | --- | --- | --- |
-| **Clock / calendar** | `new-day` (local tz), `digest-hour`, `pre-event` (N min before calendar/meeting), `interval` (e.g. every 6h) | Morning homepage continuity; interview prep warm-up; monitors |
+| **Clock / calendar** | `new-day` (local tz), `digest-hour`, `pre-event` (N min before calendar/meeting — **north-star; Calendar not shipped**), `interval` (e.g. every 6h) | Morning homepage continuity; interview prep warm-up; monitors |
 | **Browser lifecycle** | `browser-started`, `profile-unlocked`, `return-from-sleep` / catch-up, `home-focused` | Catch-up after laptop closed; light recompute when user lands on home |
-| **Meeting / capture** | `meeting-started`, `meeting-ended`, `transcript-ready` | Meeting notes page; home “last meeting” / follow-up doorway; desk open loops |
+| **Meeting / capture** | `meeting-started` (**shipped:** active Pane capture), `meeting-ended`, `transcript-ready` | Meeting notes page; home “last meeting” / follow-up doorway; desk open loops |
 | **Personal site lifecycle** | `site-created`, `site-updated`, `entity-mutated`, `site-archived` | Home doorway pulse; dependent pages (company brief after pipeline stage change) |
 | **Agent / job lifecycle** | `run-completed`, `approval-resolved`, `scheduled-job-finished`, `harvest-finished` | Show “prepared for you”; unlock blocked UI; refresh after overnight scan |
 | **Browse / host** | `host-opened` (e.g. `linkedin.com`), `host-closed` / session idle, `url-matched` (jobs page pattern) | Opportunity to harvest while the real session is warm; do **not** mean “embed LinkedIn on home” |

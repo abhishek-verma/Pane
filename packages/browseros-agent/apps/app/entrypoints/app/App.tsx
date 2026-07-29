@@ -24,6 +24,7 @@ import { OnboardingDemo } from '@/screens/onboarding/demo/OnboardingDemo'
 import { FeaturesPage } from '@/screens/onboarding/features/Features'
 import { Onboarding } from '@/screens/onboarding/index/Onboarding'
 import { StepsLayout } from '@/screens/onboarding/steps/StepsLayout'
+import { EntityPage } from '@/screens/personal-internet/EntityPage'
 import { LibraryPage } from '@/screens/personal-internet/LibraryPage'
 import { SitePage } from '@/screens/personal-internet/SitePage'
 import { TempPage } from '@/screens/personal-internet/TempPage'
@@ -108,6 +109,10 @@ export const App: FC = () => {
             <Route
               path="pi/sites/:siteId/pages/:pageId"
               element={<SitePage />}
+            />
+            <Route
+              path="pi/sites/:siteId/entities/:entityKey"
+              element={<EntityPage />}
             />
             <Route path="pi/temp/:tempId" element={<TempPage />} />
           </Route>

@@ -13,6 +13,11 @@
 import { getDbHandle } from '../../lib/db'
 import { listSites } from '../store'
 import { dispatchTrigger, enqueueRefresh, type PiRefreshJob } from './bus'
+import {
+  maybeDispatchNewDay,
+  maybeDispatchPreEventFromActiveMeetings,
+  maybeDispatchReturnFromSleep,
+} from './clock'
 import { HOME_TARGET_ID } from './policy'
 import { type RefreshRunResult, runRefreshJobs } from './runner'
 
@@ -77,11 +82,15 @@ export type SweepResult = {
   refreshed: RefreshRunResult
 }
 
-/** Interval tick: expire temps then drain any pending cheap reprojects. */
+/** Interval tick: expire temps, clock triggers, then drain pending jobs. */
 export async function runPersonalInternetTick(
   options: { now?: number } = {},
 ): Promise<SweepResult> {
-  const expired = expireTemps(options.now)
+  const nowMs = options.now ?? Date.now()
+  const expired = expireTemps(nowMs)
+  maybeDispatchReturnFromSleep(nowMs)
+  maybeDispatchNewDay(new Date(nowMs))
+  maybeDispatchPreEventFromActiveMeetings()
   const refreshed = await runRefreshJobs()
   return { expired, refreshed }
 }
@@ -89,6 +98,8 @@ export async function runPersonalInternetTick(
 /** One-shot catch-up + drain, called once when the browser/server starts. */
 export async function runBrowserStartedCatchUp(): Promise<SweepResult> {
   const expired = expireTemps()
+  maybeDispatchNewDay()
+  maybeDispatchReturnFromSleep()
   browserStartedCatchUp()
   const refreshed = await runRefreshJobs()
   return { expired, refreshed }

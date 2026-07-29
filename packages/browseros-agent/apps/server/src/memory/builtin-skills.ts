@@ -21,6 +21,9 @@ export const BUILTIN_PI_PAGE_DSL_SKILL_ID = 'builtin-pi-page-dsl'
 export const BUILTIN_PI_PAGE_PATCH_SKILL_ID = 'builtin-pi-page-patch'
 export const BUILTIN_PI_PAGE_VIZ_SKILL_ID = 'builtin-pi-page-viz'
 export const BUILTIN_PI_HOME_SKILL_ID = 'builtin-pi-home'
+export const BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_ID =
+  'builtin-pi-harvest-job-search'
+export const BUILTIN_PI_PIPELINE_UPDATE_SKILL_ID = 'builtin-pi-pipeline-update'
 
 export const BUILTIN_MEETINGS_SKILL_BODY = `---
 name: meetings
@@ -169,12 +172,15 @@ Private **sites** hold multi-day operable work. Pages live under sites (or as te
 
 1. \`pi_list\` — avoid duplicate slugs/templates.
 2. \`pi_site_upsert\` with \`templateId\` when it fits:
-   - \`job-search\` — board by stage (Applied → …)
+   - \`job-search\` — board by stage (Applied → …). Set \`harvestEnabled: true\` only when the user wants LinkedIn harvest when that host tab is open (default off).
    - \`research-hub\` — topics table
    - \`sales-leads\` — leads table
 3. Tell the user the \`#/pi/sites/...\` route from the tool result.
-4. Later edits to page body → load \`pi-page-dsl\` / \`pi-page-patch\` as needed.
-5. Archive with \`pi_site_archive\` when the campaign ends (doorway drops; data kept until hard delete).
+4. **Job Search SoT:** import/update applications with \`pi_record_upsert\` (\`recordType: job-application\`, fields: company, role?, stage, url?, nextAction?, notes?). Board + chart sync from records — do **not** only dump markdown into board cards.
+5. **Company details:** use \`#/pi/sites/<siteId>/entities/<entityKey>\` (lazy per-company pages). **Never** one mega "Company Details" page for all companies.
+6. Board card actions must be labeled: \`{ "label": "Details", "action": { "kind": "open-internal", "route": "#/pi/sites/.../entities/..." } }\`.
+7. Later freeform page edits → load \`pi-page-dsl\` / \`pi-page-patch\` as needed.
+8. Archive with \`pi_site_archive\` when the campaign ends (doorway drops; data kept until hard delete).
 
 ## Temps → durable
 
@@ -189,6 +195,8 @@ P0 template sites are doorway-eligible; pulse lines surface on home. Do not rebu
 
 - Invent HTML pages. Sites are DSL-backed.
 - Create a new site when \`pi_list\` already has the same template/slug — upsert instead.
+- Invent companies or stages not present in records / vault.
+- Author one shared details page for every company.
 `
 
 export const BUILTIN_PI_PAGE_DSL_SKILL_BODY = `---
@@ -241,11 +249,13 @@ After create, share the route from the tool result. Optionally \`pi_read\` to co
 | \`open-internal\` | \`route\` starting \`#/\` | In-app navigation |
 | \`open-external\` | \`http(s)\` \`url\` | Open URL |
 | \`local\` | \`op\`: filter\\|expand\\|copy\\|dismiss | Client-only |
-| \`agent\` | \`query\` + \`metadata\` | Scoped agent turn (put siteId/recordId in metadata) |
+| \`agent\` | \`query\` + \`metadata\` | Scoped agent turn (put siteId/recordId/returnRoute in metadata) |
 
-## Prefer templates first
+**Board card actions (preferred):** labeled shape — \`{ "label": "Details", "action": { "kind": "open-internal", "route": "#/pi/sites/<siteId>/entities/<entityKey>" } }\`. Bare \`PiAction\` still works; UI derives a default label.
 
-For Job Search / Research / Sales, create the site with \`pi-sites\` + \`templateId\` instead of hand-rolling the first board/table.
+## Prefer templates + records first
+
+For Job Search / Research / Sales, create the site with \`pi-sites\` + \`templateId\`. For Job Search applications use \`pi_record_upsert\` (not hand-rolled boards alone). Company detail = entity route, not one mega page.
 
 ## Do not
 
@@ -269,9 +279,11 @@ Prefer small ops over rewriting the whole page. Load \`pi-page-dsl\` only if you
 - \`replaceNodes\` — \`{ "op": "replaceNodes", "nodes": [ ... ] }\` — full body replace; **use this** when reshaping or when multiple tables exist
 - \`upsertTableRow\` — \`{ "op": "upsertTableRow", "row": { "id", "recordId?", "cells" } }\`
 - \`setCell\` — \`{ "op": "setCell", "rowId", "columnId", "value" }\` (string or node)
-- \`upsertBoardCard\` — \`{ "op": "upsertBoardCard", "card": { "id", "title", "columnId", "subtitle?", "recordId?", "actions?" } }\`
-- \`moveBoardCard\` — \`{ "op": "moveBoardCard", "cardId", "toColumnId" }\`
+- \`upsertBoardCard\` — \`{ "op": "upsertBoardCard", "card": { "id", "title", "columnId", "subtitle?", "recordId?", "actions?" } }\` — prefer labeled actions \`{ label, action }\`
+- \`moveBoardCard\` — \`{ "op": "moveBoardCard", "cardId", "toColumnId" }\` — also updates bound record stage when card id is \`card_<recordId>\`
 - \`bindRecord\` — \`{ "op": "bindRecord", "recordId", "data": { ... } }\` — store binding; still patch UI if the visible cell/card must change
+
+For Job Search stage/company changes prefer \`pi_record_upsert\` (board syncs) over only patching cards.
 
 ## Critical caveat
 
@@ -279,7 +291,7 @@ Prefer small ops over rewriting the whole page. Load \`pi-page-dsl\` only if you
 
 ## Workflow
 
-1. \`pi_read\` the page if you lack ids (rowId, cardId, columnId).
+1. \`pi_read\` / \`pi_record_list\` if you lack ids (rowId, cardId, columnId, recordId).
 2. Apply the smallest op set.
 3. Share/update the \`#/pi/...\` route if useful; pulse/home may refresh from write path.
 
@@ -416,6 +428,56 @@ Creating a P0 site is usually enough. Prefer that over hand-editing home.
 - Put the full board on home — home is the front door; depth stays on the site.
 `
 
+export const BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_BODY = `---
+name: pi-harvest-job-search
+description: Harvest LinkedIn (or harvestHost) into Job Search pi_records. Use when a pi-harvest scheduled run asks to update applications — or when the user enables harvest and opens the host.
+---
+
+# Job Search harvest
+
+\`harvestEnabled\` is **opt-in** per site (default off). When a harvest run starts:
+
+1. \`pi_list\` / \`pi_record_list\` for the siteId in the prompt — know current applications.
+2. Use browser tools only on the harvest host tab/session. Do not invent companies.
+3. Upsert via \`pi_record_upsert\` (\`job-application\`: company, role?, stage, url?, nextAction?). Board/chart sync automatically.
+4. Per-company depth → \`#/pi/sites/<siteId>/entities/<entityKey>\` / \`pi_entity_ensure\` — never one mega details page.
+5. If the host tab is gone or nothing changed, stop — pulse may show stale; do not fabricate.
+
+## Do not
+
+- Invent applications or stages.
+- Bypass \`pi_record_*\` by only rewriting board JSON.
+- Claim Gmail/Calendar sync — not in this ship.
+`
+
+export const BUILTIN_PI_PIPELINE_UPDATE_SKILL_BODY = `---
+name: pi-pipeline-update
+description: Dual-write Job Search applications from vault/markdown into Personalised Internet records. Use when importing a pipeline, syncing Job Prep Vault, or updating application stages — never hardcode site/page IDs.
+---
+
+# Pipeline update (vault → PI records)
+
+Job Search **source of truth** is \`pi_records\`, not markdown alone and not board JSON alone.
+
+## Workflow (no hardcoded IDs)
+
+1. \`pi_list\` — find Job Search (\`templateId\` / slug \`job-search\`). Missing → \`pi_site_upsert\` with \`templateId: "job-search"\` (set \`harvestEnabled: true\` only if user wants LinkedIn harvest).
+2. Parse vault / workspace markdown for applications.
+3. For each application → \`pi_record_upsert\`:
+   - \`siteId\` from step 1
+   - \`recordType: "job-application"\`
+   - \`data: { company, role?, stage, url?, nextAction?, notes? }\`
+4. Board + chart sync from records automatically.
+5. Optional company depth → \`pi_entity_ensure\` / \`#/pi/sites/<siteId>/entities/<entityKey>\` — **never** one mega details page.
+6. Tell the user the \`#/pi/sites/<siteId>\` route.
+
+## Do not
+
+- Embed literal \`site_…\` / \`page_…\` IDs in this skill or in prompts.
+- Patch board cards only (skips SoT).
+- Invent companies not in the vault / host.
+`
+
 const BUILTIN_SKILLS: ReadonlyArray<{ id: string; body: string }> = [
   { id: BUILTIN_MEETINGS_SKILL_ID, body: BUILTIN_MEETINGS_SKILL_BODY },
   {
@@ -432,6 +494,14 @@ const BUILTIN_SKILLS: ReadonlyArray<{ id: string; body: string }> = [
   },
   { id: BUILTIN_PI_PAGE_VIZ_SKILL_ID, body: BUILTIN_PI_PAGE_VIZ_SKILL_BODY },
   { id: BUILTIN_PI_HOME_SKILL_ID, body: BUILTIN_PI_HOME_SKILL_BODY },
+  {
+    id: BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_ID,
+    body: BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_BODY,
+  },
+  {
+    id: BUILTIN_PI_PIPELINE_UPDATE_SKILL_ID,
+    body: BUILTIN_PI_PIPELINE_UPDATE_SKILL_BODY,
+  },
 ]
 
 /** Ensure built-in skills exist in the skills DB + memories/skills files. */

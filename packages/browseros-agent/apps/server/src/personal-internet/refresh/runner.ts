@@ -9,20 +9,24 @@
  *   C. Harvest   — browser-session extraction; enqueues a scheduled_run when
  *                  harvest is enabled, otherwise skips and marks the pulse
  *                  stale. Harvest defaults OFF per site.
- *   D. Revise    — agent rewrites page composition (needs a model → deferred).
+ *   D. Revise    — home continuity revise (local merge) or skip for pages.
  *   E. Full task — user-visible scheduled job (owned by Scheduled Tasks → n/a).
  */
 
+import { detectOnBattery, getPauseOnBatteryPref } from '../../context/battery'
 import { getDbHandle } from '../../lib/db'
 import { logger } from '../../lib/logger'
+import { isInQuietHours } from '../../reach/quiet-hours'
 import { recomputePulse } from '../pulse'
-import { getPulse, getSite, newPiId, upsertPulse } from '../store'
+import { getPulse, getSite, listRecords, newPiId, upsertPulse } from '../store'
 import {
   getJob,
   listPendingJobs,
   markJobStatus,
   type PiRefreshJob,
 } from './bus'
+import { reviseHomeContinuityLocal } from './home-revise'
+import { hostMatchesFilter } from './policy'
 
 function sqlite() {
   return getDbHandle().sqlite
@@ -42,6 +46,8 @@ export type RunRefreshOptions = {
   harvestEnabled?: boolean
   /** Cap on jobs drained in one pass. */
   max?: number
+  /** Optional open page hosts for session affinity (e.g. from CDP). */
+  openHosts?: string[]
 }
 
 export type RefreshRunResult = {
@@ -52,6 +58,80 @@ function markSiteStale(siteId: string): void {
   const pulse = getPulse(siteId)
   if (!pulse) return
   upsertPulse(siteId, { ...pulse, staleAt: new Date().toISOString() })
+}
+
+/** Optional CDP host list provider (wired from main when browser is available).
+ * Return `null` when hosts are unknown (skip affinity check).
+ * Return `[]` when CDP works and no matching tabs exist.
+ */
+let openHostsProvider: (() => Promise<string[] | null>) | null = null
+
+export function setHarvestOpenHostsProvider(
+  provider: (() => Promise<string[] | null>) | null,
+): void {
+  openHostsProvider = provider
+}
+
+async function harvestGuardsAllow(
+  site: NonNullable<ReturnType<typeof getSite>>,
+  options: RunRefreshOptions,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (getPauseOnBatteryPref()) {
+    const onBattery = await detectOnBattery()
+    if (onBattery === true) {
+      return { ok: false, reason: 'battery' }
+    }
+  }
+  if (isInQuietHours()) {
+    return { ok: false, reason: 'quiet-hours' }
+  }
+  const host = site.harvestHost
+  if (host) {
+    let openHosts: string[] | undefined = options.openHosts
+    if (openHosts === undefined && openHostsProvider) {
+      try {
+        const resolved = await openHostsProvider()
+        if (resolved != null) openHosts = resolved
+      } catch {
+        // CDP unknown — do not block harvest
+      }
+    }
+    if (openHosts !== undefined) {
+      const matched = openHosts.some((h) => hostMatchesFilter(h, host))
+      if (!matched) {
+        return { ok: false, reason: 'host-tab-closed' }
+      }
+    }
+  }
+  return { ok: true }
+}
+
+function buildHarvestPrompt(
+  site: NonNullable<ReturnType<typeof getSite>>,
+): string {
+  const records = listRecords(site.id).map((r) => {
+    try {
+      return { id: r.id, type: r.type, data: JSON.parse(r.dataJson) }
+    } catch {
+      return { id: r.id, type: r.type, data: {} }
+    }
+  })
+  return [
+    `Harvest ${site.harvestHost ?? 'connected source'} for Personalised Internet site "${site.name}".`,
+    `siteId=${site.id}`,
+    `harvestHost=${site.harvestHost ?? ''}`,
+    '',
+    'Current records (do not invent companies not on the host or in vault):',
+    JSON.stringify(records.slice(0, 40)),
+    '',
+    'Instructions:',
+    '1. Load skill pi-harvest-job-search if available (skills_load).',
+    '2. Navigate the harvest host only when a matching tab/session exists; do not invent pages.',
+    '3. Upsert applications via pi_record_upsert (recordType job-application) — board syncs automatically.',
+    '4. Prefer pi_record_list to see prior state before writing.',
+    '5. If nothing to update, leave records unchanged — never fabricate companies.',
+    '6. When done, pulse should reflect real stages.',
+  ].join('\n')
 }
 
 /** "Easy" harvest path: hand the work to the server run queue, then reproject. */
@@ -70,7 +150,7 @@ function enqueueHarvestRun(job: PiRefreshJob): void {
       id,
       site.id,
       `pi-harvest:${site.id}:${ts}`,
-      `Harvest ${site.harvestHost ?? 'connected source'} for ${site.name} and update its records.`,
+      buildHarvestPrompt(site),
       site.bucketId,
       ts,
     )
@@ -82,8 +162,10 @@ async function runOne(
 ): Promise<RefreshOutcome> {
   switch (job.kind) {
     case 'A': {
-      // Home reprojects are computed on read; only sites need a pulse recompute.
       if (job.targetType === 'site') recomputePulse(job.targetId)
+      if (job.targetType === 'home') {
+        await reviseHomeContinuityLocal()
+      }
       return 'reprojected'
     }
     case 'B': {
@@ -98,15 +180,37 @@ async function runOne(
         if (job.targetType === 'site') markSiteStale(job.targetId)
         return 'skipped-stale'
       }
+      const guards = await harvestGuardsAllow(site, options)
+      if (!guards.ok) {
+        markSiteStale(site.id)
+        logger.info('pi harvest skipped', {
+          siteId: site.id,
+          reason: guards.reason,
+        })
+        return 'skipped-stale'
+      }
       enqueueHarvestRun(job)
       return 'harvested'
     }
     case 'D': {
-      // Page revision needs an LLM; not run inline. Keep last good composition.
+      if (job.targetType === 'home') {
+        await reviseHomeContinuityLocal()
+        return 'revised'
+      }
+      if (job.targetType === 'site') {
+        const { syncBoardFromRecords, syncChartFromRecords } = await import(
+          '../records'
+        )
+        await syncBoardFromRecords(job.targetId)
+        await syncChartFromRecords(job.targetId)
+        recomputePulse(job.targetId)
+        const { emitPiEvent } = await import('../events')
+        emitPiEvent('site-updated', { siteId: job.targetId })
+        return 'revised'
+      }
       return 'skipped'
     }
     case 'E': {
-      // Full user-visible task belongs to Scheduled Tasks, not the refresh bus.
       return 'skipped'
     }
     default:

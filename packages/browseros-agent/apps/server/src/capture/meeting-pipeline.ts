@@ -253,6 +253,15 @@ export async function startMeetingCapture(input: {
     sessionId: id,
     status: 'active',
   })
+  void import('../personal-internet/refresh/clock')
+    .then(({ dispatchPreEvent }) => {
+      dispatchPreEvent({
+        meetingTitle: (input.title ?? 'Meeting').trim() || 'Meeting',
+        startsAtIso: new Date(startedAt).toISOString(),
+        sessionId: id,
+      })
+    })
+    .catch(() => undefined)
   return getCaptureSession(id) as CaptureSessionSummary
 }
 
@@ -900,6 +909,14 @@ export async function stopMeetingCapture(
     sessionId,
     status: 'stopped',
   })
+  void import('../personal-internet/refresh/bus')
+    .then(({ dispatchTrigger }) => {
+      dispatchTrigger({
+        triggerName: 'meeting-ended',
+        filterValue: sessionId,
+      })
+    })
+    .catch(() => undefined)
   return indexed ?? getCaptureSession(sessionId)
 }
 

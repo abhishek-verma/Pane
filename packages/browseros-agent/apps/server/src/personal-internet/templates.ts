@@ -50,16 +50,31 @@ function researchHub(): PiPageDoc {
       { type: 'title', text: 'Research hub' },
       {
         type: 'text',
-        text: 'Topics and sources for ongoing research.',
+        text: 'Topics and sources for ongoing research. Add rows via chat or pi_page_patch.',
       },
       {
         type: 'table',
         columns: [
           { id: 'topic', header: 'Topic' },
           { id: 'status', header: 'Status' },
-          { id: 'actions', header: 'Actions' },
+          { id: 'sources', header: 'Sources' },
+          { id: 'next', header: 'Next' },
         ],
-        rows: [],
+        rows: [
+          {
+            id: 'example-topic',
+            cells: {
+              topic: 'Example topic',
+              status: 'Open',
+              sources: 'Replace with real sources',
+              next: 'Ask chat to research and update this row',
+            },
+          },
+        ],
+      },
+      {
+        type: 'note',
+        text: 'Tip: keep one row per topic; link sources as open-external actions in the Sources cell.',
       },
     ],
   }
@@ -72,13 +87,28 @@ function salesLeads(): PiPageDoc {
     nodes: [
       { type: 'title', text: 'Sales Pipeline' },
       {
+        type: 'text',
+        text: 'Qualify and advance leads. Prefer records + board sync when you expand beyond this table.',
+      },
+      {
         type: 'table',
         columns: [
           { id: 'lead', header: 'Lead' },
+          { id: 'company', header: 'Company' },
           { id: 'stage', header: 'Stage' },
-          { id: 'actions', header: 'Actions' },
+          { id: 'next', header: 'Next action' },
         ],
-        rows: [],
+        rows: [
+          {
+            id: 'example-lead',
+            cells: {
+              lead: 'Example lead',
+              company: 'Acme',
+              stage: 'Qualify',
+              next: 'Ask chat to upsert real leads',
+            },
+          },
+        ],
       },
     ],
   }
@@ -87,7 +117,8 @@ function salesLeads(): PiPageDoc {
 const defaultSitePolicy = (harvestHost: string | null): PiRefreshPolicy => ({
   triggers: [
     { name: 'entity-mutated', kind: 'A' },
-    { name: 'new-day', kind: 'A' },
+    // Kind D: board/chart sync from records + pulse (not reproject-only).
+    { name: 'new-day', kind: 'D' },
     { name: 'manual-refresh', kind: 'A' },
     ...(harvestHost
       ? [{ name: 'host-opened', filter: harvestHost, kind: 'C' as const }]

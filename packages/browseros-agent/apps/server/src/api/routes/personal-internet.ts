@@ -7,6 +7,8 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { validatePageDoc } from '../../personal-internet/dsl'
+import { getLastPiMutationAt } from '../../personal-internet/events'
+import { ensureAndMaterialize } from '../../personal-internet/materialize'
 import {
   handleHostOpened,
   handleRefreshTrigger,
@@ -20,10 +22,14 @@ import {
   getTemp,
   hardDeleteSite,
   listPagesForSite,
+  listRecords,
   listSites,
   listTemps,
+  readHomePrefs,
   readPageDoc,
   touchSite,
+  upsertSite,
+  writeHomePrefs,
 } from '../../personal-internet/store'
 import type {
   PiPageDoc,
@@ -116,6 +122,80 @@ export function createPersonalInternetRoutes() {
         pulse: getPulse(siteId),
         pages: listPagesForSite(siteId),
       })
+    })
+    .get('/sites/:siteId/records', (c) => {
+      const siteId = c.req.param('siteId')
+      if (!getSite(siteId)) return c.json({ error: 'not found' }, 404)
+      const records = listRecords(siteId).map((r) => {
+        let data: Record<string, unknown> = {}
+        try {
+          data = JSON.parse(r.dataJson) as Record<string, unknown>
+        } catch {
+          data = {}
+        }
+        return {
+          id: r.id,
+          type: r.type,
+          version: r.version,
+          updatedAt: r.updatedAt,
+          data,
+        }
+      })
+      return c.json({ records })
+    })
+    .post('/sites/:siteId/entities/:entityKey/ensure', async (c) => {
+      const siteId = c.req.param('siteId')
+      const entityKey = c.req.param('entityKey')
+      const body = z
+        .object({ materialize: z.boolean().optional() })
+        .parse((await c.req.json().catch(() => ({}))) as unknown)
+      if (!getSite(siteId)) return c.json({ error: 'not found' }, 404)
+      try {
+        const result = await ensureAndMaterialize(siteId, entityKey, {
+          materialize: body.materialize,
+        })
+        return c.json(result)
+      } catch (e) {
+        return c.json({ error: String(e) }, 400)
+      }
+    })
+    .post('/sites/:siteId/doorway', async (c) => {
+      const siteId = c.req.param('siteId')
+      const site = getSite(siteId)
+      if (!site) return c.json({ error: 'not found' }, 404)
+      const body = z
+        .object({
+          eligible: z.boolean(),
+          pin: z.boolean().optional(),
+        })
+        .parse(await c.req.json())
+      await upsertSite({
+        id: site.id,
+        name: site.name,
+        slug: site.slug,
+        jtbd: site.jtbd,
+        templateId: site.templateId,
+        doorwayEligible: body.eligible,
+        status: site.status as never,
+      })
+      if (body.pin) {
+        const prefs = await readHomePrefs()
+        const pinned = new Set(prefs.pinnedSiteIds)
+        pinned.add(siteId)
+        await writeHomePrefs({
+          ...prefs,
+          pinnedSiteIds: [...pinned],
+        })
+      }
+      return c.json({
+        siteId,
+        doorwayEligible: body.eligible,
+        pinned: !!body.pin,
+        route: `#/pi/sites/${siteId}`,
+      })
+    })
+    .get('/mutation-cursor', (c) => {
+      return c.json({ lastMutationAt: getLastPiMutationAt() })
     })
     .post('/sites/:siteId/archive', async (c) => {
       const siteId = c.req.param('siteId')

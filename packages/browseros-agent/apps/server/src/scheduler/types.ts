@@ -48,6 +48,7 @@ export type RunSource =
   | 'manual'
   | 'schedule'
   | 'pi-harvest'
+  | 'pi-materialize'
 
 export type RunStatus =
   | 'pending'

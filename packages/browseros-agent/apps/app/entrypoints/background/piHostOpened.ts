@@ -40,6 +40,11 @@ export function notifyPiHostOpened(url: string): void {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ host }),
       })
+      // Nudge drain so pi-harvest runs don't wait a full alarm period (S8).
+      const { nudgeDrainServerRuns } = await import(
+        '@/lib/schedules/nudgeDrainServerRuns'
+      )
+      await nudgeDrainServerRuns()
     } catch {
       // Server may be down during early boot; harvest is best-effort.
     }

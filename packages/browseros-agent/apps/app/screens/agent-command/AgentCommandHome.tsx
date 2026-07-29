@@ -31,9 +31,8 @@ import {
 } from '@/screens/newtab/home/home-data'
 import { PiHomeRegions } from '@/screens/newtab/home/PiHomeRegions'
 import { useActiveHint } from '@/screens/newtab/index/active-hint.hooks'
-import { RecentSites } from '@/screens/newtab/index/RecentSites'
-import { ScheduleResults } from '@/screens/newtab/index/ScheduleResults'
 import { SignInHint } from '@/screens/newtab/index/SignInHint'
+import { piPost } from '@/screens/personal-internet/usePiApi'
 import {
   ConversationInput,
   type ConversationInputSendInput,
@@ -114,6 +113,37 @@ export const AgentCommandHome: FC = () => {
     staleTime: 5_000,
     refetchInterval: 20_000,
   })
+
+  useEffect(() => {
+    const HOME_FOCUSED_DEBOUNCE_MS = 60_000
+    let lastFired = 0
+    let timer: number | null = null
+
+    const fire = () => {
+      if (document.visibilityState !== 'visible') return
+      const now = Date.now()
+      if (now - lastFired < HOME_FOCUSED_DEBOUNCE_MS) return
+      lastFired = now
+      void piPost('/pi/refresh', { trigger: 'home-focused' }).catch(
+        () => undefined,
+      )
+    }
+
+    // Initial focus after short settle (still subject to debounce window).
+    timer = window.setTimeout(fire, 800)
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') fire()
+    }
+    const onFocus = () => fire()
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      if (timer != null) window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [])
 
   const targets = useMemo(
     () =>
@@ -240,8 +270,6 @@ export const AgentCommandHome: FC = () => {
           ) : (
             <EmptyHomeState />
           )}
-          <RecentSites />
-          <ScheduleResults />
         </div>
       </div>
 

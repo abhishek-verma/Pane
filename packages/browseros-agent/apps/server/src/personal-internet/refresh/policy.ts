@@ -26,7 +26,7 @@ export function triggerPriority(
   kind?: PiRefreshKind,
 ): number {
   // Lower number = higher priority (drains first).
-  if (triggerName === 'pre-event') return 0
+  if (triggerName === 'pre-event' || triggerName === 'meeting-started') return 0
   if (triggerName === 'manual-refresh') return 1
   if (triggerName === 'host-opened') return 6
   if (kind === 'A') return 2
@@ -41,7 +41,7 @@ export function triggerPriority(
 export const HOME_DEFAULT_POLICY: PiRefreshPolicy = {
   triggers: [
     { name: 'browser-started', kind: 'A' },
-    { name: 'new-day', kind: 'A' },
+    { name: 'new-day', kind: 'D' },
     { name: 'home-focused', kind: 'A' },
     { name: 'site-updated', kind: 'A' },
     { name: 'entity-mutated', kind: 'A' },
@@ -49,7 +49,10 @@ export const HOME_DEFAULT_POLICY: PiRefreshPolicy = {
     { name: 'site-archived', kind: 'A' },
     { name: 'run-completed', kind: 'A' },
     { name: 'meeting-ended', kind: 'A' },
+    { name: 'meeting-started', kind: 'A' },
+    // Calendar lead-time pre-event is not shipped; kept for future Calendar.
     { name: 'pre-event', kind: 'A' },
+    { name: 'return-from-sleep', kind: 'A' },
     { name: 'manual-refresh', kind: 'A' },
   ],
   guards: { cooldownMs: DEFAULT_COOLDOWN_MS },
@@ -59,7 +62,7 @@ const SITE_DEFAULT_POLICY: PiRefreshPolicy = {
   triggers: [
     { name: 'entity-mutated', kind: 'A' },
     { name: 'site-updated', kind: 'A' },
-    { name: 'new-day', kind: 'A' },
+    { name: 'new-day', kind: 'D' },
     { name: 'manual-refresh', kind: 'A' },
   ],
   guards: { cooldownMs: DEFAULT_COOLDOWN_MS },

@@ -50,6 +50,10 @@ export function pageRoute(siteId: string, pageId: string): string {
   return `#/pi/sites/${siteId}/pages/${pageId}`
 }
 
+export function entityRoute(siteId: string, entityKey: string): string {
+  return `#/pi/sites/${siteId}/entities/${encodeURIComponent(entityKey)}`
+}
+
 export function tempRoute(tempId: string): string {
   return `#/pi/temp/${tempId}`
 }

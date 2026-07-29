@@ -1180,8 +1180,15 @@ function extractPreviewText(rawContent: string): string {
   try {
     const content = JSON.parse(rawContent)
     if (typeof content === 'string') return content.trim()
-    if (Array.isArray(content)) {
-      return content
+    const parts = Array.isArray(content)
+      ? content
+      : content &&
+          typeof content === 'object' &&
+          Array.isArray((content as { parts?: unknown }).parts)
+        ? (content as { parts: unknown[] }).parts
+        : null
+    if (parts) {
+      return parts
         .map((part) => {
           if (part && typeof part === 'object' && 'text' in part) {
             return String((part as { text?: string }).text ?? '')

@@ -14,6 +14,13 @@ export type PiAction =
     }
   | { kind: 'agent'; query: string; metadata: Record<string, unknown> }
 
+export type PiLabeledAction = {
+  label: string
+  action: PiAction
+}
+
+export type PiCardAction = PiAction | PiLabeledAction
+
 export type PiNode =
   | { type: 'title'; text: string }
   | { type: 'text'; text: string }
@@ -53,7 +60,7 @@ export type PiNode =
         recordId?: string
         title: string
         subtitle?: string
-        actions?: PiAction[]
+        actions?: PiCardAction[]
       }>
     }
   | {
@@ -93,6 +100,7 @@ export type PiDoorway = {
     agentQuery?: string
     metadata?: Record<string, unknown>
   }
+  lastUpdatedAt?: string
 }
 
 export type PiContinuityBlock = {
@@ -109,4 +117,5 @@ export type PiHomeProjection = {
   continuity: PiContinuityBlock[]
   libraryCount: number
   generatedAt: string
+  proposeDoorways?: Array<{ siteId: string; name: string; route: string }>
 }

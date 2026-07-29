@@ -11,6 +11,12 @@ import { pageRoute, siteRoute, tempRoute } from './paths'
 import { shouldAutoDoorway } from './promote'
 import { recomputePulse } from './pulse'
 import {
+  normalizeJobSearchRecord,
+  syncBoardFromRecords,
+  syncChartFromRecords,
+  updateRecordStageFromCardMove,
+} from './records'
+import {
   archiveSite,
   createTemp,
   deletePage,
@@ -61,6 +67,8 @@ export type ApplyPiMutationInput =
       expectedVersion?: number
       pageId?: string
       pageOps?: PiPatchOp[]
+      /** Rebuild index board/chart from records (default true for job-application). */
+      syncBoard?: boolean
     }
   | {
       type: 'archive-site'
@@ -219,6 +227,12 @@ export async function applyPiMutation(
         indexPiRecord(record.id, page.siteId, record.bucketId, 'bound', op.data)
       }
 
+      for (const op of docOps) {
+        if (op.op === 'moveBoardCard') {
+          updateRecordStageFromCardMove(op.cardId, op.toColumnId)
+        }
+      }
+
       const next =
         docOps.length > 0 ? applyPatchOps(doc, docOps) : validatePageDoc(doc)
       await writePageDoc(page.siteId, page.id, next, {
@@ -250,20 +264,23 @@ export async function applyPiMutation(
       if (!site || site.status === 'archived') {
         throw new Error('site not found or archived')
       }
+      const recordType = input.recordType
+      let data = input.data
+      if (
+        recordType === 'job-application' ||
+        site.templateId === 'job-search'
+      ) {
+        const normalized = normalizeJobSearchRecord(data)
+        data = { ...data, ...normalized }
+      }
       const record = upsertRecord({
         id: input.recordId,
         siteId: input.siteId,
-        type: input.recordType,
-        data: input.data,
+        type: recordType,
+        data,
         expectedVersion: input.expectedVersion,
       })
-      indexPiRecord(
-        record.id,
-        input.siteId,
-        record.bucketId,
-        input.recordType,
-        input.data,
-      )
+      indexPiRecord(record.id, input.siteId, record.bucketId, recordType, data)
       if (input.pageId && input.pageOps?.length) {
         const page = getPage(input.pageId)
         const doc = page ? await readPageDoc(input.pageId) : null
@@ -277,6 +294,13 @@ export async function applyPiMutation(
             indexPiPage(page.id, page.bucketId, page.siteId, next.title, next)
           }
         }
+      }
+      const shouldSync =
+        input.syncBoard !== false &&
+        (recordType === 'job-application' || site.templateId === 'job-search')
+      if (shouldSync) {
+        await syncBoardFromRecords(input.siteId)
+        await syncChartFromRecords(input.siteId)
       }
       const pulse = recomputePulse(input.siteId)
       emitPiEvent('entity-mutated', {

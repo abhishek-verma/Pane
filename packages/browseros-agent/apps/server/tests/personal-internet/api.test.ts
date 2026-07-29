@@ -101,5 +101,18 @@ describe('pi HTTP API', () => {
       body: JSON.stringify({ host: 'linkedin.com' }),
     })
     expect(host.status).toBe(200)
+
+    const cursor = await app.request('/pi/mutation-cursor')
+    expect(cursor.status).toBe(200)
+    const cursorBody = (await cursor.json()) as { lastMutationAt: number }
+    expect(cursorBody.lastMutationAt).toBeGreaterThan(0)
+
+    // Non-P0-style doorway promote
+    const doorway = await app.request(`/pi/sites/${created.siteId}/doorway`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eligible: true, pin: true }),
+    })
+    expect(doorway.status).toBe(200)
   })
 })

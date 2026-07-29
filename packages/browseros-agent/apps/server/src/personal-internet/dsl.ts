@@ -9,7 +9,53 @@ import {
   PI_MAX_MERMAID_CHARS,
   sanitizePiSvg,
 } from './sanitize-svg'
-import type { PiAction, PiNode, PiPageDoc, PiPatchOp, TableRow } from './types'
+import type {
+  PiAction,
+  PiCardAction,
+  PiNode,
+  PiPageDoc,
+  PiPatchOp,
+  TableRow,
+} from './types'
+
+/** Normalize `{ label, action }` or bare `PiAction` into a labeled pair. */
+export function normalizeCardAction(entry: PiCardAction): {
+  label: string
+  action: PiAction
+} {
+  if (
+    entry &&
+    typeof entry === 'object' &&
+    'action' in entry &&
+    entry.action &&
+    typeof entry.action === 'object' &&
+    'kind' in entry.action
+  ) {
+    const labeled = entry as { label?: unknown; action: PiAction }
+    const label =
+      typeof labeled.label === 'string' && labeled.label.trim()
+        ? labeled.label.trim()
+        : defaultActionLabel(labeled.action)
+    return { label, action: labeled.action }
+  }
+  const action = entry as PiAction
+  return { label: defaultActionLabel(action), action }
+}
+
+function defaultActionLabel(action: PiAction): string {
+  switch (action.kind) {
+    case 'open-internal':
+      return 'Open'
+    case 'open-external':
+      return 'Open link'
+    case 'agent':
+      return 'Ask agent'
+    case 'local':
+      return action.op
+    default:
+      return 'Action'
+  }
+}
 
 const MAX_DOC_BYTES = 512 * 1024
 const DANGEROUS_RE = /<script|javascript:|on\w+\s*=/i
@@ -112,8 +158,18 @@ function validateNode(node: PiNode, path: string): void {
         assertSafeText(card.title, path)
         if (card.subtitle) assertSafeText(card.subtitle, path)
         if (card.actions) {
-          for (const [i, action] of card.actions.entries()) {
+          for (const [i, entry] of card.actions.entries()) {
+            const { label, action } = normalizeCardAction(entry)
+            assertSafeText(
+              label,
+              `${path}.card[${card.id}].actions[${i}].label`,
+            )
             validateAction(action, `${path}.card[${card.id}].actions[${i}]`)
+            // Persist normalized shape so renderer and later patches share one form.
+            ;(card.actions as Array<{ label: string; action: PiAction }>)[i] = {
+              label,
+              action,
+            }
           }
         }
       }

@@ -8,6 +8,10 @@
  */
 
 import { BROWSEROS_PROFILE_ID_HEADER } from '@browseros/shared/constants/headers'
+import {
+  emitPiInvalidate,
+  shouldInvalidateFromPiFetch,
+} from '@/lib/pi-invalidate'
 import { getBrowserProfileKey } from './profile-key'
 
 /** Builds headers that identify the active Chrome browser profile. */
@@ -21,6 +25,7 @@ export async function getAgentProfileHeaders(): Promise<
 /**
  * Like fetch, but merges `X-BrowserOS-Profile-Id` into the request headers.
  * Use for all calls to the local agent server that touch user data.
+ * Successful PI mutating calls also broadcast a query invalidation.
  */
 export async function agentFetch(
   input: RequestInfo | URL,
@@ -33,5 +38,16 @@ export async function agentFetch(
       headers.set(key, value)
     }
   }
-  return fetch(input, { ...init, headers })
+  const res = await fetch(input, { ...init, headers })
+  const url =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input.url
+  const method = init?.method ?? 'GET'
+  if (res.ok && shouldInvalidateFromPiFetch(url, method)) {
+    emitPiInvalidate()
+  }
+  return res
 }
