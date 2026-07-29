@@ -101,7 +101,8 @@ export async function executeWidgetAction(
     case 'agent-with-context':
       try {
         const encodedPrompt = encodeURIComponent(action.prompt)
-        window.location.hash = `#/home/chat?prefill=${encodedPrompt}`
+        // NewTabChat auto-sends on `q`, not `prefill`.
+        window.location.hash = `#/home/chat?q=${encodedPrompt}&mode=agent`
       } catch {
         /* ignore */
       }

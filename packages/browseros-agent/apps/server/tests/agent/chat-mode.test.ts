@@ -20,7 +20,7 @@ const stub = tool({
 })
 
 describe('chat mode tool allowlist', () => {
-  it('allows read capture/context/skills/home surfaces', () => {
+  it('allows read capture/context/skills/pi surfaces', () => {
     for (const name of [
       'capture_list',
       'capture_read',
@@ -30,7 +30,6 @@ describe('chat mode tool allowlist', () => {
       'tasks_list',
       'skills_list',
       'skills_load',
-      'home_widget_list',
       'filesystem_read',
       'pi_list',
       'pi_read',
@@ -48,9 +47,6 @@ describe('chat mode tool allowlist', () => {
       'memory_remove',
       'tasks_add',
       'tasks_done',
-      'home_widget_add',
-      'home_widget_remove',
-      'home_widget_propose',
       'skills_install',
       'skills_archive',
       'capture_start',

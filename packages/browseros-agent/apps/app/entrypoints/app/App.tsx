@@ -29,7 +29,6 @@ import { SitePage } from '@/screens/personal-internet/SitePage'
 import { TempPage } from '@/screens/personal-internet/TempPage'
 import { ReachSettingsPage } from '@/screens/reach/ReachSettingsPage'
 import { AboutSettingsPage } from '@/screens/settings/about/AboutSettingsPage'
-import { HomeSettingsPage } from '@/screens/settings/home/HomeSettingsPage'
 import { PermissionsPage } from '@/screens/settings/permissions/PermissionsPage'
 import { TasksPage } from '@/screens/tasks/TasksPage'
 import { WorkspacesPage } from '@/screens/workspaces/WorkspacesPage'
@@ -122,7 +121,10 @@ export const App: FC = () => {
               <Route path="action-log" element={<ActionLogPage />} />
               <Route path="memory" element={<MemoryPage />} />
               <Route path="reach" element={<ReachSettingsPage />} />
-              <Route path="home" element={<HomeSettingsPage />} />
+              <Route
+                path="home"
+                element={<Navigate to="/settings/customization" replace />}
+              />
               <Route path="diagnostics" element={<DiagnosticsPage />} />
               <Route path="permissions" element={<PermissionsPage />} />
               <Route path="about" element={<AboutSettingsPage />} />

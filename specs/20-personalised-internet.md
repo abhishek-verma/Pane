@@ -22,8 +22,8 @@ Chat and markdown are not enough for multi-day operable state. Pages are.
 | Isolation | One private web **per browser profile** (not per context-bucket “side”). |
 | Split | **Sites** = operable depth; **Home** = front door + continuity. Do not rebuild pipelines on the homepage. |
 | Composer | Home `ConversationInput` on `AgentCommandHome` stays as-is. |
-| Widgets | `GET /scheduler/home` keeps `widgets`; only **adds** optional `pi`. |
-| No LLM on open | `loadHomeWidgets` / home fetch never call chat or models. |
+| Widgets | Removed. No `home_widgets` table, `home_widget_*` tools, or widgets on `/scheduler/home`. Front door is `pi` + composer. |
+| No LLM on open | `loadHome` / home fetch never call chat or models. |
 | Authorship | Agent is primary author via `pi_*` tools; user manages via UI + chat. |
 | Actions | Shared kinds: `open-internal`, `open-external`, `local`, `agent` (+ `query` + `metadata`). |
 
@@ -33,7 +33,7 @@ Chat and markdown are not enough for multi-day operable state. Pages are.
 
 | Route | Purpose |
 | --- | --- |
-| `#/home` | Composer + `PiHomeRegions` (doorways / Today) + adaptive widgets |
+| `#/home` | Composer + PI doorways/continuity (or empty-site starters) |
 | `#/pi/sites/:siteId` (+ `/pages/:pageId`) | Durable site / page |
 | `#/pi/temp/:tempId` | Temp page with Keep / Discard |
 | `#/pi/library` | List sites (“My sites”) |
@@ -49,7 +49,7 @@ Empty home starters prefill chat to create Job Search / Research Hub via tools.
 - **Sole mutator:** `applyPiMutation` / `preserveTemp` in `apps/server/src/personal-internet/write-path.ts`
 - **Templates (P0):** `job-search`, `research-hub`, `sales-leads`
 
-Page documents are versioned DSL JSON (`PiPageDoc`): title, text, note, badge, stack, button, link, table, board. No model-authored HTML; reject script / `javascript:` / handler keys.
+Page documents are versioned DSL JSON (`PiPageDoc`): title, text, note, badge, stack, button, link, table, board, **chart**, **mermaid**, **svg** (sanitized). Prefer `chart` data over freeform SVG. No model-authored HTML; reject script / `javascript:` / handler keys.
 
 ---
 

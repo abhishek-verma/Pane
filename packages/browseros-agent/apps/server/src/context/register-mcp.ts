@@ -10,7 +10,6 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { z } from 'zod'
 import { gateExecute } from '../agent/trust/gate'
 import { buildCaptureToolSet } from '../capture/tools'
-import { buildHomeWidgetToolSet } from '../home/tools'
 import { buildMemoryToolSet } from '../memory/tools'
 import { buildPersonalInternetToolSet } from '../personal-internet/tools'
 import { buildContextToolSet, buildTasksToolSet } from './tools'
@@ -47,7 +46,6 @@ export function registerContextMcpTools(
     ...buildTasksToolSet(getBucketId),
     ...buildMemoryToolSet(getBucketId),
     ...buildCaptureToolSet(getBucketId),
-    ...buildHomeWidgetToolSet(),
     ...buildPersonalInternetToolSet(getBucketId),
   } as unknown as Record<string, AiSdkToolLike>
 

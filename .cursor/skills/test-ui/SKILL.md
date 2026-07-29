@@ -269,10 +269,17 @@ These can be used with `eval app.html "window.location.hash = '#/<route>'"`:
 
 | Route | View |
 |-------|------|
-| `/home` | Home page with search bar and top sites |
-| `/settings` | Settings (LLM providers, customization, workflows, MCP) |
-| `/scheduled-tasks` | Scheduled Tasks management |
+| `/home` | PI front door: composer + doorways/continuity or empty-site starters (not Adaptive Home widgets) |
+| `/pi/library` | My sites library |
+| `/pi/sites/:siteId` | Durable personal site |
+| `/pi/sites/:siteId/pages/:pageId` | Site page |
+| `/pi/temp/:tempId` | Temp page Keep/Discard |
+| `/settings` | Settings (AI, customization, MCP, …) — no Home widgets page |
+| `/tasks` | Tasks |
+| `/meetings` | Capture / meetings |
 | `/onboarding` | Onboarding flow (first-run experience) |
+
+When verifying home after UI changes: expect **composer** + either **Living work** doorways or **PI starters** (“Start a job search pipeline”). Do **not** expect a widget grid, proposal cards, or “+ Add” widget tiles. See **pi-home** skill.
 
 ## Gotchas learned from real testing
 
@@ -282,4 +289,5 @@ These can be used with `eval app.html "window.location.hash = '#/<route>'"`:
 4. **Side panel starts disabled** — `open-sidepanel` handles the Pane-specific enable + toggle API
 5. **`Input.enable` does not exist** — the CDP Input domain has no enable method (already handled in the script)
 6. **`DOM.getDocument` required** — must be called before DOM operations like `pushNodesByBackendIdsToFrontend` (already handled in the script)
-7. **Settings sub-navigation** — the settings page has its own left sidebar (Pane AI, Chat & Council Provider, Search Provider, Customize Pane, Pane as MCP, Workflows) — use snapshot + click to navigate within settings
+7. **Settings sub-navigation** — settings has its own left sidebar (AI, Memory, Customize Pane, …). There is **no** “Home widgets” item anymore.
+8. **Home = Personalised Internet front door** — `#/home` shows composer + PI regions/starters; Adaptive Home widgets were removed from the UI.

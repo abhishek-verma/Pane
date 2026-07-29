@@ -100,4 +100,48 @@ describe('pi dsl', () => {
       expect(board.columns[1].cardIds).toEqual(['c1'])
     }
   })
+
+  it('accepts chart and mermaid; sanitizes svg; rejects hostile svg', () => {
+    const doc = validatePageDoc({
+      version: 1,
+      title: 'Viz',
+      nodes: [
+        {
+          type: 'chart',
+          chartType: 'bar',
+          title: 'Stages',
+          data: [
+            { label: 'A', value: 2 },
+            { label: 'B', value: 5 },
+          ],
+        },
+        {
+          type: 'mermaid',
+          title: 'Flow',
+          source: 'flowchart LR\n  A --> B',
+        },
+        {
+          type: 'svg',
+          title: 'Dot',
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="red"/></svg>',
+        },
+      ],
+    })
+    expect(doc.nodes).toHaveLength(3)
+
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'Bad',
+        nodes: [
+          {
+            type: 'svg',
+            markup:
+              '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+          },
+        ],
+      }),
+    ).toThrow(PiDslError)
+  })
 })

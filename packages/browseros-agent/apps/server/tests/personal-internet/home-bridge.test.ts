@@ -10,8 +10,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeDb, initializeDb } from '../../src/lib/db'
 import { buildPiHomeProjection } from '../../src/personal-internet/home-projection'
+import { buildPersonalInternetToolSet } from '../../src/personal-internet/tools'
 import { applyPiMutation } from '../../src/personal-internet/write-path'
-import { loadHomeWidgets } from '../../src/scheduler/home'
+import { loadHome } from '../../src/scheduler/home'
 
 describe('pi home bridge', () => {
   const dirs: string[] = []
@@ -38,8 +39,8 @@ describe('pi home bridge', () => {
     expect(pi.generatedAt).toBeTruthy()
   })
 
-  it('doorway appears after P0 site create; widgets still present', async () => {
-    const dir = setup()
+  it('doorway appears after P0 site create; home payload includes pi', async () => {
+    setup()
     await applyPiMutation({ type: 'upsert-site', templateId: 'job-search' })
     const pi = await buildPiHomeProjection()
     expect(pi.doorways.length).toBeGreaterThanOrEqual(1)
@@ -47,12 +48,41 @@ describe('pi home bridge', () => {
     expect(pi.doorways[0]?.primaryRoute).toContain('#/pi/sites/')
     expect(pi.libraryCount).toBe(1)
 
-    const home = await loadHomeWidgets({ memoriesRoot: join(dir, 'memories') })
-    expect(Array.isArray(home.widgets)).toBe(true)
-    expect(home.widgets.some((w) => w.type === 'recent-sites-fallback')).toBe(
-      true,
-    )
+    const home = await loadHome()
     expect(home.pi).toBeTruthy()
     expect(home.pi.doorways.length).toBeGreaterThanOrEqual(1)
+    expect(home.firstName === null || typeof home.firstName === 'string').toBe(
+      true,
+    )
+  })
+
+  it('hide removes doorway; continuity write surfaces on projection', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    const siteId = created.siteId!
+    const tools = buildPersonalInternetToolSet()
+    const hide = await tools.pi_home_regions_patch.execute!(
+      {
+        hideSiteId: siteId,
+        continuity: [
+          {
+            id: 'today-1',
+            title: 'Follow up',
+            body: 'Email Acme recruiter',
+            route: `#/pi/sites/${siteId}`,
+          },
+        ],
+      },
+      { toolCallId: 't', messages: [] },
+    )
+    expect((hide as { isError?: boolean }).isError).toBeFalsy()
+
+    const pi = await buildPiHomeProjection()
+    expect(pi.doorways.find((d) => d.siteId === siteId)).toBeUndefined()
+    expect(pi.continuity.some((c) => c.id === 'today-1')).toBe(true)
+    expect(pi.libraryCount).toBe(1)
   })
 })

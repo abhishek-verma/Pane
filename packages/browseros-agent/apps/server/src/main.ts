@@ -24,7 +24,6 @@ import type { ServerConfig } from './config'
 import { startBatteryIngestMonitor } from './context/battery'
 import { subscribeTerminalIngest } from './context/subscribe-terminal'
 import { INLINED_ENV } from './env'
-import { PROPOSAL_INTERVAL_MS, runProposalJob } from './home/proposal-job'
 import {
   configureClaudeRuntime,
   configureCodexRuntime,
@@ -264,25 +263,6 @@ export class Application {
     }).catch((err: unknown) => {
       logger.warn('Builtin skills seed failed', { err: String(err) })
     })
-
-    // Home proposal job — initial run 10 minutes after startup, then every 24h
-    setTimeout(
-      () => {
-        void forEachKnownProfile(async () => {
-          await runProposalJob()
-        }).catch((err: unknown) => {
-          logger.warn('Home proposal job startup error', { err })
-        })
-      },
-      10 * 60 * 1000,
-    )
-    setInterval(() => {
-      void forEachKnownProfile(async () => {
-        await runProposalJob()
-      }).catch((err: unknown) => {
-        logger.warn('Home proposal job error', { err })
-      })
-    }, PROPOSAL_INTERVAL_MS)
 
     // Personalised Internet refresh bus + temp sweeper
     wireRefreshBus()

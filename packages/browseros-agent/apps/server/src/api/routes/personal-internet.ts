@@ -13,7 +13,6 @@ import {
 } from '../../personal-internet/refresh/bus'
 import { drainRefreshJobs } from '../../personal-internet/refresh/runner'
 import {
-  deletePage,
   deleteTemp,
   getPage,
   getPulse,
@@ -176,8 +175,12 @@ export function createPersonalInternetRoutes() {
       }
       const pageId = c.req.param('pageId')
       if (!getPage(pageId)) return c.json({ error: 'not found' }, 404)
-      await deletePage(pageId)
-      return c.json({ deleted: true, pageId })
+      try {
+        const result = await applyPiMutation({ type: 'delete-page', pageId })
+        return c.json({ deleted: true, ...result })
+      } catch (e) {
+        return c.json({ error: String(e) }, 400)
+      }
     })
     .get('/temps/:tempId', async (c) => {
       const tempId = c.req.param('tempId')

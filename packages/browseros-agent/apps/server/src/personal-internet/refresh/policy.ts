@@ -74,6 +74,17 @@ export function homePolicy(): PiRefreshPolicy {
 }
 
 /**
+ * Host filter match: exact host or subdomain of the filter (e.g. www.linkedin.com
+ * matches linkedin.com). Rejects substring tricks like linkedin.com.evil.com.
+ */
+export function hostMatchesFilter(host: string, filter: string): boolean {
+  const h = host.trim().toLowerCase().replace(/\.$/, '')
+  const f = filter.trim().toLowerCase().replace(/\.$/, '')
+  if (!h || !f) return false
+  return h === f || h.endsWith(`.${f}`)
+}
+
+/**
  * Returns the refresh kinds a trigger fires under a policy. A trigger with a
  * `filter` (e.g. `host-opened: linkedin.com`) only matches when the event's
  * `filterValue` satisfies the filter, so one host open does not thrash every
@@ -88,7 +99,9 @@ export function matchTriggers(
   for (const trigger of policy.triggers) {
     if (trigger.name !== triggerName) continue
     if (trigger.filter) {
-      if (!filterValue || !filterValue.includes(trigger.filter)) continue
+      if (!filterValue || !hostMatchesFilter(filterValue, trigger.filter)) {
+        continue
+      }
     }
     kinds.push(trigger.kind)
   }

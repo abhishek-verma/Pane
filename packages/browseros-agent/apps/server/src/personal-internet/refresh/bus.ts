@@ -90,12 +90,18 @@ export function enqueueRefresh(input: EnqueueRefreshInput): PiRefreshJob {
   const coalesceKey = coalesceKeyFor(input)
   const existing = sqlite()
     .prepare(
-      `SELECT * FROM pi_refresh_jobs WHERE coalesce_key = ? AND status = 'pending' LIMIT 1`,
+      `SELECT * FROM pi_refresh_jobs
+       WHERE coalesce_key = ? AND status IN ('pending', 'running')
+       LIMIT 1`,
     )
     .get(coalesceKey) as Record<string, unknown> | null
 
   if (existing) {
     const job = rowToJob(existing)
+    if (job.status === 'running') {
+      // Already in flight for this target+kind — do not enqueue a duplicate.
+      return job
+    }
     const nextPri = triggerPriority(triggerName, input.kind)
     const curPri = triggerPriority(job.triggerName, job.kind)
     if (nextPri < curPri) {
@@ -258,17 +264,29 @@ export function handleRefreshTrigger(input: {
 }
 
 /** Host-opened harvest path (kind C gated by harvestEnabled). */
+const HOST_OPENED_COOLDOWN_MS = 30_000
+const lastHostOpenedAt = new Map<string, number>()
+
 export function handleHostOpened(host: string): PiRefreshJob[] {
+  const normalized = host
+    .trim()
+    .toLowerCase()
+    .replace(/^www\./, '')
+  if (!normalized) return []
+  const nowMs = Date.now()
+  const last = lastHostOpenedAt.get(normalized) ?? 0
+  if (nowMs - last < HOST_OPENED_COOLDOWN_MS) return []
+  lastHostOpenedAt.set(normalized, nowMs)
   return dispatchTrigger({
     triggerName: 'host-opened',
-    filterValue: host,
+    filterValue: normalized,
     skipHome: true,
   })
 }
 
-/** Test helper — no-op for v1 (coalesce is SQLite pending-only). */
+/** Test helper — clear in-memory cooldowns. */
 export function clearRefreshCoalesceState(): void {
-  /* reserved for cooldown map */
+  lastHostOpenedAt.clear()
 }
 
 let hookInstalled = false

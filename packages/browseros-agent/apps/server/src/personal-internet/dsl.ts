@@ -4,6 +4,11 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import {
+  PI_MAX_CHART_POINTS,
+  PI_MAX_MERMAID_CHARS,
+  sanitizePiSvg,
+} from './sanitize-svg'
 import type { PiAction, PiNode, PiPageDoc, PiPatchOp, TableRow } from './types'
 
 const MAX_DOC_BYTES = 512 * 1024
@@ -113,6 +118,62 @@ function validateNode(node: PiNode, path: string): void {
         }
       }
       return
+    case 'chart': {
+      const allowed = ['bar', 'line', 'pie', 'horizontal-bar'] as const
+      if (!allowed.includes(node.chartType)) {
+        throw new PiDslError(`${path}: invalid chartType`)
+      }
+      if (node.title) assertSafeText(node.title, path)
+      if (node.unit) assertSafeText(node.unit, path)
+      if (!Array.isArray(node.data) || node.data.length === 0) {
+        throw new PiDslError(`${path}: chart data required`)
+      }
+      if (node.data.length > PI_MAX_CHART_POINTS) {
+        throw new PiDslError(
+          `${path}: chart data exceeds ${PI_MAX_CHART_POINTS} points`,
+        )
+      }
+      for (const [i, point] of node.data.entries()) {
+        if (!point || typeof point.label !== 'string') {
+          throw new PiDslError(`${path}.data[${i}]: label required`)
+        }
+        assertSafeText(point.label, `${path}.data[${i}]`)
+        if (typeof point.value !== 'number' || !Number.isFinite(point.value)) {
+          throw new PiDslError(
+            `${path}.data[${i}]: value must be finite number`,
+          )
+        }
+      }
+      return
+    }
+    case 'mermaid': {
+      if (typeof node.source !== 'string' || !node.source.trim()) {
+        throw new PiDslError(`${path}: mermaid source required`)
+      }
+      if (node.source.length > PI_MAX_MERMAID_CHARS) {
+        throw new PiDslError(
+          `${path}: mermaid exceeds ${PI_MAX_MERMAID_CHARS} chars`,
+        )
+      }
+      assertSafeText(node.source, path)
+      if (node.title) assertSafeText(node.title, path)
+      // Block HTML/script smuggling inside mermaid text
+      if (/<svg|<script|javascript:/i.test(node.source)) {
+        throw new PiDslError(`${path}: unsafe mermaid source`)
+      }
+      return
+    }
+    case 'svg': {
+      if (node.title) assertSafeText(node.title, path)
+      if (node.alt) assertSafeText(node.alt, path)
+      try {
+        // Mutate cleaned markup onto the node so persisted docs are sanitized.
+        ;(node as { markup: string }).markup = sanitizePiSvg(node.markup, path)
+      } catch (e) {
+        throw new PiDslError(e instanceof Error ? e.message : String(e))
+      }
+      return
+    }
     default:
       throw new PiDslError(`${path}: unknown node type`)
   }

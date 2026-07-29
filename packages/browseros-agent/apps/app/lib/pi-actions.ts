@@ -52,10 +52,11 @@ export async function invokePiActionApi(action: PiAction): Promise<{
     return { mode: 'done' }
   }
   const base = await getAgentServerUrl()
+  // Route expects the action fields at the top level (not wrapped).
   const res = await agentFetch(`${base}/pi/actions/invoke`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action }),
+    body: JSON.stringify(action),
   })
   if (!res.ok) {
     await executePiAction(action)

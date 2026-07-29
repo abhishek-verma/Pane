@@ -56,6 +56,24 @@ export type PiNode =
         actions?: PiAction[]
       }>
     }
+  | {
+      type: 'chart'
+      chartType: 'bar' | 'line' | 'pie' | 'horizontal-bar'
+      title?: string
+      unit?: string
+      data: Array<{ label: string; value: number }>
+    }
+  | {
+      type: 'mermaid'
+      source: string
+      title?: string
+    }
+  | {
+      type: 'svg'
+      markup: string
+      title?: string
+      alt?: string
+    }
 
 export type PiPageDoc = {
   version: 1

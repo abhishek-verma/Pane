@@ -18,10 +18,17 @@ import {
   listSites,
   listTemps,
   readHomePrefs,
+  readHomeRegions,
   readPageDoc,
+  writeHomeContinuity,
   writeHomePrefs,
 } from './store'
-import type { PiPageDoc, PiPatchOp, PiTemplateId } from './types'
+import type {
+  PiContinuityBlock,
+  PiPageDoc,
+  PiPatchOp,
+  PiTemplateId,
+} from './types'
 import { applyPiMutation, preserveTemp } from './write-path'
 
 const templateIdSchema = z.enum(['job-search', 'research-hub', 'sales-leads'])
@@ -143,7 +150,7 @@ export function buildPersonalInternetToolSet(
 
     pi_site_upsert: tool({
       description:
-        'Create or upsert a durable Personalised Internet site. Prefer templateId job-search | research-hub | sales-leads. Returns siteId, pageId, route — tell the user the #/pi/... link.',
+        'Create or upsert a durable Personalised Internet site. Prefer templateId job-search | research-hub | sales-leads (seeds board/table). Load skill "pi-sites" for lifecycle; for freeform pages after, "pi-page-dsl" / "pi-page-patch". Returns siteId, pageId, route — tell the user the #/pi/... link.',
       inputSchema: z.object({
         templateId: templateIdSchema.optional(),
         name: z.string().optional(),
@@ -174,7 +181,7 @@ export function buildPersonalInternetToolSet(
 
     pi_page_create: tool({
       description:
-        'Create a page. mode=temp for one-shot visual answers (ephemeral); mode=durable for living site pages (requires siteId). Returns route (#/pi/... or #/pi/temp/...).',
+        'Create a Personalised Internet page as structured DSL JSON (not HTML). mode=temp for one-shot visuals; mode=durable needs siteId. doc={version:1,title,nodes:PiNode[]}. Load "pi-page-dsl"; for chart/mermaid/svg load "pi-page-viz". Returns #/pi/... route.',
       inputSchema: z.object({
         mode: z.enum(['durable', 'temp']),
         siteId: z.string().optional(),
@@ -208,7 +215,7 @@ export function buildPersonalInternetToolSet(
 
     pi_page_patch: tool({
       description:
-        'Patch an existing page via ops (setTitle, replaceNodes, upsertTableRow, setCell, upsertBoardCard, moveBoardCard, bindRecord).',
+        'Patch a page: setTitle, replaceNodes, upsertTableRow, setCell, upsertBoardCard, moveBoardCard, bindRecord. Table row/cell ops hit the first table only — use replaceNodes for multi-table. Load skill "pi-page-patch" for full op shapes.',
       inputSchema: z.object({
         pageId: z.string().min(1),
         ops: z.array(z.record(z.unknown())).min(1),
@@ -236,11 +243,13 @@ export function buildPersonalInternetToolSet(
       execute: async ({ pageId, confirm }) => {
         if (!confirm) return err('confirm must be true')
         try {
-          const { deletePage } = await import('./store')
           const page = getPage(pageId)
           if (!page) return err(`page not found: ${pageId}`)
-          await deletePage(pageId)
-          return ok({ deleted: true, pageId, siteId: page.siteId })
+          const result = await applyPiMutation({
+            type: 'delete-page',
+            pageId,
+          })
+          return ok({ deleted: true, ...result })
         } catch (e) {
           return err(String(e))
         }
@@ -298,12 +307,25 @@ export function buildPersonalInternetToolSet(
 
     pi_home_regions_patch: tool({
       description:
-        'Patch home doorway prefs (hide/pin site ids). Does not touch Adaptive Home widgets.',
+        'Patch Personalised Internet home regions: hide/pin doorways and/or set Today continuity blocks. Load skill "pi-home" for when to use. Pass continuity=[] to clear custom Today and fall back to pulse urgencies.',
       inputSchema: z.object({
         hideSiteId: z.string().optional(),
         unhideSiteId: z.string().optional(),
         pinSiteId: z.string().optional(),
         unpinSiteId: z.string().optional(),
+        continuity: z
+          .array(
+            z.object({
+              id: z.string().min(1),
+              title: z.string().min(1),
+              body: z.string().min(1),
+              route: z.string().optional(),
+              agentQuery: z.string().optional(),
+              metadata: z.record(z.unknown()).optional(),
+            }),
+          )
+          .max(5)
+          .optional(),
       }),
       execute: async (input) => {
         try {
@@ -314,12 +336,26 @@ export function buildPersonalInternetToolSet(
           if (input.unhideSiteId) hidden.delete(input.unhideSiteId)
           if (input.pinSiteId) pinned.add(input.pinSiteId)
           if (input.unpinSiteId) pinned.delete(input.unpinSiteId)
-          const next = {
+          const nextPrefs = {
             hiddenSiteIds: [...hidden],
             pinnedSiteIds: [...pinned],
           }
-          await writeHomePrefs(next)
-          return ok({ prefs: next })
+          await writeHomePrefs(nextPrefs)
+
+          let continuity: PiContinuityBlock[] | undefined
+          if (input.continuity !== undefined) {
+            const regions = await writeHomeContinuity(
+              input.continuity as PiContinuityBlock[],
+            )
+            continuity = regions.continuity
+          } else {
+            continuity = (await readHomeRegions()).continuity
+          }
+
+          return ok({
+            prefs: nextPrefs,
+            continuity,
+          })
         } catch (e) {
           return err(String(e))
         }

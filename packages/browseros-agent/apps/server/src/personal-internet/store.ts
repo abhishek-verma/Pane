@@ -15,8 +15,20 @@ import type {
 } from '../lib/db/schema/personal-internet'
 import { validatePageDoc } from './dsl'
 import { removePiIndex, removePiSiteIndex } from './index-pi'
-import { homePrefsFile, pageFile, siteManifestFile, tempFile } from './paths'
-import type { PiPageDoc, PiPulse, PiRefreshPolicy, PiSiteStatus } from './types'
+import {
+  homePrefsFile,
+  homeRegionsFile,
+  pageFile,
+  siteManifestFile,
+  tempFile,
+} from './paths'
+import type {
+  PiContinuityBlock,
+  PiPageDoc,
+  PiPulse,
+  PiRefreshPolicy,
+  PiSiteStatus,
+} from './types'
 
 function sqlite() {
   return getDbHandle().sqlite
@@ -460,6 +472,49 @@ export async function writeHomePrefs(prefs: HomePrefs): Promise<void> {
   const path = homePrefsFile()
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, JSON.stringify(prefs, null, 2), 'utf-8')
+}
+
+export type HomeRegionsFile = {
+  continuity: PiContinuityBlock[]
+}
+
+export async function readHomeRegions(): Promise<HomeRegionsFile> {
+  try {
+    const raw = await readFile(homeRegionsFile(), 'utf-8')
+    const parsed = JSON.parse(raw) as { continuity?: PiContinuityBlock[] }
+    const continuity = Array.isArray(parsed.continuity)
+      ? parsed.continuity.filter(
+          (c) =>
+            c &&
+            typeof c.id === 'string' &&
+            typeof c.title === 'string' &&
+            typeof c.body === 'string',
+        )
+      : []
+    return { continuity }
+  } catch {
+    return { continuity: [] }
+  }
+}
+
+/** Replace continuity blocks on home (max 5). Empty array clears custom continuity. */
+export async function writeHomeContinuity(
+  continuity: PiContinuityBlock[],
+): Promise<HomeRegionsFile> {
+  const next: HomeRegionsFile = {
+    continuity: continuity.slice(0, 5).map((c) => ({
+      id: c.id,
+      title: c.title,
+      body: c.body,
+      ...(c.route ? { route: c.route } : {}),
+      ...(c.agentQuery ? { agentQuery: c.agentQuery } : {}),
+      ...(c.metadata ? { metadata: c.metadata } : {}),
+    })),
+  }
+  const path = homeRegionsFile()
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, JSON.stringify(next, null, 2), 'utf-8')
+  return next
 }
 
 export type PiRefreshJobRow = {

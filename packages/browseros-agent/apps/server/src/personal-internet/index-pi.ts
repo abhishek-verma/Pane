@@ -47,6 +47,18 @@ function extractNodeText(node: PiNode): string {
       return node.cards
         .map((c) => [c.title, c.subtitle ?? ''].join(' '))
         .join(' ')
+    case 'chart':
+      return [
+        node.title ?? '',
+        node.unit ?? '',
+        ...node.data.map((d) => d.label),
+      ]
+        .filter(Boolean)
+        .join(' ')
+    case 'mermaid':
+      return [node.title ?? '', node.source].filter(Boolean).join(' ')
+    case 'svg':
+      return [node.title ?? '', node.alt ?? ''].filter(Boolean).join(' ')
     default:
       return ''
   }

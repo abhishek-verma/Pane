@@ -154,9 +154,7 @@ Pane records consented Meet/Zoom/Teams (and similar) calls locally:
 - \`context_current_work\` → what's open / recent (tabs, pages, meetings, files, terminal, runs)
 - \`memory_add\` / \`memory_replace\` / \`memory_remove\` → durable short facts
 - \`tasks_list\` / \`tasks_add\` / \`tasks_done\` → local task inbox
-- \`home_widget_list\` / \`home_widget_propose\` / \`home_widget_add\` / \`home_widget_remove\` → new-tab home widgets (propose then confirm)
-- \`pi_list\` / \`pi_read\` / \`pi_pulse_get\` → Personalised Internet sites and pages (read)
-- \`pi_site_upsert\` / \`pi_page_create\` / \`pi_page_patch\` / \`pi_page_delete\` / \`pi_site_archive\` / \`pi_preserve_temp\` / \`pi_home_regions_patch\` → living personal sites (mutate via write path). After create, tell the user the \`#/pi/...\` route from the tool result
+- \`pi_list\` / \`pi_read\` / \`pi_pulse_get\` / \`pi_site_upsert\` / \`pi_page_*\` / \`pi_preserve_temp\` / \`pi_home_regions_patch\` → Personalised Internet sites & home doorways (not freeform HTML). After create, tell the user the \`#/pi/...\` route. Load focused skills as needed: \`pi-sites\`, \`pi-page-dsl\`, \`pi-page-viz\` (chart/mermaid/svg), \`pi-page-patch\`, \`pi-home\`
 - \`skills_list\` / \`skills_load\` → load workflow skills when the index matches the task`
 
   if (hasWorkspace) {
@@ -243,8 +241,11 @@ function getToolDispatch(
 | Visual proof | \`screenshot\` | — | — |
 ${navRow}${workspaceRows}| Group browser tabs | \`tab_groups\` | — | Page ids from \`tabs\` |
 | Scheduling / automation nudge | \`suggest_schedule\` | — | **LAST**, after task done |
-| Living pipeline / personal site / visual page | \`pi_list\` → \`pi_site_upsert\` / \`pi_page_create\` (temp\\|durable) | \`pi_read\` | Prefer templateId for Job Search / Research / Sales |
-| Show structured one-shot (comparison, list) | \`pi_page_create\` mode=temp | — | Preserve later via \`pi_preserve_temp\` if user keeps it |
+| Living pipeline / personal site | \`skills_load\` pi-sites → \`pi_list\` → \`pi_site_upsert\` (templateId) | \`pi_read\` | Prefer templates; freeform body → also load \`pi-page-dsl\` |
+| Show structured one-shot (comparison, list) | \`skills_load\` pi-page-dsl → \`pi_page_create\` mode=temp | — | Preserve later via \`pi_preserve_temp\` / \`pi-sites\` |
+| Chart / Mermaid / custom SVG on a PI page | \`skills_load\` pi-page-viz → \`pi_page_create\` / \`pi_page_patch\` | — | Prefer \`chart\` data over freeform \`svg\` |
+| Update existing PI page (rows/cards) | \`skills_load\` pi-page-patch → \`pi_page_patch\` | \`pi_read\` | \`replaceNodes\` if multiple tables |
+| PI home doorways / Today continuity | \`skills_load\` pi-home → \`pi_home_regions_patch\` | — | P0 sites auto-doorway; never rebuild pipelines on home |
 
 ### Interaction preferences
 - Prefer \`act\` with refs over coordinate actions. Use coordinates only when ref absent from snapshot.
@@ -648,7 +649,7 @@ function getMemoryAndSkillsGuidance(
     body += `
 ### 2. Read-only chat mode
 - You can recall and search memory/context, but you cannot add, replace, or remove memories in this mode.
-- You cannot install skills, mutate tasks/home widgets, or start/stop captures.
+- You cannot install skills, mutate tasks or PI sites, or start/stop captures.
 `
   }
 

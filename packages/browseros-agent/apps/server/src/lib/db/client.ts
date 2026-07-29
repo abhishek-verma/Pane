@@ -392,6 +392,11 @@ export const currentMigrationHistory = [
     hash: 'd4e5f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde01234',
     createdAt: 1786000000000,
   },
+  {
+    tag: '0016_drop_home_widgets',
+    hash: 'e5f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde012345',
+    createdAt: 1786100000000,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -864,37 +869,6 @@ const currentSchemaStatements = [
   `
     CREATE INDEX IF NOT EXISTS research_thread_pages_order_idx
     ON research_thread_pages (thread_id, order_index)
-  `,
-  `
-    CREATE TABLE IF NOT EXISTS home_widgets (
-      id text PRIMARY KEY NOT NULL,
-      title text NOT NULL,
-      source_type text NOT NULL,
-      source_query text,
-      source_template_id text,
-      source_bucket_id text,
-      action_type text NOT NULL,
-      action_target text NOT NULL,
-      refresh_minutes integer DEFAULT 5 NOT NULL,
-      created_by text NOT NULL,
-      status text DEFAULT 'active' NOT NULL,
-      show_count integer DEFAULT 0 NOT NULL,
-      last_action_at integer,
-      why_text text DEFAULT '' NOT NULL,
-      created_at integer NOT NULL,
-      updated_at integer NOT NULL
-    )
-  `,
-  `
-    CREATE INDEX IF NOT EXISTS home_widgets_status_idx
-    ON home_widgets (status)
-  `,
-  `
-    CREATE TABLE IF NOT EXISTS home_widget_cache (
-      widget_id text PRIMARY KEY NOT NULL,
-      data_json text NOT NULL,
-      expires_at integer NOT NULL
-    )
   `,
   `
     CREATE VIRTUAL TABLE IF NOT EXISTS memory_index USING fts5(

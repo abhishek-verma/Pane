@@ -154,4 +154,16 @@ describe('pi refresh bus', () => {
       true,
     )
   })
+
+  it('host filter matches exact/subdomain, not substring spoof', async () => {
+    const { hostMatchesFilter } = await import(
+      '../../src/personal-internet/refresh/policy'
+    )
+    expect(hostMatchesFilter('linkedin.com', 'linkedin.com')).toBe(true)
+    expect(hostMatchesFilter('www.linkedin.com', 'linkedin.com')).toBe(true)
+    expect(hostMatchesFilter('linkedin.com.evil.com', 'linkedin.com')).toBe(
+      false,
+    )
+    expect(hostMatchesFilter('notlinkedin.com', 'linkedin.com')).toBe(false)
+  })
 })

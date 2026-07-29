@@ -85,6 +85,27 @@ export type PiNode =
         actions?: PiAction[]
       }>
     }
+  /** Structured chart — renderer draws SVG from data (prefer over freeform svg). */
+  | {
+      type: 'chart'
+      chartType: 'bar' | 'line' | 'pie' | 'horizontal-bar'
+      title?: string
+      unit?: string
+      data: Array<{ label: string; value: number }>
+    }
+  /** Mermaid diagram source — rendered client-side. */
+  | {
+      type: 'mermaid'
+      source: string
+      title?: string
+    }
+  /** Sanitized inline SVG markup for custom visuals. */
+  | {
+      type: 'svg'
+      markup: string
+      title?: string
+      alt?: string
+    }
 
 export type PiPageDoc = {
   version: 1

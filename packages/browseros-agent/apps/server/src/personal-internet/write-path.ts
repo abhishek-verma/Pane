@@ -13,6 +13,7 @@ import { recomputePulse } from './pulse'
 import {
   archiveSite,
   createTemp,
+  deletePage,
   getPage,
   getSite,
   getSiteBySlug,
@@ -65,6 +66,10 @@ export type ApplyPiMutationInput =
       type: 'archive-site'
       siteId: string
     }
+  | {
+      type: 'delete-page'
+      pageId: string
+    }
 
 export type ApplyPiMutationResult = {
   siteId?: string
@@ -95,12 +100,16 @@ export async function applyPiMutation(
       const existing = getSiteBySlug(slug)
       const site = await upsertSite({
         id: existing?.id,
-        name: input.name ?? template?.name ?? 'Personal site',
+        name: input.name ?? template?.name ?? existing?.name ?? 'Personal site',
         slug,
-        jtbd: input.jtbd ?? template?.jtbd ?? '',
+        jtbd: input.jtbd ?? template?.jtbd ?? existing?.jtbd ?? '',
         templateId: input.templateId ?? existing?.templateId,
-        harvestEnabled: input.harvestEnabled ?? false,
-        harvestHost: template?.harvestHost ?? null,
+        // Only override harvest when the caller explicitly sets it — omit
+        // otherwise so store keeps the existing site's harvest settings.
+        ...(input.harvestEnabled !== undefined
+          ? { harvestEnabled: input.harvestEnabled }
+          : {}),
+        ...(template ? { harvestHost: template.harvestHost ?? null } : {}),
         doorwayEligible: shouldAutoDoorway(
           input.templateId ?? existing?.templateId,
         ),
@@ -189,7 +198,26 @@ export async function applyPiMutation(
       if (!page) throw new Error(`page not found: ${input.pageId}`)
       const doc = await readPageDoc(input.pageId)
       if (!doc) throw new Error(`page doc missing: ${input.pageId}`)
-      const next = applyPatchOps(doc, input.ops)
+
+      // bindRecord ops update SQLite records; remaining ops patch the doc.
+      const bindOps = input.ops.filter((op) => op.op === 'bindRecord')
+      const docOps = input.ops.filter((op) => op.op !== 'bindRecord')
+      for (const op of bindOps) {
+        if (op.op !== 'bindRecord') continue
+        if (!page.siteId) {
+          throw new Error('bindRecord requires a durable (site-attached) page')
+        }
+        const record = upsertRecord({
+          id: op.recordId,
+          siteId: page.siteId,
+          type: 'bound',
+          data: op.data,
+        })
+        indexPiRecord(record.id, page.siteId, record.bucketId, 'bound', op.data)
+      }
+
+      const next =
+        docOps.length > 0 ? applyPatchOps(doc, docOps) : validatePageDoc(doc)
       await writePageDoc(page.siteId, page.id, next, {
         kind: page.kind,
         filePath: page.filePath,
@@ -270,6 +298,20 @@ export async function applyPiMutation(
       emitPiEvent('site-archived', { siteId: input.siteId })
       afterMutationHook?.(input.siteId)
       return { siteId: input.siteId }
+    }
+
+    case 'delete-page': {
+      const page = getPage(input.pageId)
+      if (!page) throw new Error(`page not found: ${input.pageId}`)
+      const siteId = page.siteId ?? undefined
+      await deletePage(input.pageId)
+      if (siteId) {
+        recomputePulse(siteId)
+        emitPiEvent('entity-mutated', { siteId, pageId: input.pageId })
+        emitPiEvent('site-updated', { siteId })
+        afterMutationHook?.(siteId)
+      }
+      return { siteId, pageId: input.pageId }
     }
   }
 }

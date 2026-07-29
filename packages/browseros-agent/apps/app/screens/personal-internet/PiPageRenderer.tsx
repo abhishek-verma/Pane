@@ -8,6 +8,9 @@ import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { PiAction, PiNode, PiPageDoc } from './types'
+import { PiChartView } from './viz/PiChartView'
+import { PiMermaidView } from './viz/PiMermaidView'
+import { PiSvgView } from './viz/PiSvgView'
 
 const toneClass: Record<string, string> = {
   neutral: 'bg-muted text-muted-foreground',
@@ -54,6 +57,12 @@ function nodeKey(node: PiNode, path: string): string {
       return `${path}:table:${node.rows.map((r) => r.id).join(',')}`
     case 'board':
       return `${path}:board:${node.cards.map((c) => c.id).join(',')}`
+    case 'chart':
+      return `${path}:chart:${node.chartType}:${node.data.map((d) => d.label).join(',')}`
+    case 'mermaid':
+      return `${path}:mermaid:${(node.title ?? '').slice(0, 24)}:${node.source.length}`
+    case 'svg':
+      return `${path}:svg:${(node.title ?? node.alt ?? '').slice(0, 24)}:${node.markup.length}`
   }
 }
 
@@ -236,6 +245,12 @@ const PiNodeView: FC<{
           ))}
         </div>
       )
+    case 'chart':
+      return <PiChartView node={node} />
+    case 'mermaid':
+      return <PiMermaidView node={node} />
+    case 'svg':
+      return <PiSvgView node={node} />
     default:
       return null
   }
