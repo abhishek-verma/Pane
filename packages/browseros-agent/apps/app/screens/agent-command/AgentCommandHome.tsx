@@ -104,7 +104,11 @@ export const AgentCommandHome: FC = () => {
   const waitingForLlmCapabilities =
     selectedProvider?.kind === 'llm' && llmRoutingMode === 'wait'
 
-  const { data: homeData } = useQuery({
+  const {
+    data: homeData,
+    isLoading: homeLoading,
+    isError: homeError,
+  } = useQuery({
     queryKey: HOME_QUERY_KEY,
     queryFn: fetchHome,
     staleTime: 5_000,
@@ -223,7 +227,15 @@ export const AgentCommandHome: FC = () => {
         </div>
 
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-12">
-          {hasLivingWork ? (
+          {homeLoading ? (
+            <p className="text-center text-muted-foreground text-sm">
+              Loading your private web…
+            </p>
+          ) : homeError ? (
+            <p className="text-center text-destructive text-sm">
+              Could not load home. Check that the Pane agent server is running.
+            </p>
+          ) : hasLivingWork ? (
             <PiHomeRegions data={homeData?.pi} />
           ) : (
             <EmptyHomeState />

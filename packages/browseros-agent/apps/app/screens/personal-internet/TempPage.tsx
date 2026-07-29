@@ -65,6 +65,14 @@ export const TempPage: FC = () => {
                 const res = await piPost(`/pi/temps/${tempId}/preserve`, {
                   mode: 'standalone',
                 })
+                if (!res.ok) {
+                  const errBody = (await res.json().catch(() => null)) as {
+                    error?: string
+                  } | null
+                  throw new Error(
+                    errBody?.error ?? `Keep failed (${res.status})`,
+                  )
+                }
                 const data = (await res.json()) as {
                   route?: string
                   siteId?: string
@@ -74,6 +82,10 @@ export const TempPage: FC = () => {
                 else if (data.route?.startsWith('#/'))
                   navigate(data.route.slice(1))
                 else navigate('/pi/library')
+              } catch (e) {
+                window.alert(
+                  e instanceof Error ? e.message : 'Could not keep this page.',
+                )
               } finally {
                 setBusy(false)
               }

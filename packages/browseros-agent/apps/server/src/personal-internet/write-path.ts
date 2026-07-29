@@ -109,14 +109,17 @@ export async function applyPiMutation(
         ...(input.harvestEnabled !== undefined
           ? { harvestEnabled: input.harvestEnabled }
           : {}),
-        ...(template ? { harvestHost: template.harvestHost ?? null } : {}),
+        // Seed harvestHost from the template only on first create.
+        ...(template && !existing
+          ? { harvestHost: template.harvestHost ?? null }
+          : {}),
         doorwayEligible: shouldAutoDoorway(
           input.templateId ?? existing?.templateId,
         ),
         status: 'active',
       })
 
-      if (template) {
+      if (template && !existing) {
         upsertPolicy('site', site.id, template.policy)
       }
 

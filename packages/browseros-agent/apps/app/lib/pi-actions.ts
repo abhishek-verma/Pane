@@ -22,6 +22,8 @@ export async function executePiAction(action: PiAction): Promise<void> {
       await executeWidgetAction({ type: 'navigate', url: action.url })
       return
     case 'local':
+      // filter / expand are client presentation-only (renderer may handle later).
+      // dismiss is intentionally a no-op at the action layer for v1.
       if (action.op === 'copy' && typeof action.args?.text === 'string') {
         await executeWidgetAction({ type: 'copy', text: action.args.text })
       }
