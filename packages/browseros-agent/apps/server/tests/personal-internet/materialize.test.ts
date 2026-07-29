@@ -90,11 +90,16 @@ describe('pi materialize', () => {
     expect(row.prompt).toContain('Globex')
     expect(row.prompt).toContain(result.pageId)
 
-    // Second call while still stub should enqueue again only if materialize
-    // requested — ensureAndMaterialize always enqueues when stub.
+    // Remount / retry while pending must reuse the same run (no duplicates).
     const again = await ensureAndMaterialize(site.siteId!, 'globex')
     expect(again.pageId).toBe(result.pageId)
-    expect(again.runId).toBeTruthy()
+    expect(again.runId).toBe(result.runId)
+    const count = getDbHandle()
+      .sqlite.prepare(
+        `SELECT COUNT(*) AS n FROM scheduled_runs WHERE source = 'pi-materialize'`,
+      )
+      .get() as { n: number }
+    expect(count.n).toBe(1)
   })
 
   it('finalizeMaterializePageStatus stays refreshing while stub remains', async () => {

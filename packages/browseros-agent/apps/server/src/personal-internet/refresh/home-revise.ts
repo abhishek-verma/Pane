@@ -6,10 +6,6 @@
  * Kind D / home continuity revise — local merge (no LLM required for ship).
  */
 
-import {
-  continuityFromApprovals,
-  mergeContinuityBlocks,
-} from '../continuity-sources'
 import { buildPiHomeProjection } from '../home-projection'
 import { writeHomeContinuity } from '../store'
 import type { PiContinuityBlock } from '../types'
@@ -18,10 +14,10 @@ import type { PiContinuityBlock } from '../types'
 export async function reviseHomeContinuityLocal(): Promise<{
   blocks: PiContinuityBlock[]
 }> {
+  // Projection already merges live approvals and drops resolved approval-*
+  // ghosts from the persisted file.
   const projection = await buildPiHomeProjection()
-  // buildPiHomeProjection already merges approvals when wired; persist snapshot.
-  const fromApprovals = continuityFromApprovals()
-  const blocks = mergeContinuityBlocks(projection.continuity, fromApprovals, 5)
+  const blocks = projection.continuity.slice(0, 5)
   await writeHomeContinuity(blocks)
   return { blocks }
 }

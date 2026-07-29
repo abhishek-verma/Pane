@@ -17,7 +17,10 @@ import { buildPiHomeProjection } from '../../src/personal-internet/home-projecti
 import { reviseHomeContinuityLocal } from '../../src/personal-internet/refresh/home-revise'
 import { writeHomeContinuity } from '../../src/personal-internet/store'
 import { applyPiMutation } from '../../src/personal-internet/write-path'
-import { createPendingApproval } from '../../src/scheduler/approvals'
+import {
+  createPendingApproval,
+  resolveByToken,
+} from '../../src/scheduler/approvals'
 
 describe('pi continuity sources', () => {
   const dirs: string[] = []
@@ -82,5 +85,37 @@ describe('pi continuity sources', () => {
     ])
     const revised = await reviseHomeContinuityLocal()
     expect(revised.blocks.some((b) => b.id === 'custom')).toBe(true)
+  })
+
+  it('drops resolved approval blocks from persisted continuity', async () => {
+    setup()
+    const approval = createPendingApproval({
+      runId: 'run2',
+      conversationId: 'c1',
+      toolCallId: 'tc2',
+      toolName: 'navigate',
+      consequenceClass: 'write-external',
+      preview: 'Open example.com',
+    })
+    await writeHomeContinuity([
+      {
+        id: `approval-${approval.id}`,
+        title: 'Approval waiting',
+        body: 'stale ghost',
+        route: '#/settings/action-log',
+        metadata: {
+          kind: 'approval',
+          approveToken: approval.approveToken,
+          denyToken: approval.denyToken,
+        },
+      },
+      { id: 'custom', title: 'Custom', body: 'Keep me' },
+    ])
+    resolveByToken(approval.approveToken)
+    const projection = await buildPiHomeProjection()
+    expect(
+      projection.continuity.some((b) => b.id === `approval-${approval.id}`),
+    ).toBe(false)
+    expect(projection.continuity.some((b) => b.id === 'custom')).toBe(true)
   })
 })

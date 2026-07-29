@@ -93,6 +93,8 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
 async function loadContinuity(
   doorways: PiDoorway[],
 ): Promise<PiContinuityBlock[]> {
+  const liveApprovals = continuityFromApprovals()
+  const liveApprovalIds = new Set(liveApprovals.map((b) => b.id))
   const blocks: PiContinuityBlock[] = []
 
   try {
@@ -102,7 +104,13 @@ async function loadContinuity(
     }
     if (Array.isArray(parsed.continuity)) {
       for (const c of parsed.continuity.slice(0, 5)) {
-        if (c?.id && c?.title && c?.body) blocks.push(c)
+        if (!c?.id || !c?.title || !c?.body) continue
+        // Drop persisted approval cards once resolved (kind D rewrite used to
+        // leave ghost Approve/Deny tokens on home).
+        if (c.id.startsWith('approval-') && !liveApprovalIds.has(c.id)) {
+          continue
+        }
+        blocks.push(c)
       }
     }
   } catch {
@@ -124,7 +132,7 @@ async function loadContinuity(
     }
   }
 
-  return mergeContinuityBlocks(blocks, continuityFromApprovals(), 5)
+  return mergeContinuityBlocks(blocks, liveApprovals, 5)
 }
 
 /** Empty projection for error fallback — keeps /scheduler/home stable. */

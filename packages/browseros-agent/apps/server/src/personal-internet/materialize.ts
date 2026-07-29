@@ -8,6 +8,10 @@
 
 import { getDbHandle } from '../lib/db'
 import { logger } from '../lib/logger'
+import {
+  createRunRecord,
+  findRunByIdempotencyKey,
+} from '../scheduler/run-executor'
 import { entityRoute, pageRoute } from './paths'
 import {
   findRecordByEntityKey,
@@ -18,7 +22,6 @@ import {
   getPage,
   getSite,
   listPagesForSite,
-  newPiId,
   readPageDoc,
   upsertRecord,
 } from './store'
@@ -213,6 +216,14 @@ export function buildMaterializePrompt(input: {
   ].join('\n')
 }
 
+function isActiveRunStatus(status: string): boolean {
+  return (
+    status === 'pending' ||
+    status === 'running' ||
+    status === 'awaiting-approval'
+  )
+}
+
 /** Enqueue a scheduled_run that the extension drain will execute as an agent turn. */
 export function enqueueMaterializeRun(input: {
   siteId: string
@@ -222,30 +233,36 @@ export function enqueueMaterializeRun(input: {
   recordJson: string
   bucketId?: string
 }): string {
-  const id = newPiId('run')
-  const ts = Date.now()
+  const baseKey = `pi-materialize:${input.siteId}:${input.entityKey}:${input.pageId}`
   const prompt = buildMaterializePrompt(input)
-  sqlite()
-    .prepare(
-      `INSERT INTO scheduled_runs
-        (id, source, source_id, idempotency_key, prompt, bucket_id, status, completed_steps_json, created_at)
-       VALUES (?, 'pi-materialize', ?, ?, ?, ?, 'pending', '[]', ?)`,
-    )
-    .run(
-      id,
-      input.siteId,
-      `pi-materialize:${input.siteId}:${input.entityKey}:${input.pageId}`,
-      prompt,
-      input.bucketId ?? 'default',
-      ts,
-    )
+
+  const existing = findRunByIdempotencyKey(baseKey)
+  if (existing && isActiveRunStatus(existing.status)) {
+    return existing.id
+  }
+
+  // Terminal prior run: allow a fresh enqueue (Retry prep) with a new key.
+  // Active remounts reuse baseKey via createRunRecord idempotency.
+  const idempotencyKey =
+    existing && !isActiveRunStatus(existing.status)
+      ? `${baseKey}:r${Date.now()}`
+      : baseKey
+
+  const record = createRunRecord({
+    source: 'pi-materialize',
+    sourceId: input.siteId,
+    idempotencyKey,
+    prompt,
+    bucketId: input.bucketId ?? 'default',
+  })
   logger.info('pi materialize run enqueued', {
-    runId: id,
+    runId: record.id,
     siteId: input.siteId,
     pageId: input.pageId,
     entityKey: input.entityKey,
+    reused: existing?.id === record.id,
   })
-  return id
+  return record.id
 }
 
 export async function ensureAndMaterialize(
