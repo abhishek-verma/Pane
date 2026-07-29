@@ -181,18 +181,17 @@ export function completeScheduledRun(
   }
   if (outcome.status === 'completed') {
     if (existing.source === 'pi-harvest' && existing.sourceId) {
+      const harvestSiteId = existing.sourceId
       void import('../personal-internet/pulse')
         .then(({ recomputePulse }) => {
-          const pulse = recomputePulse(existing.sourceId!)
-          if (pulse) {
-            return import('../personal-internet/store').then(
-              ({ upsertPulse }) =>
-                upsertPulse(existing.sourceId!, {
-                  ...pulse,
-                  staleAt: null,
-                }),
-            )
-          }
+          const pulse = recomputePulse(harvestSiteId)
+          if (!pulse) return undefined
+          return import('../personal-internet/store').then(({ upsertPulse }) =>
+            upsertPulse(harvestSiteId, {
+              ...pulse,
+              staleAt: null,
+            }),
+          )
         })
         .catch(() => undefined)
     }
