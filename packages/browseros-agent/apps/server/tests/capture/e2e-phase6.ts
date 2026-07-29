@@ -20,7 +20,7 @@ import { setCapturePausedReason } from '../../src/capture/performance'
 import { setPauseOnBatteryPref } from '../../src/context/battery'
 import { buildContextToolSet } from '../../src/context/tools'
 import { closeDb, initializeDb } from '../../src/lib/db'
-import { loadHomeWidgets } from '../../src/scheduler/home'
+import { loadHome } from '../../src/scheduler/home'
 
 const SERVER = process.env.SERVER_URL ?? 'http://127.0.0.1:9716'
 const CDP = Number(process.env.CDP_PORT ?? '9076')
@@ -139,15 +139,12 @@ async function main() {
     searchText.includes('citation:') && searchText.includes('example.com'),
   )
 
-  const home = await loadHomeWidgets({ bucketId: 'default' })
+  const home = await loadHome()
   record(
-    'home next-meeting widget',
-    home.widgets.some((w) => w.type === 'next-meeting'),
+    'home pi projection present',
+    home.pi != null && Array.isArray(home.pi.doorways),
   )
-  record(
-    'home research-thread widget',
-    home.widgets.some((w) => w.type === 'research-thread'),
-  )
+  record('home has no widgets field', !('widgets' in home))
 
   // --- CDP: open example.com and start capture via API with real tab id ---
   const targets = (await fetch(`http://127.0.0.1:${CDP}/json/list`).then((r) =>

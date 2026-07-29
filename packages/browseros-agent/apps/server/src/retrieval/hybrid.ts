@@ -16,6 +16,7 @@ import { lookupResearchCitation } from '../capture/research-citations'
 import { getDeniedHosts } from '../context/grants'
 import { graphSearch } from '../context/repo'
 import { getDbHandle } from '../lib/db'
+import { searchPiFts } from '../personal-internet/index-pi'
 import { searchChatFts } from './chat-fts'
 import { chunkCount, searchChunks } from './chunks'
 import { createEmbedClient } from './embed-client'
@@ -90,6 +91,27 @@ function chatLexical(
   }))
 }
 
+function piLexical(
+  bucketId: string,
+  tokens: string[],
+  limit: number,
+): LexicalCandidate[] {
+  const match = toOrFtsMatchQuery(tokens)
+  if (!match) return []
+  return searchPiFts(bucketId, match, limit).map((h) => ({
+    id: h.id,
+    sourceId: h.id,
+    sourceKind:
+      h.sourceKind === 'pi_record'
+        ? ('pi_record' as const)
+        : ('pi_page' as const),
+    kind: h.sourceKind,
+    title: h.title,
+    uri: h.uri,
+    snippet: h.content.slice(0, 500),
+  }))
+}
+
 function pathLexical(
   workspaceRoot: string,
   tokens: string[],
@@ -157,6 +179,7 @@ export async function hybridSearch(
           ...graphLexical(bucketId, tokens, per, denied),
           ...memoryLexical(bucketId, tokens, per),
           ...chatLexical(bucketId, tokens, per),
+          ...piLexical(bucketId, tokens, per),
         ]
       },
       searchPaths: options.workspaceRoot

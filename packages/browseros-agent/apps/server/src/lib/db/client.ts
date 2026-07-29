@@ -387,6 +387,16 @@ export const currentMigrationHistory = [
     hash: 'c3d4e5f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde0123',
     createdAt: 1785600000000,
   },
+  {
+    tag: '0015_personal_internet',
+    hash: 'd4e5f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde01234',
+    createdAt: 1786000000000,
+  },
+  {
+    tag: '0016_drop_home_widgets',
+    hash: 'e5f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde012345',
+    createdAt: 1786100000000,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -861,37 +871,6 @@ const currentSchemaStatements = [
     ON research_thread_pages (thread_id, order_index)
   `,
   `
-    CREATE TABLE IF NOT EXISTS home_widgets (
-      id text PRIMARY KEY NOT NULL,
-      title text NOT NULL,
-      source_type text NOT NULL,
-      source_query text,
-      source_template_id text,
-      source_bucket_id text,
-      action_type text NOT NULL,
-      action_target text NOT NULL,
-      refresh_minutes integer DEFAULT 5 NOT NULL,
-      created_by text NOT NULL,
-      status text DEFAULT 'active' NOT NULL,
-      show_count integer DEFAULT 0 NOT NULL,
-      last_action_at integer,
-      why_text text DEFAULT '' NOT NULL,
-      created_at integer NOT NULL,
-      updated_at integer NOT NULL
-    )
-  `,
-  `
-    CREATE INDEX IF NOT EXISTS home_widgets_status_idx
-    ON home_widgets (status)
-  `,
-  `
-    CREATE TABLE IF NOT EXISTS home_widget_cache (
-      widget_id text PRIMARY KEY NOT NULL,
-      data_json text NOT NULL,
-      expires_at integer NOT NULL
-    )
-  `,
-  `
     CREATE VIRTUAL TABLE IF NOT EXISTS memory_index USING fts5(
       entry_id UNINDEXED,
       bucket_id UNINDEXED,
@@ -951,5 +930,130 @@ const currentSchemaStatements = [
   `
     CREATE INDEX IF NOT EXISTS embed_queue_status_created_idx
     ON embed_queue (status, created_at)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS pi_sites (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text DEFAULT 'default' NOT NULL,
+      name text NOT NULL,
+      slug text NOT NULL,
+      jtbd text DEFAULT '' NOT NULL,
+      status text DEFAULT 'active' NOT NULL,
+      template_id text,
+      harvest_enabled integer DEFAULT 0 NOT NULL,
+      harvest_host text,
+      doorway_eligible integer DEFAULT 0 NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL,
+      archived_at integer
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS pi_sites_status_idx ON pi_sites (status)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS pi_sites_slug_idx ON pi_sites (slug)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS pi_pages (
+      id text PRIMARY KEY NOT NULL,
+      site_id text,
+      bucket_id text DEFAULT 'default' NOT NULL,
+      kind text DEFAULT 'entity' NOT NULL,
+      title text NOT NULL,
+      status text DEFAULT 'active' NOT NULL,
+      file_path text NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS pi_pages_site_idx ON pi_pages (site_id)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS pi_pages_status_idx ON pi_pages (status)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS pi_records (
+      id text PRIMARY KEY NOT NULL,
+      site_id text NOT NULL,
+      bucket_id text DEFAULT 'default' NOT NULL,
+      type text NOT NULL,
+      data_json text NOT NULL,
+      version integer DEFAULT 1 NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS pi_records_site_idx ON pi_records (site_id)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS pi_pulses (
+      site_id text PRIMARY KEY NOT NULL,
+      pulse_json text NOT NULL,
+      stale_at integer,
+      updated_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS pi_refresh_policies (
+      id text PRIMARY KEY NOT NULL,
+      target_type text NOT NULL,
+      target_id text NOT NULL,
+      policy_json text NOT NULL,
+      updated_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS pi_refresh_policies_target_idx
+    ON pi_refresh_policies (target_type, target_id)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS pi_refresh_jobs (
+      id text PRIMARY KEY NOT NULL,
+      target_type text NOT NULL,
+      target_id text NOT NULL,
+      kind text NOT NULL,
+      trigger_name text NOT NULL,
+      coalesce_key text NOT NULL,
+      status text DEFAULT 'pending' NOT NULL,
+      error_text text,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS pi_refresh_jobs_status_idx ON pi_refresh_jobs (status)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS pi_refresh_jobs_coalesce_idx
+    ON pi_refresh_jobs (coalesce_key)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS pi_temps (
+      id text PRIMARY KEY NOT NULL,
+      bucket_id text DEFAULT 'default' NOT NULL,
+      title text NOT NULL,
+      file_path text NOT NULL,
+      status text DEFAULT 'active' NOT NULL,
+      expires_at integer NOT NULL,
+      created_at integer NOT NULL,
+      updated_at integer NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS pi_temps_status_idx ON pi_temps (status)
+  `,
+  `
+    CREATE VIRTUAL TABLE IF NOT EXISTS pi_index USING fts5(
+      entry_id UNINDEXED,
+      bucket_id UNINDEXED,
+      source_kind UNINDEXED,
+      site_id UNINDEXED,
+      uri UNINDEXED,
+      title,
+      content
+    )
   `,
 ]

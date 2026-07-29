@@ -125,14 +125,14 @@ const uniqueFeatures: Feature[] = [
     tag: 'ONLY IN PANE',
     title: 'A homepage that becomes yours',
     description:
-      'New tab is not a static link grid. Widgets for tasks, captures, skills, and digests — including ones Pane proposes from how you work.',
+      'New tab is the front door to your private web — composer plus doorways into living sites, not a static link grid.',
     detailedDescription:
-      'Pane’s home evolves with your rhythms. Built-in templates cover open tasks, pending approvals, next scheduled run, active research, and a daily digest. Create custom widgets in natural language. Accept or dismiss agent-proposed ones. Unused widgets demote themselves so the page stays calm. The same local context graph that powers memory and capture powers what shows up when you open a tab.',
+      'Pane’s home is the homepage of your Personalised Internet. Doorways surface Job Search, Research, and other living sites with a short pulse line. Today continuity points at the next action. Ask in the composer to create or reshape a site; depth stays on the site, not as a dashboard of cards.',
     highlights: [
-      'Widgets bound to tasks, capture, skills, and your graph',
-      'Agent-proposed widgets you can accept or dismiss',
-      'Create your own with a plain-language request',
-      'Demotes stale widgets so home stays useful',
+      'Composer stays on home for the next ask',
+      'Doorways into living sites with pulse lines',
+      'Today continuity for the next real action',
+      'Empty home offers site starters, not widget kits',
     ],
     gridClass: 'md:col-span-2',
     gifUrl: MORNING_BRIEFING_GIF_URL,

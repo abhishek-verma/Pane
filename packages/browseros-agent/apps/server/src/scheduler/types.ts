@@ -47,6 +47,7 @@ export type RunSource =
   | 'keepalive'
   | 'manual'
   | 'schedule'
+  | 'pi-harvest'
 
 export type RunStatus =
   | 'pending'

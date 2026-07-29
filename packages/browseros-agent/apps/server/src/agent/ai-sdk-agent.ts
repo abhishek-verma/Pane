@@ -23,11 +23,11 @@ import {
 import { buildCaptureToolSet } from '../capture/tools'
 import { buildContextToolSet, buildTasksToolSet } from '../context/tools'
 import { buildIngestGateHooks } from '../context/wire-ingest'
-import { buildHomeWidgetToolSet } from '../home/tools'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
 import { loadPromptMemorySnapshot } from '../memory/load-prompt'
 import { buildMemoryToolSet } from '../memory/tools'
+import { buildPersonalInternetToolSet } from '../personal-internet/tools'
 import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
 import { createReadTool } from '../tools/filesystem/read'
 import { defaultWorkspace } from '../tools/filesystem/workspace'
@@ -239,7 +239,9 @@ export class AiSdkAgent {
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
         () => gateCtx?.runId ?? config.resolvedConfig.conversationId,
       ),
-      ...buildHomeWidgetToolSet(),
+      ...buildPersonalInternetToolSet(
+        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
+      ),
     }
 
     if (

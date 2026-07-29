@@ -1,5 +1,7 @@
 # 15 — Adaptive Home (the new tab that knows your day)
 
+> **Reframe (2026-07):** Widget-grid Adaptive Home is the foundation that shipped; the intended end-state is home as the **evolving homepage of the Personalised Internet**. See [19 — Homescreen of the Personalised Internet](./19-homescreen-of-personal-internet.md) and [20 — Personalised Internet](./20-personalised-internet.md) (sites/pages). Keep this doc for what Phases 5–8 built; treat 19–20 as product direction when combining with personal sites.
+
 ## Summary
 
 The new tab is not a static homepage. It is the **visible surface where Pane's soul, memory, context graph, proactive work, and capture become something you feel**. Open a tab in the morning and see what actually matters: the meeting in twenty minutes with notes from last time, the three PRs still waiting, the research thread you left off yesterday, one-click actions for the report you run every Friday. The home **evolves** because Pane learns your rhythms — widgets, digests, and shortcuts rearrange themselves as your work changes.

@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 import { useQuery } from '@tanstack/react-query'
 import { type FC, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -17,10 +23,13 @@ import {
   resolveSidepanelChatTarget,
 } from '@/modules/chat/sidepanel-chat-targets'
 import { useLlmProviders } from '@/modules/llm-providers/llm-providers.hooks'
+import { EmptyHomeState } from '@/screens/newtab/home/EmptyHomeState'
 import {
-  AdaptiveHomeWidgets,
+  fetchHome,
+  HOME_QUERY_KEY,
   type HomeData,
-} from '@/screens/newtab/home/AdaptiveHomeWidgets'
+} from '@/screens/newtab/home/home-data'
+import { PiHomeRegions } from '@/screens/newtab/home/PiHomeRegions'
 import { useActiveHint } from '@/screens/newtab/index/active-hint.hooks'
 import { RecentSites } from '@/screens/newtab/index/RecentSites'
 import { ScheduleResults } from '@/screens/newtab/index/ScheduleResults'
@@ -34,8 +43,6 @@ import {
   routeHomeSend,
 } from './home-compose.helpers'
 import { setPendingInitialMessage } from './pending-initial-message'
-
-const HOME_KEY = ['scheduler', 'home'] as const
 
 const ContextualGreeting: FC<{ firstName: string | null }> = ({
   firstName,
@@ -64,38 +71,15 @@ const ContextualGreeting: FC<{ firstName: string | null }> = ({
   )
 }
 
-const ContextualSubtitle: FC<{ widgets: HomeData['widgets'] }> = ({
-  widgets,
-}) => {
-  const active = widgets.filter((w) => w.type !== 'recent-sites-fallback')
-  if (active.length === 0) {
-    return (
-      <>
-        Pick Pane AI or any agent, then start a task — all without leaving this
-        tab.
-      </>
-    )
+function homeSubtitle(pi: HomeData['pi']): string {
+  const doorways = pi?.doorways?.length ?? 0
+  if (doorways === 0) {
+    return 'Ask Pane to start living work — a job search, research hub, or anything you need to keep running.'
   }
-  const parts: string[] = []
-  const approvalWidget = active.find((w) => w.type === 'pending-approvals')
-  if (approvalWidget) {
-    const count = (approvalWidget.data.items as unknown[])?.length ?? 0
-    if (count > 0)
-      parts.push(`${count} action${count === 1 ? '' : 's'} waiting`)
+  if (doorways === 1) {
+    return 'One living site is ready below — open it, or ask Pane for the next move.'
   }
-  const meetingWidget = active.find((w) => w.type === 'next-meeting')
-  if (meetingWidget?.data.status === 'active') {
-    parts.push('meeting capture live')
-  }
-  if (parts.length === 0) {
-    return (
-      <>
-        You have {active.length} item{active.length === 1 ? '' : 's'} on your
-        home.
-      </>
-    )
-  }
-  return <>{parts.join(' and ')}.</>
+  return `${doorways} living sites below — pick one up, or ask Pane for the next move.`
 }
 
 export const AgentCommandHome: FC = () => {
@@ -120,10 +104,15 @@ export const AgentCommandHome: FC = () => {
   const waitingForLlmCapabilities =
     selectedProvider?.kind === 'llm' && llmRoutingMode === 'wait'
 
-  // Shares the same query key as AdaptiveHomeWidgets — React Query deduplicates the fetch.
-  const { data: homeData } = useQuery<HomeData>({
-    queryKey: HOME_KEY,
-    staleTime: 60_000,
+  const {
+    data: homeData,
+    isLoading: homeLoading,
+    isError: homeError,
+  } = useQuery({
+    queryKey: HOME_QUERY_KEY,
+    queryFn: fetchHome,
+    staleTime: 5_000,
+    refetchInterval: 20_000,
   })
 
   const targets = useMemo(
@@ -140,9 +129,6 @@ export const AgentCommandHome: FC = () => {
     [targets],
   )
 
-  // Default the picker to the user's default LLM provider (Pane out of the
-  // box) so the composer works with zero agents. Re-resolve if the current
-  // selection disappears (e.g. its provider/agent was removed).
   useEffect(() => {
     if (targets.length === 0) return
     const stillValid =
@@ -169,10 +155,6 @@ export const AgentCommandHome: FC = () => {
     if (!route) return
     if (route.kind === 'acp') {
       if (!agentSessionId) return
-      // Stash text + attachments in the in-memory registry. Text also travels
-      // in `?q=` so a hard refresh / shareable URL still works for text-only
-      // prompts; attachments are registry-only (a multi-MB dataUrl can't ride
-      // a URL param). The chat screen prefers the registry when both exist.
       setPendingInitialMessage({
         agentId: route.agentId,
         sessionId: agentSessionId,
@@ -204,6 +186,11 @@ export const AgentCommandHome: FC = () => {
     navigate(route.path)
   }
 
+  const hasLivingWork =
+    (homeData?.pi?.doorways.length ?? 0) > 0 ||
+    (homeData?.pi?.continuity.length ?? 0) > 0 ||
+    (homeData?.pi?.libraryCount ?? 0) > 0
+
   return (
     <div className="min-h-full px-4 py-6">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
@@ -213,7 +200,7 @@ export const AgentCommandHome: FC = () => {
               <ContextualGreeting firstName={homeData?.firstName ?? null} />
             </h1>
             <p className="mx-auto max-w-2xl text-muted-foreground text-sm leading-6 [text-wrap:pretty]">
-              <ContextualSubtitle widgets={homeData?.widgets ?? []} />
+              {homeSubtitle(homeData?.pi)}
             </p>
           </div>
 
@@ -240,7 +227,19 @@ export const AgentCommandHome: FC = () => {
         </div>
 
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-12">
-          <AdaptiveHomeWidgets />
+          {homeLoading ? (
+            <p className="text-center text-muted-foreground text-sm">
+              Loading your private web…
+            </p>
+          ) : homeError ? (
+            <p className="text-center text-destructive text-sm">
+              Could not load home. Check that the Pane agent server is running.
+            </p>
+          ) : hasLivingWork ? (
+            <PiHomeRegions data={homeData?.pi} />
+          ) : (
+            <EmptyHomeState />
+          )}
           <RecentSites />
           <ScheduleResults />
         </div>

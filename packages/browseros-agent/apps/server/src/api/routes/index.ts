@@ -28,6 +28,7 @@ import { createMcpManagerRoutes } from './mcp-manager'
 import { createMemoryRoutes } from './memory'
 import { createNudgeMcpRoute } from './nudge-mcp'
 import { createOAuthRoutes } from './oauth'
+import { createPersonalInternetRoutes } from './personal-internet'
 import { createProviderRoutes } from './provider'
 import { createReachRoutes } from './reach'
 import { createRefinePromptRoutes } from './refine-prompt'
@@ -65,6 +66,7 @@ const PROFILE_REQUIRED_PREFIXES = [
   '/mcp-manager',
   '/chat',
   '/agents',
+  '/pi',
 ] as const
 
 /** Composes the BrowserOS HTTP API from the existing route factories. */
@@ -103,6 +105,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
     .route('/capture', createCaptureRoutes())
     .route('/tasks', createTasksRoutes())
     .route('/memory', createMemoryRoutes())
+    .route('/pi', createPersonalInternetRoutes())
     .route('/scheduler', createSchedulerRoutes())
     .route('/reach', createReachRoutes())
     .route('/workspace', createWorkspaceRoutes())

@@ -308,7 +308,7 @@ When editing patch files:
 
 ## Extension not working in a freshly built browser
 
-If the new-tab page shows "Could not load home widgets" and the side panel doesn't load:
+If the new-tab page fails to load home (or the side panel doesn't load):
 
 **1. Agent server not running (most common)**
 

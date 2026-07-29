@@ -20,7 +20,7 @@ const stub = tool({
 })
 
 describe('chat mode tool allowlist', () => {
-  it('allows read capture/context/skills/home surfaces', () => {
+  it('allows read capture/context/skills/pi surfaces', () => {
     for (const name of [
       'capture_list',
       'capture_read',
@@ -30,8 +30,10 @@ describe('chat mode tool allowlist', () => {
       'tasks_list',
       'skills_list',
       'skills_load',
-      'home_widget_list',
       'filesystem_read',
+      'pi_list',
+      'pi_read',
+      'pi_pulse_get',
     ]) {
       expect(isChatModeToolAllowed(name)).toBe(true)
       expect(CHAT_MODE_ALLOWED_NON_BROWSER_TOOLS.has(name)).toBe(true)
@@ -45,9 +47,6 @@ describe('chat mode tool allowlist', () => {
       'memory_remove',
       'tasks_add',
       'tasks_done',
-      'home_widget_add',
-      'home_widget_remove',
-      'home_widget_propose',
       'skills_install',
       'skills_archive',
       'capture_start',
@@ -56,6 +55,10 @@ describe('chat mode tool allowlist', () => {
       'filesystem_bash',
       'filesystem_write',
       'act',
+      'pi_site_upsert',
+      'pi_page_create',
+      'pi_page_patch',
+      'pi_home_regions_patch',
     ]) {
       expect(isChatModeToolAllowed(name)).toBe(false)
     }

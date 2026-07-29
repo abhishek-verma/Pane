@@ -5,7 +5,6 @@ import {
   Brain,
   Compass,
   FolderKanban,
-  LayoutDashboard,
   MessageCircle,
   MessageSquare,
   Network,
@@ -67,7 +66,6 @@ const primarySettingsSections: NavSection[] = [
     label: 'General',
     items: [
       { name: 'Customize Pane', to: '/settings/customization', icon: Palette },
-      { name: 'Home widgets', to: '/settings/home', icon: LayoutDashboard },
       { name: 'About Pane', to: '/settings/about', icon: BookOpen },
     ],
   },

@@ -9,7 +9,6 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeDb, initializeDb } from '../../src/lib/db'
-import { seedPromptFilesIfMissing } from '../../src/memory/files'
 import {
   clearChannelOutcomes,
   createPendingApproval,
@@ -19,13 +18,6 @@ import {
   resolveByToken,
   signalApprovalResolved,
 } from '../../src/scheduler/approvals'
-import { runDailyDigest } from '../../src/scheduler/digest'
-import {
-  appendHomePrefLine,
-  loadHomeWidgets,
-  parseHomePrefs,
-  rankWidgets,
-} from '../../src/scheduler/home'
 import {
   appendCompletedStep,
   claimScheduledRun,
@@ -244,63 +236,5 @@ describe('idempotency (M5.6)', () => {
     })
     expect(reclaimStaleRunningRuns()).toBe(1)
     expect(getScheduledRun(run.id)?.status).toBe('pending')
-  })
-})
-
-describe('adaptive home data (M5.7)', () => {
-  const tempDirs: string[] = []
-
-  afterEach(() => {
-    closeDb()
-    for (const dir of tempDirs) {
-      rmSync(dir, { recursive: true, force: true })
-    }
-    tempDirs.length = 0
-  })
-
-  it('loads digest from file without LLM; day-1 fallback present', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'browseros-home-'))
-    tempDirs.push(dir)
-    const memoriesRoot = join(dir, 'memories')
-    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
-    await seedPromptFilesIfMissing(memoriesRoot)
-    await runDailyDigest({
-      memoriesRoot,
-      skipBatteryCheck: true,
-      skipQuietHours: true,
-      force: true,
-      notify: async () => {},
-    })
-
-    const { widgets } = await loadHomeWidgets({ memoriesRoot })
-    expect(widgets.some((w) => w.type === 'daily-digest')).toBe(true)
-    expect(widgets.some((w) => w.type === 'recent-sites-fallback')).toBe(true)
-    const digest = widgets.find((w) => w.type === 'daily-digest')
-    expect(String(digest?.data.content)).toContain('Daily digest')
-  })
-
-  it('dismiss preference appends to USER.md shape', () => {
-    const next = appendHomePrefLine('# User\n', 'dismiss', 'daily-digest')
-    expect(parseHomePrefs(next).dismissed).toContain('daily-digest')
-    const ranked = rankWidgets(
-      [
-        {
-          type: 'daily-digest',
-          title: 'd',
-          why: 'w',
-          rank: 1,
-          data: {},
-        },
-        {
-          type: 'recent-sites-fallback',
-          title: 'r',
-          why: 'w',
-          rank: 100,
-          data: {},
-        },
-      ],
-      parseHomePrefs(next),
-    )
-    expect(ranked.map((w) => w.type)).toEqual(['recent-sites-fallback'])
   })
 })

@@ -60,8 +60,9 @@ const READ_CONTEXT_TOOLS = new Set([
   'tasks_list',
   'skills_load',
   'skills_list',
-  'home_widget_list',
-  'home_widget_propose',
+  'pi_list',
+  'pi_read',
+  'pi_pulse_get',
 ])
 
 const WRITE_LOCAL_TASK_TOOLS = new Set([
@@ -74,8 +75,13 @@ const WRITE_LOCAL_TASK_TOOLS = new Set([
   'skills_archive',
   'capture_start',
   'capture_stop',
-  'home_widget_add',
-  'home_widget_remove',
+  'pi_site_upsert',
+  'pi_page_create',
+  'pi_page_patch',
+  'pi_page_delete',
+  'pi_site_archive',
+  'pi_preserve_temp',
+  'pi_home_regions_patch',
 ])
 
 const READ_CAPTURE_TOOLS = new Set([

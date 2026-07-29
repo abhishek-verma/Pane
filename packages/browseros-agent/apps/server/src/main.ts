@@ -24,7 +24,6 @@ import type { ServerConfig } from './config'
 import { startBatteryIngestMonitor } from './context/battery'
 import { subscribeTerminalIngest } from './context/subscribe-terminal'
 import { INLINED_ENV } from './env'
-import { PROPOSAL_INTERVAL_MS, runProposalJob } from './home/proposal-job'
 import {
   configureClaudeRuntime,
   configureCodexRuntime,
@@ -49,6 +48,12 @@ import { Sentry } from './lib/sentry'
 import { createUnavailableBrowser } from './lib/unavailable-browser'
 import { ensureBuiltinSkills } from './memory/builtin-skills'
 import { startMemoryReviewMonitor } from './memory/review-job'
+import { wireRefreshBus } from './personal-internet/refresh/bus'
+import {
+  PI_REFRESH_INTERVAL_MS,
+  runBrowserStartedCatchUp,
+  runPersonalInternetTick,
+} from './personal-internet/refresh/sweeper'
 import { rebuildChatFts } from './retrieval/chat-fts'
 import { startEmbedIndexer } from './retrieval/indexer'
 import { rebuildMemoryFts } from './retrieval/memory-fts'
@@ -259,24 +264,20 @@ export class Application {
       logger.warn('Builtin skills seed failed', { err: String(err) })
     })
 
-    // Home proposal job — initial run 10 minutes after startup, then every 24h
-    setTimeout(
-      () => {
-        void forEachKnownProfile(async () => {
-          await runProposalJob()
-        }).catch((err: unknown) => {
-          logger.warn('Home proposal job startup error', { err })
-        })
-      },
-      10 * 60 * 1000,
-    )
+    // Personalised Internet refresh bus + temp sweeper
+    wireRefreshBus()
+    void forEachKnownProfile(async () => {
+      await runBrowserStartedCatchUp()
+    }).catch((err: unknown) => {
+      logger.warn('PI browser-started catch-up failed', { err: String(err) })
+    })
     setInterval(() => {
       void forEachKnownProfile(async () => {
-        await runProposalJob()
+        await runPersonalInternetTick()
       }).catch((err: unknown) => {
-        logger.warn('Home proposal job error', { err })
+        logger.warn('PI refresh tick error', { err: String(err) })
       })
-    }, PROPOSAL_INTERVAL_MS)
+    }, PI_REFRESH_INTERVAL_MS)
 
     identity.initialize({
       installId: this.config.instanceInstallId,

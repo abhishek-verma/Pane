@@ -497,7 +497,7 @@ describe('capability coverage', () => {
     expect(prompt).not.toContain('context_recall')
     expect(prompt).toContain('context_current_work')
     expect(prompt).toContain('tasks_list')
-    expect(prompt).toContain('home_widget_list')
+    expect(prompt).toContain('pi_list')
     expect(prompt).toContain('tab_groups')
     expect(prompt).toContain('terminal_sessions')
   })

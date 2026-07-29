@@ -106,7 +106,6 @@ async function setupApplicationTest() {
   const capturePipeline = await import('../src/capture/meeting-pipeline')
   const captureRetention = await import('../src/capture/retention-monitor')
   const builtinSkills = await import('../src/memory/builtin-skills')
-  const homeProposal = await import('../src/home/proposal-job')
   const chatFts = await import('../src/retrieval/chat-fts')
   const memoryFts = await import('../src/retrieval/memory-fts')
   const embedIndexer = await import('../src/retrieval/indexer')
@@ -145,7 +144,6 @@ async function setupApplicationTest() {
     'reindexPlaceholderMeetingCaptures',
   ).mockImplementation(async () => 0)
   spyOn(builtinSkills, 'ensureBuiltinSkills').mockImplementation(async () => {})
-  spyOn(homeProposal, 'runProposalJob').mockImplementation(async () => {})
   spyOn(chatFts, 'rebuildChatFts').mockImplementation(() => 0)
   spyOn(memoryFts, 'rebuildMemoryFts').mockImplementation(() => 0)
   spyOn(embedIndexer, 'startEmbedIndexer').mockImplementation(() => {})
