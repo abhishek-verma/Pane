@@ -24,6 +24,7 @@ import {
   getSite,
   getSiteBySlug,
   getTemp,
+  inspectPageDoc,
   listPagesForSite,
   newPiId,
   readPageDoc,
@@ -207,8 +208,33 @@ export async function applyPiMutation(
     case 'patch-page': {
       const page = getPage(input.pageId)
       if (!page) throw new Error(`page not found: ${input.pageId}`)
-      const doc = await readPageDoc(input.pageId)
-      if (!doc) throw new Error(`page doc missing: ${input.pageId}`)
+      let doc = await readPageDoc(input.pageId)
+      let repairedFromCorrupt = false
+      if (!doc) {
+        const inspection = await inspectPageDoc(input.pageId)
+        const hasReplace = input.ops.some((op) => op.op === 'replaceNodes')
+        if (!hasReplace) {
+          throw new Error(
+            `page doc corrupt or missing: ${input.pageId}. ` +
+              `Call pi_read for raw+issues, then pi_page_patch with replaceNodes ` +
+              `containing a full valid doc. Issues: ${(inspection?.issues ?? []).join('; ') || 'unreadable'}`,
+          )
+        }
+        // Allow a full replaceNodes overwrite of a broken page.
+        const rawTitle =
+          inspection?.raw &&
+          typeof inspection.raw === 'object' &&
+          inspection.raw !== null &&
+          typeof (inspection.raw as { title?: unknown }).title === 'string'
+            ? (inspection.raw as { title: string }).title
+            : page.title
+        doc = {
+          version: 1,
+          title: rawTitle || page.title || 'Page',
+          nodes: [],
+        }
+        repairedFromCorrupt = true
+      }
 
       // bindRecord ops update SQLite records; remaining ops patch the doc.
       const bindOps = input.ops.filter((op) => op.op === 'bindRecord')
@@ -256,6 +282,7 @@ export async function applyPiMutation(
         route: page.siteId
           ? pageRoute(page.siteId, page.id)
           : tempRoute(page.id),
+        ...(repairedFromCorrupt ? { repairedFromCorrupt: true } : {}),
       }
     }
 

@@ -16,6 +16,14 @@ import { recomputePulse } from './pulse'
 import { getPulse, listSites, readHomePrefs } from './store'
 import type { PiContinuityBlock, PiDoorway, PiHomeProjection } from './types'
 
+function withoutDismissed(
+  blocks: PiContinuityBlock[],
+  dismissed: Set<string>,
+): PiContinuityBlock[] {
+  if (dismissed.size === 0) return blocks
+  return blocks.filter((b) => !dismissed.has(b.id))
+}
+
 const DORMANT_DEMOTE = true
 const STALE_DEMOTE_MS = 14 * 24 * 60 * 60 * 1000
 
@@ -93,7 +101,9 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
 async function loadContinuity(
   doorways: PiDoorway[],
 ): Promise<PiContinuityBlock[]> {
-  const liveApprovals = continuityFromApprovals()
+  const prefs = await readHomePrefs()
+  const dismissed = new Set(prefs.dismissedContinuityIds)
+  const liveApprovals = withoutDismissed(continuityFromApprovals(), dismissed)
   const liveApprovalIds = new Set(liveApprovals.map((b) => b.id))
   const blocks: PiContinuityBlock[] = []
 
@@ -105,6 +115,7 @@ async function loadContinuity(
     if (Array.isArray(parsed.continuity)) {
       for (const c of parsed.continuity.slice(0, 5)) {
         if (!c?.id || !c?.title || !c?.body) continue
+        if (dismissed.has(c.id)) continue
         // Drop persisted approval cards once resolved (kind D rewrite used to
         // leave ghost Approve/Deny tokens on home).
         if (c.id.startsWith('approval-') && !liveApprovalIds.has(c.id)) {
@@ -120,8 +131,10 @@ async function loadContinuity(
   if (blocks.length === 0) {
     for (const d of doorways) {
       if (!d.secondary) continue
+      const urgencyId = `urgency-${d.siteId}`
+      if (dismissed.has(urgencyId)) continue
       blocks.push({
-        id: `urgency-${d.siteId}`,
+        id: urgencyId,
         title: d.name,
         body: d.secondary.label,
         route: d.secondary.deepLink,

@@ -6,15 +6,16 @@
 
 import { type FC, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { executePiAction } from '@/lib/pi-actions'
+import { executePiAction, refreshPiPageWithAgent } from '@/lib/pi-actions'
 import { cn } from '@/lib/utils'
 import { PiFieldSurface, piSiteField } from './field'
+import { PiBrokenPagePanel } from './PiBrokenPagePanel'
 import { PiRailAction, PiStatusDot, PiTopRail } from './PiChrome'
+import { PiPageErrorBoundary } from './PiPageErrorBoundary'
 import { PiPageRenderer } from './PiPageRenderer'
 import { RecordsPanel } from './RecordsPanel'
 import {
   piPatch,
-  piPost,
   usePiInvalidateListener,
   usePiPage,
   usePiSite,
@@ -59,6 +60,8 @@ export const SitePage: FC = () => {
 
   const { site, pulse, pages } = siteQuery.data
   const doc = pageQuery.data?.doc
+  const pageIssues = pageQuery.data?.issues ?? []
+  const pageBroken = Boolean(resolvedPageId) && !doc
   const staleAt = pulse?.staleAt
   const asOf = formatAsOf(pulse?.lastUpdatedAt)
 
@@ -78,19 +81,15 @@ export const SitePage: FC = () => {
         actions={
           <>
             <PiRailAction
-              disabled={refreshing}
+              disabled={refreshing || !resolvedPageId}
               onClick={() => {
-                if (!siteId) return
+                if (!siteId || !resolvedPageId) return
                 setRefreshing(true)
-                void piPost('/pi/refresh', {
+                void refreshPiPageWithAgent({
                   siteId,
-                  trigger: 'manual-refresh',
-                })
-                  .then(() => {
-                    void siteQuery.refetch()
-                    void pageQuery.refetch()
-                  })
-                  .finally(() => setRefreshing(false))
+                  pageId: resolvedPageId,
+                  pageTitle: doc?.title || site.name,
+                }).finally(() => setRefreshing(false))
               }}
             >
               {refreshing ? 'Refreshing…' : 'Refresh'}
@@ -135,27 +134,49 @@ export const SitePage: FC = () => {
           })}
         </div>
       ) : null}
-      {doc ? (
-        <PiPageRenderer
-          doc={doc}
+      {doc && siteId && resolvedPageId ? (
+        <PiPageErrorBoundary
           siteId={siteId}
-          pendingKey={pendingKey}
-          onMoveCard={async (cardId, toColumnId) => {
-            if (!resolvedPageId) return
-            await piPatch(`/pi/pages/${resolvedPageId}`, {
-              ops: [{ op: 'moveBoardCard', cardId, toColumnId }],
-            })
-            void siteQuery.refetch()
-            void pageQuery.refetch()
-          }}
-          onAction={async (action, ctx) => {
-            if (ctx?.pendingKey) setPendingKey(ctx.pendingKey)
-            try {
-              await executePiAction(action)
-            } finally {
-              setPendingKey(null)
-            }
-          }}
+          pageId={resolvedPageId}
+          pageTitle={doc.title || site.name}
+          issues={pageIssues}
+          fixHint={pageQuery.data?.fixHint}
+          agentBrief={pageQuery.data?.diagnosis?.agentBrief}
+          findings={pageQuery.data?.diagnosis?.findings}
+          contentSummary={pageQuery.data?.contentSummary}
+        >
+          <PiPageRenderer
+            doc={doc}
+            siteId={siteId}
+            pendingKey={pendingKey}
+            onMoveCard={async (cardId, toColumnId) => {
+              if (!resolvedPageId) return
+              await piPatch(`/pi/pages/${resolvedPageId}`, {
+                ops: [{ op: 'moveBoardCard', cardId, toColumnId }],
+              })
+              void siteQuery.refetch()
+              void pageQuery.refetch()
+            }}
+            onAction={async (action, ctx) => {
+              if (ctx?.pendingKey) setPendingKey(ctx.pendingKey)
+              try {
+                await executePiAction(action)
+              } finally {
+                setPendingKey(null)
+              }
+            }}
+          />
+        </PiPageErrorBoundary>
+      ) : pageBroken && siteId && resolvedPageId ? (
+        <PiBrokenPagePanel
+          siteId={siteId}
+          pageId={resolvedPageId}
+          pageTitle={pageQuery.data?.page?.title || site.name}
+          issues={pageIssues}
+          fixHint={pageQuery.data?.fixHint}
+          agentBrief={pageQuery.data?.diagnosis?.agentBrief}
+          findings={pageQuery.data?.diagnosis?.findings}
+          contentSummary={pageQuery.data?.contentSummary}
         />
       ) : (
         <div className="p-6 text-muted-foreground text-sm">

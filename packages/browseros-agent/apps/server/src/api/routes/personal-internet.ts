@@ -14,14 +14,17 @@ import {
   handleHostOpened,
   handleRefreshTrigger,
 } from '../../personal-internet/refresh/bus'
+import { refreshHomeToday } from '../../personal-internet/refresh/home-revise'
 import { drainRefreshJobs } from '../../personal-internet/refresh/runner'
 import {
   deleteTemp,
+  dismissContinuityBlock,
   getPage,
   getPulse,
   getSite,
   getTemp,
   hardDeleteSite,
+  inspectPageDoc,
   listPagesForSite,
   listRecords,
   listSites,
@@ -241,8 +244,31 @@ export function createPersonalInternetRoutes() {
       if (!page || (page.siteId && page.siteId !== siteId)) {
         return c.json({ error: 'not found' }, 404)
       }
-      const doc = await readPageDoc(pageId)
-      return c.json({ page, doc, siteId })
+      const inspection = await inspectPageDoc(pageId)
+      // Persist heal when coerce fixed the on-disk doc.
+      if (inspection?.ok && inspection.doc) {
+        await readPageDoc(pageId)
+      }
+      return c.json({
+        page,
+        siteId,
+        doc: inspection?.doc ?? null,
+        ok: inspection?.ok ?? false,
+        issues: inspection?.issues ?? [],
+        fixHint: inspection?.fixHint,
+        diagnosis: inspection
+          ? {
+              agentBrief: inspection.diagnosis.agentBrief,
+              needsRaw: inspection.diagnosis.needsRaw,
+              findings: inspection.diagnosis.findings,
+              autoFixesApplied: inspection.diagnosis.autoFixesApplied,
+            }
+          : undefined,
+        contentSummary: inspection?.contentSummary ?? undefined,
+        ...(inspection && !inspection.ok && inspection.diagnosis.needsRaw
+          ? { raw: inspection.raw }
+          : {}),
+      })
     })
     .post('/pages', async (c) => {
       const body = CreatePageSchema.parse(await c.req.json())
@@ -376,6 +402,15 @@ export function createPersonalInternetRoutes() {
       })
       await drainRefreshJobs(10)
       return c.json({ enqueued: jobs.length, jobIds: jobs.map((j) => j.id) })
+    })
+    .post('/home/continuity/dismiss', async (c) => {
+      const body = z.object({ id: z.string().min(1) }).parse(await c.req.json())
+      const prefs = await dismissContinuityBlock(body.id)
+      return c.json({ ok: true, dismissedId: body.id, prefs })
+    })
+    .post('/home/refresh', async (c) => {
+      const result = await refreshHomeToday()
+      return c.json({ ok: true, continuity: result.blocks })
     })
     .post('/hooks/host-opened', async (c) => {
       const body = HostOpenedSchema.parse(await c.req.json())

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { BOARD_SHAPE_HINT } from './pi-node-schema'
 import {
   PI_MAX_CHART_POINTS,
   PI_MAX_MERMAID_CHARS,
@@ -71,9 +72,156 @@ export class PiDslError extends Error {
 }
 
 function assertSafeText(value: string, label: string): void {
+  // Non-strings used to coerce via RegExp.test (e.g. undefined → "undefined")
+  // and silently pass — that let corrupt boards reach the UI and crash it.
+  if (typeof value !== 'string') {
+    throw new PiDslError(`${label}: expected string`)
+  }
   if (DANGEROUS_RE.test(value)) {
     throw new PiDslError(`Unsafe content in ${label}`)
   }
+}
+
+function requireNonEmptyText(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new PiDslError(`${label}: required`)
+  }
+  assertSafeText(value, label)
+  return value.trim()
+}
+
+function slugCardId(title: string, index: number): string {
+  const base =
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'card'
+  return `card_${base}_${index}`
+}
+
+/**
+ * Models often emit kanban as `{ columnId, title, description }` without
+ * `card.id` or `column.cardIds`. Detect that, reject on agent writes, or
+ * coerce when healing stored docs (`coerce: true`).
+ */
+export function normalizeBoardNode(
+  node: Extract<PiNode, { type: 'board' }>,
+  path: string,
+  opts: { coerce?: boolean } = {},
+): string[] {
+  const coerce = opts.coerce === true
+  const warnings: string[] = []
+
+  if (!Array.isArray(node.columns)) {
+    throw new PiDslError(`${path}: board columns required`)
+  }
+  if (!Array.isArray(node.cards)) {
+    if (!coerce) {
+      throw new PiDslError(
+        `${path}: board cards must be an array. ${BOARD_SHAPE_HINT}`,
+      )
+    }
+    ;(node as { cards: unknown }).cards = []
+  }
+
+  const agentShaped = node.cards.some((c) => {
+    const raw = c as { columnId?: unknown; description?: unknown; id?: unknown }
+    return (
+      typeof raw.columnId === 'string' ||
+      (raw.description != null && raw.subtitle == null) ||
+      typeof raw.id !== 'string' ||
+      !String(raw.id).trim()
+    )
+  })
+  const missingCardIds = node.columns.some((c) => !Array.isArray(c.cardIds))
+
+  if ((agentShaped || missingCardIds) && !coerce) {
+    throw new PiDslError(`${path}: ${BOARD_SHAPE_HINT}`)
+  }
+
+  if (agentShaped || missingCardIds) {
+    warnings.push(
+      `${path}: coerced agent-shaped board (columnId/description/missing cardIds) into cardIds form`,
+    )
+  }
+
+  for (const col of node.columns) {
+    if (!Array.isArray(col.cardIds)) {
+      col.cardIds = []
+    }
+  }
+
+  const colById = new Map(node.columns.map((c) => [c.id, c]))
+  const usedIds = new Set<string>()
+  const nextCards: Extract<PiNode, { type: 'board' }>['cards'] = []
+
+  for (let i = 0; i < node.cards.length; i++) {
+    const raw = node.cards[i] as Extract<
+      PiNode,
+      { type: 'board' }
+    >['cards'][number] & {
+      columnId?: unknown
+      description?: unknown
+    }
+    const title =
+      typeof raw.title === 'string' && raw.title.trim()
+        ? raw.title.trim()
+        : `Card ${i + 1}`
+    let id =
+      typeof raw.id === 'string' && raw.id.trim()
+        ? raw.id.trim()
+        : slugCardId(title, i)
+    if (usedIds.has(id)) id = `${id}_${i}`
+    usedIds.add(id)
+
+    const subtitle =
+      typeof raw.subtitle === 'string' && raw.subtitle.trim()
+        ? raw.subtitle.trim()
+        : typeof raw.description === 'string' && raw.description.trim()
+          ? raw.description.trim()
+          : undefined
+
+    const card: Extract<PiNode, { type: 'board' }>['cards'][number] = {
+      id,
+      title,
+      ...(subtitle ? { subtitle } : {}),
+      ...(typeof raw.recordId === 'string' && raw.recordId.trim()
+        ? { recordId: raw.recordId.trim() }
+        : {}),
+      ...(typeof raw.entityKey === 'string' && raw.entityKey.trim()
+        ? { entityKey: raw.entityKey.trim() }
+        : {}),
+      ...(Array.isArray(raw.actions) ? { actions: raw.actions } : {}),
+    }
+    nextCards.push(card)
+
+    const columnId = typeof raw.columnId === 'string' ? raw.columnId.trim() : ''
+    if (columnId && colById.has(columnId)) {
+      const col = colById.get(columnId)!
+      if (!col.cardIds.includes(id)) col.cardIds.push(id)
+    }
+  }
+
+  node.cards = nextCards
+
+  // Drop unknown ids; place unassigned cards in the first column.
+  const known = new Set(node.cards.map((c) => c.id))
+  for (const col of node.columns) {
+    col.cardIds = [...new Set(col.cardIds.filter((id) => known.has(id)))]
+  }
+  const placed = new Set(node.columns.flatMap((c) => c.cardIds))
+  const first = node.columns[0]
+  if (first) {
+    for (const card of node.cards) {
+      if (!placed.has(card.id)) {
+        first.cardIds.push(card.id)
+        placed.add(card.id)
+      }
+    }
+  }
+
+  return warnings
 }
 
 function validateAction(action: PiAction, path: string): void {
@@ -107,7 +255,11 @@ function validateAction(action: PiAction, path: string): void {
   throw new PiDslError(`${path}: unknown action kind`)
 }
 
-function validateNode(node: PiNode, path: string): void {
+function validateNode(
+  node: PiNode,
+  path: string,
+  opts: { coerceBoards?: boolean } = {},
+): void {
   switch (node.type) {
     case 'title':
     case 'text':
@@ -130,14 +282,14 @@ function validateNode(node: PiNode, path: string): void {
         assertSafeText(node.id, `${path}.id`)
       }
       for (const [i, child] of node.children.entries()) {
-        validateNode(child, `${path}.children[${i}]`)
+        validateNode(child, `${path}.children[${i}]`, opts)
       }
       return
     case 'button':
       assertSafeText(node.label, path)
       validateAction(node.action, `${path}.action`)
       if (node.replaceWith)
-        validateNode(node.replaceWith, `${path}.replaceWith`)
+        validateNode(node.replaceWith, `${path}.replaceWith`, opts)
       return
     case 'link':
       assertSafeText(node.label, path)
@@ -171,7 +323,8 @@ function validateNode(node: PiNode, path: string): void {
               assertSafeText(cell.columnId, path)
               if (typeof cell.value === 'string')
                 assertSafeText(cell.value, path)
-              else validateNode(cell.value, `${path}.cells.${cell.columnId}`)
+              else
+                validateNode(cell.value, `${path}.cells.${cell.columnId}`, opts)
               rec[cell.columnId] = cell.value
             }
           } else {
@@ -179,7 +332,7 @@ function validateNode(node: PiNode, path: string): void {
               const v = rawCells[i]
               if (typeof v === 'string') assertSafeText(v, path)
               else if (v != null)
-                validateNode(v as PiNode, `${path}.cells.${col.id}`)
+                validateNode(v as PiNode, `${path}.cells.${col.id}`, opts)
               if (v != null) rec[col.id] = v as PiNode | string
             }
           }
@@ -188,19 +341,23 @@ function validateNode(node: PiNode, path: string): void {
           for (const [k, v] of Object.entries(row.cells)) {
             assertSafeText(k, path)
             if (typeof v === 'string') assertSafeText(v, path)
-            else validateNode(v, `${path}.cells.${k}`)
+            else validateNode(v, `${path}.cells.${k}`, opts)
           }
         }
       }
       return
-    case 'board':
+    case 'board': {
+      normalizeBoardNode(node, path, { coerce: opts.coerceBoards === true })
       for (const col of node.columns) {
-        assertSafeText(col.id, path)
-        assertSafeText(col.title, path)
+        requireNonEmptyText(col.id, `${path}.column.id`)
+        requireNonEmptyText(col.title, `${path}.column.title`)
+        if (!Array.isArray(col.cardIds)) {
+          throw new PiDslError(`${path}: column.cardIds required`)
+        }
       }
       for (const card of node.cards) {
-        assertSafeText(card.id, path)
-        assertSafeText(card.title, path)
+        requireNonEmptyText(card.id, `${path}.card.id`)
+        requireNonEmptyText(card.title, `${path}.card.title`)
         if (card.subtitle) assertSafeText(card.subtitle, path)
         if (card.entityKey) assertSafeText(card.entityKey, path)
         if (card.actions) {
@@ -220,6 +377,7 @@ function validateNode(node: PiNode, path: string): void {
         }
       }
       return
+    }
     case 'chart': {
       const allowed = ['bar', 'line', 'pie', 'horizontal-bar'] as const
       if (!allowed.includes(node.chartType)) {
@@ -360,7 +518,10 @@ function validatePageMeta(raw: unknown, path: string): PiPageMeta | undefined {
   return meta
 }
 
-export function validatePageDoc(input: unknown): PiPageDoc {
+export function validatePageDoc(
+  input: unknown,
+  opts: { coerceBoards?: boolean } = {},
+): PiPageDoc {
   if (!input || typeof input !== 'object') {
     throw new PiDslError('Page doc must be an object')
   }
@@ -387,7 +548,7 @@ export function validatePageDoc(input: unknown): PiPageDoc {
     throw new PiDslError(`Page doc exceeds ${MAX_DOC_BYTES} bytes`)
   }
   for (const [i, node] of doc.nodes.entries()) {
-    validateNode(node, `nodes[${i}]`)
+    validateNode(node, `nodes[${i}]`, opts)
   }
   return doc
 }
@@ -521,17 +682,20 @@ export function applyPatchOps(doc: PiPageDoc, ops: PiPatchOp[]): PiPageDoc {
       case 'upsertBoardCard': {
         const board = findFirstBoard(next.nodes)
         if (!board) throw new PiDslError('upsertBoardCard: no board in page')
+        normalizeBoardNode(board, 'upsertBoardCard', { coerce: true })
         const { columnId, ...card } = op.card
         const col = board.columns.find((c) => c.id === columnId)
         if (!col) {
           throw new PiDslError(`upsertBoardCard: column ${columnId} not found`)
         }
         assertSafeText(card.title, 'upsertBoardCard')
+        if (!Array.isArray(col.cardIds)) col.cardIds = []
         const existing = board.cards.findIndex((c) => c.id === card.id)
         if (existing >= 0) board.cards[existing] = card
         else board.cards.push(card)
         if (!col.cardIds.includes(card.id)) col.cardIds.push(card.id)
         for (const c of board.columns) {
+          if (!Array.isArray(c.cardIds)) c.cardIds = []
           if (c.id !== columnId) {
             c.cardIds = c.cardIds.filter((id) => id !== card.id)
           }
@@ -541,6 +705,7 @@ export function applyPatchOps(doc: PiPageDoc, ops: PiPatchOp[]): PiPageDoc {
       case 'moveBoardCard': {
         const board = findFirstBoard(next.nodes)
         if (!board) throw new PiDslError('moveBoardCard: no board in page')
+        normalizeBoardNode(board, 'moveBoardCard', { coerce: true })
         const to = board.columns.find((c) => c.id === op.toColumnId)
         if (!to) {
           throw new PiDslError(

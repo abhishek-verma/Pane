@@ -6,7 +6,20 @@
 
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { executeWidgetAction } from '@/lib/widget-actions'
+import {
+  buildPiPageRefreshAction,
+  type PiPageRefreshOpts,
+} from '@/screens/personal-internet/piPageRefresh'
 import type { PiAction } from '@/screens/personal-internet/types'
+
+export type { PiPageRefreshOpts }
+export { buildPiPageRefreshAction }
+
+export async function refreshPiPageWithAgent(
+  opts: PiPageRefreshOpts,
+): Promise<void> {
+  await executePiAction(buildPiPageRefreshAction(opts))
+}
 
 export async function executePiAction(action: PiAction): Promise<void> {
   switch (action.kind) {

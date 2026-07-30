@@ -17,12 +17,14 @@ import { validatePageDoc } from './dsl'
 import { getPiFocus } from './focus'
 import { ensureAndMaterialize } from './materialize'
 import { entityRoute } from './paths'
+import { pageDocSchema, patchOpSchema } from './pi-node-schema'
 import { normalizeJobSearchRecord, parseRecordData } from './records'
 import {
   getPage,
   getPulse,
   getSite,
   getTemp,
+  inspectPageDoc,
   listPagesForSite,
   listRecords,
   listSites,
@@ -42,14 +44,6 @@ import type {
 import { applyPiMutation, preserveTemp } from './write-path'
 
 const templateIdSchema = z.enum(['job-search', 'research-hub', 'sales-leads'])
-
-const pageDocSchema = z
-  .object({
-    version: z.literal(1),
-    title: z.string(),
-    nodes: z.array(z.unknown()),
-  })
-  .passthrough()
 
 function ok(data: Record<string, unknown>) {
   return { text: JSON.stringify(data) }
@@ -158,7 +152,7 @@ export function buildPersonalInternetToolSet(
 
     pi_read: tool({
       description:
-        'Read a Personalised Internet site, page document, or temp page. Read-only.',
+        'Read a Personalised Internet site, page document, or temp page. Read-only. For pages: returns diagnosis.agentBrief (structured repair plan) and contentSummary. Raw JSON only when diagnosis.needsRaw. Prefer following agentBrief with pi_page_patch over interpreting raw validator errors.',
       inputSchema: z.object({
         siteId: z.string().optional(),
         pageId: z.string().optional(),
@@ -168,23 +162,54 @@ export function buildPersonalInternetToolSet(
         if (tempId) {
           const temp = getTemp(tempId)
           if (!temp) return err(`temp not found: ${tempId}`)
-          const doc = await readPageDoc(tempId)
+          const inspection = await inspectPageDoc(tempId)
           return ok({
             temp,
-            doc,
+            doc: inspection?.doc ?? null,
+            raw: inspection?.raw ?? null,
+            ok: inspection?.ok ?? false,
+            issues: inspection?.issues ?? ['temp doc missing'],
+            fixHint: inspection?.fixHint,
             route: `#/pi/temp/${tempId}`,
           })
         }
         if (pageId) {
           const page = getPage(pageId)
           if (!page) return err(`page not found: ${pageId}`)
-          const doc = await readPageDoc(pageId)
+          const inspection = await inspectPageDoc(pageId)
+          if (!inspection) return err(`page not found: ${pageId}`)
+          // Persist auto-repairs so the next read is clean.
+          if (inspection.doc) await readPageDoc(pageId)
+          const needsAgent = inspection.diagnosis.findings.some(
+            (f) => f.severity === 'needs_agent',
+          )
           return ok({
             page,
-            doc,
-            route: page.siteId
-              ? `#/pi/sites/${page.siteId}/pages/${pageId}`
-              : `#/pi/temp/${pageId}`,
+            doc: inspection.doc,
+            ok: inspection.ok,
+            diagnosis: {
+              agentBrief: inspection.diagnosis.agentBrief,
+              needsRaw: inspection.diagnosis.needsRaw,
+              findings: inspection.diagnosis.findings,
+              autoFixesApplied: inspection.diagnosis.autoFixesApplied,
+            },
+            contentSummary: inspection.contentSummary,
+            // Raw only when the agent truly needs content reconstruction.
+            ...(inspection.diagnosis.needsRaw || needsAgent
+              ? {
+                  raw: inspection.diagnosis.needsRaw
+                    ? inspection.raw
+                    : undefined,
+                }
+              : {}),
+            issues: inspection.issues,
+            fixHint: inspection.fixHint,
+            route: inspection.route,
+            message: needsAgent
+              ? `Follow diagnosis.agentBrief. ${inspection.diagnosis.agentBrief.slice(0, 400)}`
+              : inspection.ok
+                ? undefined
+                : 'Page could not be loaded; see diagnosis.',
           })
         }
         if (siteId) {
@@ -342,7 +367,7 @@ export function buildPersonalInternetToolSet(
 
     pi_page_create: tool({
       description:
-        'Create a Personalised Internet page as structured DSL JSON (not HTML). mode=temp for one-shot visuals; mode=durable needs siteId. doc={version:1,title,nodes:PiNode[]}. Load "pi-page-dsl"; for chart/mermaid/svg load "pi-page-viz". Returns #/pi/... route. Not allowed during a pi-materialize BTF run — patch the bound pageId instead.',
+        'Create a Personalised Internet page as structured DSL JSON (not HTML). mode=temp for one-shot visuals; mode=durable needs siteId. doc={version:1,title,nodes:PiNode[]}. Boards MUST use columns[].cardIds + cards[].{id,title,subtitle?} — never card.columnId/description (that fails validation). Prefer empty board + upsertBoardCard for cards. Load "pi-page-dsl"; for chart/mermaid/svg load "pi-page-viz". Returns #/pi/... route. Not allowed during a pi-materialize BTF run — patch the bound pageId instead.',
       inputSchema: z.object({
         mode: z.enum(['durable', 'temp']),
         siteId: z.string().optional(),
@@ -377,10 +402,10 @@ export function buildPersonalInternetToolSet(
 
     pi_page_patch: tool({
       description:
-        'Patch a page: setTitle, replaceNodes, appendNodes, setMeta, setMaterializeSection, upsertTableRow, setCell, upsertBoardCard, moveBoardCard, bindRecord. Prefer appendNodes for BTF section fills — replaceNodes with a single section wipes ATF (server may coerce to append during materialize). Table row/cell ops hit the first table only. During pi-materialize, only the run\'s pageId is allowed. Load skill "pi-page-patch" / "pi-entity-materialize" for op shapes.',
+        'Patch a page. Prefer upsertBoardCard { id, title, columnId, subtitle? } to add/move cards — do not rewrite boards with card.columnId. Prefer appendNodes for BTF fills; replaceNodes with a single section can wipe ATF (server may coerce to append during materialize). Table row/cell ops hit the first table only. During pi-materialize, only the run\'s pageId is allowed. Load skill "pi-page-patch" / "pi-entity-materialize".',
       inputSchema: z.object({
         pageId: z.string().min(1),
-        ops: z.array(z.record(z.unknown())).min(1),
+        ops: z.array(patchOpSchema).min(1),
       }),
       execute: async ({ pageId, ops }) => {
         try {
@@ -502,6 +527,7 @@ export function buildPersonalInternetToolSet(
           const nextPrefs = {
             hiddenSiteIds: [...hidden],
             pinnedSiteIds: [...pinned],
+            dismissedContinuityIds: prefs.dismissedContinuityIds,
           }
           await writeHomePrefs(nextPrefs)
 

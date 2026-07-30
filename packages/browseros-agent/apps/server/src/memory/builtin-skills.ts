@@ -239,8 +239,37 @@ After create, share the route from the tool result. Optionally \`pi_read\` to co
 | \`button\` | \`label\`, \`action\`, \`replaceWith?\` | Button (Working… while pending) |
 | \`link\` | \`label\`, open-internal\\|open-external action | Text link |
 | \`table\` | \`columns\`, \`rows\` (cells = string or nested node) | Table |
-| \`board\` | \`columns\` + \`cards\` | Responsive kanban (app picks column count) |
+| \`board\` | \`columns\` (\`id\`, \`title\`, \`cardIds: string[]\`) + \`cards\` (\`id\`, \`title\`, \`subtitle?\`) — membership is via \`column.cardIds\`, not \`card.columnId\` | Responsive kanban |
 | \`chart\` / \`mermaid\` / \`svg\` | see \`pi-page-viz\` | Structured or custom visuals |
+
+### Board shape (easy to get wrong)
+
+**Correct** — cards reference via \`cardIds\`:
+
+\`\`\`json
+{
+  "type": "board",
+  "columns": [
+    { "id": "todo", "title": "To Do", "cardIds": ["c1"] },
+    { "id": "done", "title": "Done", "cardIds": [] }
+  ],
+  "cards": [
+    { "id": "c1", "title": "Register domain", "subtitle": "pane.ai" }
+  ]
+}
+\`\`\`
+
+**Wrong** (rejected by schema + validator — crashes older UIs):
+
+\`\`\`json
+{
+  "type": "board",
+  "columns": [{ "id": "todo", "title": "To Do" }],
+  "cards": [{ "columnId": "todo", "title": "Register domain", "description": "…" }]
+}
+\`\`\`
+
+Prefer: create an empty board shell (\`cardIds: []\`, \`cards: []\`), then \`pi_page_patch\` \`upsertBoardCard\` with \`{ id, title, columnId, subtitle? }\` for each card. \`columnId\` belongs on the **op**, not on stored cards.
 
 **Layout:** only document order + \`stack\` row/col. No widths, sidebars, or custom CSS grids.
 
@@ -264,6 +293,7 @@ For Job Search / Research / Sales, create the site with \`pi-sites\` + \`templat
 - Emit Markdown/HTML as the page body.
 - Assume pixel layout control.
 - Author raw chart SVG when \`type:"chart"\` data will do — load \`pi-page-viz\`.
+- Put \`columnId\` or \`description\` on board cards in the page doc (use \`cardIds\` + \`subtitle\`, or \`upsertBoardCard\`).
 `
 
 export const BUILTIN_PI_PAGE_PATCH_SKILL_BODY = `---
@@ -282,11 +312,17 @@ Prefer small ops over rewriting the whole page. Load \`pi-page-dsl\` only if you
 - \`replaceNodes\` — \`{ "op": "replaceNodes", "nodes": [ ... ] }\` — full body replace; during materialize, a replace that does **not** start with the page title is coerced to append so ATF is not wiped
 - \`upsertTableRow\` — \`{ "op": "upsertTableRow", "row": { "id", "recordId?", "cells" } }\`
 - \`setCell\` — \`{ "op": "setCell", "rowId", "columnId", "value" }\` (string or node)
-- \`upsertBoardCard\` — \`{ "op": "upsertBoardCard", "card": { "id", "title", "columnId", "subtitle?", "recordId?", "actions?" } }\` — prefer labeled actions \`{ label, action }\`
+- \`upsertBoardCard\` — \`{ "op": "upsertBoardCard", "card": { "id", "title", "columnId", "subtitle?", "recordId?", "actions?" } }\` — **preferred** way to add/update cards. \`columnId\` is only on this op. Prefer labeled actions \`{ label, action }\`.
 - \`moveBoardCard\` — \`{ "op": "moveBoardCard", "cardId", "toColumnId" }\` — also updates bound record stage when card id is \`card_<recordId>\`
 - \`bindRecord\` — \`{ "op": "bindRecord", "recordId", "data": { ... } }\` — store binding; still patch UI if the visible cell/card must change
 - \`setMeta\` — \`{ "op": "setMeta", "meta": { "entityKey?", "materialize?" } }\`
 - \`setMaterializeSection\` — \`{ "op": "setMaterializeSection", "id", "status": "shell"|"filled"|"skipped", "title?" }\`
+
+### Boards
+
+When authoring a new board in \`replaceNodes\` / \`appendNodes\` / \`pi_page_create\`, use \`columns[].cardIds\` + \`cards[].{id,title,subtitle?}\`. Do **not** emit Trello-style \`{ columnId, description }\` cards — the tool schema rejects them.
+
+To fill a board: empty shell first, then one \`upsertBoardCard\` per card.
 
 For Job Search stage/company changes prefer \`pi_record_upsert\` (board syncs) over only patching cards.
 Entity BTF protocol → load \`pi-entity-materialize\`.
@@ -305,6 +341,7 @@ Entity BTF protocol → load \`pi-entity-materialize\`.
 
 - Guess row/card ids — read first.
 - Use table ops when multiple tables need independent updates — \`replaceNodes\` instead.
+- Ignore \`pi_read\` \`diagnosis.agentBrief\` when a page is corrupt — follow those tool steps (use raw only if \`needsRaw\`).
 `
 
 export const BUILTIN_PI_PAGE_VIZ_SKILL_BODY = `---

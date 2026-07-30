@@ -9,7 +9,7 @@ import { useParams } from 'react-router'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
-import { executePiAction } from '@/lib/pi-actions'
+import { executePiAction, refreshPiPageWithAgent } from '@/lib/pi-actions'
 import { emitPiInvalidate } from '@/lib/pi-invalidate'
 import { PiFieldSurface, piEntityField } from './field'
 import {
@@ -20,7 +20,9 @@ import {
   deriveMaterializeActivity,
   type MaterializeActivityLine,
 } from './materializeActivity'
+import { PiBrokenPagePanel } from './PiBrokenPagePanel'
 import { PiRailAction, PiStatusDot, PiTopRail } from './PiChrome'
+import { PiPageErrorBoundary } from './PiPageErrorBoundary'
 import { PiPageRenderer } from './PiPageRenderer'
 import {
   piDelete,
@@ -128,6 +130,7 @@ export const EntityPage: FC = () => {
   const entityKey = rawKey ? decodeURIComponent(rawKey) : undefined
   const [pageId, setPageId] = useState<string | null>(null)
   const [company, setCompany] = useState<string>('')
+  const [refreshing, setRefreshing] = useState(false)
   const [ensureError, setEnsureError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [btfComplete, setBtfComplete] = useState(false)
@@ -508,6 +511,23 @@ export const EntityPage: FC = () => {
                   Retry prep
                 </PiRailAction>
               ) : null}
+              {pageId && !enriching ? (
+                <PiRailAction
+                  disabled={refreshing}
+                  onClick={() => {
+                    setRefreshing(true)
+                    void refreshPiPageWithAgent({
+                      siteId,
+                      pageId,
+                      pageTitle: title,
+                      entityKey,
+                      company: company || undefined,
+                    }).finally(() => setRefreshing(false))
+                  }}
+                >
+                  {refreshing ? 'Refreshing…' : 'Refresh'}
+                </PiRailAction>
+              ) : null}
               <PiRailAction to={`/pi/sites/${siteId}`}>
                 Back to site
               </PiRailAction>
@@ -532,19 +552,43 @@ export const EntityPage: FC = () => {
           </div>
         ) : null}
         <div className="min-h-0 flex-1">
-          {doc ? (
-            <PiPageRenderer
-              doc={doc}
+          {doc && pageId ? (
+            <PiPageErrorBoundary
               siteId={siteId}
-              pendingKey={pendingKey}
-              onAction={async (action, ctx) => {
-                if (ctx?.pendingKey) setPendingKey(ctx.pendingKey)
-                try {
-                  await executePiAction(action)
-                } finally {
-                  setPendingKey(null)
-                }
-              }}
+              pageId={pageId}
+              pageTitle={title}
+              entityKey={entityKey}
+              issues={pageQuery.data?.issues}
+              fixHint={pageQuery.data?.fixHint}
+              agentBrief={pageQuery.data?.diagnosis?.agentBrief}
+              findings={pageQuery.data?.diagnosis?.findings}
+              contentSummary={pageQuery.data?.contentSummary}
+            >
+              <PiPageRenderer
+                doc={doc}
+                siteId={siteId}
+                pendingKey={pendingKey}
+                onAction={async (action, ctx) => {
+                  if (ctx?.pendingKey) setPendingKey(ctx.pendingKey)
+                  try {
+                    await executePiAction(action)
+                  } finally {
+                    setPendingKey(null)
+                  }
+                }}
+              />
+            </PiPageErrorBoundary>
+          ) : pageId && !pageQuery.isLoading ? (
+            <PiBrokenPagePanel
+              siteId={siteId}
+              pageId={pageId}
+              pageTitle={title}
+              entityKey={entityKey}
+              issues={pageQuery.data?.issues}
+              fixHint={pageQuery.data?.fixHint}
+              agentBrief={pageQuery.data?.diagnosis?.agentBrief}
+              findings={pageQuery.data?.diagnosis?.findings}
+              contentSummary={pageQuery.data?.contentSummary}
             />
           ) : (
             <div className="p-6 text-muted-foreground text-sm">

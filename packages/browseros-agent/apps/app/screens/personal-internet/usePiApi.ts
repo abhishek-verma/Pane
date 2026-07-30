@@ -92,9 +92,35 @@ export function usePiPage(
     queryKey: ['pi', 'page', siteId, pageId],
     enabled: !!siteId && !!pageId,
     queryFn: () =>
-      piGet<{ doc: PiPageDoc; page: { id: string; title: string } }>(
-        `/pi/sites/${siteId}/pages/${pageId}`,
-      ),
+      piGet<{
+        doc: PiPageDoc | null
+        page: { id: string; title: string }
+        ok?: boolean
+        issues?: string[]
+        fixHint?: string
+        raw?: unknown
+        diagnosis?: {
+          agentBrief: string
+          needsRaw: boolean
+          findings: Array<{
+            code: string
+            severity: string
+            summary: string
+            agentSteps?: string[]
+            suggestedApproach?: string
+          }>
+          autoFixesApplied?: string[]
+        }
+        contentSummary?: {
+          title?: string
+          nodeTypes?: string[]
+          boardSummaries?: Array<{
+            columns: string[]
+            cardTitles: string[]
+            shape: string
+          }>
+        }
+      }>(`/pi/sites/${siteId}/pages/${pageId}`),
   })
 }
 

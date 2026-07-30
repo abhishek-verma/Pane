@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { BoardKanban } from './BoardKanban'
 import { PiRailAction } from './PiChrome'
 import { PiMarkdown } from './PiMarkdown'
+import { PiNodeErrorBoundary } from './PiNodeErrorBoundary'
 import type { PiAction, PiNode, PiPageDoc } from './types'
 import { PiChartView } from './viz/PiChartView'
 import { PiMermaidView } from './viz/PiMermaidView'
@@ -26,34 +27,46 @@ export type PiActionHandler = (
   ctx?: { pendingKey?: string },
 ) => void | Promise<void>
 
+function safeLen(value: unknown): number {
+  return typeof value === 'string' || Array.isArray(value) ? value.length : 0
+}
+
 function nodeKey(node: PiNode, path: string): string {
   switch (node.type) {
     case 'title':
     case 'text':
     case 'note':
-      return `${path}:${node.type}:${node.text.slice(0, 48)}`
+      return `${path}:${node.type}:${String(node.text ?? '').slice(0, 48)}`
     case 'badge':
-      return `${path}:badge:${node.tone ?? 'neutral'}:${node.text.slice(0, 32)}`
+      return `${path}:badge:${node.tone ?? 'neutral'}:${String(node.text ?? '').slice(0, 32)}`
     case 'divider':
       return `${path}:divider`
     case 'button':
-      return `${path}:button:${node.label}`
+      return `${path}:button:${node.label ?? ''}`
     case 'link':
-      return `${path}:link:${node.label}`
+      return `${path}:link:${node.label ?? ''}`
     case 'stack':
-      return `${path}:stack:${node.direction ?? 'col'}:${node.children.length}`
+      return `${path}:stack:${node.direction ?? 'col'}:${safeLen(node.children)}`
     case 'table':
-      return `${path}:table:${node.rows.map((r) => r.id).join(',')}`
+      return `${path}:table:${Array.isArray(node.rows) ? node.rows.map((r) => r.id).join(',') : ''}`
     case 'board':
-      return `${path}:board:${node.cards.map((c) => c.id).join(',')}`
+      return `${path}:board:${Array.isArray(node.cards) ? node.cards.map((c) => c.id ?? c.title).join(',') : ''}`
     case 'chart':
-      return `${path}:chart:${node.chartType}:${node.data.map((d) => d.label).join(',')}`
+      return `${path}:chart:${node.chartType}:${Array.isArray(node.data) ? node.data.map((d) => d.label).join(',') : ''}`
     case 'mermaid':
-      return `${path}:mermaid:${(node.title ?? '').slice(0, 24)}:${node.source.length}`
+      return `${path}:mermaid:${String(node.title ?? '').slice(0, 24)}:${safeLen(node.source)}`
     case 'svg':
-      return `${path}:svg:${(node.title ?? node.alt ?? '').slice(0, 24)}:${node.markup.length}`
+      return `${path}:svg:${String(node.title ?? node.alt ?? '').slice(0, 24)}:${safeLen(node.markup)}`
+    default:
+      return `${path}:unknown`
   }
 }
+
+const PiBrokenBlock: FC<{ reason: string }> = ({ reason }) => (
+  <div className="border-border border-y px-3 py-4 font-mono text-[11px] text-muted-foreground tracking-wide">
+    Skipped broken block ({reason}).
+  </div>
+)
 
 const PiNodeView: FC<{
   node: PiNode
@@ -88,13 +101,13 @@ const PiNodeView: FC<{
     case 'text':
       return (
         <div className="max-w-prose text-foreground/85 text-sm leading-relaxed">
-          <PiMarkdown>{node.text}</PiMarkdown>
+          <PiMarkdown>{node.text ?? ''}</PiMarkdown>
         </div>
       )
     case 'note':
       return (
         <div className="border-border border-l-2 pl-3 text-foreground/80 text-sm leading-relaxed">
-          <PiMarkdown>{node.text}</PiMarkdown>
+          <PiMarkdown>{node.text ?? ''}</PiMarkdown>
         </div>
       )
     case 'badge':
@@ -111,6 +124,9 @@ const PiNodeView: FC<{
     case 'divider':
       return <hr className="border-border" />
     case 'stack':
+      if (!Array.isArray(node.children)) {
+        return <PiBrokenBlock reason="stack without children" />
+      }
       return (
         <div
           className={cn(
@@ -120,18 +136,19 @@ const PiNodeView: FC<{
               : 'flex-col',
           )}
         >
-          {node.children.map((child) => {
-            const childPath = nodeKey(child, path)
+          {node.children.map((child, i) => {
+            const childPath = `${nodeKey(child, path)}:${i}`
             return (
-              <PiNodeView
-                key={childPath}
-                node={child}
-                path={childPath}
-                onAction={onAction}
-                pendingKey={pendingKey}
-                onMoveCard={onMoveCard}
-                siteId={siteId}
-              />
+              <PiNodeErrorBoundary key={childPath} label={child.type}>
+                <PiNodeView
+                  node={child}
+                  path={childPath}
+                  onAction={onAction}
+                  pendingKey={pendingKey}
+                  onMoveCard={onMoveCard}
+                  siteId={siteId}
+                />
+              </PiNodeErrorBoundary>
             )
           })}
         </div>
@@ -159,6 +176,9 @@ const PiNodeView: FC<{
         </button>
       )
     case 'table':
+      if (!Array.isArray(node.columns) || !Array.isArray(node.rows)) {
+        return <PiBrokenBlock reason="table missing columns/rows" />
+      }
       return (
         <div className="overflow-x-auto border-border border-y">
           <table className="w-full min-w-[28rem] text-left text-sm">
@@ -178,7 +198,7 @@ const PiNodeView: FC<{
               {node.rows.map((row) => (
                 <tr key={row.id} className="border-border/70 border-t">
                   {node.columns.map((c) => {
-                    const cell = row.cells[c.id]
+                    const cell = row.cells?.[c.id]
                     return (
                       <td
                         key={c.id}
@@ -191,13 +211,15 @@ const PiNodeView: FC<{
                             ''
                           )
                         ) : (
-                          <PiNodeView
-                            node={cell}
-                            path={`${path}:cell:${row.id}:${c.id}`}
-                            onAction={onAction}
-                            pendingKey={pendingKey}
-                            siteId={siteId}
-                          />
+                          <PiNodeErrorBoundary label="cell">
+                            <PiNodeView
+                              node={cell}
+                              path={`${path}:cell:${row.id}:${c.id}`}
+                              onAction={onAction}
+                              pendingKey={pendingKey}
+                              siteId={siteId}
+                            />
+                          </PiNodeErrorBoundary>
                         )}
                       </td>
                     )
@@ -218,13 +240,22 @@ const PiNodeView: FC<{
         />
       )
     case 'chart':
+      if (!Array.isArray(node.data) || node.data.length === 0) {
+        return <PiBrokenBlock reason="chart without data" />
+      }
       return <PiChartView node={node} />
     case 'mermaid':
+      if (typeof node.source !== 'string' || !node.source.trim()) {
+        return <PiBrokenBlock reason="mermaid without source" />
+      }
       return <PiMermaidView node={node} />
     case 'svg':
+      if (typeof node.markup !== 'string' || !node.markup.trim()) {
+        return <PiBrokenBlock reason="svg without markup" />
+      }
       return <PiSvgView node={node} />
     default:
-      return null
+      return <PiBrokenBlock reason="unknown node type" />
   }
 }
 
@@ -236,6 +267,7 @@ export const PiPageRenderer: FC<{
   siteId?: string
 }> = ({ doc, onAction, pendingKey, onMoveCard, siteId }) => {
   let titleCount = 0
+  const nodes = Array.isArray(doc.nodes) ? doc.nodes : []
   return (
     <div
       className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-8"
@@ -245,20 +277,21 @@ export const PiPageRenderer: FC<{
         } as React.CSSProperties
       }
     >
-      {doc.nodes.map((node) => {
-        const path = nodeKey(node, 'root')
+      {nodes.map((node, i) => {
+        const path = `${nodeKey(node, 'root')}:${i}`
         const titleIndex = node.type === 'title' ? titleCount++ : undefined
         return (
-          <PiNodeView
-            key={path}
-            node={node}
-            path={path}
-            onAction={onAction}
-            pendingKey={pendingKey}
-            onMoveCard={onMoveCard}
-            siteId={siteId}
-            titleIndex={titleIndex}
-          />
+          <PiNodeErrorBoundary key={path} label={node.type}>
+            <PiNodeView
+              node={node}
+              path={path}
+              onAction={onAction}
+              pendingKey={pendingKey}
+              onMoveCard={onMoveCard}
+              siteId={siteId}
+              titleIndex={titleIndex}
+            />
+          </PiNodeErrorBoundary>
         )
       })}
     </div>

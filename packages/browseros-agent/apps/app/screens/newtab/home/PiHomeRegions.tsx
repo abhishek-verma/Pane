@@ -55,6 +55,8 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
     text: string
   } | null>(null)
   const [openingId, setOpeningId] = useState<string | null>(null)
+  const [dismissBusyId, setDismissBusyId] = useState<string | null>(null)
+  const [refreshingToday, setRefreshingToday] = useState(false)
 
   if (!data) return null
   const { doorways, continuity, libraryCount, proposeDoorways } = data
@@ -67,9 +69,15 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
     return null
   }
 
-  const showToday = continuity.length > 0
+  const invalidateHome = () => {
+    void queryClient.invalidateQueries({ queryKey: [...HOME_QUERY_KEY] })
+  }
+
   const showLiving = doorways.length > 0
   const showLibraryOnly = !showLiving && libraryCount > 0
+  // Keep Today chrome (incl. Refresh) when living work exists so users can
+  // rebuild the list after clearing every item.
+  const showToday = continuity.length > 0 || showLiving || showLibraryOnly
   const showPropose = Boolean(proposeDoorways && proposeDoorways.length > 0)
   let next = 1
   const todayIndex = showToday ? next++ : 0
@@ -117,21 +125,56 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
     }
   }
 
+  const dismissContinuity = async (blockId: string) => {
+    setDismissBusyId(blockId)
+    try {
+      const res = await piPost('/pi/home/continuity/dismiss', { id: blockId })
+      if (res.ok) invalidateHome()
+    } finally {
+      setDismissBusyId(null)
+    }
+  }
+
+  const refreshToday = async () => {
+    setRefreshingToday(true)
+    try {
+      const res = await piPost('/pi/home/refresh', {})
+      if (res.ok) invalidateHome()
+    } finally {
+      setRefreshingToday(false)
+    }
+  }
+
   return (
     <div className="w-full divide-y divide-border border-border border-t">
       {showToday ? (
         <section>
           <div className="flex items-center justify-between gap-3 py-3">
             <PiSectionLabel>{sectionLabel(todayIndex, 'Today')}</PiSectionLabel>
-            <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
-              {continuity.length}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
+                {continuity.length}
+              </span>
+              <PiRailAction
+                disabled={refreshingToday}
+                onClick={() => void refreshToday()}
+              >
+                {refreshingToday ? 'Refreshing…' : 'Refresh'}
+              </PiRailAction>
+            </div>
           </div>
           <div className="divide-y divide-border border-border border-t">
+            {continuity.length === 0 ? (
+              <div className="py-3 font-mono text-[11px] text-muted-foreground tracking-wide">
+                Nothing for today. Refresh to pull current follow-ups.
+              </div>
+            ) : null}
             {continuity.map((block) => {
               const tokens = approvalTokens(block.metadata)
               const note =
                 resolveNote?.id === block.id ? resolveNote.text : null
+              const busy =
+                resolveBusyId === block.id || dismissBusyId === block.id
               return (
                 <div key={block.id} className="py-3">
                   <div className="font-medium text-sm">{block.title}</div>
@@ -147,7 +190,7 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                     {tokens ? (
                       <>
                         <PiRailAction
-                          disabled={resolveBusyId === block.id}
+                          disabled={busy}
                           onClick={() =>
                             void resolveApproval(block.id, tokens, 'approve')
                           }
@@ -155,7 +198,7 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                           Approve
                         </PiRailAction>
                         <PiRailAction
-                          disabled={resolveBusyId === block.id}
+                          disabled={busy}
                           onClick={() =>
                             void resolveApproval(block.id, tokens, 'deny')
                           }
@@ -164,7 +207,7 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                         </PiRailAction>
                         {tokens.conversationId ? (
                           <PiRailAction
-                            disabled={openingId === block.id}
+                            disabled={openingId === block.id || busy}
                             onClick={() => {
                               const cid = tokens.conversationId
                               if (!cid) return
@@ -200,6 +243,12 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                         Handle
                       </PiRailAction>
                     ) : null}
+                    <PiRailAction
+                      disabled={busy}
+                      onClick={() => void dismissContinuity(block.id)}
+                    >
+                      {dismissBusyId === block.id ? 'Removing…' : 'Remove'}
+                    </PiRailAction>
                   </div>
                 </div>
               )

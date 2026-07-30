@@ -6,6 +6,7 @@
 
 import { type FC, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { normalizeBoardForRender } from './normalizeBoard'
 import { PiRailAction } from './PiChrome'
 import { PiMarkdown } from './PiMarkdown'
 import type { PiAction, PiCardAction, PiNode } from './types'
@@ -68,7 +69,8 @@ export const BoardKanban: FC<{
   onAction: (action: PiAction) => void | Promise<void>
   onMoveCard?: (cardId: string, toColumnId: string) => void | Promise<void>
   siteId?: string
-}> = ({ node, onAction, onMoveCard, siteId }) => {
+}> = ({ node: rawNode, onAction, onMoveCard, siteId }) => {
+  const node = normalizeBoardForRender(rawNode)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
   // Suppress title click that browsers fire after a drag ends.

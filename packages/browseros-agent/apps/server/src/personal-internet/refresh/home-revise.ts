@@ -7,7 +7,7 @@
  */
 
 import { buildPiHomeProjection } from '../home-projection'
-import { writeHomeContinuity } from '../store'
+import { clearDismissedContinuity, writeHomeContinuity } from '../store'
 import type { PiContinuityBlock } from '../types'
 
 /** Rebuild Today continuity from approvals + doorway urgencies; persist. */
@@ -23,4 +23,12 @@ export async function reviseHomeContinuityLocal(): Promise<{
     .slice(0, 5)
   await writeHomeContinuity(blocks)
   return { blocks }
+}
+
+/** Manual Today refresh: clear removals, then rebuild from current urgencies. */
+export async function refreshHomeToday(): Promise<{
+  blocks: PiContinuityBlock[]
+}> {
+  await clearDismissedContinuity()
+  return reviseHomeContinuityLocal()
 }

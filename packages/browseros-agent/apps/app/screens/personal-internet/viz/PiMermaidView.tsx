@@ -18,6 +18,10 @@ export const PiMermaidView: FC<{ node: MermaidNode }> = ({ node }) => {
     let cancelled = false
     setSvg(null)
     setError(null)
+    if (typeof node.source !== 'string' || !node.source.trim()) {
+      setError('Missing diagram source')
+      return
+    }
     void (async () => {
       try {
         const mermaid = (await import('mermaid')).default

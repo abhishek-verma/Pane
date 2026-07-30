@@ -85,4 +85,53 @@ describe('pi home bridge', () => {
     expect(pi.continuity.some((c) => c.id === 'today-1')).toBe(true)
     expect(pi.libraryCount).toBe(1)
   })
+
+  it('dismiss hides a Today block until refresh', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    const siteId = created.siteId!
+    const { writeHomeContinuity, dismissContinuityBlock, readHomePrefs } =
+      await import('../../src/personal-internet/store')
+    const { refreshHomeToday } = await import(
+      '../../src/personal-internet/refresh/home-revise'
+    )
+
+    await writeHomeContinuity([
+      {
+        id: 'today-stale',
+        title: 'Old follow-up',
+        body: 'No longer relevant',
+        route: `#/pi/sites/${siteId}`,
+      },
+      {
+        id: 'today-keep',
+        title: 'Still open',
+        body: 'Call back tomorrow',
+        route: `#/pi/sites/${siteId}`,
+      },
+    ])
+
+    await dismissContinuityBlock('today-stale')
+    const afterDismiss = await buildPiHomeProjection()
+    expect(afterDismiss.continuity.some((c) => c.id === 'today-stale')).toBe(
+      false,
+    )
+    expect(afterDismiss.continuity.some((c) => c.id === 'today-keep')).toBe(
+      true,
+    )
+    expect((await readHomePrefs()).dismissedContinuityIds).toContain(
+      'today-stale',
+    )
+
+    await refreshHomeToday()
+    const afterRefresh = await buildPiHomeProjection()
+    expect((await readHomePrefs()).dismissedContinuityIds).toEqual([])
+    // Refresh rebuilds from current urgencies; explicit custom ids may drop.
+    expect(afterRefresh.continuity.some((c) => c.id === 'today-stale')).toBe(
+      false,
+    )
+  })
 })

@@ -101,6 +101,83 @@ describe('pi dsl', () => {
     }
   })
 
+  it('rejects agent-shaped boards on write (no silent coerce)', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'GTM',
+        nodes: [
+          {
+            type: 'board',
+            columns: [
+              { id: 'todo', title: 'To Do' },
+              { id: 'done', title: 'Done' },
+            ],
+            cards: [
+              {
+                columnId: 'todo',
+                title: 'Register domain',
+                description: 'pane.ai',
+              },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(/Board shape is wrong|cardIds|upsertBoardCard/)
+  })
+
+  it('coerces agent-shaped boards only when coerceBoards is set (heal path)', () => {
+    const doc = validatePageDoc(
+      {
+        version: 1,
+        title: 'GTM',
+        nodes: [
+          {
+            type: 'board',
+            columns: [
+              { id: 'todo', title: 'To Do' },
+              { id: 'done', title: 'Done' },
+            ],
+            cards: [
+              {
+                columnId: 'todo',
+                title: 'Register domain',
+                description: 'pane.ai',
+              },
+              {
+                columnId: 'done',
+                title: 'Ship v1',
+                description: 'done item',
+              },
+            ],
+          },
+        ],
+      },
+      { coerceBoards: true },
+    )
+    const board = doc.nodes[0]
+    expect(board.type).toBe('board')
+    if (board.type === 'board') {
+      expect(board.columns[0].cardIds).toHaveLength(1)
+      expect(board.columns[1].cardIds).toHaveLength(1)
+      expect(board.cards[0].id).toBeTruthy()
+      expect(board.cards[0].subtitle).toBe('pane.ai')
+      expect(board.cards[0]).not.toHaveProperty('columnId')
+      expect(board.cards[0]).not.toHaveProperty('description')
+      expect(board.columns[0].cardIds[0]).toBe(board.cards[0].id)
+    }
+  })
+
+  it('rejects missing required strings instead of coercing undefined', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'x',
+        nodes: [{ type: 'text', text: undefined }],
+      }),
+    ).toThrow(PiDslError)
+  })
+
   it('accepts labeled and bare board card actions', () => {
     const labeled = validatePageDoc({
       version: 1,

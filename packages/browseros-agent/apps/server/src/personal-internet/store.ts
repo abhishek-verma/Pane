@@ -15,6 +15,7 @@ import type {
 } from '../lib/db/schema/personal-internet'
 import { validatePageDoc } from './dsl'
 import { removePiIndex, removePiSiteIndex } from './index-pi'
+import { inspectPageFile, type PiPageInspection } from './inspect'
 import {
   homePrefsFile,
   homeRegionsFile,
@@ -244,15 +245,36 @@ export function listPagesForSite(siteId: string): PiPageRow[] {
   return rows.map(rowToPage)
 }
 
-export async function readPageDoc(pageId: string): Promise<PiPageDoc | null> {
+export async function inspectPageDoc(
+  pageId: string,
+): Promise<PiPageInspection | null> {
   const page = getPage(pageId)
   if (!page) return null
-  try {
-    const raw = await readFile(page.filePath, 'utf-8')
-    return validatePageDoc(JSON.parse(raw))
-  } catch {
-    return null
+  return inspectPageFile({
+    pageId,
+    siteId: page.siteId,
+    title: page.title,
+    filePath: page.filePath,
+  })
+}
+
+export async function readPageDoc(pageId: string): Promise<PiPageDoc | null> {
+  const inspection = await inspectPageDoc(pageId)
+  if (!inspection) return null
+  const doc = inspection.doc
+  if (!doc) return null
+  // Persist heals / auto-repairs when on-disk differs.
+  if (inspection.raw != null) {
+    const page = getPage(pageId)
+    if (page && JSON.stringify(doc) !== JSON.stringify(inspection.raw)) {
+      try {
+        await writeFile(page.filePath, JSON.stringify(doc, null, 2), 'utf-8')
+      } catch {
+        // Best-effort heal; still return the validated doc.
+      }
+    }
   }
+  return doc
 }
 
 export function upsertRecord(input: {
@@ -453,25 +475,78 @@ export async function deleteTemp(id: string): Promise<void> {
 export type HomePrefs = {
   hiddenSiteIds: string[]
   pinnedSiteIds: string[]
+  /** Continuity block ids removed from Today until the next Today refresh. */
+  dismissedContinuityIds: string[]
 }
+
+const MAX_DISMISSED_CONTINUITY = 50
 
 export async function readHomePrefs(): Promise<HomePrefs> {
   try {
     const raw = await readFile(homePrefsFile(), 'utf-8')
-    const parsed = JSON.parse(raw) as HomePrefs
+    const parsed = JSON.parse(raw) as Partial<HomePrefs>
     return {
       hiddenSiteIds: parsed.hiddenSiteIds ?? [],
       pinnedSiteIds: parsed.pinnedSiteIds ?? [],
+      dismissedContinuityIds: Array.isArray(parsed.dismissedContinuityIds)
+        ? parsed.dismissedContinuityIds.filter((id) => typeof id === 'string')
+        : [],
     }
   } catch {
-    return { hiddenSiteIds: [], pinnedSiteIds: [] }
+    return {
+      hiddenSiteIds: [],
+      pinnedSiteIds: [],
+      dismissedContinuityIds: [],
+    }
   }
 }
 
 export async function writeHomePrefs(prefs: HomePrefs): Promise<void> {
   const path = homePrefsFile()
   await mkdir(dirname(path), { recursive: true })
-  await writeFile(path, JSON.stringify(prefs, null, 2), 'utf-8')
+  await writeFile(
+    path,
+    JSON.stringify(
+      {
+        hiddenSiteIds: prefs.hiddenSiteIds,
+        pinnedSiteIds: prefs.pinnedSiteIds,
+        dismissedContinuityIds: prefs.dismissedContinuityIds.slice(
+          -MAX_DISMISSED_CONTINUITY,
+        ),
+      },
+      null,
+      2,
+    ),
+    'utf-8',
+  )
+}
+
+/** Hide a Today block until the next Today refresh. */
+export async function dismissContinuityBlock(id: string): Promise<HomePrefs> {
+  const trimmed = id.trim()
+  if (!trimmed) return readHomePrefs()
+  const prefs = await readHomePrefs()
+  const dismissed = new Set(prefs.dismissedContinuityIds)
+  dismissed.add(trimmed)
+  const next: HomePrefs = {
+    ...prefs,
+    dismissedContinuityIds: [...dismissed].slice(-MAX_DISMISSED_CONTINUITY),
+  }
+  await writeHomePrefs(next)
+
+  const regions = await readHomeRegions()
+  if (regions.continuity.some((c) => c.id === trimmed)) {
+    await writeHomeContinuity(
+      regions.continuity.filter((c) => c.id !== trimmed),
+    )
+  }
+  return next
+}
+
+export async function clearDismissedContinuity(): Promise<void> {
+  const prefs = await readHomePrefs()
+  if (prefs.dismissedContinuityIds.length === 0) return
+  await writeHomePrefs({ ...prefs, dismissedContinuityIds: [] })
 }
 
 export type HomeRegionsFile = {

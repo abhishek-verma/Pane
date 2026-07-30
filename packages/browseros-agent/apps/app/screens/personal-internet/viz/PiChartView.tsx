@@ -37,7 +37,15 @@ function VizFrame({
 }
 
 export const PiChartView: FC<{ node: ChartNode }> = ({ node }) => {
-  const max = Math.max(...node.data.map((d) => Math.abs(d.value)), 1)
+  const data = Array.isArray(node.data) ? node.data : []
+  if (data.length === 0) {
+    return (
+      <VizFrame title={node.title}>
+        <p className="text-muted-foreground text-xs">No chart data.</p>
+      </VizFrame>
+    )
+  }
+  const max = Math.max(...data.map((d) => Math.abs(d.value)), 1)
   const w = 480
   const h = 220
   const pad = { t: 16, r: 16, b: 40, l: 40 }
@@ -45,12 +53,12 @@ export const PiChartView: FC<{ node: ChartNode }> = ({ node }) => {
   const innerH = h - pad.t - pad.b
 
   if (node.chartType === 'pie') {
-    const total = node.data.reduce((s, d) => s + Math.abs(d.value), 0) || 1
+    const total = data.reduce((s, d) => s + Math.abs(d.value), 0) || 1
     let angle = -Math.PI / 2
     const cx = 120
     const cy = 110
     const r = 80
-    const slices = node.data.map((d, i) => {
+    const slices = data.map((d, i) => {
       const sweep = (Math.abs(d.value) / total) * Math.PI * 2
       const x1 = cx + r * Math.cos(angle)
       const y1 = cy + r * Math.sin(angle)
@@ -92,12 +100,12 @@ export const PiChartView: FC<{ node: ChartNode }> = ({ node }) => {
   }
 
   if (node.chartType === 'horizontal-bar') {
-    const rowH = Math.min(28, innerH / node.data.length)
+    const rowH = Math.min(28, innerH / data.length)
     return (
       <VizFrame title={node.title}>
         <svg viewBox={`0 0 ${w} ${h}`} className="h-56 w-full" role="img">
           <title>{node.title ?? 'Bar chart'}</title>
-          {node.data.map((d, i) => {
+          {data.map((d, i) => {
             const barW = (Math.abs(d.value) / max) * (innerW - 80)
             const y = pad.t + i * rowH
             return (
@@ -109,7 +117,7 @@ export const PiChartView: FC<{ node: ChartNode }> = ({ node }) => {
                   className="fill-muted-foreground"
                   fontSize={10}
                 >
-                  {d.label.slice(0, 12)}
+                  {String(d.label ?? '').slice(0, 12)}
                 </text>
                 <rect
                   x={pad.l}
@@ -138,9 +146,9 @@ export const PiChartView: FC<{ node: ChartNode }> = ({ node }) => {
   }
 
   // bar + line share axes
-  const n = node.data.length
+  const n = data.length
   const gap = innerW / Math.max(n, 1)
-  const points = node.data.map((d, i) => {
+  const points = data.map((d, i) => {
     const x = pad.l + gap * i + gap / 2
     const y = pad.t + innerH - (Math.abs(d.value) / max) * innerH
     return { x, y, ...d }
@@ -198,7 +206,7 @@ export const PiChartView: FC<{ node: ChartNode }> = ({ node }) => {
             className="fill-muted-foreground"
             fontSize={9}
           >
-            {p.label.slice(0, 10)}
+            {String(p.label ?? '').slice(0, 10)}
           </text>
         ))}
       </svg>
