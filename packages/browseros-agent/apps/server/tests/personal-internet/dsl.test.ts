@@ -275,6 +275,37 @@ describe('pi dsl', () => {
     ).toEqual(['Co', 'Timeline'])
   })
 
+  it('does not coerce sectional replaceNodes after materialize is done', () => {
+    const done: PiPageDoc = {
+      version: 1,
+      title: 'Nablon.AI',
+      nodes: [
+        { type: 'title', text: 'Nablon.AI' },
+        { type: 'title', text: 'Links' },
+      ],
+      meta: {
+        entityKey: 'nablon',
+        materialize: {
+          phase: 'done',
+          sections: [{ id: 'links', title: 'Links', status: 'filled' }],
+        },
+      },
+    }
+    const next = applyPatchOps(done, [
+      {
+        op: 'replaceNodes',
+        nodes: [
+          { type: 'title', text: 'Links' },
+          { type: 'text', text: 'Only links' },
+        ],
+      },
+    ])
+    expect(next.nodes).toEqual([
+      { type: 'title', text: 'Links' },
+      { type: 'text', text: 'Only links' },
+    ])
+  })
+
   it('accepts chart and mermaid; sanitizes svg; rejects hostile svg', () => {
     const doc = validatePageDoc({
       version: 1,

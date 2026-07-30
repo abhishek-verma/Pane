@@ -435,7 +435,8 @@ export function shouldAppendSectionReplace(
   doc: PiPageDoc,
   nodes: PiNode[],
 ): boolean {
-  if (!doc.meta?.materialize) return false
+  const phase = doc.meta?.materialize?.phase
+  if (!phase || phase === 'done') return false
   if (nodes.length === 0) return false
   const first = nodes[0]
   if (first?.type !== 'title') return false
