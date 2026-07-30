@@ -27,6 +27,7 @@ import {
   getScheduledRun,
   listScheduledRuns,
   reclaimStaleRunningRuns,
+  updateRunStatus,
 } from '../../scheduler/run-executor'
 import type { Env } from '../types'
 
@@ -118,6 +119,22 @@ export function createSchedulerRoutes() {
       if (!run) {
         return c.json({ error: 'not claimable (missing or not pending)' }, 409)
       }
+      return c.json({ run })
+    })
+    .patch('/runs/:id', async (c) => {
+      const body = z
+        .object({
+          conversationId: z.string().nullable().optional(),
+        })
+        .parse(await c.req.json())
+      const existing = getScheduledRun(c.req.param('id'))
+      if (!existing) return c.json({ error: 'not found' }, 404)
+      if (existing.status !== 'running' && existing.status !== 'pending') {
+        return c.json({ error: 'not patchable in current status' }, 409)
+      }
+      const run = updateRunStatus(c.req.param('id'), {
+        conversationId: body.conversationId,
+      })
       return c.json({ run })
     })
     .post('/runs/:id/complete', async (c) => {

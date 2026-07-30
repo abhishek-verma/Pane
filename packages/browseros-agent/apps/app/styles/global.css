@@ -45,44 +45,54 @@
   font-display: swap;
 }
 
+/* ── Living Grid: shell (spec 21) ────────────────────────────────────────
+   The shell is strictly achromatic. Chroma is reserved for Personalised
+   Internet "places", which override these tokens via [data-field]. */
 :root {
   --radius: 0.375rem;
-  --background: oklch(0.985 0.002 85);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(0.99 0.001 85);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(0.99 0.001 85);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.646 0.222 41.116);
-  --primary-foreground: oklch(0.98 0.016 73.684);
-  --secondary: oklch(0.97 0.002 85);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.97 0.002 85);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.97 0.002 85);
-  --accent-foreground: oklch(0.21 0.006 285.885);
+
+  /* Signal — the one accent. Marks agent liveness and progress. */
+  --signal: oklch(0.7 0.155 122);
+  --signal-bright: oklch(0.877 0.196 122);
+  --signal-foreground: oklch(0.16 0.02 122);
+
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(0.985 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.985 0 0);
+  --popover-foreground: var(--foreground);
+  --primary: var(--signal);
+  --primary-foreground: var(--signal-foreground);
+  --secondary: oklch(0.965 0 0);
+  --secondary-foreground: oklch(0.21 0 0);
+  --muted: oklch(0.965 0 0);
+  --muted-foreground: oklch(0.52 0 0);
+  --accent: oklch(0.955 0 0);
+  --accent-foreground: oklch(0.21 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.75 0.183 55.934);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
+  --ring: var(--signal);
   --chart-1: oklch(0.837 0.128 66.29);
   --chart-2: oklch(0.705 0.213 47.604);
   --chart-3: oklch(0.646 0.222 41.116);
   --chart-4: oklch(0.553 0.195 38.402);
   --chart-5: oklch(0.47 0.157 37.304);
-  --sidebar: oklch(0.98 0.002 85);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.646 0.222 41.116);
-  --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
-  --sidebar-accent: oklch(0.92 0.004 85);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.75 0.183 55.934);
-  /* Custom accent color for BrowserOS branding */
-  --accent-orange: oklch(0.6781 0.1663 43.21);
-  /* Added brighter orange variant for shimmer animation */
-  --accent-orange-bright: oklch(0.7531 0.1963 43.21);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--signal);
+  --sidebar-primary-foreground: var(--signal-foreground);
+  --sidebar-accent: oklch(0.955 0 0);
+  --sidebar-accent-foreground: oklch(0.21 0 0);
+  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-ring: var(--signal);
+
+  /* Legacy BrowserOS orange, kept for one-line revert (spec 21 §3). */
+  --accent-orange-legacy: oklch(0.6781 0.1663 43.21);
+  --accent-orange: var(--signal);
+  --accent-orange-bright: var(--signal-bright);
 
   /* Agent chat visual language (spec 18) — calm console, left-rail traces */
   --agent-rail: oklch(0.78 0.01 286);
@@ -95,38 +105,43 @@
 }
 
 .dark {
-  --background: oklch(0.25 0.01 265);
-  --foreground: oklch(0.92 0 0);
-  --card: oklch(0.28 0.01 265);
-  --card-foreground: oklch(0.92 0 0);
-  --popover: oklch(0.28 0.01 265);
-  --popover-foreground: oklch(0.92 0 0);
-  --primary: oklch(0.705 0.213 47.604);
-  --primary-foreground: oklch(0.98 0.016 73.684);
-  --secondary: oklch(0.32 0.01 265);
-  --secondary-foreground: oklch(0.92 0 0);
-  --muted: oklch(0.32 0.01 265);
+  --signal: oklch(0.877 0.196 122);
+  --signal-bright: oklch(0.93 0.2 122);
+  --signal-foreground: oklch(0.16 0.02 122);
+
+  /* Soft charcoal, not pure black — typical dark-mode shell (spec 21). */
+  --background: oklch(0.16 0.005 265);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.2 0.005 265);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.22 0.005 265);
+  --popover-foreground: var(--foreground);
+  --primary: var(--signal);
+  --primary-foreground: var(--signal-foreground);
+  --secondary: oklch(0.22 0.005 265);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.22 0.005 265);
   --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.32 0.01 265);
-  --accent-foreground: oklch(0.92 0 0);
+  --accent: oklch(0.24 0.005 265);
+  --accent-foreground: var(--foreground);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.92 0 0);
-  --border: oklch(0.38 0.01 265);
-  --input: oklch(0.38 0.01 265);
-  --ring: oklch(0.408 0.123 38.172);
+  --border: oklch(0.3 0.005 265);
+  --input: oklch(0.3 0.005 265);
+  --ring: var(--signal);
   --chart-1: oklch(0.837 0.128 66.29);
   --chart-2: oklch(0.705 0.213 47.604);
   --chart-3: oklch(0.646 0.222 41.116);
   --chart-4: oklch(0.553 0.195 38.402);
   --chart-5: oklch(0.47 0.157 37.304);
-  --sidebar: oklch(0.25 0.01 265);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.705 0.213 47.604);
-  --sidebar-primary-foreground: oklch(0.92 0 0);
-  --sidebar-accent: oklch(0.32 0.01 265);
-  --sidebar-accent-foreground: oklch(0.92 0 0);
-  --sidebar-border: oklch(0.38 0.01 265);
-  --sidebar-ring: oklch(0.408 0.123 38.172);
+  --sidebar: oklch(0.16 0.005 265);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--signal);
+  --sidebar-primary-foreground: var(--signal-foreground);
+  --sidebar-accent: oklch(0.24 0.005 265);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: oklch(0.3 0.005 265);
+  --sidebar-ring: var(--signal);
 
   --agent-rail: oklch(0.45 0.01 265);
   --agent-rail-browser: oklch(from var(--accent-orange) l c h / 0.65);
@@ -135,6 +150,147 @@
   --agent-peek-bg: oklch(from var(--muted) l c h / 0.4);
   --agent-composer-bg: oklch(from var(--muted) l c h / 0.5);
   --agent-trace-gap: 0.5rem;
+}
+
+/* ── Living Grid: fields (spec 21 §2) ─────────────────────────────────────
+   A Personalised Internet "place" opts into a chromatic field with
+   data-field="<name>". Every surface tint is derived from the single seed
+   colour, so the page reads as one material and downstream utilities
+   (bg-card, bg-muted, border-border, text-muted-foreground) need no
+   awareness of the field at all.
+
+   Light seeds sit at L≈0.93 / C 0.012–0.024 ("paper"), dark seeds at
+   L≈0.19 / C 0.022–0.030 ("pigment"). Holding lightness fixed keeps the
+   ten fields tonally interchangeable. */
+
+[data-field] {
+  --field: oklch(0.925 0.006 265);
+
+  --background: var(--field);
+  --card: oklch(from var(--field) calc(l + 0.025) c h);
+  --popover: oklch(from var(--field) calc(l + 0.025) c h);
+  --secondary: oklch(from var(--field) calc(l - 0.03) c h);
+  --muted: oklch(from var(--field) calc(l - 0.03) c h);
+  --accent: oklch(from var(--field) calc(l - 0.05) c h);
+  --border: oklch(from var(--field) calc(l - 0.1) calc(c * 2) h);
+  --input: var(--border);
+  --foreground: oklch(from var(--field) 0.16 calc(c * 1.2) h);
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+  --secondary-foreground: var(--foreground);
+  --accent-foreground: var(--foreground);
+  --muted-foreground: oklch(from var(--field) 0.47 calc(c * 2.5) h);
+
+  --signal: oklch(0.7 0.155 122);
+  --signal-bright: oklch(0.79 0.18 122);
+  --primary: var(--signal);
+  --primary-foreground: var(--signal-foreground);
+  --ring: var(--signal);
+  --accent-orange: var(--signal);
+  --accent-orange-bright: var(--signal-bright);
+
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+[data-field='rust'] {
+  --field: oklch(0.932 0.014 32);
+}
+[data-field='ember'] {
+  --field: oklch(0.94 0.017 65);
+}
+[data-field='amber'] {
+  --field: oklch(0.945 0.024 92);
+}
+[data-field='clay'] {
+  --field: oklch(0.93 0.019 85);
+}
+[data-field='moss'] {
+  --field: oklch(0.93 0.019 122);
+}
+[data-field='petrol'] {
+  --field: oklch(0.925 0.014 165);
+}
+[data-field='dust'] {
+  --field: oklch(0.925 0.016 250);
+}
+[data-field='iris'] {
+  --field: oklch(0.928 0.018 292);
+}
+[data-field='plum'] {
+  --field: oklch(0.928 0.018 330);
+}
+[data-field='slate'] {
+  --field: oklch(0.925 0.006 265);
+}
+
+/* Citron dies on warm yellow-green paper; fall back to olive ink. */
+[data-field='amber'],
+[data-field='moss'] {
+  --signal: oklch(0.48 0.108 118);
+  --signal-bright: oklch(0.56 0.12 118);
+  --signal-foreground: oklch(0.97 0.01 100);
+}
+
+.dark [data-field] {
+  --field: oklch(0.183 0.008 265);
+
+  --card: oklch(from var(--field) calc(l + 0.025) c h);
+  --popover: oklch(from var(--field) calc(l + 0.045) c h);
+  --secondary: oklch(from var(--field) calc(l + 0.045) c h);
+  --muted: oklch(from var(--field) calc(l + 0.045) c h);
+  --accent: oklch(from var(--field) calc(l + 0.07) c h);
+  --border: oklch(from var(--field) calc(l + 0.11) calc(c * 1.6) h);
+  --foreground: oklch(from var(--field) 0.94 calc(c * 0.6) h);
+  --muted-foreground: oklch(from var(--field) 0.66 calc(c * 1.4) h);
+
+  --signal: oklch(0.877 0.196 122);
+  --signal-bright: oklch(0.93 0.2 122);
+}
+
+.dark [data-field='rust'] {
+  --field: oklch(0.185 0.026 28);
+}
+.dark [data-field='ember'] {
+  --field: oklch(0.19 0.03 62);
+}
+.dark [data-field='amber'] {
+  --field: oklch(0.192 0.03 92);
+}
+.dark [data-field='clay'] {
+  --field: oklch(0.185 0.022 78);
+}
+.dark [data-field='moss'] {
+  --field: oklch(0.185 0.026 130);
+}
+.dark [data-field='petrol'] {
+  --field: oklch(0.188 0.026 172);
+}
+.dark [data-field='dust'] {
+  --field: oklch(0.19 0.03 264);
+}
+.dark [data-field='iris'] {
+  --field: oklch(0.19 0.03 294);
+}
+.dark [data-field='plum'] {
+  --field: oklch(0.188 0.028 328);
+}
+.dark [data-field='slate'] {
+  --field: oklch(0.183 0.008 265);
+}
+
+/* Citron on dark olive is invisible; fall back to ivory. */
+.dark [data-field='amber'],
+.dark [data-field='moss'] {
+  --signal: oklch(0.95 0.014 95);
+  --signal-bright: oklch(0.98 0.012 95);
+  --signal-foreground: oklch(0.18 0.02 95);
 }
 
 @theme inline {
@@ -179,6 +335,10 @@
   --color-accent-orange: var(--accent-orange);
   /* Added brighter orange to theme */
   --color-accent-orange-bright: var(--accent-orange-bright);
+  --color-signal: var(--signal);
+  --color-signal-bright: var(--signal-bright);
+  --color-signal-foreground: var(--signal-foreground);
+  --color-field: var(--field);
 
   /* Custom keyframe animations for hero section */
   --animate-float: float 3s ease-in-out infinite;

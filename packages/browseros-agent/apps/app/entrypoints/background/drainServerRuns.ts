@@ -26,11 +26,20 @@ export function drainServerRuns(): void {
       await drainPendingRunsOnce({
         getBaseUrl: getAgentServerUrl,
         fetchFn: agentFetch as typeof fetch,
-        runChat: async ({ message, scheduledRunId, idempotencyKey }) => {
+        // Never start lazy entity BTF from the background alarm — only
+        // EntityPage targeted nudge (runIds) may drain pi-materialize.
+        skipSources: ['pi-materialize'],
+        runChat: async ({
+          message,
+          scheduledRunId,
+          idempotencyKey,
+          conversationId,
+        }) => {
           const response = await getChatServerResponse({
             message,
             scheduledRunId,
             idempotencyKey,
+            conversationId,
           })
           return {
             text: response.text,

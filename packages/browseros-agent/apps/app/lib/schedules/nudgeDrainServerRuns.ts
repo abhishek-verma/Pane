@@ -12,15 +12,26 @@ import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { drainPendingRunsOnce } from '@/lib/schedules/drainPendingRuns'
 import { getChatServerResponse } from '@/lib/schedules/getChatServerResponse'
 
-export async function nudgeDrainServerRuns(): Promise<void> {
+export async function nudgeDrainServerRuns(options?: {
+  runIds?: string[]
+}): Promise<void> {
   await drainPendingRunsOnce({
     getBaseUrl: getAgentServerUrl,
     fetchFn: agentFetch as typeof fetch,
-    runChat: async ({ message, scheduledRunId, idempotencyKey }) => {
+    runIds: options?.runIds,
+    // Without explicit runIds, never fan-out pi-materialize from a generic nudge.
+    skipSources: options?.runIds?.length ? undefined : ['pi-materialize'],
+    runChat: async ({
+      message,
+      scheduledRunId,
+      idempotencyKey,
+      conversationId,
+    }) => {
       const response = await getChatServerResponse({
         message,
         scheduledRunId,
         idempotencyKey,
+        conversationId,
       })
       return {
         text: response.text,

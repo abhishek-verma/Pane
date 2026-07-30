@@ -166,6 +166,37 @@ describe('pi dsl', () => {
     }
   })
 
+  it('setMaterializeSection advances phase atf → structure → filling', () => {
+    const atf: PiPageDoc = {
+      version: 1,
+      title: 'Co',
+      nodes: [{ type: 'title', text: 'Co' }],
+      meta: {
+        entityKey: 'co',
+        materialize: { phase: 'atf', sections: [] },
+      },
+    }
+    const structured = applyPatchOps(atf, [
+      {
+        op: 'setMaterializeSection',
+        id: 'overview',
+        title: 'Overview',
+        status: 'shell',
+      },
+    ])
+    expect(structured.meta?.materialize?.phase).toBe('btf-structure')
+
+    const filling = applyPatchOps(structured, [
+      {
+        op: 'setMaterializeSection',
+        id: 'overview',
+        status: 'filled',
+      },
+    ])
+    expect(filling.meta?.materialize?.phase).toBe('btf-filling')
+    expect(filling.meta?.materialize?.sections[0]?.status).toBe('filled')
+  })
+
   it('accepts chart and mermaid; sanitizes svg; rejects hostile svg', () => {
     const doc = validatePageDoc({
       version: 1,

@@ -7,148 +7,377 @@
 import { type FC, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
+import { agentFetch } from '@/lib/browseros/agent-fetch'
+import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { executePiAction } from '@/lib/pi-actions'
 import { emitPiInvalidate } from '@/lib/pi-invalidate'
+import { PiFieldSurface, piEntityField } from './field'
 import { PiPageRenderer } from './PiPageRenderer'
 import {
+  piDelete,
   piPost,
   usePiInvalidateListener,
   usePiPage,
-  usePiSite,
 } from './usePiApi'
 
 const MATERIALIZE_TIMEOUT_MS = 90_000
+const BTF_DEBOUNCE_MS = 300
+
+type EnsureResult = {
+  pageId: string
+  company: string
+  entityKey: string
+  atfReady: boolean
+  btfComplete: boolean
+  phase: string
+  runId?: string
+  conversationId?: string | null
+}
+
+let lastPiFocus: {
+  runId?: string
+  conversationId?: string | null
+} = {}
+
+/** Debounced focus release so React Strict Mode remount does not cancel BTF. */
+const pendingFocusReleases = new Map<string, number>()
+
+function scheduleFocusRelease(siteId: string, pageId: string): void {
+  const key = `${siteId}:${pageId}`
+  const prev = pendingFocusReleases.get(key)
+  if (prev != null) window.clearTimeout(prev)
+  const timer = window.setTimeout(() => {
+    pendingFocusReleases.delete(key)
+    void piDelete(
+      `/pi/focus?siteId=${encodeURIComponent(siteId)}&pageId=${encodeURIComponent(pageId)}`,
+    ).catch(() => undefined)
+  }, 150)
+  pendingFocusReleases.set(key, timer)
+}
+
+function cancelScheduledFocusRelease(siteId: string, pageId: string): void {
+  const key = `${siteId}:${pageId}`
+  const timer = pendingFocusReleases.get(key)
+  if (timer == null) return
+  window.clearTimeout(timer)
+  pendingFocusReleases.delete(key)
+}
+
+async function cancelPriorConversation(
+  conversationId: string | null | undefined,
+): Promise<void> {
+  if (!conversationId) return
+  try {
+    const base = await getAgentServerUrl()
+    await agentFetch(
+      `${base}/chat/${encodeURIComponent(conversationId)}/cancel`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'pi-focus-switched' }),
+      },
+    )
+  } catch {
+    // best-effort
+  }
+}
 
 export const EntityPage: FC = () => {
   const { siteId, entityKey: rawKey } = useParams()
   usePiInvalidateListener()
   const entityKey = rawKey ? decodeURIComponent(rawKey) : undefined
-  const siteQuery = usePiSite(siteId)
   const [pageId, setPageId] = useState<string | null>(null)
+  const [company, setCompany] = useState<string>('')
   const [ensureError, setEnsureError] = useState<string | null>(null)
-  const [ensuring, setEnsuring] = useState(false)
-  const [stub, setStub] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [btfComplete, setBtfComplete] = useState(false)
+  const [enriching, setEnriching] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
+  const [runId, setRunId] = useState<string | null>(null)
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [watchError, setWatchError] = useState<string | null>(null)
   const pageQuery = usePiPage(siteId, pageId ?? undefined)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
-  const stubSinceRef = useRef<number | null>(null)
+  const enrichSinceRef = useRef<number | null>(null)
+  const debounceRef = useRef<number | null>(null)
+  const mountedKeyRef = useRef<string>('')
+  const pageIdRef = useRef<string | null>(null)
+  const field = piEntityField(siteId, entityKey)
 
-  const ensure = async (materialize = true) => {
+  const ensure = async (opts: { materialize: boolean; force?: boolean }) => {
     if (!siteId || !entityKey) return
-    setEnsuring(true)
+    const requestKey = `${siteId}:${entityKey}`
+    setLoading(true)
     setEnsureError(null)
     setTimedOut(false)
-    stubSinceRef.current = Date.now()
     try {
       const res = await piPost(
         `/pi/sites/${siteId}/entities/${encodeURIComponent(entityKey)}/ensure`,
-        { materialize },
+        {
+          materialize: opts.materialize,
+          force: opts.force,
+        },
       )
       if (!res.ok) {
-        setEnsureError(`Ensure failed (${res.status})`)
+        if (mountedKeyRef.current === requestKey) {
+          setEnsureError(`Ensure failed (${res.status})`)
+        }
         return
       }
-      const data = (await res.json()) as {
-        pageId: string
-        stub: boolean
+      const data = (await res.json()) as EnsureResult
+      // Left this entity (or unmounted) while ensure was in flight — drop focus/run.
+      if (mountedKeyRef.current !== requestKey) {
+        void piDelete(
+          `/pi/focus?siteId=${encodeURIComponent(siteId)}&pageId=${encodeURIComponent(data.pageId)}`,
+        ).catch(() => undefined)
+        return
       }
+      cancelScheduledFocusRelease(siteId, data.pageId)
+      pageIdRef.current = data.pageId
       setPageId(data.pageId)
-      setStub(data.stub)
-      if (!data.stub) stubSinceRef.current = null
+      setCompany(data.company || entityKey)
+      setWatchError(null)
+      setBtfComplete(Boolean(data.btfComplete))
+      setEnriching(Boolean(data.runId) && !data.btfComplete)
+      setRunId(data.runId ?? null)
+      setConversationId(data.conversationId ?? null)
+      if (data.runId) {
+        await cancelPriorConversation(lastPiFocus.conversationId)
+        if (mountedKeyRef.current !== requestKey) {
+          void piDelete(
+            `/pi/focus?siteId=${encodeURIComponent(siteId)}&pageId=${encodeURIComponent(data.pageId)}`,
+          ).catch(() => undefined)
+          return
+        }
+        lastPiFocus = {
+          runId: data.runId,
+          conversationId: data.conversationId,
+        }
+      }
       emitPiInvalidate(siteId)
-      // Materialize enqueues a scheduled_run; nudge drain so prep does not
-      // wait for the 1-minute background alarm (S4).
-      if (data.stub && materialize) {
-        void import('@/lib/schedules/nudgeDrainServerRuns')
-          .then(({ nudgeDrainServerRuns }) => nudgeDrainServerRuns())
-          .catch(() => undefined)
+
+      if (data.runId && opts.materialize && !data.btfComplete) {
+        enrichSinceRef.current = Date.now()
+        if (debounceRef.current != null) {
+          window.clearTimeout(debounceRef.current)
+        }
+        const nudgeRunId = data.runId
+        debounceRef.current = window.setTimeout(() => {
+          if (mountedKeyRef.current !== requestKey) return
+          void import('@/lib/schedules/nudgeDrainServerRuns')
+            .then(({ nudgeDrainServerRuns }) =>
+              nudgeDrainServerRuns({ runIds: [nudgeRunId] }),
+            )
+            .catch(() => undefined)
+        }, BTF_DEBOUNCE_MS)
+      } else {
+        enrichSinceRef.current = null
       }
     } catch (e) {
-      setEnsureError(e instanceof Error ? e.message : String(e))
+      if (mountedKeyRef.current === requestKey) {
+        setEnsureError(e instanceof Error ? e.message : String(e))
+      }
     } finally {
-      setEnsuring(false)
+      if (mountedKeyRef.current === requestKey) {
+        setLoading(false)
+      }
     }
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: ensure once per route params
   useEffect(() => {
-    void ensure(true)
+    if (!siteId || !entityKey) return
+    mountedKeyRef.current = `${siteId}:${entityKey}`
+    // Clear prior entity so we never flash the previous company doc.
+    pageIdRef.current = null
+    setPageId(null)
+    setCompany('')
+    setBtfComplete(false)
+    setEnriching(false)
+    setTimedOut(false)
+    setRunId(null)
+    setConversationId(null)
+    setEnsureError(null)
+    setWatchError(null)
+    void ensure({ materialize: true })
+    return () => {
+      mountedKeyRef.current = ''
+      if (debounceRef.current != null) {
+        window.clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
+      const pid = pageIdRef.current
+      if (pid) {
+        scheduleFocusRelease(siteId, pid)
+      }
+    }
   }, [siteId, entityKey])
 
-  // Poll while stub / refreshing; surface timeout if agent never fills page.
+  // Poll while enriching; surface timeout; pick up conversationId.
   useEffect(() => {
-    if (!stub || !pageId) return
-    if (stubSinceRef.current == null) stubSinceRef.current = Date.now()
+    if (!enriching || !pageId || !siteId) return
+    if (enrichSinceRef.current == null) enrichSinceRef.current = Date.now()
     const id = window.setInterval(() => {
-      const started = stubSinceRef.current
+      const started = enrichSinceRef.current
       if (started != null && Date.now() - started > MATERIALIZE_TIMEOUT_MS) {
         setTimedOut(true)
       }
       void pageQuery.refetch().then((r) => {
         const doc = r.data?.doc
-        const stillStub = doc?.nodes.some(
-          (n) =>
-            n.type === 'note' && String(n.text).includes('Preparing details'),
-        )
-        if (stillStub === false) {
-          setStub(false)
+        if (!doc) return
+        const phase = doc.meta?.materialize?.phase
+        if (phase === 'done') {
+          setBtfComplete(true)
+          setEnriching(false)
           setTimedOut(false)
-          stubSinceRef.current = null
+          enrichSinceRef.current = null
           emitPiInvalidate(siteId)
         }
       })
+      if (runId) {
+        void getAgentServerUrl()
+          .then((base) =>
+            agentFetch(`${base}/scheduler/runs/${encodeURIComponent(runId)}`),
+          )
+          .then(async (res) => {
+            if (!res.ok) return
+            const body = (await res.json()) as {
+              run?: { conversationId?: string | null; status?: string }
+            }
+            if (body.run?.conversationId) {
+              setConversationId(body.run.conversationId)
+              lastPiFocus.conversationId = body.run.conversationId
+            }
+            const status = body.run?.status
+            if (status === 'completed') {
+              void pageQuery.refetch().then((r) => {
+                const phase = r.data?.doc?.meta?.materialize?.phase
+                if (phase === 'done') {
+                  setBtfComplete(true)
+                  setEnriching(false)
+                  setTimedOut(false)
+                  enrichSinceRef.current = null
+                  emitPiInvalidate(siteId)
+                } else {
+                  // Agent finished without marking done — stop spinner, allow retry.
+                  setEnriching(false)
+                  setBtfComplete(false)
+                }
+              })
+            } else if (status === 'failed' || status === 'cancelled') {
+              setEnriching(false)
+              setBtfComplete(false)
+            }
+          })
+          .catch(() => undefined)
+      }
     }, 2500)
     return () => window.clearInterval(id)
-  }, [stub, pageId, pageQuery, siteId])
+  }, [enriching, pageId, pageQuery, siteId, runId])
+
+  const watchAgent = async () => {
+    setWatchError(null)
+    let conv = conversationId
+    if (!conv && runId) {
+      try {
+        const base = await getAgentServerUrl()
+        for (let i = 0; i < 20 && !conv; i++) {
+          const res = await agentFetch(
+            `${base}/scheduler/runs/${encodeURIComponent(runId)}`,
+          )
+          if (res.ok) {
+            const body = (await res.json()) as {
+              run?: { conversationId?: string | null }
+            }
+            conv = body.run?.conversationId ?? null
+            if (conv) {
+              setConversationId(conv)
+              break
+            }
+          }
+          await new Promise((r) => setTimeout(r, 500))
+        }
+      } catch {
+        // fall through
+      }
+    }
+    if (conv) {
+      await openSidePanelWithSearch('open', {
+        query: '',
+        mode: 'agent',
+        conversationId: conv,
+      })
+      return
+    }
+    // Never open a fresh unrelated chat — that hides the materialize turn.
+    setWatchError(
+      'Agent conversation is not ready yet. Wait a moment and try Watch agent again.',
+    )
+  }
 
   if (!siteId || !entityKey) {
     return <div className="p-6 text-destructive text-sm">Missing entity.</div>
   }
 
-  if (ensuring && !pageId) {
+  if (loading && !pageId) {
     return (
-      <div className="p-6 text-muted-foreground text-sm">
-        Preparing {entityKey}…
-      </div>
+      <PiFieldSurface field={field}>
+        <div className="p-6 text-muted-foreground text-sm">
+          Opening company page…
+        </div>
+      </PiFieldSurface>
     )
   }
 
   if (ensureError) {
     return (
-      <div className="flex flex-col gap-3 p-6">
-        <div className="text-destructive text-sm">{ensureError}</div>
-        <Button size="sm" onClick={() => void ensure(true)}>
-          Retry
-        </Button>
-      </div>
+      <PiFieldSurface field={field}>
+        <div className="flex flex-col gap-3 p-6">
+          <div className="text-destructive text-sm">{ensureError}</div>
+          <Button size="sm" onClick={() => void ensure({ materialize: true })}>
+            Retry
+          </Button>
+        </div>
+      </PiFieldSurface>
     )
   }
 
   const doc = pageQuery.data?.doc
-  const company = siteQuery.data?.site.name
+  const title = doc?.title || company || entityKey
 
   return (
-    <div className="flex min-h-full flex-col">
+    <PiFieldSurface field={field}>
       <div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
         <div>
-          <div className="font-medium text-foreground text-sm">
-            {doc?.title ?? entityKey}
-          </div>
+          <div className="font-medium text-foreground text-sm">{title}</div>
           <div className="text-muted-foreground text-xs">
-            {company ? `${company} · ` : ''}
-            {timedOut && stub
+            {timedOut && enriching
               ? 'Prep timed out — retry or ask chat'
-              : stub
-                ? 'Preparing details…'
-                : 'Company details'}
+              : enriching
+                ? company
+                  ? `Creating your website for ${company}…`
+                  : 'Creating your website…'
+                : btfComplete
+                  ? 'Company details'
+                  : 'Loading more sections…'}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {stub ? (
+          {enriching || runId ? (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => void ensure(true)}
+              onClick={() => void watchAgent()}
+            >
+              {conversationId ? 'Watch agent' : 'Starting agent…'}
+            </Button>
+          ) : null}
+          {enriching || timedOut ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void ensure({ materialize: true, force: true })}
             >
               Retry prep
             </Button>
@@ -158,15 +387,21 @@ export const EntityPage: FC = () => {
           </Button>
         </div>
       </div>
-      {timedOut && stub ? (
+      {timedOut && enriching ? (
         <div className="border-border/60 border-b bg-muted/40 px-4 py-2 text-muted-foreground text-xs">
-          Details are still preparing. Retry prep, or ask chat to materialize
-          this company.
+          Still creating your website. Retry prep, or watch the agent in the
+          side panel.
+        </div>
+      ) : null}
+      {watchError ? (
+        <div className="border-border/60 border-b bg-muted/40 px-4 py-2 text-muted-foreground text-xs">
+          {watchError}
         </div>
       ) : null}
       {doc ? (
         <PiPageRenderer
           doc={doc}
+          siteId={siteId}
           pendingKey={pendingKey}
           onAction={async (action, ctx) => {
             if (ctx?.pendingKey) setPendingKey(ctx.pendingKey)
@@ -180,6 +415,6 @@ export const EntityPage: FC = () => {
       ) : (
         <div className="p-6 text-muted-foreground text-sm">Loading page…</div>
       )}
-    </div>
+    </PiFieldSurface>
   )
 }

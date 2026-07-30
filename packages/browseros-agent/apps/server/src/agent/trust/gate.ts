@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import {
   type ConsequenceClass,
   decideGate,
@@ -12,6 +13,19 @@ import {
 } from '@browseros/shared/trust/consequence-class'
 import { type Tool, tool } from 'ai'
 import { z } from 'zod'
+
+const gateContextAls = new AsyncLocalStorage<GateContext>()
+
+/** Gate context for the in-flight tool execute (used by PI materialize guards). */
+export function getActiveGateContext(): GateContext | null {
+  return gateContextAls.getStore() ?? null
+}
+
+/** Test / internal: run fn under an active gate context. */
+export function runWithGateContext<T>(ctx: GateContext, fn: () => T): T {
+  return gateContextAls.run(ctx, fn)
+}
+
 import {
   channelOutcomeKey,
   getChannelOutcome,
@@ -154,27 +168,29 @@ export async function gateExecute<TResult extends GateToolResult>(
   if (skipped) return skipped as TResult
 
   const cleanArgs = stripPromotedArg(args)
-  const result = await underlyingExecute(cleanArgs)
-  recordConsequentialExecution(ctx, cls)
-  if (isConsequentialClass(cls)) {
-    const summary =
-      'text' in result && typeof result.text === 'string'
-        ? result.text
-        : undefined
-    logGateDecision(
-      toolName,
-      args,
-      ctx,
-      cls,
-      isPromoted(args) ? 'promoted' : 'executed',
-      summary,
-    )
-    if (!isToolErrorResult(result)) {
-      recordCompletedStep(toolName, args, ctx, cls)
+  return gateContextAls.run(ctx, async () => {
+    const result = await underlyingExecute(cleanArgs)
+    recordConsequentialExecution(ctx, cls)
+    if (isConsequentialClass(cls)) {
+      const summary =
+        'text' in result && typeof result.text === 'string'
+          ? result.text
+          : undefined
+      logGateDecision(
+        toolName,
+        args,
+        ctx,
+        cls,
+        isPromoted(args) ? 'promoted' : 'executed',
+        summary,
+      )
+      if (!isToolErrorResult(result)) {
+        recordCompletedStep(toolName, args, ctx, cls)
+      }
     }
-  }
-  hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
-  return result
+    hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
+    return result
+  })
 }
 
 function buildLoopApprovalPreview(
@@ -401,50 +417,52 @@ export function wrapToolWithGate<T extends Tool>(
       // (the SDK re-invokes us) or because a pin allowed auto-execution.
       // Either way it is authorized — run it. Reads always run.
       const cleanArgs = stripPromotedArg(args)
-      const result = await original.execute(cleanArgs, options)
-      if (isConsequentialClass(cls)) {
-        recordConsequentialExecution(ctx, cls)
-        const output = result as {
-          text?: string
-          content?: Array<{ type?: string; text?: string }>
-        }
-        const summary =
-          output.text ??
-          output.content
-            ?.filter((c) => c.type === 'text')
-            .map((c) => c.text)
-            .join('\n')
-        const runId = ctx.runId ?? 'unattended'
-        const fp = stepFingerprint(
-          toolName,
-          args,
-          resolveStepIdempotencyKey(ctx),
-        )
-        const channelApproved =
-          getChannelOutcome(channelOutcomeKey(runId, toolName, fp)) ===
-          'approved'
-        logGateDecision(
-          toolName,
-          args,
-          ctx,
-          cls,
-          isPromoted(args) || channelApproved ? 'promoted' : 'executed',
-          summary,
-        )
-        if (!isToolErrorResult(result)) {
-          recordCompletedStep(
+      return gateContextAls.run(ctx, async () => {
+        const result = await original.execute!(cleanArgs, options)
+        if (isConsequentialClass(cls)) {
+          recordConsequentialExecution(ctx, cls)
+          const output = result as {
+            text?: string
+            content?: Array<{ type?: string; text?: string }>
+          }
+          const summary =
+            output.text ??
+            output.content
+              ?.filter((c) => c.type === 'text')
+              .map((c) => c.text)
+              .join('\n')
+          const runId = ctx.runId ?? 'unattended'
+          const fp = stepFingerprint(
+            toolName,
+            args,
+            resolveStepIdempotencyKey(ctx),
+          )
+          const channelApproved =
+            getChannelOutcome(channelOutcomeKey(runId, toolName, fp)) ===
+            'approved'
+          logGateDecision(
             toolName,
             args,
             ctx,
             cls,
-            typeof options?.toolCallId === 'string'
-              ? options.toolCallId
-              : undefined,
+            isPromoted(args) || channelApproved ? 'promoted' : 'executed',
+            summary,
           )
+          if (!isToolErrorResult(result)) {
+            recordCompletedStep(
+              toolName,
+              args,
+              ctx,
+              cls,
+              typeof options?.toolCallId === 'string'
+                ? options.toolCallId
+                : undefined,
+            )
+          }
         }
-      }
-      hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
-      return result
+        hooks?.onToolSettled?.({ toolName, args: cleanArgs, result, ctx })
+        return result
+      })
     },
     ...(original.toModelOutput
       ? { toModelOutput: original.toModelOutput }

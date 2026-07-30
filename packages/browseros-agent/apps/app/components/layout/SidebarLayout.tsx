@@ -12,6 +12,15 @@ import { ShortcutsDialog } from '@/screens/newtab/index/ShortcutsDialog'
 
 const COLLAPSE_DELAY = 150
 
+/**
+ * Personalised Internet places carry a full-bleed chromatic field (spec 21).
+ * A field that stops short of the viewport edge reads as a card, so these
+ * routes escape the centred content wrapper.
+ */
+function isFullBleedRoute(pathname: string): boolean {
+  return pathname.startsWith('/pi/sites/') || pathname.startsWith('/pi/temp/')
+}
+
 export const SidebarLayout: FC = () => {
   const location = useLocation()
   const isMobile = useIsMobile()
@@ -100,6 +109,10 @@ export const SidebarLayout: FC = () => {
 
         {location.pathname === '/home/chat' ? (
           <main className="relative h-dvh overflow-hidden">
+            <Outlet />
+          </main>
+        ) : isFullBleedRoute(location.pathname) ? (
+          <main className="min-h-screen overflow-y-auto">
             <Outlet />
           </main>
         ) : (

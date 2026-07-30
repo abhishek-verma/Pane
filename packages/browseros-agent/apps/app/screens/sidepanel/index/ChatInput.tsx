@@ -373,7 +373,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
     return (
       <form
         onSubmit={handleSubmit}
-        className="relative mt-2 flex w-full items-end gap-2"
+        className="relative mt-1.5 flex w-full items-end gap-2"
       >
         <TabPickerPopover
           variant="mention"
@@ -405,7 +405,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
           <textarea
             ref={textareaRef}
             className={cn(
-              'agent-composer-field field-sizing-content max-h-60 min-h-[42px] flex-1 resize-none overflow-hidden px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/70',
+              'agent-composer-field field-sizing-content max-h-60 min-h-[38px] flex-1 resize-none overflow-hidden px-3 py-2 text-[14px] placeholder:text-muted-foreground/70',
               inputPaddingRight,
             )}
             value={input}

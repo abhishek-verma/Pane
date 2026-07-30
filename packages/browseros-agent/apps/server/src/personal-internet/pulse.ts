@@ -5,7 +5,7 @@
  */
 
 import { entityRoute, pageRoute, siteRoute } from './paths'
-import { getSite, listPagesForSite, listRecords, upsertPulse } from './store'
+import { getSite, listRecords, upsertPulse } from './store'
 import type { PiPulse, PiSiteStatus, PiUrgency } from './types'
 
 export function recomputePulse(siteId: string): PiPulse | null {
@@ -30,22 +30,16 @@ export function recomputePulse(siteId: string): PiPulse | null {
         typeof data.entityKey === 'string' && data.entityKey.trim()
           ? data.entityKey.trim()
           : null
-      const pages = listPagesForSite(siteId)
-      const company = String(data.company ?? data.name ?? '')
-      const entityPage = pages.find(
-        (p) =>
-          p.kind === 'entity' &&
-          (entityKey
-            ? p.title.toLowerCase().includes(company.toLowerCase()) ||
-              p.id.includes(entityKey)
-            : p.title.includes(company)),
-      )
+      const pageId =
+        typeof data.pageId === 'string' && data.pageId.trim()
+          ? data.pageId.trim()
+          : null
       urgencies.push({
         label: String(data.nextAction),
         deepLink: entityKey
           ? entityRoute(siteId, entityKey)
-          : entityPage
-            ? pageRoute(siteId, entityPage.id)
+          : pageId
+            ? pageRoute(siteId, pageId)
             : siteRoute(siteId),
         agentQuery: `Follow up: ${data.nextAction}`,
         metadata: {

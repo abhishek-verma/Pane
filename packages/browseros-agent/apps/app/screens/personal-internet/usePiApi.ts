@@ -74,7 +74,12 @@ export function usePiSite(siteId: string | undefined) {
           staleAt?: string | null
           counts?: Record<string, number>
         } | null
-        pages: Array<{ id: string; title: string; kind: string }>
+        pages: Array<{
+          id: string
+          title: string
+          kind: string
+          entityKey?: string | null
+        }>
       }>(`/pi/sites/${siteId}`),
   })
 }

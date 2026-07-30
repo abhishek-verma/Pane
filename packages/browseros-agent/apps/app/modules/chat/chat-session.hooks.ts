@@ -1250,6 +1250,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   useEffect(() => {
     const unwatch = searchActionsStorage.watch((storageAction) => {
       if (storageAction) {
+        if (storageAction.conversationId) {
+          setMode(storageAction.mode)
+          setSearchParams(
+            { conversationId: storageAction.conversationId },
+            { replace: true },
+          )
+          searchActionsStorage.setValue(null)
+          return
+        }
         resetConversationState()
         setMode(storageAction.mode)
         setTimeout(() => {

@@ -201,6 +201,7 @@ export async function syncBoardFromRecords(
     cards.push({
       id: cardId,
       recordId: rec.id,
+      entityKey: normalized.entityKey,
       title: normalized.company,
       subtitle: subtitleParts.length ? subtitleParts.join(' · ') : undefined,
       actions: [

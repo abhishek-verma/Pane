@@ -24,6 +24,8 @@ export const BUILTIN_PI_HOME_SKILL_ID = 'builtin-pi-home'
 export const BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_ID =
   'builtin-pi-harvest-job-search'
 export const BUILTIN_PI_PIPELINE_UPDATE_SKILL_ID = 'builtin-pi-pipeline-update'
+export const BUILTIN_PI_ENTITY_MATERIALIZE_SKILL_ID =
+  'builtin-pi-entity-materialize'
 
 export const BUILTIN_MEETINGS_SKILL_BODY = `---
 name: meetings
@@ -282,8 +284,11 @@ Prefer small ops over rewriting the whole page. Load \`pi-page-dsl\` only if you
 - \`upsertBoardCard\` — \`{ "op": "upsertBoardCard", "card": { "id", "title", "columnId", "subtitle?", "recordId?", "actions?" } }\` — prefer labeled actions \`{ label, action }\`
 - \`moveBoardCard\` — \`{ "op": "moveBoardCard", "cardId", "toColumnId" }\` — also updates bound record stage when card id is \`card_<recordId>\`
 - \`bindRecord\` — \`{ "op": "bindRecord", "recordId", "data": { ... } }\` — store binding; still patch UI if the visible cell/card must change
+- \`setMeta\` — \`{ "op": "setMeta", "meta": { "entityKey?", "materialize?" } }\`
+- \`setMaterializeSection\` — \`{ "op": "setMaterializeSection", "id", "status": "shell"|"filled"|"skipped", "title?" }\`
 
 For Job Search stage/company changes prefer \`pi_record_upsert\` (board syncs) over only patching cards.
+Entity BTF protocol → load \`pi-entity-materialize\`.
 
 ## Critical caveat
 
@@ -440,7 +445,7 @@ description: Harvest LinkedIn (or harvestHost) into Job Search pi_records. Use w
 1. \`pi_list\` / \`pi_record_list\` for the siteId in the prompt — know current applications.
 2. Use browser tools only on the harvest host tab/session. Do not invent companies.
 3. Upsert via \`pi_record_upsert\` (\`job-application\`: company, role?, stage, url?, nextAction?). Board/chart sync automatically.
-4. Per-company depth → \`#/pi/sites/<siteId>/entities/<entityKey>\` / \`pi_entity_ensure\` — never one mega details page.
+4. Per-company ATF only → \`#/pi/sites/<siteId>/entities/<entityKey>\` / \`pi_entity_ensure\` (default materialize:false) — never one mega details page; do not materialize every company.
 5. If the host tab is gone or nothing changed, stop — pulse may show stale; do not fabricate.
 
 ## Do not
@@ -468,7 +473,7 @@ Job Search **source of truth** is \`pi_records\`, not markdown alone and not boa
    - \`recordType: "job-application"\`
    - \`data: { company, role?, stage, url?, nextAction?, notes? }\`
 4. Board + chart sync from records automatically.
-5. Optional company depth → \`pi_entity_ensure\` / \`#/pi/sites/<siteId>/entities/<entityKey>\` — **never** one mega details page.
+5. Optional company ATF → \`pi_entity_ensure\` with default \`materialize:false\` / \`#/pi/sites/<siteId>/entities/<entityKey>\` — **never** one mega details page. Do not pass \`materialize:true\` unless the user asked to deepen that company.
 6. Tell the user the \`#/pi/sites/<siteId>\` route.
 
 ## Do not
@@ -476,6 +481,41 @@ Job Search **source of truth** is \`pi_records\`, not markdown alone and not boa
 - Embed literal \`site_…\` / \`page_…\` IDs in this skill or in prompts.
 - Patch board cards only (skips SoT).
 - Invent companies not in the vault / host.
+- Call \`pi_entity_ensure\` with \`materialize:true\` for every company on the board.
+`
+
+export const BUILTIN_PI_ENTITY_MATERIALIZE_SKILL_BODY = `---
+name: pi-entity-materialize
+description: Progressive BTF fill for a Personalised Internet company entity page after ATF is already written. Load when a pi-materialize scheduled run asks you to continue entity BTF.
+---
+
+# Entity materialize (BTF)
+
+ATF (title, stage, role, next action, notes) is **already on the page**. Do not wipe it with a full-page \`replaceNodes\` of the whole document.
+
+## Workflow
+
+1. \`skills_load\` \`pi-page-patch\` (and \`pi-page-dsl\` if you need element shapes).
+2. \`pi_read\` the given \`pageId\` if needed.
+3. **Structure pass:** \`setMeta\` / \`setMaterializeSection\` for ordered sections, then append section shells under the \`btf-root\` stack (or after the divider). Default job-search section ids/titles in order:
+   - \`timeline\` — Timeline
+   - \`research\` — Company research
+   - \`people\` — People
+   - \`links\` — Links
+   Mark each \`status: "shell"\`. Set \`materialize.phase\` to \`btf-structure\` then \`btf-filling\`.
+4. **Fill pass:** for each shell **in array order**, research using context/vault (do not invent), replace that section's children, then \`setMaterializeSection\` with \`status: "filled"\` (or \`"skipped"\` if nothing known).
+5. Remove the "More sections loading…" note. Set \`materialize.phase\` to \`done\` via \`setMeta\`.
+6. Only \`pi_page_patch\` the given \`pageId\`. Never \`pi_page_create\` / \`pi_entity_ensure\` for other companies.
+
+## Resume
+
+Skip section ids listed in \`filledSections\`. Continue from the first \`shell\` section.
+
+## Do not
+
+- Create pages or records for other companies.
+- Replace the entire ATF block unless fixing a clear error.
+- Call \`pi_entity_ensure\` with materialize for siblings.
 `
 
 const BUILTIN_SKILLS: ReadonlyArray<{ id: string; body: string }> = [
@@ -501,6 +541,10 @@ const BUILTIN_SKILLS: ReadonlyArray<{ id: string; body: string }> = [
   {
     id: BUILTIN_PI_PIPELINE_UPDATE_SKILL_ID,
     body: BUILTIN_PI_PIPELINE_UPDATE_SKILL_BODY,
+  },
+  {
+    id: BUILTIN_PI_ENTITY_MATERIALIZE_SKILL_ID,
+    body: BUILTIN_PI_ENTITY_MATERIALIZE_SKILL_BODY,
   },
 ]
 

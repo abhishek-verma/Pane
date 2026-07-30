@@ -122,7 +122,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
         />
       )}
 
-      <div className="p-3">
+      <div className="px-3 pt-2 pb-3">
         <div className="flex items-center gap-2">
           <ChatModeToggle mode={mode} onModeChange={onModeChange} />
 

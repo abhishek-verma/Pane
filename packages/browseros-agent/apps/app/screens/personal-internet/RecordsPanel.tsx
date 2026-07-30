@@ -5,7 +5,17 @@
  */
 
 import { type FC, useState } from 'react'
+import { Link } from 'react-router'
 import { usePiRecords } from './usePiApi'
+
+function slugifyEntityKey(company: string): string {
+  const base = company
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return base || 'company'
+}
 
 export const RecordsPanel: FC<{ siteId: string }> = ({ siteId }) => {
   const [open, setOpen] = useState(false)
@@ -35,19 +45,32 @@ export const RecordsPanel: FC<{ siteId: string }> = ({ siteId }) => {
                 </tr>
               </thead>
               <tbody>
-                {query.data.records.map((r) => (
-                  <tr key={r.id} className="border-border/30 border-t">
-                    <td className="py-1.5 pr-3 text-foreground">
-                      {String(r.data.company ?? r.data.name ?? r.id)}
-                    </td>
-                    <td className="py-1.5 pr-3 text-muted-foreground">
-                      {String(r.data.stage ?? r.data.status ?? '—')}
-                    </td>
-                    <td className="py-1.5 text-muted-foreground">
-                      {String(r.data.nextAction ?? '—')}
-                    </td>
-                  </tr>
-                ))}
+                {query.data.records.map((r) => {
+                  const company = String(r.data.company ?? r.data.name ?? r.id)
+                  const entityKey =
+                    typeof r.data.entityKey === 'string' &&
+                    r.data.entityKey.trim()
+                      ? r.data.entityKey.trim()
+                      : slugifyEntityKey(company)
+                  return (
+                    <tr key={r.id} className="border-border/30 border-t">
+                      <td className="py-1.5 pr-3 text-foreground">
+                        <Link
+                          className="hover:underline"
+                          to={`/pi/sites/${siteId}/entities/${encodeURIComponent(entityKey)}`}
+                        >
+                          {company}
+                        </Link>
+                      </td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">
+                        {String(r.data.stage ?? r.data.status ?? '—')}
+                      </td>
+                      <td className="py-1.5 text-muted-foreground">
+                        {String(r.data.nextAction ?? '—')}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           ) : (

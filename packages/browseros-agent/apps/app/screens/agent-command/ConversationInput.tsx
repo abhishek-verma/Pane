@@ -223,7 +223,7 @@ function CalmContextControls({
   const { selectedFolder } = useWorkspace()
 
   return (
-    <div className="mx-3 flex items-center gap-1 border-border/60 border-t border-dashed py-2">
+    <div className="mx-3 flex items-center gap-0.5 pt-0.5 pb-1.5">
       {showAgentSelector &&
       providers &&
       selectedProvider &&
@@ -300,6 +300,10 @@ function CalmContextControls({
           </span>
         </button>
       </TabPickerPopover>
+      <span
+        aria-hidden="true"
+        className="mx-1 inline-block h-3.5 w-px shrink-0 bg-border"
+      />
       <button
         type="button"
         onClick={onAttachClick}
@@ -323,20 +327,6 @@ function CalmContextControls({
         <PlugZap className="size-3" />
         <span>Apps</span>
       </button>
-      <div className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground/70">
-        <kbd className="inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-accent/30 px-1 font-mono text-[10px] text-muted-foreground">
-          ↵
-        </kbd>
-        <span>to run</span>
-        <span className="text-muted-foreground/40">·</span>
-        <kbd className="inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-accent/30 px-1 font-mono text-[10px] text-muted-foreground">
-          ⇧
-        </kbd>
-        <kbd className="inline-flex h-4 min-w-4 items-center justify-center rounded border border-border bg-accent/30 px-1 font-mono text-[10px] text-muted-foreground">
-          ↵
-        </kbd>
-        <span>new line</span>
-      </div>
     </div>
   )
 }
@@ -551,8 +541,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
         ) : null}
         <div
           className={cn(
-            'flex gap-3',
-            variant === 'home' ? 'px-4 py-3' : 'px-4 py-3',
+            'flex gap-2.5 px-3 pt-2 pb-1',
             isExpandedDraft ? 'items-end' : 'items-center',
           )}
         >
@@ -578,11 +567,9 @@ export const ConversationInput: FC<ConversationInputProps> = ({
               }
               disabled={disabled || voice.isTranscribing}
               className={cn(
-                'resize-none border-none bg-transparent px-0 text-[15px] shadow-none focus-visible:ring-0 dark:bg-transparent',
+                'resize-none border-none bg-transparent px-0 text-[14px] shadow-none focus-visible:ring-0 dark:bg-transparent',
                 '[field-sizing:fixed]',
-                variant === 'home'
-                  ? 'min-h-[40px] py-2 leading-6'
-                  : 'min-h-[40px] py-2 leading-6',
+                'min-h-[32px] py-1.5 leading-[1.45]',
                 'placeholder:text-muted-foreground/80',
               )}
             />

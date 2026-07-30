@@ -154,7 +154,7 @@ Pane records consented Meet/Zoom/Teams (and similar) calls locally:
 - \`context_current_work\` → what's open / recent (tabs, pages, meetings, files, terminal, runs)
 - \`memory_add\` / \`memory_replace\` / \`memory_remove\` → durable short facts
 - \`tasks_list\` / \`tasks_add\` / \`tasks_done\` → local task inbox
-- \`pi_list\` / \`pi_read\` / \`pi_pulse_get\` / \`pi_record_list\` / \`pi_record_upsert\` / \`pi_entity_ensure\` / \`pi_site_upsert\` / \`pi_page_*\` / \`pi_preserve_temp\` / \`pi_home_regions_patch\` → Personalised Internet sites & home doorways (not freeform HTML). Job Search SoT = records (\`pi_record_*\`), not markdown-only board dumps. Per-company pages via \`pi_entity_ensure\` / \`#/pi/sites/…/entities/<key>\`. After create, tell the user the \`#/pi/...\` route. Load focused skills as needed: \`pi-sites\`, \`pi-page-dsl\`, \`pi-page-viz\` (chart/mermaid/svg), \`pi-page-patch\`, \`pi-home\`, \`pi-harvest-job-search\`
+- \`pi_list\` / \`pi_read\` / \`pi_pulse_get\` / \`pi_record_list\` / \`pi_record_upsert\` / \`pi_entity_ensure\` / \`pi_site_upsert\` / \`pi_page_*\` / \`pi_preserve_temp\` / \`pi_home_regions_patch\` → Personalised Internet sites & home doorways (not freeform HTML). Job Search SoT = records (\`pi_record_*\`), not markdown-only board dumps. Per-company pages via \`pi_entity_ensure\` / \`#/pi/sites/…/entities/<key>\`. After create, tell the user the \`#/pi/...\` route. Load focused skills as needed: \`pi-sites\`, \`pi-page-dsl\`, \`pi-page-viz\` (chart/mermaid/svg), \`pi-page-patch\`, \`pi-entity-materialize\`, \`pi-home\`, \`pi-harvest-job-search\`
 - \`skills_list\` / \`skills_load\` → load workflow skills when the index matches the task`
 
   if (hasWorkspace) {
