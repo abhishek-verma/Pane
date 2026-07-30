@@ -8,7 +8,7 @@ export interface SearchActionStorage {
   query: string
   mode: 'chat' | 'agent'
   action?: ChatAction
-  /** Open an existing conversation in the side panel (Watch agent). */
+  /** Open an existing conversation in the side panel (Open owner agent). */
   conversationId?: string
 }
 

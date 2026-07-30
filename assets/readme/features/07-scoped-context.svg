@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Scoped context — browser profiles, context buckets, and personas provide different kinds of separation">
+  <defs>
+  <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#C8E832"/>
+    <stop offset="100%" stop-color="#94B316"/>
+  </linearGradient>
+  <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+    <path d="M80 0H0V80" fill="none" stroke="#111113" stroke-opacity="0.04"/>
+  </pattern>
+  <clipPath id="win">
+    <rect x="40" y="36" width="880" height="468" rx="5"/>
+  </clipPath>
+  <style><![CDATA[
+
+  .sans, text:not(.mono) { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 0.04em; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+  }
+
+
+  .slider { animation: slide 7s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+  @keyframes slide {
+    0%,26% { transform: translateX(0); }
+    34%,60% { transform: translateX(112px); }
+    68%,94% { transform: translateX(230px); }
+    100% { transform: translateX(0); }
+  }
+  .p1 { animation: show1 7s ease-in-out infinite; }
+  .p2 { animation: show2 7s ease-in-out infinite; }
+  .p3 { animation: show3 7s ease-in-out infinite; }
+  @keyframes show1 {
+    0%,26% { opacity: 1; }
+    34%,100% { opacity: 0; }
+  }
+  @keyframes show2 {
+    0%,32% { opacity: 0; }
+    38%,60% { opacity: 1; }
+    68%,100% { opacity: 0; }
+  }
+  @keyframes show3 {
+    0%,66% { opacity: 0; }
+    72%,94% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .t1 { animation: lab1 7s ease-in-out infinite; }
+  .t2 { animation: lab2 7s ease-in-out infinite; }
+  .t3 { animation: lab3 7s ease-in-out infinite; }
+  @keyframes lab1 {
+    0%,26% { fill: #1A1F0A; }
+    34%,100% { fill: #6B6B72; }
+  }
+  @keyframes lab2 {
+    0%,32% { fill: #6B6B72; }
+    38%,60% { fill: #1A1F0A; }
+    68%,100% { fill: #6B6B72; }
+  }
+  @keyframes lab3 {
+    0%,66% { fill: #6B6B72; }
+    72%,94% { fill: #1A1F0A; }
+    100% { fill: #6B6B72; }
+  }
+
+  ]]></style></defs>
+  <rect width="960" height="540" fill="#FFFFFF"/>
+  <rect width="960" height="540" fill="url(#grid)"/>
+
+
+  <g clip-path="url(#win)">
+    <rect x="40" y="36" width="880" height="468" fill="#FFFFFF" stroke="#E2E2E2" stroke-width="1"/>
+    <rect x="40" y="36" width="880" height="32" fill="#FFFFFF"/>
+    <line x1="40" y1="68" x2="920" y2="68" stroke="#E2E2E2"/>
+    <text class="mono" x="56" y="57" fill="#6B6B72" font-size="10">PANE / CONTEXT / SCOPES</text>
+    <circle cx="830" cy="52" r="3.5" fill="#C8E832"/>
+    <text class="mono" x="902" y="57" text-anchor="end" fill="#6B6B72" font-size="10">AGENT IDLE</text>
+    <rect x="40" y="68" width="880" height="436" fill="#FFFFFF"/>
+
+    <text x="68" y="104" fill="#111113" font-size="20" font-weight="600" letter-spacing="-0.02em">Choose what Pane can carry forward.</text>
+    <text class="mono" x="68" y="126" fill="#6B6B72" font-size="10">THREE CONTROLS · THREE DIFFERENT JOBS</text>
+
+    <!-- segmented control — hairline, not pill -->
+    <g transform="translate(68 152)">
+      <rect width="348" height="36" rx="5" fill="#FAFAFA" stroke="#E2E2E2"/>
+      <rect class="slider" x="3" y="3" width="108" height="30" rx="3" fill="#C8E832"/>
+      <text class="t1 mono" x="57" y="23" text-anchor="middle" font-size="10" font-weight="600">PROFILE</text>
+      <text class="t2 mono" x="168" y="23" text-anchor="middle" font-size="10" font-weight="600">BUCKET</text>
+      <text class="t3 mono" x="286" y="23" text-anchor="middle" font-size="10" font-weight="600">PERSONA</text>
+    </g>
+
+    <g class="p1" transform="translate(68 212)">
+      <rect width="392" height="72" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <text class="mono" x="14" y="22" fill="#6B6B72" font-size="9">HARD SEPARATION</text>
+      <text x="14" y="42" fill="#111113" font-size="13" font-weight="500">Browser profile</text>
+      <text x="14" y="60" fill="#6B6B72" font-size="11">Separate cookies, history, sites, memory</text>
+      <rect x="408" y="0" width="392" height="72" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <text class="mono" x="422" y="22" fill="#6B6B72" font-size="9">WHEN TO USE IT</text>
+      <text x="422" y="42" fill="#111113" font-size="13" font-weight="500">Work and personal accounts</text>
+      <text x="422" y="60" fill="#6B6B72" font-size="11">Nothing crosses the profile boundary</text>
+    </g>
+    <g class="p2" transform="translate(68 212)">
+      <rect width="392" height="72" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <text class="mono" x="14" y="22" fill="#6B6B72" font-size="9">RETRIEVAL SCOPE</text>
+      <text x="14" y="42" fill="#111113" font-size="13" font-weight="500">Context bucket</text>
+      <text x="14" y="60" fill="#6B6B72" font-size="11">Research, meetings, or one project</text>
+      <rect x="408" y="0" width="392" height="72" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <text class="mono" x="422" y="22" fill="#6B6B72" font-size="9">WHEN TO USE IT</text>
+      <text x="422" y="42" fill="#111113" font-size="13" font-weight="500">Keep the answer on-topic</text>
+      <text x="422" y="60" fill="#6B6B72" font-size="11">Pane states which bucket it read</text>
+    </g>
+    <g class="p3" transform="translate(68 212)">
+      <rect width="392" height="72" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <text class="mono" x="14" y="22" fill="#6B6B72" font-size="9">ROLE AND VOICE</text>
+      <text x="14" y="42" fill="#111113" font-size="13" font-weight="500">Persona</text>
+      <text x="14" y="60" fill="#6B6B72" font-size="11">Chief of staff, research buddy, custom</text>
+      <rect x="408" y="0" width="392" height="72" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <text class="mono" x="422" y="22" fill="#6B6B72" font-size="9">WHEN TO USE IT</text>
+      <text x="422" y="42" fill="#111113" font-size="13" font-weight="500">Change how Pane helps</text>
+      <text x="422" y="60" fill="#6B6B72" font-size="11">Does not replace privacy boundaries</text>
+    </g>
+
+    <g transform="translate(68 312)">
+      <rect width="820" height="64" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <rect x="0" y="6" width="2" height="52" fill="#C8E832"/>
+      <text x="18" y="28" fill="#111113" font-size="13" font-weight="500">Separation, retrieval, and personality are different controls.</text>
+      <text class="mono" x="18" y="48" fill="#6B6B72" font-size="10">PROFILE ≠ BUCKET ≠ PERSONA · ALL LOCAL AND EDITABLE</text>
+    </g>
+  </g>
+</svg>

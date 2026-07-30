@@ -8,6 +8,7 @@ import type { FC } from 'react'
 import { cn } from '@/lib/utils'
 import { BoardKanban } from './BoardKanban'
 import { PiRailAction } from './PiChrome'
+import { PiMarkdown } from './PiMarkdown'
 import type { PiAction, PiNode, PiPageDoc } from './types'
 import { PiChartView } from './viz/PiChartView'
 import { PiMermaidView } from './viz/PiMermaidView'
@@ -86,15 +87,15 @@ const PiNodeView: FC<{
       )
     case 'text':
       return (
-        <p className="max-w-prose text-foreground/85 text-sm leading-relaxed">
-          {node.text}
-        </p>
+        <div className="max-w-prose text-foreground/85 text-sm leading-relaxed">
+          <PiMarkdown>{node.text}</PiMarkdown>
+        </div>
       )
     case 'note':
       return (
-        <p className="border-border border-l-2 pl-3 text-foreground/80 text-sm leading-relaxed">
-          {node.text}
-        </p>
+        <div className="border-border border-l-2 pl-3 text-foreground/80 text-sm leading-relaxed">
+          <PiMarkdown>{node.text}</PiMarkdown>
+        </div>
       )
     case 'badge':
       return (
@@ -184,7 +185,11 @@ const PiNodeView: FC<{
                         className="px-3 py-2.5 align-top text-foreground"
                       >
                         {typeof cell === 'string' || cell == null ? (
-                          (cell ?? '')
+                          cell ? (
+                            <PiMarkdown>{cell}</PiMarkdown>
+                          ) : (
+                            ''
+                          )
                         ) : (
                           <PiNodeView
                             node={cell}

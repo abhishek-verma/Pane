@@ -34,7 +34,10 @@ import { resolveChatProvider } from '@/lib/llm-providers/provider-runtime'
 import { resolveStoredChatProvider } from '@/lib/llm-providers/storage'
 import type { ChatRequestBrowserContext } from '@/lib/messaging/server/buildChatRequestBody'
 import { track } from '@/lib/metrics/track'
-import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
+import {
+  type SearchActionStorage,
+  searchActionsStorage,
+} from '@/lib/search-actions/searchActionsStorage'
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
@@ -1248,27 +1251,34 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
   useEffect(() => {
-    const unwatch = searchActionsStorage.watch((storageAction) => {
-      if (storageAction) {
-        if (storageAction.conversationId) {
-          setMode(storageAction.mode)
-          setSearchParams(
-            { conversationId: storageAction.conversationId },
-            { replace: true },
-          )
-          searchActionsStorage.setValue(null)
-          return
-        }
-        resetConversationState()
+    const applySearchAction = (storageAction: SearchActionStorage) => {
+      if (storageAction.conversationId) {
         setMode(storageAction.mode)
-        setTimeout(() => {
-          sendMessage({
-            text: storageAction.query,
-            action: storageAction.action,
-          })
-        }, 0)
-        searchActionsStorage.setValue(null)
+        setSearchParams(
+          { conversationId: storageAction.conversationId },
+          { replace: true },
+        )
+        void searchActionsStorage.setValue(null)
+        return
       }
+      resetConversationState()
+      setMode(storageAction.mode)
+      setTimeout(() => {
+        sendMessage({
+          text: storageAction.query,
+          action: storageAction.action,
+        })
+      }, 0)
+      void searchActionsStorage.setValue(null)
+    }
+
+    // Cold mount: background may have written handoff before this watch attaches.
+    void searchActionsStorage.getValue().then((storageAction) => {
+      if (storageAction) applySearchAction(storageAction)
+    })
+
+    const unwatch = searchActionsStorage.watch((storageAction) => {
+      if (storageAction) applySearchAction(storageAction)
     })
     return () => unwatch()
   }, [])

@@ -563,6 +563,83 @@ describe('wrapToolWithGate scheduled-run idempotency', () => {
     tempDirs.length = 0
   })
 
+  it('runs pi_page_patch without approval on pi-materialize (response surface)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-gate-mat-'))
+    tempDirs.push(dir)
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
+    const run = createRunRecord({
+      source: 'pi-materialize',
+      sourceId: 'page_abc',
+      prompt: 'materialize',
+      idempotencyKey: 'pi-materialize:s:e:page_abc',
+    })
+    let executed = false
+    const underlying = tool({
+      description: 'fake patch',
+      inputSchema: z.object({ pageId: z.string() }),
+      execute: async () => {
+        executed = true
+        return { text: 'patched' }
+      },
+    })
+    const ctx = makeCtx({
+      surface: 'loop',
+      unattended: true,
+      scheduledRunId: run.id,
+      idempotencyKey: run.idempotencyKey,
+      runId: 'chat-run-1',
+    })
+    const wrapped = wrapToolWithGate('pi_page_patch', underlying, () => ctx)
+    const needs = await wrapped.needsApproval?.(
+      { pageId: 'page_abc' },
+      { toolCallId: 'tc1', messages: [] },
+    )
+    expect(needs).toBe(false)
+    const res = await wrapped.execute?.(
+      { pageId: 'page_abc' },
+      { toolCallId: 'tc-mat', messages: [] },
+    )
+    expect(executed).toBe(true)
+    expect(String((res as { text?: string })?.text ?? '')).toContain('patched')
+  })
+
+  it('still blocks unattended consequential tools during pi-materialize', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-gate-mat-bash-'))
+    tempDirs.push(dir)
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
+    const run = createRunRecord({
+      source: 'pi-materialize',
+      sourceId: 'page_abc',
+      prompt: 'materialize',
+      idempotencyKey: 'pi-materialize:s:e:page_abc',
+    })
+    let executed = false
+    const underlying = tool({
+      description: 'fake bash',
+      inputSchema: z.object({ command: z.string() }),
+      execute: async () => {
+        executed = true
+        return { text: 'ran' }
+      },
+    })
+    const ctx = makeCtx({
+      surface: 'loop',
+      unattended: true,
+      scheduledRunId: run.id,
+      idempotencyKey: run.idempotencyKey,
+      runId: 'chat-run-1',
+    })
+    const wrapped = wrapToolWithGate('filesystem_bash', underlying, () => ctx)
+    const res = await wrapped.execute?.(
+      { command: 'ls' },
+      { toolCallId: 'tc-bash', messages: [] },
+    )
+    expect(executed).toBe(false)
+    expect(String((res as { text?: string })?.text ?? '')).toMatch(
+      /no channel approval|timed out|Denied/i,
+    )
+  })
+
   it('skips consequential execute when fingerprint already completed', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'browseros-gate-idem-'))
     tempDirs.push(dir)

@@ -1,32 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Claude Code driving Pane tabs over MCP">
   <defs>
-  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#f4f1ee"/>
-    <stop offset="50%" stop-color="#ebe7e2"/>
-    <stop offset="100%" stop-color="#e4dfd8"/>
-  </linearGradient>
-  <radialGradient id="glow" cx="70%" cy="40%" r="45%">
-    <stop offset="0%" stop-color="#94B316" stop-opacity="0.16"/>
-    <stop offset="55%" stop-color="#94B316" stop-opacity="0.05"/>
-    <stop offset="100%" stop-color="#94B316" stop-opacity="0"/>
-  </radialGradient>
   <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
     <stop offset="0%" stop-color="#C8E832"/>
     <stop offset="100%" stop-color="#94B316"/>
   </linearGradient>
-  <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
-    <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.05"/>
+  <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+    <path d="M80 0H0V80" fill="none" stroke="#111113" stroke-opacity="0.04"/>
   </pattern>
-  <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
-    <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#1c1814" flood-opacity="0.12"/>
-  </filter>
   <clipPath id="win">
-    <rect x="40" y="36" width="880" height="468" rx="16"/>
+    <rect x="40" y="36" width="880" height="468" rx="5"/>
   </clipPath>
   <style><![CDATA[
 
-  text, .font { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .sans, text:not(.mono) { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 0.04em; }
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; }
   }
@@ -46,64 +34,62 @@
   }
 
   ]]></style></defs>
-  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect width="960" height="540" fill="#FFFFFF"/>
   <rect width="960" height="540" fill="url(#grid)"/>
-  <rect width="960" height="540" fill="url(#glow)"/>
 
-  <g filter="url(#shadow)">
-    <rect x="40" y="36" width="880" height="468" rx="16" fill="#ffffff"/>
-  </g>
+
   <g clip-path="url(#win)">
-    <rect x="40" y="36" width="880" height="468" fill="#ffffff"/>
-    <rect x="40" y="36" width="880" height="40" fill="#f5f2ef"/>
-    <line x1="40" y1="76" x2="920" y2="76" stroke="#1c1814" stroke-opacity="0.05"/>
-    <circle cx="62" cy="56" r="5" fill="#ff5f57"/>
-    <circle cx="80" cy="56" r="5" fill="#febc2e"/>
-    <circle cx="98" cy="56" r="5" fill="#28c840"/>
-    <rect x="208" y="44" width="520" height="24" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.05"/>
-    <text x="224" y="60" fill="#7a7268" font-size="12">pane · MCP session</text>
+    <rect x="40" y="36" width="880" height="468" fill="#FFFFFF" stroke="#E2E2E2" stroke-width="1"/>
+    <rect x="40" y="36" width="880" height="32" fill="#FFFFFF"/>
+    <line x1="40" y1="68" x2="920" y2="68" stroke="#E2E2E2"/>
+    <text class="mono" x="56" y="57" fill="#6B6B72" font-size="10">PANE / MCP SESSION</text>
+    <circle cx="830" cy="52" r="3.5" fill="#C8E832"/>
+    <text class="mono" x="902" y="57" text-anchor="end" fill="#6B6B72" font-size="10">CONNECTED</text>
+    <rect x="40" y="68" width="880" height="436" fill="#FFFFFF"/>
 
-    <!-- left: terminal -->
-    <rect x="40" y="76" width="400" height="428" fill="#1c1814"/>
-    <text x="64" y="112" fill="#a89a8c" font-size="12">claude · connected to Pane MCP</text>
-    <text x="64" y="148" fill="#5fb872" font-size="12">$</text>
-    <text x="80" y="148" fill="#f3efe9" font-size="12">list_tabs</text>
-    <text x="64" y="172" fill="#8a8278" font-size="11">→ 4 tabs · active: docs.acme.dev</text>
-    <text x="64" y="204" fill="#5fb872" font-size="12">$</text>
-    <text x="80" y="204" fill="#f3efe9" font-size="12">navigate /api/auth#oauth</text>
-    <text x="64" y="228" fill="#8a8278" font-size="11">→ ok · scrolled to OAuth</text>
-    <text x="64" y="260" fill="#5fb872" font-size="12">$</text>
-    <text x="80" y="260" fill="#f3efe9" font-size="12">extract_text pre.code</text>
+    <!-- left: terminal (charcoal region) -->
+    <rect x="40" y="68" width="400" height="436" fill="#1A1B22"/>
+    <text class="mono" x="60" y="100" fill="#6B6B72" font-size="10">CLAUDE · CONNECTED TO PANE MCP</text>
+    <text x="60" y="132" fill="#C8E832" font-size="12">$</text>
+    <text x="76" y="132" fill="#F3F3F5" font-size="12">list_tabs</text>
+    <text class="mono" x="60" y="154" fill="#6B6B72" font-size="10">→ 4 TABS · ACTIVE: DOCS.ACME.DEV</text>
+    <text x="60" y="184" fill="#C8E832" font-size="12">$</text>
+    <text x="76" y="184" fill="#F3F3F5" font-size="12">navigate /api/auth#oauth</text>
+    <text class="mono" x="60" y="206" fill="#6B6B72" font-size="10">→ OK · SCROLLED TO OAUTH</text>
+    <text x="60" y="236" fill="#C8E832" font-size="12">$</text>
+    <text x="76" y="236" fill="#F3F3F5" font-size="12">extract_text pre.code</text>
 
-    <g transform="translate(64 292)">
-      <rect width="352" height="120" rx="12" fill="#2a241f" stroke="#94B316" stroke-opacity="0.45"/>
-      <text x="16" y="28" fill="#f3efe9" font-size="12" font-weight="600">Extracted into context</text>
-      <text x="16" y="54" fill="#c2b4a4" font-size="12">POST /oauth/token</text>
-      <text x="16" y="76" fill="#c2b4a4" font-size="12">grant_type=authorization_code</text>
-      <text x="16" y="100" fill="#8a8278" font-size="11">Real browser · your logins · local</text>
+    <g transform="translate(60 264)">
+      <rect width="360" height="112" rx="5" fill="#24252C" stroke="#2E2E33"/>
+      <text x="14" y="26" fill="#F3F3F5" font-size="12" font-weight="500">Extracted into context</text>
+      <text class="mono" x="14" y="50" fill="#6B6B72" font-size="11">POST /OAUTH/TOKEN</text>
+      <text class="mono" x="14" y="70" fill="#6B6B72" font-size="11">GRANT_TYPE=AUTHORIZATION_CODE</text>
+      <text class="mono" x="14" y="94" fill="#6B6B72" font-size="9">REAL BROWSER · YOUR LOGINS · LOCAL</text>
     </g>
 
     <!-- beam -->
-    <path class="beam" d="M440 276 H520" fill="none" stroke="#94B316" stroke-width="2" stroke-opacity="0.7"/>
-    <circle class="pulse" cx="480" cy="276" r="5" fill="#C8E832"/>
+    <path class="beam" d="M440 256 H520" fill="none" stroke="#94B316" stroke-width="1.5" stroke-opacity="0.7"/>
+    <circle class="pulse" cx="480" cy="256" r="4" fill="#C8E832"/>
 
-    <!-- right: browser tabs -->
-    <rect x="520" y="76" width="400" height="428" fill="#f3f0ec"/>
-    <text x="544" y="112" fill="#3d3731" font-size="13" font-weight="600">Pane window</text>
-    <text x="544" y="132" fill="#8a8278" font-size="11">Driven by your coding agent</text>
+    <!-- right: Pane tabs (white shell) -->
+    <rect x="520" y="68" width="400" height="436" fill="#FFFFFF"/>
+    <line x1="520" y1="68" x2="520" y2="504" stroke="#E2E2E2"/>
+    <text class="mono" x="540" y="96" fill="#6B6B72" font-size="10">PANE WINDOW</text>
+    <text x="540" y="116" fill="#6B6B72" font-size="11">Driven by your coding agent</text>
 
-    <rect class="active-tab" x="544" y="160" width="352" height="48" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5"/>
-    <text x="564" y="189" fill="#1c1814" font-size="12">docs.acme.dev/api/auth</text>
+    <rect class="active-tab" x="540" y="140" width="360" height="44" rx="5" fill="#FFFFFF" stroke="#C8E832" stroke-width="1.5"/>
+    <text x="556" y="166" fill="#111113" font-size="12">docs.acme.dev/api/auth</text>
 
-    <rect x="544" y="224" width="352" height="48" rx="10" fill="#f5f2ef"/>
-    <text x="564" y="253" fill="#6b6258" font-size="12">github.com/acme/web</text>
-    <rect x="544" y="288" width="352" height="48" rx="10" fill="#f5f2ef"/>
-    <text x="564" y="317" fill="#6b6258" font-size="12">localhost:3000</text>
+    <rect x="540" y="196" width="360" height="44" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+    <text x="556" y="222" fill="#6B6B72" font-size="12">github.com/acme/web</text>
+    <rect x="540" y="252" width="360" height="44" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+    <text x="556" y="278" fill="#6B6B72" font-size="12">localhost:3000</text>
 
-    <g transform="translate(544 368)">
-      <rect width="352" height="64" rx="12" fill="#F4F7E0"/>
-      <text x="16" y="28" fill="#1c1814" font-size="13" font-weight="600">Pane as MCP</text>
-      <text x="16" y="48" fill="#6b6258" font-size="11">Claude Code · Cursor · Gemini CLI</text>
+    <g transform="translate(540 320)">
+      <rect width="360" height="56" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <rect x="0" y="6" width="2" height="44" fill="#C8E832"/>
+      <text x="14" y="24" fill="#111113" font-size="13" font-weight="500">Pane as MCP</text>
+      <text class="mono" x="14" y="42" fill="#6B6B72" font-size="9">CLAUDE CODE · CURSOR · GEMINI CLI</text>
     </g>
   </g>
 </svg>

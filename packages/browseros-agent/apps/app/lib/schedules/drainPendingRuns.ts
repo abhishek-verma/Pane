@@ -61,7 +61,7 @@ export async function drainPendingRunsOnce(
     claimed += 1
 
     const conversationId = crypto.randomUUID()
-    // Publish conversationId early so UI can open Watch agent.
+    // Publish conversationId early so UI can open the owner agent.
     await deps
       .fetchFn(`${base}/scheduler/runs/${encodeURIComponent(run.id)}`, {
         method: 'PATCH',

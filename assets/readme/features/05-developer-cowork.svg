@@ -1,32 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Developer — Pane agent on localhost with Cowork writing a fix">
   <defs>
-  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#f4f1ee"/>
-    <stop offset="50%" stop-color="#ebe7e2"/>
-    <stop offset="100%" stop-color="#e4dfd8"/>
-  </linearGradient>
-  <radialGradient id="glow" cx="70%" cy="40%" r="45%">
-    <stop offset="0%" stop-color="#94B316" stop-opacity="0.16"/>
-    <stop offset="55%" stop-color="#94B316" stop-opacity="0.05"/>
-    <stop offset="100%" stop-color="#94B316" stop-opacity="0"/>
-  </radialGradient>
   <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
     <stop offset="0%" stop-color="#C8E832"/>
     <stop offset="100%" stop-color="#94B316"/>
   </linearGradient>
-  <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
-    <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.05"/>
+  <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+    <path d="M80 0H0V80" fill="none" stroke="#111113" stroke-opacity="0.04"/>
   </pattern>
-  <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
-    <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#1c1814" flood-opacity="0.12"/>
-  </filter>
   <clipPath id="win">
-    <rect x="40" y="36" width="880" height="468" rx="16"/>
+    <rect x="40" y="36" width="880" height="468" rx="5"/>
   </clipPath>
   <style><![CDATA[
 
-  text, .font { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .sans, text:not(.mono) { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 0.04em; }
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; }
   }
@@ -41,83 +29,76 @@
   @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
 
   ]]></style></defs>
-  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect width="960" height="540" fill="#FFFFFF"/>
   <rect width="960" height="540" fill="url(#grid)"/>
-  <rect width="960" height="540" fill="url(#glow)"/>
 
 
-  <g filter="url(#shadow)">
-    <rect x="40" y="36" width="880" height="468" rx="16" fill="#ffffff"/>
-  </g>
   <g clip-path="url(#win)">
-    <rect x="40" y="36" width="880" height="468" fill="#ffffff"/>
-    <rect x="40" y="36" width="880" height="40" fill="#f5f2ef"/>
-    <line x1="40" y1="76" x2="920" y2="76" stroke="#1c1814" stroke-opacity="0.05"/>
-    <circle cx="62" cy="56" r="5" fill="#ff5f57"/>
-    <circle cx="80" cy="56" r="5" fill="#febc2e"/>
-    <circle cx="98" cy="56" r="5" fill="#28c840"/>
-    <g transform="translate(124 48)" stroke="#7a7268" stroke-opacity="0.85" stroke-width="1.4" stroke-linecap="round">
-      <rect x="0" y="0" width="16" height="16" rx="4.5" fill="none"/>
-      <line x1="6" y1="2" x2="6" y2="14"/>
-    </g>
-    <path d="M164 48 l-8 8 8 8" fill="none" stroke="#7a7268" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M184 48 l8 8 -8 8" fill="none" stroke="#c4bbb2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="208" y="44" width="520" height="24" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.05"/>
-    <text x="224" y="60" fill="#7a7268" font-size="12">localhost:3000/checkout</text>
-    <line x1="620" y1="76" x2="620" y2="504" stroke="#1c1814" stroke-opacity="0.06"/>
+    <rect x="40" y="36" width="880" height="468" fill="#FFFFFF" stroke="#E2E2E2" stroke-width="1"/>
+    <rect x="40" y="36" width="880" height="32" fill="#FFFFFF"/>
+    <line x1="40" y1="68" x2="920" y2="68" stroke="#E2E2E2"/>
+    <text class="mono" x="56" y="57" fill="#6B6B72" font-size="10">PANE / LOCALHOST / CHECKOUT</text>
+    <circle cx="830" cy="52" r="3.5" fill="#C8E832"/>
+    <text class="mono" x="902" y="57" text-anchor="end" fill="#6B6B72" font-size="10">AGENT RUNNING</text>
+    <rect x="40" y="68" width="580" height="436" fill="#FFFFFF"/>
+    <line x1="620" y1="68" x2="620" y2="504" stroke="#E2E2E2"/>
 
-    <rect x="40" y="76" width="580" height="428" fill="#faf9f7"/>
-    <rect class="glow" x="68" y="100" width="524" height="220" rx="12" fill="#ffffff" stroke="#94B316" stroke-width="1.5"/>
-    <text x="88" y="132" fill="#1c1814" font-size="16" font-weight="600">Checkout</text>
-    <rect x="88" y="152" width="220" height="34" rx="8" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.06"/>
-    <text x="102" y="174" fill="#6b6258" font-size="12">Card number</text>
-    <rect x="88" y="198" width="100" height="34" rx="8" fill="#ffffff"/>
-    <rect x="200" y="198" width="100" height="34" rx="8" fill="#ffffff"/>
-    <rect x="88" y="250" width="132" height="38" rx="10" fill="url(#accent)"/>
-    <text x="154" y="274" text-anchor="middle" fill="#2a1606" font-size="13" font-weight="600">Pay now</text>
-    <text x="248" y="272" fill="#c44a3a" font-size="11">TypeError · line 84</text>
+    <rect class="glow" x="64" y="88" width="532" height="200" rx="5" fill="#FFFFFF" stroke="#C8E832" stroke-width="1.5"/>
+    <text x="80" y="116" fill="#111113" font-size="15" font-weight="600">Checkout</text>
+    <rect x="80" y="132" width="200" height="32" rx="5" fill="#FAFAFA" stroke="#E2E2E2"/>
+    <text x="92" y="152" fill="#6B6B72" font-size="12">Card number</text>
+    <rect x="80" y="174" width="92" height="32" rx="5" fill="#FAFAFA" stroke="#E2E2E2"/>
+    <rect x="184" y="174" width="92" height="32" rx="5" fill="#FAFAFA" stroke="#E2E2E2"/>
+    <rect x="80" y="224" width="120" height="34" rx="5" fill="#C8E832"/>
+    <text x="140" y="246" text-anchor="middle" fill="#1A1F0A" font-size="12" font-weight="600">Pay now</text>
+    <text class="mono" x="216" y="244" fill="#C44A3A" font-size="10">TYPEERROR · LINE 84</text>
 
-    <rect x="68" y="340" width="524" height="120" rx="12" fill="#1c1814"/>
-    <text x="86" y="368" fill="#5fb872" font-size="11">~/acme-web · cowork folder granted</text>
-    <text x="86" y="394" fill="#8a8278" font-size="12">$ </text>
-    <text x="98" y="394" fill="#f3efe9" font-size="12">wrote src/checkout/validate.ts</text>
-    <rect class="caret" x="316" y="383" width="7" height="14" fill="#94B316"/>
-    <rect x="86" y="412" width="200" height="28" rx="8" fill="#2a241f" stroke="#5fb872" stroke-opacity="0.45"/>
-    <text x="100" y="430" fill="#8dcea0" font-size="11">validate.ts updated</text>
+    <rect x="64" y="308" width="532" height="112" rx="5" fill="#1A1B22"/>
+    <text class="mono" x="78" y="332" fill="#C8E832" font-size="10">~/ACME-WEB · COWORK GRANTED</text>
+    <text x="78" y="356" fill="#6B6B72" font-size="12">$ </text>
+    <text x="90" y="356" fill="#F3F3F5" font-size="12">wrote src/checkout/validate.ts</text>
+    <rect class="caret" x="312" y="344" width="6" height="14" fill="#C8E832"/>
+    <rect x="78" y="372" width="180" height="28" rx="5" fill="#24252C" stroke="#2E2E33"/>
+    <text class="mono" x="90" y="390" fill="#C8E832" font-size="10">VALIDATE.TS UPDATED</text>
 
 
-    <rect x="620" y="76" width="300" height="428" fill="#f3f0ec"/>
-    <g transform="translate(638 96) scale(0.14)">
-      <path fill="#94B316" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
-    </g>
-    <text x="660" y="108" fill="#3d3731" font-size="13" font-weight="600">Pane</text>
-    <circle cx="900" cy="102" r="4" fill="#5fb872"/>
-    <text x="888" y="107" text-anchor="end" fill="#8a8278" font-size="11">Cowork</text>
+    <rect x="620" y="68" width="300" height="436" fill="#FFFFFF"/>
+    <text class="mono" x="636" y="96" fill="#6B6B72" font-size="10">AGENT · COWORK</text>
+    <line x1="620" y1="108" x2="920" y2="108" stroke="#E2E2E2"/>
 
-    <g transform="translate(636 136)">
-      <rect width="268" height="32" rx="8" fill="#ffffff"/>
-      <text x="12" y="21" fill="#6b6258" font-size="11">click · Pay now</text>
-    </g>
-    <g transform="translate(636 178)">
-      <rect width="268" height="32" rx="8" fill="#ffffff"/>
-      <text x="12" y="21" fill="#6b6258" font-size="11">read console · TypeError:84</text>
-    </g>
-    <g transform="translate(636 220)">
-      <rect width="268" height="32" rx="8" fill="#ffffff"/>
-      <text x="12" y="21" fill="#6b6258" font-size="11">cowork write · validate.ts</text>
-    </g>
-    <g transform="translate(636 272)">
-      <rect width="268" height="100" rx="12" fill="#F4F7E0"/>
-      <text x="14" y="26" fill="#1c1814" font-size="12" font-weight="600">Fix ready for review</text>
-      <text x="14" y="48" fill="#6b6258" font-size="11">Null guard on card brand</text>
-      <text x="14" y="66" fill="#6b6258" font-size="11">before submit.</text>
-      <text x="14" y="88" fill="#8a8278" font-size="10.5">Same session · tabs + files</text>
+
+
+    <rect x="636" y="124" width="268" height="36" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+    <rect x="636" y="128" width="2" height="28" fill="#C8E832"/>
+    <text class="mono" x="650" y="146" fill="#6B6B72" font-size="9">CLICK</text>
+    <text x="691" y="146" fill="#111113" font-size="11">Pay now</text>
+
+
+    <rect x="636" y="170" width="268" height="36" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+    <rect x="636" y="174" width="2" height="28" fill="#C8E832"/>
+    <text class="mono" x="650" y="192" fill="#6B6B72" font-size="9">READ_CONSOLE</text>
+    <text x="734.4" y="192" fill="#111113" font-size="11">TypeError:84</text>
+
+
+    <rect x="636" y="216" width="268" height="36" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+    <rect x="636" y="220" width="2" height="28" fill="#C8E832"/>
+    <text class="mono" x="650" y="238" fill="#6B6B72" font-size="9">COWORK_WRITE</text>
+    <text x="734.4" y="238" fill="#111113" font-size="11">validate.ts</text>
+    <g transform="translate(636 268)">
+      <rect width="268" height="88" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <rect x="0" y="4" width="2" height="80" fill="#C8E832"/>
+      <text x="14" y="24" fill="#111113" font-size="12" font-weight="500">Fix ready for review</text>
+      <text x="14" y="44" fill="#6B6B72" font-size="11">Null guard on card brand</text>
+      <text x="14" y="60" fill="#6B6B72" font-size="11">before submit.</text>
+      <text class="mono" x="14" y="78" fill="#6B6B72" font-size="9">SAME SESSION · TABS + FILES</text>
     </g>
 
-    <rect x="636" y="452" width="268" height="36" rx="18" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.07"/>
-    <text x="652" y="474" fill="#8a8278" font-size="12">Ask Pane anything</text>
-    <circle cx="886" cy="470" r="12" fill="url(#accent)"/>
-    <path d="M881 470h10M887 466l4 4-4 4" fill="none" stroke="#2a1606" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="632" y="436" width="276" height="56" rx="5" fill="#FAFAFA" stroke="#E2E2E2"/>
+    <text x="644" y="458" fill="#6B6B72" font-size="11">Ask Pane anything</text>
+    <line x1="642" y1="468" x2="860" y2="468" stroke="#E2E2E2"/>
+    <text class="mono" x="644" y="482" fill="#6B6B72" font-size="9">PANE</text>
+    <circle cx="886" cy="464" r="11" fill="#C8E832"/>
+    <path d="M881 464h10M887 460l4 4-4 4" fill="none" stroke="#1A1F0A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 
   </g>
 </svg>

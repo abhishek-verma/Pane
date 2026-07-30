@@ -64,6 +64,11 @@ const READ_CONTEXT_TOOLS = new Set([
   'pi_read',
   'pi_pulse_get',
   'pi_record_list',
+  // PI page DSL is the agent's response surface (like streaming chat text),
+  // not a side-effect the user must approve. Deletes / site archive stay gated.
+  'pi_page_create',
+  'pi_page_patch',
+  'pi_entity_ensure',
 ])
 
 const WRITE_LOCAL_TASK_TOOLS = new Set([
@@ -77,14 +82,11 @@ const WRITE_LOCAL_TASK_TOOLS = new Set([
   'capture_start',
   'capture_stop',
   'pi_site_upsert',
-  'pi_page_create',
-  'pi_page_patch',
   'pi_page_delete',
   'pi_site_archive',
   'pi_preserve_temp',
   'pi_home_regions_patch',
   'pi_record_upsert',
-  'pi_entity_ensure',
 ])
 
 const READ_CAPTURE_TOOLS = new Set([

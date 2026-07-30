@@ -1,32 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Customer research threaded across tabs into a citable outline">
   <defs>
-  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#f4f1ee"/>
-    <stop offset="50%" stop-color="#ebe7e2"/>
-    <stop offset="100%" stop-color="#e4dfd8"/>
-  </linearGradient>
-  <radialGradient id="glow" cx="70%" cy="40%" r="45%">
-    <stop offset="0%" stop-color="#94B316" stop-opacity="0.16"/>
-    <stop offset="55%" stop-color="#94B316" stop-opacity="0.05"/>
-    <stop offset="100%" stop-color="#94B316" stop-opacity="0"/>
-  </radialGradient>
   <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
     <stop offset="0%" stop-color="#C8E832"/>
     <stop offset="100%" stop-color="#94B316"/>
   </linearGradient>
-  <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
-    <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.05"/>
+  <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+    <path d="M80 0H0V80" fill="none" stroke="#111113" stroke-opacity="0.04"/>
   </pattern>
-  <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
-    <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#1c1814" flood-opacity="0.12"/>
-  </filter>
   <clipPath id="win">
-    <rect x="40" y="36" width="880" height="468" rx="16"/>
+    <rect x="40" y="36" width="880" height="468" rx="5"/>
   </clipPath>
   <style><![CDATA[
 
-  text, .font { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  .sans, text:not(.mono) { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 0.04em; }
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; }
   }
@@ -50,104 +38,92 @@
   @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: 0.25; } }
 
   ]]></style></defs>
-  <rect width="960" height="540" fill="url(#bg)"/>
+  <rect width="960" height="540" fill="#FFFFFF"/>
   <rect width="960" height="540" fill="url(#grid)"/>
-  <rect width="960" height="540" fill="url(#glow)"/>
 
 
-  <g filter="url(#shadow)">
-    <rect x="40" y="36" width="880" height="468" rx="16" fill="#ffffff"/>
-  </g>
   <g clip-path="url(#win)">
-    <rect x="40" y="36" width="880" height="468" fill="#ffffff"/>
-    <rect x="40" y="36" width="880" height="40" fill="#f5f2ef"/>
-    <line x1="40" y1="76" x2="920" y2="76" stroke="#1c1814" stroke-opacity="0.05"/>
-    <circle cx="62" cy="56" r="5" fill="#ff5f57"/>
-    <circle cx="80" cy="56" r="5" fill="#febc2e"/>
-    <circle cx="98" cy="56" r="5" fill="#28c840"/>
-    <g transform="translate(124 48)" stroke="#7a7268" stroke-opacity="0.85" stroke-width="1.4" stroke-linecap="round">
-      <rect x="0" y="0" width="16" height="16" rx="4.5" fill="none"/>
-      <line x1="6" y1="2" x2="6" y2="14"/>
-    </g>
-    <path d="M164 48 l-8 8 8 8" fill="none" stroke="#7a7268" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M184 48 l8 8 -8 8" fill="none" stroke="#c4bbb2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="208" y="44" width="520" height="24" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.05"/>
-    <text x="224" y="60" fill="#7a7268" font-size="12">pane://research/customer-pain</text>
-    <line x1="620" y1="76" x2="620" y2="504" stroke="#1c1814" stroke-opacity="0.06"/>
+    <rect x="40" y="36" width="880" height="468" fill="#FFFFFF" stroke="#E2E2E2" stroke-width="1"/>
+    <rect x="40" y="36" width="880" height="32" fill="#FFFFFF"/>
+    <line x1="40" y1="68" x2="920" y2="68" stroke="#E2E2E2"/>
+    <text class="mono" x="56" y="57" fill="#6B6B72" font-size="10">PANE / RESEARCH / CUSTOMER PAIN</text>
+    <circle cx="830" cy="52" r="3.5" fill="#C8E832"/>
+    <text class="mono" x="902" y="57" text-anchor="end" fill="#6B6B72" font-size="10">AGENT RUNNING</text>
+    <rect x="40" y="68" width="580" height="436" fill="#A8C0E8"/>
+    <line x1="620" y1="68" x2="620" y2="504" stroke="#E2E2E2"/>
 
-    <rect x="40" y="76" width="580" height="428" fill="#faf9f7"/>
-    <!-- tab strip -->
-    <rect x="40" y="76" width="52" height="428" fill="#ece8e3"/>
-    <rect x="48" y="92" width="36" height="36" rx="8" fill="#e6e1db" stroke="#94B316" stroke-opacity="0.55"/>
-    <text x="66" y="114" text-anchor="middle" fill="#1c1814" font-size="9">G2</text>
-    <rect x="48" y="140" width="36" height="36" rx="8" fill="#ffffff"/>
-    <text x="66" y="162" text-anchor="middle" fill="#6b6258" font-size="8">Reddit</text>
-    <rect x="48" y="188" width="36" height="36" rx="8" fill="#ffffff"/>
-    <text x="66" y="210" text-anchor="middle" fill="#6b6258" font-size="8">Blog</text>
-    <rect x="48" y="236" width="36" height="36" rx="8" fill="#ffffff"/>
-    <text x="66" y="258" text-anchor="middle" fill="#6b6258" font-size="9">X</text>
+    <!-- source rail -->
+    <rect x="40" y="68" width="48" height="436" fill="#A8C0E8" stroke="none"/>
+    <line x1="88" y1="68" x2="88" y2="504" stroke="#C8D0E0"/>
+    <rect x="48" y="84" width="32" height="32" rx="5" fill="#FFFFFF" stroke="#94B316"/>
+    <text class="mono" x="64" y="104" text-anchor="middle" fill="#1A2236" font-size="8">G2</text>
+    <rect x="48" y="126" width="32" height="32" rx="5" fill="#FFFFFF" stroke="#C8D0E0"/>
+    <text class="mono" x="64" y="146" text-anchor="middle" fill="#5A6680" font-size="7">RDDT</text>
+    <rect x="48" y="168" width="32" height="32" rx="5" fill="#FFFFFF" stroke="#C8D0E0"/>
+    <text class="mono" x="64" y="188" text-anchor="middle" fill="#5A6680" font-size="7">BLOG</text>
+    <rect x="48" y="210" width="32" height="32" rx="5" fill="#FFFFFF" stroke="#C8D0E0"/>
+    <text class="mono" x="64" y="230" text-anchor="middle" fill="#5A6680" font-size="8">X</text>
 
-    <text x="112" y="112" fill="#1c1814" font-size="17" font-weight="600">“Setup took forever”</text>
-    <text x="112" y="134" fill="#6b6258" font-size="12">G2 · Acme Analytics · ★★★★☆</text>
-    <rect x="112" y="156" width="400" height="8" rx="4" fill="#e6e1db"/>
-    <rect x="112" y="174" width="360" height="8" rx="4" fill="#e6e1db"/>
-    <rect x="112" y="192" width="380" height="8" rx="4" fill="#e6e1db"/>
-    <rect x="112" y="210" width="300" height="8" rx="4" fill="#e6e1db"/>
+    <text class="mono" x="104" y="96" fill="#5A6680" font-size="9">01 SOURCE</text>
+    <text x="104" y="120" fill="#1A2236" font-size="16" font-weight="600">“Setup took forever”</text>
+    <text class="mono" x="104" y="140" fill="#5A6680" font-size="10">G2 · ACME ANALYTICS</text>
+    <rect x="104" y="156" width="380" height="6" rx="1" fill="#C8D0E0" fill-opacity="0.55"/>
+    <rect x="104" y="172" width="340" height="6" rx="1" fill="#C8D0E0" fill-opacity="0.55"/>
+    <rect x="104" y="188" width="360" height="6" rx="1" fill="#C8D0E0" fill-opacity="0.55"/>
+    <rect x="104" y="204" width="280" height="6" rx="1" fill="#C8D0E0" fill-opacity="0.55"/>
 
-    <g transform="translate(112 244)">
-      <rect width="400" height="72" rx="12" fill="#ffffff" stroke="#94B316" stroke-opacity="0.3"/>
-      <text x="18" y="30" fill="#1c1814" font-size="13" font-weight="600">Quoted into research thread</text>
-      <text x="18" y="52" fill="#6b6258" font-size="12">Onboarding friction · source kept</text>
+    <g transform="translate(104 232)">
+      <rect width="380" height="64" rx="5" fill="#FFFFFF" stroke="#94B316" stroke-opacity="0.55"/>
+      <text x="14" y="26" fill="#1A2236" font-size="13" font-weight="600">Quoted into research thread</text>
+      <text class="mono" x="14" y="46" fill="#5A6680" font-size="10">ONBOARDING FRICTION · SOURCE KEPT</text>
     </g>
 
 
-    <rect x="620" y="76" width="300" height="428" fill="#f3f0ec"/>
-    <g transform="translate(638 96) scale(0.14)">
-      <path fill="#94B316" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
-    </g>
-    <text x="660" y="108" fill="#3d3731" font-size="13" font-weight="600">Pane</text>
-    <circle cx="900" cy="102" r="4" fill="#5fb872"/>
-    <text x="888" y="107" text-anchor="end" fill="#8a8278" font-size="11">Research</text>
+    <rect x="620" y="68" width="300" height="436" fill="#FFFFFF"/>
+    <text class="mono" x="636" y="96" fill="#6B6B72" font-size="10">AGENT · RESEARCH</text>
+    <line x1="620" y1="108" x2="920" y2="108" stroke="#E2E2E2"/>
 
-    <text x="636" y="134" fill="#6b6258" font-size="11">Why do teams churn in month 1?</text>
+    <text class="mono" x="636" y="126" fill="#6B6B72" font-size="9">WHY TEAMS CHURN IN MONTH 1</text>
 
-    <g class="research-step" transform="translate(636 148)">
-      <rect width="268" height="48" rx="12" fill="#F4F7E0" stroke="#94B316" stroke-width="1.4"/>
-      <circle class="step-dot" cx="18" cy="24" r="4" fill="#94B316"/>
-      <text x="32" y="20" fill="#1c1814" font-size="12" font-weight="600">Researching open tabs</text>
-      <text x="32" y="38" fill="#6b6258" font-size="10.5">G2 · Reddit · Blog · threading</text>
+    <g class="research-step" transform="translate(636 138)">
+      <rect width="268" height="44" rx="5" fill="#FFFFFF" stroke="#C8E832" stroke-width="1.4"/>
+      <circle class="step-dot" cx="16" cy="22" r="3.5" fill="#C8E832"/>
+      <text x="28" y="18" fill="#111113" font-size="12" font-weight="500">Researching open tabs</text>
+      <text class="mono" x="28" y="34" fill="#6B6B72" font-size="9">G2 · REDDIT · BLOG</text>
     </g>
 
-    <line class="spine" x1="646" y1="212" x2="646" y2="368" stroke="#94B316" stroke-opacity="0.35" stroke-width="1.5"/>
+    <line class="spine" x1="646" y1="196" x2="646" y2="346" stroke="#94B316" stroke-opacity="0.4" stroke-width="1.5"/>
 
-    <g class="node" transform="translate(636 204)">
-      <circle cx="10" cy="16" r="5" fill="#94B316"/>
-      <rect x="28" y="0" width="240" height="40" rx="10" fill="#F4F7E0"/>
-      <text x="40" y="16" fill="#1c1814" font-size="11">Setup took forever</text>
-      <text x="40" y="30" fill="#8a8278" font-size="10">G2 · cite</text>
+    <g class="node" transform="translate(636 190)">
+      <circle cx="10" cy="16" r="4" fill="#94B316"/>
+      <rect x="24" y="0" width="244" height="38" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <text x="36" y="16" fill="#111113" font-size="11">Setup took forever</text>
+      <text class="mono" x="36" y="30" fill="#6B6B72" font-size="8">G2 · CITE</text>
     </g>
-    <g class="node n2" transform="translate(636 256)">
-      <circle cx="10" cy="16" r="5" fill="#C8E832"/>
-      <rect x="28" y="0" width="240" height="40" rx="10" fill="#F4F7E0"/>
-      <text x="40" y="16" fill="#1c1814" font-size="11">Docs assume enterprise SSO</text>
-      <text x="40" y="30" fill="#8a8278" font-size="10">Reddit · cite</text>
+    <g class="node n2" transform="translate(636 240)">
+      <circle cx="10" cy="16" r="4" fill="#C8E832"/>
+      <rect x="24" y="0" width="244" height="38" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <text x="36" y="16" fill="#111113" font-size="11">Docs assume enterprise SSO</text>
+      <text class="mono" x="36" y="30" fill="#6B6B72" font-size="8">REDDIT · CITE</text>
     </g>
-    <g class="node n3" transform="translate(636 308)">
-      <circle cx="10" cy="16" r="5" fill="#94B316"/>
-      <rect x="28" y="0" width="240" height="40" rx="10" fill="#F4F7E0"/>
-      <text x="40" y="16" fill="#1c1814" font-size="11">No guided first project</text>
-      <text x="40" y="30" fill="#8a8278" font-size="10">Blog · cite</text>
+    <g class="node n3" transform="translate(636 290)">
+      <circle cx="10" cy="16" r="4" fill="#94B316"/>
+      <rect x="24" y="0" width="244" height="38" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <text x="36" y="16" fill="#111113" font-size="11">No guided first project</text>
+      <text class="mono" x="36" y="30" fill="#6B6B72" font-size="8">BLOG · CITE</text>
     </g>
-    <g transform="translate(636 366)">
-      <rect width="268" height="52" rx="12" fill="#f5f2ef" stroke="#94B316" stroke-opacity="0.35"/>
-      <text x="14" y="22" fill="#1c1814" font-size="12" font-weight="600">Outline ready</text>
-      <text x="14" y="40" fill="#6b6258" font-size="11">3 themes · 11 sources</text>
+    <g transform="translate(636 346)">
+      <rect width="268" height="44" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <text x="12" y="18" fill="#111113" font-size="12" font-weight="500">Outline ready</text>
+      <text class="mono" x="12" y="34" fill="#6B6B72" font-size="9">3 THEMES · 11 SOURCES</text>
     </g>
 
-    <rect x="636" y="452" width="268" height="36" rx="18" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.07"/>
-    <text x="652" y="474" fill="#8a8278" font-size="12">Ask Pane anything</text>
-    <circle cx="886" cy="470" r="12" fill="url(#accent)"/>
-    <path d="M881 470h10M887 466l4 4-4 4" fill="none" stroke="#2a1606" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="632" y="436" width="276" height="56" rx="5" fill="#FAFAFA" stroke="#E2E2E2"/>
+    <text x="644" y="458" fill="#6B6B72" font-size="11">Ask Pane anything</text>
+    <line x1="642" y1="468" x2="860" y2="468" stroke="#E2E2E2"/>
+    <text class="mono" x="644" y="482" fill="#6B6B72" font-size="9">PANE</text>
+    <circle cx="886" cy="464" r="11" fill="#C8E832"/>
+    <path d="M881 464h10M887 460l4 4-4 4" fill="none" stroke="#1A1F0A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 
   </g>
 </svg>

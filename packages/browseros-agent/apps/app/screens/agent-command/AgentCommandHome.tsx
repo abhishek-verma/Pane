@@ -32,6 +32,11 @@ import {
 import { PiHomeRegions } from '@/screens/newtab/home/PiHomeRegions'
 import { useActiveHint } from '@/screens/newtab/index/active-hint.hooks'
 import { SignInHint } from '@/screens/newtab/index/SignInHint'
+import {
+  PiRailAction,
+  PiStatusDot,
+  PiTopRail,
+} from '@/screens/personal-internet/PiChrome'
 import { piPost } from '@/screens/personal-internet/usePiApi'
 import {
   ConversationInput,
@@ -43,31 +48,12 @@ import {
 } from './home-compose.helpers'
 import { setPendingInitialMessage } from './pending-initial-message'
 
-const ContextualGreeting: FC<{ firstName: string | null }> = ({
-  firstName,
-}) => {
+function homeGreeting(firstName: string | null): string {
   const hour = new Date().getHours()
   const greeting =
     hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  if (firstName) {
-    return (
-      <>
-        {greeting},{' '}
-        <span className="font-medium text-[var(--accent-orange)] italic">
-          {firstName}
-        </span>
-      </>
-    )
-  }
-  return (
-    <>
-      What should your agent{' '}
-      <span className="font-medium text-[var(--accent-orange)] italic">
-        work on
-      </span>{' '}
-      next?
-    </>
-  )
+  if (firstName) return `${greeting}, ${firstName}`
+  return 'What should Pane work on next?'
 }
 
 function homeSubtitle(pi: HomeData['pi']): string {
@@ -79,6 +65,15 @@ function homeSubtitle(pi: HomeData['pi']): string {
     return 'One living site is ready below — open it, or ask Pane for the next move.'
   }
   return `${doorways} living sites below — pick one up, or ask Pane for the next move.`
+}
+
+function homeStatusLabel(pi: HomeData['pi'], loading: boolean): string {
+  if (loading) return 'Loading'
+  const continuity = pi?.continuity?.length ?? 0
+  const doorways = pi?.doorways?.length ?? 0
+  if (continuity > 0) return `${continuity} open`
+  if (doorways > 0) return `${doorways} live`
+  return 'Idle'
 }
 
 export const AgentCommandHome: FC = () => {
@@ -220,49 +215,60 @@ export const AgentCommandHome: FC = () => {
     (homeData?.pi?.doorways.length ?? 0) > 0 ||
     (homeData?.pi?.continuity.length ?? 0) > 0 ||
     (homeData?.pi?.libraryCount ?? 0) > 0
+  const statusLive =
+    !homeLoading &&
+    ((homeData?.pi?.continuity.length ?? 0) > 0 ||
+      (homeData?.pi?.doorways.length ?? 0) > 0)
 
   return (
-    <div className="min-h-full px-4 py-6">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
-        <div className="flex flex-col items-center gap-5 pt-[max(10vh,24px)] text-center">
-          <div className="space-y-3">
-            <h1 className="font-semibold text-[clamp(2.25rem,4.5vw,3.5rem)] leading-[1.08] tracking-[-0.025em] [text-wrap:balance]">
-              <ContextualGreeting firstName={homeData?.firstName ?? null} />
-            </h1>
-            <p className="mx-auto max-w-2xl text-muted-foreground text-sm leading-6 [text-wrap:pretty]">
-              {homeSubtitle(homeData?.pi)}
-            </p>
-          </div>
+    <div className="min-h-full">
+      <PiTopRail
+        crumbs={['HOME']}
+        status={
+          <PiStatusDot
+            label={homeStatusLabel(homeData?.pi, homeLoading)}
+            live={statusLive}
+          />
+        }
+        actions={<PiRailAction to="/pi/library">Library</PiRailAction>}
+      />
 
-          <div className="w-full max-w-3xl">
-            <ConversationInput
-              variant="home"
-              providers={providerOptions}
-              selectedProvider={selectedProvider}
-              onSelectProvider={setSelectedProvider}
-              onSend={handleSend}
-              streaming={false}
-              disabled={!selectedProvider || waitingForLlmCapabilities}
-              attachmentsEnabled={true}
-              placeholder={
-                selectedProvider
-                  ? `Ask ${selectedProvider.name} to handle a task...`
-                  : 'Loading providers...'
-              }
-              onOpenVoiceMode={() => {
-                navigate('/home/chat?voice=open&mode=agent')
-              }}
-            />
-          </div>
+      <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
+        {homeSubtitle(homeData?.pi)}
+      </div>
+
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-5 py-8 pb-16">
+        <div className="space-y-4">
+          <h1 className="font-semibold text-2xl leading-tight tracking-[-0.02em]">
+            {homeGreeting(homeData?.firstName ?? null)}
+          </h1>
+          <ConversationInput
+            variant="home"
+            providers={providerOptions}
+            selectedProvider={selectedProvider}
+            onSelectProvider={setSelectedProvider}
+            onSend={handleSend}
+            streaming={false}
+            disabled={!selectedProvider || waitingForLlmCapabilities}
+            attachmentsEnabled={true}
+            placeholder={
+              selectedProvider
+                ? `Ask ${selectedProvider.name} to handle a task...`
+                : 'Loading providers...'
+            }
+            onOpenVoiceMode={() => {
+              navigate('/home/chat?voice=open&mode=agent')
+            }}
+          />
         </div>
 
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 pb-12">
+        <div className="flex flex-col gap-0">
           {homeLoading ? (
-            <p className="text-center text-muted-foreground text-sm">
+            <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
               Loading your private web…
             </p>
           ) : homeError ? (
-            <p className="text-center text-destructive text-sm">
+            <p className="text-destructive text-sm">
               Could not load home. Check that the Pane agent server is running.
             </p>
           ) : hasLivingWork ? (

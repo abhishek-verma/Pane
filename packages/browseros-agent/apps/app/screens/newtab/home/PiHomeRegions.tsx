@@ -5,13 +5,15 @@
  */
 
 import { useQueryClient } from '@tanstack/react-query'
-import { BookOpen, ChevronRight } from 'lucide-react'
 import type { FC } from 'react'
 import { Link } from 'react-router'
-import { Button } from '@/components/ui/button'
 import { executePiAction } from '@/lib/pi-actions'
 import { executeWidgetAction } from '@/lib/widget-actions'
 import { HOME_QUERY_KEY } from '@/screens/newtab/home/home-data'
+import {
+  PiRailAction,
+  PiSectionLabel,
+} from '@/screens/personal-internet/PiChrome'
 import type { PiHomeProjection } from '@/screens/personal-internet/types'
 import { piPost } from '@/screens/personal-internet/usePiApi'
 
@@ -31,6 +33,14 @@ function approvalTokens(metadata: Record<string, unknown> | undefined): {
   return { approvalId, approveToken, denyToken }
 }
 
+function routePath(route: string): string {
+  return route.startsWith('#/') ? route.slice(1) : route
+}
+
+function sectionLabel(index: number, title: string): string {
+  return `${String(index).padStart(2, '0')} ${title}`
+}
+
 export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
   data,
 }) => {
@@ -46,31 +56,38 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
     return null
   }
 
+  const showToday = continuity.length > 0
+  const showLiving = doorways.length > 0
+  const showLibraryOnly = !showLiving && libraryCount > 0
+  const showPropose = Boolean(proposeDoorways && proposeDoorways.length > 0)
+  let next = 1
+  const todayIndex = showToday ? next++ : 0
+  const livingIndex = showLiving || showLibraryOnly ? next++ : 0
+  const proposeIndex = showPropose ? next++ : 0
+
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-2">
-      {continuity.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-            Today
-          </h2>
-          <div className="space-y-2">
+    <div className="w-full divide-y divide-border border-border border-t">
+      {showToday ? (
+        <section>
+          <div className="flex items-center justify-between gap-3 py-3">
+            <PiSectionLabel>{sectionLabel(todayIndex, 'Today')}</PiSectionLabel>
+            <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
+              {continuity.length}
+            </span>
+          </div>
+          <div className="divide-y divide-border border-border border-t">
             {continuity.map((block) => {
               const tokens = approvalTokens(block.metadata)
               return (
-                <div
-                  key={block.id}
-                  className="rounded-lg border border-border/60 bg-card/30 px-3 py-2"
-                >
+                <div key={block.id} className="py-3">
                   <div className="font-medium text-sm">{block.title}</div>
-                  <div className="text-muted-foreground text-xs">
+                  <div className="mt-0.5 text-muted-foreground text-xs leading-5">
                     {block.body}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {tokens ? (
                       <>
-                        <Button
-                          size="sm"
-                          variant="secondary"
+                        <PiRailAction
                           onClick={() => {
                             void executeWidgetAction(
                               {
@@ -84,10 +101,8 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                           }}
                         >
                           Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
+                        </PiRailAction>
+                        <PiRailAction
                           onClick={() => {
                             void executeWidgetAction(
                               {
@@ -101,26 +116,16 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                           }}
                         >
                           Deny
-                        </Button>
+                        </PiRailAction>
                       </>
                     ) : null}
                     {block.route ? (
-                      <Button asChild size="sm" variant="secondary">
-                        <Link
-                          to={
-                            block.route.startsWith('#/')
-                              ? block.route.slice(1)
-                              : block.route
-                          }
-                        >
-                          {tokens ? 'Details' : 'Open'}
-                        </Link>
-                      </Button>
+                      <PiRailAction to={routePath(block.route)}>
+                        {tokens ? 'Details' : 'Open'}
+                      </PiRailAction>
                     ) : null}
                     {!tokens && block.agentQuery ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
+                      <PiRailAction
                         onClick={() => {
                           const query = block.agentQuery
                           if (!query) return
@@ -132,7 +137,7 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                         }}
                       >
                         Handle
-                      </Button>
+                      </PiRailAction>
                     ) : null}
                   </div>
                 </div>
@@ -142,63 +147,42 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
         </section>
       ) : null}
 
-      {doorways.length > 0 ? (
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-              Living work
-            </h2>
-            <Link
-              to="/pi/library"
-              className="text-muted-foreground text-xs hover:text-foreground"
-            >
+      {showLiving ? (
+        <section>
+          <div className="flex items-center justify-between gap-3 py-3">
+            <PiSectionLabel>
+              {sectionLabel(livingIndex, 'Living work')}
+            </PiSectionLabel>
+            <PiRailAction to="/pi/library">
               My sites ({libraryCount})
-            </Link>
+            </PiRailAction>
           </div>
-          <div className="space-y-2">
+          <div className="divide-y divide-border border-border border-t">
             {doorways.map((d) => (
               <div
                 key={d.siteId}
-                className="flex items-center gap-3 rounded-lg border border-border/60 bg-card/30 px-3 py-3"
+                className="flex items-center justify-between gap-4 py-3"
               >
                 <Link
-                  to={
-                    d.primaryRoute.startsWith('#/')
-                      ? d.primaryRoute.slice(1)
-                      : d.primaryRoute
-                  }
-                  className="flex min-w-0 flex-1 items-center gap-3 transition hover:opacity-90"
+                  to={routePath(d.primaryRoute)}
+                  className="min-w-0 flex-1 transition-opacity hover:opacity-80"
                 >
-                  <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium text-sm">{d.name}</div>
-                    <div className="truncate text-muted-foreground text-xs">
-                      {d.pulseLine}
-                      {d.lastUpdatedAt
-                        ? ` · ${new Date(d.lastUpdatedAt).toLocaleString()}`
-                        : ''}
-                    </div>
+                  <div className="truncate font-medium text-sm">{d.name}</div>
+                  <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground tracking-wide">
+                    {d.pulseLine}
+                    {d.lastUpdatedAt
+                      ? ` · ${new Date(d.lastUpdatedAt).toLocaleString()}`
+                      : ''}
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </Link>
-                {d.secondary ? (
-                  <div className="flex shrink-0 flex-col gap-1">
-                    {d.secondary.deepLink ? (
-                      <Button asChild size="sm" variant="secondary">
-                        <Link
-                          to={
-                            d.secondary.deepLink.startsWith('#/')
-                              ? d.secondary.deepLink.slice(1)
-                              : d.secondary.deepLink
-                          }
-                        >
-                          {d.secondary.label.slice(0, 24)}
-                        </Link>
-                      </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {d.secondary ? (
+                    d.secondary.deepLink ? (
+                      <PiRailAction to={routePath(d.secondary.deepLink)}>
+                        {d.secondary.label.slice(0, 24)}
+                      </PiRailAction>
                     ) : d.secondary.agentQuery ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
+                      <PiRailAction
                         onClick={() => {
                           const q = d.secondary?.agentQuery
                           if (!q) return
@@ -210,43 +194,54 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                         }}
                       >
                         {d.secondary.label.slice(0, 24)}
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : null}
+                      </PiRailAction>
+                    ) : null
+                  ) : null}
+                  <PiRailAction to={routePath(d.primaryRoute)}>
+                    Open
+                  </PiRailAction>
+                </div>
               </div>
             ))}
           </div>
         </section>
-      ) : libraryCount > 0 ? (
-        <div className="text-center">
-          <Button asChild size="sm" variant="ghost">
-            <Link to="/pi/library">My sites ({libraryCount})</Link>
-          </Button>
-        </div>
+      ) : showLibraryOnly ? (
+        <section>
+          <div className="flex items-center justify-between gap-3 py-3">
+            <PiSectionLabel>
+              {sectionLabel(livingIndex, 'Library')}
+            </PiSectionLabel>
+            <PiRailAction to="/pi/library">
+              My sites ({libraryCount})
+            </PiRailAction>
+          </div>
+        </section>
       ) : null}
 
-      {proposeDoorways && proposeDoorways.length > 0 ? (
-        <section className="space-y-2">
-          <h2 className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-            Suggest for home
-          </h2>
-          <div className="space-y-2">
+      {showPropose && proposeDoorways ? (
+        <section>
+          <div className="flex items-center justify-between gap-3 py-3">
+            <PiSectionLabel>
+              {sectionLabel(proposeIndex, 'Suggest for home')}
+            </PiSectionLabel>
+            <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
+              {proposeDoorways.length}
+            </span>
+          </div>
+          <div className="divide-y divide-border border-border border-t">
             {proposeDoorways.map((p) => (
               <div
                 key={p.siteId}
-                className="flex items-center justify-between gap-3 rounded-lg border border-border/60 border-dashed px-3 py-2"
+                className="flex items-center justify-between gap-4 py-3"
               >
                 <div className="min-w-0">
                   <div className="truncate font-medium text-sm">{p.name}</div>
-                  <div className="text-muted-foreground text-xs">
+                  <div className="mt-0.5 font-mono text-[11px] text-muted-foreground tracking-wide">
                     Add to Living work on home
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
+                  <PiRailAction
                     onClick={() => {
                       void piPost(`/pi/sites/${p.siteId}/doorway`, {
                         eligible: true,
@@ -261,14 +256,8 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                     }}
                   >
                     Add to home
-                  </Button>
-                  <Button asChild size="sm" variant="outline">
-                    <Link
-                      to={p.route.startsWith('#/') ? p.route.slice(1) : p.route}
-                    >
-                      Open
-                    </Link>
-                  </Button>
+                  </PiRailAction>
+                  <PiRailAction to={routePath(p.route)}>Open</PiRailAction>
                 </div>
               </div>
             ))}

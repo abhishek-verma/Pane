@@ -3,171 +3,136 @@
 Created by **Abhishek Verma**  
 [LinkedIn](https://www.linkedin.com/in/abhi-vrma/) · [GitHub](http://github.com/abhishek-verma/) · [X](https://x.com/vrma_abhi)
 
-Most of your work already happens in a browser. Tabs, logins, docs, dashboards, tickets, research, meetings. But the AI that is supposed to help you still lives somewhere else — in a chat tab, a desktop app, or a daemon you have to wire up yourself. You stop, copy context over, explain what you were doing, and hope it understands.
+Most browsers forget the work behind your tabs. Close a page, leave a meeting, or return the next morning and you reconstruct the thread yourself. Repeated work starts over. Anything beyond the page gets handed back to you.
 
-**Pane is a browser with a soul** — an open-source Chromium fork where the agent is native to your work, learns from how you work, and becomes whatever you need it to be.
+# A browser that keeps work moving when you step away.
 
-Not a sidebar glued onto Chrome. Not a remote agent driving your browser from the outside. Not the same chatbot for every user. Pane sees your real tabs, remembers your patterns, reaches your files and terminal, and grows more personal over time. All on your machine. No Pane account. No Pane cloud.
+**Pane remembers the thread, learns your routines, and gets better as you work.**
 
-<p align="center">
-  <img src="assets/branding/png/pane-poster-1280.png" alt="Pane — a browser with a soul" width="900" />
-</p>
-
-## A browser with a soul
-
-The soul is the **combination** that makes Pane yours:
-
-- **Persona** that fits the role you need right now — chief of staff, job-search partner, research buddy — editable and switchable
-- **Memory** grounded in what you actually browsed and did, not only what you typed into chat
-- **Skills** written when you repeat a workflow successfully, staged for your approval before they run
-- **Capture** that stays in the browser — meeting notes without a bot joining the call, research threads that survive the tab close
-- **Profiles** so work, job hunt, and personal life do not bleed into each other
-- **A home and agent** that get more useful the longer you use Pane
-
-Most software treats everyone the same. Pane is built to take a shape that fits *your* life:
-
-- **Chief of staff** if you are building a company — morning briefings, meetings captured and summarized, follow-ups tracked, investor updates drafted from the week you actually lived in tabs.
-- **Job search partner** if you are looking for what's next — fit scores on listings against your background, applications organized, company research threaded, interview prep from pages you already read.
-- **Research and study buddy** if you are learning — papers and threads that do not evaporate when you close a tab, citations back to sources, outlines from a week of browsing toward one question.
-- **Whatever else you need** — because Pane learns your workflows, writes skills when you repeat them, and scopes memory into profiles.
-
-> **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[GitHub](https://github.com/abhishek-verma/Pane)** · **[Discord](https://discord.gg/652JHSyS4)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
-
-## Pane in someone’s week
-
-These are not feature screenshots of chrome. They are moments Pane is built for — a founder on a call, a marketer mid-research, a developer fixing a bug in the same session.
-
-### Meeting notes without a bot
-
-You’re already on Meet, Zoom, or Teams in a tab. Pane records and transcribes locally — no Otter bot joining the call. Ask later what you decided.
+Pane is an open-source Chromium browser with a personal agent built into the session you already use. It can connect what happened across tabs, meetings, research, files, and terminal; turn ongoing work into private sites; and run work you chose on a schedule. Your data stays on your machine. You bring the model.
 
 <p align="center">
-  <img src="assets/readme/features/gif/01-meetings.gif" alt="Pane capturing a meeting in a browser tab and answering from the local transcript" width="720" />
+  <img src="assets/branding/png/pane-poster-1280.png" alt="Pane — a browser that keeps work moving when you step away" width="900" />
 </p>
 
-### Research that survives the tab close
+## What changes when the agent is the browser
 
-A marketer opens reviews, competitor pages, and threads toward one question. Pane keeps the chain — quotes, sources, and an outline you can cite back to the tabs.
+### What mattered stays
+
+Pane can capture a web meeting locally, keep a multi-day research trail, and search the activity around your work. You can close the tabs and return to the decisions, sources, and unfinished thread later.
 
 <p align="center">
-  <img src="assets/readme/features/gif/03-research.gif" alt="Pane threading multi-tab customer research into a citable outline" width="720" />
+  <img src="assets/readme/features/gif/01-meetings.gif" alt="Pane capturing a meeting in the browser and answering from its local transcript" width="720" />
 </p>
 
-### Apply without the copy-paste grind
+Meeting capture and research mode are opt-in. Recording is visible, domain-specific, and pauseable. Transcription can run on-device after a one-time model download.
 
-A listing is open. Pane scores fit against your background, fills the application from your resume, submits it, and files the follow-up.
+### Your work becomes a Personalised Internet
+
+Chats are poor containers for work that lasts days or weeks. Pane creates private, living sites for it instead: a Job Search pipeline, a Research Hub, a Sales Pipeline, or a site shaped around what you are doing. Home is the front door, with doorways back into each site and the next useful action.
 
 <p align="center">
-  <img src="assets/readme/features/gif/02-job-applicant.gif" alt="Pane agent filling and submitting a job application form" width="720" />
+  <img src="assets/readme/features/gif/02-personalised-internet.gif" alt="Pane turning ongoing work into a living private site" width="720" />
 </p>
 
-### A homepage that knows your Monday
+These sites live in your browser profile and are authored through structured, inspectable data rather than arbitrary generated HTML.
 
-Before standup, a scheduled run drops a briefing on your home — decisions from last week’s calls, open follow-ups, drafts ready to paste.
+### Work moves while you are away
+
+Save a successful task as a schedule and Pane can run it later, surface the result, and ask for approval when an action has consequences. Scheduled browser work runs while Pane is running; if the browser is fully quit or the machine is asleep, it waits rather than pretending the work happened.
 
 <p align="center">
-  <img src="assets/readme/features/gif/04-morning-briefing.gif" alt="Pane home showing a Monday morning briefing from a scheduled task" width="720" />
+  <img src="assets/readme/features/gif/04-work-in-motion.gif" alt="Pane completing scheduled work while the user is away and surfacing the result" width="720" />
 </p>
 
-### Fix the bug in the same session
+### Pane gets better at your work
 
-Localhost is broken. Pane clicks through the UI, reads the console, and writes the fix in the folder you granted — browser and files in one loop.
+Pane keeps editable local memory files and a library of skills. Repeating successful workflows can produce staged skill drafts for you to inspect and approve. Ongoing projects become living sites, and the useful parts of prior work can carry into the next task.
 
 <p align="center">
-  <img src="assets/readme/features/gif/05-developer-cowork.gif" alt="Pane agent debugging localhost with Cowork writing a fix" width="720" />
+  <img src="assets/readme/features/gif/06-skills.gif" alt="Pane staging a reusable skill learned from repeated work for approval" width="720" />
 </p>
 
-### Your coding agent’s real browser
+## For developers: one loop from browser to code
 
-Point Claude Code or Cursor at Pane over MCP. Same tabs, same logins, same console — not a headless toy session.
+Pane can attach a granted workspace to the in-browser agent, combining live pages with files and terminal. It also exposes the browser as an MCP server, so Claude Code, Cursor, Codex, or another MCP client can drive your real session.
+
+### Reproduce, fix, verify
 
 <p align="center">
-  <img src="assets/readme/features/gif/08-pane-as-mcp.gif" alt="Claude Code driving Pane tabs over MCP" width="720" />
+  <img src="assets/readme/features/gif/05-developer-cowork.gif" alt="Pane reproducing a localhost bug, editing the granted workspace, and verifying the fix" width="720" />
 </p>
 
-## The problem Pane is solving
+### Give your coding agent its real browser
 
-Personal agents like Hermes and OpenClaw are the real thing — persistent memory, self-written skills, scheduled work, files and terminal, reach on other channels. But they attach to your browser from the outside through plugins, CDP, or automation. They get a snapshot of your work, not the situation.
+<p align="center">
+  <img src="assets/readme/features/gif/08-pane-as-mcp.gif" alt="Claude Code driving Pane's real tabs over MCP" width="720" />
+</p>
 
-AI browsers like Atlas, Comet, and Dia put AI inside the browser — but they are still mostly **chatbots with page context**. Summarize this tab. Answer a question. Maybe run a short task. They do not give you a personal agent that remembers you, writes skills from your workflows, runs work on a schedule, or compounds over time the way Hermes does.
+**Quick path:** Settings → Pane as MCP → copy the URL → `claude mcp add pane <url>`. Then ask your coding agent: *"Open localhost:3000, reproduce the signup bug, read the console, fix it, and verify the result."*
 
-**Pane is trying to combine both.** Everything a Hermes-style agent does — but native to the browser, with better context, on your machine, open source.
+## What works today
 
-### What that makes possible
+Pane is early. These parts are usable now:
 
-Because the agent lives inside the browser — not beside it — Pane can do things bolt-on tools structurally cannot:
+- **Chat & Agent** — ask about the current page or run a multi-step browser task in your real session
+- **Personalised Internet** — agent-authored private sites with Job Search, Research Hub, and Sales Pipeline templates
+- **Meeting capture** — visible in-tab recording with local transcription after a one-time model download
+- **Research mode** — opt-in page threading with sources and local retrieval
+- **Memory & skills** — editable `SOUL.md`, `USER.md`, and `MEMORY.md`; built-in skills; staged agent-proposed skills
+- **Scheduled tasks** — recurring local agent runs while Pane is running
+- **Cowork** — browser, files, and terminal inside a folder you grant
+- **Pane as MCP** — expose your live browser session to Claude Code, Cursor, and other MCP clients
+- **Your models** — API keys, ChatGPT Pro / Copilot / Qwen OAuth, or local models through Ollama and LM Studio
 
-**It can know what you are working on.** Not just the current page, but the thread of tabs, files, terminal commands, and tasks that belong to one project. A local context graph indexes that work on your machine, scoped into profiles so work does not leak into personal life.
+### Honest limits
 
-**It can remember you and improve itself.** With consent, Pane learns from real browsing, files, and terminal activity. Facts land in plain local memory. Repeated workflows become staged skills you approve — then prune when they go stale. The loop runs on your machine.
+- Pane does not run browser work while the browser is fully quit or the machine is asleep. Optional keep-alive can start the local agent server, but browser actions still need a browser process.
+- Repeated workflows can create staged skill drafts, but the full passive self-improving loop is still maturing.
+- Browser profiles provide hard separation. Within a profile, context buckets and personas tune retrieval and behavior; Pane does not pretend those are the same thing.
+- The server-free Pane build does not include a managed cloud integrations catalog. Add your own MCP servers instead.
 
-**It can capture what you would otherwise lose.** Meet, Zoom, or Teams already run in a tab — Pane records and transcribes locally, no Otter bot joining the call. Research threads pages toward a question with quotes, sources, and citations back to the tabs. Today people stitch this with Otter, Granola, tab groups, and notes apps. Pane folds it into the browser, because it already is the browser.
+## Why this needs to be a browser
 
-**It can make the homepage yours.** New tab is not a static link grid. Widgets for tasks, captures, skills, and digests — including ones Pane proposes from how you work. Stale ones demote themselves.
+A sidebar extension can read a page. An external agent can attach through a debug port. Neither owns the whole situation reliably: the authenticated session, tab history, meeting media, local context, scheduled runtime, and permission surface.
 
-**It can act on your machine, safely.** Files, terminal, outbound actions — all with previews, approvals, and a replayable log. The agent should help you work, not surprise you.
+Pane pays the cost of being a Chromium fork because the agent needs to be native to the place where the work happens. The result is not merely better page chat. It is continuity across sessions, capture at the source, and one permissioned loop across web and machine.
 
-**It can reach you when you are away.** Scheduled and triggered runs, a daily digest of what matters, notifications when something needs your attention. Peer-to-peer, not through a Pane server.
+## What comes next
 
-## What you can use today
+The direction is larger than the current build:
 
-Pane ships the soul stack and the developer wedge. The full vision is still deepening ([see the plan](specs/IMPLEMENTATION-PLAN.md)) — page reshape, richer proactive reach, and more — but the foundation is real.
+- Pages that can layer project-specific context onto the web
+- Richer proactive reach and delivery when you are away
+- A deeper learning loop that improves and prunes skills over time
+- Optional cloud extensions such as sync or a headless runner, always with a complete local path
 
-### The soul stack (Pane-only)
-
-- **Meeting capture** — in-tab recording + local transcription
-- **Research threads** — quotes, sources, outlines that survive the tab close
-- **Memory & skills** — activity-grounded memory; staged skills you approve
-- **Adaptive home** — widgets for tasks, captures, digests, scheduled runs
-- **Profiles** — Work / Job hunt / Personal stay separately scoped
-
-### The foundation
-
-- **Chat & Agent** — page-grounded chat and multi-step automation in your session
-- **Cowork** — grant a folder; web + files + terminal in one loop
-- **Pane as MCP** — Claude Code / Cursor drive your real browser
-- **Scheduled tasks** — local schedules, same agent, no Pane cloud cron
-- **Your models** — API key, ChatGPT Pro / Copilot / Qwen OAuth, or Ollama
-
-**Developer quick path:** Settings → Pane as MCP → copy the URL → `claude mcp add pane <url>`. Then from Claude Code: *"open localhost:3000, reproduce the signup bug, read the console, fix it."*
-
-## A glimpse of what's next
-
-When the browser has a soul — memory, context, and the ability to change itself — more becomes possible. Some of this is live; some is still ahead:
-
-**Pages reshaped for you.** A job listing shows *your* fit score against your background — not a generic AI summary. A long doc gets margin notes tied to the project you are on. The web stays the web; Pane layers what you need on top.
-
-**Feeds without the slop.** LinkedIn, X, Hacker News — engagement bait fades, the people you learn from stay. Pane learns your signal versus noise.
-
-**Work that runs itself — with your approval.** Pane notices the competitor scan you run every Monday, writes a skill, offers to run it next week. You approve once.
-
-**Decisions across sessions.** You compared laptops on three sites over two days. Pane remembers the candidates and the tradeoffs you cared about when you are ready.
-
-These are not chatbot tricks. They are what becomes possible when the agent is the browser, has memory, captures with consent, and can act on pages and files on your behalf.
-
-## Why Pane is not BrowserOS
-
-Pane is a fork of [BrowserOS](https://github.com/browseros-ai/BrowserOS), and BrowserOS is a genuinely good project — try it if that direction fits you better.
-
-We forked for a different product trajectory: a **personal agent that *is* the browser**, not the other way around.
-
-BrowserOS gave us a Chromium fork, an agent runtime, MCP tools, and a developer wedge. Pane takes that substrate and builds what BrowserOS did not aim at: continuous learning from your activity, native meeting and research capture, memory and skills that compound locally, an adaptive home, and **no Pane-operated cloud** for core features (sync, hosted inference, and credits from upstream are off in Pane builds).
+These are roadmap items, not hidden claims about the current release. The working plan is in [`specs/IMPLEMENTATION-PLAN.md`](specs/IMPLEMENTATION-PLAN.md).
 
 ## Try it
 
-1. **Download** — grab the latest build from [GitHub Releases](https://github.com/abhishek-verma/Pane/releases) ([macOS install guide](docs/install/macos.mdx))
-2. **Import from Chrome** (optional) — bookmarks, passwords, extensions carry over
-3. **Connect a model** — your API key, ChatGPT Pro / Copilot / Qwen via OAuth, or a local model ([setup guide](docs/features/bring-your-own-llm.mdx))
-4. **Open the assistant** — toolbar button on any page, or the new-tab home
-5. **Turn on capture when you want it** — meeting domains and browsing learnings are off by default; opt in from permissions
+1. **Download** the latest build from [GitHub Releases](https://github.com/abhishek-verma/Pane/releases) ([macOS install guide](docs/install/macos.mdx)).
+2. **Import from Chrome** if you want your bookmarks, passwords, history, and extensions.
+3. **Connect a model.** OAuth is usually the easiest path if you already pay for ChatGPT Pro, GitHub Copilot, or Qwen. You can also paste an API key or use a local model ([setup guide](docs/features/bring-your-own-llm.mdx)).
+4. **Open Pane** from the toolbar on any page or from the new-tab home.
+5. **Enable capture only where you want it.** Meeting capture, research mode, and browsing learnings are off until you opt in.
+
+> **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[Discord](https://discord.gg/652JHSyS4)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
 
 ## Built on trust
 
 - **Open source** (AGPL-3.0) — inspect the code, fork it, contribute
-- **Local-first** — your browsing, memory, and captures stay on your machine
-- **Your models** — no required vendor, no Pane account, no metering
-- **Consent off by default** — capture and learnings are permissioned, per-domain, pauseable
-- **No Pane servers** — the product is complete without us running infrastructure for you
+- **Local-first** — browsing context, memory, captures, and private sites stay on your machine
+- **Your models** — no required model vendor, Pane account, or credits meter
+- **Consent off by default** — capture is permissioned, domain-specific, visible, and pauseable
+- **Approvals match consequence** — actions that send, spend, or modify ask before they cross the boundary
+- **No Pane servers required** — the core product works without infrastructure operated by Pane
+
+## Why Pane is a BrowserOS fork
+
+Pane builds on [BrowserOS](https://github.com/browseros-ai/BrowserOS), which supplied the Chromium fork, agent runtime, browser tools, Cowork foundation, and MCP surface.
+
+We forked for a different product direction: a local personal agent that is the browser, with native capture, Personalised Internet, inspectable memory and skills, and no Pane-operated cloud required for core features. BrowserOS is an excellent project; use it if its direction fits you better.
 
 ## Contributing
 

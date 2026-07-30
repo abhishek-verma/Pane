@@ -337,6 +337,8 @@ export function wrapToolWithGate<T extends Tool>(
       const preview = buildLoopApprovalPreview(toolName, args)
 
       // Unattended: pause via channel, never auto-approve on silence.
+      // pi-materialize page writes are `read` (response surface); other
+      // consequential tools still channel-approve and surface on the entity page.
       if (ctx.unattended) {
         const runId = ctx.runId ?? 'unattended'
         const fp = stepFingerprint(

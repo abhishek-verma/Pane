@@ -7,6 +7,7 @@
 import { type FC, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { PiRailAction } from './PiChrome'
+import { PiMarkdown } from './PiMarkdown'
 import type { PiAction, PiCardAction, PiNode } from './types'
 
 type BoardNode = Extract<PiNode, { type: 'board' }>
@@ -157,7 +158,7 @@ export const BoardKanban: FC<{
                     </div>
                     {card.subtitle ? (
                       <div className="mt-0.5 text-muted-foreground text-xs leading-snug">
-                        {card.subtitle}
+                        <PiMarkdown>{card.subtitle}</PiMarkdown>
                       </div>
                     ) : null}
                   </button>
