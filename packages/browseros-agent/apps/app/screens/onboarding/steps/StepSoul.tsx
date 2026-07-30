@@ -153,7 +153,7 @@ export const StepSoul = ({ direction, onContinue }: StepSoulProps) => {
         />
 
         <Button
-          className="w-full bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
+          className="w-full bg-[var(--accent-orange)] text-primary-foreground hover:bg-[var(--accent-orange)]/90"
           disabled={saving}
           onClick={() => void handleContinue()}
         >

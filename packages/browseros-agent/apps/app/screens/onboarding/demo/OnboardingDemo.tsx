@@ -165,7 +165,7 @@ export const OnboardingDemo = () => {
           <Button
             type="submit"
             disabled={!customQuery.trim()}
-            className="bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
+            className="bg-[var(--accent-orange)] text-primary-foreground hover:bg-[var(--accent-orange)]/90"
           >
             Go
           </Button>

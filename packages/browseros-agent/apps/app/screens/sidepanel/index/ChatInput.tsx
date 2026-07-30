@@ -345,7 +345,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             voice?.isRecording ||
             voice?.isTranscribing
           }
-          className="cursor-pointer rounded-full bg-[var(--accent-orange)] p-2 text-white transition-colors duration-200 hover:bg-[var(--accent-orange-bright)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="cursor-pointer rounded-full bg-[var(--accent-orange)] p-2 text-primary-foreground transition-colors duration-200 hover:bg-[var(--accent-orange-bright)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Send className="h-3.5 w-3.5" />
           <span className="sr-only">Send</span>

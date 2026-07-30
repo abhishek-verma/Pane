@@ -24,8 +24,8 @@ function injectBubbleStyles(): void {
       to { opacity: 1; scale: 1; }
     }
     @keyframes browseros-bubble-pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(251,102,24,0.4); }
-      50% { box-shadow: 0 0 0 6px rgba(251,102,24,0); }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(200,232,50,0.45); }
+      50% { box-shadow: 0 0 0 6px rgba(200,232,50,0); }
     }
     #${BUBBLE_ID} {
       position: fixed !important;
@@ -34,8 +34,8 @@ function injectBubbleStyles(): void {
       width: 36px !important;
       height: 36px !important;
       border-radius: 50% !important;
-      background: rgba(251,102,24,0.95) !important;
-      color: white !important;
+      background: rgba(200,232,50,0.95) !important;
+      color: #1a1f0a !important;
       border: 2px solid rgba(255,255,255,0.3) !important;
       cursor: grab !important;
       z-index: 2147483647 !important;
@@ -53,17 +53,17 @@ function injectBubbleStyles(): void {
       touch-action: none !important;
     }
     #${BUBBLE_ID}:hover {
-      background: rgba(220,60,20,1) !important;
+      background: rgba(180,210,40,1) !important;
       transform: scale(1.1) !important;
     }
     #${BUBBLE_ID}:active {
       cursor: grabbing !important;
     }
     #${BUBBLE_ID}[data-mode="agent"] {
-      background: rgba(59,130,246,0.95) !important;
+      background: rgba(200,232,50,0.95) !important;
     }
     #${BUBBLE_ID}[data-mode="agent"]:hover {
-      background: rgba(37,99,235,1) !important;
+      background: rgba(180,210,40,1) !important;
     }
     #${BUBBLE_ID} .browseros-bubble-tooltip {
       position: absolute !important;
@@ -168,7 +168,7 @@ function removeBubble(): void {
 }
 
 function fireConfetti(): void {
-  const colors = ['#fb6618', '#ff8a4c', '#fbbf24', '#34d399', '#60a5fa']
+  const colors = ['#C8E832', '#94B316', '#F2EFE4', '#34d399', '#60a5fa']
   const defaults = { colors, ticks: 200, gravity: 1.2, decay: 0.94 }
 
   confetti({

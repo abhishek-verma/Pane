@@ -42,13 +42,13 @@ function defs(extraCss = "") {
     <stop offset="100%" stop-color="#e4dfd8"/>
   </linearGradient>
   <radialGradient id="glow" cx="70%" cy="40%" r="45%">
-    <stop offset="0%" stop-color="#e07a2f" stop-opacity="0.16"/>
-    <stop offset="55%" stop-color="#e07a2f" stop-opacity="0.05"/>
-    <stop offset="100%" stop-color="#e07a2f" stop-opacity="0"/>
+    <stop offset="0%" stop-color="#94B316" stop-opacity="0.16"/>
+    <stop offset="55%" stop-color="#94B316" stop-opacity="0.05"/>
+    <stop offset="100%" stop-color="#94B316" stop-opacity="0"/>
   </radialGradient>
   <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#f4a35f"/>
-    <stop offset="100%" stop-color="#df7327"/>
+    <stop offset="0%" stop-color="#C8E832"/>
+    <stop offset="100%" stop-color="#94B316"/>
   </linearGradient>
   <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
     <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.05"/>
@@ -93,7 +93,7 @@ function panelHeader(subtitle = "on this tab") {
   return `
     <rect x="${PANEL_X}" y="${BODY_Y}" width="${PANEL_W}" height="${WH - BAR}" fill="#f3f0ec"/>
     <g transform="translate(${PANEL_X + 18} ${BODY_Y + 20}) scale(0.14)">
-      <path fill="#e07a2f" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
+      <path fill="#94B316" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
     </g>
     <text x="${PANEL_X + 40}" y="${BODY_Y + 32}" fill="#3d3731" font-size="13" font-weight="600">Pane</text>
     <circle cx="${PANEL_X + PANEL_W - 20}" cy="${BODY_Y + 26}" r="4" fill="#5fb872"/>
@@ -175,23 +175,23 @@ ${chrome("meet.google.com/abc-defg-hij")}
     <rect x="${mx + 340}" y="${my - 6}" width="148" height="28" rx="14" fill="#f5f2ef" stroke="#5fb872" stroke-opacity="0.4"/>
     <text x="${mx + 414}" y="${my + 12}" text-anchor="middle" fill="#1f8f4e" font-size="11">No bot joined</text>
 
-    <circle cx="${WX + MAIN_W / 2}" cy="${BODY_Y + 168}" r="52" fill="#fff7f0" stroke="#1c1814" stroke-opacity="0.06"/>
+    <circle cx="${WX + MAIN_W / 2}" cy="${BODY_Y + 168}" r="52" fill="#F4F7E0" stroke="#1c1814" stroke-opacity="0.06"/>
     <circle cx="${WX + MAIN_W / 2}" cy="${BODY_Y + 160}" r="20" fill="#cfc8c0"/>
     <ellipse cx="${WX + MAIN_W / 2}" cy="${BODY_Y + 196}" rx="28" ry="14" fill="#cfc8c0"/>
     <text x="${WX + MAIN_W / 2}" y="${BODY_Y + 250}" text-anchor="middle" fill="#1c1814" font-size="15" font-weight="600">Vendor pricing call</text>
     <text x="${WX + MAIN_W / 2}" y="${BODY_Y + 272}" text-anchor="middle" fill="#6b6258" font-size="12">You · Priya · Marcus</text>
 
     <g transform="translate(${WX + MAIN_W / 2 - 66} ${BODY_Y + 300})">
-      <rect class="bar b1" x="0" y="8" width="7" height="28" rx="3.5" fill="#e07a2f"/>
-      <rect class="bar b2" x="14" y="2" width="7" height="40" rx="3.5" fill="#f4a35f"/>
-      <rect class="bar b3" x="28" y="10" width="7" height="24" rx="3.5" fill="#e07a2f"/>
-      <rect class="bar b4" x="42" y="0" width="7" height="44" rx="3.5" fill="#f4a35f"/>
-      <rect class="bar b5" x="56" y="6" width="7" height="32" rx="3.5" fill="#e07a2f"/>
-      <rect class="bar b2" x="70" y="4" width="7" height="36" rx="3.5" fill="#f4a35f"/>
-      <rect class="bar b3" x="84" y="12" width="7" height="20" rx="3.5" fill="#e07a2f"/>
-      <rect class="bar b1" x="98" y="3" width="7" height="38" rx="3.5" fill="#f4a35f"/>
-      <rect class="bar b4" x="112" y="9" width="7" height="26" rx="3.5" fill="#e07a2f"/>
-      <rect class="bar b5" x="126" y="1" width="7" height="42" rx="3.5" fill="#f4a35f"/>
+      <rect class="bar b1" x="0" y="8" width="7" height="28" rx="3.5" fill="#94B316"/>
+      <rect class="bar b2" x="14" y="2" width="7" height="40" rx="3.5" fill="#C8E832"/>
+      <rect class="bar b3" x="28" y="10" width="7" height="24" rx="3.5" fill="#94B316"/>
+      <rect class="bar b4" x="42" y="0" width="7" height="44" rx="3.5" fill="#C8E832"/>
+      <rect class="bar b5" x="56" y="6" width="7" height="32" rx="3.5" fill="#94B316"/>
+      <rect class="bar b2" x="70" y="4" width="7" height="36" rx="3.5" fill="#C8E832"/>
+      <rect class="bar b3" x="84" y="12" width="7" height="20" rx="3.5" fill="#94B316"/>
+      <rect class="bar b1" x="98" y="3" width="7" height="38" rx="3.5" fill="#C8E832"/>
+      <rect class="bar b4" x="112" y="9" width="7" height="26" rx="3.5" fill="#94B316"/>
+      <rect class="bar b5" x="126" y="1" width="7" height="42" rx="3.5" fill="#C8E832"/>
     </g>
 
 ${panelHeader("Meetings")}
@@ -207,7 +207,7 @@ ${panelHeader("Meetings")}
       <text x="14" y="34" fill="#2a1606" font-size="11.5">on pricing?</text>
     </g>
     <g transform="translate(${px} ${BODY_Y + 254})">
-      <rect width="${PANEL_W - 32}" height="96" rx="12" fill="#fff7f0"/>
+      <rect width="${PANEL_W - 32}" height="96" rx="12" fill="#F4F7E0"/>
       <text x="14" y="24" fill="#4a433c" font-size="11.5">Annual plan. Flag SLA.</text>
       <text x="14" y="42" fill="#4a433c" font-size="11.5">Legal reviews by Wed.</text>
       <text x="14" y="60" fill="#4a433c" font-size="11.5">Update ships Friday.</text>
@@ -323,19 +323,19 @@ ${chrome("boards.greenhouse.io/acme/jobs/senior-pm/apply")}
       <text x="${mx}" y="${my + 6}" fill="#1c1814" font-size="18" font-weight="600" letter-spacing="-0.02em">Apply · Senior Product Manager</text>
 
       <text x="${mx}" y="${my + 36}" fill="#6b6258" font-size="11">Full name</text>
-      <rect class="focus1" x="${mx}" y="${my + 44}" width="${fw}" height="40" rx="10" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5" stroke-opacity="0"/>
+      <rect class="focus1" x="${mx}" y="${my + 44}" width="${fw}" height="40" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5" stroke-opacity="0"/>
       <text class="fld-name" x="${mx + 14}" y="${my + 69}" fill="#1c1814" font-size="13">Alex Rivera</text>
 
       <text x="${mx}" y="${my + 108}" fill="#6b6258" font-size="11">Email</text>
-      <rect class="focus2" x="${mx}" y="${my + 116}" width="${fw}" height="40" rx="10" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5" stroke-opacity="0"/>
+      <rect class="focus2" x="${mx}" y="${my + 116}" width="${fw}" height="40" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5" stroke-opacity="0"/>
       <text class="fld-email" x="${mx + 14}" y="${my + 141}" fill="#1c1814" font-size="13">alex@example.com</text>
 
       <text x="${mx}" y="${my + 180}" fill="#6b6258" font-size="11">Resume</text>
-      <rect class="focus3" x="${mx}" y="${my + 188}" width="${fw}" height="40" rx="10" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5" stroke-opacity="0"/>
+      <rect class="focus3" x="${mx}" y="${my + 188}" width="${fw}" height="40" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5" stroke-opacity="0"/>
       <text class="fld-resume" x="${mx + 14}" y="${my + 213}" fill="#1c1814" font-size="13">Alex_Rivera_Resume.pdf</text>
 
       <text x="${mx}" y="${my + 252}" fill="#6b6258" font-size="11">Cover note</text>
-      <rect class="focus4" x="${mx}" y="${my + 260}" width="${fw}" height="56" rx="10" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5" stroke-opacity="0"/>
+      <rect class="focus4" x="${mx}" y="${my + 260}" width="${fw}" height="56" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5" stroke-opacity="0"/>
       <text class="fld-cover" x="${mx + 14}" y="${my + 284}" fill="#1c1814" font-size="12">Led 0→1 analytics · pricing experiments…</text>
       <text class="fld-cover" x="${mx + 14}" y="${my + 302}" fill="#6b6258" font-size="11">From your resume + this listing</text>
 
@@ -358,7 +358,7 @@ ${chrome("boards.greenhouse.io/acme/jobs/senior-pm/apply")}
 
 ${panelHeader("Agent")}
     <g class="agent-step1" transform="translate(${px} ${BODY_Y + 60})">
-      <rect width="${PANEL_W - 32}" height="64" rx="12" fill="#fff7f0" stroke="#e07a2f" stroke-opacity="0.35"/>
+      <rect width="${PANEL_W - 32}" height="64" rx="12" fill="#F4F7E0" stroke="#94B316" stroke-opacity="0.35"/>
       <text x="14" y="24" fill="#1c1814" font-size="13" font-weight="600">Fit score 86%</text>
       <text x="14" y="44" fill="#6b6258" font-size="11">Matches your PM + B2B background</text>
       <rect x="14" y="52" width="214" height="5" rx="2.5" fill="#e6e1db"/>
@@ -412,7 +412,7 @@ ${chrome("pane://research/customer-pain")}
     <rect x="${WX}" y="${BODY_Y}" width="${MAIN_W}" height="${WH - BAR}" fill="#faf9f7"/>
     <!-- tab strip -->
     <rect x="${WX}" y="${BODY_Y}" width="52" height="${WH - BAR}" fill="#ece8e3"/>
-    <rect x="${WX + 8}" y="${BODY_Y + 16}" width="36" height="36" rx="8" fill="#e6e1db" stroke="#e07a2f" stroke-opacity="0.55"/>
+    <rect x="${WX + 8}" y="${BODY_Y + 16}" width="36" height="36" rx="8" fill="#e6e1db" stroke="#94B316" stroke-opacity="0.55"/>
     <text x="${WX + 26}" y="${BODY_Y + 38}" text-anchor="middle" fill="#1c1814" font-size="9">G2</text>
     <rect x="${WX + 8}" y="${BODY_Y + 64}" width="36" height="36" rx="8" fill="#ffffff"/>
     <text x="${WX + 26}" y="${BODY_Y + 86}" text-anchor="middle" fill="#6b6258" font-size="8">Reddit</text>
@@ -429,7 +429,7 @@ ${chrome("pane://research/customer-pain")}
     <rect x="${mx + 44}" y="${my + 106}" width="300" height="8" rx="4" fill="#e6e1db"/>
 
     <g transform="translate(${mx + 44} ${my + 140})">
-      <rect width="400" height="72" rx="12" fill="#ffffff" stroke="#e07a2f" stroke-opacity="0.3"/>
+      <rect width="400" height="72" rx="12" fill="#ffffff" stroke="#94B316" stroke-opacity="0.3"/>
       <text x="18" y="30" fill="#1c1814" font-size="13" font-weight="600">Quoted into research thread</text>
       <text x="18" y="52" fill="#6b6258" font-size="12">Onboarding friction · source kept</text>
     </g>
@@ -438,34 +438,34 @@ ${panelHeader("Research")}
     <text x="${px}" y="${BODY_Y + 58}" fill="#6b6258" font-size="11">Why do teams churn in month 1?</text>
 
     <g class="research-step" transform="translate(${px} ${BODY_Y + 72})">
-      <rect width="${PANEL_W - 32}" height="48" rx="12" fill="#fff7f0" stroke="#e07a2f" stroke-width="1.4"/>
-      <circle class="step-dot" cx="18" cy="24" r="4" fill="#e07a2f"/>
+      <rect width="${PANEL_W - 32}" height="48" rx="12" fill="#F4F7E0" stroke="#94B316" stroke-width="1.4"/>
+      <circle class="step-dot" cx="18" cy="24" r="4" fill="#94B316"/>
       <text x="32" y="20" fill="#1c1814" font-size="12" font-weight="600">Researching open tabs</text>
       <text x="32" y="38" fill="#6b6258" font-size="10.5">G2 · Reddit · Blog · threading</text>
     </g>
 
-    <line class="spine" x1="${px + 10}" y1="${BODY_Y + 136}" x2="${px + 10}" y2="${BODY_Y + 292}" stroke="#e07a2f" stroke-opacity="0.35" stroke-width="1.5"/>
+    <line class="spine" x1="${px + 10}" y1="${BODY_Y + 136}" x2="${px + 10}" y2="${BODY_Y + 292}" stroke="#94B316" stroke-opacity="0.35" stroke-width="1.5"/>
 
     <g class="node" transform="translate(${px} ${BODY_Y + 128})">
-      <circle cx="10" cy="16" r="5" fill="#e07a2f"/>
-      <rect x="28" y="0" width="${PANEL_W - 60}" height="40" rx="10" fill="#fff7f0"/>
+      <circle cx="10" cy="16" r="5" fill="#94B316"/>
+      <rect x="28" y="0" width="${PANEL_W - 60}" height="40" rx="10" fill="#F4F7E0"/>
       <text x="40" y="16" fill="#1c1814" font-size="11">Setup took forever</text>
       <text x="40" y="30" fill="#8a8278" font-size="10">G2 · cite</text>
     </g>
     <g class="node n2" transform="translate(${px} ${BODY_Y + 180})">
-      <circle cx="10" cy="16" r="5" fill="#f4a35f"/>
-      <rect x="28" y="0" width="${PANEL_W - 60}" height="40" rx="10" fill="#fff7f0"/>
+      <circle cx="10" cy="16" r="5" fill="#C8E832"/>
+      <rect x="28" y="0" width="${PANEL_W - 60}" height="40" rx="10" fill="#F4F7E0"/>
       <text x="40" y="16" fill="#1c1814" font-size="11">Docs assume enterprise SSO</text>
       <text x="40" y="30" fill="#8a8278" font-size="10">Reddit · cite</text>
     </g>
     <g class="node n3" transform="translate(${px} ${BODY_Y + 232})">
-      <circle cx="10" cy="16" r="5" fill="#df7327"/>
-      <rect x="28" y="0" width="${PANEL_W - 60}" height="40" rx="10" fill="#fff7f0"/>
+      <circle cx="10" cy="16" r="5" fill="#94B316"/>
+      <rect x="28" y="0" width="${PANEL_W - 60}" height="40" rx="10" fill="#F4F7E0"/>
       <text x="40" y="16" fill="#1c1814" font-size="11">No guided first project</text>
       <text x="40" y="30" fill="#8a8278" font-size="10">Blog · cite</text>
     </g>
     <g transform="translate(${px} ${BODY_Y + 290})">
-      <rect width="${PANEL_W - 32}" height="52" rx="12" fill="#f5f2ef" stroke="#e07a2f" stroke-opacity="0.35"/>
+      <rect width="${PANEL_W - 32}" height="52" rx="12" fill="#f5f2ef" stroke="#94B316" stroke-opacity="0.35"/>
       <text x="14" y="22" fill="#1c1814" font-size="12" font-weight="600">Outline ready</text>
       <text x="14" y="40" fill="#6b6258" font-size="11">3 themes · 11 sources</text>
     </g>
@@ -509,8 +509,8 @@ ${chrome("pane://home")}
 
 ${panelHeader("Scheduled")}
     <g transform="translate(${px} ${BODY_Y + 60})">
-      <rect class="live" width="${PANEL_W - 32}" height="92" rx="12" fill="#f5f2ef" stroke="#e07a2f" stroke-width="1.5"/>
-      <circle class="dot" cx="22" cy="28" r="4" fill="#e07a2f"/>
+      <rect class="live" width="${PANEL_W - 32}" height="92" rx="12" fill="#f5f2ef" stroke="#94B316" stroke-width="1.5"/>
+      <circle class="dot" cx="22" cy="28" r="4" fill="#94B316"/>
       <text x="36" y="32" fill="#1c1814" font-size="13" font-weight="600">Morning briefing</text>
       <text x="16" y="56" fill="#6b6258" font-size="12">Every weekday · 8:00 AM</text>
       <text x="16" y="76" fill="#8a8278" font-size="11">Last run · 2 min ago</text>
@@ -548,7 +548,7 @@ ${closeChrome()}`;
       return `
 ${chrome("localhost:3000/checkout")}
     <rect x="${WX}" y="${BODY_Y}" width="${MAIN_W}" height="${WH - BAR}" fill="#faf9f7"/>
-    <rect class="glow" x="${mx}" y="${my}" width="${MAIN_W - 56}" height="220" rx="12" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5"/>
+    <rect class="glow" x="${mx}" y="${my}" width="${MAIN_W - 56}" height="220" rx="12" fill="#ffffff" stroke="#94B316" stroke-width="1.5"/>
     <text x="${mx + 20}" y="${my + 32}" fill="#1c1814" font-size="16" font-weight="600">Checkout</text>
     <rect x="${mx + 20}" y="${my + 52}" width="220" height="34" rx="8" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.06"/>
     <text x="${mx + 34}" y="${my + 74}" fill="#6b6258" font-size="12">Card number</text>
@@ -562,7 +562,7 @@ ${chrome("localhost:3000/checkout")}
     <text x="${mx + 18}" y="${my + 268}" fill="#5fb872" font-size="11">~/acme-web · cowork folder granted</text>
     <text x="${mx + 18}" y="${my + 294}" fill="#8a8278" font-size="12">$ </text>
     <text x="${mx + 30}" y="${my + 294}" fill="#f3efe9" font-size="12">wrote src/checkout/validate.ts</text>
-    <rect class="caret" x="${mx + 248}" y="${my + 283}" width="7" height="14" fill="#e07a2f"/>
+    <rect class="caret" x="${mx + 248}" y="${my + 283}" width="7" height="14" fill="#94B316"/>
     <rect x="${mx + 18}" y="${my + 312}" width="200" height="28" rx="8" fill="#2a241f" stroke="#5fb872" stroke-opacity="0.45"/>
     <text x="${mx + 32}" y="${my + 330}" fill="#8dcea0" font-size="11">validate.ts updated</text>
 
@@ -580,7 +580,7 @@ ${panelHeader("Cowork")}
       <text x="12" y="21" fill="#6b6258" font-size="11">cowork write · validate.ts</text>
     </g>
     <g transform="translate(${px} ${BODY_Y + 196})">
-      <rect width="${PANEL_W - 32}" height="100" rx="12" fill="#fff7f0"/>
+      <rect width="${PANEL_W - 32}" height="100" rx="12" fill="#F4F7E0"/>
       <text x="14" y="26" fill="#1c1814" font-size="12" font-weight="600">Fix ready for review</text>
       <text x="14" y="48" fill="#6b6258" font-size="11">Null guard on card brand</text>
       <text x="14" y="66" fill="#6b6258" font-size="11">before submit.</text>
@@ -616,9 +616,9 @@ ${chrome("pane://skills/staged")}
     <text x="${mx}" y="${my + 32}" fill="#6b6258" font-size="13">You’ve done this 3 times this month</text>
 
     <g transform="translate(${mx} ${my + 60})">
-      <rect class="step-accent" width="${MAIN_W - 56}" height="56" rx="12" fill="#ffffff" stroke="#e07a2f" stroke-width="1.2"/>
+      <rect class="step-accent" width="${MAIN_W - 56}" height="56" rx="12" fill="#ffffff" stroke="#94B316" stroke-width="1.2"/>
       <circle cx="28" cy="28" r="14" fill="#e6e1db"/>
-      <text x="28" y="33" text-anchor="middle" fill="#f4a35f" font-size="13" font-weight="600">1</text>
+      <text x="28" y="33" text-anchor="middle" fill="#C8E832" font-size="13" font-weight="600">1</text>
       <text x="56" y="33" fill="#1c1814" font-size="14">Pull dashboard metrics</text>
     </g>
     <g transform="translate(${mx} ${my + 132})">
@@ -637,7 +637,7 @@ ${chrome("pane://skills/staged")}
 
 ${panelHeader("Skills")}
     <g transform="translate(${px} ${BODY_Y + 60})">
-      <rect width="${PANEL_W - 32}" height="240" rx="14" fill="#fff7f0" stroke="#e07a2f" stroke-opacity="0.35"/>
+      <rect width="${PANEL_W - 32}" height="240" rx="14" fill="#F4F7E0" stroke="#94B316" stroke-opacity="0.35"/>
       <text x="16" y="32" fill="#1c1814" font-size="13" font-weight="600">Weekly metrics → Notion</text>
       <text x="16" y="54" fill="#6b6258" font-size="11">Written from your last 3 runs</text>
       <rect x="16" y="76" width="220" height="7" rx="3.5" fill="#e6e1db"/>
@@ -761,7 +761,7 @@ ${closeChrome()}`;
     </g>
 
     <g transform="translate(${mx} ${my + 240})">
-      <rect width="820" height="72" rx="12" fill="#f5f2ef" stroke="#e07a2f" stroke-opacity="0.3"/>
+      <rect width="820" height="72" rx="12" fill="#f5f2ef" stroke="#94B316" stroke-opacity="0.3"/>
       <text x="24" y="30" fill="#1c1814" font-size="14" font-weight="600">Switch the profile — each keeps its own memory</text>
       <text x="24" y="52" fill="#6b6258" font-size="12">Work never sees interview prep. Personal never sees investor notes.</text>
     </g>
@@ -814,7 +814,7 @@ ${closeChrome()}`;
     <text x="${WX + 40}" y="${BODY_Y + 184}" fill="#f3efe9" font-size="12">extract_text pre.code</text>
 
     <g transform="translate(${WX + 24} ${BODY_Y + 216})">
-      <rect width="352" height="120" rx="12" fill="#2a241f" stroke="#e07a2f" stroke-opacity="0.45"/>
+      <rect width="352" height="120" rx="12" fill="#2a241f" stroke="#94B316" stroke-opacity="0.45"/>
       <text x="16" y="28" fill="#f3efe9" font-size="12" font-weight="600">Extracted into context</text>
       <text x="16" y="54" fill="#c2b4a4" font-size="12">POST /oauth/token</text>
       <text x="16" y="76" fill="#c2b4a4" font-size="12">grant_type=authorization_code</text>
@@ -822,15 +822,15 @@ ${closeChrome()}`;
     </g>
 
     <!-- beam -->
-    <path class="beam" d="M${WX + 400} ${BODY_Y + 200} H${WX + 480}" fill="none" stroke="#e07a2f" stroke-width="2" stroke-opacity="0.7"/>
-    <circle class="pulse" cx="${mid}" cy="${BODY_Y + 200}" r="5" fill="#f4a35f"/>
+    <path class="beam" d="M${WX + 400} ${BODY_Y + 200} H${WX + 480}" fill="none" stroke="#94B316" stroke-width="2" stroke-opacity="0.7"/>
+    <circle class="pulse" cx="${mid}" cy="${BODY_Y + 200}" r="5" fill="#C8E832"/>
 
     <!-- right: browser tabs -->
     <rect x="${WX + 480}" y="${BODY_Y}" width="400" height="${WH - BAR}" fill="#f3f0ec"/>
     <text x="${WX + 504}" y="${BODY_Y + 36}" fill="#3d3731" font-size="13" font-weight="600">Pane window</text>
     <text x="${WX + 504}" y="${BODY_Y + 56}" fill="#8a8278" font-size="11">Driven by your coding agent</text>
 
-    <rect class="active-tab" x="${WX + 504}" y="${BODY_Y + 84}" width="352" height="48" rx="10" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5"/>
+    <rect class="active-tab" x="${WX + 504}" y="${BODY_Y + 84}" width="352" height="48" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5"/>
     <text x="${WX + 524}" y="${BODY_Y + 113}" fill="#1c1814" font-size="12">docs.acme.dev/api/auth</text>
 
     <rect x="${WX + 504}" y="${BODY_Y + 148}" width="352" height="48" rx="10" fill="#f5f2ef"/>
@@ -839,7 +839,7 @@ ${closeChrome()}`;
     <text x="${WX + 524}" y="${BODY_Y + 241}" fill="#6b6258" font-size="12">localhost:3000</text>
 
     <g transform="translate(${WX + 504} ${BODY_Y + 292})">
-      <rect width="352" height="64" rx="12" fill="#fff7f0"/>
+      <rect width="352" height="64" rx="12" fill="#F4F7E0"/>
       <text x="16" y="28" fill="#1c1814" font-size="13" font-weight="600">Pane as MCP</text>
       <text x="16" y="48" fill="#6b6258" font-size="11">Claude Code · Cursor · Gemini CLI</text>
     </g>

@@ -75,7 +75,7 @@ export const BentoCard: FC<BentoCardProps> = ({ feature, mounted, index }) => {
                 </h3>
               </div>
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--accent-orange)]/10 transition-all group-hover:scale-110 group-hover:bg-[var(--accent-orange)]">
-                <Icon className="h-5 w-5 text-[var(--accent-orange)] transition-colors group-hover:text-white" />
+                <Icon className="h-5 w-5 text-[var(--accent-orange)] transition-colors group-hover:text-primary-foreground" />
               </div>
             </div>
 

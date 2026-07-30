@@ -282,7 +282,7 @@ function CalmContextControls({
           className={cn(
             'inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] transition-colors data-[state=open]:bg-accent data-[state=open]:text-foreground',
             selectedTabs.length > 0
-              ? 'bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90'
+              ? 'bg-[var(--accent-orange)] text-primary-foreground hover:bg-[var(--accent-orange)]/90'
               : 'text-muted-foreground hover:bg-accent hover:text-foreground',
           )}
         >
@@ -292,7 +292,7 @@ function CalmContextControls({
             className={cn(
               'font-mono text-[10.5px]',
               selectedTabs.length > 0
-                ? 'text-white/80'
+                ? 'text-primary-foreground/80'
                 : 'text-muted-foreground/70',
             )}
           >

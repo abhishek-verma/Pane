@@ -7,13 +7,13 @@
     <stop offset="100%" stop-color="#e4dfd8"/>
   </linearGradient>
   <radialGradient id="glow" cx="70%" cy="40%" r="45%">
-    <stop offset="0%" stop-color="#e07a2f" stop-opacity="0.16"/>
-    <stop offset="55%" stop-color="#e07a2f" stop-opacity="0.05"/>
-    <stop offset="100%" stop-color="#e07a2f" stop-opacity="0"/>
+    <stop offset="0%" stop-color="#94B316" stop-opacity="0.16"/>
+    <stop offset="55%" stop-color="#94B316" stop-opacity="0.05"/>
+    <stop offset="100%" stop-color="#94B316" stop-opacity="0"/>
   </radialGradient>
   <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#f4a35f"/>
-    <stop offset="100%" stop-color="#df7327"/>
+    <stop offset="0%" stop-color="#C8E832"/>
+    <stop offset="100%" stop-color="#94B316"/>
   </linearGradient>
   <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
     <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.05"/>
@@ -67,7 +67,7 @@
     <line x1="620" y1="76" x2="620" y2="504" stroke="#1c1814" stroke-opacity="0.06"/>
 
     <rect x="40" y="76" width="580" height="428" fill="#faf9f7"/>
-    <rect class="glow" x="68" y="100" width="524" height="220" rx="12" fill="#ffffff" stroke="#e07a2f" stroke-width="1.5"/>
+    <rect class="glow" x="68" y="100" width="524" height="220" rx="12" fill="#ffffff" stroke="#94B316" stroke-width="1.5"/>
     <text x="88" y="132" fill="#1c1814" font-size="16" font-weight="600">Checkout</text>
     <rect x="88" y="152" width="220" height="34" rx="8" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.06"/>
     <text x="102" y="174" fill="#6b6258" font-size="12">Card number</text>
@@ -81,14 +81,14 @@
     <text x="86" y="368" fill="#5fb872" font-size="11">~/acme-web · cowork folder granted</text>
     <text x="86" y="394" fill="#8a8278" font-size="12">$ </text>
     <text x="98" y="394" fill="#f3efe9" font-size="12">wrote src/checkout/validate.ts</text>
-    <rect class="caret" x="316" y="383" width="7" height="14" fill="#e07a2f"/>
+    <rect class="caret" x="316" y="383" width="7" height="14" fill="#94B316"/>
     <rect x="86" y="412" width="200" height="28" rx="8" fill="#2a241f" stroke="#5fb872" stroke-opacity="0.45"/>
     <text x="100" y="430" fill="#8dcea0" font-size="11">validate.ts updated</text>
 
 
     <rect x="620" y="76" width="300" height="428" fill="#f3f0ec"/>
     <g transform="translate(638 96) scale(0.14)">
-      <path fill="#e07a2f" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
+      <path fill="#94B316" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
     </g>
     <text x="660" y="108" fill="#3d3731" font-size="13" font-weight="600">Pane</text>
     <circle cx="900" cy="102" r="4" fill="#5fb872"/>
@@ -107,7 +107,7 @@
       <text x="12" y="21" fill="#6b6258" font-size="11">cowork write · validate.ts</text>
     </g>
     <g transform="translate(636 272)">
-      <rect width="268" height="100" rx="12" fill="#fff7f0"/>
+      <rect width="268" height="100" rx="12" fill="#F4F7E0"/>
       <text x="14" y="26" fill="#1c1814" font-size="12" font-weight="600">Fix ready for review</text>
       <text x="14" y="48" fill="#6b6258" font-size="11">Null guard on card brand</text>
       <text x="14" y="66" fill="#6b6258" font-size="11">before submit.</text>

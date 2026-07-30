@@ -171,7 +171,7 @@ export const AddCustomMCPDialog: FC<AddCustomMCPDialogProps> = ({
               </Button>
               <Button
                 type="submit"
-                className="bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange-bright)]"
+                className="bg-[var(--accent-orange)] text-primary-foreground hover:bg-[var(--accent-orange-bright)]"
               >
                 Add Server
               </Button>

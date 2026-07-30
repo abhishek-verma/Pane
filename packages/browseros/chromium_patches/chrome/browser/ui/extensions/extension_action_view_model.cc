@@ -26,9 +26,9 @@ index 85405c5f7e..9265494527 100644
    }
  
 +  if (browseros::IsBrowserOSExtension(extension_id_)) {
-+    constexpr SkColor orange = SkColorSetRGB(0xFB, 0x65, 0x18);
++    constexpr SkColor citron = SkColorSetRGB(0xC8, 0xE8, 0x32);
 +    return ui::ImageModel::FromImageSkia(gfx::CreateVectorIcon(
-+        vector_icons::kPaneMarkIcon, size.height(), orange));
++        vector_icons::kPaneMarkIcon, size.height(), citron));
 +  }
 +
    return ui::ImageModel::FromImageSkia(

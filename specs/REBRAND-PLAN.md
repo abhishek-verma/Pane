@@ -42,7 +42,7 @@ These need a product call. Defaults are given; the plan assumes the defaults.
 | Pane mark (mono, `currentColor`) | `assets/branding/pane-mark.svg` (viewBox `0 0 100 100`) | The mark, all contexts |
 | Pane mark black / white | `assets/branding/pane-mark-black.svg`, `pane-mark-white.svg` | Raster PNG export inputs |
 | Pane wordmark | `assets/branding/pane-wordmark.svg` (viewBox `0 0 78 36`, "Pane.") | Wordmark, all contexts |
-| Pane extension icon | `assets/branding/pane-extension-icon.svg` (orange rounded rect + white mark) | Extension/toolbar/favicon |
+| Pane extension icon | `assets/branding/pane-extension-icon.svg` (citron `#C8E832` rounded rect + dark mark) | Extension/toolbar/favicon |
 
 **Rule:** every other copy of these (`apps/app/assets/pane-mark.svg`, `docs/logo/pane-mark.svg`, the inlined geometry in `PaneMark.tsx`) must either be deleted in favor of the canonical file or verified byte-identical. No divergent copies.
 

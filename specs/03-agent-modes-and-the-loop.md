@@ -83,7 +83,7 @@ sequenceDiagram
 
 ## Visibility & control
 
-- **Tab glow**: the active tab the agent is working pulses orange (exists today). Extended to **per-domain glows**: file edits, terminal runs, and app sends each get a distinct indicator.
+- **Tab glow**: the active tab the agent is working pulses citron (exists today). Extended to **per-domain glows**: file edits, terminal runs, and app sends each get a distinct indicator.
 - **Tool batches**: grouped, collapsible, with input/output and a link to the resulting graph node.
 - **Live snapshot**: a "watch" view shows the agent's current page snapshot so the user can see what it sees.
 - **Interrupt**: a single stop button halts the loop between tool calls (never mid-action that has side effects; we finish the in-flight consequential action or cancel cleanly).

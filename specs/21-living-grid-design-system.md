@@ -12,7 +12,7 @@ This spec defines the field family, how a place is assigned one, the typographic
 
 Supersedes the colour and surface rules in [18 — Agent Chat Visual Language](./18-agent-chat-visual-language.md). The hierarchy, tool-rail, and progressive-disclosure rules in spec 18 still stand.
 
-> **Status:** tokens + composer implemented. Field assignment implemented for sites and entity pages.
+> **Status:** tokens + composer + field assignment shipped. Brand rollout: citron replaces orange across extension icons, favicon, glow, Chromium welcome/toolbar paints, prefs chrome, README feature art/GIFs, poster, and solid-CTA contrast (`text-primary-foreground` on signal fills).
 
 ---
 

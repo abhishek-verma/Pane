@@ -70,9 +70,9 @@ export const StepsLayout = () => {
                         <div
                           className={`relative flex h-8 w-8 items-center justify-center rounded-full font-semibold text-sm transition-all duration-500 ${
                             isCompleted
-                              ? 'bg-[var(--accent-orange)] text-white'
+                              ? 'bg-[var(--accent-orange)] text-primary-foreground'
                               : isActive
-                                ? 'bg-[var(--accent-orange)] text-white ring-4 ring-[var(--accent-orange)]/20'
+                                ? 'bg-[var(--accent-orange)] text-primary-foreground ring-4 ring-[var(--accent-orange)]/20'
                                 : 'border border-border bg-muted text-muted-foreground'
                           }`}
                         >

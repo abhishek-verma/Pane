@@ -44,42 +44,42 @@ let wordmarkSamples = [
 let wordmarkAspectW = 78
 let wordmarkAspectH = 36
 
-// pane-extension-icon.svg: orange rounded rect + white mark; cutout shows orange through.
+// pane-extension-icon.svg: citron rounded rect + dark mark; cutout shows citron through.
 let extensionIconSamples = [
   ColorSample(
-    name: "orange-bg",
+    name: "citron-bg",
     xRatio: 0.5,
     yRatio: 0.12,
-    minRed: 0.75,
-    maxRed: 1.0,
-    minGreen: 0.2,
-    maxGreen: 0.45,
-    minBlue: 0.0,
-    maxBlue: 0.15,
+    minRed: 0.65,
+    maxRed: 0.9,
+    minGreen: 0.8,
+    maxGreen: 1.0,
+    minBlue: 0.05,
+    maxBlue: 0.35,
     minAlpha: 0.99
   ),
   ColorSample(
-    name: "white-mark",
+    name: "dark-mark",
     xRatio: 0.32,
     yRatio: 0.32,
-    minRed: 0.9,
-    maxRed: 1.0,
-    minGreen: 0.9,
-    maxGreen: 1.0,
-    minBlue: 0.9,
-    maxBlue: 1.0,
+    minRed: 0.0,
+    maxRed: 0.25,
+    minGreen: 0.0,
+    maxGreen: 0.25,
+    minBlue: 0.0,
+    maxBlue: 0.2,
     minAlpha: 0.99
   ),
   ColorSample(
-    name: "cutout-orange",
+    name: "cutout-citron",
     xRatio: 0.68,
     yRatio: 0.68,
-    minRed: 0.75,
-    maxRed: 1.0,
-    minGreen: 0.2,
-    maxGreen: 0.45,
-    minBlue: 0.0,
-    maxBlue: 0.15,
+    minRed: 0.65,
+    maxRed: 0.9,
+    minGreen: 0.8,
+    maxGreen: 1.0,
+    minBlue: 0.05,
+    maxBlue: 0.35,
     minAlpha: 0.99
   ),
 ]
