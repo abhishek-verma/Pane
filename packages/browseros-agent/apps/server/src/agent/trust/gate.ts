@@ -50,6 +50,20 @@ export function resolveStepIdempotencyKey(ctx: GateContext): string {
   return ctx.runId ?? 'unattended'
 }
 
+/**
+ * Entity-page BTF materialize is user-initiated (opened the company page) but
+ * drained as isScheduledTask/unattended. Channel-approving research/browser
+ * tools mid-fill hung dogfood while the page stayed on "More sections
+ * loading…". Auto-allow the whole materialize run; PI tool guards still block
+ * create/ensure/cross-page patch. Page create/patch/ensure are also
+ * response-surface (`read`) so they never pause the loop for approval.
+ */
+export function isPiMaterializeScheduledRun(ctx: GateContext): boolean {
+  if (!ctx.scheduledRunId) return false
+  const run = getScheduledRun(ctx.scheduledRunId)
+  return run?.source === 'pi-materialize'
+}
+
 function skipIfCompletedStep(
   toolName: string,
   args: Record<string, unknown>,
@@ -337,9 +351,20 @@ export function wrapToolWithGate<T extends Tool>(
       const preview = buildLoopApprovalPreview(toolName, args)
 
       // Unattended: pause via channel, never auto-approve on silence.
-      // pi-materialize page writes are `read` (response surface); other
-      // consequential tools still channel-approve and surface on the entity page.
+      // Exception: pi-materialize — user opened the entity page; silent channel
+      // approval made BTF hang for DEFAULT_APPROVAL_TIMEOUT. Intentional.
       if (ctx.unattended) {
+        if (isPiMaterializeScheduledRun(ctx)) {
+          logGateDecision(
+            toolName,
+            args,
+            ctx,
+            cls,
+            'executed',
+            `pi-materialize auto-allow: ${preview}`,
+          )
+          return false
+        }
         const runId = ctx.runId ?? 'unattended'
         const fp = stepFingerprint(
           toolName,
@@ -382,7 +407,12 @@ export function wrapToolWithGate<T extends Tool>(
         throw new Error(`Tool ${toolName} has no execute function`)
       }
 
-      if (ctx.unattended && isConsequentialClass(cls) && !isPromoted(args)) {
+      if (
+        ctx.unattended &&
+        isConsequentialClass(cls) &&
+        !isPromoted(args) &&
+        !isPiMaterializeScheduledRun(ctx)
+      ) {
         const runId = ctx.runId ?? 'unattended'
         const fp = stepFingerprint(
           toolName,
