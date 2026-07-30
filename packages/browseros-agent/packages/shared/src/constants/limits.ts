@@ -55,6 +55,21 @@ export const AGENT_LIMITS = {
   // Compaction — tool output truncation
   COMPACTION_TOOL_OUTPUT_MAX_CHARS: 15_000,
   COMPACTION_TRANSCRIPT_TOOL_OUTPUT_MAX_CHARS: 2_000,
+
+  /**
+   * UI projection only — max chars of tool output text kept inline in
+   * sidepanel/attach payloads. Full bodies stay on the agent transcript /
+   * ToolOutputStore. Does not affect model context.
+   */
+  UI_TOOL_OUTPUT_PREVIEW_MAX_CHARS: 2_000,
+} as const
+
+/** Sidepanel chat paging (Cursor-style infinite scroll). */
+export const UI_CHAT_LIMITS = {
+  /** Messages loaded on open / each scroll page. */
+  PAGE_SIZE: 30,
+  /** Max settled messages retained in renderer memory at once. */
+  MAX_RESIDENT_MESSAGES: 60,
 } as const
 
 export const TOOL_LIMITS = {

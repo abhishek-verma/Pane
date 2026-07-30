@@ -256,6 +256,10 @@ export function buildToolEvidence(args: BuildToolEvidenceArgs): ToolEvidence {
     label: args.label,
     subject: args.subject,
     detailsUnavailable: args.detailsUnavailable,
+    spilled:
+      args.output &&
+      typeof args.output === 'object' &&
+      (args.output as { spilled?: boolean }).spilled === true,
   })
 
   return {

@@ -453,6 +453,7 @@ features:
       - chrome/browser/ui/views/side_panel/side_panel.cc
       - chrome/browser/ui/views/side_panel/side_panel.h
       - chrome/browser/ui/views/side_panel/side_panel_coordinator.cc
+      - chrome/browser/extensions/chrome_content_browser_client_extensions_part.cc
 
   misc:
     description: "chore: miscellaneous patches"

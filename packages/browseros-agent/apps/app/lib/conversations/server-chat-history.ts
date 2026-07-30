@@ -55,6 +55,32 @@ export async function fetchChatConversation(
   return (await response.json()) as ChatConversationDetail
 }
 
+export interface ChatMessagePage {
+  messages: UIMessage[]
+  hasMore: boolean
+}
+
+/** Newest page when `beforeId` omitted; older page when scrolling up. */
+export async function fetchChatMessagePage(
+  conversationId: string,
+  options?: { beforeId?: string; limit?: number; baseUrl?: string },
+): Promise<ChatMessagePage> {
+  const url = await resolveBaseUrl(options?.baseUrl)
+  const params = new URLSearchParams()
+  if (options?.beforeId) params.set('beforeId', options.beforeId)
+  if (options?.limit != null) params.set('limit', String(options.limit))
+  const qs = params.toString()
+  const response = await agentFetch(
+    `${url}/chat/${encodeURIComponent(conversationId)}/messages${qs ? `?${qs}` : ''}`,
+  )
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch messages for ${conversationId} (${response.status})`,
+    )
+  }
+  return (await response.json()) as ChatMessagePage
+}
+
 export async function deleteChatConversation(
   conversationId: string,
   baseUrl?: string,

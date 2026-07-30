@@ -59,6 +59,8 @@ export const Chat = () => {
     retryLastTurn,
     isStreaming: sessionStreaming,
     isTurnActive,
+    hasMoreAbove,
+    loadOlderMessages,
   } = useChatSessionContext()
 
   const voice = useVoiceInput()
@@ -220,6 +222,8 @@ export const Chat = () => {
             onApprove={approveTool}
             onDeny={denyTool}
             onPromote={promoteTool}
+            hasMoreAbove={hasMoreAbove}
+            onLoadOlder={loadOlderMessages}
           />
         )}
         {agentUrlError && (

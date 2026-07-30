@@ -132,8 +132,21 @@ function createSessionStore(
       sessions.delete(conversationId)
       return true
     },
+    async hasPersistedSession(_conversationId: string) {
+      return false
+    },
     count() {
       return sessions.size
+    },
+    imageStore: {
+      store: () => true,
+      get: () => null,
+      deleteForSession: () => {},
+    },
+    outputStore: {
+      store: () => true,
+      get: () => null,
+      deleteForSession: () => {},
     },
   }
 }

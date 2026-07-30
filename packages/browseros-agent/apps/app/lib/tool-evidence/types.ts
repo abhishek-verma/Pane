@@ -69,6 +69,8 @@ export interface GenericToolDetail {
   inputJson?: string
   outputText?: string
   detailsUnavailable?: boolean
+  /** Full output was spilled server-side; expand fetches /tool-outputs. */
+  spilled?: boolean
 }
 
 export interface ToolEvidence {
