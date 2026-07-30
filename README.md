@@ -88,10 +88,8 @@ Pane is early. These parts are usable now:
 ### Honest limits
 
 - Pane does not run browser work while the browser is fully quit or the machine is asleep. Optional keep-alive can start the local agent server, but browser actions still need a browser process.
-- Repeated workflows can create staged skill drafts, but the full passive self-improving loop is still maturing.
-- Browser profiles provide hard separation. Within a profile, context buckets and personas tune retrieval and behavior; Pane does not pretend those are the same thing.
-- The server-free Pane build does not include a managed cloud integrations catalog. Add your own MCP servers instead.
 
+  
 ## Why this needs to be a browser
 
 A sidebar extension can read a page. An external agent can attach through a debug port. Neither owns the whole situation reliably: the authenticated session, tab history, meeting media, local context, scheduled runtime, and permission surface.
