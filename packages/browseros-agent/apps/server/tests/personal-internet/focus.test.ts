@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { closeDb, getDbHandle, initializeDb } from '../../src/lib/db'
 import {
   acquirePiFocus,
+  getPiFocus,
   resetPiFocusForTests,
 } from '../../src/personal-internet/focus'
 import { ensureAndMaterialize } from '../../src/personal-internet/materialize'
@@ -75,6 +76,43 @@ describe('pi focus', () => {
       runId: b.runId,
     })
     expect(focus.pageId).toBe(b.pageId)
+  })
+
+  it('ATF-only ensure does not steal focus from an active BTF', async () => {
+    setup()
+    const site = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId: site.siteId!,
+      recordType: 'job-application',
+      data: { company: 'Alpha', stage: 'applied' },
+    })
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId: site.siteId!,
+      recordType: 'job-application',
+      data: { company: 'Beta', stage: 'applied' },
+    })
+
+    const a = await ensureAndMaterialize(site.siteId!, 'alpha', {
+      materialize: true,
+    })
+    expect(a.runId).toBeTruthy()
+    expect(getPiFocus()?.pageId).toBe(a.pageId)
+
+    const cheap = await ensureAndMaterialize(site.siteId!, 'beta', {
+      materialize: false,
+    })
+    expect(cheap.focusAcquired).toBe(false)
+    expect(getPiFocus()?.pageId).toBe(a.pageId)
+
+    const aRow = getDbHandle()
+      .sqlite.prepare(`SELECT status FROM scheduled_runs WHERE id = ?`)
+      .get(a.runId!) as { status: string }
+    expect(aRow.status).toBe('pending')
   })
 
   it('does not inherit previous page runId when switching without runId', async () => {

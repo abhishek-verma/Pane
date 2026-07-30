@@ -449,16 +449,23 @@ export async function ensureAndMaterialize(
   const ensured = await ensureEntityPage(siteId, entityKey)
   const key = decodeURIComponent(entityKey).trim()
 
-  acquirePiFocus({
-    siteId,
-    pageId: ensured.pageId,
-    entityKey: key,
-  })
-
   const doc = await readPageDoc(ensured.pageId)
   const btfComplete = isBtfComplete(doc)
+  // Only user/UI deepen (materialize:true) takes the focus lease. Cheap ATF
+  // ensure (default false) must not cancel an in-flight sibling BTF.
+  const wantFocus = options?.materialize === true
   const shouldMaterialize =
-    options?.materialize === true && (!btfComplete || options.force === true)
+    wantFocus && (!btfComplete || options.force === true)
+
+  let focusAcquired = false
+  if (wantFocus) {
+    acquirePiFocus({
+      siteId,
+      pageId: ensured.pageId,
+      entityKey: key,
+    })
+    focusAcquired = true
+  }
 
   let runId: string | undefined
   let conversationId: string | null | undefined
@@ -487,7 +494,7 @@ export async function ensureAndMaterialize(
 
   return {
     ...ensured,
-    focusAcquired: true,
+    focusAcquired,
     btfComplete: btfComplete && !options?.force,
     runId,
     conversationId,
