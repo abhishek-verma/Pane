@@ -417,8 +417,9 @@ export function wrapToolWithGate<T extends Tool>(
       // (the SDK re-invokes us) or because a pin allowed auto-execution.
       // Either way it is authorized — run it. Reads always run.
       const cleanArgs = stripPromotedArg(args)
+      const execute = original.execute
       return gateContextAls.run(ctx, async () => {
-        const result = await original.execute!(cleanArgs, options)
+        const result = await execute(cleanArgs, options)
         if (isConsequentialClass(cls)) {
           recordConsequentialExecution(ctx, cls)
           const output = result as {

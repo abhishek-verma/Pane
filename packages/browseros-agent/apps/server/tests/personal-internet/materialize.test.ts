@@ -78,8 +78,11 @@ describe('pi materialize', () => {
       data: { company: 'RefreshCo', stage: 'applied', role: 'Intern' },
     })
     const walkText = (
-      nodes: NonNullable<Awaited<ReturnType<typeof readPageDoc>>>['nodes'],
+      nodes:
+        | NonNullable<Awaited<ReturnType<typeof readPageDoc>>>['nodes']
+        | undefined,
     ): string[] => {
+      if (!nodes) return []
       const out: string[] = []
       for (const n of nodes) {
         if ('text' in n && typeof n.text === 'string') out.push(n.text)
@@ -89,7 +92,7 @@ describe('pi materialize', () => {
     }
     const first = await ensureEntityPage(site.siteId!, 'refreshco')
     let doc = await readPageDoc(first.pageId)
-    expect(walkText(doc!.nodes)).toContain('Intern')
+    expect(walkText(doc?.nodes)).toContain('Intern')
 
     await applyPiMutation({
       type: 'upsert-record',
@@ -108,7 +111,7 @@ describe('pi materialize', () => {
     await ensureEntityPage(site.siteId!, 'refreshco')
     doc = await readPageDoc(first.pageId)
     expect(doc?.meta?.materialize?.phase).toBe('atf')
-    const texts = walkText(doc!.nodes)
+    const texts = walkText(doc?.nodes)
     expect(texts).toContain('Staff Eng')
     expect(texts).toContain('interviewing')
   })

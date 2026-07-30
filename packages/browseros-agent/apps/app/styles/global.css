@@ -75,11 +75,12 @@
   --border: oklch(0.9 0 0);
   --input: oklch(0.9 0 0);
   --ring: var(--signal);
-  --chart-1: oklch(0.837 0.128 66.29);
-  --chart-2: oklch(0.705 0.213 47.604);
-  --chart-3: oklch(0.646 0.222 41.116);
-  --chart-4: oklch(0.553 0.195 38.402);
-  --chart-5: oklch(0.47 0.157 37.304);
+  /* Chart series lean citron / field family — not legacy brand orange. */
+  --chart-1: oklch(0.7 0.155 122);
+  --chart-2: oklch(0.62 0.12 165);
+  --chart-3: oklch(0.58 0.1 250);
+  --chart-4: oklch(0.55 0.1 32);
+  --chart-5: oklch(0.5 0.08 292);
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--signal);
@@ -129,11 +130,12 @@
   --border: oklch(0.3 0.005 265);
   --input: oklch(0.3 0.005 265);
   --ring: var(--signal);
-  --chart-1: oklch(0.837 0.128 66.29);
-  --chart-2: oklch(0.705 0.213 47.604);
-  --chart-3: oklch(0.646 0.222 41.116);
-  --chart-4: oklch(0.553 0.195 38.402);
-  --chart-5: oklch(0.47 0.157 37.304);
+  /* Chart series lean citron / field family — not legacy brand orange. */
+  --chart-1: oklch(0.7 0.155 122);
+  --chart-2: oklch(0.62 0.12 165);
+  --chart-3: oklch(0.58 0.1 250);
+  --chart-4: oklch(0.55 0.1 32);
+  --chart-5: oklch(0.5 0.08 292);
   --sidebar: oklch(0.16 0.005 265);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--signal);
@@ -199,40 +201,40 @@
   color: var(--foreground);
 }
 
-[data-field='rust'] {
+[data-field="rust"] {
   --field: oklch(0.932 0.014 32);
 }
-[data-field='ember'] {
+[data-field="ember"] {
   --field: oklch(0.94 0.017 65);
 }
-[data-field='amber'] {
+[data-field="amber"] {
   --field: oklch(0.945 0.024 92);
 }
-[data-field='clay'] {
+[data-field="clay"] {
   --field: oklch(0.93 0.019 85);
 }
-[data-field='moss'] {
+[data-field="moss"] {
   --field: oklch(0.93 0.019 122);
 }
-[data-field='petrol'] {
+[data-field="petrol"] {
   --field: oklch(0.925 0.014 165);
 }
-[data-field='dust'] {
+[data-field="dust"] {
   --field: oklch(0.925 0.016 250);
 }
-[data-field='iris'] {
+[data-field="iris"] {
   --field: oklch(0.928 0.018 292);
 }
-[data-field='plum'] {
+[data-field="plum"] {
   --field: oklch(0.928 0.018 330);
 }
-[data-field='slate'] {
+[data-field="slate"] {
   --field: oklch(0.925 0.006 265);
 }
 
 /* Citron dies on warm yellow-green paper; fall back to olive ink. */
-[data-field='amber'],
-[data-field='moss'] {
+[data-field="amber"],
+[data-field="moss"] {
   --signal: oklch(0.48 0.108 118);
   --signal-bright: oklch(0.56 0.12 118);
   --signal-foreground: oklch(0.97 0.01 100);
@@ -254,40 +256,40 @@
   --signal-bright: oklch(0.93 0.2 122);
 }
 
-.dark [data-field='rust'] {
+.dark [data-field="rust"] {
   --field: oklch(0.185 0.026 28);
 }
-.dark [data-field='ember'] {
+.dark [data-field="ember"] {
   --field: oklch(0.19 0.03 62);
 }
-.dark [data-field='amber'] {
+.dark [data-field="amber"] {
   --field: oklch(0.192 0.03 92);
 }
-.dark [data-field='clay'] {
+.dark [data-field="clay"] {
   --field: oklch(0.185 0.022 78);
 }
-.dark [data-field='moss'] {
+.dark [data-field="moss"] {
   --field: oklch(0.185 0.026 130);
 }
-.dark [data-field='petrol'] {
+.dark [data-field="petrol"] {
   --field: oklch(0.188 0.026 172);
 }
-.dark [data-field='dust'] {
+.dark [data-field="dust"] {
   --field: oklch(0.19 0.03 264);
 }
-.dark [data-field='iris'] {
+.dark [data-field="iris"] {
   --field: oklch(0.19 0.03 294);
 }
-.dark [data-field='plum'] {
+.dark [data-field="plum"] {
   --field: oklch(0.188 0.028 328);
 }
-.dark [data-field='slate'] {
+.dark [data-field="slate"] {
   --field: oklch(0.183 0.008 265);
 }
 
 /* Citron on dark olive is invisible; fall back to ivory. */
-.dark [data-field='amber'],
-.dark [data-field='moss'] {
+.dark [data-field="amber"],
+.dark [data-field="moss"] {
   --signal: oklch(0.95 0.014 95);
   --signal-bright: oklch(0.98 0.012 95);
   --signal-foreground: oklch(0.18 0.02 95);
@@ -443,9 +445,9 @@
     }
     50% {
       text-shadow:
-        0 0 20px rgba(214, 123, 68, 0.6),
-        0 0 40px rgba(214, 123, 68, 0.4),
-        0 0 60px rgba(214, 123, 68, 0.2);
+        0 0 20px rgba(200, 232, 50, 0.55),
+        0 0 40px rgba(200, 232, 50, 0.35),
+        0 0 60px rgba(200, 232, 50, 0.18);
       transform: scale(1.02);
     }
     100% {

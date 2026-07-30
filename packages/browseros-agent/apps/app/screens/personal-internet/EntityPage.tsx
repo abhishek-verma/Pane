@@ -105,6 +105,7 @@ export const EntityPage: FC = () => {
   const pageIdRef = useRef<string | null>(null)
   const field = piEntityField(siteId, entityKey)
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: ensure lifecycle + stale-response guards
   const ensure = async (opts: { materialize: boolean; force?: boolean }) => {
     if (!siteId || !entityKey) return
     const requestKey = `${siteId}:${entityKey}`

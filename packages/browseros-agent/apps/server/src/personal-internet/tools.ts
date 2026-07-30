@@ -294,10 +294,7 @@ export function buildPersonalInternetToolSet(
       }),
       execute: async ({ siteId, entityKey, materialize }) => {
         try {
-          assertMaterializeToolAllowed('pi_entity_ensure', {
-            siteId,
-            entityKey,
-          })
+          assertMaterializeToolAllowed('pi_entity_ensure', { entityKey })
           const result = await ensureAndMaterialize(siteId, entityKey, {
             materialize,
           })
