@@ -105,7 +105,29 @@ export function extractToolOutput(output: unknown): ExtractedToolOutput {
   }
 
   if (Array.isArray(rec.content)) {
-    return { ...extractFromParts(rec.content), structured, isError }
+    const extracted = {
+      ...extractFromParts(rec.content),
+      structured,
+      isError,
+    }
+    // Prefer explicit UI preview when the body was spilled for memory.
+    if (
+      rec.spilled === true &&
+      typeof rec.preview === 'string' &&
+      rec.preview
+    ) {
+      return { ...extracted, text: rec.preview }
+    }
+    return extracted
+  }
+  if (rec.spilled === true && typeof rec.preview === 'string') {
+    return {
+      text: rec.preview,
+      images: [],
+      strippedImages: [],
+      structured,
+      isError,
+    }
   }
   if (typeof rec.text === 'string') {
     return {

@@ -426,6 +426,7 @@ export class AiSdkAgent {
         .join('\n')
       // Idempotent when previousConversation already injected this turn's
       // user text (client race) — do not push a duplicate raw user bubble.
+      // The turn still runs against the existing terminal user message.
       if (lastText === content) return
     }
     this._messages.push({

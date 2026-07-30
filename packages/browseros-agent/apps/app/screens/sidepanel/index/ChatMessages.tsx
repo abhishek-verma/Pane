@@ -53,6 +53,10 @@ export interface ChatMessagesProps {
   onApprove?: ChatMessageRowProps['onApprove']
   onDeny?: ChatMessageRowProps['onDeny']
   onPromote?: ChatMessageRowProps['onPromote']
+  /** Server still has older turns above the resident window. */
+  hasMoreAbove?: boolean
+  /** Fetch + prepend older page; drops farthest from heap when over cap. */
+  onLoadOlder?: () => void | Promise<void>
 }
 
 function findScrollParent(el: HTMLElement | null): HTMLElement | null {
@@ -200,11 +204,15 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   onApprove,
   onDeny,
   onPromote,
+  hasMoreAbove = false,
+  onLoadOlder,
 }) => {
   const { isStreaming: sessionStreaming } = useChatSessionContext()
   const isStreaming =
     sessionStreaming || status === 'streaming' || status === 'submitted'
+  const serverPaging = typeof onLoadOlder === 'function'
   const [windowSize, setWindowSize] = useState(MESSAGE_WINDOW_SIZE)
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const topSentinelRef = useRef<HTMLDivElement | null>(null)
   const scrollRestoreRef = useRef<{
     prevHeight: number
@@ -217,16 +225,19 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
     setWindowSize(MESSAGE_WINDOW_SIZE)
   }, [conversationKey])
 
-  const { hiddenCount } = getMessageWindowSlice({
+  // Local DOM window is only a fallback when server paging is not wired.
+  const { hiddenCount: localHidden } = getMessageWindowSlice({
     total: messages.length,
     windowSize,
   })
+  const hiddenCount = serverPaging ? 0 : localHidden
   const visibleMessages = useMemo(
     () => (hiddenCount > 0 ? messages.slice(hiddenCount) : messages),
     [messages, hiddenCount],
   )
+  const showTopSentinel = serverPaging ? hasMoreAbove : hiddenCount > 0
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: restore scroll after windowSize grows
+  // biome-ignore lint/correctness/useExhaustiveDependencies: restore scroll after prepend / window grow
   useLayoutEffect(() => {
     const pending = scrollRestoreRef.current
     if (!pending) return
@@ -236,11 +247,11 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
       scrollEl.scrollTop = pending.prevTop + delta
     }
     scrollRestoreRef.current = null
-  }, [windowSize])
+  }, [windowSize, messages.length])
 
   useEffect(() => {
     const sentinel = topSentinelRef.current
-    if (!sentinel || hiddenCount <= 0) return
+    if (!sentinel || !showTopSentinel) return
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -252,6 +263,14 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
             prevHeight: scrollEl.scrollHeight,
             prevTop: scrollEl.scrollTop,
           }
+        }
+        if (serverPaging) {
+          if (loadingOlder) return
+          setLoadingOlder(true)
+          void Promise.resolve(onLoadOlder?.())
+            .catch(() => {})
+            .finally(() => setLoadingOlder(false))
+          return
         }
         setWindowSize((prev) =>
           growMessageWindow({ current: prev, total: messages.length }),
@@ -265,13 +284,19 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [hiddenCount, messages.length])
+  }, [
+    showTopSentinel,
+    messages.length,
+    serverPaging,
+    onLoadOlder,
+    loadingOlder,
+  ])
 
   return (
     <>
       <Conversation className="ph-mask">
         <ConversationContent>
-          {hiddenCount > 0 ? (
+          {showTopSentinel ? (
             <div
               ref={topSentinelRef}
               className="h-1 w-full shrink-0"

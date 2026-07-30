@@ -2,7 +2,7 @@ import type { BrowserOutputFileAccess } from '@browseros/browser-mcp/output-file
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { UIMessage } from 'ai'
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, lt, or } from 'drizzle-orm'
 import { getDb, getDbHandle } from '../lib/db'
 import { chatMessages, chatSessions } from '../lib/db/schema/chat-sessions'
 import { logger } from '../lib/logger'
@@ -106,6 +106,91 @@ export class ToolImageStore {
   }
 }
 
+/**
+ * Stores full tool output JSON for UI lazy-load. Agent transcript keeps its
+ * own copy; this exists so sidepanel projections can spill fat bodies.
+ */
+export class ToolOutputStore {
+  private ensuredProfiles = new Set<string>()
+
+  private ensureTable(): void {
+    const profile = tryGetProfileKey() ?? '__explicit__'
+    if (this.ensuredProfiles.has(profile)) return
+    const sqlite = getDbHandle().sqlite
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS tool_outputs (
+        tool_call_id TEXT PRIMARY KEY NOT NULL,
+        session_id TEXT NOT NULL,
+        data TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `)
+    sqlite.exec(`
+      CREATE INDEX IF NOT EXISTS tool_outputs_session_idx
+      ON tool_outputs (session_id)
+    `)
+    this.ensuredProfiles.add(profile)
+  }
+
+  store(
+    sessionId: string,
+    toolCallId: string,
+    data: string,
+    mimeType = 'application/json',
+  ): boolean {
+    try {
+      this.ensureTable()
+      const sqlite = getDbHandle().sqlite
+      sqlite
+        .prepare(
+          `INSERT OR REPLACE INTO tool_outputs (tool_call_id, session_id, data, mime_type, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+        )
+        .run(toolCallId, sessionId, data, mimeType, Date.now())
+      return true
+    } catch (err) {
+      logger.warn('ToolOutputStore: failed to store output', {
+        toolCallId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+      return false
+    }
+  }
+
+  get(toolCallId: string): { data: string; mimeType: string } | null {
+    try {
+      this.ensureTable()
+      const sqlite = getDbHandle().sqlite
+      const row = sqlite
+        .prepare(
+          `SELECT data, mime_type FROM tool_outputs WHERE tool_call_id = ?`,
+        )
+        .get(toolCallId) as { data: string; mime_type: string } | null
+      if (!row) return null
+      return { data: row.data, mimeType: row.mime_type }
+    } catch (err) {
+      logger.warn('ToolOutputStore: failed to get output', {
+        toolCallId,
+        error: err instanceof Error ? err.message : String(err),
+      })
+      return null
+    }
+  }
+
+  deleteForSession(sessionId: string): void {
+    try {
+      this.ensureTable()
+      const sqlite = getDbHandle().sqlite
+      sqlite
+        .prepare(`DELETE FROM tool_outputs WHERE session_id = ?`)
+        .run(sessionId)
+    } catch {
+      // Non-fatal
+    }
+  }
+}
+
 export interface AgentSession {
   agent: AiSdkAgent
   hiddenPageId?: number
@@ -137,6 +222,8 @@ export class SessionStore {
   private persistLocks = new Map<string, Promise<void>>()
   /** Shared image store for all sessions managed by this store. */
   readonly imageStore = new ToolImageStore()
+  /** Full tool-output spill for UI projection (agent transcript stays fat). */
+  readonly outputStore = new ToolOutputStore()
 
   get(conversationId: string): AgentSession | undefined {
     return this.sessions.get(liveSessionKey(conversationId))
@@ -193,6 +280,7 @@ export class SessionStore {
       this.deletedSessions.add(key)
       this.persistLocks.delete(key)
       this.imageStore.deleteForSession(conversationId)
+      this.outputStore.deleteForSession(conversationId)
       logger.info('Session deleted', {
         conversationId,
         remainingSessions: this.sessions.size,
@@ -355,40 +443,111 @@ export class SessionStore {
       .orderBy(asc(chatMessages.createdAt))
       .all()
 
-    return rows.map((r) => {
-      let content: unknown = r.content
-      try {
-        content = JSON.parse(r.content)
-      } catch {
-        /* keep raw string */
-      }
-
-      // Persist writes `{ id, parts }`. Tolerate legacy parts-only arrays and
-      // full UIMessage objects so poison-session recovery does not 500.
-      if (
-        content &&
-        typeof content === 'object' &&
-        !Array.isArray(content) &&
-        Array.isArray((content as { parts?: unknown }).parts)
-      ) {
-        const full = content as {
-          id?: string
-          role?: string
-          parts: UIMessage['parts']
-        }
-        return {
-          id: typeof full.id === 'string' ? full.id : r.id,
-          role: (full.role ?? r.role) as UIMessage['role'],
-          parts: full.parts,
-        } as UIMessage
-      }
-
-      return {
-        id: r.id,
-        role: r.role as UIMessage['role'],
-        parts: Array.isArray(content) ? content : [],
-        content: typeof content === 'string' ? content : '',
-      } as UIMessage
-    })
+    return rows.map((r) => rowToUiMessage(r))
   }
+
+  /**
+   * Cursor-style page from SQLite without loading the full transcript.
+   * Returns chronological messages (oldest→newest within the page).
+   */
+  async loadMessagesPage(
+    sessionId: string,
+    options: { beforeId?: string; limit: number },
+  ): Promise<{ messages: UIMessage[]; hasMore: boolean }> {
+    const db = getDb()
+    const limit = Math.max(1, Math.min(options.limit, 100))
+
+    if (options.beforeId) {
+      const anchor = await db
+        .select()
+        .from(chatMessages)
+        .where(
+          and(
+            eq(chatMessages.sessionId, sessionId),
+            eq(chatMessages.id, options.beforeId),
+          ),
+        )
+        .get()
+      if (!anchor) return { messages: [], hasMore: false }
+
+      const rowsDesc = await db
+        .select()
+        .from(chatMessages)
+        .where(
+          and(
+            eq(chatMessages.sessionId, sessionId),
+            or(
+              lt(chatMessages.createdAt, anchor.createdAt),
+              and(
+                eq(chatMessages.createdAt, anchor.createdAt),
+                lt(chatMessages.id, anchor.id),
+              ),
+            ),
+          ),
+        )
+        .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id))
+        .limit(limit + 1)
+        .all()
+
+      const hasMore = rowsDesc.length > limit
+      const page = hasMore ? rowsDesc.slice(0, limit) : rowsDesc
+      return {
+        messages: page.reverse().map((r) => rowToUiMessage(r)),
+        hasMore,
+      }
+    }
+
+    const rowsDesc = await db
+      .select()
+      .from(chatMessages)
+      .where(eq(chatMessages.sessionId, sessionId))
+      .orderBy(desc(chatMessages.createdAt), desc(chatMessages.id))
+      .limit(limit + 1)
+      .all()
+
+    const hasMore = rowsDesc.length > limit
+    const page = hasMore ? rowsDesc.slice(0, limit) : rowsDesc
+    return {
+      messages: page.reverse().map((r) => rowToUiMessage(r)),
+      hasMore,
+    }
+  }
+}
+
+function rowToUiMessage(r: {
+  id: string
+  role: string
+  content: string
+}): UIMessage {
+  let content: unknown = r.content
+  try {
+    content = JSON.parse(r.content)
+  } catch {
+    /* keep raw string */
+  }
+
+  if (
+    content &&
+    typeof content === 'object' &&
+    !Array.isArray(content) &&
+    Array.isArray((content as { parts?: unknown }).parts)
+  ) {
+    const full = content as {
+      id?: string
+      role?: string
+      parts: UIMessage['parts']
+    }
+    return {
+      id: typeof full.id === 'string' ? full.id : r.id,
+      role: (full.role ?? r.role) as UIMessage['role'],
+      parts: full.parts,
+    } as UIMessage
+  }
+
+  return {
+    id: r.id,
+    role: r.role as UIMessage['role'],
+    parts: Array.isArray(content) ? content : [],
+    content: typeof content === 'string' ? content : '',
+  } as UIMessage
 }

@@ -37,6 +37,7 @@ import {
   sanitizeMessagesForToolset,
   stripUIImageOutputs,
 } from '../../agent/message-validation'
+import { projectMessagesForUi } from '../../agent/project-messages-for-ui'
 import { runTracker } from '../../agent/run-tracker'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
 import { applyToolApprovalDecisions } from '../../agent/tool-approval-resolve'
@@ -228,7 +229,7 @@ export class ChatService {
       fromSeq: input.lastSeq,
       signal: input.signal,
       fallbackMessages: live
-        ? filterValidMessages(live.agent.messages)
+        ? this.projectForUiClient(input.conversationId, live.agent.messages)
         : undefined,
     })
     if (!frames) return null
@@ -876,6 +877,7 @@ export class ChatService {
         agent: session.agent.toolLoopAgent,
         uiMessages: input.uiMessages,
         abortSignal: turnSignal,
+        conversationId: request.conversationId,
         onStepFinish: async ({ messages }) => {
           input.applyStreamMessages(messages)
           await this.checkpointMessages(
@@ -883,13 +885,13 @@ export class ChatService {
             session.agent.messages,
             false,
           )
-          const snapshot = filterValidMessages(session.agent.messages)
-          stripUIImageOutputs(
-            snapshot,
-            request.conversationId,
-            this.deps.sessionStore.imageStore,
+          conversationTurnRegistry.pushSnapshot(
+            turn.turnId,
+            this.projectForUiClient(
+              request.conversationId,
+              session.agent.messages,
+            ),
           )
-          conversationTurnRegistry.pushSnapshot(turn.turnId, snapshot)
         },
         onFinish: async ({ messages, isAborted }) => {
           try {
@@ -899,13 +901,13 @@ export class ChatService {
               session.agent.messages,
               true,
             )
-            const snapshot = filterValidMessages(session.agent.messages)
-            stripUIImageOutputs(
-              snapshot,
-              request.conversationId,
-              this.deps.sessionStore.imageStore,
+            conversationTurnRegistry.pushSnapshot(
+              turn.turnId,
+              this.projectForUiClient(
+                request.conversationId,
+                session.agent.messages,
+              ),
             )
-            conversationTurnRegistry.pushSnapshot(turn.turnId, snapshot)
             logger.info('Agent execution complete', {
               conversationId: request.conversationId,
               turnId: turn.turnId,
@@ -922,11 +924,37 @@ export class ChatService {
       return detachableUiStreamResponse(agentResponse, {
         httpSignal,
         turnId: turn.turnId,
+        uiProjection: {
+          sessionId: request.conversationId,
+          outputStore: this.deps.sessionStore.outputStore,
+        },
       })
     } catch (err) {
       await settleTurn(true)
       throw err
     }
+  }
+
+  /**
+   * UI wire projection: clone + spill fat tool bodies. Never mutates the
+   * agent transcript used for model context.
+   */
+  private projectForUiClient(
+    conversationId: string,
+    messages: UIMessage[],
+  ): UIMessage[] {
+    const valid = filterValidMessages(messages)
+    // Deep-clone so strip/spill cannot touch agent transcript object graphs.
+    const clone = structuredClone(valid) as UIMessage[]
+    stripUIImageOutputs(
+      clone,
+      conversationId,
+      this.deps.sessionStore.imageStore,
+    )
+    return projectMessagesForUi(clone, {
+      sessionId: conversationId,
+      outputStore: this.deps.sessionStore.outputStore,
+    })
   }
 
   private async checkpointMessages(
@@ -1025,19 +1053,16 @@ export class ChatService {
     if (!exists) {
       const live = this.deps.sessionStore.get(conversationId)
       if (!live) return null
-      const messages = filterValidMessages(live.agent.messages)
-      // Never serve inline image bytes to the client.
-      stripUIImageOutputs(
-        messages,
-        conversationId,
-        this.deps.sessionStore.imageStore,
-      )
-      return { id: conversationId, messages }
+      // Live agent keeps full fidelity; client receives UI projection only.
+      return {
+        id: conversationId,
+        messages: this.projectForUiClient(conversationId, live.agent.messages),
+      }
     }
     const messages = await this.deps.sessionStore.loadMessages(conversationId)
     const valid = filterValidMessages(messages)
-    // Lazy backfill: migrate fat legacy rows into tool_images and rewrite
-    // chat_messages so the next open stays thin (poison-session recovery).
+    // Lazy backfill: migrate fat legacy image rows into tool_images on the
+    // persisted agent transcript (model path), then project a UI clone.
     const stripped = stripUIImageOutputs(
       valid,
       conversationId,
@@ -1058,7 +1083,62 @@ export class ChatService {
         })
       }
     }
-    return { id: conversationId, messages: valid }
+    return {
+      id: conversationId,
+      messages: this.projectForUiClient(conversationId, valid),
+    }
+  }
+
+  /**
+   * Cursor-style history page from SQLite (or live session slice).
+   * Projects for UI only — does not load the full transcript into memory
+   * when the conversation is persisted.
+   */
+  async listConversationMessages(
+    conversationId: string,
+    options: { beforeId?: string; limit?: number } = {},
+  ): Promise<{
+    messages: UIMessage[]
+    hasMore: boolean
+  } | null> {
+    const limit = Math.max(1, Math.min(options.limit ?? 30, 100))
+    const exists =
+      await this.deps.sessionStore.hasPersistedSession(conversationId)
+
+    if (!exists) {
+      const live = this.deps.sessionStore.get(conversationId)
+      if (!live) return null
+      const all = filterValidMessages(live.agent.messages)
+      let end = all.length
+      if (options.beforeId) {
+        const idx = all.findIndex((m) => m.id === options.beforeId)
+        if (idx < 0) return { messages: [], hasMore: false }
+        end = idx
+      }
+      const start = Math.max(0, end - limit)
+      return {
+        messages: this.projectForUiClient(
+          conversationId,
+          all.slice(start, end),
+        ),
+        hasMore: start > 0,
+      }
+    }
+
+    const page = await this.deps.sessionStore.loadMessagesPage(conversationId, {
+      beforeId: options.beforeId,
+      limit,
+    })
+    // Image backfill on the page only (not the whole transcript).
+    stripUIImageOutputs(
+      page.messages,
+      conversationId,
+      this.deps.sessionStore.imageStore,
+    )
+    return {
+      messages: this.projectForUiClient(conversationId, page.messages),
+      hasMore: page.hasMore,
+    }
   }
 
   async importConversations(

@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { UIMessage } from 'ai'
 import { eq } from 'drizzle-orm'
-import { SessionStore, ToolImageStore } from '../../src/agent/session-store'
+import {
+  SessionStore,
+  ToolImageStore,
+  ToolOutputStore,
+} from '../../src/agent/session-store'
 import { closeDb, getDb, initializeDb } from '../../src/lib/db'
 import { chatSessions } from '../../src/lib/db/schema/chat-sessions'
 
@@ -294,5 +298,34 @@ describe('ToolImageStore', () => {
     expect(sessionStore.imageStore).toBeInstanceOf(ToolImageStore)
     // Same reference across calls
     expect(sessionStore.imageStore).toBe(sessionStore.imageStore)
+  })
+})
+
+describe('ToolOutputStore', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    const t = makeTmpDb()
+    tmpDir = t.tmpDir
+    initializeDb({ dbPath: t.dbPath, runMigrations: true })
+  })
+
+  afterEach(() => {
+    closeDb()
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('stores and retrieves JSON tool output by toolCallId', () => {
+    const store = new ToolOutputStore()
+    expect(store.store('s1', 'call-1', '{"ok":true}')).toBe(true)
+    expect(store.get('call-1')).toEqual({
+      data: '{"ok":true}',
+      mimeType: 'application/json',
+    })
+  })
+
+  it('SessionStore.outputStore is a shared ToolOutputStore instance', () => {
+    const sessionStore = new SessionStore()
+    expect(sessionStore.outputStore).toBeInstanceOf(ToolOutputStore)
   })
 })

@@ -43,7 +43,6 @@ export async function formatSnapshotResult(
           wrapUntrusted(excerpt, origin),
         ].join('\n'),
         structured: {
-          snapshot: wrappedSnapshot,
           path,
           contentLength,
           tokenEstimate,
@@ -59,7 +58,6 @@ export async function formatSnapshotResult(
           wrapUntrusted(excerpt, origin),
         ].join('\n'),
         structured: {
-          snapshot: wrappedSnapshot,
           contentLength,
           tokenEstimate,
           writtenToFile: false,
@@ -70,5 +68,13 @@ export async function formatSnapshotResult(
     }
   }
 
-  return { text: wrappedSnapshot, structured: { snapshot: wrappedSnapshot } }
+  return {
+    text: wrappedSnapshot,
+    // Do not duplicate the full tree in structuredContent — text already
+    // carries it for the model; UI projection spills/previews separately.
+    structured: {
+      contentLength,
+      tokenEstimate,
+    },
+  }
 }

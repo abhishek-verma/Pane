@@ -71,6 +71,8 @@ export const NewTabChat: FC = () => {
     denyTool,
     promoteTool,
     retryLastTurn,
+    hasMoreAbove,
+    loadOlderMessages,
   } = useChatActions({
     events: {
       modeChanged: NEWTAB_CHAT_MODE_CHANGED_EVENT,
@@ -210,6 +212,8 @@ export const NewTabChat: FC = () => {
             onApprove={approveTool}
             onDeny={denyTool}
             onPromote={promoteTool}
+            hasMoreAbove={hasMoreAbove}
+            onLoadOlder={loadOlderMessages}
           />
         )}
         {agentUrlError && (

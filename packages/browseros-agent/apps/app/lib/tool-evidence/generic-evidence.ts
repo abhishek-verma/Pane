@@ -20,6 +20,7 @@ export function buildGenericDetail(args: {
   label?: string
   subject?: string
   detailsUnavailable?: boolean
+  spilled?: boolean
 }): GenericToolDetail {
   let title =
     args.label ??
@@ -53,5 +54,6 @@ export function buildGenericDetail(args: {
     title,
     inputJson,
     outputText: truncate(args.outputText || '', GENERIC_JSON_MAX_CHARS),
+    spilled: args.spilled === true ? true : undefined,
   }
 }

@@ -7,7 +7,13 @@
  * the HTTP client disconnects. One branch is always fully consumed in the
  * background (drives onStepFinish/onFinish); the other is returned to the
  * caller and cancelled on httpSignal abort.
+ *
+ * The client branch is optionally projected (fat tool outputs spilled) so the
+ * extension renderer never accumulates multi‑MB SSE payloads mid-turn.
  */
+
+import type { ToolOutputStore } from './session-store'
+import { createSlimUiSseTransform } from './slim-ui-sse-stream'
 
 /**
  * Returns a Response whose body is cancelled when `httpSignal` aborts, while
@@ -18,6 +24,11 @@ export function detachableUiStreamResponse(
   options: {
     httpSignal: AbortSignal
     turnId: string
+    /** When set, slim fat tool-output SSE chunks on the client branch only. */
+    uiProjection?: {
+      sessionId: string
+      outputStore: ToolOutputStore
+    }
   },
 ): Response {
   const body = agentResponse.body
@@ -25,11 +36,15 @@ export function detachableUiStreamResponse(
     return withTurnHeader(agentResponse, options.turnId)
   }
 
-  const [forClient, forBackground] = body.tee()
+  const [forClientRaw, forBackground] = body.tee()
 
   void drainStream(forBackground).catch(() => {
     // Background drain errors are non-fatal; onFinish may still have run.
   })
+
+  const forClient = options.uiProjection
+    ? forClientRaw.pipeThrough(createSlimUiSseTransform(options.uiProjection))
+    : forClientRaw
 
   const headers = new Headers(agentResponse.headers)
   headers.set('X-Turn-Id', options.turnId)

@@ -70,7 +70,9 @@ function SpecializedCard({
         />
       )
     default:
-      return <GenericToolRow evidence={evidence} />
+      return (
+        <GenericToolRow evidence={evidence} conversationId={conversationId} />
+      )
   }
 }
 
@@ -232,7 +234,11 @@ export const ToolEvidenceList: FC<{
           <TaskTrigger title={genericsTitle} TriggerIcon={BotIcon} />
           <TaskContent>
             {generics.map(({ evidence }) => (
-              <GenericToolRow key={evidence.toolCallId} evidence={evidence} />
+              <GenericToolRow
+                key={evidence.toolCallId}
+                evidence={evidence}
+                conversationId={conversationId}
+              />
             ))}
           </TaskContent>
         </Task>

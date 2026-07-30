@@ -224,6 +224,57 @@ export function createChatRoutes(deps: ChatRouteDeps) {
       },
     )
     .get(
+      '/:conversationId/messages',
+      zValidator('param', ConversationIdParamSchema),
+      zValidator(
+        'query',
+        z.object({
+          beforeId: z.string().optional(),
+          limit: z.coerce.number().int().positive().max(100).optional(),
+        }),
+      ),
+      async (c) => {
+        const { conversationId } = c.req.valid('param')
+        const query = c.req.valid('query')
+        try {
+          const page = await service.listConversationMessages(conversationId, {
+            beforeId: query.beforeId,
+            limit: query.limit,
+          })
+          if (!page) {
+            return c.json({ error: 'Conversation not found' }, 404)
+          }
+          return c.json(page)
+        } catch (error) {
+          logger.error('Failed to list conversation messages', {
+            conversationId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return c.json({ error: 'Failed to list messages' }, 500)
+        }
+      },
+    )
+    .get(
+      '/:conversationId/tool-outputs/:toolCallId',
+      zValidator(
+        'param',
+        z.object({ conversationId: z.string(), toolCallId: z.string() }),
+      ),
+      async (c) => {
+        const { toolCallId } = c.req.valid('param')
+        const output = sessionStore.outputStore.get(toolCallId)
+        if (!output) {
+          return c.json({ error: 'Output not found' }, 404)
+        }
+        return new Response(output.data, {
+          headers: {
+            'Content-Type': output.mimeType,
+            'Cache-Control': 'private, max-age=60',
+          },
+        })
+      },
+    )
+    .get(
       '/:conversationId/tool-images/:toolCallId',
       zValidator(
         'param',

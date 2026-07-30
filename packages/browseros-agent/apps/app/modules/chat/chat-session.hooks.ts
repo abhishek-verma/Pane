@@ -28,7 +28,7 @@ import {
   excludeInFlightUserMessage,
   formatConversationHistory,
 } from '@/lib/conversations/formatConversationHistory'
-import { fetchChatConversation } from '@/lib/conversations/server-chat-history'
+import { fetchChatMessagePage } from '@/lib/conversations/server-chat-history'
 import { declinedAppsStorage } from '@/lib/declined-apps/storage'
 import { resolveChatProvider } from '@/lib/llm-providers/provider-runtime'
 import { resolveStoredChatProvider } from '@/lib/llm-providers/storage'
@@ -41,10 +41,12 @@ import {
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
+import { slimMessagesForClientUi } from '@/lib/tool-evidence/slim-messages-for-client-ui'
 import {
   isPoisonSessionPayload,
   stripFatInlineImagesFromMessages,
 } from '@/lib/tool-evidence/strip-inline-images'
+import { releaseMediaForMessages } from '@/lib/tool-evidence/tool-media-cache'
 import {
   formatReplayOutputForTool,
   patchToolInvocationInput,
@@ -57,6 +59,11 @@ import {
 } from '@/lib/trust/trust-pins-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
+import {
+  CHAT_PAGE_SIZE,
+  mergeOlderMessages,
+  takeNewestPage,
+} from '@/modules/chat/chat-history-window'
 import { useInvalidateCredits } from '@/modules/credits/credits.hooks'
 import { useGraphqlQuery } from '@/modules/graphql/graphql-query.hooks'
 import type { ToolInvocationInfo } from '@/screens/sidepanel/index/getMessageSegments'
@@ -259,6 +266,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
   const [conversationId, setConversationId] = useState(crypto.randomUUID())
+  const [hasMoreAbove, setHasMoreAbove] = useState(false)
   const conversationIdRef = useRef(conversationId)
   // The window this panel belongs to, resolved on mount in per-window scope.
   const windowIdRef = useRef<number | null>(null)
@@ -626,15 +634,29 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         turnControllerRef.current.attachToCurrent((next) => {
           if (!stillSameConversation()) return
           setMessages(
-            prepareMessagesForClientTurn(next, {
-              settleApprovals: false,
-              settleIncomplete: false,
-            }),
+            prepareMessagesForClientTurn(
+              slimMessagesForClientUi(stripFatInlineImagesFromMessages(next)),
+              {
+                settleApprovals: false,
+                settleIncomplete: false,
+              },
+            ),
           )
         })
       })
     },
   })
+
+  // Bound live useChat heap: truncate fat tool bodies as they stream in.
+  // Server still holds full fidelity; spilled expand uses /tool-outputs.
+  useEffect(() => {
+    const slimmed = slimMessagesForClientUi(
+      stripFatInlineImagesFromMessages(messages),
+    )
+    if (slimmed !== messages) {
+      setMessages(slimmed)
+    }
+  }, [messages, setMessages])
 
   // `addToolApprovalResponse` flips the tool part to `approval-responded`
   // synchronously but only kicks off the actual resume request (and the
@@ -685,15 +707,31 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const baseUrl = agentUrlRef.current
     if (!conversationId || !baseUrl) return
     let cancelled = false
-    void fetchChatConversation(conversationId, baseUrl)
-      .then((detail) => {
+    void fetchChatMessagePage(conversationId, {
+      limit: CHAT_PAGE_SIZE,
+      baseUrl,
+    })
+      .then((page) => {
         if (cancelled) return
+        setHasMoreAbove((prev) => prev || page.hasMore)
         setMessages((current) => {
           const { messages: next } = hydrateClientMessagesFromServer(
             current,
-            detail.messages,
+            stripFatInlineImagesFromMessages(page.messages),
           )
-          return next
+          // Plan: after settle, useChat holds a short resume window — not the
+          // full archive. Older turns reload via infinite scroll.
+          const trimmed = takeNewestPage(
+            slimMessagesForClientUi(next),
+            CHAT_PAGE_SIZE,
+          )
+          if (trimmed.length < next.length) {
+            const droppedIds = new Set(trimmed.map((m) => m.id))
+            releaseMediaForMessages(next.filter((m) => !droppedIds.has(m.id)))
+          }
+          return prepareMessagesForClientTurn(trimmed, {
+            settleApprovals: false,
+          })
         })
       })
       .catch(() => {
@@ -761,9 +799,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             return
           }
 
-          const detail = await fetchChatConversation(conversationId, baseUrl)
+          const page = await fetchChatMessagePage(conversationId, {
+            limit: CHAT_PAGE_SIZE,
+            baseUrl,
+          })
           if (cancelled) return
-          const serverAssistant = [...detail.messages]
+          const serverAssistant = [...page.messages]
             .reverse()
             .find((m) => m.role === 'assistant')
           if (!hasAssistantText(serverAssistant)) {
@@ -772,10 +813,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           }
 
           let hydrated = false
+          setHasMoreAbove((prev) => prev || page.hasMore)
           setMessages((current) => {
             const result = hydrateClientMessagesFromServer(
               current,
-              detail.messages,
+              stripFatInlineImagesFromMessages(page.messages),
             )
             hydrated = result.hydratedAssistantTurn
             return result.messages
@@ -847,12 +889,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const conversationId = conversationIdRef.current
     const baseUrl = agentUrlRef.current
     if (!conversationId || !baseUrl) return
-    void fetchChatConversation(conversationId, baseUrl)
-      .then((detail) => {
+    void fetchChatMessagePage(conversationId, {
+      limit: CHAT_PAGE_SIZE,
+      baseUrl,
+    })
+      .then((page) => {
+        setHasMoreAbove((prev) => prev || page.hasMore)
         setMessages((current) => {
           const { messages: next } = hydrateClientMessagesFromServer(
             current,
-            detail.messages,
+            stripFatInlineImagesFromMessages(page.messages),
           )
           return next
         })
@@ -928,6 +974,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       setRestoredConversationId(conversationIdParam)
       setSearchParams({}, { replace: true })
       setMessages([])
+      setHasMoreAbove(false)
       setConversationId(crypto.randomUUID())
     }
 
@@ -957,13 +1004,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           return 'inactive'
         }
 
-        const conversation = await fetchChatConversation(
-          conversationIdParam,
+        const page = await fetchChatMessagePage(conversationIdParam, {
+          limit: CHAT_PAGE_SIZE,
           baseUrl,
-        )
-        const safeMessages = stripFatInlineImagesFromMessages(
-          conversation.messages,
-        )
+        })
+        // Running turns need the live attach path; still start from a page
+        // and let attach replace with projected snapshots.
+        const safeMessages = stripFatInlineImagesFromMessages(page.messages)
         // Poison-session safe open: if the payload is still enormous after
         // stripping images, start a blank chat instead of crash-looping.
         if (isPoisonSessionPayload(safeMessages)) {
@@ -974,8 +1021,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         }
         setConversationId(restoredId)
         conversationIdRef.current = restoredId
+        setHasMoreAbove(page.hasMore)
         setMessages(
-          prepareMessagesForClientTurn(safeMessages, {
+          prepareMessagesForClientTurn(slimMessagesForClientUi(safeMessages), {
             settleApprovals: false,
             settleIncomplete: running ? false : undefined,
           }),
@@ -984,10 +1032,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         setSearchParams({}, { replace: true })
         if (running) {
           await turnControllerRef.current.restoreAndAttach({
-            conversationId: conversation.id,
+            conversationId: restoredId,
             onMessages: (next) => {
+              const projected = slimMessagesForClientUi(
+                stripFatInlineImagesFromMessages(next),
+              )
               setMessages(
-                prepareMessagesForClientTurn(next, {
+                prepareMessagesForClientTurn(projected, {
                   settleApprovals: false,
                   settleIncomplete: false,
                 }),
@@ -1007,6 +1058,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         setRestoredConversationId(conversationIdParam)
         setSearchParams({}, { replace: true })
         setMessages([])
+        setHasMoreAbove(false)
         setConversationId(crypto.randomUUID())
         return 'restored'
       }
@@ -1037,12 +1089,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           // Default settle turns stop-raced `approval-responded` into a false
           // `output-denied` even when the tool side effect already ran.
           const preparedMessages = prepareMessagesForClientTurn(
-            restoredMessages,
+            takeNewestPage(
+              slimMessagesForClientUi(restoredMessages),
+              CHAT_PAGE_SIZE,
+            ),
             { settleApprovals: false },
           )
           setConversationId(
             conversationIdParam as ReturnType<typeof crypto.randomUUID>,
           )
+          setHasMoreAbove(restoredMessages.length > preparedMessages.length)
           setMessages(preparedMessages)
           markMessagesAsSaved(conversationIdParam, preparedMessages)
         }
@@ -1309,6 +1365,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     // sync effect runs (home→sidepanel handoff was seeding previousConversation).
     messagesRef.current = []
     setMessages([])
+    setHasMoreAbove(false)
     setTextToAction(new Map())
     setLiked({})
     setDisliked({})
@@ -1464,12 +1521,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         const baseUrl = agentUrlRef.current
         if (conversationId && baseUrl) {
           try {
-            const detail = await fetchChatConversation(conversationId, baseUrl)
+            const page = await fetchChatMessagePage(conversationId, {
+              limit: CHAT_PAGE_SIZE,
+              baseUrl,
+            })
             let thisToolStillStuck = true
+            setHasMoreAbove((prev) => prev || page.hasMore)
             setMessages((current) => {
               const { messages: next } = hydrateClientMessagesFromServer(
                 current,
-                detail.messages,
+                stripFatInlineImagesFromMessages(page.messages),
               )
               for (const message of next) {
                 if (message.role !== 'assistant') continue
@@ -1556,6 +1617,35 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     [executeToolReplay],
   )
 
+  const loadOlderMessages = useCallback(async () => {
+    const conversationId = conversationIdRef.current
+    const baseUrl = agentUrlRef.current
+    if (!conversationId || !baseUrl || !hasMoreAbove) return
+    const oldestId = messagesRef.current[0]?.id
+    if (!oldestId) return
+    const page = await fetchChatMessagePage(conversationId, {
+      beforeId: oldestId,
+      limit: CHAT_PAGE_SIZE,
+      baseUrl,
+    })
+    setHasMoreAbove(page.hasMore)
+    if (page.messages.length === 0) return
+    setMessages((current) => {
+      const { messages: merged } = mergeOlderMessages({
+        current,
+        older: stripFatInlineImagesFromMessages(page.messages),
+        keepTail: isTurnActive ? 4 : 2,
+      })
+      const afterIds = new Set(merged.map((m) => m.id))
+      const dropped = current.filter((m) => !afterIds.has(m.id))
+      if (dropped.length > 0) releaseMediaForMessages(dropped)
+      return prepareMessagesForClientTurn(slimMessagesForClientUi(merged), {
+        settleApprovals: false,
+        settleIncomplete: isTurnActive ? false : undefined,
+      })
+    })
+  }, [hasMoreAbove, isTurnActive, setMessages])
+
   const isRestoringConversation =
     !!conversationIdParam && restoredConversationId !== conversationIdParam
 
@@ -1591,5 +1681,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     approveTool,
     denyTool,
     promoteTool,
+    hasMoreAbove,
+    loadOlderMessages,
   }
 }

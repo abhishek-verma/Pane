@@ -16,6 +16,12 @@ import {
   type UIMessageStreamOnFinishCallback,
   type UIMessageStreamOnStepFinishCallback,
 } from 'ai'
+import { logger } from '../lib/logger'
+import { hasMessageContent } from './message-validation'
+
+/** Shown when the model/stream ends with an empty assistant message. */
+export const EMPTY_AGENT_FINISH_MESSAGE =
+  'The agent stopped without a reply. Send another message to continue.'
 
 /** User-facing stream error text (never leak raw SDK stack names). */
 export function formatAgentStreamError(error: unknown): string {
@@ -63,6 +69,7 @@ export type DurableAgentUIStreamParams = {
   agent: any
   uiMessages: UIMessage[]
   abortSignal?: AbortSignal
+  conversationId?: string
   onStepFinish?: UIMessageStreamOnStepFinishCallback<UIMessage>
   onFinish?: UIMessageStreamOnFinishCallback<UIMessage>
   headers?: HeadersInit
@@ -71,6 +78,49 @@ export type DurableAgentUIStreamParams = {
   consumeSseStream?: (options: {
     stream: ReadableStream<string>
   }) => PromiseLike<void> | void
+}
+
+/**
+ * If the stream finished without aborting but the assistant has no parts,
+ * inject a short user-visible error so filterValidMessages cannot drop it
+ * and leave "continue" as a silent no-op.
+ */
+export function ensureNonEmptyAssistantFinish(input: {
+  messages: UIMessage[]
+  responseMessage: UIMessage
+  isAborted: boolean
+  errorText?: string | null
+  finishReason?: string
+  conversationId?: string
+}): { messages: UIMessage[]; responseMessage: UIMessage; filled: boolean } {
+  if (input.isAborted || hasMessageContent(input.responseMessage)) {
+    return {
+      messages: input.messages,
+      responseMessage: input.responseMessage,
+      filled: false,
+    }
+  }
+
+  const text =
+    (input.errorText && input.errorText.trim()) || EMPTY_AGENT_FINISH_MESSAGE
+  const filledMessage: UIMessage = {
+    ...input.responseMessage,
+    parts: [{ type: 'text', text }],
+  }
+  logger.warn('Empty agent finish; persisting recovery message', {
+    conversationId: input.conversationId,
+    finishReason: input.finishReason,
+    responseMessageId: input.responseMessage.id,
+    usedStreamError: Boolean(input.errorText?.trim()),
+  })
+
+  const idx = input.messages.findIndex((m) => m.id === filledMessage.id)
+  const messages =
+    idx >= 0
+      ? input.messages.map((m, i) => (i === idx ? filledMessage : m))
+      : [...input.messages, filledMessage]
+
+  return { messages, responseMessage: filledMessage, filled: true }
 }
 
 export async function createDurableAgentUIStreamResponse(
@@ -88,11 +138,34 @@ export async function createDurableAgentUIStreamResponse(
     consumeSseStream,
   } = params
 
+  let lastStreamError: string | null = null
+
   const stream = createUIMessageStream({
     originalMessages: uiMessages,
     onStepFinish,
-    onFinish,
-    onError: formatAgentStreamError,
+    onFinish: onFinish
+      ? async (event) => {
+          const ensured = ensureNonEmptyAssistantFinish({
+            messages: event.messages,
+            responseMessage: event.responseMessage,
+            isAborted: event.isAborted,
+            errorText: lastStreamError,
+            finishReason: event.finishReason,
+            conversationId: params.conversationId,
+          })
+          await onFinish({
+            ...event,
+            messages: ensured.messages,
+            responseMessage: ensured.responseMessage,
+          })
+        }
+      : undefined,
+    onError: (error) => {
+      const text = formatAgentStreamError(error)
+      lastStreamError = text
+      logger.warn('Agent UI stream error', { error: text })
+      return text
+    },
     execute: async ({ writer }) => {
       // Omit onFinish/onStepFinish so createAgentUIStream returns raw chunks;
       // createUIMessageStream owns message-level persistence callbacks.

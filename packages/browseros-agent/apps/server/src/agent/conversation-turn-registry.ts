@@ -50,7 +50,7 @@ class SnapshotRingBuffer {
   /** Latest snapshot for cold attach when the ring was truncated. */
   latestSnapshot: UIMessage[] | null = null
 
-  constructor(capacity = 500) {
+  constructor(capacity = 32) {
     this.capacity = capacity
   }
 
