@@ -132,7 +132,7 @@ async function loadContinuity(
     }
   }
 
-  return mergeContinuityBlocks(blocks, liveApprovals, 5)
+  return mergeContinuityBlocks(liveApprovals, blocks, 5)
 }
 
 /** Empty projection for error fallback — keeps /scheduler/home stable. */

@@ -106,6 +106,28 @@ describe('pi continuity sources', () => {
     expect(block.route).toBeUndefined()
   })
 
+  it('prefers live approvals over a full persisted continuity list', async () => {
+    setup()
+    createPendingApproval({
+      runId: 'run-live',
+      conversationId: 'c-live',
+      toolCallId: 'tc',
+      toolName: 'act',
+      consequenceClass: 'write-external',
+      preview: 'Needs approval: click e9',
+    })
+    await writeHomeContinuity([
+      { id: 'a', title: 'A', body: '1' },
+      { id: 'b', title: 'B', body: '2' },
+      { id: 'c', title: 'C', body: '3' },
+      { id: 'd', title: 'D', body: '4' },
+      { id: 'e', title: 'E', body: '5' },
+    ])
+    const projection = await buildPiHomeProjection()
+    expect(projection.continuity[0]?.id.startsWith('approval-')).toBe(true)
+    expect(projection.continuity).toHaveLength(5)
+  })
+
   it('home revise persists continuity file', async () => {
     setup()
     await writeHomeContinuity([
