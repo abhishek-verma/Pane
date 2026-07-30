@@ -50,6 +50,19 @@ export function resolveStepIdempotencyKey(ctx: GateContext): string {
   return ctx.runId ?? 'unattended'
 }
 
+/**
+ * Entity-page BTF materialize is user-initiated (opened the company page) but
+ * drained as isScheduledTask/unattended. Channel-approving every pi_page_patch
+ * hung dogfood for 45 minutes while the page stayed on "More sections loading…".
+ * Auto-allow the whole materialize run; tool guards still block create/ensure/
+ * cross-page patch.
+ */
+export function isPiMaterializeScheduledRun(ctx: GateContext): boolean {
+  if (!ctx.scheduledRunId) return false
+  const run = getScheduledRun(ctx.scheduledRunId)
+  return run?.source === 'pi-materialize'
+}
+
 function skipIfCompletedStep(
   toolName: string,
   args: Record<string, unknown>,
@@ -337,7 +350,20 @@ export function wrapToolWithGate<T extends Tool>(
       const preview = buildLoopApprovalPreview(toolName, args)
 
       // Unattended: pause via channel, never auto-approve on silence.
+      // Exception: pi-materialize — user opened the entity page; channel
+      // approval made BTF hang for DEFAULT_APPROVAL_TIMEOUT (45m).
       if (ctx.unattended) {
+        if (isPiMaterializeScheduledRun(ctx)) {
+          logGateDecision(
+            toolName,
+            args,
+            ctx,
+            cls,
+            'executed',
+            `pi-materialize auto-allow: ${preview}`,
+          )
+          return false
+        }
         const runId = ctx.runId ?? 'unattended'
         const fp = stepFingerprint(
           toolName,
@@ -380,7 +406,12 @@ export function wrapToolWithGate<T extends Tool>(
         throw new Error(`Tool ${toolName} has no execute function`)
       }
 
-      if (ctx.unattended && isConsequentialClass(cls) && !isPromoted(args)) {
+      if (
+        ctx.unattended &&
+        isConsequentialClass(cls) &&
+        !isPromoted(args) &&
+        !isPiMaterializeScheduledRun(ctx)
+      ) {
         const runId = ctx.runId ?? 'unattended'
         const fp = stepFingerprint(
           toolName,

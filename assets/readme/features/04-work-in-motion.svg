@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Work in motion — a scheduled Pane task finishes while the user is away and surfaces its result">
+  <defs>
+  <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#C8E832"/>
+    <stop offset="100%" stop-color="#94B316"/>
+  </linearGradient>
+  <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+    <path d="M80 0H0V80" fill="none" stroke="#111113" stroke-opacity="0.04"/>
+  </pattern>
+  <clipPath id="win">
+    <rect x="40" y="36" width="880" height="468" rx="5"/>
+  </clipPath>
+  <style><![CDATA[
+
+  .sans, text:not(.mono) { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 0.04em; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+  }
+
+
+  .live { animation: livePulse 2.4s ease-in-out infinite; }
+  @keyframes livePulse {
+    0%,100% { stroke-opacity: 0.3; }
+    50% { stroke-opacity: 0.75; }
+  }
+  .dot { animation: blink 1.6s steps(1) infinite; }
+  @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: 0.25; } }
+
+  ]]></style></defs>
+  <rect width="960" height="540" fill="#FFFFFF"/>
+  <rect width="960" height="540" fill="url(#grid)"/>
+
+
+  <g clip-path="url(#win)">
+    <rect x="40" y="36" width="880" height="468" fill="#FFFFFF" stroke="#E2E2E2" stroke-width="1"/>
+    <rect x="40" y="36" width="880" height="32" fill="#FFFFFF"/>
+    <line x1="40" y1="68" x2="920" y2="68" stroke="#E2E2E2"/>
+    <text class="mono" x="56" y="57" fill="#6B6B72" font-size="10">PANE / HOME</text>
+    <circle cx="830" cy="52" r="3.5" fill="#C8E832"/>
+    <text class="mono" x="902" y="57" text-anchor="end" fill="#6B6B72" font-size="10">PANE RUNNING</text>
+    <rect x="40" y="68" width="580" height="436" fill="#FFFFFF"/>
+    <line x1="620" y1="68" x2="620" y2="504" stroke="#E2E2E2"/>
+
+    <text x="64" y="96" fill="#111113" font-size="20" font-weight="600" letter-spacing="-0.02em">While you were away</text>
+    <text class="mono" x="64" y="116" fill="#6B6B72" font-size="10">LOCAL RUNS · COMPLETED WHILE PANE WAS OPEN</text>
+
+
+    <rect x="64" y="132" width="532" height="64" rx="5" fill="#FAFAFA" stroke="#E2E2E2"/>
+    <text x="78" y="156" fill="#6B6B72" font-size="12">Ask Pane to start living work…</text>
+    <line x1="76" y1="168" x2="544" y2="168" stroke="#E2E2E2"/>
+    <text class="mono" x="78" y="184" fill="#6B6B72" font-size="9">PANE</text>
+    <text class="mono" x="160" y="184" fill="#6B6B72" font-size="9">WORKSPACE</text>
+    <circle cx="572" cy="164" r="12" fill="#C8E832"/>
+    <path d="M567 164h10M573 160l4 4-4 4" fill="none" stroke="#1A1F0A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+
+    <text class="mono" x="64" y="224" fill="#6B6B72" font-size="9">TODAY · CONTINUITY</text>
+    <line x1="64" y1="234" x2="596" y2="234" stroke="#E2E2E2"/>
+
+    <g transform="translate(64 252)">
+      <line x1="0" y1="0" x2="532" y2="0" stroke="#E2E2E2"/>
+      <circle cx="8" cy="24" r="4" fill="#94B316"/>
+      <text x="24" y="22" fill="#111113" font-size="13" font-weight="600">Competitor scan finished</text>
+      <text x="24" y="42" fill="#6B6B72" font-size="11">12 changes grouped in your Research site</text>
+      <text class="mono" x="532" y="22" text-anchor="end" fill="#6B6B72" font-size="8">2 MIN AGO</text>
+      <line x1="0" y1="58" x2="532" y2="58" stroke="#E2E2E2"/>
+    </g>
+
+    <g transform="translate(64 326)">
+      <circle cx="8" cy="24" r="4" fill="#C8E832"/>
+      <text x="24" y="22" fill="#111113" font-size="13" font-weight="600">Reply draft needs approval</text>
+      <text x="24" y="42" fill="#6B6B72" font-size="11">Pane stopped before sending it</text>
+      <text class="mono" x="532" y="22" text-anchor="end" fill="#6B6B72" font-size="8">WAITING</text>
+      <line x1="0" y1="58" x2="532" y2="58" stroke="#E2E2E2"/>
+    </g>
+
+    <g transform="translate(64 400)">
+      <text class="mono" x="0" y="0" fill="#6B6B72" font-size="9">DOORWAY</text>
+      <text x="0" y="24" fill="#111113" font-size="13" font-weight="500">Research Hub → 12 new findings</text>
+      <text x="532" y="24" text-anchor="end" fill="#6B6B72" font-size="12">Open site →</text>
+    </g>
+
+
+    <rect x="620" y="68" width="300" height="436" fill="#FFFFFF"/>
+    <text class="mono" x="636" y="96" fill="#6B6B72" font-size="10">RUN HISTORY</text>
+    <line x1="620" y1="108" x2="920" y2="108" stroke="#E2E2E2"/>
+
+    <g transform="translate(636 124)">
+      <rect class="live" width="268" height="104" rx="5" fill="#FFFFFF" stroke="#C8E832" stroke-width="1.5"/>
+      <circle class="dot" cx="16" cy="22" r="3.5" fill="#C8E832"/>
+      <text x="28" y="26" fill="#111113" font-size="13" font-weight="600">Weekly competitor scan</text>
+      <text class="mono" x="12" y="52" fill="#6B6B72" font-size="9">FRIDAYS · 4:00 PM</text>
+      <text class="mono" x="12" y="72" fill="#6B6B72" font-size="9">STATUS · COMPLETE</text>
+      <text class="mono" x="12" y="92" fill="#6B6B72" font-size="9">BROWSER AVAILABLE · LOCAL</text>
+    </g>
+    <g transform="translate(636 244)">
+      <rect width="268" height="100" rx="5" fill="#FFFFFF" stroke="#E2E2E2"/>
+      <rect x="0" y="5" width="2" height="90" fill="#C8E832"/>
+      <text class="mono" x="14" y="22" fill="#6B6B72" font-size="9">APPROVAL REQUIRED</text>
+      <text x="14" y="46" fill="#111113" font-size="12" font-weight="500">Send the drafted reply?</text>
+      <rect x="14" y="60" width="86" height="28" rx="5" fill="#C8E832"/>
+      <text x="57" y="79" text-anchor="middle" fill="#1A1F0A" font-size="11" font-weight="600">Review</text>
+      <text class="mono" x="116" y="78" fill="#6B6B72" font-size="8">NOT SENT</text>
+    </g>
+
+    <rect x="632" y="436" width="276" height="56" rx="5" fill="#FAFAFA" stroke="#E2E2E2"/>
+    <text x="644" y="458" fill="#6B6B72" font-size="11">Ask Pane anything</text>
+    <line x1="642" y1="468" x2="860" y2="468" stroke="#E2E2E2"/>
+    <text class="mono" x="644" y="482" fill="#6B6B72" font-size="9">PANE</text>
+    <circle cx="886" cy="464" r="11" fill="#C8E832"/>
+    <path d="M881 464h10M887 460l4 4-4 4" fill="none" stroke="#1A1F0A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  </g>
+</svg>

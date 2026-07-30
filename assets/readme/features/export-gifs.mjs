@@ -70,7 +70,7 @@ function pageHtml(svgMarkup) {
       `<svg$1 width="${WIDTH}" height="${HEIGHT}" style="display:block;width:${WIDTH}px;height:${HEIGHT}px">`,
     );
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    html,body{margin:0;padding:0;background:#f4f1ee;overflow:hidden;width:${WIDTH}px;height:${HEIGHT}px}
+    html,body{margin:0;padding:0;background:#FFFFFF;overflow:hidden;width:${WIDTH}px;height:${HEIGHT}px}
   </style></head><body>${inline}</body></html>`;
 }
 

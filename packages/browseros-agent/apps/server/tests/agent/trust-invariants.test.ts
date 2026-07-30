@@ -563,6 +563,46 @@ describe('wrapToolWithGate scheduled-run idempotency', () => {
     tempDirs.length = 0
   })
 
+  it('auto-allows consequential tools for pi-materialize scheduled runs', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'browseros-gate-mat-'))
+    tempDirs.push(dir)
+    initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
+    const run = createRunRecord({
+      source: 'pi-materialize',
+      sourceId: 'page_abc',
+      prompt: 'materialize',
+      idempotencyKey: 'pi-materialize:s:e:page_abc',
+    })
+    let executed = false
+    const underlying = tool({
+      description: 'fake patch',
+      inputSchema: z.object({ pageId: z.string() }),
+      execute: async () => {
+        executed = true
+        return { text: 'patched' }
+      },
+    })
+    const ctx = makeCtx({
+      surface: 'loop',
+      unattended: true,
+      scheduledRunId: run.id,
+      idempotencyKey: run.idempotencyKey,
+      runId: 'chat-run-1',
+    })
+    const wrapped = wrapToolWithGate('pi_page_patch', underlying, () => ctx)
+    const needs = await wrapped.needsApproval?.(
+      { pageId: 'page_abc' },
+      { toolCallId: 'tc1', messages: [] },
+    )
+    expect(needs).toBe(false)
+    const res = await wrapped.execute?.(
+      { pageId: 'page_abc' },
+      { toolCallId: 'tc-mat', messages: [] },
+    )
+    expect(executed).toBe(true)
+    expect(String((res as { text?: string })?.text ?? '')).toContain('patched')
+  })
+
   it('skips consequential execute when fingerprint already completed', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'browseros-gate-idem-'))
     tempDirs.push(dir)

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Pane README feature animations — product-window mockups with subtle motion.
+ * Pane README feature animations — Living Grid product mocks with subtle motion.
  * Run: node assets/readme/features/_generate.mjs
  * Then: node assets/readme/features/export-gifs.mjs  (needs ffmpeg + local playwright)
  */
@@ -17,47 +17,67 @@ const WX = 40;
 const WY = 36;
 const WW = 880;
 const WH = 468;
-const BAR = 40;
-const BODY_Y = WY + BAR; // 76
+const BAR = 32;
+const BODY_Y = WY + BAR; // 68
 const DIV = WX + 580; // 620 — main | agent
 const MAIN_W = DIV - WX; // 580
 const PANEL_W = WX + WW - DIV; // 300
 const PANEL_X = DIV;
+const RX = 5; // consoles / regions — Living Grid max ~6px
 
-const FONT =
-  "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+// Living Grid tokens
+const WHITE = "#FFFFFF";
+const CHARCOAL = "#1A1B22";
+const CITRON = "#C8E832";
+const CITRON_DEEP = "#94B316";
+const BORDER = "#E2E2E2";
+const BORDER_DARK = "#2E2E33";
+const INK = "#111113";
+const MUTED = "#6B6B72";
+const COMPOSER_BG = "#FAFAFA";
+const SEND_ARROW = "#1A1F0A";
+const PANEL_BG = "#FFFFFF";
+
+/** Rich paper fields — match living-grid tokens (higher chroma, not pale wash). */
+const FIELD = {
+  rust: "#E8B8AE",
+  ember: "#E8C49A",
+  amber: "#E5D478",
+  clay: "#DCC9A0",
+  moss: "#B8D48A",
+  petrol: "#8FCFC0",
+  dust: "#A8C0E8",
+  iris: "#C0B0E8",
+  plum: "#E0A8C8",
+  slate: "#C4C8D4",
+};
+
+const SANS =
+  "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const MONO =
+  "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 
 const baseCss = `
-  text, .font { font-family: ${FONT}; }
+  .sans, text:not(.mono) { font-family: ${SANS}; }
+  .mono { font-family: ${MONO}; letter-spacing: 0.04em; }
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; }
   }
 `;
 
 function defs(extraCss = "") {
+  // 12-column grid across the 960 canvas (~80px columns)
+  const col = W / 12;
   return `
-  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#f4f1ee"/>
-    <stop offset="50%" stop-color="#ebe7e2"/>
-    <stop offset="100%" stop-color="#e4dfd8"/>
-  </linearGradient>
-  <radialGradient id="glow" cx="70%" cy="40%" r="45%">
-    <stop offset="0%" stop-color="#94B316" stop-opacity="0.16"/>
-    <stop offset="55%" stop-color="#94B316" stop-opacity="0.05"/>
-    <stop offset="100%" stop-color="#94B316" stop-opacity="0"/>
-  </radialGradient>
   <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#C8E832"/>
-    <stop offset="100%" stop-color="#94B316"/>
+    <stop offset="0%" stop-color="${CITRON}"/>
+    <stop offset="100%" stop-color="${CITRON_DEEP}"/>
   </linearGradient>
-  <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
-    <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.05"/>
+  <pattern id="grid" width="${col}" height="${col}" patternUnits="userSpaceOnUse">
+    <path d="M${col} 0H0V${col}" fill="none" stroke="${INK}" stroke-opacity="0.04"/>
   </pattern>
-  <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
-    <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#1c1814" flood-opacity="0.12"/>
-  </filter>
   <clipPath id="win">
-    <rect x="${WX}" y="${WY}" width="${WW}" height="${WH}" rx="16"/>
+    <rect x="${WX}" y="${WY}" width="${WW}" height="${WH}" rx="${RX}"/>
   </clipPath>
   <style><![CDATA[
 ${baseCss}
@@ -65,49 +85,79 @@ ${extraCss}
   ]]></style>`;
 }
 
-function chrome(url) {
+/** Thin top rail: mono breadcrumb left, live state + citron dot right. No traffic lights. */
+function chrome(breadcrumb, state = "AGENT IDLE", opts = {}) {
+  const { showDivider = true, mainFill = WHITE } = opts;
+  const stateX = WX + WW - 18;
   return `
-  <g filter="url(#shadow)">
-    <rect x="${WX}" y="${WY}" width="${WW}" height="${WH}" rx="16" fill="#ffffff"/>
-  </g>
   <g clip-path="url(#win)">
-    <rect x="${WX}" y="${WY}" width="${WW}" height="${WH}" fill="#ffffff"/>
-    <rect x="${WX}" y="${WY}" width="${WW}" height="${BAR}" fill="#f5f2ef"/>
-    <line x1="${WX}" y1="${BODY_Y}" x2="${WX + WW}" y2="${BODY_Y}" stroke="#1c1814" stroke-opacity="0.05"/>
-    <circle cx="${WX + 22}" cy="${WY + 20}" r="5" fill="#ff5f57"/>
-    <circle cx="${WX + 40}" cy="${WY + 20}" r="5" fill="#febc2e"/>
-    <circle cx="${WX + 58}" cy="${WY + 20}" r="5" fill="#28c840"/>
-    <g transform="translate(${WX + 84} ${WY + 12})" stroke="#7a7268" stroke-opacity="0.85" stroke-width="1.4" stroke-linecap="round">
-      <rect x="0" y="0" width="16" height="16" rx="4.5" fill="none"/>
-      <line x1="6" y1="2" x2="6" y2="14"/>
-    </g>
-    <path d="M${WX + 124} ${WY + 12} l-8 8 8 8" fill="none" stroke="#7a7268" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M${WX + 144} ${WY + 12} l8 8 -8 8" fill="none" stroke="#c4bbb2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="${WX + 168}" y="${WY + 8}" width="520" height="24" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.05"/>
-    <text x="${WX + 184}" y="${WY + 24}" fill="#7a7268" font-size="12">${esc(url)}</text>
-    <line x1="${DIV}" y1="${BODY_Y}" x2="${DIV}" y2="${WY + WH}" stroke="#1c1814" stroke-opacity="0.06"/>
+    <rect x="${WX}" y="${WY}" width="${WW}" height="${WH}" fill="${WHITE}" stroke="${BORDER}" stroke-width="1"/>
+    <rect x="${WX}" y="${WY}" width="${WW}" height="${BAR}" fill="${WHITE}"/>
+    <line x1="${WX}" y1="${BODY_Y}" x2="${WX + WW}" y2="${BODY_Y}" stroke="${BORDER}"/>
+    <text class="mono" x="${WX + 16}" y="${WY + 21}" fill="${MUTED}" font-size="10">${esc(breadcrumb)}</text>
+    <circle cx="${stateX - 72}" cy="${WY + 16}" r="3.5" fill="${CITRON}"/>
+    <text class="mono" x="${stateX}" y="${WY + 21}" text-anchor="end" fill="${MUTED}" font-size="10">${esc(state)}</text>
+    <rect x="${WX}" y="${BODY_Y}" width="${MAIN_W}" height="${WH - BAR}" fill="${mainFill}"/>
+    ${showDivider ? `<line x1="${DIV}" y1="${BODY_Y}" x2="${DIV}" y2="${WY + WH}" stroke="${BORDER}"/>` : ""}
 `;
 }
 
-function panelHeader(subtitle = "on this tab") {
+/** Full-width chrome (no side panel). */
+function chromeFull(breadcrumb, state = "AGENT IDLE", opts = {}) {
+  const { mainFill = WHITE } = opts;
+  const stateX = WX + WW - 18;
   return `
-    <rect x="${PANEL_X}" y="${BODY_Y}" width="${PANEL_W}" height="${WH - BAR}" fill="#f3f0ec"/>
-    <g transform="translate(${PANEL_X + 18} ${BODY_Y + 20}) scale(0.14)">
-      <path fill="#94B316" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
-    </g>
-    <text x="${PANEL_X + 40}" y="${BODY_Y + 32}" fill="#3d3731" font-size="13" font-weight="600">Pane</text>
-    <circle cx="${PANEL_X + PANEL_W - 20}" cy="${BODY_Y + 26}" r="4" fill="#5fb872"/>
-    <text x="${PANEL_X + PANEL_W - 32}" y="${BODY_Y + 31}" text-anchor="end" fill="#8a8278" font-size="11">${esc(subtitle)}</text>
+  <g clip-path="url(#win)">
+    <rect x="${WX}" y="${WY}" width="${WW}" height="${WH}" fill="${WHITE}" stroke="${BORDER}" stroke-width="1"/>
+    <rect x="${WX}" y="${WY}" width="${WW}" height="${BAR}" fill="${WHITE}"/>
+    <line x1="${WX}" y1="${BODY_Y}" x2="${WX + WW}" y2="${BODY_Y}" stroke="${BORDER}"/>
+    <text class="mono" x="${WX + 16}" y="${WY + 21}" fill="${MUTED}" font-size="10">${esc(breadcrumb)}</text>
+    <circle cx="${stateX - 72}" cy="${WY + 16}" r="3.5" fill="${CITRON}"/>
+    <text class="mono" x="${stateX}" y="${WY + 21}" text-anchor="end" fill="${MUTED}" font-size="10">${esc(state)}</text>
+    <rect x="${WX}" y="${BODY_Y}" width="${WW}" height="${WH - BAR}" fill="${mainFill}"/>
 `;
 }
 
+function panelHeader(label = "AGENT") {
+  return `
+    <rect x="${PANEL_X}" y="${BODY_Y}" width="${PANEL_W}" height="${WH - BAR}" fill="${PANEL_BG}"/>
+    <text class="mono" x="${PANEL_X + 16}" y="${BODY_Y + 28}" fill="${MUTED}" font-size="10">${esc(label)}</text>
+    <line x1="${PANEL_X}" y1="${BODY_Y + 40}" x2="${PANEL_X + PANEL_W}" y2="${BODY_Y + 40}" stroke="${BORDER}"/>
+`;
+}
+
+/** Living Grid composer: bordered console, compact input, circular citron send. */
 function composer() {
-  const y = WY + WH - 52;
+  const pad = 12;
+  const x = PANEL_X + pad;
+  const w = PANEL_W - pad * 2;
+  const h = 56;
+  const y = WY + WH - h - pad;
+  const sendCx = x + w - 22;
+  const sendCy = y + h / 2;
   return `
-    <rect x="${PANEL_X + 16}" y="${y}" width="${PANEL_W - 32}" height="36" rx="18" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.07"/>
-    <text x="${PANEL_X + 32}" y="${y + 22}" fill="#8a8278" font-size="12">Ask Pane anything</text>
-    <circle cx="${PANEL_X + PANEL_W - 34}" cy="${y + 18}" r="12" fill="url(#accent)"/>
-    <path d="M${PANEL_X + PANEL_W - 39} ${y + 18}h10M${PANEL_X + PANEL_W - 33} ${y + 14}l4 4-4 4" fill="none" stroke="#2a1606" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${RX}" fill="${COMPOSER_BG}" stroke="${BORDER}"/>
+    <text x="${x + 12}" y="${y + 22}" fill="${MUTED}" font-size="11">Ask Pane anything</text>
+    <line x1="${x + 10}" y1="${y + 32}" x2="${x + w - 48}" y2="${y + 32}" stroke="${BORDER}"/>
+    <text class="mono" x="${x + 12}" y="${y + 46}" fill="${MUTED}" font-size="9">PANE</text>
+    <circle cx="${sendCx}" cy="${sendCy}" r="11" fill="${CITRON}"/>
+    <path d="M${sendCx - 5} ${sendCy}h10M${sendCx + 1} ${sendCy - 4}l4 4-4 4" fill="none" stroke="${SEND_ARROW}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+`;
+}
+
+/** Home composer (wider, in main column). */
+function homeComposer(x, y, w) {
+  const h = 64;
+  const sendCx = x + w - 24;
+  const sendCy = y + h / 2;
+  return `
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${RX}" fill="${COMPOSER_BG}" stroke="${BORDER}"/>
+    <text x="${x + 14}" y="${y + 24}" fill="${MUTED}" font-size="12">Ask Pane to start living work…</text>
+    <line x1="${x + 12}" y1="${y + 36}" x2="${x + w - 52}" y2="${y + 36}" stroke="${BORDER}"/>
+    <text class="mono" x="${x + 14}" y="${y + 52}" fill="${MUTED}" font-size="9">PANE</text>
+    <text class="mono" x="${x + 96}" y="${y + 52}" fill="${MUTED}" font-size="9">WORKSPACE</text>
+    <circle cx="${sendCx}" cy="${sendCy}" r="12" fill="${CITRON}"/>
+    <path d="M${sendCx - 5} ${sendCy}h10M${sendCx + 1} ${sendCy - 4}l4 4-4 4" fill="none" stroke="${SEND_ARROW}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 `;
 }
 
@@ -119,9 +169,8 @@ function wrap(aria, css, body) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">
   <defs>${defs(css)}</defs>
-  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+  <rect width="${W}" height="${H}" fill="${WHITE}"/>
   <rect width="${W}" height="${H}" fill="url(#grid)"/>
-  <rect width="${W}" height="${H}" fill="url(#glow)"/>
 ${body}
 </svg>
 `;
@@ -135,10 +184,36 @@ function esc(s) {
     .replaceAll('"', "&quot;");
 }
 
-function card(x, y, w, h, accent) {
+/** Hairline region — optional 2px citron left rail (tool traces). */
+function card(x, y, w, h, { rail = false, fill = WHITE } = {}) {
   return `
-    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.05"/>
-    ${accent ? `<rect x="${x}" y="${y}" width="3" height="${h}" rx="1.5" fill="${accent}"/>` : ""}`;
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${RX}" fill="${fill}" stroke="${BORDER}"/>
+    ${rail ? `<rect x="${x}" y="${y + 4}" width="2" height="${h - 8}" fill="${CITRON}"/>` : ""}`;
+}
+
+function toolTrace(x, y, w, h, name, lines) {
+  // Compact single-line traces put the detail on the same row as the mono label.
+  if (lines.length === 1 && h <= 40) {
+    return `
+    ${card(x, y, w, h, { rail: true })}
+    <text class="mono" x="${x + 14}" y="${y + h / 2 + 4}" fill="${MUTED}" font-size="9">${esc(name)}</text>
+    <text x="${x + 14 + name.length * 6.2 + 10}" y="${y + h / 2 + 4}" fill="${INK}" font-size="11">${esc(lines[0])}</text>`;
+  }
+  const lineEls = lines
+    .map(
+      (t, i) =>
+        `<text x="${x + 14}" y="${y + 36 + i * 16}" fill="${i === 0 ? INK : MUTED}" font-size="11">${esc(t)}</text>`,
+    )
+    .join("\n");
+  return `
+    ${card(x, y, w, h, { rail: true })}
+    <text class="mono" x="${x + 14}" y="${y + 18}" fill="${MUTED}" font-size="9">${esc(name)}</text>
+    ${lineEls}`;
+}
+
+function msgRow(x, y, w, text, { user = false } = {}) {
+  return `
+    <text x="${x}" y="${y}" fill="${user ? INK : MUTED}" font-size="${user ? 12 : 11.5}"${user ? ' font-weight="500"' : ""}>${esc(text)}</text>`;
 }
 
 // ─── Scenes ───────────────────────────────────────────────────────────
@@ -161,65 +236,66 @@ const scenes = {
   }
 `,
     body: (() => {
-      const mx = WX + 28;
-      const my = BODY_Y + 28;
+      const mx = WX + 24;
+      const my = BODY_Y + 24;
       const px = PANEL_X + 16;
+      const pw = PANEL_W - 32;
       return `
-${chrome("meet.google.com/abc-defg-hij")}
+${chrome("PANE / HOME / MEETINGS", "RECORDING")}
     <!-- main: call -->
-    <rect x="${WX}" y="${BODY_Y}" width="${MAIN_W}" height="${WH - BAR}" fill="#faf9f7"/>
     <g class="rec-dot">
-      <circle cx="${mx + 8}" cy="${my + 6}" r="5" fill="#e05a4f"/>
+      <circle cx="${mx + 6}" cy="${my + 4}" r="4" fill="#C44A3A"/>
     </g>
-    <text x="${mx + 22}" y="${my + 10}" fill="#4a433c" font-size="12" font-weight="600">Recording locally</text>
-    <rect x="${mx + 340}" y="${my - 6}" width="148" height="28" rx="14" fill="#f5f2ef" stroke="#5fb872" stroke-opacity="0.4"/>
-    <text x="${mx + 414}" y="${my + 12}" text-anchor="middle" fill="#1f8f4e" font-size="11">No bot joined</text>
+    <text class="mono" x="${mx + 18}" y="${my + 8}" fill="${MUTED}" font-size="10">RECORDING LOCALLY</text>
+    <rect x="${mx + 340}" y="${my - 8}" width="148" height="24" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+    <text class="mono" x="${mx + 414}" y="${my + 8}" text-anchor="middle" fill="${MUTED}" font-size="9">NO BOT JOINED</text>
 
-    <circle cx="${WX + MAIN_W / 2}" cy="${BODY_Y + 168}" r="52" fill="#F4F7E0" stroke="#1c1814" stroke-opacity="0.06"/>
-    <circle cx="${WX + MAIN_W / 2}" cy="${BODY_Y + 160}" r="20" fill="#cfc8c0"/>
-    <ellipse cx="${WX + MAIN_W / 2}" cy="${BODY_Y + 196}" rx="28" ry="14" fill="#cfc8c0"/>
-    <text x="${WX + MAIN_W / 2}" y="${BODY_Y + 250}" text-anchor="middle" fill="#1c1814" font-size="15" font-weight="600">Vendor pricing call</text>
-    <text x="${WX + MAIN_W / 2}" y="${BODY_Y + 272}" text-anchor="middle" fill="#6b6258" font-size="12">You · Priya · Marcus</text>
+    <circle cx="${WX + MAIN_W / 2}" cy="${BODY_Y + 160}" r="44" fill="${WHITE}" stroke="${BORDER}"/>
+    <circle cx="${WX + MAIN_W / 2}" cy="${BODY_Y + 152}" r="16" fill="#D4D4D8"/>
+    <ellipse cx="${WX + MAIN_W / 2}" cy="${BODY_Y + 184}" rx="24" ry="12" fill="#D4D4D8"/>
+    <text x="${WX + MAIN_W / 2}" y="${BODY_Y + 236}" text-anchor="middle" fill="${INK}" font-size="15" font-weight="600">Vendor pricing call</text>
+    <text class="mono" x="${WX + MAIN_W / 2}" y="${BODY_Y + 256}" text-anchor="middle" fill="${MUTED}" font-size="10">YOU · PRIYA · MARCUS</text>
 
-    <g transform="translate(${WX + MAIN_W / 2 - 66} ${BODY_Y + 300})">
-      <rect class="bar b1" x="0" y="8" width="7" height="28" rx="3.5" fill="#94B316"/>
-      <rect class="bar b2" x="14" y="2" width="7" height="40" rx="3.5" fill="#C8E832"/>
-      <rect class="bar b3" x="28" y="10" width="7" height="24" rx="3.5" fill="#94B316"/>
-      <rect class="bar b4" x="42" y="0" width="7" height="44" rx="3.5" fill="#C8E832"/>
-      <rect class="bar b5" x="56" y="6" width="7" height="32" rx="3.5" fill="#94B316"/>
-      <rect class="bar b2" x="70" y="4" width="7" height="36" rx="3.5" fill="#C8E832"/>
-      <rect class="bar b3" x="84" y="12" width="7" height="20" rx="3.5" fill="#94B316"/>
-      <rect class="bar b1" x="98" y="3" width="7" height="38" rx="3.5" fill="#C8E832"/>
-      <rect class="bar b4" x="112" y="9" width="7" height="26" rx="3.5" fill="#94B316"/>
-      <rect class="bar b5" x="126" y="1" width="7" height="42" rx="3.5" fill="#C8E832"/>
+    <g transform="translate(${WX + MAIN_W / 2 - 66} ${BODY_Y + 280})">
+      <rect class="bar b1" x="0" y="8" width="7" height="28" rx="2" fill="${CITRON_DEEP}"/>
+      <rect class="bar b2" x="14" y="2" width="7" height="40" rx="2" fill="${CITRON}"/>
+      <rect class="bar b3" x="28" y="10" width="7" height="24" rx="2" fill="${CITRON_DEEP}"/>
+      <rect class="bar b4" x="42" y="0" width="7" height="44" rx="2" fill="${CITRON}"/>
+      <rect class="bar b5" x="56" y="6" width="7" height="32" rx="2" fill="${CITRON_DEEP}"/>
+      <rect class="bar b2" x="70" y="4" width="7" height="36" rx="2" fill="${CITRON}"/>
+      <rect class="bar b3" x="84" y="12" width="7" height="20" rx="2" fill="${CITRON_DEEP}"/>
+      <rect class="bar b1" x="98" y="3" width="7" height="38" rx="2" fill="${CITRON}"/>
+      <rect class="bar b4" x="112" y="9" width="7" height="26" rx="2" fill="${CITRON_DEEP}"/>
+      <rect class="bar b5" x="126" y="1" width="7" height="42" rx="2" fill="${CITRON}"/>
     </g>
 
-${panelHeader("Meetings")}
-    <text x="${px}" y="${BODY_Y + 68}" fill="#6b6258" font-size="11">Transcript · kept on device</text>
-    <text x="${px}" y="${BODY_Y + 100}" fill="#6b6258" font-size="11.5">0:42  Priya — annual is fine</text>
-    <text x="${px}" y="${BODY_Y + 122}" fill="#4a433c" font-size="11.5">1:08  You — flag the SLA</text>
-    <text x="${px}" y="${BODY_Y + 144}" fill="#6b6258" font-size="11.5">1:31  Marcus — legal by Wed</text>
-    <text x="${px}" y="${BODY_Y + 166}" fill="#4a433c" font-size="11.5">2:04  You — ship Friday</text>
+${panelHeader("AGENT · MEETINGS")}
+    <text class="mono" x="${px}" y="${BODY_Y + 60}" fill="${MUTED}" font-size="9">TRANSCRIPT · ON DEVICE</text>
+    ${msgRow(px, BODY_Y + 88, pw, "0:42  Priya — annual is fine")}
+    ${msgRow(px, BODY_Y + 108, pw, "1:08  You — flag the SLA", { user: true })}
+    ${msgRow(px, BODY_Y + 128, pw, "1:31  Marcus — legal by Wed")}
+    ${msgRow(px, BODY_Y + 148, pw, "2:04  You — ship Friday", { user: true })}
 
-    <g transform="translate(${px} ${BODY_Y + 196})">
-      <rect width="${PANEL_W - 32}" height="44" rx="12" fill="url(#accent)" fill-opacity="0.92"/>
-      <text x="14" y="18" fill="#2a1606" font-size="11.5">What did we decide</text>
-      <text x="14" y="34" fill="#2a1606" font-size="11.5">on pricing?</text>
+    <g transform="translate(${px} ${BODY_Y + 172})">
+      <rect width="${pw}" height="40" rx="${RX}" fill="${COMPOSER_BG}" stroke="${BORDER}"/>
+      <text x="12" y="16" fill="${INK}" font-size="11">What did we decide</text>
+      <text x="12" y="32" fill="${INK}" font-size="11">on pricing?</text>
     </g>
-    <g transform="translate(${px} ${BODY_Y + 254})">
-      <rect width="${PANEL_W - 32}" height="96" rx="12" fill="#F4F7E0"/>
-      <text x="14" y="24" fill="#4a433c" font-size="11.5">Annual plan. Flag SLA.</text>
-      <text x="14" y="42" fill="#4a433c" font-size="11.5">Legal reviews by Wed.</text>
-      <text x="14" y="60" fill="#4a433c" font-size="11.5">Update ships Friday.</text>
-      <text x="14" y="82" fill="#8a8278" font-size="10.5">From this call tab</text>
+    <g transform="translate(${px} ${BODY_Y + 224})">
+      <rect width="${pw}" height="88" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <rect x="0" y="4" width="2" height="80" fill="${CITRON}"/>
+      <text x="14" y="22" fill="${INK}" font-size="11.5">Annual plan. Flag SLA.</text>
+      <text x="14" y="40" fill="${INK}" font-size="11.5">Legal reviews by Wed.</text>
+      <text x="14" y="58" fill="${INK}" font-size="11.5">Update ships Friday.</text>
+      <text class="mono" x="14" y="78" fill="${MUTED}" font-size="9">FROM THIS CALL TAB</text>
     </g>
 ${composer()}
 ${closeChrome()}`;
     })(),
   },
 
-  "02-job-applicant": {
-    aria: "Job applicant — Pane fills the application form, submits it, and tracks follow-up",
+  "02-personalised-internet": {
+    aria: "Personalised Internet — Pane turns an ongoing job search into a living private site",
     css: `
   .score-fill {
     transform-box: fill-box;
@@ -274,7 +350,7 @@ ${closeChrome()}`;
   }
   .tick-circle {
     fill: none;
-    stroke: #5fb872;
+    stroke: ${CITRON_DEEP};
     stroke-width: 3;
     stroke-linecap: round;
     stroke-dasharray: 180;
@@ -288,7 +364,7 @@ ${closeChrome()}`;
   }
   .tick-mark {
     fill: none;
-    stroke: #5fb872;
+    stroke: ${CITRON_DEEP};
     stroke-width: 3.5;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -311,74 +387,61 @@ ${closeChrome()}`;
   }
 `,
     body: (() => {
-      const mx = WX + 28;
-      const my = BODY_Y + 24;
-      const px = PANEL_X + 16;
-      const fw = MAIN_W - 56;
+      const x = WX + 24;
+      const y = BODY_Y + 20;
+      const field = FIELD.petrol;
+      const fieldInk = "#10241F";
+      const fieldMuted = "#25584F";
+      const fieldBorder = "#4A8F82";
       return `
-${chrome("boards.greenhouse.io/acme/jobs/senior-pm/apply")}
-    <rect x="${WX}" y="${BODY_Y}" width="${MAIN_W}" height="${WH - BAR}" fill="#faf9f7"/>
+${chromeFull("PANE / PERSONALISED INTERNET / JOB SEARCH", "SITE LIVE", { mainFill: field })}
+    <text x="${x}" y="${y + 12}" fill="${fieldInk}" font-size="25" font-weight="620" letter-spacing="-0.04em">Job Search</text>
+    <text class="mono" x="${x}" y="${y + 34}" fill="${fieldMuted}" font-size="9">PRIVATE SITE · BUILT AROUND YOUR WORK</text>
 
-    <g class="form-dim">
-      <text x="${mx}" y="${my + 6}" fill="#1c1814" font-size="18" font-weight="600" letter-spacing="-0.02em">Apply · Senior Product Manager</text>
-
-      <text x="${mx}" y="${my + 36}" fill="#6b6258" font-size="11">Full name</text>
-      <rect class="focus1" x="${mx}" y="${my + 44}" width="${fw}" height="40" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5" stroke-opacity="0"/>
-      <text class="fld-name" x="${mx + 14}" y="${my + 69}" fill="#1c1814" font-size="13">Alex Rivera</text>
-
-      <text x="${mx}" y="${my + 108}" fill="#6b6258" font-size="11">Email</text>
-      <rect class="focus2" x="${mx}" y="${my + 116}" width="${fw}" height="40" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5" stroke-opacity="0"/>
-      <text class="fld-email" x="${mx + 14}" y="${my + 141}" fill="#1c1814" font-size="13">alex@example.com</text>
-
-      <text x="${mx}" y="${my + 180}" fill="#6b6258" font-size="11">Resume</text>
-      <rect class="focus3" x="${mx}" y="${my + 188}" width="${fw}" height="40" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5" stroke-opacity="0"/>
-      <text class="fld-resume" x="${mx + 14}" y="${my + 213}" fill="#1c1814" font-size="13">Alex_Rivera_Resume.pdf</text>
-
-      <text x="${mx}" y="${my + 252}" fill="#6b6258" font-size="11">Cover note</text>
-      <rect class="focus4" x="${mx}" y="${my + 260}" width="${fw}" height="56" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5" stroke-opacity="0"/>
-      <text class="fld-cover" x="${mx + 14}" y="${my + 284}" fill="#1c1814" font-size="12">Led 0→1 analytics · pricing experiments…</text>
-      <text class="fld-cover" x="${mx + 14}" y="${my + 302}" fill="#6b6258" font-size="11">From your resume + this listing</text>
-
-      <g transform="translate(${mx} ${my + 336})">
-        <g class="submit-btn">
-          <rect width="160" height="40" rx="10" fill="url(#accent)"/>
-          <text x="80" y="25" text-anchor="middle" fill="#2a1606" font-size="13" font-weight="600">Submit application</text>
-        </g>
+    <g transform="translate(${x} ${y + 52})">
+      <rect width="196" height="5" fill="${CITRON_DEEP}"/>
+      <rect x="204" width="196" height="5" fill="${CITRON_DEEP}"/>
+      <rect x="408" width="196" height="5" fill="${fieldBorder}" fill-opacity=".45"/>
+      <rect x="612" width="196" height="5" fill="${fieldBorder}" fill-opacity=".35"/>
+      <g class="mono" fill="${fieldMuted}" font-size="8">
+        <text x="0" y="22">SAVED</text>
+        <text x="204" y="22">APPLIED</text>
+        <text x="408" y="22">INTERVIEWS</text>
+        <text x="612" y="22">FOLLOW-UP</text>
       </g>
     </g>
 
-    <g transform="translate(${WX + MAIN_W / 2} ${BODY_Y + 210})">
-      <g class="success-inner">
-        <circle class="tick-circle" cx="0" cy="0" r="28"/>
-        <path class="tick-mark" d="M-12 1 l8 8 16-18"/>
-        <text x="0" y="56" text-anchor="middle" fill="#1c1814" font-size="15" font-weight="600">Application submitted</text>
-        <text x="0" y="78" text-anchor="middle" fill="#6b6258" font-size="12">Follow-up task created</text>
+    <line x1="${x}" y1="${y + 92}" x2="${WX + WW - 24}" y2="${y + 92}" stroke="${fieldBorder}"/>
+
+    <g transform="translate(${x} ${y + 112})">
+      <text class="mono" x="0" y="0" fill="${fieldMuted}" font-size="9">TODAY</text>
+      <g transform="translate(0 16)">
+        <rect width="250" height="92" rx="${RX}" fill="#A8DDD2" stroke="${fieldBorder}"/>
+        <text x="14" y="25" fill="${fieldInk}" font-size="14" font-weight="600">Acme · Product Lead</text>
+        <text class="mono" x="14" y="46" fill="${fieldMuted}" font-size="8">SAVED · COMPANY PAGE READY</text>
+        <text x="14" y="70" fill="${fieldMuted}" font-size="11">Research thread · 8 sources</text>
+      </g>
+      <g transform="translate(266 16)">
+        <rect width="250" height="92" rx="${RX}" fill="#A8DDD2" stroke="${fieldBorder}"/>
+        <text x="14" y="25" fill="${fieldInk}" font-size="14" font-weight="600">Northstar · PM</text>
+        <text class="mono" x="14" y="46" fill="${fieldMuted}" font-size="8">APPLIED · FOLLOW UP FRIDAY</text>
+        <text x="14" y="70" fill="${fieldMuted}" font-size="11">Notes and next action attached</text>
+      </g>
+      <g class="success-inner" transform="translate(532 16)">
+        <rect width="276" height="92" rx="${RX}" fill="#A8DDD2" stroke="${CITRON_DEEP}" stroke-width="1.5"/>
+        <text x="14" y="25" fill="${fieldInk}" font-size="14" font-weight="600">GreyOrange · Senior PM</text>
+        <text class="mono" x="14" y="46" fill="${fieldMuted}" font-size="8">INTERVIEW · PAGE MATERIALISED</text>
+        <text x="14" y="70" fill="${fieldMuted}" font-size="11">People · news · prep in one place</text>
       </g>
     </g>
 
-${panelHeader("Agent")}
-    <g class="agent-step1" transform="translate(${px} ${BODY_Y + 60})">
-      <rect width="${PANEL_W - 32}" height="64" rx="12" fill="#F4F7E0" stroke="#94B316" stroke-opacity="0.35"/>
-      <text x="14" y="24" fill="#1c1814" font-size="13" font-weight="600">Fit score 86%</text>
-      <text x="14" y="44" fill="#6b6258" font-size="11">Matches your PM + B2B background</text>
-      <rect x="14" y="52" width="214" height="5" rx="2.5" fill="#e6e1db"/>
-      <rect class="score-fill" x="14" y="52" width="214" height="5" rx="2.5" fill="url(#accent)"/>
+    <g transform="translate(${x} ${y + 246})">
+      <rect width="808" height="74" rx="${RX}" fill="#A8DDD2" stroke="${fieldBorder}"/>
+      <rect x="0" y="6" width="3" height="62" fill="${CITRON_DEEP}"/>
+      <text class="mono" x="16" y="22" fill="${fieldMuted}" font-size="9">PULSE</text>
+      <text x="16" y="45" fill="${fieldInk}" font-size="13" font-weight="500">One living site, not another folder of chats.</text>
+      <text x="16" y="63" fill="${fieldMuted}" font-size="11">Open a company, continue research, or hand the next action to Pane.</text>
     </g>
-    <g class="agent-step2" transform="translate(${px} ${BODY_Y + 140})">
-      <rect width="${PANEL_W - 32}" height="88" rx="12" fill="#ffffff"/>
-      <text x="14" y="24" fill="#4a433c" font-size="12" font-weight="600">Filling application</text>
-      <text x="14" y="46" fill="#6b6258" font-size="11">Name · email · resume</text>
-      <text x="14" y="64" fill="#6b6258" font-size="11">Cover note from your background</text>
-      <text x="14" y="78" fill="#8a8278" font-size="10.5">Typing into the live form</text>
-    </g>
-    <g class="agent-step3" transform="translate(${px} ${BODY_Y + 244})">
-      <rect width="${PANEL_W - 32}" height="64" rx="12" fill="#f5f2ef" stroke="#5fb872" stroke-opacity="0.4"/>
-      <circle cx="26" cy="32" r="9" fill="none" stroke="#5fb872" stroke-width="1.8"/>
-      <path d="M21 32l3.2 3.2 6.5-6.5" fill="none" stroke="#5fb872" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      <text x="46" y="28" fill="#1c1814" font-size="12" font-weight="600">Submitted · follow up Friday</text>
-      <text x="46" y="46" fill="#6b6258" font-size="11">Task · Job hunt profile</text>
-    </g>
-${composer()}
 ${closeChrome()}`;
     })(),
   },
@@ -404,78 +467,84 @@ ${closeChrome()}`;
   @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: 0.25; } }
 `,
     body: (() => {
-      const mx = WX + 28;
-      const my = BODY_Y + 28;
+      const mx = WX + 24;
+      const my = BODY_Y + 24;
       const px = PANEL_X + 16;
+      const pw = PANEL_W - 32;
+      const field = FIELD.dust;
+      const fieldInk = "#1A2236";
+      const fieldMuted = "#5A6680";
+      const fieldBorder = "#C8D0E0";
       return `
-${chrome("pane://research/customer-pain")}
-    <rect x="${WX}" y="${BODY_Y}" width="${MAIN_W}" height="${WH - BAR}" fill="#faf9f7"/>
-    <!-- tab strip -->
-    <rect x="${WX}" y="${BODY_Y}" width="52" height="${WH - BAR}" fill="#ece8e3"/>
-    <rect x="${WX + 8}" y="${BODY_Y + 16}" width="36" height="36" rx="8" fill="#e6e1db" stroke="#94B316" stroke-opacity="0.55"/>
-    <text x="${WX + 26}" y="${BODY_Y + 38}" text-anchor="middle" fill="#1c1814" font-size="9">G2</text>
-    <rect x="${WX + 8}" y="${BODY_Y + 64}" width="36" height="36" rx="8" fill="#ffffff"/>
-    <text x="${WX + 26}" y="${BODY_Y + 86}" text-anchor="middle" fill="#6b6258" font-size="8">Reddit</text>
-    <rect x="${WX + 8}" y="${BODY_Y + 112}" width="36" height="36" rx="8" fill="#ffffff"/>
-    <text x="${WX + 26}" y="${BODY_Y + 134}" text-anchor="middle" fill="#6b6258" font-size="8">Blog</text>
-    <rect x="${WX + 8}" y="${BODY_Y + 160}" width="36" height="36" rx="8" fill="#ffffff"/>
-    <text x="${WX + 26}" y="${BODY_Y + 182}" text-anchor="middle" fill="#6b6258" font-size="9">X</text>
+${chrome("PANE / RESEARCH / CUSTOMER PAIN", "AGENT RUNNING", { mainFill: field })}
+    <!-- source rail -->
+    <rect x="${WX}" y="${BODY_Y}" width="48" height="${WH - BAR}" fill="${field}" stroke="none"/>
+    <line x1="${WX + 48}" y1="${BODY_Y}" x2="${WX + 48}" y2="${WY + WH}" stroke="${fieldBorder}"/>
+    <rect x="${WX + 8}" y="${BODY_Y + 16}" width="32" height="32" rx="${RX}" fill="${WHITE}" stroke="${CITRON_DEEP}"/>
+    <text class="mono" x="${WX + 24}" y="${BODY_Y + 36}" text-anchor="middle" fill="${fieldInk}" font-size="8">G2</text>
+    <rect x="${WX + 8}" y="${BODY_Y + 58}" width="32" height="32" rx="${RX}" fill="${WHITE}" stroke="${fieldBorder}"/>
+    <text class="mono" x="${WX + 24}" y="${BODY_Y + 78}" text-anchor="middle" fill="${fieldMuted}" font-size="7">RDDT</text>
+    <rect x="${WX + 8}" y="${BODY_Y + 100}" width="32" height="32" rx="${RX}" fill="${WHITE}" stroke="${fieldBorder}"/>
+    <text class="mono" x="${WX + 24}" y="${BODY_Y + 120}" text-anchor="middle" fill="${fieldMuted}" font-size="7">BLOG</text>
+    <rect x="${WX + 8}" y="${BODY_Y + 142}" width="32" height="32" rx="${RX}" fill="${WHITE}" stroke="${fieldBorder}"/>
+    <text class="mono" x="${WX + 24}" y="${BODY_Y + 162}" text-anchor="middle" fill="${fieldMuted}" font-size="8">X</text>
 
-    <text x="${mx + 44}" y="${my + 8}" fill="#1c1814" font-size="17" font-weight="600">“Setup took forever”</text>
-    <text x="${mx + 44}" y="${my + 30}" fill="#6b6258" font-size="12">G2 · Acme Analytics · ★★★★☆</text>
-    <rect x="${mx + 44}" y="${my + 52}" width="400" height="8" rx="4" fill="#e6e1db"/>
-    <rect x="${mx + 44}" y="${my + 70}" width="360" height="8" rx="4" fill="#e6e1db"/>
-    <rect x="${mx + 44}" y="${my + 88}" width="380" height="8" rx="4" fill="#e6e1db"/>
-    <rect x="${mx + 44}" y="${my + 106}" width="300" height="8" rx="4" fill="#e6e1db"/>
+    <text class="mono" x="${mx + 40}" y="${my + 4}" fill="${fieldMuted}" font-size="9">01 SOURCE</text>
+    <text x="${mx + 40}" y="${my + 28}" fill="${fieldInk}" font-size="16" font-weight="600">“Setup took forever”</text>
+    <text class="mono" x="${mx + 40}" y="${my + 48}" fill="${fieldMuted}" font-size="10">G2 · ACME ANALYTICS</text>
+    <rect x="${mx + 40}" y="${my + 64}" width="380" height="6" rx="1" fill="${fieldBorder}" fill-opacity="0.55"/>
+    <rect x="${mx + 40}" y="${my + 80}" width="340" height="6" rx="1" fill="${fieldBorder}" fill-opacity="0.55"/>
+    <rect x="${mx + 40}" y="${my + 96}" width="360" height="6" rx="1" fill="${fieldBorder}" fill-opacity="0.55"/>
+    <rect x="${mx + 40}" y="${my + 112}" width="280" height="6" rx="1" fill="${fieldBorder}" fill-opacity="0.55"/>
 
-    <g transform="translate(${mx + 44} ${my + 140})">
-      <rect width="400" height="72" rx="12" fill="#ffffff" stroke="#94B316" stroke-opacity="0.3"/>
-      <text x="18" y="30" fill="#1c1814" font-size="13" font-weight="600">Quoted into research thread</text>
-      <text x="18" y="52" fill="#6b6258" font-size="12">Onboarding friction · source kept</text>
+    <g transform="translate(${mx + 40} ${my + 140})">
+      <rect width="380" height="64" rx="${RX}" fill="${WHITE}" stroke="${CITRON_DEEP}" stroke-opacity="0.55"/>
+      <text x="14" y="26" fill="${fieldInk}" font-size="13" font-weight="600">Quoted into research thread</text>
+      <text class="mono" x="14" y="46" fill="${fieldMuted}" font-size="10">ONBOARDING FRICTION · SOURCE KEPT</text>
     </g>
 
-${panelHeader("Research")}
-    <text x="${px}" y="${BODY_Y + 58}" fill="#6b6258" font-size="11">Why do teams churn in month 1?</text>
+${panelHeader("AGENT · RESEARCH")}
+    <text class="mono" x="${px}" y="${BODY_Y + 58}" fill="${MUTED}" font-size="9">WHY TEAMS CHURN IN MONTH 1</text>
 
-    <g class="research-step" transform="translate(${px} ${BODY_Y + 72})">
-      <rect width="${PANEL_W - 32}" height="48" rx="12" fill="#F4F7E0" stroke="#94B316" stroke-width="1.4"/>
-      <circle class="step-dot" cx="18" cy="24" r="4" fill="#94B316"/>
-      <text x="32" y="20" fill="#1c1814" font-size="12" font-weight="600">Researching open tabs</text>
-      <text x="32" y="38" fill="#6b6258" font-size="10.5">G2 · Reddit · Blog · threading</text>
+    <g class="research-step" transform="translate(${px} ${BODY_Y + 70})">
+      <rect width="${pw}" height="44" rx="${RX}" fill="${WHITE}" stroke="${CITRON}" stroke-width="1.4"/>
+      <circle class="step-dot" cx="16" cy="22" r="3.5" fill="${CITRON}"/>
+      <text x="28" y="18" fill="${INK}" font-size="12" font-weight="500">Researching open tabs</text>
+      <text class="mono" x="28" y="34" fill="${MUTED}" font-size="9">G2 · REDDIT · BLOG</text>
     </g>
 
-    <line class="spine" x1="${px + 10}" y1="${BODY_Y + 136}" x2="${px + 10}" y2="${BODY_Y + 292}" stroke="#94B316" stroke-opacity="0.35" stroke-width="1.5"/>
+    <line class="spine" x1="${px + 10}" y1="${BODY_Y + 128}" x2="${px + 10}" y2="${BODY_Y + 278}" stroke="${CITRON_DEEP}" stroke-opacity="0.4" stroke-width="1.5"/>
 
-    <g class="node" transform="translate(${px} ${BODY_Y + 128})">
-      <circle cx="10" cy="16" r="5" fill="#94B316"/>
-      <rect x="28" y="0" width="${PANEL_W - 60}" height="40" rx="10" fill="#F4F7E0"/>
-      <text x="40" y="16" fill="#1c1814" font-size="11">Setup took forever</text>
-      <text x="40" y="30" fill="#8a8278" font-size="10">G2 · cite</text>
+    <g class="node" transform="translate(${px} ${BODY_Y + 122})">
+      <circle cx="10" cy="16" r="4" fill="${CITRON_DEEP}"/>
+      <rect x="24" y="0" width="${pw - 24}" height="38" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text x="36" y="16" fill="${INK}" font-size="11">Setup took forever</text>
+      <text class="mono" x="36" y="30" fill="${MUTED}" font-size="8">G2 · CITE</text>
     </g>
-    <g class="node n2" transform="translate(${px} ${BODY_Y + 180})">
-      <circle cx="10" cy="16" r="5" fill="#C8E832"/>
-      <rect x="28" y="0" width="${PANEL_W - 60}" height="40" rx="10" fill="#F4F7E0"/>
-      <text x="40" y="16" fill="#1c1814" font-size="11">Docs assume enterprise SSO</text>
-      <text x="40" y="30" fill="#8a8278" font-size="10">Reddit · cite</text>
+    <g class="node n2" transform="translate(${px} ${BODY_Y + 172})">
+      <circle cx="10" cy="16" r="4" fill="${CITRON}"/>
+      <rect x="24" y="0" width="${pw - 24}" height="38" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text x="36" y="16" fill="${INK}" font-size="11">Docs assume enterprise SSO</text>
+      <text class="mono" x="36" y="30" fill="${MUTED}" font-size="8">REDDIT · CITE</text>
     </g>
-    <g class="node n3" transform="translate(${px} ${BODY_Y + 232})">
-      <circle cx="10" cy="16" r="5" fill="#94B316"/>
-      <rect x="28" y="0" width="${PANEL_W - 60}" height="40" rx="10" fill="#F4F7E0"/>
-      <text x="40" y="16" fill="#1c1814" font-size="11">No guided first project</text>
-      <text x="40" y="30" fill="#8a8278" font-size="10">Blog · cite</text>
+    <g class="node n3" transform="translate(${px} ${BODY_Y + 222})">
+      <circle cx="10" cy="16" r="4" fill="${CITRON_DEEP}"/>
+      <rect x="24" y="0" width="${pw - 24}" height="38" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text x="36" y="16" fill="${INK}" font-size="11">No guided first project</text>
+      <text class="mono" x="36" y="30" fill="${MUTED}" font-size="8">BLOG · CITE</text>
     </g>
-    <g transform="translate(${px} ${BODY_Y + 290})">
-      <rect width="${PANEL_W - 32}" height="52" rx="12" fill="#f5f2ef" stroke="#94B316" stroke-opacity="0.35"/>
-      <text x="14" y="22" fill="#1c1814" font-size="12" font-weight="600">Outline ready</text>
-      <text x="14" y="40" fill="#6b6258" font-size="11">3 themes · 11 sources</text>
+    <g transform="translate(${px} ${BODY_Y + 278})">
+      <rect width="${pw}" height="44" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text x="12" y="18" fill="${INK}" font-size="12" font-weight="500">Outline ready</text>
+      <text class="mono" x="12" y="34" fill="${MUTED}" font-size="9">3 THEMES · 11 SOURCES</text>
     </g>
 ${composer()}
 ${closeChrome()}`;
     })(),
   },
 
-  "04-morning-briefing": {
-    aria: "Monday morning briefing on Pane home from a scheduled weekday run",
+  "04-work-in-motion": {
+    aria: "Work in motion — a scheduled Pane task finishes while the user is away and surfaces its result",
     css: `
   .live { animation: livePulse 2.4s ease-in-out infinite; }
   @keyframes livePulse {
@@ -486,44 +555,61 @@ ${closeChrome()}`;
   @keyframes blink { 0%,55% { opacity: 1; } 56%,100% { opacity: 0.25; } }
 `,
     body: (() => {
-      const mx = WX + 28;
-      const my = BODY_Y + 28;
+      const mx = WX + 24;
+      const my = BODY_Y + 20;
       const px = PANEL_X + 16;
+      const pw = PANEL_W - 32;
+      const cw = MAIN_W - 48;
       return `
-${chrome("pane://home")}
-    <rect x="${WX}" y="${BODY_Y}" width="${MAIN_W}" height="${WH - BAR}" fill="#faf9f7"/>
-    <text x="${mx}" y="${my + 8}" fill="#1c1814" font-size="22" font-weight="600" letter-spacing="-0.02em">Good morning</text>
-    <text x="${mx}" y="${my + 32}" fill="#6b6258" font-size="13">Monday briefing · from your week in tabs</text>
+${chrome("PANE / HOME", "PANE RUNNING")}
+    <text x="${mx}" y="${my + 8}" fill="${INK}" font-size="20" font-weight="600" letter-spacing="-0.02em">While you were away</text>
+    <text class="mono" x="${mx}" y="${my + 28}" fill="${MUTED}" font-size="10">LOCAL RUNS · COMPLETED WHILE PANE WAS OPEN</text>
 
-    ${card(mx, my + 56, MAIN_W - 56, 64, "url(#accent)")}
-    <text x="${mx + 20}" y="${my + 84}" fill="#1c1814" font-size="14" font-weight="600">3 decisions from last week’s calls</text>
-    <text x="${mx + 20}" y="${my + 104}" fill="#6b6258" font-size="12">Pricing, SLA, Friday ship — ready to paste</text>
+    ${homeComposer(mx, my + 44, cw)}
 
-    ${card(mx, my + 136, MAIN_W - 56, 64, "#5fb872")}
-    <text x="${mx + 20}" y="${my + 164}" fill="#1c1814" font-size="14" font-weight="600">Investor update draft</text>
-    <text x="${mx + 20}" y="${my + 184}" fill="#6b6258" font-size="12">Built from meetings + shipped PRs</text>
+    <text class="mono" x="${mx}" y="${my + 136}" fill="${MUTED}" font-size="9">TODAY · CONTINUITY</text>
+    <line x1="${mx}" y1="${my + 146}" x2="${mx + cw}" y2="${my + 146}" stroke="${BORDER}"/>
 
-    ${card(mx, my + 216, MAIN_W - 56, 64, "#6f9fe0")}
-    <text x="${mx + 20}" y="${my + 244}" fill="#1c1814" font-size="14" font-weight="600">2 follow-ups due today</text>
-    <text x="${mx + 20}" y="${my + 264}" fill="#6b6258" font-size="12">Legal review · customer intro</text>
-
-${panelHeader("Scheduled")}
-    <g transform="translate(${px} ${BODY_Y + 60})">
-      <rect class="live" width="${PANEL_W - 32}" height="92" rx="12" fill="#f5f2ef" stroke="#94B316" stroke-width="1.5"/>
-      <circle class="dot" cx="22" cy="28" r="4" fill="#94B316"/>
-      <text x="36" y="32" fill="#1c1814" font-size="13" font-weight="600">Morning briefing</text>
-      <text x="16" y="56" fill="#6b6258" font-size="12">Every weekday · 8:00 AM</text>
-      <text x="16" y="76" fill="#8a8278" font-size="11">Last run · 2 min ago</text>
+    <g transform="translate(${mx} ${my + 164})">
+      <line x1="0" y1="0" x2="${cw}" y2="0" stroke="${BORDER}"/>
+      <circle cx="8" cy="24" r="4" fill="${CITRON_DEEP}"/>
+      <text x="24" y="22" fill="${INK}" font-size="13" font-weight="600">Competitor scan finished</text>
+      <text x="24" y="42" fill="${MUTED}" font-size="11">12 changes grouped in your Research site</text>
+      <text class="mono" x="${cw}" y="22" text-anchor="end" fill="${MUTED}" font-size="8">2 MIN AGO</text>
+      <line x1="0" y1="58" x2="${cw}" y2="58" stroke="${BORDER}"/>
     </g>
-    <g transform="translate(${px} ${BODY_Y + 172})">
-      <rect width="${PANEL_W - 32}" height="56" rx="12" fill="#ffffff"/>
-      <text x="16" y="24" fill="#4a433c" font-size="12">Competitor scan</text>
-      <text x="16" y="42" fill="#8a8278" font-size="11">Fridays · 4:00 PM</text>
+
+    <g transform="translate(${mx} ${my + 238})">
+      <circle cx="8" cy="24" r="4" fill="${CITRON}"/>
+      <text x="24" y="22" fill="${INK}" font-size="13" font-weight="600">Reply draft needs approval</text>
+      <text x="24" y="42" fill="${MUTED}" font-size="11">Pane stopped before sending it</text>
+      <text class="mono" x="${cw}" y="22" text-anchor="end" fill="${MUTED}" font-size="8">WAITING</text>
+      <line x1="0" y1="58" x2="${cw}" y2="58" stroke="${BORDER}"/>
     </g>
-    <g transform="translate(${px} ${BODY_Y + 244})">
-      <rect width="${PANEL_W - 32}" height="56" rx="12" fill="#ffffff"/>
-      <text x="16" y="24" fill="#4a433c" font-size="12">Inbox triage</text>
-      <text x="16" y="42" fill="#8a8278" font-size="11">Daily · 9:30 AM</text>
+
+    <g transform="translate(${mx} ${my + 312})">
+      <text class="mono" x="0" y="0" fill="${MUTED}" font-size="9">DOORWAY</text>
+      <text x="0" y="24" fill="${INK}" font-size="13" font-weight="500">Research Hub → 12 new findings</text>
+      <text x="${cw}" y="24" text-anchor="end" fill="${MUTED}" font-size="12">Open site →</text>
+    </g>
+
+${panelHeader("RUN HISTORY")}
+    <g transform="translate(${px} ${BODY_Y + 56})">
+      <rect class="live" width="${pw}" height="104" rx="${RX}" fill="${WHITE}" stroke="${CITRON}" stroke-width="1.5"/>
+      <circle class="dot" cx="16" cy="22" r="3.5" fill="${CITRON}"/>
+      <text x="28" y="26" fill="${INK}" font-size="13" font-weight="600">Weekly competitor scan</text>
+      <text class="mono" x="12" y="52" fill="${MUTED}" font-size="9">FRIDAYS · 4:00 PM</text>
+      <text class="mono" x="12" y="72" fill="${MUTED}" font-size="9">STATUS · COMPLETE</text>
+      <text class="mono" x="12" y="92" fill="${MUTED}" font-size="9">BROWSER AVAILABLE · LOCAL</text>
+    </g>
+    <g transform="translate(${px} ${BODY_Y + 176})">
+      <rect width="${pw}" height="100" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <rect x="0" y="5" width="2" height="90" fill="${CITRON}"/>
+      <text class="mono" x="14" y="22" fill="${MUTED}" font-size="9">APPROVAL REQUIRED</text>
+      <text x="14" y="46" fill="${INK}" font-size="12" font-weight="500">Send the drafted reply?</text>
+      <rect x="14" y="60" width="86" height="28" rx="${RX}" fill="${CITRON}"/>
+      <text x="57" y="79" text-anchor="middle" fill="${SEND_ARROW}" font-size="11" font-weight="600">Review</text>
+      <text class="mono" x="116" y="78" fill="${MUTED}" font-size="8">NOT SENT</text>
     </g>
 ${composer()}
 ${closeChrome()}`;
@@ -542,49 +628,41 @@ ${closeChrome()}`;
   @keyframes blink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
 `,
     body: (() => {
-      const mx = WX + 28;
-      const my = BODY_Y + 24;
+      const mx = WX + 24;
+      const my = BODY_Y + 20;
       const px = PANEL_X + 16;
+      const pw = PANEL_W - 32;
       return `
-${chrome("localhost:3000/checkout")}
-    <rect x="${WX}" y="${BODY_Y}" width="${MAIN_W}" height="${WH - BAR}" fill="#faf9f7"/>
-    <rect class="glow" x="${mx}" y="${my}" width="${MAIN_W - 56}" height="220" rx="12" fill="#ffffff" stroke="#94B316" stroke-width="1.5"/>
-    <text x="${mx + 20}" y="${my + 32}" fill="#1c1814" font-size="16" font-weight="600">Checkout</text>
-    <rect x="${mx + 20}" y="${my + 52}" width="220" height="34" rx="8" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.06"/>
-    <text x="${mx + 34}" y="${my + 74}" fill="#6b6258" font-size="12">Card number</text>
-    <rect x="${mx + 20}" y="${my + 98}" width="100" height="34" rx="8" fill="#ffffff"/>
-    <rect x="${mx + 132}" y="${my + 98}" width="100" height="34" rx="8" fill="#ffffff"/>
-    <rect x="${mx + 20}" y="${my + 150}" width="132" height="38" rx="10" fill="url(#accent)"/>
-    <text x="${mx + 86}" y="${my + 174}" text-anchor="middle" fill="#2a1606" font-size="13" font-weight="600">Pay now</text>
-    <text x="${mx + 180}" y="${my + 172}" fill="#c44a3a" font-size="11">TypeError · line 84</text>
+${chrome("PANE / LOCALHOST / CHECKOUT", "AGENT RUNNING")}
+    <rect class="glow" x="${mx}" y="${my}" width="${MAIN_W - 48}" height="200" rx="${RX}" fill="${WHITE}" stroke="${CITRON}" stroke-width="1.5"/>
+    <text x="${mx + 16}" y="${my + 28}" fill="${INK}" font-size="15" font-weight="600">Checkout</text>
+    <rect x="${mx + 16}" y="${my + 44}" width="200" height="32" rx="${RX}" fill="${COMPOSER_BG}" stroke="${BORDER}"/>
+    <text x="${mx + 28}" y="${my + 64}" fill="${MUTED}" font-size="12">Card number</text>
+    <rect x="${mx + 16}" y="${my + 86}" width="92" height="32" rx="${RX}" fill="${COMPOSER_BG}" stroke="${BORDER}"/>
+    <rect x="${mx + 120}" y="${my + 86}" width="92" height="32" rx="${RX}" fill="${COMPOSER_BG}" stroke="${BORDER}"/>
+    <rect x="${mx + 16}" y="${my + 136}" width="120" height="34" rx="${RX}" fill="${CITRON}"/>
+    <text x="${mx + 76}" y="${my + 158}" text-anchor="middle" fill="${SEND_ARROW}" font-size="12" font-weight="600">Pay now</text>
+    <text class="mono" x="${mx + 152}" y="${my + 156}" fill="#C44A3A" font-size="10">TYPEERROR · LINE 84</text>
 
-    <rect x="${mx}" y="${my + 240}" width="${MAIN_W - 56}" height="120" rx="12" fill="#1c1814"/>
-    <text x="${mx + 18}" y="${my + 268}" fill="#5fb872" font-size="11">~/acme-web · cowork folder granted</text>
-    <text x="${mx + 18}" y="${my + 294}" fill="#8a8278" font-size="12">$ </text>
-    <text x="${mx + 30}" y="${my + 294}" fill="#f3efe9" font-size="12">wrote src/checkout/validate.ts</text>
-    <rect class="caret" x="${mx + 248}" y="${my + 283}" width="7" height="14" fill="#94B316"/>
-    <rect x="${mx + 18}" y="${my + 312}" width="200" height="28" rx="8" fill="#2a241f" stroke="#5fb872" stroke-opacity="0.45"/>
-    <text x="${mx + 32}" y="${my + 330}" fill="#8dcea0" font-size="11">validate.ts updated</text>
+    <rect x="${mx}" y="${my + 220}" width="${MAIN_W - 48}" height="112" rx="${RX}" fill="${CHARCOAL}"/>
+    <text class="mono" x="${mx + 14}" y="${my + 244}" fill="${CITRON}" font-size="10">~/ACME-WEB · COWORK GRANTED</text>
+    <text x="${mx + 14}" y="${my + 268}" fill="${MUTED}" font-size="12">$ </text>
+    <text x="${mx + 26}" y="${my + 268}" fill="#F3F3F5" font-size="12">wrote src/checkout/validate.ts</text>
+    <rect class="caret" x="${mx + 248}" y="${my + 256}" width="6" height="14" fill="${CITRON}"/>
+    <rect x="${mx + 14}" y="${my + 284}" width="180" height="28" rx="${RX}" fill="#24252C" stroke="${BORDER_DARK}"/>
+    <text class="mono" x="${mx + 26}" y="${my + 302}" fill="${CITRON}" font-size="10">VALIDATE.TS UPDATED</text>
 
-${panelHeader("Cowork")}
-    <g transform="translate(${px} ${BODY_Y + 60})">
-      <rect width="${PANEL_W - 32}" height="32" rx="8" fill="#ffffff"/>
-      <text x="12" y="21" fill="#6b6258" font-size="11">click · Pay now</text>
-    </g>
-    <g transform="translate(${px} ${BODY_Y + 102})">
-      <rect width="${PANEL_W - 32}" height="32" rx="8" fill="#ffffff"/>
-      <text x="12" y="21" fill="#6b6258" font-size="11">read console · TypeError:84</text>
-    </g>
-    <g transform="translate(${px} ${BODY_Y + 144})">
-      <rect width="${PANEL_W - 32}" height="32" rx="8" fill="#ffffff"/>
-      <text x="12" y="21" fill="#6b6258" font-size="11">cowork write · validate.ts</text>
-    </g>
-    <g transform="translate(${px} ${BODY_Y + 196})">
-      <rect width="${PANEL_W - 32}" height="100" rx="12" fill="#F4F7E0"/>
-      <text x="14" y="26" fill="#1c1814" font-size="12" font-weight="600">Fix ready for review</text>
-      <text x="14" y="48" fill="#6b6258" font-size="11">Null guard on card brand</text>
-      <text x="14" y="66" fill="#6b6258" font-size="11">before submit.</text>
-      <text x="14" y="88" fill="#8a8278" font-size="10.5">Same session · tabs + files</text>
+${panelHeader("AGENT · COWORK")}
+    ${toolTrace(px, BODY_Y + 56, pw, 36, "CLICK", ["Pay now"])}
+    ${toolTrace(px, BODY_Y + 102, pw, 36, "READ_CONSOLE", ["TypeError:84"])}
+    ${toolTrace(px, BODY_Y + 148, pw, 36, "COWORK_WRITE", ["validate.ts"])}
+    <g transform="translate(${px} ${BODY_Y + 200})">
+      <rect width="${pw}" height="88" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <rect x="0" y="4" width="2" height="80" fill="${CITRON}"/>
+      <text x="14" y="24" fill="${INK}" font-size="12" font-weight="500">Fix ready for review</text>
+      <text x="14" y="44" fill="${MUTED}" font-size="11">Null guard on card brand</text>
+      <text x="14" y="60" fill="${MUTED}" font-size="11">before submit.</text>
+      <text class="mono" x="14" y="78" fill="${MUTED}" font-size="9">SAME SESSION · TABS + FILES</text>
     </g>
 ${composer()}
 ${closeChrome()}`;
@@ -606,51 +684,48 @@ ${closeChrome()}`;
   }
 `,
     body: (() => {
-      const mx = WX + 28;
-      const my = BODY_Y + 28;
+      const mx = WX + 24;
+      const my = BODY_Y + 24;
       const px = PANEL_X + 16;
+      const pw = PANEL_W - 32;
       return `
-${chrome("pane://skills/staged")}
-    <rect x="${WX}" y="${BODY_Y}" width="${MAIN_W}" height="${WH - BAR}" fill="#faf9f7"/>
-    <text x="${mx}" y="${my + 8}" fill="#1c1814" font-size="18" font-weight="600">Weekly metrics ritual</text>
-    <text x="${mx}" y="${my + 32}" fill="#6b6258" font-size="13">You’ve done this 3 times this month</text>
+${chrome("PANE / SKILLS / STAGED", "AGENT IDLE")}
+    <text x="${mx}" y="${my + 8}" fill="${INK}" font-size="17" font-weight="600">Draft skill: weekly metrics</text>
+    <text class="mono" x="${mx}" y="${my + 28}" fill="${MUTED}" font-size="10">REPEATED SUCCESSFUL TOOL RUNS DETECTED</text>
 
-    <g transform="translate(${mx} ${my + 60})">
-      <rect class="step-accent" width="${MAIN_W - 56}" height="56" rx="12" fill="#ffffff" stroke="#94B316" stroke-width="1.2"/>
-      <circle cx="28" cy="28" r="14" fill="#e6e1db"/>
-      <text x="28" y="33" text-anchor="middle" fill="#C8E832" font-size="13" font-weight="600">1</text>
-      <text x="56" y="33" fill="#1c1814" font-size="14">Pull dashboard metrics</text>
+    <g transform="translate(${mx} ${my + 52})">
+      <rect class="step-accent" width="${MAIN_W - 48}" height="48" rx="${RX}" fill="${WHITE}" stroke="${CITRON}" stroke-width="1.2"/>
+      <text class="mono" x="16" y="28" fill="${CITRON_DEEP}" font-size="12" font-weight="600">01</text>
+      <text x="48" y="28" fill="${INK}" font-size="13">Pull dashboard metrics</text>
     </g>
-    <g transform="translate(${mx} ${my + 132})">
-      <rect width="${MAIN_W - 56}" height="56" rx="12" fill="#ffffff"/>
-      <circle cx="28" cy="28" r="14" fill="#e6e1db"/>
-      <text x="28" y="33" text-anchor="middle" fill="#6b6258" font-size="13" font-weight="600">2</text>
-      <text x="56" y="33" fill="#1c1814" font-size="14">Paste into the Notion doc</text>
+    <g transform="translate(${mx} ${my + 112})">
+      <rect width="${MAIN_W - 48}" height="48" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text class="mono" x="16" y="28" fill="${MUTED}" font-size="12" font-weight="600">02</text>
+      <text x="48" y="28" fill="${INK}" font-size="13">Paste into the Notion doc</text>
     </g>
-    <g transform="translate(${mx} ${my + 204})">
-      <rect width="${MAIN_W - 56}" height="56" rx="12" fill="#ffffff"/>
-      <circle cx="28" cy="28" r="14" fill="#e6e1db"/>
-      <text x="28" y="33" text-anchor="middle" fill="#6b6258" font-size="13" font-weight="600">3</text>
-      <text x="56" y="33" fill="#1c1814" font-size="14">Ping #growth on Slack</text>
+    <g transform="translate(${mx} ${my + 172})">
+      <rect width="${MAIN_W - 48}" height="48" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text class="mono" x="16" y="28" fill="${MUTED}" font-size="12" font-weight="600">03</text>
+      <text x="48" y="28" fill="${INK}" font-size="13">Ping #growth on Slack</text>
     </g>
-    <text x="${mx}" y="${my + 300}" fill="#6b6258" font-size="12">Pane noticed the pattern — skill staged for you.</text>
+    <text class="mono" x="${mx}" y="${my + 252}" fill="${MUTED}" font-size="10">HEURISTIC MATCH · DRAFT STAGED FOR REVIEW</text>
 
-${panelHeader("Skills")}
-    <g transform="translate(${px} ${BODY_Y + 60})">
-      <rect width="${PANEL_W - 32}" height="240" rx="14" fill="#F4F7E0" stroke="#94B316" stroke-opacity="0.35"/>
-      <text x="16" y="32" fill="#1c1814" font-size="13" font-weight="600">Weekly metrics → Notion</text>
-      <text x="16" y="54" fill="#6b6258" font-size="11">Written from your last 3 runs</text>
-      <rect x="16" y="76" width="220" height="7" rx="3.5" fill="#e6e1db"/>
-      <rect x="16" y="94" width="180" height="7" rx="3.5" fill="#e6e1db"/>
-      <rect x="16" y="112" width="200" height="7" rx="3.5" fill="#e6e1db"/>
-      <text x="16" y="148" fill="#8a8278" font-size="11">Runs only after you approve</text>
-      <g class="approve" transform="translate(16 172)">
-        <rect width="112" height="36" rx="10" fill="url(#accent)"/>
-        <text x="56" y="23" text-anchor="middle" fill="#2a1606" font-size="12" font-weight="600">Approve</text>
+${panelHeader("SKILLS")}
+    <g transform="translate(${px} ${BODY_Y + 56})">
+      <rect width="${pw}" height="220" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text x="14" y="28" fill="${INK}" font-size="13" font-weight="500">Weekly metrics → Notion</text>
+      <text class="mono" x="14" y="48" fill="${MUTED}" font-size="9">DRAFTED FROM REPEATED TOOL RUNS</text>
+      <rect x="14" y="68" width="220" height="5" rx="1" fill="${BORDER}"/>
+      <rect x="14" y="84" width="180" height="5" rx="1" fill="${BORDER}"/>
+      <rect x="14" y="100" width="200" height="5" rx="1" fill="${BORDER}"/>
+      <text class="mono" x="14" y="132" fill="${MUTED}" font-size="9">RUNS ONLY AFTER YOU APPROVE</text>
+      <g class="approve" transform="translate(14 152)">
+        <rect width="108" height="32" rx="${RX}" fill="${CITRON}"/>
+        <text x="54" y="21" text-anchor="middle" fill="${SEND_ARROW}" font-size="12" font-weight="600">Approve</text>
       </g>
-      <g transform="translate(140 172)">
-        <rect width="92" height="36" rx="10" fill="#f5f2ef" stroke="#1c1814" stroke-opacity="0.08"/>
-        <text x="46" y="23" text-anchor="middle" fill="#6b6258" font-size="12">Dismiss</text>
+      <g transform="translate(132 152)">
+        <rect width="88" height="32" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+        <text x="44" y="21" text-anchor="middle" fill="${MUTED}" font-size="12">Dismiss</text>
       </g>
     </g>
 ${composer()}
@@ -658,8 +733,8 @@ ${closeChrome()}`;
     })(),
   },
 
-  "07-profiles": {
-    aria: "Chrome profiles keep Work, Job hunt, and Personal separate",
+  "07-scoped-context": {
+    aria: "Scoped context — browser profiles, context buckets, and personas provide different kinds of separation",
     css: `
   .slider { animation: slide 7s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
   @keyframes slide {
@@ -689,83 +764,75 @@ ${closeChrome()}`;
   .t2 { animation: lab2 7s ease-in-out infinite; }
   .t3 { animation: lab3 7s ease-in-out infinite; }
   @keyframes lab1 {
-    0%,26% { fill: #2a1606; }
-    34%,100% { fill: #6b6258; }
+    0%,26% { fill: ${SEND_ARROW}; }
+    34%,100% { fill: ${MUTED}; }
   }
   @keyframes lab2 {
-    0%,32% { fill: #6b6258; }
-    38%,60% { fill: #2a1606; }
-    68%,100% { fill: #6b6258; }
+    0%,32% { fill: ${MUTED}; }
+    38%,60% { fill: ${SEND_ARROW}; }
+    68%,100% { fill: ${MUTED}; }
   }
   @keyframes lab3 {
-    0%,66% { fill: #6b6258; }
-    72%,94% { fill: #2a1606; }
-    100% { fill: #6b6258; }
+    0%,66% { fill: ${MUTED}; }
+    72%,94% { fill: ${SEND_ARROW}; }
+    100% { fill: ${MUTED}; }
   }
 `,
     body: (() => {
       const mx = WX + 28;
       const my = BODY_Y + 28;
-      // Full-width scene — profiles segregate workstreams today
       return `
-  <g filter="url(#shadow)">
-    <rect x="${WX}" y="${WY}" width="${WW}" height="${WH}" rx="16" fill="#ffffff"/>
-  </g>
-  <g clip-path="url(#win)">
-    <rect x="${WX}" y="${WY}" width="${WW}" height="${WH}" fill="#ffffff"/>
-    <rect x="${WX}" y="${WY}" width="${WW}" height="${BAR}" fill="#f5f2ef"/>
-    <line x1="${WX}" y1="${BODY_Y}" x2="${WX + WW}" y2="${BODY_Y}" stroke="#1c1814" stroke-opacity="0.05"/>
-    <circle cx="${WX + 22}" cy="${WY + 20}" r="5" fill="#ff5f57"/>
-    <circle cx="${WX + 40}" cy="${WY + 20}" r="5" fill="#febc2e"/>
-    <circle cx="${WX + 58}" cy="${WY + 20}" r="5" fill="#28c840"/>
-    <rect x="${WX + 168}" y="${WY + 8}" width="520" height="24" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.05"/>
-    <text x="${WX + 184}" y="${WY + 24}" fill="#7a7268" font-size="12">pane://home</text>
+${chromeFull("PANE / CONTEXT / SCOPES", "AGENT IDLE")}
+    <text x="${mx}" y="${my + 8}" fill="${INK}" font-size="20" font-weight="600" letter-spacing="-0.02em">Choose what Pane can carry forward.</text>
+    <text class="mono" x="${mx}" y="${my + 30}" fill="${MUTED}" font-size="10">THREE CONTROLS · THREE DIFFERENT JOBS</text>
 
-    <rect x="${WX}" y="${BODY_Y}" width="${WW}" height="${WH - BAR}" fill="#faf9f7"/>
-    <text x="${mx}" y="${my + 8}" fill="#1c1814" font-size="20" font-weight="600" letter-spacing="-0.02em">Same browser. Separate lives.</text>
-    <text x="${mx}" y="${my + 32}" fill="#6b6258" font-size="13">Chrome profiles keep memory, skills, and home scoped</text>
-
-    <!-- segmented control -->
-    <g transform="translate(${mx} ${my + 60})">
-      <rect width="348" height="40" rx="20" fill="#f5f2ef"/>
-      <rect class="slider" x="4" y="4" width="104" height="32" rx="16" fill="url(#accent)"/>
-      <text class="t1" x="56" y="25" text-anchor="middle" font-size="12" font-weight="600">Work</text>
-      <text class="t2" x="168" y="25" text-anchor="middle" font-size="12" font-weight="600">Job hunt</text>
-      <text class="t3" x="286" y="25" text-anchor="middle" font-size="12" font-weight="600">Personal</text>
+    <!-- segmented control — hairline, not pill -->
+    <g transform="translate(${mx} ${my + 56})">
+      <rect width="348" height="36" rx="${RX}" fill="${COMPOSER_BG}" stroke="${BORDER}"/>
+      <rect class="slider" x="3" y="3" width="108" height="30" rx="3" fill="${CITRON}"/>
+      <text class="t1 mono" x="57" y="23" text-anchor="middle" font-size="10" font-weight="600">PROFILE</text>
+      <text class="t2 mono" x="168" y="23" text-anchor="middle" font-size="10" font-weight="600">BUCKET</text>
+      <text class="t3 mono" x="286" y="23" text-anchor="middle" font-size="10" font-weight="600">PERSONA</text>
     </g>
 
-    <!-- stacked content panels -->
-    <g class="p1" transform="translate(${mx} ${my + 128})">
-      <rect width="400" height="80" rx="12" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.05"/>
-      <text x="20" y="34" fill="#1c1814" font-size="14" font-weight="600">Investor update · Q2 narrative</text>
-      <text x="20" y="56" fill="#6b6258" font-size="12">From vendor call + shipped PRs</text>
-      <rect x="420" y="0" width="400" height="80" rx="12" fill="#ffffff"/>
-      <text x="440" y="34" fill="#1c1814" font-size="14" font-weight="600">Pricing decision log</text>
-      <text x="440" y="56" fill="#6b6258" font-size="12">Annual plan · SLA flagged</text>
+    <g class="p1" transform="translate(${mx} ${my + 116})">
+      <rect width="392" height="72" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text class="mono" x="14" y="22" fill="${MUTED}" font-size="9">HARD SEPARATION</text>
+      <text x="14" y="42" fill="${INK}" font-size="13" font-weight="500">Browser profile</text>
+      <text x="14" y="60" fill="${MUTED}" font-size="11">Separate cookies, history, sites, memory</text>
+      <rect x="408" y="0" width="392" height="72" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text class="mono" x="422" y="22" fill="${MUTED}" font-size="9">WHEN TO USE IT</text>
+      <text x="422" y="42" fill="${INK}" font-size="13" font-weight="500">Work and personal accounts</text>
+      <text x="422" y="60" fill="${MUTED}" font-size="11">Nothing crosses the profile boundary</text>
     </g>
-    <g class="p2" transform="translate(${mx} ${my + 128})">
-      <rect width="400" height="80" rx="12" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.05"/>
-      <text x="20" y="34" fill="#1c1814" font-size="14" font-weight="600">Acme PM · fit 86%</text>
-      <text x="20" y="56" fill="#6b6258" font-size="12">Follow up Friday · draft ready</text>
-      <rect x="420" y="0" width="400" height="80" rx="12" fill="#ffffff"/>
-      <text x="440" y="34" fill="#1c1814" font-size="14" font-weight="600">Interview prep · systems</text>
-      <text x="440" y="56" fill="#6b6258" font-size="12">From pages you already read</text>
+    <g class="p2" transform="translate(${mx} ${my + 116})">
+      <rect width="392" height="72" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text class="mono" x="14" y="22" fill="${MUTED}" font-size="9">RETRIEVAL SCOPE</text>
+      <text x="14" y="42" fill="${INK}" font-size="13" font-weight="500">Context bucket</text>
+      <text x="14" y="60" fill="${MUTED}" font-size="11">Research, meetings, or one project</text>
+      <rect x="408" y="0" width="392" height="72" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text class="mono" x="422" y="22" fill="${MUTED}" font-size="9">WHEN TO USE IT</text>
+      <text x="422" y="42" fill="${INK}" font-size="13" font-weight="500">Keep the answer on-topic</text>
+      <text x="422" y="60" fill="${MUTED}" font-size="11">Pane states which bucket it read</text>
     </g>
-    <g class="p3" transform="translate(${mx} ${my + 128})">
-      <rect width="400" height="80" rx="12" fill="#ffffff" stroke="#1c1814" stroke-opacity="0.05"/>
-      <text x="20" y="34" fill="#1c1814" font-size="14" font-weight="600">Lisbon trip · restaurant shortlist</text>
-      <text x="20" y="56" fill="#6b6258" font-size="12">Threaded from travel tabs</text>
-      <rect x="420" y="0" width="400" height="80" rx="12" fill="#ffffff"/>
-      <text x="440" y="34" fill="#1c1814" font-size="14" font-weight="600">Family calendar nudge</text>
-      <text x="440" y="56" fill="#6b6258" font-size="12">Weekend plans · not in Work</text>
+    <g class="p3" transform="translate(${mx} ${my + 116})">
+      <rect width="392" height="72" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text class="mono" x="14" y="22" fill="${MUTED}" font-size="9">ROLE AND VOICE</text>
+      <text x="14" y="42" fill="${INK}" font-size="13" font-weight="500">Persona</text>
+      <text x="14" y="60" fill="${MUTED}" font-size="11">Chief of staff, research buddy, custom</text>
+      <rect x="408" y="0" width="392" height="72" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <text class="mono" x="422" y="22" fill="${MUTED}" font-size="9">WHEN TO USE IT</text>
+      <text x="422" y="42" fill="${INK}" font-size="13" font-weight="500">Change how Pane helps</text>
+      <text x="422" y="60" fill="${MUTED}" font-size="11">Does not replace privacy boundaries</text>
     </g>
 
-    <g transform="translate(${mx} ${my + 240})">
-      <rect width="820" height="72" rx="12" fill="#f5f2ef" stroke="#94B316" stroke-opacity="0.3"/>
-      <text x="24" y="30" fill="#1c1814" font-size="14" font-weight="600">Switch the profile — each keeps its own memory</text>
-      <text x="24" y="52" fill="#6b6258" font-size="12">Work never sees interview prep. Personal never sees investor notes.</text>
+    <g transform="translate(${mx} ${my + 216})">
+      <rect width="820" height="64" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <rect x="0" y="6" width="2" height="52" fill="${CITRON}"/>
+      <text x="18" y="28" fill="${INK}" font-size="13" font-weight="500">Separation, retrieval, and personality are different controls.</text>
+      <text class="mono" x="18" y="48" fill="${MUTED}" font-size="10">PROFILE ≠ BUCKET ≠ PERSONA · ALL LOCAL AND EDITABLE</text>
     </g>
-  </g>`;
+${closeChrome()}`;
     })(),
   },
 
@@ -787,69 +854,60 @@ ${closeChrome()}`;
 `,
     body: (() => {
       const mid = WX + WW / 2;
+      const termW = 400;
       return `
-  <g filter="url(#shadow)">
-    <rect x="${WX}" y="${WY}" width="${WW}" height="${WH}" rx="16" fill="#ffffff"/>
-  </g>
-  <g clip-path="url(#win)">
-    <rect x="${WX}" y="${WY}" width="${WW}" height="${WH}" fill="#ffffff"/>
-    <rect x="${WX}" y="${WY}" width="${WW}" height="${BAR}" fill="#f5f2ef"/>
-    <line x1="${WX}" y1="${BODY_Y}" x2="${WX + WW}" y2="${BODY_Y}" stroke="#1c1814" stroke-opacity="0.05"/>
-    <circle cx="${WX + 22}" cy="${WY + 20}" r="5" fill="#ff5f57"/>
-    <circle cx="${WX + 40}" cy="${WY + 20}" r="5" fill="#febc2e"/>
-    <circle cx="${WX + 58}" cy="${WY + 20}" r="5" fill="#28c840"/>
-    <rect x="${WX + 168}" y="${WY + 8}" width="520" height="24" rx="12" fill="#faf9f7" stroke="#1c1814" stroke-opacity="0.05"/>
-    <text x="${WX + 184}" y="${WY + 24}" fill="#7a7268" font-size="12">pane · MCP session</text>
+${chromeFull("PANE / MCP SESSION", "CONNECTED")}
+    <!-- left: terminal (charcoal region) -->
+    <rect x="${WX}" y="${BODY_Y}" width="${termW}" height="${WH - BAR}" fill="${CHARCOAL}"/>
+    <text class="mono" x="${WX + 20}" y="${BODY_Y + 32}" fill="${MUTED}" font-size="10">CLAUDE · CONNECTED TO PANE MCP</text>
+    <text x="${WX + 20}" y="${BODY_Y + 64}" fill="${CITRON}" font-size="12">$</text>
+    <text x="${WX + 36}" y="${BODY_Y + 64}" fill="#F3F3F5" font-size="12">list_tabs</text>
+    <text class="mono" x="${WX + 20}" y="${BODY_Y + 86}" fill="${MUTED}" font-size="10">→ 4 TABS · ACTIVE: DOCS.ACME.DEV</text>
+    <text x="${WX + 20}" y="${BODY_Y + 116}" fill="${CITRON}" font-size="12">$</text>
+    <text x="${WX + 36}" y="${BODY_Y + 116}" fill="#F3F3F5" font-size="12">navigate /api/auth#oauth</text>
+    <text class="mono" x="${WX + 20}" y="${BODY_Y + 138}" fill="${MUTED}" font-size="10">→ OK · SCROLLED TO OAUTH</text>
+    <text x="${WX + 20}" y="${BODY_Y + 168}" fill="${CITRON}" font-size="12">$</text>
+    <text x="${WX + 36}" y="${BODY_Y + 168}" fill="#F3F3F5" font-size="12">extract_text pre.code</text>
 
-    <!-- left: terminal -->
-    <rect x="${WX}" y="${BODY_Y}" width="400" height="${WH - BAR}" fill="#1c1814"/>
-    <text x="${WX + 24}" y="${BODY_Y + 36}" fill="#a89a8c" font-size="12">claude · connected to Pane MCP</text>
-    <text x="${WX + 24}" y="${BODY_Y + 72}" fill="#5fb872" font-size="12">$</text>
-    <text x="${WX + 40}" y="${BODY_Y + 72}" fill="#f3efe9" font-size="12">list_tabs</text>
-    <text x="${WX + 24}" y="${BODY_Y + 96}" fill="#8a8278" font-size="11">→ 4 tabs · active: docs.acme.dev</text>
-    <text x="${WX + 24}" y="${BODY_Y + 128}" fill="#5fb872" font-size="12">$</text>
-    <text x="${WX + 40}" y="${BODY_Y + 128}" fill="#f3efe9" font-size="12">navigate /api/auth#oauth</text>
-    <text x="${WX + 24}" y="${BODY_Y + 152}" fill="#8a8278" font-size="11">→ ok · scrolled to OAuth</text>
-    <text x="${WX + 24}" y="${BODY_Y + 184}" fill="#5fb872" font-size="12">$</text>
-    <text x="${WX + 40}" y="${BODY_Y + 184}" fill="#f3efe9" font-size="12">extract_text pre.code</text>
-
-    <g transform="translate(${WX + 24} ${BODY_Y + 216})">
-      <rect width="352" height="120" rx="12" fill="#2a241f" stroke="#94B316" stroke-opacity="0.45"/>
-      <text x="16" y="28" fill="#f3efe9" font-size="12" font-weight="600">Extracted into context</text>
-      <text x="16" y="54" fill="#c2b4a4" font-size="12">POST /oauth/token</text>
-      <text x="16" y="76" fill="#c2b4a4" font-size="12">grant_type=authorization_code</text>
-      <text x="16" y="100" fill="#8a8278" font-size="11">Real browser · your logins · local</text>
+    <g transform="translate(${WX + 20} ${BODY_Y + 196})">
+      <rect width="360" height="112" rx="${RX}" fill="#24252C" stroke="${BORDER_DARK}"/>
+      <text x="14" y="26" fill="#F3F3F5" font-size="12" font-weight="500">Extracted into context</text>
+      <text class="mono" x="14" y="50" fill="${MUTED}" font-size="11">POST /OAUTH/TOKEN</text>
+      <text class="mono" x="14" y="70" fill="${MUTED}" font-size="11">GRANT_TYPE=AUTHORIZATION_CODE</text>
+      <text class="mono" x="14" y="94" fill="${MUTED}" font-size="9">REAL BROWSER · YOUR LOGINS · LOCAL</text>
     </g>
 
     <!-- beam -->
-    <path class="beam" d="M${WX + 400} ${BODY_Y + 200} H${WX + 480}" fill="none" stroke="#94B316" stroke-width="2" stroke-opacity="0.7"/>
-    <circle class="pulse" cx="${mid}" cy="${BODY_Y + 200}" r="5" fill="#C8E832"/>
+    <path class="beam" d="M${WX + termW} ${BODY_Y + 188} H${WX + 480}" fill="none" stroke="${CITRON_DEEP}" stroke-width="1.5" stroke-opacity="0.7"/>
+    <circle class="pulse" cx="${mid}" cy="${BODY_Y + 188}" r="4" fill="${CITRON}"/>
 
-    <!-- right: browser tabs -->
-    <rect x="${WX + 480}" y="${BODY_Y}" width="400" height="${WH - BAR}" fill="#f3f0ec"/>
-    <text x="${WX + 504}" y="${BODY_Y + 36}" fill="#3d3731" font-size="13" font-weight="600">Pane window</text>
-    <text x="${WX + 504}" y="${BODY_Y + 56}" fill="#8a8278" font-size="11">Driven by your coding agent</text>
+    <!-- right: Pane tabs (white shell) -->
+    <rect x="${WX + 480}" y="${BODY_Y}" width="400" height="${WH - BAR}" fill="${WHITE}"/>
+    <line x1="${WX + 480}" y1="${BODY_Y}" x2="${WX + 480}" y2="${WY + WH}" stroke="${BORDER}"/>
+    <text class="mono" x="${WX + 500}" y="${BODY_Y + 28}" fill="${MUTED}" font-size="10">PANE WINDOW</text>
+    <text x="${WX + 500}" y="${BODY_Y + 48}" fill="${MUTED}" font-size="11">Driven by your coding agent</text>
 
-    <rect class="active-tab" x="${WX + 504}" y="${BODY_Y + 84}" width="352" height="48" rx="10" fill="#ffffff" stroke="#94B316" stroke-width="1.5"/>
-    <text x="${WX + 524}" y="${BODY_Y + 113}" fill="#1c1814" font-size="12">docs.acme.dev/api/auth</text>
+    <rect class="active-tab" x="${WX + 500}" y="${BODY_Y + 72}" width="360" height="44" rx="${RX}" fill="${WHITE}" stroke="${CITRON}" stroke-width="1.5"/>
+    <text x="${WX + 516}" y="${BODY_Y + 98}" fill="${INK}" font-size="12">docs.acme.dev/api/auth</text>
 
-    <rect x="${WX + 504}" y="${BODY_Y + 148}" width="352" height="48" rx="10" fill="#f5f2ef"/>
-    <text x="${WX + 524}" y="${BODY_Y + 177}" fill="#6b6258" font-size="12">github.com/acme/web</text>
-    <rect x="${WX + 504}" y="${BODY_Y + 212}" width="352" height="48" rx="10" fill="#f5f2ef"/>
-    <text x="${WX + 524}" y="${BODY_Y + 241}" fill="#6b6258" font-size="12">localhost:3000</text>
+    <rect x="${WX + 500}" y="${BODY_Y + 128}" width="360" height="44" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+    <text x="${WX + 516}" y="${BODY_Y + 154}" fill="${MUTED}" font-size="12">github.com/acme/web</text>
+    <rect x="${WX + 500}" y="${BODY_Y + 184}" width="360" height="44" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+    <text x="${WX + 516}" y="${BODY_Y + 210}" fill="${MUTED}" font-size="12">localhost:3000</text>
 
-    <g transform="translate(${WX + 504} ${BODY_Y + 292})">
-      <rect width="352" height="64" rx="12" fill="#F4F7E0"/>
-      <text x="16" y="28" fill="#1c1814" font-size="13" font-weight="600">Pane as MCP</text>
-      <text x="16" y="48" fill="#6b6258" font-size="11">Claude Code · Cursor · Gemini CLI</text>
+    <g transform="translate(${WX + 500} ${BODY_Y + 252})">
+      <rect width="360" height="56" rx="${RX}" fill="${WHITE}" stroke="${BORDER}"/>
+      <rect x="0" y="6" width="2" height="44" fill="${CITRON}"/>
+      <text x="14" y="24" fill="${INK}" font-size="13" font-weight="500">Pane as MCP</text>
+      <text class="mono" x="14" y="42" fill="${MUTED}" font-size="9">CLAUDE CODE · CURSOR · GEMINI CLI</text>
     </g>
-  </g>`;
+${closeChrome()}`;
     })(),
   },
 };
 
 for (const [slug, scene] of Object.entries(scenes)) {
-  const svg = wrap(scene.aria, scene.css, scene.body);
+  const svg = wrap(scene.aria, scene.css, scene.body).replace(/[ \t]+$/gm, "");
   const path = join(__dirname, `${slug}.svg`);
   writeFileSync(path, svg, "utf8");
   console.log("wrote", path);

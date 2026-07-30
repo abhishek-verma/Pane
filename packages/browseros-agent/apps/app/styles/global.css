@@ -161,12 +161,12 @@
    (bg-card, bg-muted, border-border, text-muted-foreground) need no
    awareness of the field at all.
 
-   Light seeds sit at L≈0.88 / C 0.04–0.07 (rich paper, not pale wash).
+   Light seeds sit at L≈0.92 / C 0.04–0.07 (softer paper; still pigmented).
    Dark seeds sit at L≈0.24 / C 0.05–0.07 (pigment with real hue).
    Holding lightness fixed keeps the ten fields tonally interchangeable. */
 
 [data-field] {
-  --field: oklch(0.88 0.02 265);
+  --field: oklch(0.92 0.02 265);
 
   --background: var(--field);
   --card: oklch(from var(--field) calc(l + 0.025) c h);
@@ -202,34 +202,34 @@
 }
 
 [data-field="rust"] {
-  --field: oklch(0.88 0.055 28);
+  --field: oklch(0.92 0.055 28);
 }
 [data-field="ember"] {
-  --field: oklch(0.89 0.06 58);
+  --field: oklch(0.93 0.06 58);
 }
 [data-field="amber"] {
-  --field: oklch(0.9 0.075 95);
+  --field: oklch(0.94 0.075 95);
 }
 [data-field="clay"] {
-  --field: oklch(0.88 0.05 80);
+  --field: oklch(0.92 0.05 80);
 }
 [data-field="moss"] {
-  --field: oklch(0.88 0.06 135);
+  --field: oklch(0.92 0.06 135);
 }
 [data-field="petrol"] {
-  --field: oklch(0.87 0.055 175);
+  --field: oklch(0.91 0.055 175);
 }
 [data-field="dust"] {
-  --field: oklch(0.88 0.06 255);
+  --field: oklch(0.92 0.06 255);
 }
 [data-field="iris"] {
-  --field: oklch(0.88 0.065 295);
+  --field: oklch(0.92 0.065 295);
 }
 [data-field="plum"] {
-  --field: oklch(0.88 0.06 340);
+  --field: oklch(0.92 0.06 340);
 }
 [data-field="slate"] {
-  --field: oklch(0.88 0.022 265);
+  --field: oklch(0.92 0.022 265);
 }
 
 /* Citron dies on warm yellow-green paper; fall back to olive ink. */

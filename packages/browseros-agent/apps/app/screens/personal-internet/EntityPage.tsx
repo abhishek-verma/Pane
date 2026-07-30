@@ -12,6 +12,14 @@ import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanel
 import { executePiAction } from '@/lib/pi-actions'
 import { emitPiInvalidate } from '@/lib/pi-invalidate'
 import { PiFieldSurface, piEntityField } from './field'
+import {
+  MaterializeActivityBar,
+  type PendingMaterializeApproval,
+} from './MaterializeActivityBar'
+import {
+  deriveMaterializeActivity,
+  type MaterializeActivityLine,
+} from './materializeActivity'
 import { PiRailAction, PiStatusDot, PiTopRail } from './PiChrome'
 import { PiPageRenderer } from './PiPageRenderer'
 import {
@@ -128,6 +136,14 @@ export const EntityPage: FC = () => {
   const [runId, setRunId] = useState<string | null>(null)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [watchError, setWatchError] = useState<string | null>(null)
+  const [openingOwner, setOpeningOwner] = useState(false)
+  const [activityLines, setActivityLines] = useState<MaterializeActivityLine[]>(
+    [],
+  )
+  const [toolWaiting, setToolWaiting] = useState(false)
+  const [pendingApproval, setPendingApproval] =
+    useState<PendingMaterializeApproval | null>(null)
+  const [resolvingApproval, setResolvingApproval] = useState(false)
   const pageQuery = usePiPage(siteId, pageId ?? undefined)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const enrichSinceRef = useRef<number | null>(null)
@@ -308,41 +324,127 @@ export const EntityPage: FC = () => {
     return () => window.clearInterval(id)
   }, [enriching, pageId, pageQuery, siteId, runId])
 
-  const watchAgent = async () => {
-    setWatchError(null)
-    let conv = conversationId
-    let runStatus: string | undefined
-    if (runId) {
+  // Rolling owner-agent activity + pending channel approvals (never leave user dark).
+  useEffect(() => {
+    if (!enriching || !conversationId) {
+      setActivityLines([])
+      setToolWaiting(false)
+      setPendingApproval(null)
+      return
+    }
+    let cancelled = false
+    const tick = async () => {
       try {
-        const polled = await pollRunForWatch(runId)
-        runStatus = polled.status
-        conv = polled.conversationId ?? conv
-        if (conv) setConversationId(conv)
+        const base = await getAgentServerUrl()
+        const [chatRes, approvalsRes] = await Promise.all([
+          agentFetch(`${base}/chat/${encodeURIComponent(conversationId)}`),
+          agentFetch(`${base}/scheduler/approvals`),
+        ])
+        if (cancelled) return
+        if (chatRes.ok) {
+          const body = (await chatRes.json()) as { messages?: unknown[] }
+          const snap = deriveMaterializeActivity(body.messages ?? [], 4)
+          setActivityLines(snap.lines)
+          setToolWaiting(snap.toolWaiting)
+        }
+        if (approvalsRes.ok) {
+          const body = (await approvalsRes.json()) as {
+            approvals?: Array<{
+              conversationId?: string | null
+              toolName: string
+              preview: string
+              approveToken: string
+              denyToken: string
+              status: string
+            }>
+          }
+          const match = (body.approvals ?? []).find(
+            (a) =>
+              a.status === 'pending' && a.conversationId === conversationId,
+          )
+          setPendingApproval(
+            match
+              ? {
+                  toolName: match.toolName,
+                  preview: match.preview,
+                  approveToken: match.approveToken,
+                  denyToken: match.denyToken,
+                }
+              : null,
+          )
+        }
       } catch {
-        // fall through
+        // best-effort
       }
     }
-    if (runStatus === 'cancelled' || runStatus === 'failed') {
-      setWatchError(
-        runStatus === 'cancelled'
-          ? 'Materialize was cancelled. Use Force re-materialize to try again.'
-          : 'Materialize failed. Use Force re-materialize to try again.',
-      )
-      setEnriching(false)
-      return
+    void tick()
+    const id = window.setInterval(() => void tick(), 2000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
     }
-    if (conv) {
-      await openSidePanelWithSearch('open', {
-        query: '',
-        mode: 'agent',
-        conversationId: conv,
+  }, [enriching, conversationId])
+
+  const resolveApproval = async (token: string) => {
+    setResolvingApproval(true)
+    try {
+      const base = await getAgentServerUrl()
+      await agentFetch(`${base}/scheduler/approvals/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
       })
-      return
+      setPendingApproval(null)
+    } catch (e) {
+      setWatchError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setResolvingApproval(false)
     }
-    // Never open a fresh unrelated chat — that hides the materialize turn.
-    setWatchError(
-      'Agent conversation is not ready yet. Wait a moment and try Watch agent again.',
-    )
+  }
+
+  const openOwnerAgent = async () => {
+    if (openingOwner) return
+    setOpeningOwner(true)
+    setWatchError(null)
+    try {
+      let conv = conversationId
+      let runStatus: string | undefined
+      if (runId) {
+        try {
+          const polled = await pollRunForWatch(runId)
+          runStatus = polled.status
+          conv = polled.conversationId ?? conv
+          if (conv) setConversationId(conv)
+        } catch {
+          // fall through with whatever conversationId we already have
+        }
+      }
+      if (runStatus === 'cancelled' || runStatus === 'failed') {
+        setWatchError(
+          runStatus === 'cancelled'
+            ? 'Materialize was cancelled. Use Retry prep to try again.'
+            : 'Materialize failed. Use Retry prep to try again.',
+        )
+        setEnriching(false)
+        return
+      }
+      if (conv) {
+        await openSidePanelWithSearch('open', {
+          query: '',
+          mode: 'agent',
+          conversationId: conv,
+        })
+        return
+      }
+      // Never open a fresh unrelated chat — that hides the materialize turn.
+      setWatchError(
+        'Owner agent is not ready yet. Wait a moment and try again.',
+      )
+    } catch (e) {
+      setWatchError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setOpeningOwner(false)
+    }
   }
 
   if (!siteId || !entityKey) {
@@ -374,73 +476,101 @@ export const EntityPage: FC = () => {
 
   const doc = pageQuery.data?.doc
   const title = doc?.title || company || entityKey
+  const needsApproval = Boolean(pendingApproval) || toolWaiting
   const statusLabel =
-    timedOut && enriching
-      ? 'Prep timed out'
-      : enriching
-        ? 'Creating…'
-        : btfComplete
-          ? 'Ready'
-          : 'Loading…'
+    needsApproval && enriching
+      ? 'Needs approval'
+      : timedOut && enriching
+        ? 'Prep timed out'
+        : enriching
+          ? 'Creating…'
+          : btfComplete
+            ? 'Ready'
+            : 'Loading…'
+  const showActivityBar = Boolean(enriching || (runId && !btfComplete))
 
   return (
     <PiFieldSurface field={field}>
-      <PiTopRail
-        crumbs={[title]}
-        status={<PiStatusDot label={statusLabel} live={enriching || !!runId} />}
-        actions={
-          <>
-            {enriching || runId ? (
-              <PiRailAction onClick={() => void watchAgent()}>
-                {conversationId ? 'Watch agent' : 'Starting…'}
+      <div className="flex min-h-full flex-col">
+        <PiTopRail
+          crumbs={[title]}
+          status={
+            <PiStatusDot label={statusLabel} live={enriching || !!runId} />
+          }
+          actions={
+            <>
+              {enriching || timedOut ? (
+                <PiRailAction
+                  onClick={() =>
+                    void ensure({ materialize: true, force: true })
+                  }
+                >
+                  Retry prep
+                </PiRailAction>
+              ) : null}
+              <PiRailAction to={`/pi/sites/${siteId}`}>
+                Back to site
               </PiRailAction>
-            ) : null}
-            {enriching || timedOut ? (
-              <PiRailAction
-                onClick={() => void ensure({ materialize: true, force: true })}
-              >
-                Retry prep
-              </PiRailAction>
-            ) : null}
-            <PiRailAction to={`/pi/sites/${siteId}`}>Back to site</PiRailAction>
-          </>
-        }
-      />
-      {enriching && !timedOut ? (
-        <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
-          {company
-            ? `Creating your website for ${company}…`
-            : 'Creating your website…'}
-        </div>
-      ) : null}
-      {timedOut && enriching ? (
-        <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
-          Still creating your website. Retry prep, or watch the agent in the
-          side panel.
-        </div>
-      ) : null}
-      {watchError ? (
-        <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
-          {watchError}
-        </div>
-      ) : null}
-      {doc ? (
-        <PiPageRenderer
-          doc={doc}
-          siteId={siteId}
-          pendingKey={pendingKey}
-          onAction={async (action, ctx) => {
-            if (ctx?.pendingKey) setPendingKey(ctx.pendingKey)
-            try {
-              await executePiAction(action)
-            } finally {
-              setPendingKey(null)
-            }
-          }}
+            </>
+          }
         />
-      ) : (
-        <div className="p-6 text-muted-foreground text-sm">Loading page…</div>
-      )}
+        {enriching && !timedOut && !needsApproval ? (
+          <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
+            {company
+              ? `Creating your website for ${company}…`
+              : 'Creating your website…'}
+          </div>
+        ) : null}
+        {timedOut && enriching && !needsApproval ? (
+          <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
+            Still creating your website. Retry prep, or open the owner agent.
+          </div>
+        ) : null}
+        {watchError ? (
+          <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
+            {watchError}
+          </div>
+        ) : null}
+        <div className="min-h-0 flex-1">
+          {doc ? (
+            <PiPageRenderer
+              doc={doc}
+              siteId={siteId}
+              pendingKey={pendingKey}
+              onAction={async (action, ctx) => {
+                if (ctx?.pendingKey) setPendingKey(ctx.pendingKey)
+                try {
+                  await executePiAction(action)
+                } finally {
+                  setPendingKey(null)
+                }
+              }}
+            />
+          ) : (
+            <div className="p-6 text-muted-foreground text-sm">
+              Loading page…
+            </div>
+          )}
+        </div>
+        {showActivityBar ? (
+          <MaterializeActivityBar
+            lines={activityLines}
+            needsApproval={needsApproval}
+            pendingApproval={pendingApproval}
+            openingOwner={openingOwner}
+            resolvingApproval={resolvingApproval}
+            onOpenOwner={() => void openOwnerAgent()}
+            onApprove={() => {
+              if (pendingApproval)
+                void resolveApproval(pendingApproval.approveToken)
+            }}
+            onDeny={() => {
+              if (pendingApproval)
+                void resolveApproval(pendingApproval.denyToken)
+            }}
+          />
+        ) : null}
+      </div>
     </PiFieldSurface>
   )
 }

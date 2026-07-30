@@ -1,202 +1,195 @@
 import {
-  ArrowDown,
   ArrowRight,
   BookOpen,
   Bot,
   Brain,
+  Check,
+  Clock3,
   FolderOpen,
-  Home,
-  LinkIcon,
+  Github,
+  Globe2,
   Lock,
-  Mic,
+  type LucideIcon,
+  MessageCircle,
   Plug,
   Sparkles,
 } from 'lucide-react'
-import { type FC, useEffect, useState } from 'react'
-import DiscordLogo from '@/assets/discord-logo.svg'
-import GithubLogo from '@/assets/github-logo.svg'
-import SlackLogo from '@/assets/slack-logo.svg'
+import type { FC } from 'react'
 import { PaneMark } from '@/components/branding/PaneMark'
-import { PillIndicator } from '@/components/elements/pill-indicator'
 import { Button } from '@/components/ui/button'
 import {
   AGENT_MODE_DEMO_URL,
   COWORK_DEMO_URL,
   DEVELOPER_COWORK_GIF_URL,
-  JOB_APPLICANT_GIF_URL,
   MCP_SERVER_DEMO_URL,
   MEETING_CAPTURE_GIF_URL,
-  MORNING_BRIEFING_GIF_URL,
   PANE_AS_MCP_GIF_URL,
-  PANE_INTRO_VIDEO_URL,
-  PROFILES_GIF_URL,
-  RESEARCH_GIF_URL,
+  PERSONALISED_INTERNET_GIF_URL,
+  SCOPED_CONTEXT_GIF_URL,
   SKILLS_GIF_URL,
+  WORK_IN_MOTION_GIF_URL,
 } from '@/lib/constants/mediaUrls'
-import { PRODUCT_NAME, PRODUCT_TAGLINE } from '@/lib/constants/product'
 import {
-  discordUrl,
-  productRepositoryUrl,
-  slackUrl,
-} from '@/lib/constants/productUrls'
+  PRODUCT_NAME,
+  PRODUCT_SIGNATURE,
+  PRODUCT_TAGLINE,
+} from '@/lib/constants/product'
+import { discordUrl, productRepositoryUrl } from '@/lib/constants/productUrls'
 import { cn } from '@/lib/utils'
-import { BentoCard, type Feature } from './BentoCard'
-import { VideoFrame } from './VideoFrame'
 
-/** Pane-only capabilities — the reason the fork exists. */
-const uniqueFeatures: Feature[] = [
+interface StoryFeature {
+  id: string
+  Icon: LucideIcon
+  tag: string
+  title: string
+  description: string
+  detailedDescription: string
+  highlights: string[]
+  videoUrl?: string
+  gifUrl?: string
+}
+
+const outcomeFeatures: StoryFeature[] = [
   {
-    id: 'soul',
-    Icon: Sparkles,
-    tag: 'THE THESIS',
-    title: 'A browser with a soul',
+    id: 'continuity',
+    Icon: BookOpen,
+    tag: 'REMEMBERS',
+    title: 'What mattered stays',
     description:
-      'Not the same chatbot for every user. Pane takes a shape that fits your life — persona, memory, capture, and skills that compound on your machine until the browser stops feeling generic.',
+      'Close the tabs. The decisions, sources, and unfinished thread can still be there when you return.',
     detailedDescription:
-      'The soul is the combination that makes Pane yours: a persona that can be chief of staff, job-search partner, or research buddy; memory grounded in what you actually browsed and did, not only what you typed into chat; meetings and research captured in the tab so they do not evaporate; skills written when you repeat a workflow, staged for your approval; context scoped into profiles so work and personal life stay apart; a homepage that rearranges around your day. Chief of staff if you are building a company. Job-search partner if you are looking for what is next. Research buddy if you are learning. Whatever else you need — because Pane learns your rhythms and grows more personal every week you use it. All local. No Pane cloud profile.',
+      'Continuity starts at the source. Pane can capture supported web meetings visibly and transcribe them locally after a one-time model download. Opt-in research mode threads pages, quotes, sources, and timestamps toward one question. Both are off until you enable them, domain-specific, and pauseable.',
     highlights: [
-      'Persona that fits the role you need right now — editable and switchable',
-      'Memory from real activity: tabs, files, terminal, meetings, research threads',
-      'Skills that appear when you repeat work successfully — you approve before they run',
-      'Capture that stays in the browser: meeting notes without a bot, research that survives the tab close',
-      'Profiles so work, job hunt, and personal life do not bleed into each other',
-      'A home and agent that get more useful the longer you use Pane',
+      'Meeting capture without a bot joining the call',
+      'Local transcription after a one-time model download',
+      'Opt-in research threads with citable sources',
+      'Ask later what was decided and where it came from',
     ],
-    gridClass: 'md:col-span-3',
-    gifUrl: PROFILES_GIF_URL,
+    gifUrl: MEETING_CAPTURE_GIF_URL,
+  },
+  {
+    id: 'personalised-internet',
+    Icon: Globe2,
+    tag: 'PERSONALISED INTERNET',
+    title: 'Your work becomes a living web',
+    description:
+      'Turn ongoing work into private sites with structure, state, and a next action instead of leaving it buried in chats.',
+    detailedDescription:
+      'Home is the front door to your Personalised Internet: a composer plus doorways into living sites. Start with a Job Search pipeline, Research Hub, or Sales Pipeline, then ask Pane to create, update, or reshape it. The agent writes structured, inspectable data and approved UI patterns rather than arbitrary generated HTML.',
+    highlights: [
+      'Private sites for work that lasts days or weeks',
+      'Doorways from Home with continuity and pulse',
+      'Structured local data with an inspectable write path',
+      'Job Search, Research Hub, and Sales Pipeline starters',
+    ],
+    gifUrl: PERSONALISED_INTERNET_GIF_URL,
+  },
+  {
+    id: 'work-in-motion',
+    Icon: Clock3,
+    tag: 'CONTINUES',
+    title: 'Work moves while you are away',
+    description:
+      'Schedule a successful task, step away, and return to the result or an approval request.',
+    detailedDescription:
+      'Scheduled tasks reuse the local agent and can run while Pane is running. Results return to Home and the schedule history. Pane stops before consequential actions such as sending a message. If the browser is fully quit or the machine is asleep, browser work waits.',
+    highlights: [
+      'Local recurring schedules',
+      'Results surfaced when you return',
+      'Approval before consequential actions',
+      'Browser tasks require Pane to be running',
+    ],
+    gifUrl: WORK_IN_MOTION_GIF_URL,
   },
   {
     id: 'learning-loop',
     Icon: Brain,
-    tag: 'ONLY IN PANE',
-    title: 'Gets smarter from how you work',
+    tag: 'STAGED',
+    title: 'Gets better at your work',
     description:
-      'Pane watches real browsing, files, and terminal activity (with consent) and turns repeat work into memory and skills — not just chat transcripts.',
+      'Editable local memory and staged skill drafts let useful parts of prior work carry into the next task.',
     detailedDescription:
-      'Most agents only remember what you typed into a chat. Pane learns from what you actually did: the dashboard you open every Monday, the export path you always take, the conventions in your repo. Facts land in plain local memory files. Repeated workflows become staged skills you can approve. Nothing auto-activates without you. The loop runs on your machine — no Pane cloud required.',
+      'Pane keeps plain local memory files you can inspect, edit, or delete. Repeated successful tool runs can produce a proposed skill, but the workflow is deliberately staged: the draft waits for review and does not activate itself. This is the early foundation for a deeper learning loop.',
     highlights: [
-      'Activity-grounded memory — from browsing and work, not only conversation',
-      'Auto-proposed skills from workflows you repeat',
-      'Staged for your review — you approve before a skill goes live',
-      'Open files you can read, edit, and delete anytime',
+      'SOUL.md, USER.md, and MEMORY.md stay editable',
+      'Skill candidates come from repeated successful runs',
+      'Drafts remain staged until you review them',
+      'The full self-improving loop is still maturing',
     ],
-    gridClass: 'md:col-span-2',
     gifUrl: SKILLS_GIF_URL,
   },
   {
-    id: 'meeting-capture',
-    Icon: Mic,
-    tag: 'ONLY IN PANE',
-    title: 'Meeting notes without a bot',
+    id: 'scoped-context',
+    Icon: Sparkles,
+    tag: 'CONTROL',
+    title: 'Context without blurred boundaries',
     description:
-      'Meet, Zoom, or Teams in a tab? Pane records and transcribes locally. No Otter bot joining the call. No vendor cloud recording.',
+      'Profiles, context buckets, and personas each control a different layer of what Pane can carry forward.',
     detailedDescription:
-      'Because Pane is the browser, web meetings already live in a tab. Capture tab audio (and your mic if you allow it), transcribe on-device with a local speech model, and file notes in a meeting profile the agent can recall later. Per-domain consent, a visible recording indicator, one click to stop or delete. Optional BYOK to a provider transcription API if you want speed — never through a Pane server.',
+      'Browser profiles provide hard separation for cookies, history, private sites, memory, and skills. Context buckets tune what Pane retrieves within a profile. Personas tune role and voice. Keeping these controls separate makes the boundary visible instead of hiding it behind fixed labels.',
     highlights: [
-      'Native tab capture — no third-party bot in the meeting',
-      'Local transcription by default (faster-whisper class)',
-      'Summaries, decisions, and action items on your machine',
-      'Ask later: "what did we decide about X last week?"',
+      'Browser profiles for hard separation',
+      'Context buckets for retrieval scope',
+      'Personas for role and voice',
+      'All local, visible, and editable',
     ],
-    gridClass: 'md:col-span-1',
-    gifUrl: MEETING_CAPTURE_GIF_URL,
-  },
-  {
-    id: 'browsing-learnings',
-    Icon: BookOpen,
-    tag: 'ONLY IN PANE',
-    title: 'Research that survives the tab close',
-    description:
-      'Opt in and Pane threads the pages you open toward a question — quotes, sources, and a chain you can turn into an outline later.',
-    detailedDescription:
-      'Research is multi-tab and multi-day. Pane’s research profile records the chain of pages (not a flat history), keeps verbatim quotes for citable retrieval, and lets you ask for a lit review or outline with links back to the source tabs. Broader browsing learnings can extract facts and workflow fragments from domains you allow. Everything is off by default, pauseable, and scoped into profiles so work does not bleed into personal life.',
-    highlights: [
-      'Research threads with source URLs and timestamps',
-      'Verbatim quotes so claims stay citable',
-      'Browsing learnings feed memory and skill proposals',
-      'Profiles: Work, Personal, Research, Meetings — separate scopes',
-    ],
-    gridClass: 'md:col-span-1',
-    gifUrl: RESEARCH_GIF_URL,
-  },
-  {
-    id: 'adaptive-home',
-    Icon: Home,
-    tag: 'ONLY IN PANE',
-    title: 'A homepage that becomes yours',
-    description:
-      'New tab is the front door to your private web — composer plus doorways into living sites, not a static link grid.',
-    detailedDescription:
-      'Pane’s home is the homepage of your Personalised Internet. Doorways surface Job Search, Research, and other living sites with a short pulse line. Today continuity points at the next action. Ask in the composer to create or reshape a site; depth stays on the site, not as a dashboard of cards.',
-    highlights: [
-      'Composer stays on home for the next ask',
-      'Doorways into living sites with pulse lines',
-      'Today continuity for the next real action',
-      'Empty home offers site starters, not widget kits',
-    ],
-    gridClass: 'md:col-span-2',
-    gifUrl: MORNING_BRIEFING_GIF_URL,
+    gifUrl: SCOPED_CONTEXT_GIF_URL,
   },
 ]
 
-/** Shared substrate (also in BrowserOS) — still useful, secondary on this page. */
-const foundationFeatures: Feature[] = [
+const developerFeatures: StoryFeature[] = [
   {
     id: 'mcp-server',
     Icon: Plug,
     tag: 'MCP',
     title: "Your coding agent's real browser",
     description:
-      'Point Claude Code or Cursor at Pane. One MCP URL. Localhost, logins, console — your real session.',
+      'Point Claude Code, Cursor, or Codex at Pane. One MCP URL gives it localhost, logins, tabs, screenshots, and console output.',
     detailedDescription:
-      'Pane ships a built-in MCP server so coding agents drive the browser you already use. Open tabs, click, type, screenshot, read the page, pull console errors. No separate debug profile. Copy the URL from Settings → Pane as MCP and connect in one line.',
+      'Pane ships a built-in MCP server so coding agents drive the browser you already use. Open tabs, click, type, screenshot, read the page, and pull console errors without a separate debug profile. Copy the URL from Settings → Pane as MCP and connect in one line.',
     highlights: [
       'One-line setup from Settings',
-      'Real session — not a fake WebDriver tab',
-      'Works with Claude Code, Cursor, Gemini CLI, Codex',
+      'Your authenticated session, not a WebDriver tab',
+      'Works with Claude Code, Cursor, Codex, and other MCP clients',
       'Pairs with workspace access when you grant a folder',
     ],
-    gridClass: 'md:col-span-2',
     videoUrl: MCP_SERVER_DEMO_URL,
     gifUrl: PANE_AS_MCP_GIF_URL,
-  },
-  {
-    id: 'agent',
-    Icon: Bot,
-    tag: 'AGENT',
-    title: 'Built-in AI agent',
-    description:
-      'Describe a task. Pane clicks, types, and navigates in the tabs you already have open.',
-    detailedDescription:
-      'Chat about the page you are on, or hand the agent a multi-step job in your real session. You bring the model — API key, OAuth subscription, or local. No Pane account. No credits meter.',
-    highlights: [
-      'Chat grounded in the current page',
-      'Multi-step browser automation',
-      'Your models, your keys',
-      'Scheduled tasks run the same agent locally',
-    ],
-    gridClass: 'md:col-span-1',
-    videoUrl: AGENT_MODE_DEMO_URL,
-    gifUrl: JOB_APPLICANT_GIF_URL,
   },
   {
     id: 'cowork',
     Icon: FolderOpen,
     tag: 'WORKSPACE',
-    title: 'Web + files + terminal',
+    title: 'Browser, files, and terminal in one loop',
     description:
-      'Grant a folder. Research online, write the report to disk, run a command — sandboxed to what you allowed.',
+      'Grant a folder. Reproduce the bug in the browser, inspect the console, write the fix, and verify it without stitching tools together.',
     detailedDescription:
-      'Cowork lets the agent read and write files and run shell commands inside a folder you choose. Browser and machine in one loop. Sandboxed to that folder.',
+      'Cowork lets the agent read and write files and run shell commands inside a folder you choose. Browser and machine stay in one task, while the workspace boundary remains explicit.',
     highlights: [
       'Read and write local files',
       'Shell inside the granted folder',
       'Browser and disk in one task',
-      'You pick the sandbox boundary',
+      'You choose the sandbox boundary',
     ],
-    gridClass: 'md:col-span-2',
     videoUrl: COWORK_DEMO_URL,
     gifUrl: DEVELOPER_COWORK_GIF_URL,
+  },
+  {
+    id: 'agent',
+    Icon: Bot,
+    tag: 'AGENT',
+    title: 'A native agent in your real session',
+    description:
+      'Describe a task. Pane can navigate, click, type, and extract in the tabs you already have open.',
+    detailedDescription:
+      'Chat about the current page or hand the agent a multi-step job in your real browser session. Bring an API key, an OAuth subscription, or a local model. There is no required Pane account or credits meter.',
+    highlights: [
+      'Chat grounded in the current page',
+      'Multi-step browser automation',
+      'Your models and your keys',
+      'The same local agent powers scheduled tasks',
+    ],
+    videoUrl: AGENT_MODE_DEMO_URL,
   },
   {
     id: 'local-first',
@@ -204,35 +197,140 @@ const foundationFeatures: Feature[] = [
     tag: 'TRUST',
     title: 'Local-first by design',
     description:
-      'Open source. Capture, memory, and agent work stay on your machine. No Pane servers required.',
+      'Capture, memory, private sites, and agent work stay on your machine. The core product needs no Pane server.',
     detailedDescription:
-      'Pane is AGPL-3.0. Upstream BrowserOS cloud surfaces — sync, hosted inference, credits — are off in Pane builds. Consent for capture is off by default. Memory and skills are plain files. Import Chrome, keep extensions, use vertical tabs and full uBlock Origin.',
+      'Pane is AGPL-3.0. Upstream cloud surfaces such as sync, hosted inference, and credits are off in Pane builds. Capture consent is off by default, memory and skills are readable files, and you can bring your existing Chrome data and extensions.',
     highlights: [
       'No Pane account required',
       'Capture and memory stay local',
-      'Consent off by default, per-domain controls',
-      'Chrome import, extensions, daily-driver Chromium',
+      'Consent off by default with per-domain controls',
+      'Chrome import and extension compatibility',
     ],
-    gridClass: 'md:col-span-1',
   },
 ]
 
-const allFeatures = [...uniqueFeatures, ...foundationFeatures]
+const outcomes = [
+  [
+    '01',
+    'REMEMBERS THE THREAD',
+    'Meetings, research, and decisions survive the tab close.',
+  ],
+  [
+    '02',
+    'BUILDS YOUR PERSONALISED INTERNET',
+    'Ongoing projects become private, living sites.',
+  ],
+  [
+    '03',
+    'KEEPS WORK MOVING',
+    'Local schedules return results and stop for approval.',
+  ],
+] as const
 
-const hasAnyFeatureMedia = allFeatures.some(
-  (feature) => feature.videoUrl || feature.gifUrl,
-)
+interface StoryProps {
+  feature: StoryFeature
+  index: number
+  sectionNumber: string
+}
+
+const Story: FC<StoryProps> = ({ feature, index, sectionNumber }) => {
+  const { Icon } = feature
+  const media = feature.videoUrl || feature.gifUrl
+  const mediaFirst = index % 2 === 1
+
+  return (
+    <article id={feature.id} className="border-border border-t">
+      <div className="mx-auto grid max-w-7xl lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div
+          className={cn(
+            'flex flex-col justify-between gap-10 px-6 py-14 md:px-10 md:py-20 lg:px-14',
+            mediaFirst && 'lg:order-2',
+          )}
+        >
+          <div className="space-y-8">
+            <div className="flex items-center justify-between border-border border-b pb-4">
+              <div className="flex items-center gap-3 font-mono text-muted-foreground text-xs tracking-[0.12em]">
+                <span className="text-[var(--signal)]">{sectionNumber}</span>
+                <span>{feature.tag}</span>
+              </div>
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="max-w-xl font-semibold text-3xl tracking-[-0.035em] md:text-5xl">
+                {feature.title}
+              </h3>
+              <p className="max-w-xl text-lg text-muted-foreground leading-relaxed">
+                {feature.description}
+              </p>
+            </div>
+
+            <p className="max-w-xl leading-7">{feature.detailedDescription}</p>
+          </div>
+
+          <ul className="grid gap-x-8 gap-y-3 border-border border-t pt-6 sm:grid-cols-2">
+            {feature.highlights.map((highlight) => (
+              <li
+                key={highlight}
+                className="flex items-start gap-3 text-muted-foreground text-sm leading-5"
+              >
+                <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--signal)]" />
+                <span>{highlight}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div
+          className={cn(
+            'flex min-h-[360px] items-center border-border bg-muted/30 p-6 md:min-h-[520px] md:p-10 lg:border-l lg:p-14',
+            mediaFirst && 'lg:order-1 lg:border-r lg:border-l-0',
+          )}
+        >
+          {feature.videoUrl ? (
+            <div className="w-full overflow-hidden rounded-[6px] border border-border bg-background">
+              <video
+                className="aspect-video h-full w-full object-contain"
+                src={feature.videoUrl}
+                title={feature.title}
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
+              />
+            </div>
+          ) : feature.gifUrl ? (
+            <div className="w-full overflow-hidden rounded-[6px] border border-border bg-white">
+              <img
+                className="aspect-video h-full w-full object-contain"
+                src={feature.gifUrl}
+                alt={feature.title}
+              />
+            </div>
+          ) : (
+            <div className="w-full border-border border-y py-16 text-center">
+              <Icon className="mx-auto mb-6 h-10 w-10 text-[var(--signal)]" />
+              <p className="font-mono text-muted-foreground text-xs tracking-[0.14em]">
+                {feature.tag} · BUILT INTO PANE
+              </p>
+            </div>
+          )}
+          {!media ? null : (
+            <span className="sr-only">
+              {feature.title} visual demonstration
+            </span>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}
 
 /**
  * @public
  */
 export const FeaturesPage: FC = () => {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
   const handleStart = async () => {
     const newtabUrl = chrome.runtime.getURL('app.html#/home')
     const [currentTab] = await chrome.tabs.query({
@@ -246,307 +344,256 @@ export const FeaturesPage: FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <section className="relative border-border/40 border-b">
-        <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
-          <div className="space-y-10 text-center">
+    <div className="min-h-screen bg-background text-foreground">
+      <header>
+        <div className="border-border border-b">
+          <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6 font-mono text-muted-foreground text-xs tracking-[0.12em]">
+            <div className="flex items-center gap-3">
+              <PaneMark size={22} className="text-[var(--signal)]" />
+              <span>PANE / FEATURES</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="h-2 w-2 rounded-full bg-[var(--signal)]" />
+              <span className="hidden sm:inline">
+                OPEN SOURCE · LOCAL-FIRST
+              </span>
+              <span className="sm:hidden">LOCAL</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto grid min-h-[620px] max-w-7xl lg:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
+          <div className="flex flex-col justify-center gap-10 px-6 py-16 md:px-10 lg:px-14">
             <div className="space-y-6">
-              <PillIndicator
-                text="WELCOME"
-                className={`transition-all delay-100 duration-700 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
-              />
+              <p className="font-mono text-[var(--signal)] text-xs tracking-[0.16em]">
+                {PRODUCT_SIGNATURE.toUpperCase()}
+              </p>
+              <h1 className="max-w-4xl font-semibold text-5xl leading-[0.96] tracking-[-0.055em] md:text-7xl lg:text-[82px]">
+                {PRODUCT_TAGLINE}
+              </h1>
+              <p className="max-w-2xl text-lg text-muted-foreground leading-8 md:text-xl">
+                Pane remembers the thread, learns your routines, and gets better
+                as you work. Not a collection of AI features. A browser that
+                compounds into continuity, private places, and work in motion.
+              </p>
+            </div>
 
-              <div
-                className={cn(
-                  'flex justify-center transition-all delay-150 duration-700',
-                  mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
-                )}
+            <div>
+              <Button
+                onClick={handleStart}
+                size="lg"
+                className="rounded-[6px] bg-[var(--signal)] text-primary-foreground shadow-none hover:bg-[var(--signal)]/90"
               >
-                <PaneMark size={56} className="text-[var(--accent-orange)]" />
-              </div>
+                Start using {PRODUCT_NAME}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
 
-              <div className="space-y-4">
-                <p
-                  className={cn(
-                    'font-medium text-[var(--accent-orange)] text-sm uppercase tracking-[0.2em]',
-                    'transition-all delay-200 duration-700',
-                    mounted
-                      ? 'translate-y-0 opacity-100'
-                      : 'translate-y-4 opacity-0',
-                  )}
-                >
-                  {PRODUCT_TAGLINE}
-                </p>
-                <h1
-                  className={cn(
-                    'font-bold text-4xl leading-tight tracking-tight md:text-5xl',
-                    'transition-all delay-200 duration-700 md:text-7xl',
-                    mounted ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
-                  )}
-                >
-                  A browser that{' '}
-                  <span className="text-[var(--accent-orange)]">
-                    becomes yours
-                  </span>
-                </h1>
-                <p
-                  className={cn(
-                    'mx-auto max-w-2xl text-lg text-muted-foreground leading-relaxed',
-                    'transition-all delay-300 duration-700',
-                    mounted
-                      ? 'translate-y-0 opacity-100'
-                      : 'translate-y-4 opacity-0',
-                  )}
-                >
-                  Pane is not another chat sidebar. It learns from how you work,
-                  captures meetings in the tab (no bot), and keeps memory on
-                  your machine — beyond what a generic agentic browser offers.
+          <div className="flex flex-col justify-center border-border border-t px-6 py-12 md:px-10 lg:border-t-0 lg:border-l lg:px-12">
+            <p className="mb-8 font-mono text-muted-foreground text-xs tracking-[0.14em]">
+              THE SYSTEM / THREE OUTCOMES
+            </p>
+            {outcomes.map(([number, title, body]) => (
+              <div
+                key={number}
+                className="grid grid-cols-[44px_1fr] gap-4 border-border border-t py-7 last:border-b"
+              >
+                <span className="font-mono text-[var(--signal)] text-xs">
+                  {number}
+                </span>
+                <div className="space-y-2">
+                  <p className="font-mono text-xs tracking-[0.1em]">{title}</p>
+                  <p className="text-muted-foreground text-sm leading-6">
+                    {body}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section>
+          <div className="border-border border-y">
+            <div className="mx-auto grid max-w-7xl gap-6 px-6 py-10 md:grid-cols-[160px_1fr] md:px-10 lg:px-14">
+              <p className="font-mono text-muted-foreground text-xs tracking-[0.14em]">
+                01 / THE PRODUCT
+              </p>
+              <div className="max-w-3xl">
+                <h2 className="font-semibold text-3xl tracking-[-0.035em] md:text-5xl">
+                  See what changes in your week
+                </h2>
+                <p className="mt-4 text-muted-foreground leading-7">
+                  No teaser cards and no hidden walkthroughs. The product,
+                  current behavior, and limits are visible below.
                 </p>
               </div>
             </div>
+          </div>
 
-            {PANE_INTRO_VIDEO_URL ? (
-              <VideoFrame
-                title={`${PRODUCT_NAME} demo`}
-                className={cn(
-                  'transition-all delay-500 duration-700',
-                  mounted
-                    ? 'translate-y-0 opacity-100'
-                    : 'translate-y-4 opacity-0',
-                )}
-              >
-                <video
-                  className="h-full w-full"
-                  src={PANE_INTRO_VIDEO_URL}
-                  title={`${PRODUCT_NAME} demonstration`}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  controls
-                />
-              </VideoFrame>
-            ) : (
-              <div
-                className={cn(
-                  'mx-auto grid max-w-3xl gap-6 text-left sm:grid-cols-3 sm:gap-8',
-                  'transition-all delay-500 duration-700',
-                  mounted
-                    ? 'translate-y-0 opacity-100'
-                    : 'translate-y-4 opacity-0',
-                )}
-              >
+          {outcomeFeatures.map((feature, index) => (
+            <Story
+              key={feature.id}
+              feature={feature}
+              index={index}
+              sectionNumber={`0${index + 1}`}
+            />
+          ))}
+        </section>
+
+        <section>
+          <div className="border-border border-y bg-muted/30">
+            <div className="mx-auto grid max-w-7xl gap-6 px-6 py-10 md:grid-cols-[160px_1fr] md:px-10 lg:px-14">
+              <p className="font-mono text-muted-foreground text-xs tracking-[0.14em]">
+                02 / DEVELOPER PROOF
+              </p>
+              <div className="max-w-3xl">
+                <h2 className="font-semibold text-3xl tracking-[-0.035em] md:text-5xl">
+                  One loop from browser to code
+                </h2>
+                <p className="mt-4 text-muted-foreground leading-7">
+                  Drive your authenticated browser from a coding agent, or give
+                  Pane a workspace and let the same task cross tabs, files, and
+                  terminal.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {developerFeatures.map((feature, index) => (
+            <Story
+              key={feature.id}
+              feature={feature}
+              index={index}
+              sectionNumber={`0${index + 1}`}
+            />
+          ))}
+        </section>
+
+        <section className="border-border border-y">
+          <div className="mx-auto max-w-7xl px-6 py-16 md:px-10 lg:px-14">
+            <div className="grid gap-10 lg:grid-cols-[0.7fr_1.3fr]">
+              <div>
+                <p className="font-mono text-muted-foreground text-xs tracking-[0.14em]">
+                  03 / THE BOUNDARY
+                </p>
+                <h2 className="mt-4 font-semibold text-3xl tracking-[-0.035em] md:text-5xl">
+                  Ambitious, without pretending
+                </h2>
+              </div>
+              <div className="grid border-border border-t sm:grid-cols-2">
                 {[
-                  {
-                    title: 'Learns continuously',
-                    body: 'Memory and skills from real activity, not only chat.',
-                  },
-                  {
-                    title: 'Captures natively',
-                    body: 'Meetings and research in-tab — no Otter, no extra app.',
-                  },
-                  {
-                    title: 'Stays local',
-                    body: 'No Pane account. No Pane cloud for core features.',
-                  },
-                ].map((item) => (
-                  <div key={item.title} className="space-y-1.5">
-                    <p className="font-semibold text-sm">{item.title}</p>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      {item.body}
+                  [
+                    'CAPTURE',
+                    'Opt-in, domain-specific, visible, and pauseable.',
+                  ],
+                  [
+                    'SKILLS',
+                    'Proposed drafts stay staged until you review them.',
+                  ],
+                  [
+                    'SCHEDULES',
+                    'Browser work needs Pane running and the machine awake.',
+                  ],
+                  [
+                    'CONTEXT',
+                    'Profiles, buckets, and personas remain distinct controls.',
+                  ],
+                ].map(([label, body], index) => (
+                  <div
+                    key={label}
+                    className={cn(
+                      'border-border border-b py-6 sm:px-6',
+                      index % 2 === 1 && 'sm:border-l',
+                    )}
+                  >
+                    <p className="font-mono text-[var(--signal)] text-xs tracking-[0.12em]">
+                      {label}
+                    </p>
+                    <p className="mt-3 text-muted-foreground text-sm leading-6">
+                      {body}
                     </p>
                   </div>
                 ))}
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div
-          className={cn(
-            'animation-duration-[3s] absolute bottom-0.5 left-1/2 flex -translate-x-1/2 animate-bounce flex-col items-center gap-3',
-            'transition-opacity delay-[2000ms] duration-700',
-            mounted ? 'opacity-100' : 'opacity-0',
-          )}
-        >
-          <div className="text-center">
-            <p className="mb-2 font-medium text-muted-foreground text-xs">
-              Scroll for features
-            </p>
-            <ArrowDown className="mx-auto h-6 w-6 text-[var(--accent-orange)]" />
-          </div>
-        </div>
-      </section>
+        <section className="border-border border-b">
+          <div className="mx-auto max-w-7xl px-6 py-16 md:px-10 lg:px-14">
+            <div className="mb-10">
+              <p className="font-mono text-muted-foreground text-xs tracking-[0.14em]">
+                04 / BUILD WITH US
+              </p>
+              <h2 className="mt-4 font-semibold text-3xl tracking-[-0.035em] md:text-5xl">
+                Follow the build and shape Pane
+              </h2>
+            </div>
 
-      <section className="mx-auto max-w-7xl px-6 py-16 md:py-20">
-        <div className="mb-12 space-y-3 text-center">
-          <p className="font-semibold text-muted-foreground text-xs uppercase tracking-widest">
-            WHY PANE
-          </p>
-          <h2 className="font-bold text-3xl tracking-tight md:text-4xl">
-            What only <span className="text-[var(--accent-orange)]">Pane</span>{' '}
-            does
-          </h2>
-          <p className="mx-auto max-w-2xl text-muted-foreground">
-            A browser with a soul: persona, memory, capture, and skills that
-            compound — because the agent <em>is</em> the browser, not a guest in
-            it.
-          </p>
-        </div>
+            <div className="grid border-border border-t md:grid-cols-2">
+              {discordUrl ? (
+                <a
+                  href={discordUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center justify-between border-border border-b py-7 md:border-r md:px-6"
+                >
+                  <div className="flex items-center gap-4">
+                    <MessageCircle className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">Discord</p>
+                      <p className="mt-1 text-muted-foreground text-sm">
+                        Ask questions and share feedback
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </a>
+              ) : null}
 
-        {mounted && (
-          <div className="grid gap-4 md:grid-cols-3">
-            {uniqueFeatures.map((feature, index) => (
-              <BentoCard
-                key={feature.id}
-                feature={feature}
-                mounted={mounted}
-                index={index}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="mx-auto max-w-7xl border-border/40 border-t px-6 py-16 md:py-20">
-        <div className="mb-12 space-y-3 text-center">
-          <p className="font-semibold text-muted-foreground text-xs uppercase tracking-widest">
-            ALSO SHIPS
-          </p>
-          <h2 className="font-bold text-3xl tracking-tight md:text-4xl">
-            Agent, MCP, and workspace{' '}
-            <span className="text-[var(--accent-orange)]">foundation</span>
-          </h2>
-          <p className="mx-auto max-w-2xl text-muted-foreground">
-            The daily-driver substrate: drive your real browser from Claude
-            Code, automate tasks, grant a folder, bring your own model.
-          </p>
-        </div>
-
-        {mounted && (
-          <div className="grid gap-4 md:grid-cols-3">
-            {foundationFeatures.map((feature, index) => (
-              <BentoCard
-                key={feature.id}
-                feature={feature}
-                mounted={mounted}
-                index={index + uniqueFeatures.length}
-              />
-            ))}
-          </div>
-        )}
-
-        <div className="mt-8 text-center">
-          <p className="text-muted-foreground text-sm">
-            {hasAnyFeatureMedia
-              ? 'Tip: click any card for a walkthrough with video and deeper detail'
-              : 'Tip: click any card for the full story and highlights'}
-          </p>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl border-border/40 border-y px-6 py-16">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-8 flex items-center gap-3">
-            <LinkIcon className="h-6 w-6 text-[var(--accent-orange)]" />
-            <h2 className="font-bold text-3xl">
-              Follow the build and shape{' '}
-              <span className="text-[var(--accent-orange)]">
-                {PRODUCT_NAME}
-              </span>
-            </h2>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {discordUrl ? (
               <a
-                href={discordUrl}
+                href={productRepositoryUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="community-card group flex items-start gap-4 rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-[var(--accent-orange)]/50 hover:bg-card/80 hover:shadow-[var(--accent-orange)]/5 hover:shadow-lg"
+                className="group flex items-center justify-between border-border border-b py-7 md:px-6"
               >
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg transition-all group-hover:scale-110">
-                  <img
-                    src={DiscordLogo}
-                    className="h-full w-full"
-                    alt="discord-logo"
-                  />
+                <div className="flex items-center gap-4">
+                  <Github className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium">GitHub</p>
+                    <p className="mt-1 text-muted-foreground text-sm">
+                      Source, specs, issues, and releases
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-lg transition-colors group-hover:text-[var(--accent-orange)]">
-                    Join Discord
-                  </h3>
-                  <p className="text-muted-foreground text-sm">
-                    Suggest features and share feedback
-                  </p>
-                </div>
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </a>
-            ) : null}
+            </div>
 
-            {slackUrl ? (
-              <a
-                href={slackUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="community-card group flex items-start gap-4 rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-[var(--accent-orange)]/50 hover:bg-card/80 hover:shadow-[var(--accent-orange)]/5 hover:shadow-lg"
-              >
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg transition-all group-hover:scale-110">
-                  <img
-                    src={SlackLogo}
-                    className="h-full w-full"
-                    alt="slack-logo"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-lg transition-colors group-hover:text-[var(--accent-orange)]">
-                    Join Slack
-                  </h3>
-                  <p className="text-muted-foreground text-sm">
-                    Suggest features and share feedback
-                  </p>
-                </div>
-              </a>
-            ) : null}
-
-            <a
-              href={productRepositoryUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="community-card group flex items-start gap-4 rounded-xl border border-border bg-card p-6 transition-all hover:-translate-y-1 hover:border-[var(--accent-orange)]/50 hover:bg-card/80 hover:shadow-[var(--accent-orange)]/5 hover:shadow-lg md:col-span-2"
-            >
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-foreground/10 transition-all group-hover:scale-110 group-hover:bg-foreground/20">
-                <img
-                  src={GithubLogo}
-                  className="h-full w-full"
-                  alt="github-logo"
-                />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-semibold text-lg transition-colors group-hover:text-[var(--accent-orange)]">
-                  GitHub
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  Source, docs, specs, and releases — star it, open issues, or
-                  contribute
+            <div className="mt-12 flex flex-col items-start justify-between gap-6 border-border border-t pt-8 sm:flex-row sm:items-center">
+              <div>
+                <p className="font-mono text-muted-foreground text-xs tracking-[0.12em]">
+                  OPEN SOURCE · LOCAL-FIRST · YOUR MODELS · YOUR MACHINE
+                </p>
+                <p className="mt-3 text-muted-foreground text-sm">
+                  {PRODUCT_SIGNATURE}.
                 </p>
               </div>
-            </a>
+              <Button
+                onClick={handleStart}
+                size="lg"
+                className="rounded-[6px] bg-[var(--signal)] text-primary-foreground shadow-none hover:bg-[var(--signal)]/90"
+              >
+                Start using {PRODUCT_NAME}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-6 pt-16 pb-56">
-        <div className="space-y-4 text-center">
-          <Button
-            onClick={handleStart}
-            size="lg"
-            className="bg-[var(--accent-orange)] text-primary-foreground shadow-[var(--accent-orange)]/25 shadow-lg hover:bg-[var(--accent-orange)]/90"
-          >
-            Start using {PRODUCT_NAME}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </div>
-      </section>
+        </section>
+      </main>
     </div>
   )
 }

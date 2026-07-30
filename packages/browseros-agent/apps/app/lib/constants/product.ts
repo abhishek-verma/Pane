@@ -18,7 +18,14 @@ export const PRODUCT_CHAT_NAME = 'Pane Chat'
 /**
  * @public
  */
-export const PRODUCT_TAGLINE = 'A browser with a soul'
+export const PRODUCT_TAGLINE =
+  'A browser that keeps work moving when you step away'
+
+/**
+ * Secondary brand signature.
+ * @public
+ */
+export const PRODUCT_SIGNATURE = 'A browser with a soul'
 
 /**
  * Default built-in LLM provider display name (internal id remains `browseros`).
