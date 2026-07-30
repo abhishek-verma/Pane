@@ -3,13 +3,17 @@
 Created by **Abhishek Verma**  
 [LinkedIn](https://www.linkedin.com/in/abhi-vrma/) · [GitHub](http://github.com/abhishek-verma/) · [X](https://x.com/vrma_abhi)
 
-Most browsers forget the work behind your tabs. Close a page, leave a meeting, or return the next morning and you reconstruct the thread yourself. Repeated work starts over. Anything beyond the page gets handed back to you.
+Browsers forget the work behind your tabs. Close a page, leave a meeting, or return the next morning and you reconstruct the thread yourself. Repeated work starts over. Anything beyond the page gets handed back to you.
+
+Browsers are also passive, like an IDE from the pre-AI era. What passes for "modern AI browsers" today is just AI taped onto good ol' Chrome. At best, it saves you a few clicks from opening ChatGPT, filling a form or navigating a few pages.
+
+90% of your work lives in a browser, don't settle for less.
 
 # A browser that keeps work moving when you step away.
 
 **Pane remembers the thread, learns your routines, and gets better as you work.**
 
-Pane is an open-source Chromium browser with a personal agent built into the session you already use. It can connect what happened across tabs, meetings, research, files, and terminal; turn ongoing work into private sites; and run work you chose on a schedule. Your data stays on your machine. You bring the model.
+Pane is an open-source Chromium browser with a personal agent built into the session you already use. It can connect what happened across pages, meetings, research, files, and terminal; and do the work you were supposed to do, and that's only half the story.
 
 <p align="center">
   <img src="assets/branding/png/pane-poster-1280.png" alt="Pane — a browser that keeps work moving when you step away" width="900" />
@@ -27,19 +31,19 @@ Pane can capture a web meeting locally, keep a multi-day research trail, and sea
 
 Meeting capture and research mode are opt-in. Recording is visible, domain-specific, and pauseable. Transcription can run on-device after a one-time model download.
 
-### Your work becomes a Personalised Internet
+### Personalised Internet: A new way to work and browse
 
-Chats are poor containers for work that lasts days or weeks. Pane creates private, living sites for it instead: a Job Search pipeline, a Research Hub, a Sales Pipeline, or a site shaped around what you are doing. Home is the front door, with doorways back into each site and the next useful action.
+Chats are poor containers for work that lasts days or weeks. Pane creates private, living sites for it instead: a Job Search pipeline, a Research Hub, a Sales Pipeline, or a site shaped around what you are doing. Chatting with an AI is so last year.
 
 <p align="center">
   <img src="assets/readme/features/gif/02-personalised-internet.gif" alt="Pane turning ongoing work into a living private site" width="720" />
 </p>
 
-These sites live in your browser profile and are authored through structured, inspectable data rather than arbitrary generated HTML.
+These sites live in your browser profile and get more useful the longer you use Pane.
 
 ### Work moves while you are away
 
-Save a successful task as a schedule and Pane can run it later, surface the result, and ask for approval when an action has consequences. Scheduled browser work runs while Pane is running; if the browser is fully quit or the machine is asleep, it waits rather than pretending the work happened.
+Save a successful task as a schedule and Pane can run it later, surface the result, and ask for approval when an action has consequences.
 
 <p align="center">
   <img src="assets/readme/features/gif/04-work-in-motion.gif" alt="Pane completing scheduled work while the user is away and surfacing the result" width="720" />
@@ -73,7 +77,7 @@ Pane can attach a granted workspace to the in-browser agent, combining live page
 
 ## What works today
 
-Pane is early. These parts are usable now:
+Early doesn't mean bare-bones. Pane already ships:
 
 - **Chat & Agent** — ask about the current page or run a multi-step browser task in your real session
 - **Personalised Internet** — agent-authored private sites with Job Search, Research Hub, and Sales Pipeline templates
@@ -102,8 +106,6 @@ The direction is larger than the current build:
 
 - Pages that can layer project-specific context onto the web
 - Richer proactive reach and delivery when you are away
-- A deeper learning loop that improves and prunes skills over time
-- Optional cloud extensions such as sync or a headless runner, always with a complete local path
 
 These are roadmap items, not hidden claims about the current release. The working plan is in [`specs/IMPLEMENTATION-PLAN.md`](specs/IMPLEMENTATION-PLAN.md).
 
@@ -111,9 +113,9 @@ These are roadmap items, not hidden claims about the current release. The workin
 
 1. **Download** the latest build from [GitHub Releases](https://github.com/abhishek-verma/Pane/releases) ([macOS install guide](docs/install/macos.mdx)).
 2. **Import from Chrome** if you want your bookmarks, passwords, history, and extensions.
-3. **Connect a model.** OAuth is usually the easiest path if you already pay for ChatGPT Pro, GitHub Copilot, or Qwen. You can also paste an API key or use a local model ([setup guide](docs/features/bring-your-own-llm.mdx)).
+3. **Connect a model.** OAuth is usually the easiest path if you already pay for Claude, ChatGPT Pro, GitHub Copilot, or Qwen. You can also paste an API key or use a local model ([setup guide](docs/features/bring-your-own-llm.mdx)).
 4. **Open Pane** from the toolbar on any page or from the new-tab home.
-5. **Enable capture only where you want it.** Meeting capture, research mode, and browsing learnings are off until you opt in.
+5. **Enable capture** Meeting capture, research mode, and browsing learnings are off until you opt in.
 
 > **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[Discord](https://discord.gg/652JHSyS4)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
 
