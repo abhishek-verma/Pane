@@ -1,8 +1,11 @@
 /**
  * Client-side UI memory bound for live useChat state.
  * Truncates fat tool outputs in a clone; does not touch server/agent fidelity.
- * Full bodies are spilled server-side on checkpoint and lazy-loaded via
- * GET /chat/:id/tool-outputs/:toolCallId.
+ *
+ * Does **not** set `spilled: true` — that flag means the full body lives in
+ * ToolOutputStore and expand can fetch `/tool-outputs`. Client-only truncation
+ * keeps a short preview inline so cloud restore / early stream frames do not
+ * 404 on expand.
  */
 
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
@@ -23,7 +26,7 @@ function estimateBytes(value: unknown): number {
 
 /**
  * Returns the same reference when nothing needs shrinking; otherwise a new
- * messages array with spilled tool stubs suitable for renderer memory.
+ * messages array with truncated tool previews for renderer memory.
  */
 export function slimMessagesForClientUi(
   messages: UIMessage[],
@@ -40,6 +43,7 @@ export function slimMessagesForClientUi(
       const output = anyPart.output
       if (!output || typeof output !== 'object') return part
       const rec = output as Record<string, unknown>
+      // Server already spilled — leave the stub alone.
       if (rec.spilled === true) return part
 
       const bytes = estimateBytes(output)
@@ -103,7 +107,6 @@ export function slimMessagesForClientUi(
           ...rec,
           content: nextContent,
           structuredContent,
-          spilled: true,
           preview,
           contentLength: bytes,
         },

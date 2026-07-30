@@ -3,7 +3,7 @@ import type { UIMessage } from 'ai'
 import { slimMessagesForClientUi } from './slim-messages-for-client-ui'
 
 describe('slimMessagesForClientUi', () => {
-  test('truncates fat tool text and marks spilled without mutating input', () => {
+  test('truncates fat tool text without marking spilled (no store on client)', () => {
     const fat = 'z'.repeat(10_000)
     const messages: UIMessage[] = [
       {
@@ -35,7 +35,7 @@ describe('slimMessagesForClientUi', () => {
         }
       }
     ).output
-    expect(out.spilled).toBe(true)
+    expect(out.spilled).not.toBe(true)
     expect(out.content[0].text.length).toBeLessThan(200)
     expect(out.preview?.length).toBeLessThan(200)
   })

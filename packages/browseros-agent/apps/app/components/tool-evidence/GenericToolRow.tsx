@@ -1,5 +1,5 @@
 import { ChevronDown } from 'lucide-react'
-import { type FC, useEffect, useState } from 'react'
+import { type FC, useEffect, useRef, useState } from 'react'
 import {
   Collapsible,
   CollapsibleContent,
@@ -25,6 +25,7 @@ export const GenericToolRow: FC<{
   const [fullOutput, setFullOutput] = useState<string | null>(cached ?? null)
   const [loadingFull, setLoadingFull] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const loadingRef = useRef(false)
   const { baseUrl: serverBaseUrl } = useAgentServerUrl()
   const g = evidence.generic
   const title = g?.title ?? evidence.title
@@ -36,9 +37,10 @@ export const GenericToolRow: FC<{
   }, [evidence.toolCallId])
 
   useEffect(() => {
-    if (!open || !spilled || fullOutput != null || loadingFull) return
+    if (!open || !spilled || fullOutput != null || loadingRef.current) return
     if (!conversationId || !serverBaseUrl) return
     let cancelled = false
+    loadingRef.current = true
     setLoadingFull(true)
     setLoadError(null)
     void agentFetch(
@@ -66,6 +68,7 @@ export const GenericToolRow: FC<{
         }
       })
       .finally(() => {
+        loadingRef.current = false
         if (!cancelled) setLoadingFull(false)
       })
     return () => {
@@ -75,7 +78,6 @@ export const GenericToolRow: FC<{
     open,
     spilled,
     fullOutput,
-    loadingFull,
     conversationId,
     serverBaseUrl,
     evidence.toolCallId,
