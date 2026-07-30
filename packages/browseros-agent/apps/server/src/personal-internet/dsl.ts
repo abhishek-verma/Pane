@@ -145,15 +145,51 @@ function validateNode(node: PiNode, path: string): void {
       return
     case 'table':
       for (const col of node.columns) {
+        // Models often emit `title` instead of `header`.
+        const colAny = col as { id: string; header?: string; title?: string }
+        if (!colAny.header && colAny.title) colAny.header = colAny.title
         assertSafeText(col.id, path)
-        assertSafeText(col.header, path)
+        assertSafeText(col.header ?? '', path)
       }
       for (const row of node.rows) {
         assertSafeText(row.id, path)
-        for (const [k, v] of Object.entries(row.cells)) {
-          assertSafeText(k, path)
-          if (typeof v === 'string') assertSafeText(v, path)
-          else validateNode(v, `${path}.cells.${k}`)
+        // Models sometimes emit cells as string[] aligned to columns, or as
+        // [{ columnId, value }]. Normalize to Record before persist.
+        const rawCells = row.cells as unknown
+        if (Array.isArray(rawCells)) {
+          const rec: Record<string, PiNode | string> = {}
+          if (
+            rawCells.length > 0 &&
+            typeof rawCells[0] === 'object' &&
+            rawCells[0] !== null &&
+            'columnId' in (rawCells[0] as object)
+          ) {
+            for (const cell of rawCells as Array<{
+              columnId: string
+              value: PiNode | string
+            }>) {
+              assertSafeText(cell.columnId, path)
+              if (typeof cell.value === 'string')
+                assertSafeText(cell.value, path)
+              else validateNode(cell.value, `${path}.cells.${cell.columnId}`)
+              rec[cell.columnId] = cell.value
+            }
+          } else {
+            for (const [i, col] of node.columns.entries()) {
+              const v = rawCells[i]
+              if (typeof v === 'string') assertSafeText(v, path)
+              else if (v != null)
+                validateNode(v as PiNode, `${path}.cells.${col.id}`)
+              if (v != null) rec[col.id] = v as PiNode | string
+            }
+          }
+          row.cells = rec
+        } else {
+          for (const [k, v] of Object.entries(row.cells)) {
+            assertSafeText(k, path)
+            if (typeof v === 'string') assertSafeText(v, path)
+            else validateNode(v, `${path}.cells.${k}`)
+          }
         }
       }
       return
@@ -369,6 +405,43 @@ function findFirstTable(
   return null
 }
 
+/** Drop "More sections loading…" placeholders before appending BTF sections. */
+export function stripMaterializePlaceholders(nodes: PiNode[]): PiNode[] {
+  const out: PiNode[] = []
+  for (const n of nodes) {
+    if (n.type === 'note' && /more sections loading/i.test(n.text)) {
+      continue
+    }
+    if (n.type === 'stack' && n.id === 'btf-root') {
+      const children = n.children.filter(
+        (c) => !(c.type === 'note' && /more sections loading/i.test(c.text)),
+      )
+      // Flatten emptied btf-root so appended sections sit at page root.
+      if (children.length === 0) continue
+      out.push({ ...n, children })
+      continue
+    }
+    out.push(n)
+  }
+  return out
+}
+
+/**
+ * Models often `replaceNodes` with a single BTF section, wiping ATF.
+ * During materialize, treat a replace that does not start with the page
+ * title as an append instead.
+ */
+export function shouldAppendSectionReplace(
+  doc: PiPageDoc,
+  nodes: PiNode[],
+): boolean {
+  if (!doc.meta?.materialize) return false
+  if (nodes.length === 0) return false
+  const first = nodes[0]
+  if (first?.type !== 'title') return false
+  return first.text.trim() !== doc.title.trim()
+}
+
 function findFirstBoard(
   nodes: PiNode[],
 ): Extract<PiNode, { type: 'board' }> | null {
@@ -400,7 +473,27 @@ export function applyPatchOps(doc: PiPageDoc, ops: PiPatchOp[]): PiPageDoc {
         for (const [i, node] of op.nodes.entries()) {
           validateNode(node, `replaceNodes[${i}]`)
         }
-        next = { ...next, nodes: structuredClone(op.nodes) }
+        if (shouldAppendSectionReplace(next, op.nodes)) {
+          const preserved = stripMaterializePlaceholders(next.nodes)
+          next = {
+            ...next,
+            nodes: [...preserved, ...structuredClone(op.nodes)],
+          }
+        } else {
+          next = { ...next, nodes: structuredClone(op.nodes) }
+        }
+        break
+      case 'appendNodes':
+        for (const [i, node] of op.nodes.entries()) {
+          validateNode(node, `appendNodes[${i}]`)
+        }
+        next = {
+          ...next,
+          nodes: [
+            ...stripMaterializePlaceholders(next.nodes),
+            ...structuredClone(op.nodes),
+          ],
+        }
         break
       case 'upsertTableRow': {
         const table = findFirstTable(next.nodes)

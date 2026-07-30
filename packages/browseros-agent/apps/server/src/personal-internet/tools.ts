@@ -377,7 +377,7 @@ export function buildPersonalInternetToolSet(
 
     pi_page_patch: tool({
       description:
-        'Patch a page: setTitle, replaceNodes, setMeta, setMaterializeSection, upsertTableRow, setCell, upsertBoardCard, moveBoardCard, bindRecord. Table row/cell ops hit the first table only — use replaceNodes for multi-table. During pi-materialize, only the run\'s pageId is allowed. Load skill "pi-page-patch" / "pi-entity-materialize" for op shapes.',
+        'Patch a page: setTitle, replaceNodes, appendNodes, setMeta, setMaterializeSection, upsertTableRow, setCell, upsertBoardCard, moveBoardCard, bindRecord. Prefer appendNodes for BTF section fills — replaceNodes with a single section wipes ATF (server may coerce to append during materialize). Table row/cell ops hit the first table only. During pi-materialize, only the run\'s pageId is allowed. Load skill "pi-page-patch" / "pi-entity-materialize" for op shapes.',
       inputSchema: z.object({
         pageId: z.string().min(1),
         ops: z.array(z.record(z.unknown())).min(1),

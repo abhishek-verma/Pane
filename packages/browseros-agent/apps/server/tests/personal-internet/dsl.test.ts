@@ -197,6 +197,84 @@ describe('pi dsl', () => {
     expect(filling.meta?.materialize?.sections[0]?.status).toBe('filled')
   })
 
+  it('coerces sectional replaceNodes to append during materialize (keeps ATF)', () => {
+    const atf: PiPageDoc = {
+      version: 1,
+      title: 'Nablon.AI',
+      nodes: [
+        { type: 'title', text: 'Nablon.AI' },
+        {
+          type: 'badge',
+          text: 'interviewing',
+          tone: 'neutral',
+        },
+        { type: 'divider' },
+        {
+          type: 'stack',
+          id: 'btf-root',
+          direction: 'col',
+          children: [{ type: 'note', text: 'More sections loading…' }],
+        },
+      ],
+      meta: {
+        entityKey: 'nablon',
+        materialize: {
+          phase: 'btf-filling',
+          sections: [{ id: 'links', title: 'Links', status: 'shell' }],
+        },
+      },
+    }
+    const next = applyPatchOps(atf, [
+      {
+        op: 'replaceNodes',
+        nodes: [
+          { type: 'title', text: 'Links' },
+          {
+            type: 'table',
+            columns: [
+              { id: 'site', title: 'Site' },
+              { id: 'url', title: 'URL' },
+            ],
+            rows: [{ id: 'l1', cells: ['Website', 'https://nablon.ai'] }],
+          },
+        ],
+      },
+    ])
+    expect(next.nodes[0]).toEqual({ type: 'title', text: 'Nablon.AI' })
+    expect(
+      next.nodes.some((n) => n.type === 'title' && n.text === 'Links'),
+    ).toBe(true)
+    expect(
+      next.nodes.some(
+        (n) => n.type === 'note' && /more sections loading/i.test(n.text),
+      ),
+    ).toBe(false)
+  })
+
+  it('appendNodes adds after ATF and strips loading placeholder', () => {
+    const atf: PiPageDoc = {
+      version: 1,
+      title: 'Co',
+      nodes: [
+        { type: 'title', text: 'Co' },
+        { type: 'note', text: 'More sections loading…' },
+      ],
+      meta: {
+        entityKey: 'co',
+        materialize: { phase: 'btf-filling', sections: [] },
+      },
+    }
+    const next = applyPatchOps(atf, [
+      {
+        op: 'appendNodes',
+        nodes: [{ type: 'title', text: 'Timeline' }],
+      },
+    ])
+    expect(
+      next.nodes.map((n) => (n.type === 'title' ? n.text : n.type)),
+    ).toEqual(['Co', 'Timeline'])
+  })
+
   it('accepts chart and mermaid; sanitizes svg; rejects hostile svg', () => {
     const doc = validatePageDoc({
       version: 1,

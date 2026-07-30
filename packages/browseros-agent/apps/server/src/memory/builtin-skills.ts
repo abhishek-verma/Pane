@@ -278,7 +278,8 @@ Prefer small ops over rewriting the whole page. Load \`pi-page-dsl\` only if you
 ## Ops (\`pi_page_patch\`)
 
 - \`setTitle\` — \`{ "op": "setTitle", "title": "..." }\`
-- \`replaceNodes\` — \`{ "op": "replaceNodes", "nodes": [ ... ] }\` — full body replace; **use this** when reshaping or when multiple tables exist
+- \`appendNodes\` — \`{ "op": "appendNodes", "nodes": [ ... ] }\` — add after existing body (use for BTF section fills)
+- \`replaceNodes\` — \`{ "op": "replaceNodes", "nodes": [ ... ] }\` — full body replace; during materialize, a replace that does **not** start with the page title is coerced to append so ATF is not wiped
 - \`upsertTableRow\` — \`{ "op": "upsertTableRow", "row": { "id", "recordId?", "cells" } }\`
 - \`setCell\` — \`{ "op": "setCell", "rowId", "columnId", "value" }\` (string or node)
 - \`upsertBoardCard\` — \`{ "op": "upsertBoardCard", "card": { "id", "title", "columnId", "subtitle?", "recordId?", "actions?" } }\` — prefer labeled actions \`{ label, action }\`
@@ -491,20 +492,20 @@ description: Progressive BTF fill for a Personalised Internet company entity pag
 
 # Entity materialize (BTF)
 
-ATF (title, stage, role, next action, notes) is **already on the page**. Do not wipe it with a full-page \`replaceNodes\` of the whole document.
+ATF (title, stage, role, next action, notes) is **already on the page**. Never call \`replaceNodes\` with only a BTF section — that wipes ATF. Use \`appendNodes\` for each section (or \`replaceNodes\` only with the **full** page starting with the page title).
 
 ## Workflow
 
 1. \`skills_load\` \`pi-page-patch\` (and \`pi-page-dsl\` if you need element shapes).
 2. \`pi_read\` the given \`pageId\` if needed.
-3. **Structure pass:** \`setMeta\` / \`setMaterializeSection\` for ordered sections, then append section shells under the \`btf-root\` stack (or after the divider). Default job-search section ids/titles in order:
+3. **Structure pass:** \`setMeta\` / \`setMaterializeSection\` for ordered sections. Default job-search section ids/titles in order:
    - \`timeline\` — Timeline
    - \`research\` — Company research
    - \`people\` — People
    - \`links\` — Links
-   Mark each \`status: "shell"\`. Set \`materialize.phase\` to \`btf-structure\` then \`btf-filling\`.
-4. **Fill pass:** for each shell **in array order**, research using context/vault (do not invent), replace that section's children, then \`setMaterializeSection\` with \`status: "filled"\` (or \`"skipped"\` if nothing known).
-5. Remove the "More sections loading…" note. Set \`materialize.phase\` to \`done\` via \`setMeta\`.
+   Mark each \`status: "shell"\`. Set \`materialize.phase\` to \`btf-structure\` then \`btf-filling\`. Do **not** \`replaceNodes\` here.
+4. **Fill pass:** for each shell **in array order**, research using context/vault (do not invent), then \`appendNodes\` with that section's title + body (divider optional), then \`setMaterializeSection\` with \`status: "filled"\` (or \`"skipped"\` if nothing known).
+5. Remove the "More sections loading…" note (appendNodes strips it). Set \`materialize.phase\` to \`done\` via \`setMeta\`.
 6. Only \`pi_page_patch\` the given \`pageId\`. Never \`pi_page_create\` / \`pi_entity_ensure\` for other companies.
 
 ## Resume
@@ -514,7 +515,7 @@ Skip section ids listed in \`filledSections\`. Continue from the first \`shell\`
 ## Do not
 
 - Create pages or records for other companies.
-- Replace the entire ATF block unless fixing a clear error.
+- \`replaceNodes\` with a single section title (Timeline / People / Links / …) — that deletes ATF.
 - Call \`pi_entity_ensure\` with materialize for siblings.
 `
 
