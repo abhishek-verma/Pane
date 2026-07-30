@@ -31,9 +31,9 @@ function isSafeSvgMarkup(markup: string): boolean {
 export const PiSvgView: FC<{ node: SvgNode }> = ({ node }) => {
   const safe = isSafeSvgMarkup(node.markup)
   return (
-    <figure className="overflow-x-auto rounded-lg border border-border/70 bg-card/30 p-3">
+    <figure className="overflow-x-auto border-border border-y py-4">
       {node.title ? (
-        <figcaption className="mb-2 font-medium text-foreground text-sm">
+        <figcaption className="mb-3 font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
           {node.title}
         </figcaption>
       ) : null}

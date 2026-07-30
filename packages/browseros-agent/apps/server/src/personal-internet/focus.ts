@@ -6,6 +6,10 @@
  * Process-local focus lease for PI lazy entity materialize (one BTF at a time).
  */
 
+import {
+  getDbRunningChatTurn,
+  markChatTurnTerminal,
+} from '../agent/chat-turns-store'
 import { conversationTurnRegistry } from '../agent/conversation-turn-registry'
 import { getDbHandle } from '../lib/db'
 import { logger } from '../lib/logger'
@@ -37,7 +41,26 @@ export function cancelMaterializeRun(runId: string, reason: string): void {
     return
   }
   if (run.conversationId) {
-    conversationTurnRegistry.cancelActiveFor(run.conversationId, reason)
+    // Mirror ChatService.cancelTurn: registry cancel alone leaves chat_turns
+    // stuck at status=running when the SDK never reaches onFinish (hung tool).
+    const turn = conversationTurnRegistry.getActiveFor(run.conversationId)
+    if (turn?.status === 'running') {
+      conversationTurnRegistry.cancel(turn.turnId, reason)
+      void markChatTurnTerminal({
+        turnId: turn.turnId,
+        status: 'cancelled',
+        stopReason: reason,
+      })
+    } else {
+      void getDbRunningChatTurn(run.conversationId).then((row) => {
+        if (!row) return
+        void markChatTurnTerminal({
+          turnId: row.id,
+          status: 'cancelled',
+          stopReason: reason,
+        })
+      })
+    }
   }
   updateRunStatus(runId, {
     status: 'cancelled',
@@ -128,9 +151,10 @@ export function releasePiFocus(options?: {
   if (!prev) return null
   if (options?.siteId && prev.siteId !== options.siteId) return prev
   if (options?.pageId && prev.pageId !== options.pageId) return prev
-  if (prev.runId) {
-    cancelMaterializeRun(prev.runId, 'pi-focus-released')
-  }
+  // Clear the lease only. Do not cancel BTF — EntityPage unmount / Watch /
+  // brief navigation used to kill in-flight materialize (pi-focus-released)
+  // and leave Watch on a dead turn. Switching entities still cancels via
+  // acquirePiFocus → pi-focus-switched.
   current = null
   return prev
 }

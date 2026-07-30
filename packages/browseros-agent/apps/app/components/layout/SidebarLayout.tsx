@@ -60,10 +60,11 @@ export const SidebarLayout: FC = () => {
   }, [])
 
   if (isMobile) {
+    const fullBleed = isFullBleedRoute(location.pathname)
     return (
       <RpcClientProvider>
         <div className="flex min-h-screen flex-col bg-background">
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+          <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
             <Button
               variant="ghost"
               size="icon"
@@ -75,9 +76,13 @@ export const SidebarLayout: FC = () => {
             <PaneWordmark size="sm" />
           </header>
           <main className="flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+            {fullBleed ? (
               <Outlet />
-            </div>
+            ) : (
+              <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+                <Outlet />
+              </div>
+            )}
           </main>
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetContent side="left" className="w-72 p-0">

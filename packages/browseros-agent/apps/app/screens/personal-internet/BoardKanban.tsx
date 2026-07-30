@@ -5,8 +5,8 @@
  */
 
 import { type FC, useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { PiRailAction } from './PiChrome'
 import type { PiAction, PiCardAction, PiNode } from './types'
 
 type BoardNode = Extract<PiNode, { type: 'board' }>
@@ -74,14 +74,15 @@ export const BoardKanban: FC<{
   const suppressClickRef = useRef(false)
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2">
-      {node.columns.map((col) => (
+    <div className="flex overflow-x-auto border-border border-y">
+      {node.columns.map((col, colIndex) => (
         // biome-ignore lint/a11y/noStaticElementInteractions: HTML5 DnD drop column
         <div
           key={col.id}
           className={cn(
-            'flex w-56 shrink-0 flex-col rounded-lg border border-border/70 bg-card/40 p-3',
-            overCol === col.id && 'border-[var(--pi-accent)]/60',
+            'flex w-56 shrink-0 flex-col',
+            colIndex > 0 && 'border-border border-l',
+            overCol === col.id && 'bg-muted/40',
           )}
           onDragOver={(e) => {
             if (!onMoveCard) return
@@ -99,13 +100,15 @@ export const BoardKanban: FC<{
             if (cardId) void onMoveCard(cardId, col.id)
           }}
         >
-          <div className="mb-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-            {col.title}
-            <span className="ml-1 font-normal opacity-70">
-              ({col.cardIds.length})
+          <div className="flex items-baseline justify-between gap-2 border-border border-b px-3 py-2.5">
+            <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
+              {col.title}
+            </span>
+            <span className="font-mono text-[10px] text-muted-foreground/70 tabular-nums">
+              {col.cardIds.length}
             </span>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex min-h-[8rem] flex-col">
             {col.cardIds.map((cardId) => {
               const card = node.cards.find((c) => c.id === cardId)
               if (!card) return null
@@ -129,9 +132,9 @@ export const BoardKanban: FC<{
                     }, 0)
                   }}
                   className={cn(
-                    'rounded-md border border-border/60 bg-background p-3 shadow-sm',
+                    'border-border border-b px-3 py-3',
                     onMoveCard && 'cursor-grab active:cursor-grabbing',
-                    draggingId === card.id && 'opacity-60',
+                    draggingId === card.id && 'opacity-50',
                   )}
                 >
                   <button
@@ -149,17 +152,17 @@ export const BoardKanban: FC<{
                       void onAction(detailsAction)
                     }}
                   >
-                    <div className="font-medium text-foreground hover:underline">
+                    <div className="font-medium text-foreground text-sm hover:underline">
                       {card.title}
                     </div>
                     {card.subtitle ? (
-                      <div className="mt-0.5 text-muted-foreground text-xs">
+                      <div className="mt-0.5 text-muted-foreground text-xs leading-snug">
                         {card.subtitle}
                       </div>
                     ) : null}
                   </button>
                   {card.actions?.length ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
                       {card.actions.map((entry) => {
                         const { label, action } = normalizeCardAction(entry)
                         const key =
@@ -171,14 +174,12 @@ export const BoardKanban: FC<{
                                 ? `${card.id}:int:${action.route}`
                                 : `${card.id}:${label}`
                         return (
-                          <Button
+                          <PiRailAction
                             key={key}
-                            size="sm"
-                            variant="outline"
                             onClick={() => void onAction(action)}
                           >
                             {label}
-                          </Button>
+                          </PiRailAction>
                         )
                       })}
                     </div>

@@ -1,0 +1,92 @@
+/**
+ * @license
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * Living Grid chrome for PI places (spec 21) — mono top rail, hairline actions.
+ */
+
+import type { FC, ReactNode } from 'react'
+import { Link } from 'react-router'
+import { cn } from '@/lib/utils'
+
+export const PiTopRail: FC<{
+  crumbs: string[]
+  status?: ReactNode
+  actions?: ReactNode
+}> = ({ crumbs, status, actions }) => (
+  <div className="flex items-center justify-between gap-4 border-border border-b px-5 py-3">
+    <div className="min-w-0 font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
+      <span className="text-foreground/80">PANE</span>
+      {crumbs.map((c) => (
+        <span key={c}>
+          <span className="mx-1.5 text-border">/</span>
+          {c}
+        </span>
+      ))}
+    </div>
+    <div className="flex shrink-0 items-center gap-3">
+      {status}
+      {actions}
+    </div>
+  </div>
+)
+
+export const PiRailAction: FC<{
+  children: ReactNode
+  onClick?: () => void
+  disabled?: boolean
+  to?: string
+  className?: string
+}> = ({ children, onClick, disabled, to, className }) => {
+  const classes = cn(
+    'inline-flex h-7 items-center border border-border bg-transparent px-2.5 font-mono text-[10px] text-foreground uppercase tracking-[0.06em] transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50',
+    className,
+  )
+  if (to) {
+    return (
+      <Link to={to} className={classes}>
+        {children}
+      </Link>
+    )
+  }
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={classes}
+    >
+      {children}
+    </button>
+  )
+}
+
+export const PiStatusDot: FC<{ label: string; live?: boolean }> = ({
+  label,
+  live = true,
+}) => (
+  <span className="inline-flex items-center gap-2 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
+    <span
+      className={cn(
+        'size-1.5 rounded-full',
+        live ? 'bg-signal' : 'bg-muted-foreground/50',
+      )}
+    />
+    {label}
+  </span>
+)
+
+export const PiSectionLabel: FC<{
+  children: ReactNode
+  className?: string
+}> = ({ children, className }) => (
+  <div
+    className={cn(
+      'font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]',
+      className,
+    )}
+  >
+    {children}
+  </div>
+)

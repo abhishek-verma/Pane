@@ -5,19 +5,19 @@
  */
 
 import type { FC } from 'react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { BoardKanban } from './BoardKanban'
+import { PiRailAction } from './PiChrome'
 import type { PiAction, PiNode, PiPageDoc } from './types'
 import { PiChartView } from './viz/PiChartView'
 import { PiMermaidView } from './viz/PiMermaidView'
 import { PiSvgView } from './viz/PiSvgView'
 
 const toneClass: Record<string, string> = {
-  neutral: 'bg-muted text-muted-foreground',
-  good: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  warn: 'bg-amber-500/15 text-amber-800 dark:text-amber-200',
-  bad: 'bg-red-500/15 text-red-700 dark:text-red-300',
+  neutral: 'border-border text-muted-foreground',
+  good: 'border-emerald-600/40 text-emerald-800 dark:text-emerald-300',
+  warn: 'border-amber-600/40 text-amber-900 dark:text-amber-200',
+  bad: 'border-red-600/40 text-red-800 dark:text-red-300',
 }
 
 export type PiActionHandler = (
@@ -61,23 +61,38 @@ const PiNodeView: FC<{
   pendingKey?: string | null
   onMoveCard?: (cardId: string, toColumnId: string) => void | Promise<void>
   siteId?: string
-}> = ({ node, path, onAction, pendingKey, onMoveCard, siteId }) => {
+  titleIndex?: number
+}> = ({ node, path, onAction, pendingKey, onMoveCard, siteId, titleIndex }) => {
   switch (node.type) {
     case 'title':
       return (
-        <h1 className="font-semibold text-2xl text-foreground tracking-tight">
-          {node.text}
-        </h1>
+        <header className="flex flex-col gap-1 border-border border-b pb-4">
+          {titleIndex != null && titleIndex > 0 ? (
+            <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
+              {String(titleIndex).padStart(2, '0')}
+            </div>
+          ) : null}
+          <h1
+            className={cn(
+              'text-foreground tracking-tight',
+              titleIndex === 0 || titleIndex == null
+                ? 'font-semibold text-3xl'
+                : 'font-medium text-xl',
+            )}
+          >
+            {node.text}
+          </h1>
+        </header>
       )
     case 'text':
       return (
-        <p className="text-muted-foreground text-sm leading-relaxed">
+        <p className="max-w-prose text-foreground/85 text-sm leading-relaxed">
           {node.text}
         </p>
       )
     case 'note':
       return (
-        <p className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-foreground text-sm">
+        <p className="border-border border-l-2 pl-3 text-foreground/80 text-sm leading-relaxed">
           {node.text}
         </p>
       )
@@ -85,7 +100,7 @@ const PiNodeView: FC<{
       return (
         <span
           className={cn(
-            'inline-flex rounded-full px-2.5 py-0.5 font-medium text-xs',
+            'inline-flex border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em]',
             toneClass[node.tone ?? 'neutral'],
           )}
         >
@@ -93,13 +108,15 @@ const PiNodeView: FC<{
         </span>
       )
     case 'divider':
-      return <hr className="border-border/70" />
+      return <hr className="border-border" />
     case 'stack':
       return (
         <div
           className={cn(
             'flex gap-3',
-            node.direction === 'row' ? 'flex-row flex-wrap' : 'flex-col',
+            node.direction === 'row'
+              ? 'flex-row flex-wrap items-center'
+              : 'flex-col',
           )}
         >
           {node.children.map((child) => {
@@ -122,21 +139,19 @@ const PiNodeView: FC<{
       const key = `btn:${node.label}`
       const pending = pendingKey === key
       return (
-        <Button
-          size="sm"
-          variant="secondary"
+        <PiRailAction
           disabled={pending}
           onClick={() => void onAction(node.action, { pendingKey: key })}
         >
           {pending ? 'Working…' : node.label}
-        </Button>
+        </PiRailAction>
       )
     }
     case 'link':
       return (
         <button
           type="button"
-          className="font-medium text-[var(--accent-orange)] text-sm underline-offset-2 hover:underline"
+          className="text-foreground/80 text-sm underline-offset-4 transition-colors hover:text-foreground hover:underline"
           onClick={() => void onAction(node.action)}
         >
           {node.label}
@@ -144,12 +159,15 @@ const PiNodeView: FC<{
       )
     case 'table':
       return (
-        <div className="overflow-x-auto rounded-lg border border-border/70">
+        <div className="overflow-x-auto border-border border-y">
           <table className="w-full min-w-[28rem] text-left text-sm">
-            <thead className="bg-muted/50 text-muted-foreground">
-              <tr>
+            <thead>
+              <tr className="border-border border-b">
                 {node.columns.map((c) => (
-                  <th key={c.id} className="px-3 py-2 font-medium">
+                  <th
+                    key={c.id}
+                    className="px-3 py-2.5 font-mono font-normal text-[10px] text-muted-foreground uppercase tracking-[0.06em]"
+                  >
                     {c.header}
                   </th>
                 ))}
@@ -157,11 +175,14 @@ const PiNodeView: FC<{
             </thead>
             <tbody>
               {node.rows.map((row) => (
-                <tr key={row.id} className="border-border/60 border-t">
+                <tr key={row.id} className="border-border/70 border-t">
                   {node.columns.map((c) => {
                     const cell = row.cells[c.id]
                     return (
-                      <td key={c.id} className="px-3 py-2 align-top">
+                      <td
+                        key={c.id}
+                        className="px-3 py-2.5 align-top text-foreground"
+                      >
                         {typeof cell === 'string' || cell == null ? (
                           (cell ?? '')
                         ) : (
@@ -209,31 +230,32 @@ export const PiPageRenderer: FC<{
   onMoveCard?: (cardId: string, toColumnId: string) => void | Promise<void>
   siteId?: string
 }> = ({ doc, onAction, pendingKey, onMoveCard, siteId }) => {
+  let titleCount = 0
   return (
     <div
-      className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6"
+      className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-8"
       style={
         {
           '--pi-accent': 'var(--signal)',
         } as React.CSSProperties
       }
     >
-      <div className="flex flex-col gap-4">
-        {doc.nodes.map((node) => {
-          const path = nodeKey(node, 'root')
-          return (
-            <PiNodeView
-              key={path}
-              node={node}
-              path={path}
-              onAction={onAction}
-              pendingKey={pendingKey}
-              onMoveCard={onMoveCard}
-              siteId={siteId}
-            />
-          )
-        })}
-      </div>
+      {doc.nodes.map((node) => {
+        const path = nodeKey(node, 'root')
+        const titleIndex = node.type === 'title' ? titleCount++ : undefined
+        return (
+          <PiNodeView
+            key={path}
+            node={node}
+            path={path}
+            onAction={onAction}
+            pendingKey={pendingKey}
+            onMoveCard={onMoveCard}
+            siteId={siteId}
+            titleIndex={titleIndex}
+          />
+        )
+      })}
     </div>
   )
 }

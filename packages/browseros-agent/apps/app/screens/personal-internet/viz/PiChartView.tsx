@@ -10,12 +10,11 @@ import type { PiNode } from '../types'
 type ChartNode = Extract<PiNode, { type: 'chart' }>
 
 const COLORS = [
-  'var(--accent-orange)',
-  '#3b82f6',
-  '#10b981',
-  '#a855f7',
-  '#f59e0b',
-  '#ef4444',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ]
 
 function VizFrame({
@@ -26,9 +25,9 @@ function VizFrame({
   children: React.ReactNode
 }) {
   return (
-    <figure className="overflow-hidden rounded-lg border border-border/70 bg-card/30 p-3">
+    <figure className="border-border border-y py-4">
       {title ? (
-        <figcaption className="mb-2 font-medium text-foreground text-sm">
+        <figcaption className="mb-3 font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
           {title}
         </figcaption>
       ) : null}

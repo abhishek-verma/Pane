@@ -6,9 +6,10 @@
 
 import { type FC, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { Button } from '@/components/ui/button'
 import { executePiAction } from '@/lib/pi-actions'
+import { cn } from '@/lib/utils'
 import { PiFieldSurface, piSiteField } from './field'
+import { PiRailAction, PiStatusDot, PiTopRail } from './PiChrome'
 import { PiPageRenderer } from './PiPageRenderer'
 import { RecordsPanel } from './RecordsPanel'
 import {
@@ -61,54 +62,51 @@ export const SitePage: FC = () => {
   const staleAt = pulse?.staleAt
   const asOf = formatAsOf(pulse?.lastUpdatedAt)
 
+  const statusLabel = staleAt
+    ? `Stale · ${formatAsOf(staleAt)}`
+    : asOf
+      ? `As of ${asOf}`
+      : pulse?.pulseLine
+        ? 'Live'
+        : 'Idle'
+
   return (
     <PiFieldSurface field={field}>
-      <div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
-        <div>
-          <div className="font-medium text-foreground text-sm">{site.name}</div>
-          {pulse?.pulseLine ? (
-            <div className="text-muted-foreground text-xs">
-              {pulse.pulseLine}
-              {asOf ? ` · as of ${asOf}` : ''}
-              {staleAt ? (
-                <span className="ml-2 text-amber-700 dark:text-amber-300">
-                  Stale since {formatAsOf(staleAt)}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={refreshing}
-            onClick={() => {
-              if (!siteId) return
-              setRefreshing(true)
-              void piPost('/pi/refresh', {
-                siteId,
-                trigger: 'manual-refresh',
-              })
-                .then(() => {
-                  void siteQuery.refetch()
-                  void pageQuery.refetch()
+      <PiTopRail
+        crumbs={[site.name]}
+        status={<PiStatusDot label={statusLabel} live={!staleAt && !!pulse} />}
+        actions={
+          <>
+            <PiRailAction
+              disabled={refreshing}
+              onClick={() => {
+                if (!siteId) return
+                setRefreshing(true)
+                void piPost('/pi/refresh', {
+                  siteId,
+                  trigger: 'manual-refresh',
                 })
-                .finally(() => setRefreshing(false))
-            }}
-          >
-            {refreshing ? 'Refreshing…' : 'Refresh'}
-          </Button>
-          <Button asChild size="sm" variant="ghost">
-            <Link to="/pi/library">Library</Link>
-          </Button>
-          <Button asChild size="sm" variant="ghost">
-            <Link to="/home">Home</Link>
-          </Button>
+                  .then(() => {
+                    void siteQuery.refetch()
+                    void pageQuery.refetch()
+                  })
+                  .finally(() => setRefreshing(false))
+              }}
+            >
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </PiRailAction>
+            <PiRailAction to="/pi/library">Library</PiRailAction>
+            <PiRailAction to="/home">Home</PiRailAction>
+          </>
+        }
+      />
+      {pulse?.pulseLine ? (
+        <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
+          {pulse.pulseLine}
         </div>
-      </div>
+      ) : null}
       {pages.length > 1 ? (
-        <div className="flex gap-2 overflow-x-auto border-border/40 border-b px-4 py-2">
+        <div className="flex gap-0 overflow-x-auto border-border border-b px-5">
           {pages.map((p) => {
             // Prefer bound meta.entityKey — never slugify title (BTF may rename).
             const entityKey =
@@ -119,11 +117,17 @@ export const SitePage: FC = () => {
               entityKey && siteId
                 ? `/pi/sites/${siteId}/entities/${encodeURIComponent(entityKey)}`
                 : `/pi/sites/${siteId}/pages/${p.id}`
+            const active = resolvedPageId === p.id
             return (
               <Link
                 key={p.id}
                 to={to}
-                className="whitespace-nowrap rounded-full px-3 py-1 text-muted-foreground text-xs hover:bg-muted hover:text-foreground"
+                className={cn(
+                  'whitespace-nowrap border-transparent border-b-2 px-3 py-2.5 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors',
+                  active
+                    ? 'border-foreground text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
               >
                 {p.title}
               </Link>

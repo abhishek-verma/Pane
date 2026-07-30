@@ -5,14 +5,14 @@
  */
 
 import { type FC, useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router'
-import { Button } from '@/components/ui/button'
+import { useParams } from 'react-router'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { executePiAction } from '@/lib/pi-actions'
 import { emitPiInvalidate } from '@/lib/pi-invalidate'
 import { PiFieldSurface, piEntityField } from './field'
+import { PiRailAction, PiStatusDot, PiTopRail } from './PiChrome'
 import { PiPageRenderer } from './PiPageRenderer'
 import {
   piDelete,
@@ -81,6 +81,37 @@ async function cancelPriorConversation(
   } catch {
     // best-effort
   }
+}
+
+async function pollRunForWatch(runId: string): Promise<{
+  conversationId: string | null
+  status?: string
+}> {
+  const base = await getAgentServerUrl()
+  let conversationId: string | null = null
+  let status: string | undefined
+  for (let i = 0; i < 20; i++) {
+    const res = await agentFetch(
+      `${base}/scheduler/runs/${encodeURIComponent(runId)}`,
+    )
+    if (res.ok) {
+      const body = (await res.json()) as {
+        run?: { conversationId?: string | null; status?: string }
+      }
+      status = body.run?.status
+      conversationId = body.run?.conversationId ?? conversationId
+      if (
+        conversationId ||
+        status === 'cancelled' ||
+        status === 'failed' ||
+        status === 'completed'
+      ) {
+        break
+      }
+    }
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  return { conversationId, status }
 }
 
 export const EntityPage: FC = () => {
@@ -280,28 +311,25 @@ export const EntityPage: FC = () => {
   const watchAgent = async () => {
     setWatchError(null)
     let conv = conversationId
-    if (!conv && runId) {
+    let runStatus: string | undefined
+    if (runId) {
       try {
-        const base = await getAgentServerUrl()
-        for (let i = 0; i < 20 && !conv; i++) {
-          const res = await agentFetch(
-            `${base}/scheduler/runs/${encodeURIComponent(runId)}`,
-          )
-          if (res.ok) {
-            const body = (await res.json()) as {
-              run?: { conversationId?: string | null }
-            }
-            conv = body.run?.conversationId ?? null
-            if (conv) {
-              setConversationId(conv)
-              break
-            }
-          }
-          await new Promise((r) => setTimeout(r, 500))
-        }
+        const polled = await pollRunForWatch(runId)
+        runStatus = polled.status
+        conv = polled.conversationId ?? conv
+        if (conv) setConversationId(conv)
       } catch {
         // fall through
       }
+    }
+    if (runStatus === 'cancelled' || runStatus === 'failed') {
+      setWatchError(
+        runStatus === 'cancelled'
+          ? 'Materialize was cancelled. Use Force re-materialize to try again.'
+          : 'Materialize failed. Use Force re-materialize to try again.',
+      )
+      setEnriching(false)
+      return
     }
     if (conv) {
       await openSidePanelWithSearch('open', {
@@ -336,9 +364,9 @@ export const EntityPage: FC = () => {
       <PiFieldSurface field={field}>
         <div className="flex flex-col gap-3 p-6">
           <div className="text-destructive text-sm">{ensureError}</div>
-          <Button size="sm" onClick={() => void ensure({ materialize: true })}>
+          <PiRailAction onClick={() => void ensure({ materialize: true })}>
             Retry
-          </Button>
+          </PiRailAction>
         </div>
       </PiFieldSurface>
     )
@@ -346,56 +374,53 @@ export const EntityPage: FC = () => {
 
   const doc = pageQuery.data?.doc
   const title = doc?.title || company || entityKey
+  const statusLabel =
+    timedOut && enriching
+      ? 'Prep timed out'
+      : enriching
+        ? 'Creating…'
+        : btfComplete
+          ? 'Ready'
+          : 'Loading…'
 
   return (
     <PiFieldSurface field={field}>
-      <div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
-        <div>
-          <div className="font-medium text-foreground text-sm">{title}</div>
-          <div className="text-muted-foreground text-xs">
-            {timedOut && enriching
-              ? 'Prep timed out — retry or ask chat'
-              : enriching
-                ? company
-                  ? `Creating your website for ${company}…`
-                  : 'Creating your website…'
-                : btfComplete
-                  ? 'Company details'
-                  : 'Loading more sections…'}
-          </div>
+      <PiTopRail
+        crumbs={[title]}
+        status={<PiStatusDot label={statusLabel} live={enriching || !!runId} />}
+        actions={
+          <>
+            {enriching || runId ? (
+              <PiRailAction onClick={() => void watchAgent()}>
+                {conversationId ? 'Watch agent' : 'Starting…'}
+              </PiRailAction>
+            ) : null}
+            {enriching || timedOut ? (
+              <PiRailAction
+                onClick={() => void ensure({ materialize: true, force: true })}
+              >
+                Retry prep
+              </PiRailAction>
+            ) : null}
+            <PiRailAction to={`/pi/sites/${siteId}`}>Back to site</PiRailAction>
+          </>
+        }
+      />
+      {enriching && !timedOut ? (
+        <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
+          {company
+            ? `Creating your website for ${company}…`
+            : 'Creating your website…'}
         </div>
-        <div className="flex items-center gap-2">
-          {enriching || runId ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void watchAgent()}
-            >
-              {conversationId ? 'Watch agent' : 'Starting agent…'}
-            </Button>
-          ) : null}
-          {enriching || timedOut ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void ensure({ materialize: true, force: true })}
-            >
-              Retry prep
-            </Button>
-          ) : null}
-          <Button asChild size="sm" variant="ghost">
-            <Link to={`/pi/sites/${siteId}`}>Back to site</Link>
-          </Button>
-        </div>
-      </div>
+      ) : null}
       {timedOut && enriching ? (
-        <div className="border-border/60 border-b bg-muted/40 px-4 py-2 text-muted-foreground text-xs">
+        <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
           Still creating your website. Retry prep, or watch the agent in the
           side panel.
         </div>
       ) : null}
       {watchError ? (
-        <div className="border-border/60 border-b bg-muted/40 px-4 py-2 text-muted-foreground text-xs">
+        <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
           {watchError}
         </div>
       ) : null}

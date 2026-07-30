@@ -8,14 +8,21 @@ import { afterEach, describe, expect, it } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { closeDb, getDbHandle, initializeDb } from '../../src/lib/db'
+import { insertRunningChatTurn } from '../../src/agent/chat-turns-store'
+import { conversationTurnRegistry } from '../../src/agent/conversation-turn-registry'
+import { closeDb, getDb, getDbHandle, initializeDb } from '../../src/lib/db'
+import { chatSessions } from '../../src/lib/db/schema/chat-sessions'
 import {
   acquirePiFocus,
+  cancelMaterializeRun,
   getPiFocus,
+  releasePiFocus,
   resetPiFocusForTests,
+  setPiFocusRun,
 } from '../../src/personal-internet/focus'
 import { ensureAndMaterialize } from '../../src/personal-internet/materialize'
 import { applyPiMutation } from '../../src/personal-internet/write-path'
+import { updateRunStatus } from '../../src/scheduler/run-executor'
 
 describe('pi focus', () => {
   const dirs: string[] = []
@@ -113,6 +120,95 @@ describe('pi focus', () => {
       .sqlite.prepare(`SELECT status FROM scheduled_runs WHERE id = ?`)
       .get(a.runId!) as { status: string }
     expect(aRow.status).toBe('pending')
+  })
+
+  it('releasePiFocus clears lease without cancelling BTF run', async () => {
+    setup()
+    const site = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId: site.siteId!,
+      recordType: 'job-application',
+      data: { company: 'Alpha', stage: 'applied' },
+    })
+
+    const a = await ensureAndMaterialize(site.siteId!, 'alpha', {
+      materialize: true,
+    })
+    expect(a.runId).toBeTruthy()
+    expect(getPiFocus()?.runId).toBe(a.runId)
+
+    const released = releasePiFocus({
+      siteId: site.siteId!,
+      pageId: a.pageId,
+    })
+    expect(released?.runId).toBe(a.runId)
+    expect(getPiFocus()).toBeNull()
+
+    const aRow = getDbHandle()
+      .sqlite.prepare(`SELECT status FROM scheduled_runs WHERE id = ?`)
+      .get(a.runId!) as { status: string }
+    expect(aRow.status).toBe('pending')
+  })
+
+  it('cancelMaterializeRun marks chat_turns cancelled (not stuck running)', async () => {
+    setup()
+    const site = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId: site.siteId!,
+      recordType: 'job-application',
+      data: { company: 'Alpha', stage: 'applied' },
+    })
+
+    const a = await ensureAndMaterialize(site.siteId!, 'alpha', {
+      materialize: true,
+    })
+    expect(a.runId).toBeTruthy()
+
+    const conversationId = crypto.randomUUID()
+    updateRunStatus(a.runId!, {
+      status: 'running',
+      conversationId,
+      startedAt: Date.now(),
+    })
+    setPiFocusRun(a.runId!, conversationId)
+
+    await getDb().insert(chatSessions).values({
+      id: conversationId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+    const turn = conversationTurnRegistry.register(conversationId, {
+      prompt: 'test',
+    })
+    await insertRunningChatTurn({
+      turnId: turn.turnId,
+      sessionId: conversationId,
+      startedAt: turn.startedAt,
+    })
+
+    cancelMaterializeRun(a.runId!, 'pi-focus-switched')
+
+    const runRow = getDbHandle()
+      .sqlite.prepare(`SELECT status, error FROM scheduled_runs WHERE id = ?`)
+      .get(a.runId!) as { status: string; error: string | null }
+    expect(runRow.status).toBe('cancelled')
+    expect(runRow.error).toBe('pi-focus-switched')
+
+    // markChatTurnTerminal is async void — give it a tick.
+    await new Promise((r) => setTimeout(r, 20))
+    const turnRow = getDbHandle()
+      .sqlite.prepare(`SELECT status, stop_reason FROM chat_turns WHERE id = ?`)
+      .get(turn.turnId) as { status: string; stop_reason: string | null }
+    expect(turnRow.status).toBe('cancelled')
+    expect(turnRow.stop_reason).toBe('pi-focus-switched')
   })
 
   it('does not inherit previous page runId when switching without runId', async () => {

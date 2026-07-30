@@ -51,20 +51,20 @@ Ten fields. Each is a single seed colour; every surface tint in the page derives
 
 | Field | Light (paper) | Dark (pigment) | Reads as |
 |---|---|---|---|
-| `rust` | `#F4E7E2` | `#241514` | red |
-| `ember` | `#F6EADF` | `#26190F` | orange |
-| `amber` | `#F5EEDC` | `#241E0E` | yellow |
-| `clay` | `#EFE9DD` | `#211B12` | warm neutral |
-| `moss` | `#E8EDDF` | `#182014` | green |
-| `petrol` | `#E1EBE7` | `#0F2320` | teal |
-| `dust` | `#E4E9F2` | `#131A2B` | blue |
-| `iris` | `#E9E6F3` | `#1B1729` | violet |
-| `plum` | `#F1E5EE` | `#231621` | magenta |
-| `slate` | `#E7E8EC` | `#16171B` | cool neutral |
+| `rust` | `#E8B8AE` | deep red-black | red |
+| `ember` | `#E8C49A` | deep orange-black | orange |
+| `amber` | `#E5D478` | deep gold-black | yellow |
+| `clay` | `#DCC9A0` | deep warm-black | warm neutral |
+| `moss` | `#B8D48A` | deep green-black | green |
+| `petrol` | `#8FCFC0` | deep teal-black | teal |
+| `dust` | `#A8C0E8` | deep blue-black | blue |
+| `iris` | `#C0B0E8` | deep violet-black | violet |
+| `plum` | `#E0A8C8` | deep magenta-black | magenta |
+| `slate` | `#C4C8D4` | cool charcoal | cool neutral |
 
-**Light mode is paper, not pastel.** Every light field sits at roughly `L 0.93` with chroma between `0.012` and `0.022`. That is the range where a colour reads as pigmented uncoated stock. Push chroma higher and it becomes a washed-out 2010s pastel; drop it lower and the ten fields stop being distinguishable.
+**Light mode is rich paper, not a pale wash.** Seeds sit around `L 0.88` with chroma `0.04–0.07` — clearly pigmented, still readable with dark ink. Washed pastels at `C < 0.02` are banned; they read as sad UI tint, not place character.
 
-**Dark mode is pigment, not grey.** Every dark field sits at roughly `L 0.19` with chroma between `0.022` and `0.030`. Clearly hued, never muddy, never pure black — pure black is reserved for the shell so the shell/place distinction survives in dark mode.
+**Dark mode is pigment with hue.** Seeds sit around `L 0.24` with chroma `0.05–0.07`. Soft charcoal is for the shell only; places must carry their hue.
 
 Because both modes hold a fixed lightness, the ten fields are tonally interchangeable. Swapping a place's field changes its character without changing its legibility or layout.
 
