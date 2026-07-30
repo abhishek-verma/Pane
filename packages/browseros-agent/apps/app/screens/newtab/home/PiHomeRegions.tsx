@@ -5,8 +5,9 @@
  */
 
 import { useQueryClient } from '@tanstack/react-query'
-import type { FC } from 'react'
+import { type FC, useState } from 'react'
 import { Link } from 'react-router'
+import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { executePiAction } from '@/lib/pi-actions'
 import { executeWidgetAction } from '@/lib/widget-actions'
 import { HOME_QUERY_KEY } from '@/screens/newtab/home/home-data'
@@ -21,6 +22,7 @@ function approvalTokens(metadata: Record<string, unknown> | undefined): {
   approvalId: string
   approveToken: string
   denyToken: string
+  conversationId: string | null
 } | null {
   if (metadata?.kind !== 'approval') return null
   const approvalId =
@@ -29,8 +31,10 @@ function approvalTokens(metadata: Record<string, unknown> | undefined): {
     typeof metadata.approveToken === 'string' ? metadata.approveToken : ''
   const denyToken =
     typeof metadata.denyToken === 'string' ? metadata.denyToken : ''
+  const conversationId =
+    typeof metadata.conversationId === 'string' ? metadata.conversationId : null
   if (!approvalId || !approveToken || !denyToken) return null
-  return { approvalId, approveToken, denyToken }
+  return { approvalId, approveToken, denyToken, conversationId }
 }
 
 function routePath(route: string): string {
@@ -45,6 +49,13 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
   data,
 }) => {
   const queryClient = useQueryClient()
+  const [resolveBusyId, setResolveBusyId] = useState<string | null>(null)
+  const [resolveNote, setResolveNote] = useState<{
+    id: string
+    text: string
+  } | null>(null)
+  const [openingId, setOpeningId] = useState<string | null>(null)
+
   if (!data) return null
   const { doorways, continuity, libraryCount, proposeDoorways } = data
   if (
@@ -65,6 +76,47 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
   const livingIndex = showLiving || showLibraryOnly ? next++ : 0
   const proposeIndex = showPropose ? next++ : 0
 
+  const resolveApproval = async (
+    blockId: string,
+    tokens: NonNullable<ReturnType<typeof approvalTokens>>,
+    resolution: 'approve' | 'deny',
+  ) => {
+    setResolveBusyId(blockId)
+    setResolveNote(null)
+    try {
+      const result = await executeWidgetAction(
+        {
+          type: 'resolve-approval',
+          approvalId: tokens.approvalId,
+          token:
+            resolution === 'approve' ? tokens.approveToken : tokens.denyToken,
+          resolution,
+        },
+        queryClient,
+      )
+      setResolveNote({
+        id: blockId,
+        text:
+          result?.detail ?? (resolution === 'approve' ? 'Approved' : 'Denied'),
+      })
+    } finally {
+      setResolveBusyId(null)
+    }
+  }
+
+  const openApprovalAgent = async (blockId: string, conversationId: string) => {
+    setOpeningId(blockId)
+    try {
+      await openSidePanelWithSearch('open', {
+        query: '',
+        mode: 'agent',
+        conversationId,
+      })
+    } finally {
+      setOpeningId(null)
+    }
+  }
+
   return (
     <div className="w-full divide-y divide-border border-border border-t">
       {showToday ? (
@@ -78,50 +130,59 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
           <div className="divide-y divide-border border-border border-t">
             {continuity.map((block) => {
               const tokens = approvalTokens(block.metadata)
+              const note =
+                resolveNote?.id === block.id ? resolveNote.text : null
               return (
                 <div key={block.id} className="py-3">
                   <div className="font-medium text-sm">{block.title}</div>
-                  <div className="mt-0.5 text-muted-foreground text-xs leading-5">
+                  <div className="mt-0.5 whitespace-pre-line text-muted-foreground text-xs leading-5">
                     {block.body}
                   </div>
+                  {note ? (
+                    <div className="mt-2 font-mono text-[11px] text-[var(--signal)] tracking-wide">
+                      {note}
+                    </div>
+                  ) : null}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {tokens ? (
                       <>
                         <PiRailAction
-                          onClick={() => {
-                            void executeWidgetAction(
-                              {
-                                type: 'resolve-approval',
-                                approvalId: tokens.approvalId,
-                                token: tokens.approveToken,
-                                resolution: 'approve',
-                              },
-                              queryClient,
-                            )
-                          }}
+                          disabled={resolveBusyId === block.id}
+                          onClick={() =>
+                            void resolveApproval(block.id, tokens, 'approve')
+                          }
                         >
                           Approve
                         </PiRailAction>
                         <PiRailAction
-                          onClick={() => {
-                            void executeWidgetAction(
-                              {
-                                type: 'resolve-approval',
-                                approvalId: tokens.approvalId,
-                                token: tokens.denyToken,
-                                resolution: 'deny',
-                              },
-                              queryClient,
-                            )
-                          }}
+                          disabled={resolveBusyId === block.id}
+                          onClick={() =>
+                            void resolveApproval(block.id, tokens, 'deny')
+                          }
                         >
                           Deny
                         </PiRailAction>
+                        {tokens.conversationId ? (
+                          <PiRailAction
+                            disabled={openingId === block.id}
+                            onClick={() => {
+                              const cid = tokens.conversationId
+                              if (!cid) return
+                              void openApprovalAgent(block.id, cid)
+                            }}
+                          >
+                            {openingId === block.id ? 'Opening…' : 'Open agent'}
+                          </PiRailAction>
+                        ) : (
+                          <PiRailAction to="/settings/action-log">
+                            Action log
+                          </PiRailAction>
+                        )}
                       </>
                     ) : null}
-                    {block.route ? (
+                    {!tokens && block.route ? (
                       <PiRailAction to={routePath(block.route)}>
-                        {tokens ? 'Details' : 'Open'}
+                        Open
                       </PiRailAction>
                     ) : null}
                     {!tokens && block.agentQuery ? (

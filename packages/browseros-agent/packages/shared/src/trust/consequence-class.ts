@@ -425,16 +425,29 @@ export function describeToolCall(
     return `download via ${typeof args.ref === 'string' ? args.ref : '(no ref)'}`
   }
   if (toolName === 'act') {
-    return `${typeof args.kind === 'string' ? args.kind : 'act'} ${
+    const kind = typeof args.kind === 'string' ? args.kind : 'act'
+    const target =
       typeof args.ref === 'string'
         ? args.ref
         : typeof args.selector === 'string'
           ? args.selector
+          : typeof args.value === 'string'
+            ? args.value.slice(0, 40)
+            : typeof args.text === 'string'
+              ? args.text.slice(0, 40)
+              : ''
+    const page =
+      typeof args.page === 'number'
+        ? ` on page ${args.page}`
+        : typeof args.page === 'string'
+          ? ` on page ${args.page}`
           : ''
-    }`
+    return `${kind}${target ? ` ${target}` : ''}${page}`.trim()
   }
   if (toolName === 'tabs') {
-    return `tabs ${typeof args.action === 'string' ? args.action : 'list'}`
+    const action = typeof args.action === 'string' ? args.action : 'list'
+    const url = typeof args.url === 'string' ? ` ${args.url}` : ''
+    return `tabs ${action}${url}`
   }
   return toolName
 }

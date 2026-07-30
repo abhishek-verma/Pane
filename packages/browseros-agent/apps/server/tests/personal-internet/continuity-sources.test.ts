@@ -21,6 +21,7 @@ import {
   createPendingApproval,
   resolveByToken,
 } from '../../src/scheduler/approvals'
+import { createRunRecord } from '../../src/scheduler/run-executor'
 
 describe('pi continuity sources', () => {
   const dirs: string[] = []
@@ -62,11 +63,11 @@ describe('pi continuity sources', () => {
     })
     const fromApprovals = continuityFromApprovals()
     expect(fromApprovals.length).toBe(1)
-    expect(fromApprovals[0].title).toBe('Approval waiting')
-    expect(fromApprovals[0].body).toContain('linkedin')
-    expect(fromApprovals[0].route).toBe('#/settings/action-log')
+    expect(fromApprovals[0].title).toMatch(/needs approval/i)
+    expect(fromApprovals[0].body).toContain('Open linkedin.com')
     expect(fromApprovals[0].metadata?.approveToken).toBeTruthy()
     expect(fromApprovals[0].metadata?.denyToken).toBeTruthy()
+    expect(fromApprovals[0].route).toBe('#/settings/action-log')
 
     await applyPiMutation({ type: 'upsert-site', templateId: 'job-search' })
     const revised = await reviseHomeContinuityLocal()
@@ -77,6 +78,32 @@ describe('pi continuity sources', () => {
     expect(
       projection.continuity.some((b) => b.id.startsWith('approval-')),
     ).toBe(true)
+  })
+
+  it('enriches harvest approvals with task context and open-agent metadata', () => {
+    setup()
+    const run = createRunRecord({
+      source: 'pi-harvest',
+      sourceId: 'site_abc',
+      prompt:
+        'Harvest linkedin.com for Personalised Internet site "Job Search".\nsiteId=site_abc',
+      idempotencyKey: 'harvest:test:1',
+    })
+    createPendingApproval({
+      runId: run.id,
+      conversationId: 'conv-harvest-1',
+      toolCallId: 'tc-click',
+      toolName: 'act',
+      consequenceClass: 'write-external',
+      preview: 'Needs approval: click e13',
+    })
+    const [block] = continuityFromApprovals()
+    expect(block.title).toBe('Harvest paused — needs approval')
+    expect(block.body).toContain('Action: click e13')
+    expect(block.body).toContain('Harvest linkedin.com')
+    expect(block.body).toContain('Open agent')
+    expect(block.metadata?.conversationId).toBe('conv-harvest-1')
+    expect(block.route).toBeUndefined()
   })
 
   it('home revise persists continuity file', async () => {

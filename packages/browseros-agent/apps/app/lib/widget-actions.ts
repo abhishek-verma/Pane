@@ -28,10 +28,12 @@ export type WidgetAction =
   | { type: 'agent-with-context'; prompt: string; context: unknown }
   | { type: 'copy'; text: string }
 
+export type WidgetActionResult = { ok: boolean; detail: string }
+
 export async function executeWidgetAction(
   action: WidgetAction,
   queryClient?: QueryClientLike,
-): Promise<void> {
+): Promise<WidgetActionResult | undefined> {
   const base = await getAgentServerUrl()
 
   switch (action.type) {
@@ -55,24 +57,37 @@ export async function executeWidgetAction(
       }
       break
 
-    case 'resolve-approval':
+    case 'resolve-approval': {
+      let ok = false
+      let detail = 'Could not reach the agent server'
       try {
-        await agentFetch(`${base}/scheduler/approvals/resolve`, {
+        const res = await agentFetch(`${base}/scheduler/approvals/resolve`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: action.token }),
         })
+        if (res.ok) {
+          ok = true
+          detail =
+            action.resolution === 'approve'
+              ? 'Approved — the agent can continue this step'
+              : 'Denied — the agent will skip this step'
+        } else {
+          const body = (await res.json().catch(() => null)) as {
+            error?: string
+          } | null
+          detail = body?.error ?? `Resolve failed (${res.status})`
+        }
       } catch {
-        /* network blip — still refresh so expired/ghost cards can drop */
+        /* network blip */
       }
-      // Always re-fetch home: resolve may 404 for already-expired ghosts, but
-      // listPendingApprovals expires stale rows on read.
       if (queryClient) {
         void queryClient.invalidateQueries({
           queryKey: ['scheduler', 'home'],
         })
       }
-      break
+      return { ok, detail }
+    }
 
     case 'complete-task':
       try {

@@ -6,27 +6,69 @@
  * Continuity candidates from approvals (+ optional resume hints).
  */
 
-import { listPendingApprovals } from '../scheduler/approvals'
+import {
+  listPendingApprovals,
+  type PendingApproval,
+} from '../scheduler/approvals'
+import { getScheduledRun } from '../scheduler/run-executor'
 import type { PiContinuityBlock } from './types'
+
+function firstPromptLine(prompt: string): string {
+  const line = prompt
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0)
+  if (!line) return ''
+  return line.length > 120 ? `${line.slice(0, 117)}…` : line
+}
+
+function stripPreviewPrefix(preview: string): string {
+  return preview.replace(/^Needs approval:\s*/i, '').trim()
+}
+
+function approvalTitle(a: PendingApproval, source: string | undefined): string {
+  if (source === 'pi-harvest') return 'Harvest paused — needs approval'
+  if (source === 'pi-materialize') return 'Page fill paused — needs approval'
+  if (source === 'trigger' || source === 'schedule')
+    return 'Scheduled agent paused — needs approval'
+  if (a.toolName === 'act') return 'Browser click needs approval'
+  if (a.toolName === 'tabs') return 'New tab needs approval'
+  return 'Agent paused — needs approval'
+}
+
+function approvalBody(
+  a: PendingApproval,
+  source: string | undefined,
+  promptLine: string,
+): string {
+  const action = stripPreviewPrefix(a.preview) || a.toolName
+  const lines = [`Action: ${action}`]
+  if (promptLine) lines.push(`Task: ${promptLine}`)
+  if (source === 'pi-harvest') {
+    lines.push(
+      'This is a background site harvest, not a normal chat. Open agent to see the page and decide.',
+    )
+  } else if (a.conversationId) {
+    lines.push('Open agent to review the turn before approving.')
+  } else {
+    lines.push('No linked agent turn — deny if you do not recognize this.')
+  }
+  return lines.join('\n')
+}
 
 export function continuityFromApprovals(): PiContinuityBlock[] {
   try {
     const pending = listPendingApprovals()
     return pending.slice(0, 5).map((a) => {
-      const conversationQuery = a.conversationId
-        ? `?conversationId=${encodeURIComponent(a.conversationId)}`
-        : ''
+      const run = a.runId ? getScheduledRun(a.runId) : null
+      const source = run?.source
+      const promptLine = run?.prompt ? firstPromptLine(run.prompt) : ''
       return {
         id: `approval-${a.id}`,
-        title: 'Approval waiting',
-        body:
-          a.preview?.trim() ||
-          a.toolName?.trim() ||
-          'A scheduled action needs your approval',
-        // Deep-link into Action Log so approve/deny is reachable after
-        // ScheduleResults was removed from home (S13).
-        route: `#/settings/action-log${conversationQuery}`,
-        agentQuery: `Review pending approval ${a.id}`,
+        title: approvalTitle(a, source),
+        body: approvalBody(a, source, promptLine),
+        // Prefer opening the live agent turn; action-log is secondary.
+        route: a.conversationId ? undefined : '#/settings/action-log',
         metadata: {
           approvalId: a.id,
           toolName: a.toolName,
@@ -34,6 +76,8 @@ export function continuityFromApprovals(): PiContinuityBlock[] {
           conversationId: a.conversationId,
           approveToken: a.approveToken,
           denyToken: a.denyToken,
+          source: source ?? null,
+          runId: a.runId,
         },
       }
     })
