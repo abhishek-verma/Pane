@@ -89,7 +89,7 @@ export const StepWorkspace = ({
         <div className="flex flex-col gap-2">
           {selectedFolder ? (
             <Button
-              className="w-full bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
+              className="w-full bg-[var(--accent-orange)] text-primary-foreground hover:bg-[var(--accent-orange)]/90"
               onClick={() => finish(true)}
             >
               Continue

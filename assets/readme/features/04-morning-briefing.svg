@@ -7,13 +7,13 @@
     <stop offset="100%" stop-color="#e4dfd8"/>
   </linearGradient>
   <radialGradient id="glow" cx="70%" cy="40%" r="45%">
-    <stop offset="0%" stop-color="#e07a2f" stop-opacity="0.16"/>
-    <stop offset="55%" stop-color="#e07a2f" stop-opacity="0.05"/>
-    <stop offset="100%" stop-color="#e07a2f" stop-opacity="0"/>
+    <stop offset="0%" stop-color="#94B316" stop-opacity="0.16"/>
+    <stop offset="55%" stop-color="#94B316" stop-opacity="0.05"/>
+    <stop offset="100%" stop-color="#94B316" stop-opacity="0"/>
   </radialGradient>
   <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#f4a35f"/>
-    <stop offset="100%" stop-color="#df7327"/>
+    <stop offset="0%" stop-color="#C8E832"/>
+    <stop offset="100%" stop-color="#94B316"/>
   </linearGradient>
   <pattern id="grid" width="56" height="56" patternUnits="userSpaceOnUse">
     <path d="M56 0H0V56" fill="none" stroke="#1c1814" stroke-opacity="0.05"/>
@@ -91,15 +91,15 @@
 
     <rect x="620" y="76" width="300" height="428" fill="#f3f0ec"/>
     <g transform="translate(638 96) scale(0.14)">
-      <path fill="#e07a2f" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
+      <path fill="#94B316" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
     </g>
     <text x="660" y="108" fill="#3d3731" font-size="13" font-weight="600">Pane</text>
     <circle cx="900" cy="102" r="4" fill="#5fb872"/>
     <text x="888" y="107" text-anchor="end" fill="#8a8278" font-size="11">Scheduled</text>
 
     <g transform="translate(636 136)">
-      <rect class="live" width="268" height="92" rx="12" fill="#f5f2ef" stroke="#e07a2f" stroke-width="1.5"/>
-      <circle class="dot" cx="22" cy="28" r="4" fill="#e07a2f"/>
+      <rect class="live" width="268" height="92" rx="12" fill="#f5f2ef" stroke="#94B316" stroke-width="1.5"/>
+      <circle class="dot" cx="22" cy="28" r="4" fill="#94B316"/>
       <text x="36" y="32" fill="#1c1814" font-size="13" font-weight="600">Morning briefing</text>
       <text x="16" y="56" fill="#6b6258" font-size="12">Every weekday · 8:00 AM</text>
       <text x="16" y="76" fill="#8a8278" font-size="11">Last run · 2 min ago</text>

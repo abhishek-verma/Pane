@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { type FC, useState } from 'react'
+import { type FC, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { PiAction, PiCardAction, PiNode } from './types'
@@ -44,13 +44,34 @@ function normalizeCardAction(entry: PiCardAction): {
   }
 }
 
+function detailsActionForCard(
+  card: BoardNode['cards'][number],
+  siteId?: string,
+): PiAction | null {
+  const fromActions = card.actions
+    ?.map((entry) => normalizeCardAction(entry))
+    .find((a) => a.action.kind === 'open-internal')?.action
+  if (fromActions) return fromActions
+  const entityKey = card.entityKey?.trim()
+  if (siteId && entityKey) {
+    return {
+      kind: 'open-internal',
+      route: `#/pi/sites/${siteId}/entities/${encodeURIComponent(entityKey)}`,
+    }
+  }
+  return null
+}
+
 export const BoardKanban: FC<{
   node: BoardNode
   onAction: (action: PiAction) => void | Promise<void>
   onMoveCard?: (cardId: string, toColumnId: string) => void | Promise<void>
-}> = ({ node, onAction, onMoveCard }) => {
+  siteId?: string
+}> = ({ node, onAction, onMoveCard, siteId }) => {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
+  // Suppress title click that browsers fire after a drag ends.
+  const suppressClickRef = useRef(false)
 
   return (
     <div className="flex gap-3 overflow-x-auto pb-2">
@@ -88,12 +109,14 @@ export const BoardKanban: FC<{
             {col.cardIds.map((cardId) => {
               const card = node.cards.find((c) => c.id === cardId)
               if (!card) return null
+              const detailsAction = detailsActionForCard(card, siteId)
               return (
                 // biome-ignore lint/a11y/noStaticElementInteractions: HTML5 DnD card
                 <div
                   key={card.id}
                   draggable={!!onMoveCard}
                   onDragStart={(e) => {
+                    suppressClickRef.current = true
                     setDraggingId(card.id)
                     e.dataTransfer.setData('text/pi-card', card.id)
                     e.dataTransfer.effectAllowed = 'move'
@@ -101,6 +124,9 @@ export const BoardKanban: FC<{
                   onDragEnd={() => {
                     setDraggingId(null)
                     setOverCol(null)
+                    window.setTimeout(() => {
+                      suppressClickRef.current = false
+                    }, 0)
                   }}
                   className={cn(
                     'rounded-md border border-border/60 bg-background p-3 shadow-sm',
@@ -108,14 +134,30 @@ export const BoardKanban: FC<{
                     draggingId === card.id && 'opacity-60',
                   )}
                 >
-                  <div className="font-medium text-foreground">
-                    {card.title}
-                  </div>
-                  {card.subtitle ? (
-                    <div className="mt-0.5 text-muted-foreground text-xs">
-                      {card.subtitle}
+                  <button
+                    type="button"
+                    className="w-full text-left"
+                    disabled={!detailsAction}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (
+                        suppressClickRef.current ||
+                        draggingId ||
+                        !detailsAction
+                      )
+                        return
+                      void onAction(detailsAction)
+                    }}
+                  >
+                    <div className="font-medium text-foreground hover:underline">
+                      {card.title}
                     </div>
-                  ) : null}
+                    {card.subtitle ? (
+                      <div className="mt-0.5 text-muted-foreground text-xs">
+                        {card.subtitle}
+                      </div>
+                    ) : null}
+                  </button>
                   {card.actions?.length ? (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {card.actions.map((entry) => {

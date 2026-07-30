@@ -4,7 +4,7 @@
 
 Pane’s product UI — side-panel agent, new-tab agent surfaces, settings, and shared chrome — should feel like one **calm developer console**. Conversation prose stays primary in chat. Settings and home use the same restrained radius, hairline borders, and muted fills — not a stack of soft white rounded marketing cards.
 
-Inspired by Hermes WebUI / Cursor-class agent UIs, adapted to Pane’s orange brand and Geist type.
+Inspired by Hermes WebUI / Cursor-class agent UIs, adapted to Pane’s citron signal accent (see [spec 21](./21-living-grid-design-system.md)) and Geist type.
 
 > **Status:** implemented baseline on `feat/agent-chat-visual-language`.
 
@@ -15,7 +15,7 @@ Inspired by Hermes WebUI / Cursor-class agent UIs, adapted to Pane’s orange br
 1. One visual language across chat, settings, home, and extension chrome.
 2. Reduce “old school” heavy rounding; prefer small radii and square tool traces.
 3. Keep progressive disclosure for tool evidence (spec 17).
-4. Stay on-brand: one orange accent, Geist / Geist Mono, light + dark.
+4. Stay on-brand: one citron signal accent, Geist / Geist Mono, light + dark.
 
 ## Non-goals
 

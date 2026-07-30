@@ -8,7 +8,13 @@
 
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
+import { getActiveGateContext } from '../agent/trust/gate'
+import {
+  findActiveMaterializeRunForPage,
+  getScheduledRun,
+} from '../scheduler/run-executor'
 import { validatePageDoc } from './dsl'
+import { getPiFocus } from './focus'
 import { ensureAndMaterialize } from './materialize'
 import { entityRoute } from './paths'
 import { normalizeJobSearchRecord, parseRecordData } from './records'
@@ -47,6 +53,64 @@ const pageDocSchema = z
 
 function ok(data: Record<string, unknown>) {
   return { text: JSON.stringify(data) }
+}
+
+function isActiveMaterializeStatus(status: string): boolean {
+  return (
+    status === 'pending' ||
+    status === 'running' ||
+    status === 'awaiting-approval'
+  )
+}
+
+/** While a pi-materialize run is active, restrict create/ensure/cross-page patch. */
+function assertMaterializeToolAllowed(
+  toolName: string,
+  args: { pageId?: string; entityKey?: string },
+): void {
+  // Prefer the scheduled run on this turn (survives focus/process drift).
+  const scheduledRunId = getActiveGateContext()?.scheduledRunId
+  let run = scheduledRunId ? getScheduledRun(scheduledRunId) : null
+  if (
+    !run ||
+    run.source !== 'pi-materialize' ||
+    !isActiveMaterializeStatus(run.status)
+  ) {
+    const focus = getPiFocus()
+    if (!focus) return
+    run = focus.runId ? getScheduledRun(focus.runId) : null
+    if (
+      !run ||
+      run.source !== 'pi-materialize' ||
+      !isActiveMaterializeStatus(run.status)
+    ) {
+      run = findActiveMaterializeRunForPage(focus.pageId)
+    }
+  }
+  if (
+    !run ||
+    run.source !== 'pi-materialize' ||
+    !isActiveMaterializeStatus(run.status)
+  ) {
+    return
+  }
+  const targetPageId = run.sourceId
+  if (!targetPageId) return
+
+  if (toolName === 'pi_page_create' || toolName === 'pi_entity_ensure') {
+    throw new Error(
+      `pi-materialize run may not call ${toolName}; use pi_page_patch on pageId=${targetPageId} only`,
+    )
+  }
+  if (
+    toolName === 'pi_page_patch' &&
+    args.pageId &&
+    args.pageId !== targetPageId
+  ) {
+    throw new Error(
+      `pi-materialize may only patch pageId=${targetPageId} (got ${args.pageId})`,
+    )
+  }
 }
 
 function err(message: string) {
@@ -222,14 +286,15 @@ export function buildPersonalInternetToolSet(
 
     pi_entity_ensure: tool({
       description:
-        'Ensure a per-company (entity) page exists for a Job Search site. Creates a stub at #/pi/sites/<siteId>/entities/<entityKey> and optionally enqueues materialize. Never create one mega details page for all companies — use this per entityKey.',
+        'Ensure a per-company (entity) ATF page exists at #/pi/sites/<siteId>/entities/<entityKey>. Default materialize=false (cheap ATF only). Set materialize=true only when the user asked to deepen that one company. Never create one mega details page for all companies. During a pi-materialize run, do not call this for other entities.',
       inputSchema: z.object({
         siteId: z.string().min(1),
         entityKey: z.string().min(1),
-        materialize: z.boolean().optional().default(true),
+        materialize: z.boolean().optional().default(false),
       }),
       execute: async ({ siteId, entityKey, materialize }) => {
         try {
+          assertMaterializeToolAllowed('pi_entity_ensure', { entityKey })
           const result = await ensureAndMaterialize(siteId, entityKey, {
             materialize,
           })
@@ -277,7 +342,7 @@ export function buildPersonalInternetToolSet(
 
     pi_page_create: tool({
       description:
-        'Create a Personalised Internet page as structured DSL JSON (not HTML). mode=temp for one-shot visuals; mode=durable needs siteId. doc={version:1,title,nodes:PiNode[]}. Load "pi-page-dsl"; for chart/mermaid/svg load "pi-page-viz". Returns #/pi/... route.',
+        'Create a Personalised Internet page as structured DSL JSON (not HTML). mode=temp for one-shot visuals; mode=durable needs siteId. doc={version:1,title,nodes:PiNode[]}. Load "pi-page-dsl"; for chart/mermaid/svg load "pi-page-viz". Returns #/pi/... route. Not allowed during a pi-materialize BTF run — patch the bound pageId instead.',
       inputSchema: z.object({
         mode: z.enum(['durable', 'temp']),
         siteId: z.string().optional(),
@@ -288,6 +353,7 @@ export function buildPersonalInternetToolSet(
       }),
       execute: async (input) => {
         try {
+          assertMaterializeToolAllowed('pi_page_create', {})
           const doc = validatePageDoc(input.doc) as PiPageDoc
           const result = await applyPiMutation({
             type: 'create-page',
@@ -311,13 +377,14 @@ export function buildPersonalInternetToolSet(
 
     pi_page_patch: tool({
       description:
-        'Patch a page: setTitle, replaceNodes, upsertTableRow, setCell, upsertBoardCard, moveBoardCard, bindRecord. Table row/cell ops hit the first table only — use replaceNodes for multi-table. Load skill "pi-page-patch" for full op shapes.',
+        'Patch a page: setTitle, replaceNodes, setMeta, setMaterializeSection, upsertTableRow, setCell, upsertBoardCard, moveBoardCard, bindRecord. Table row/cell ops hit the first table only — use replaceNodes for multi-table. During pi-materialize, only the run\'s pageId is allowed. Load skill "pi-page-patch" / "pi-entity-materialize" for op shapes.',
       inputSchema: z.object({
         pageId: z.string().min(1),
         ops: z.array(z.record(z.unknown())).min(1),
       }),
       execute: async ({ pageId, ops }) => {
         try {
+          assertMaterializeToolAllowed('pi_page_patch', { pageId })
           const result = await applyPiMutation({
             type: 'patch-page',
             pageId,

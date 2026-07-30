@@ -218,6 +218,23 @@ export function findRunByIdempotencyKey(
   return row ? rowToRecord(row) : null
 }
 
+/** Any active pi-materialize run for a pageId (includes :r… retry keys). */
+export function findActiveMaterializeRunForPage(
+  pageId: string,
+): ScheduledRunRecord | null {
+  const row = getDbHandle()
+    .sqlite.prepare(
+      `SELECT * FROM scheduled_runs
+       WHERE source = 'pi-materialize'
+         AND source_id = ?
+         AND status IN ('pending', 'running', 'awaiting-approval')
+       ORDER BY created_at DESC
+       LIMIT 1`,
+    )
+    .get(pageId) as ScheduledRunRow | undefined
+  return row ? rowToRecord(row) : null
+}
+
 export function appendCompletedStep(
   runId: string,
   step: CompletedStep,

@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Pane">
-  <rect width="100" height="100" rx="20" fill="#E8570A"/>
+  <rect width="100" height="100" rx="20" fill="#C8E832"/>
   <g transform="translate(18 18) scale(0.64)">
     <path
-      fill="#FFFFFF"
+      fill="#1A1F0A"
       fill-rule="evenodd"
       clip-rule="evenodd"
       d="M0 0h100v100H0V0zm66 66h24v24H66V66z"

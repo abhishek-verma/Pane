@@ -59,6 +59,7 @@ export type PiNode =
   | { type: 'divider' }
   | {
       type: 'stack'
+      id?: string
       direction?: 'row' | 'col'
       children: PiNode[]
     }
@@ -88,6 +89,7 @@ export type PiNode =
       cards: Array<{
         id: string
         recordId?: string
+        entityKey?: string
         title: string
         subtitle?: string
         actions?: PiCardAction[]
@@ -115,10 +117,31 @@ export type PiNode =
       alt?: string
     }
 
+export type PiMaterializePhase =
+  | 'atf'
+  | 'btf-structure'
+  | 'btf-filling'
+  | 'done'
+
+export type PiMaterializeSection = {
+  id: string
+  title: string
+  status: 'shell' | 'filled' | 'skipped'
+}
+
+export type PiPageMeta = {
+  entityKey?: string
+  materialize?: {
+    phase: PiMaterializePhase
+    sections: PiMaterializeSection[]
+  }
+}
+
 export type PiPageDoc = {
   version: 1
   title: string
   nodes: PiNode[]
+  meta?: PiPageMeta
 }
 
 export type TableRow = {
@@ -142,6 +165,7 @@ export type PiPatchOp =
       card: {
         id: string
         recordId?: string
+        entityKey?: string
         title: string
         subtitle?: string
         columnId: string
@@ -150,6 +174,13 @@ export type PiPatchOp =
     }
   | { op: 'moveBoardCard'; cardId: string; toColumnId: string }
   | { op: 'bindRecord'; recordId: string; data: Record<string, unknown> }
+  | { op: 'setMeta'; meta: PiPageMeta }
+  | {
+      op: 'setMaterializeSection'
+      id: string
+      status: PiMaterializeSection['status']
+      title?: string
+    }
 
 export type PiUrgency = {
   label: string

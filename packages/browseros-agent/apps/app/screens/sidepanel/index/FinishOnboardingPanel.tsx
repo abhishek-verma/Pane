@@ -24,7 +24,7 @@ export const FinishOnboardingPanel: FC = () => {
         </p>
       </div>
       <Button
-        className="bg-[var(--accent-orange)] text-white hover:bg-[var(--accent-orange)]/90"
+        className="bg-[var(--accent-orange)] text-primary-foreground hover:bg-[var(--accent-orange)]/90"
         onClick={openOnboarding}
       >
         Open setup

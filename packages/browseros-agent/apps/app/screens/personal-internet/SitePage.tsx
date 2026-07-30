@@ -8,6 +8,7 @@ import { type FC, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { executePiAction } from '@/lib/pi-actions'
+import { PiFieldSurface, piSiteField } from './field'
 import { PiPageRenderer } from './PiPageRenderer'
 import { RecordsPanel } from './RecordsPanel'
 import {
@@ -38,15 +39,20 @@ export const SitePage: FC = () => {
   const pageQuery = usePiPage(siteId, resolvedPageId)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const field = piSiteField(siteId)
 
   if (siteQuery.isLoading || pageQuery.isLoading) {
     return (
-      <div className="p-6 text-muted-foreground text-sm">Loading site…</div>
+      <PiFieldSurface field={field}>
+        <div className="p-6 text-muted-foreground text-sm">Loading site…</div>
+      </PiFieldSurface>
     )
   }
   if (siteQuery.error || !siteQuery.data) {
     return (
-      <div className="p-6 text-destructive text-sm">Could not load site.</div>
+      <PiFieldSurface field={field}>
+        <div className="p-6 text-destructive text-sm">Could not load site.</div>
+      </PiFieldSurface>
     )
   }
 
@@ -56,7 +62,7 @@ export const SitePage: FC = () => {
   const asOf = formatAsOf(pulse?.lastUpdatedAt)
 
   return (
-    <div className="flex min-h-full flex-col">
+    <PiFieldSurface field={field}>
       <div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
         <div>
           <div className="font-medium text-foreground text-sm">{site.name}</div>
@@ -103,20 +109,32 @@ export const SitePage: FC = () => {
       </div>
       {pages.length > 1 ? (
         <div className="flex gap-2 overflow-x-auto border-border/40 border-b px-4 py-2">
-          {pages.map((p) => (
-            <Link
-              key={p.id}
-              to={`/pi/sites/${siteId}/pages/${p.id}`}
-              className="whitespace-nowrap rounded-full px-3 py-1 text-muted-foreground text-xs hover:bg-muted hover:text-foreground"
-            >
-              {p.title}
-            </Link>
-          ))}
+          {pages.map((p) => {
+            // Prefer bound meta.entityKey — never slugify title (BTF may rename).
+            const entityKey =
+              p.kind === 'entity' && p.entityKey?.trim()
+                ? p.entityKey.trim()
+                : null
+            const to =
+              entityKey && siteId
+                ? `/pi/sites/${siteId}/entities/${encodeURIComponent(entityKey)}`
+                : `/pi/sites/${siteId}/pages/${p.id}`
+            return (
+              <Link
+                key={p.id}
+                to={to}
+                className="whitespace-nowrap rounded-full px-3 py-1 text-muted-foreground text-xs hover:bg-muted hover:text-foreground"
+              >
+                {p.title}
+              </Link>
+            )
+          })}
         </div>
       ) : null}
       {doc ? (
         <PiPageRenderer
           doc={doc}
+          siteId={siteId}
           pendingKey={pendingKey}
           onMoveCard={async (cardId, toColumnId) => {
             if (!resolvedPageId) return
@@ -141,6 +159,6 @@ export const SitePage: FC = () => {
         </div>
       )}
       {siteId ? <RecordsPanel siteId={siteId} /> : null}
-    </div>
+    </PiFieldSurface>
   )
 }

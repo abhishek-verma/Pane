@@ -6,17 +6,17 @@
       <stop offset="100%" stop-color="#e8e2db"/>
     </linearGradient>
     <radialGradient id="soulGlow" cx="68%" cy="46%" r="48%">
-      <stop offset="0%" stop-color="#e07a2f" stop-opacity="0.22"/>
-      <stop offset="55%" stop-color="#e07a2f" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="#e07a2f" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#94B316" stop-opacity="0.22"/>
+      <stop offset="55%" stop-color="#94B316" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#94B316" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f4a35f"/>
-      <stop offset="100%" stop-color="#df7327"/>
+      <stop offset="0%" stop-color="#C8E832"/>
+      <stop offset="100%" stop-color="#94B316"/>
     </linearGradient>
     <linearGradient id="soulText" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#e8923f"/>
-      <stop offset="100%" stop-color="#df7327"/>
+      <stop offset="100%" stop-color="#94B316"/>
     </linearGradient>
     <filter id="winShadow" x="-30%" y="-30%" width="160%" height="160%">
       <feDropShadow dx="0" dy="18" stdDeviation="28" flood-color="#1c1814" flood-opacity="0.12"/>
@@ -116,9 +116,9 @@
         <text x="20" y="46" fill="#6b6258" font-size="12">11 tabs threaded, sources kept and citable</text>
       </g>
       <g transform="translate(628 428)">
-        <rect width="316" height="54" rx="12" fill="#fff7f0" stroke="#e07a2f" stroke-opacity="0.4"/>
-        <circle cx="26" cy="27" r="9" fill="#e07a2f" fill-opacity="0.14"/>
-        <path d="M21 27l3 3 6-6" fill="none" stroke="#df7327" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect width="316" height="54" rx="12" fill="#F4F7E0" stroke="#94B316" stroke-opacity="0.4"/>
+        <circle cx="26" cy="27" r="9" fill="#94B316" fill-opacity="0.14"/>
+        <path d="M21 27l3 3 6-6" fill="none" stroke="#94B316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <text x="46" y="24" fill="#1c1814" font-size="12.5" font-weight="600">Run Friday competitor scan</text>
         <text x="46" y="41" fill="#6b6258" font-size="11.5">Skill Pane wrote from your routine</text>
       </g>
@@ -128,7 +128,7 @@
     <g>
       <rect x="960" y="132" width="264" height="416" fill="#f3f0ec"/>
       <g transform="translate(976 156) scale(0.15)">
-        <path fill="#e07a2f" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
+        <path fill="#94B316" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
       </g>
       <text x="998" y="168" fill="#3d3731" font-size="13" font-weight="600">Pane</text>
       <circle cx="1196" cy="162" r="4" fill="#2f9e5b"/>

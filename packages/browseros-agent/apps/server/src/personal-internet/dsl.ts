@@ -12,8 +12,11 @@ import {
 import type {
   PiAction,
   PiCardAction,
+  PiMaterializePhase,
+  PiMaterializeSection,
   PiNode,
   PiPageDoc,
+  PiPageMeta,
   PiPatchOp,
   TableRow,
 } from './types'
@@ -120,6 +123,12 @@ function validateNode(node: PiNode, path: string): void {
       if (!Array.isArray(node.children)) {
         throw new PiDslError(`${path}: stack children required`)
       }
+      if (node.id != null) {
+        if (typeof node.id !== 'string' || !node.id.trim()) {
+          throw new PiDslError(`${path}: stack id must be a non-empty string`)
+        }
+        assertSafeText(node.id, `${path}.id`)
+      }
       for (const [i, child] of node.children.entries()) {
         validateNode(child, `${path}.children[${i}]`)
       }
@@ -157,6 +166,7 @@ function validateNode(node: PiNode, path: string): void {
         assertSafeText(card.id, path)
         assertSafeText(card.title, path)
         if (card.subtitle) assertSafeText(card.subtitle, path)
+        if (card.entityKey) assertSafeText(card.entityKey, path)
         if (card.actions) {
           for (const [i, entry] of card.actions.entries()) {
             const { label, action } = normalizeCardAction(entry)
@@ -235,6 +245,85 @@ function validateNode(node: PiNode, path: string): void {
   }
 }
 
+const MATERIALIZE_PHASES: PiMaterializePhase[] = [
+  'atf',
+  'btf-structure',
+  'btf-filling',
+  'done',
+]
+
+const SECTION_STATUSES: PiMaterializeSection['status'][] = [
+  'shell',
+  'filled',
+  'skipped',
+]
+
+function validatePageMeta(raw: unknown, path: string): PiPageMeta | undefined {
+  if (raw == null) return undefined
+  if (typeof raw !== 'object') {
+    throw new PiDslError(`${path}: meta must be an object`)
+  }
+  const obj = raw as Record<string, unknown>
+  const meta: PiPageMeta = {}
+  if (obj.entityKey != null) {
+    if (typeof obj.entityKey !== 'string' || !obj.entityKey.trim()) {
+      throw new PiDslError(`${path}.entityKey must be a non-empty string`)
+    }
+    assertSafeText(obj.entityKey, `${path}.entityKey`)
+    meta.entityKey = obj.entityKey.trim()
+  }
+  if (obj.materialize != null) {
+    if (typeof obj.materialize !== 'object') {
+      throw new PiDslError(`${path}.materialize must be an object`)
+    }
+    const m = obj.materialize as Record<string, unknown>
+    if (
+      typeof m.phase !== 'string' ||
+      !MATERIALIZE_PHASES.includes(m.phase as PiMaterializePhase)
+    ) {
+      throw new PiDslError(`${path}.materialize.phase invalid`)
+    }
+    if (!Array.isArray(m.sections)) {
+      throw new PiDslError(`${path}.materialize.sections must be an array`)
+    }
+    const sections: PiMaterializeSection[] = []
+    for (const [i, s] of m.sections.entries()) {
+      if (!s || typeof s !== 'object') {
+        throw new PiDslError(`${path}.materialize.sections[${i}] invalid`)
+      }
+      const sec = s as Record<string, unknown>
+      if (typeof sec.id !== 'string' || !sec.id.trim()) {
+        throw new PiDslError(`${path}.materialize.sections[${i}].id required`)
+      }
+      if (typeof sec.title !== 'string' || !sec.title.trim()) {
+        throw new PiDslError(
+          `${path}.materialize.sections[${i}].title required`,
+        )
+      }
+      if (
+        typeof sec.status !== 'string' ||
+        !SECTION_STATUSES.includes(sec.status as PiMaterializeSection['status'])
+      ) {
+        throw new PiDslError(
+          `${path}.materialize.sections[${i}].status invalid`,
+        )
+      }
+      assertSafeText(sec.id, `${path}.sections[${i}].id`)
+      assertSafeText(sec.title, `${path}.sections[${i}].title`)
+      sections.push({
+        id: sec.id.trim(),
+        title: sec.title.trim(),
+        status: sec.status as PiMaterializeSection['status'],
+      })
+    }
+    meta.materialize = {
+      phase: m.phase as PiMaterializePhase,
+      sections,
+    }
+  }
+  return meta
+}
+
 export function validatePageDoc(input: unknown): PiPageDoc {
   if (!input || typeof input !== 'object') {
     throw new PiDslError('Page doc must be an object')
@@ -250,10 +339,12 @@ export function validatePageDoc(input: unknown): PiPageDoc {
   if (!Array.isArray(raw.nodes)) {
     throw new PiDslError('Page doc nodes must be an array')
   }
+  const meta = validatePageMeta(raw.meta, 'meta')
   const doc: PiPageDoc = {
     version: 1,
     title: raw.title,
     nodes: raw.nodes as PiNode[],
+    ...(meta ? { meta } : {}),
   }
   const bytes = Buffer.byteLength(JSON.stringify(doc), 'utf8')
   if (bytes > MAX_DOC_BYTES) {
@@ -296,6 +387,7 @@ export function applyPatchOps(doc: PiPageDoc, ops: PiPatchOp[]): PiPageDoc {
     version: 1,
     title: doc.title,
     nodes: structuredClone(doc.nodes),
+    ...(doc.meta ? { meta: structuredClone(doc.meta) } : {}),
   }
 
   for (const op of ops) {
@@ -370,6 +462,62 @@ export function applyPatchOps(doc: PiPageDoc, ops: PiPatchOp[]): PiPageDoc {
       case 'bindRecord':
         // Record binding is applied by write-path; patch op is a no-op on doc.
         break
+      case 'setMeta': {
+        const merged: PiPageMeta = {
+          ...(next.meta ?? {}),
+          ...op.meta,
+        }
+        if (op.meta.materialize) {
+          merged.materialize = structuredClone(op.meta.materialize)
+        }
+        next = {
+          ...next,
+          meta: validatePageMeta(merged, 'setMeta') ?? merged,
+        }
+        break
+      }
+      case 'setMaterializeSection': {
+        assertSafeText(op.id, 'setMaterializeSection.id')
+        if (op.title) assertSafeText(op.title, 'setMaterializeSection.title')
+        if (!SECTION_STATUSES.includes(op.status)) {
+          throw new PiDslError('setMaterializeSection: invalid status')
+        }
+        const materialize = next.meta?.materialize ?? {
+          phase: 'btf-structure' as PiMaterializePhase,
+          sections: [],
+        }
+        const sections = [...materialize.sections]
+        const idx = sections.findIndex((s) => s.id === op.id)
+        const title = op.title ?? (idx >= 0 ? sections[idx]!.title : op.id)
+        const section: PiMaterializeSection = {
+          id: op.id,
+          title,
+          status: op.status,
+        }
+        if (idx >= 0) sections[idx] = section
+        else sections.push(section)
+        let phase = materialize.phase
+        if (phase === 'atf') {
+          // Shell sections open structure; filled/skipped means filling started.
+          phase = op.status === 'shell' ? 'btf-structure' : 'btf-filling'
+        } else if (
+          phase === 'btf-structure' &&
+          (op.status === 'filled' || op.status === 'skipped')
+        ) {
+          phase = 'btf-filling'
+        }
+        next = {
+          ...next,
+          meta: {
+            ...(next.meta ?? {}),
+            materialize: {
+              phase,
+              sections,
+            },
+          },
+        }
+        break
+      }
       default:
         throw new PiDslError('Unknown patch op')
     }

@@ -540,7 +540,7 @@ export const FeaturesPage: FC = () => {
           <Button
             onClick={handleStart}
             size="lg"
-            className="bg-[var(--accent-orange)] text-white shadow-[var(--accent-orange)]/25 shadow-lg hover:bg-[var(--accent-orange)]/90"
+            className="bg-[var(--accent-orange)] text-primary-foreground shadow-[var(--accent-orange)]/25 shadow-lg hover:bg-[var(--accent-orange)]/90"
           >
             Start using {PRODUCT_NAME}
             <ArrowRight className="ml-2 h-4 w-4" />

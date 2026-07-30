@@ -68,7 +68,7 @@ index 0000000000..e9c4bcd6cf
 +  --muted: #6B7280;
 +  --border: #E8E2DA;
 +  --card: #FFFFFF;
-+  --accent: #FB651F;
++  --accent: #C8E832;
 +  --cta: #231F1A;
 +  --link: #1F2937;
 +  --chip-bg:#F1F4F8; --chip-border:#E2E8F0; --chip-text:#0F172A;
@@ -177,7 +177,7 @@ index 0000000000..e9c4bcd6cf
 +
 + @media(prefers-color-scheme:dark){
 +  :root{
-+   --bg:#0b0f14; --text:#e5e7eb; --muted:#94a3b8; --border:#1f2a3a; --card:#101723; --cta:#161A23; --accent:#fb651f; --link:#9aa1ff;
++   --bg:#0b0f14; --text:#e5e7eb; --muted:#94a3b8; --border:#1f2a3a; --card:#101723; --cta:#161A23; --accent:#C8E832; --link:#9aa1ff;
 +   --chip-bg:#0b1220; --chip-border:#1f2937; --chip-text:#e5e7eb;
 +   --kbd-bg:#0b1220; --kbd-border:#1f2937; --kbd-border2:#1b2432; --kbd-text:#e5e7eb;
 +   --note-bg:#0b1220; --note-border:#273144; --note-text:#cbd5e1;
@@ -195,7 +195,7 @@ index 0000000000..e9c4bcd6cf
 +<body>
 +<section class="hero">
 + <div style="display:flex;justify-content:center;align-items:center;gap:.55rem;margin-bottom:1rem;">
-+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="36" height="36" role="img" aria-label="Pane" style="color:#FB651F">
++  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="36" height="36" role="img" aria-label="Pane" style="color:#C8E832">
 +   <path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M0 0h100v100H0V0zm66 66h24v24H66V66z"/>
 +  </svg>
 +  <span style="font-weight:800;font-size:1.35rem;letter-spacing:-.02em;color:var(--text);">Pane<span style="display:inline-block;width:.32em;height:.32em;margin-left:.06em;margin-bottom:.14em;background:currentColor;vertical-align:bottom;"></span></span>
@@ -263,7 +263,7 @@ index 0000000000..e9c4bcd6cf
 +  <div class="card">
 +   <h3>
 +    <span class="hicon feature-globe" aria-hidden="true">
-+     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#fb651f"><path d="M480-80q-82 0-155-31.5t-127.5-86Q143-252 111.5-325T80-480q0-83 31.5-155.5t86-127Q252-817 325-848.5T480-880q83 0 155.5 31.5t127 86q54.5 54.5 86 127T880-480q0 82-31.5 155t-86 127.5q-54.5 54.5-127 86T480-80Zm0-82q26-36 45-75t31-83H404q12 44 31 83t45 75Zm-104-16q-18-33-31.5-68.5T322-320H204q29 50 72.5 87t99.5 55Zm208 0q56-18 99.5-55t72.5-87H638q-9 38-22.5 73.5T584-178ZM170-400h136q-3-20-4.5-39.5T300-480q0-21 1.5-40.5T306-560H170q-5 20-7.5 39.5T160-480q0 21 2.5 40.5T170-400Zm216 0h188q3-20 4.5-39.5T580-480q0-21-1.5-40.5T574-560H386q-3 20-4.5 39.5T380-480q0 21 1.5 40.5T386-400Zm268 0h136q5-20 7.5-39.5T800-480q0-21-2.5-40.5T790-560H654q3 20 4.5 39.5T660-480q0 21-1.5 40.5T654-400Zm-16-240h118q-29-50-72.5-87T584-782q18 33 31.5 68.5T638-640Zm-234 0h152q-12-44-31-83t-45-75q-26 36-45 75t-31 83Zm-200 0h118q9-38 22.5-73.5T376-782q-56 18-99.5 55T204-640Z"/></svg>
++     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#C8E832"><path d="M480-80q-82 0-155-31.5t-127.5-86Q143-252 111.5-325T80-480q0-83 31.5-155.5t86-127Q252-817 325-848.5T480-880q83 0 155.5 31.5t127 86q54.5 54.5 86 127T880-480q0 82-31.5 155t-86 127.5q-54.5 54.5-127 86T480-80Zm0-82q26-36 45-75t31-83H404q12 44 31 83t45 75Zm-104-16q-18-33-31.5-68.5T322-320H204q29 50 72.5 87t99.5 55Zm208 0q56-18 99.5-55t72.5-87H638q-9 38-22.5 73.5T584-178ZM170-400h136q-3-20-4.5-39.5T300-480q0-21 1.5-40.5T306-560H170q-5 20-7.5 39.5T160-480q0 21 2.5 40.5T170-400Zm216 0h188q3-20 4.5-39.5T580-480q0-21-1.5-40.5T574-560H386q-3 20-4.5 39.5T380-480q0 21 1.5 40.5T386-400Zm268 0h136q5-20 7.5-39.5T800-480q0-21-2.5-40.5T790-560H654q3 20 4.5 39.5T660-480q0 21-1.5 40.5T654-400Zm-16-240h118q-29-50-72.5-87T584-782q18 33 31.5 68.5T638-640Zm-234 0h152q-12-44-31-83t-45-75q-26 36-45 75t-31 83Zm-200 0h118q9-38 22.5-73.5T376-782q-56 18-99.5 55T204-640Z"/></svg>
 +    </span>
 +    Natural-Language Agents
 +   </h3>
@@ -273,7 +273,7 @@ index 0000000000..e9c4bcd6cf
 +  <div class="card">
 +   <h3>
 +    <span class="hicon feature-split" aria-hidden="true">
-+     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#fb651f"><path d="M600-160v-80h160v-480H600v-80h160q33 0 56.5 23.5T840-720v480q0 33-23.5 56.5T760-160H600ZM440-80v-80H200q-33 0-56.5-23.5T120-240v-480q0-33 23.5-56.5T200-800h240v-80h80v800h-80Zm320-640v480-480Z"/></svg>
++     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#C8E832"><path d="M600-160v-80h160v-480H600v-80h160q33 0 56.5 23.5T840-720v480q0 33-23.5 56.5T760-160H600ZM440-80v-80H200q-33 0-56.5-23.5T120-240v-480q0-33 23.5-56.5T200-800h240v-80h80v800h-80Zm320-640v480-480Z"/></svg>
 +    </span>
 +    Split-View AI on Any Page
 +   </h3>
@@ -282,7 +282,7 @@ index 0000000000..e9c4bcd6cf
 +  <div class="card">
 +   <h3>
 +    <span class="hicon feature-private" aria-hidden="true">
-+     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#fb651f"><path d="M240-80q-33 0-56.5-23.5T160-160v-400q0-33 23.5-56.5T240-640h40v-80q0-83 58.5-141.5T480-920q83 0 141.5 58.5T680-720v80h40q33 0 56.5 23.5T800-560v400q0 33-23.5 56.5T720-80H240Zm0-80h480v-400H240v400Zm240-120q33 0 56.5-23.5T560-360q0-33-23.5-56.5T480-440q-33 0-56.5 23.5T400-360q0 33 23.5 56.5T480-280ZM360-640h240v-80q0-50-35-85t-85-35q-50 0-85 35t-35 85v80ZM240-160v-400 400Z"/></svg>
++     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#C8E832"><path d="M240-80q-33 0-56.5-23.5T160-160v-400q0-33 23.5-56.5T240-640h40v-80q0-83 58.5-141.5T480-920q83 0 141.5 58.5T680-720v80h40q33 0 56.5 23.5T800-560v400q0 33-23.5 56.5T720-80H240Zm0-80h480v-400H240v400Zm240-120q33 0 56.5-23.5T560-360q0-33-23.5-56.5T480-440q-33 0-56.5 23.5T400-360q0 33 23.5 56.5T480-280ZM360-640h240v-80q0-50-35-85t-85-35q-50 0-85 35t-35 85v80ZM240-160v-400 400Z"/></svg>
 +    </span>
 +    Private by Default
 +   </h3>
@@ -291,7 +291,7 @@ index 0000000000..e9c4bcd6cf
 +  <div class="card">
 +   <h3>
 +    <span class="hicon feature-ea" aria-hidden="true">
-+     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#fb651f"><path d="M360-390q-21 0-35.5-14.5T310-440q0-21 14.5-35.5T360-490q21 0 35.5 14.5T410-440q0 21-14.5 35.5T360-390Zm240 0q-21 0-35.5-14.5T550-440q0-21 14.5-35.5T600-490q21 0 35.5 14.5T650-440q0 21-14.5 35.5T600-390ZM480-160q134 0 227-93t93-227q0-24-3-46.5T786-570q-21 5-42 7.5t-44 2.5q-91 0-172-39T390-708q-32 78-91.5 135.5T160-486v6q0 134 93 227t227 93Zm0 80q-83 0-156-31.5T197-197q-54 54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-54-715q42 70 114 112.5T700-640q14 0 27-1.5t27-3.5q-42-70-114-112.5T480-800q-14 0-27 1.5t-27 3.5ZM177-581q51-29 89-75t57-103q-51 29-89 75t-57 103Zm249-214Zm-103 36Z"/></svg>
++     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#C8E832"><path d="M360-390q-21 0-35.5-14.5T310-440q0-21 14.5-35.5T360-490q21 0 35.5 14.5T410-440q0 21-14.5 35.5T360-390Zm240 0q-21 0-35.5-14.5T550-440q0-21 14.5-35.5T600-490q21 0 35.5 14.5T650-440q0 21-14.5 35.5T600-390ZM480-160q134 0 227-93t93-227q0-24-3-46.5T786-570q-21 5-42 7.5t-44 2.5q-91 0-172-39T390-708q-32 78-91.5 135.5T160-486v6q0 134 93 227t227 93Zm0 80q-83 0-156-31.5T197-197q-54 54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-54-715q42 70 114 112.5T700-640q14 0 27-1.5t27-3.5q-42-70-114-112.5T480-800q-14 0-27 1.5t-27 3.5ZM177-581q51-29 89-75t57-103q-51 29-89 75t-57 103Zm249-214Zm-103 36Z"/></svg>
 +    </span>
 +    Your Executive Assistant
 +   </h3>

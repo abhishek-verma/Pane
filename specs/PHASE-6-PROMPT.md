@@ -130,7 +130,7 @@ If any precondition fails, **stop and report**.
    - `getCaptureStatus(tabId)` → `{ active, class: 'meeting'|'browsing'|'research' }`
    Implement in `chrome/browser/extensions/api/browser_os/` (follow existing browserOS API patterns in patches). **MV3 `chrome.tabCapture` is fallback only** — document if used on non-fork builds; Pane Dev fork is primary target.
 2. **App bridge:** `apps/app/lib/capture/` — request capture from content/background, forward audio chunks to server via existing messaging (`RuntimeMessageType` or new WebSocket to server). Page snapshots via CDP/session already used by browser-mcp — reuse server CDP for periodic DOM snapshot during meeting capture.
-3. **Glow:** Extend `GlowMessage` with `mode: 'capture' | 'agent'` and `captureClass`. Capture mode: persistent orange/red pulse + stop button (existing `GLOW_STOP_BTN_ID`); stopping sends `capture_stop`. Agent glow unchanged.
+3. **Glow:** Extend `GlowMessage` with `mode: 'capture' | 'agent'` and `captureClass`. Capture mode: persistent citron pulse + stop button (existing `GLOW_STOP_BTN_ID`); stopping sends `capture_stop`. Agent glow unchanged.
 4. **Server ingest endpoint:** `POST /capture/chunk` (audio) + `POST /capture/page-snapshot` (text/metadata) — authenticated local-only (same origin / extension id check as other routes).
 5. Meeting URL heuristics (prompt once per domain): `meet.google.com`, `*.zoom.us`, `teams.microsoft.com`, `teams.live.com`.
 

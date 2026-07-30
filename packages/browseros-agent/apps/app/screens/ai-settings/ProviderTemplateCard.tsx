@@ -22,7 +22,7 @@ export const ProviderTemplateCard: FC<ProviderTemplateCardProps> = ({
       className={cn(
         'group relative flex w-full items-center gap-3 rounded-md border bg-background p-4 text-left transition-colors hover:border-[var(--accent-orange)]',
         highlighted
-          ? 'border-orange-300/80 bg-orange-50/30 ring-1 ring-orange-300/45 dark:bg-orange-500/5'
+          ? 'border-[var(--signal)]/50 bg-[var(--signal)]/8 ring-1 ring-[var(--signal)]/35'
           : 'border-border',
       )}
     >
@@ -36,7 +36,7 @@ export const ProviderTemplateCard: FC<ProviderTemplateCardProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium text-foreground">{template.name}</span>
             {highlighted && (
-              <span className="rounded-full border border-orange-300/60 bg-orange-100/70 px-2 py-0.5 font-semibold text-[10px] text-orange-700 dark:border-orange-400/40 dark:bg-orange-500/15 dark:text-orange-300">
+              <span className="rounded-full border border-[var(--signal)]/45 bg-[var(--signal)]/15 px-2 py-0.5 font-semibold text-[10px] text-[var(--signal-foreground)] dark:text-[var(--signal)]">
                 Recommended
               </span>
             )}

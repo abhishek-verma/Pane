@@ -8,6 +8,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { validatePageDoc } from '../../personal-internet/dsl'
 import { getLastPiMutationAt } from '../../personal-internet/events'
+import { releasePiFocus } from '../../personal-internet/focus'
 import { ensureAndMaterialize } from '../../personal-internet/materialize'
 import {
   handleHostOpened,
@@ -112,15 +113,26 @@ export function createPersonalInternetRoutes() {
       })
       return c.json(result, 201)
     })
-    .get('/sites/:siteId', (c) => {
+    .get('/sites/:siteId', async (c) => {
       const siteId = c.req.param('siteId')
       const site = getSite(siteId)
       if (!site) return c.json({ error: 'not found' }, 404)
       touchSite(siteId)
+      const pages = await Promise.all(
+        listPagesForSite(siteId).map(async (p) => {
+          if (p.kind !== 'entity')
+            return { ...p, entityKey: null as string | null }
+          const doc = await readPageDoc(p.id)
+          return {
+            ...p,
+            entityKey: doc?.meta?.entityKey ?? null,
+          }
+        }),
+      )
       return c.json({
         site,
         pulse: getPulse(siteId),
-        pages: listPagesForSite(siteId),
+        pages,
       })
     })
     .get('/sites/:siteId/records', (c) => {
@@ -147,17 +159,28 @@ export function createPersonalInternetRoutes() {
       const siteId = c.req.param('siteId')
       const entityKey = c.req.param('entityKey')
       const body = z
-        .object({ materialize: z.boolean().optional() })
+        .object({
+          materialize: z.boolean().optional(),
+          force: z.boolean().optional(),
+        })
         .parse((await c.req.json().catch(() => ({}))) as unknown)
       if (!getSite(siteId)) return c.json({ error: 'not found' }, 404)
       try {
         const result = await ensureAndMaterialize(siteId, entityKey, {
+          // Entity UI passes materialize:true; tools default false via omit.
           materialize: body.materialize,
+          force: body.force,
         })
         return c.json(result)
       } catch (e) {
         return c.json({ error: String(e) }, 400)
       }
+    })
+    .delete('/focus', (c) => {
+      const siteId = c.req.query('siteId') || undefined
+      const pageId = c.req.query('pageId') || undefined
+      const prev = releasePiFocus({ siteId, pageId })
+      return c.json({ ok: true, released: Boolean(prev) })
     })
     .post('/sites/:siteId/doorway', async (c) => {
       const siteId = c.req.param('siteId')

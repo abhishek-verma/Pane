@@ -101,8 +101,8 @@ index cb5f33a2c5..ea7e699ff6 100644
  
 -  if (is_icon_visible_ && action_engaged_) {
 +  if (      action_id_ == kActionBrowserOSAgent) {
-+    const SkColor orange = SkColorSetRGB(0xFB, 0x65, 0x18);
-+    UpdateIconsWithColors(vector_icons::kPaneMarkIcon, orange, orange, orange,
++    const SkColor citron = SkColorSetRGB(0xC8, 0xE8, 0x32);
++    UpdateIconsWithColors(vector_icons::kPaneMarkIcon, citron, citron, citron,
 +                          GetForegroundColor(ButtonState::STATE_DISABLED));
 +  } else if (is_icon_visible_ && action_engaged_) {
      UpdateIconsWithColors(

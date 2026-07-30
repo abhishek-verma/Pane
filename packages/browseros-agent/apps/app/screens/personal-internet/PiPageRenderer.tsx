@@ -60,7 +60,8 @@ const PiNodeView: FC<{
   onAction: PiActionHandler
   pendingKey?: string | null
   onMoveCard?: (cardId: string, toColumnId: string) => void | Promise<void>
-}> = ({ node, path, onAction, pendingKey, onMoveCard }) => {
+  siteId?: string
+}> = ({ node, path, onAction, pendingKey, onMoveCard, siteId }) => {
   switch (node.type) {
     case 'title':
       return (
@@ -111,6 +112,7 @@ const PiNodeView: FC<{
                 onAction={onAction}
                 pendingKey={pendingKey}
                 onMoveCard={onMoveCard}
+                siteId={siteId}
               />
             )
           })}
@@ -168,6 +170,7 @@ const PiNodeView: FC<{
                             path={`${path}:cell:${row.id}:${c.id}`}
                             onAction={onAction}
                             pendingKey={pendingKey}
+                            siteId={siteId}
                           />
                         )}
                       </td>
@@ -183,6 +186,7 @@ const PiNodeView: FC<{
       return (
         <BoardKanban
           node={node}
+          siteId={siteId}
           onAction={(action) => void onAction(action)}
           onMoveCard={onMoveCard}
         />
@@ -203,13 +207,14 @@ export const PiPageRenderer: FC<{
   onAction: PiActionHandler
   pendingKey?: string | null
   onMoveCard?: (cardId: string, toColumnId: string) => void | Promise<void>
-}> = ({ doc, onAction, pendingKey, onMoveCard }) => {
+  siteId?: string
+}> = ({ doc, onAction, pendingKey, onMoveCard, siteId }) => {
   return (
     <div
       className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6"
       style={
         {
-          '--pi-accent': 'var(--accent-orange)',
+          '--pi-accent': 'var(--signal)',
         } as React.CSSProperties
       }
     >
@@ -224,6 +229,7 @@ export const PiPageRenderer: FC<{
               onAction={onAction}
               pendingKey={pendingKey}
               onMoveCard={onMoveCard}
+              siteId={siteId}
             />
           )
         })}

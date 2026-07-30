@@ -86,7 +86,7 @@ Settings dashboard with multiple sections:
 
 ### Glow Content (`glow.content/`)
 
-Content script that creates a visual indicator (pulsing orange glow) around the browser viewport when an AI agent is actively working on a tab.
+Content script that creates a visual indicator (pulsing citron glow) around the browser viewport when an AI agent is actively working on a tab.
 
 ## Development
 

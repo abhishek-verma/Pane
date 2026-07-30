@@ -187,7 +187,7 @@ Features grouped by user outcome. Maturity reflects docs, UI routes, and changel
 | **Vertical tabs** | Side panel tab strip | Default on; toggle in customization |
 | **Ad blocking (MV2)** | Full uBlock Origin | ~10x vs stock Chrome in public benchmark |
 | **Chrome import** | Bookmarks, passwords, extensions | Onboarding step 1 |
-| **Glow indicator** | Visual feedback when agent works a tab | Orange viewport pulse |
+| **Glow indicator** | Visual feedback when agent works a tab | Citron viewport pulse |
 | **Voice input** | Speak prompts | Shipped v0.44 |
 
 

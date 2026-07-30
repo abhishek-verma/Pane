@@ -31,7 +31,12 @@ export type PiNode =
       tone?: 'neutral' | 'good' | 'warn' | 'bad'
     }
   | { type: 'divider' }
-  | { type: 'stack'; direction?: 'row' | 'col'; children: PiNode[] }
+  | {
+      type: 'stack'
+      id?: string
+      direction?: 'row' | 'col'
+      children: PiNode[]
+    }
   | {
       type: 'button'
       label: string
@@ -58,6 +63,7 @@ export type PiNode =
       cards: Array<{
         id: string
         recordId?: string
+        entityKey?: string
         title: string
         subtitle?: string
         actions?: PiCardAction[]
@@ -82,10 +88,31 @@ export type PiNode =
       alt?: string
     }
 
+export type PiMaterializePhase =
+  | 'atf'
+  | 'btf-structure'
+  | 'btf-filling'
+  | 'done'
+
+export type PiMaterializeSection = {
+  id: string
+  title: string
+  status: 'shell' | 'filled' | 'skipped'
+}
+
+export type PiPageMeta = {
+  entityKey?: string
+  materialize?: {
+    phase: PiMaterializePhase
+    sections: PiMaterializeSection[]
+  }
+}
+
 export type PiPageDoc = {
   version: 1
   title: string
   nodes: PiNode[]
+  meta?: PiPageMeta
 }
 
 export type PiDoorway = {
