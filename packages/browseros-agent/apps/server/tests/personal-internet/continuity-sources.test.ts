@@ -70,7 +70,8 @@ describe('pi continuity sources', () => {
 
     await applyPiMutation({ type: 'upsert-site', templateId: 'job-search' })
     const revised = await reviseHomeContinuityLocal()
-    expect(revised.blocks.some((b) => b.id.startsWith('approval-'))).toBe(true)
+    // Live approvals show in projection; revise must not persist them.
+    expect(revised.blocks.some((b) => b.id.startsWith('approval-'))).toBe(false)
 
     const projection = await buildPiHomeProjection()
     expect(

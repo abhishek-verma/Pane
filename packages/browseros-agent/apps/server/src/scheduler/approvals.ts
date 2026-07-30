@@ -105,7 +105,28 @@ export function findPendingByToken(token: string): PendingApproval | null {
   return null
 }
 
+/**
+ * Mark past-expiresAt rows as timeout. Server restarts drop in-memory
+ * waiters, so without this, home shows Approve/Deny forever for dead runs.
+ */
+export function expireStalePendingApprovals(now = Date.now()): number {
+  const rows = getDb().select().from(pendingApprovals).all()
+  let n = 0
+  for (const row of rows) {
+    if (row.status !== 'pending') continue
+    if (row.expiresAt > now) continue
+    getDb()
+      .update(pendingApprovals)
+      .set({ status: 'timeout', resolvedAt: now })
+      .where(eq(pendingApprovals.id, row.id))
+      .run()
+    n += 1
+  }
+  return n
+}
+
 export function listPendingApprovals(): PendingApproval[] {
+  expireStalePendingApprovals()
   return getDb()
     .select()
     .from(pendingApprovals)

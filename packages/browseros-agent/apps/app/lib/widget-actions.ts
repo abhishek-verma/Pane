@@ -57,18 +57,20 @@ export async function executeWidgetAction(
 
     case 'resolve-approval':
       try {
-        const res = await agentFetch(`${base}/scheduler/approvals/resolve`, {
+        await agentFetch(`${base}/scheduler/approvals/resolve`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: action.token }),
         })
-        if (res.ok && queryClient) {
-          void queryClient.invalidateQueries({
-            queryKey: ['scheduler', 'home'],
-          })
-        }
       } catch {
-        /* ignore transient network errors */
+        /* network blip — still refresh so expired/ghost cards can drop */
+      }
+      // Always re-fetch home: resolve may 404 for already-expired ghosts, but
+      // listPendingApprovals expires stale rows on read.
+      if (queryClient) {
+        void queryClient.invalidateQueries({
+          queryKey: ['scheduler', 'home'],
+        })
       }
       break
 

@@ -14,10 +14,13 @@ import type { PiContinuityBlock } from '../types'
 export async function reviseHomeContinuityLocal(): Promise<{
   blocks: PiContinuityBlock[]
 }> {
-  // Projection already merges live approvals and drops resolved approval-*
-  // ghosts from the persisted file.
+  // Projection merges live approvals at read time. Never persist approval-*
+  // cards — after server restart / expiry they become Approve/Deny ghosts
+  // with tokens that resolve nothing useful for the dead run.
   const projection = await buildPiHomeProjection()
-  const blocks = projection.continuity.slice(0, 5)
+  const blocks = projection.continuity
+    .filter((b) => !b.id.startsWith('approval-'))
+    .slice(0, 5)
   await writeHomeContinuity(blocks)
   return { blocks }
 }
