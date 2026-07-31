@@ -2,8 +2,12 @@
  * @license
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * Open a PI page without stealing Home / chat.
+ * Canonical document is pi.html; never rewrite #/home.
  */
 
+import { parseAttachablePiHref } from './attachable-tab-url'
 import { hrefToRoute, parsePiHref, routeToHref } from './pi-href'
 
 /** Normalize to a canonical pi:// href, or null. */
@@ -16,21 +20,12 @@ export function normalizePiHref(input: string): string | null {
     const route = s.startsWith('#') ? s : `#${s}`
     return routeToHref(route)
   }
-  return null
-}
-
-function tabMatchesHref(url: string | undefined, href: string): boolean {
-  if (!url) return false
-  if (url === href || url.startsWith(`${href}/`)) return true
-  const route = hrefToRoute(href)
-  if (!route) return false
-  const hash = route.startsWith('#') ? route : `#${route}`
-  return url.includes(hash)
+  return parseAttachablePiHref(s)
 }
 
 /**
  * Open a PI page without stealing Home / chat.
- * - Already on a PI route in this document → in-place hash navigate
+ * - Already on the dedicated PI document → in-place hash navigate
  * - Otherwise → focus a tab already on this href, or create a new pi:// tab
  */
 export async function openPiHref(hrefOrRoute: string): Promise<void> {
@@ -39,11 +34,15 @@ export async function openPiHref(hrefOrRoute: string): Promise<void> {
 
   const route = hrefToRoute(href)
   if (route && typeof window !== 'undefined') {
+    const path = window.location.pathname
     const hash = window.location.hash
-    // Never rewrite #/home (or other non-PI shells) — that kills the chat UI.
-    if (hash.startsWith('#/pi/') || hash === '#/pi') {
-      const path = route.startsWith('#') ? route.slice(1) : route
-      window.location.hash = path.startsWith('/') ? path : `/${path}`
+    // In-place only on the dedicated PI document — never on Home/chat NTP.
+    if (
+      path.endsWith('/pi.html') &&
+      (hash.startsWith('#/pi/') || hash === '#/pi')
+    ) {
+      const next = route.startsWith('#') ? route.slice(1) : route
+      window.location.hash = next.startsWith('/') ? next : `/${next}`
       return
     }
   }
@@ -53,8 +52,9 @@ export async function openPiHref(hrefOrRoute: string): Promise<void> {
   }
 
   const tabs = await chrome.tabs.query({})
-  const match = tabs.find((t) => tabMatchesHref(t.url, href))
+  const match = tabs.find((t) => parseAttachablePiHref(t.url) === href)
   if (match?.id != null) {
+    // Prefer the canonical pi:// URL so legacy NTP/app.html tabs migrate.
     await chrome.tabs.update(match.id, { url: href, active: true })
     if (match.windowId != null) {
       await chrome.windows.update(match.windowId, { focused: true })

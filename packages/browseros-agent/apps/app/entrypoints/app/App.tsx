@@ -4,6 +4,7 @@ import { SettingsSidebarLayout } from '@/components/layout/SettingsSidebarLayout
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { RouteDocumentTitle } from '@/lib/document-title/RouteDocumentTitle'
 import { OnboardingGate } from '@/lib/onboarding/OnboardingGate'
+import { PiDocumentShellGuard } from '@/lib/personal-internet/PiDocumentShellGuard'
 import { ActionLogPage } from '@/screens/action-log/ActionLogPage'
 import { AgentCommandConversation } from '@/screens/agent-command/AgentCommandConversation'
 import { AgentCommandHome } from '@/screens/agent-command/AgentCommandHome'
@@ -62,131 +63,139 @@ export const App: FC = () => {
   return (
     <HashRouter>
       <RouteDocumentTitle />
-      <OnboardingGate>
-        <Routes>
-          <Route element={<SidebarLayout />}>
-            <Route path="home" element={<NewTabLayout />}>
-              <Route element={<AgentCommandLayout />}>
-                <Route index element={<AgentCommandHome />} />
-                <Route
-                  path="agents/:agentId"
-                  element={<AgentCommandConversation />}
-                />
-                <Route
-                  path="agents/:agentId/sessions/:sessionId"
-                  element={<AgentCommandConversation />}
-                />
+      <PiDocumentShellGuard>
+        <OnboardingGate>
+          <Routes>
+            <Route element={<SidebarLayout />}>
+              <Route path="home" element={<NewTabLayout />}>
+                <Route element={<AgentCommandLayout />}>
+                  <Route index element={<AgentCommandHome />} />
+                  <Route
+                    path="agents/:agentId"
+                    element={<AgentCommandConversation />}
+                  />
+                  <Route
+                    path="agents/:agentId/sessions/:sessionId"
+                    element={<AgentCommandConversation />}
+                  />
+                </Route>
+                <Route path="chat" element={<NewTabChat />} />
+                <Route path="personalize" element={<Personalize />} />
               </Route>
-              <Route path="chat" element={<NewTabChat />} />
-              <Route path="personalize" element={<Personalize />} />
+
+              <Route path="meetings" element={<CapturePage />} />
+              <Route path="tasks" element={<TasksPage />} />
+              <Route
+                path="scheduled"
+                element={<Navigate to="/tasks?tab=scheduled" replace />}
+              />
+              <Route
+                path="capture"
+                element={<Navigate to="/meetings" replace />}
+              />
+              <Route
+                path="context"
+                element={<Navigate to="/settings/context" replace />}
+              />
+              <Route
+                path="connect-apps"
+                element={<Navigate to="/settings/connect-apps" replace />}
+              />
+              <Route
+                path="workspaces"
+                element={<Navigate to="/settings/workspaces" replace />}
+              />
+
+              <Route path="pi/library" element={<LibraryPage />} />
+              <Route path="pi/sites/:siteId" element={<SitePage />} />
+              <Route
+                path="pi/sites/:siteId/pages/:pageId"
+                element={<SitePage />}
+              />
+              <Route
+                path="pi/sites/:siteId/entities/:entityKey"
+                element={<EntityPage />}
+              />
+              <Route path="pi/temp/:tempId" element={<TempPage />} />
             </Route>
 
-            <Route path="meetings" element={<CapturePage />} />
-            <Route path="tasks" element={<TasksPage />} />
+            <Route element={<SettingsSidebarLayout />}>
+              <Route path="settings">
+                <Route index element={<Navigate to="/settings/ai" replace />} />
+                <Route path="ai" element={<AISettingsPage key="ai" />} />
+                <Route path="mcp" element={<MCPSettingsPage />} />
+                <Route path="customization" element={<CustomizationPage />} />
+                <Route path="action-log" element={<ActionLogPage />} />
+                <Route path="memory" element={<MemoryPage />} />
+                <Route path="reach" element={<ReachSettingsPage />} />
+                <Route
+                  path="home"
+                  element={<Navigate to="/settings/customization" replace />}
+                />
+                <Route path="diagnostics" element={<DiagnosticsPage />} />
+                <Route path="permissions" element={<PermissionsPage />} />
+                <Route path="about" element={<AboutSettingsPage />} />
+                <Route path="connect-apps" element={<ConnectMCP />} />
+                <Route path="context" element={<ContextPage />} />
+                <Route path="workspaces" element={<WorkspacesPage />}>
+                  <Route path=":id" element={<WorkspacesPage />} />
+                </Route>
+                <Route
+                  path="search"
+                  element={<Navigate to="/settings/ai" replace />}
+                />
+                <Route
+                  path="*"
+                  element={<Navigate to="/settings/ai" replace />}
+                />
+              </Route>
+            </Route>
+
             <Route
-              path="scheduled"
-              element={<Navigate to="/tasks?tab=scheduled" replace />}
+              path="dev/tool-evidence"
+              element={<ToolEvidenceDemoPage />}
+            />
+
+            <Route path="onboarding">
+              <Route index element={<Onboarding />} />
+              <Route path="steps/:stepId" element={<StepsLayout />} />
+              <Route path="demo" element={<OnboardingDemo />} />
+              <Route path="features" element={<FeaturesPage />} />
+            </Route>
+
+            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route
+              path="/personalize"
+              element={<Navigate to="/home/personalize" replace />}
             />
             <Route
-              path="capture"
-              element={<Navigate to="/meetings" replace />}
-            />
-            <Route
-              path="context"
-              element={<Navigate to="/settings/context" replace />}
-            />
-            <Route
-              path="connect-apps"
+              path="/settings/connect-mcp"
               element={<Navigate to="/settings/connect-apps" replace />}
             />
+            <Route path="/audit" element={<Navigate to="/home" replace />} />
             <Route
-              path="workspaces"
-              element={<Navigate to="/settings/workspaces" replace />}
-            />
-
-            <Route path="pi/library" element={<LibraryPage />} />
-            <Route path="pi/sites/:siteId" element={<SitePage />} />
-            <Route
-              path="pi/sites/:siteId/pages/:pageId"
-              element={<SitePage />}
+              path="/observability"
+              element={<Navigate to="/home" replace />}
             />
             <Route
-              path="pi/sites/:siteId/entities/:entityKey"
-              element={<EntityPage />}
+              path="/executions"
+              element={<Navigate to="/home" replace />}
             />
-            <Route path="pi/temp/:tempId" element={<TempPage />} />
-          </Route>
+            <Route
+              path="/agents"
+              element={<Navigate to="/settings/ai" replace />}
+            />
+            <Route
+              path="/mcp"
+              element={<Navigate to="/settings/mcp" replace />}
+            />
+            <Route path="/agents/:agentId" element={<LegacyAgentRedirect />} />
+            <Route path="/options/*" element={<OptionsRedirect />} />
 
-          <Route element={<SettingsSidebarLayout />}>
-            <Route path="settings">
-              <Route index element={<Navigate to="/settings/ai" replace />} />
-              <Route path="ai" element={<AISettingsPage key="ai" />} />
-              <Route path="mcp" element={<MCPSettingsPage />} />
-              <Route path="customization" element={<CustomizationPage />} />
-              <Route path="action-log" element={<ActionLogPage />} />
-              <Route path="memory" element={<MemoryPage />} />
-              <Route path="reach" element={<ReachSettingsPage />} />
-              <Route
-                path="home"
-                element={<Navigate to="/settings/customization" replace />}
-              />
-              <Route path="diagnostics" element={<DiagnosticsPage />} />
-              <Route path="permissions" element={<PermissionsPage />} />
-              <Route path="about" element={<AboutSettingsPage />} />
-              <Route path="connect-apps" element={<ConnectMCP />} />
-              <Route path="context" element={<ContextPage />} />
-              <Route path="workspaces" element={<WorkspacesPage />}>
-                <Route path=":id" element={<WorkspacesPage />} />
-              </Route>
-              <Route
-                path="search"
-                element={<Navigate to="/settings/ai" replace />}
-              />
-              <Route
-                path="*"
-                element={<Navigate to="/settings/ai" replace />}
-              />
-            </Route>
-          </Route>
-
-          <Route path="dev/tool-evidence" element={<ToolEvidenceDemoPage />} />
-
-          <Route path="onboarding">
-            <Route index element={<Onboarding />} />
-            <Route path="steps/:stepId" element={<StepsLayout />} />
-            <Route path="demo" element={<OnboardingDemo />} />
-            <Route path="features" element={<FeaturesPage />} />
-          </Route>
-
-          <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route
-            path="/personalize"
-            element={<Navigate to="/home/personalize" replace />}
-          />
-          <Route
-            path="/settings/connect-mcp"
-            element={<Navigate to="/settings/connect-apps" replace />}
-          />
-          <Route path="/audit" element={<Navigate to="/home" replace />} />
-          <Route
-            path="/observability"
-            element={<Navigate to="/home" replace />}
-          />
-          <Route path="/executions" element={<Navigate to="/home" replace />} />
-          <Route
-            path="/agents"
-            element={<Navigate to="/settings/ai" replace />}
-          />
-          <Route
-            path="/mcp"
-            element={<Navigate to="/settings/mcp" replace />}
-          />
-          <Route path="/agents/:agentId" element={<LegacyAgentRedirect />} />
-          <Route path="/options/*" element={<OptionsRedirect />} />
-
-          <Route path="*" element={<Navigate to="/home" replace />} />
-        </Routes>
-      </OnboardingGate>
+            <Route path="*" element={<Navigate to="/home" replace />} />
+          </Routes>
+        </OnboardingGate>
+      </PiDocumentShellGuard>
     </HashRouter>
   )
 }

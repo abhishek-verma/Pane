@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000000000000000000000000000000000..ba2c35c1ceee8ccb479129089d5fd8df8876b194
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_constants.h
-@@ -0,0 +1,274 @@
+@@ -0,0 +1,284 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -59,11 +59,15 @@ index 0000000000000000000000000000000000000000..ba2c35c1ceee8ccb479129089d5fd8df
 +// chrome://browseros host constant
 +inline constexpr char kBrowserOSHost[] = "browseros";
 +
-+// Personalised Internet scheme (pi://sites/... → agent app.html#/pi/...)
++// Personalised Internet scheme (pi://sites/... → agent pi.html#/pi/...)
++// Dedicated pi.html (not app.html) so Chromium does not NTP-virtualize to
++// chrome://newtab and hide the omnibox URL.
 +inline constexpr char kPiScheme[] = "pi";
-+inline constexpr char kPiAppPage[] = "app.html";
++inline constexpr char kPiAppPage[] = "pi.html";
++// Legacy document that previously hosted PI routes (NTP override).
++inline constexpr char kPiLegacyAppPage[] = "app.html";
 +
-+// Forward: pi://sites/S/pages/P → chrome-extension://…/app.html#/pi/sites/S/pages/P
++// Forward: pi://sites/S/pages/P → chrome-extension://…/pi.html#/pi/sites/S/pages/P
 +inline std::string GetPiExtensionURL(std::string_view host,
 +                                     std::string_view path) {
 +  if (IsURLOverridesDisabled()) {
@@ -81,7 +85,8 @@ index 0000000000000000000000000000000000000000..ba2c35c1ceee8ccb479129089d5fd8df
 +         kPiAppPage + "#" + ref;
 +}
 +
-+// Reverse: chrome-extension://…/app.html#/pi/sites/… → pi://sites/…
++// Reverse: chrome-extension://…/pi.html#/pi/sites/… → pi://sites/…
++// Also accepts legacy app.html#/pi/… during migration.
 +inline std::string GetPiVirtualURL(std::string_view extension_id,
 +                                   std::string_view extension_path,
 +                                   std::string_view extension_ref) {
@@ -91,8 +96,13 @@ index 0000000000000000000000000000000000000000..ba2c35c1ceee8ccb479129089d5fd8df
 +  if (extension_id != kAgentExtensionId) {
 +    return std::string();
 +  }
-+  std::string route_path = std::string("/") + kPiAppPage;
-+  if (extension_path != route_path && extension_path != kPiAppPage) {
++  const bool is_canonical =
++      extension_path == std::string("/") + kPiAppPage ||
++      extension_path == kPiAppPage;
++  const bool is_legacy =
++      extension_path == std::string("/") + kPiLegacyAppPage ||
++      extension_path == kPiLegacyAppPage;
++  if (!is_canonical && !is_legacy) {
 +    return std::string();
 +  }
 +
