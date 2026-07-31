@@ -2,6 +2,9 @@
  * Base interface for all chat actions
  * @public
  */
+
+import { displayTabUrl } from '@/lib/personal-internet/attachable-tab-url'
+
 export interface BaseChatAction {
   id: string
   timestamp: number
@@ -76,5 +79,8 @@ export const createBrowserOSAction = (params: {
   timestamp: Date.now(),
   mode: params.mode,
   message: params.message,
-  tabs: params.tabs,
+  tabs: params.tabs?.map((tab) => {
+    const url = displayTabUrl(tab.url)
+    return url && url !== tab.url ? { ...tab, url } : tab
+  }),
 })

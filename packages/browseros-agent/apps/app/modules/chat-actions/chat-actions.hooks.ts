@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import { track } from '@/lib/metrics/track'
+import { isAttachableTabUrl } from '@/lib/personal-internet/attachable-tab-url'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import type { ChatMode } from '@/modules/chat/chat-types'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
@@ -54,7 +55,7 @@ export function useChatActions(config: ChatActionsConfig) {
     ;(async () => {
       const currentTab = (
         await chrome.tabs.query({ active: true, currentWindow: true })
-      ).filter((tab) => tab.url?.startsWith('http'))
+      ).filter((tab) => isAttachableTabUrl(tab.url))
       setAttachedTabs(currentTab)
     })()
   }, [config.autoAttachActiveTab])

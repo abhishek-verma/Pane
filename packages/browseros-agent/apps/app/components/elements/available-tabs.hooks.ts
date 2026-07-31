@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+  displayTabUrl,
+  isAttachableTabUrl,
+} from '@/lib/personal-internet/attachable-tab-url'
 
 export interface UseAvailableTabsOptions {
   enabled: boolean
@@ -28,10 +32,10 @@ export function useAvailableTabs({
       .query({ currentWindow: true })
       .then((currentWindowTabs) => {
         if (cancelled) return
-        const httpTabs = currentWindowTabs
-          .filter((tab) => tab.url?.startsWith('http'))
+        const attachable = currentWindowTabs
+          .filter((tab) => isAttachableTabUrl(tab.url))
           .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))
-        setAllTabs(httpTabs)
+        setAllTabs(attachable)
         setIsLoading(false)
       })
       .catch((_error) => {
@@ -48,11 +52,14 @@ export function useAvailableTabs({
   const tabs = useMemo(() => {
     if (!filterText) return allTabs
     const search = filterText.toLowerCase()
-    return allTabs.filter(
-      (tab) =>
+    return allTabs.filter((tab) => {
+      const shown = displayTabUrl(tab.url).toLowerCase()
+      return (
         tab.title?.toLowerCase().includes(search) ||
-        tab.url?.toLowerCase().includes(search),
-    )
+        tab.url?.toLowerCase().includes(search) ||
+        shown.includes(search)
+      )
+    })
   }, [allTabs, filterText])
 
   return { tabs, allTabs, isLoading }

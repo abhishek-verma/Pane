@@ -177,7 +177,9 @@ const ChatMessageRow = memo(function ChatMessageRow({
                       key={segment.key}
                       href={segment.href}
                       preview={segment.preview}
-                      autoOpen={segment.autoOpen}
+                      autoOpen={segment.autoOpen && isLastMessage}
+                      autoOpenKey={segment.key}
+                      isStreaming={isStreaming}
                     />
                   )
                 default:

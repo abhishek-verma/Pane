@@ -15,6 +15,7 @@ import {
   SIDEPANEL_VOICE_TRANSCRIPTION_COMPLETED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import { isAttachableTabUrl } from '@/lib/personal-internet/attachable-tab-url'
 import {
   resolveWatchPageId,
   shouldEnableLiveWatch,
@@ -83,7 +84,7 @@ export const Chat = () => {
           active: true,
           currentWindow: true,
         })
-      ).filter((tab) => tab.url?.startsWith('http'))
+      ).filter((tab) => isAttachableTabUrl(tab.url))
       setAttachedTabs(currentTab)
     })()
   }, [])

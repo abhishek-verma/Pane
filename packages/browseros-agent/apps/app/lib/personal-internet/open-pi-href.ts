@@ -19,24 +19,29 @@ export function normalizePiHref(input: string): string | null {
   return null
 }
 
+function tabMatchesHref(url: string | undefined, href: string): boolean {
+  if (!url) return false
+  if (url === href || url.startsWith(`${href}/`)) return true
+  const route = hrefToRoute(href)
+  if (!route) return false
+  const hash = route.startsWith('#') ? route : `#${route}`
+  return url.includes(hash)
+}
+
 /**
- * Open a PI page in Pane via the registered pi:// scheme (Chromium rewrite).
- * Prefers focusing an existing NTP/app tab when possible.
+ * Open a PI page without stealing Home / chat.
+ * - Already on a PI route in this document → in-place hash navigate
+ * - Otherwise → focus a tab already on this href, or create a new pi:// tab
  */
 export async function openPiHref(hrefOrRoute: string): Promise<void> {
   const href = normalizePiHref(hrefOrRoute)
   if (!href) return
 
-  // Same-document: already on the agent app HashRouter.
   const route = hrefToRoute(href)
   if (route && typeof window !== 'undefined') {
-    const here = window.location.href
-    if (
-      here.includes('app.html') ||
-      here.includes('chrome-extension://') ||
-      window.location.hash.startsWith('#/pi') ||
-      window.location.hash.startsWith('#/home')
-    ) {
+    const hash = window.location.hash
+    // Never rewrite #/home (or other non-PI shells) — that kills the chat UI.
+    if (hash.startsWith('#/pi/') || hash === '#/pi') {
       const path = route.startsWith('#') ? route.slice(1) : route
       window.location.hash = path.startsWith('/') ? path : `/${path}`
       return
@@ -44,24 +49,15 @@ export async function openPiHref(hrefOrRoute: string): Promise<void> {
   }
 
   if (typeof chrome === 'undefined' || !chrome.tabs?.create) {
-    if (route) {
-      window.location.hash = route.startsWith('#') ? route.slice(1) : route
-    }
     return
   }
 
-  const tabs = await chrome.tabs.query({
-    url: [`chrome-extension://${chrome.runtime.id}/*`],
-  })
-  const appTab = tabs.find(
-    (t) =>
-      typeof t.url === 'string' &&
-      (t.url.includes('/app.html') || t.url.includes('app.html')),
-  )
-  if (appTab?.id != null) {
-    await chrome.tabs.update(appTab.id, { url: href, active: true })
-    if (appTab.windowId != null) {
-      await chrome.windows.update(appTab.windowId, { focused: true })
+  const tabs = await chrome.tabs.query({})
+  const match = tabs.find((t) => tabMatchesHref(t.url, href))
+  if (match?.id != null) {
+    await chrome.tabs.update(match.id, { url: href, active: true })
+    if (match.windowId != null) {
+      await chrome.windows.update(match.windowId, { focused: true })
     }
     return
   }
