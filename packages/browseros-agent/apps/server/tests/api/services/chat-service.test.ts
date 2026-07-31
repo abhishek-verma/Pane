@@ -710,6 +710,7 @@ describe('ChatService tool approval resume', () => {
     sessionStore.set(conversationId, {
       agent,
       mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
     } as never)
 
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
@@ -799,6 +800,7 @@ describe('ChatService tool approval resume', () => {
     sessionStore.set(conversationId, {
       agent,
       mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
     } as never)
 
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
@@ -942,7 +944,11 @@ describe('ChatService message repair on hydrate and new turns', () => {
     }
 
     const sessionStore = createSessionStore()
-    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    sessionStore.set(conversationId, {
+      agent,
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+    } as never)
 
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
     await service.processMessage(
@@ -1069,7 +1075,11 @@ describe('ChatService conversation mutex', () => {
     }
 
     const sessionStore = createSessionStore()
-    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    sessionStore.set(conversationId, {
+      agent,
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+    } as never)
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
 
     const requestA = {
@@ -1174,7 +1184,11 @@ describe('ChatService conversation mutex', () => {
     }
 
     const sessionStore = createSessionStore()
-    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    sessionStore.set(conversationId, {
+      agent,
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+    } as never)
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
 
     const abortA = new AbortController()
@@ -1242,7 +1256,11 @@ describe('ChatService conversation mutex', () => {
     }
 
     const sessionStore = createSessionStore()
-    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    sessionStore.set(conversationId, {
+      agent,
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+    } as never)
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
 
     const abortA = new AbortController()
@@ -1293,7 +1311,11 @@ describe('ChatService conversation mutex', () => {
     streamResponseHandler = async () => new Response('ok')
 
     const sessionStore = createSessionStore()
-    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    sessionStore.set(conversationId, {
+      agent,
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+    } as never)
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
 
     const abortA = new AbortController()
@@ -1326,7 +1348,11 @@ describe('ChatService conversation mutex', () => {
     streamResponseHandler = async () => new Response('ok')
 
     const sessionStore = createSessionStore()
-    sessionStore.set(conversationId, { agent, mcpServerKey: '' } as never)
+    sessionStore.set(conversationId, {
+      agent,
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+    } as never)
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
 
     await service.processMessage(
@@ -1387,6 +1413,7 @@ describe('ChatService session rebuild settles pending tool state', () => {
     sessionStore.set(conversationId, {
       agent: firstAgent,
       mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
       workingDir: undefined,
     } as never)
 
@@ -1421,5 +1448,65 @@ describe('ChatService session rebuild settles pending tool state', () => {
         (p) => (p as { toolCallId?: string }).toolCallId === 'call-1',
       ) as { state?: string } | undefined
     expect(settledPart?.state).toBe('output-denied')
+  })
+})
+
+describe('ChatService LLM hot-switch', () => {
+  it('rebuilds the agent when provider/model changes but keeps transcript', async () => {
+    const conversationId = 'conv-llm-hotswitch'
+    const firstAgent = createFakeAgent()
+    firstAgent.messages.push(
+      {
+        id: 'user-1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'hello from deepseek' }],
+      },
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'hi' }],
+      },
+    )
+    const secondAgent = createFakeAgent()
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent: firstAgent,
+      mcpServerKey: '',
+      llmKey: 'deepseek||deepseek-v4-flash||',
+    } as never)
+
+    agentToReturn = secondAgent
+    let disposeCalled = false
+    firstAgent.dispose = async () => {
+      disposeCalled = true
+    }
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({
+        messages: (uiMessages ?? secondAgent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    // resolveLLMConfigSpy already returns openai/gpt-5 — differs from deepseek llmKey
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'continue',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+
+    expect(disposeCalled).toBe(true)
+    expect(createAgentSpy).toHaveBeenCalled()
+    const live = sessionStore.get(conversationId)
+    expect(live?.agent).toBe(secondAgent)
+    expect(live?.llmKey).toBe('openai||gpt-5||')
+    // Transcript carried over onto the new agent
+    expect(secondAgent.messages.some((m) => m.id === 'user-1')).toBe(true)
   })
 })

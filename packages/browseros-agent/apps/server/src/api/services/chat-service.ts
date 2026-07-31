@@ -364,6 +364,32 @@ export class ChatService {
 
     // Build stable keys for change detection
     const mcpServerKey = this.buildMcpServerKey(request.browserContext)
+    const llmKey = this.buildLlmKey(agentConfig)
+
+    // Mid-chat LLM hot-switch: UI can change provider/model without losing
+    // transcript. The ToolLoopAgent is bound to a concrete model at create
+    // time, so we rebuild the agent (same conversation, same messages).
+    // Missing llmKey (pre-hotswitch sessions) also mismatches and rebuilds once.
+    if (session && session.llmKey !== llmKey) {
+      logger.info('LLM target changed mid-conversation, hot-switching agent', {
+        conversationId: request.conversationId,
+        previous: session.llmKey ?? '(unset)',
+        current: llmKey,
+      })
+      const previousLlmKey = session.llmKey
+      session = await this.rebuildSession(
+        session,
+        request,
+        agentConfig,
+        mcpServerKey,
+        llmKey,
+      )
+      if (previousLlmKey != null) {
+        contextChanges.push(
+          `The user switched the chat model to ${agentConfig.provider}/${agentConfig.model} during this conversation. Continue with the new model; prior turns remain in context.`,
+        )
+      }
+    }
 
     // Detect MCP config change mid-conversation → rebuild session
     if (session && session.mcpServerKey !== mcpServerKey) {
@@ -379,6 +405,7 @@ export class ChatService {
         request,
         agentConfig,
         mcpServerKey,
+        llmKey,
       )
 
       const oldParts = previousMcpKey.split(',').filter(Boolean)
@@ -420,6 +447,7 @@ export class ChatService {
         request,
         agentConfig,
         mcpServerKey,
+        llmKey,
       )
 
       if (!request.userWorkingDir) {
@@ -529,6 +557,7 @@ export class ChatService {
         hiddenPageId,
         browserContext,
         mcpServerKey,
+        llmKey,
         workingDir: request.userWorkingDir,
         outputFileAccess,
         gateContext,
@@ -1205,6 +1234,7 @@ export class ChatService {
     request: ChatRequest,
     agentConfig: ResolvedAgentConfig,
     mcpServerKey: string,
+    llmKey: string,
   ): Promise<AgentSession> {
     const previousMessages = session.agent.messages
     await session.agent.dispose()
@@ -1236,6 +1266,7 @@ export class ChatService {
       hiddenPageId: session.hiddenPageId,
       browserContext,
       mcpServerKey,
+      llmKey,
       workingDir: request.userWorkingDir,
       outputFileAccess,
       gateContext: session.gateContext,
@@ -1272,6 +1303,17 @@ export class ChatService {
     const custom =
       browserContext?.customMcpServers?.map((s) => s.url).sort() ?? []
     return [...managed, ...custom].filter(Boolean).join(',')
+  }
+
+  /** Stable stamp for mid-chat provider/model hot-switch detection. */
+  private buildLlmKey(config: ResolvedAgentConfig): string {
+    return [
+      config.provider,
+      config.providerId ?? '',
+      config.model,
+      config.baseUrl ?? '',
+      config.upstreamProvider ?? '',
+    ].join('|')
   }
 }
 

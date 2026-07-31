@@ -198,6 +198,11 @@ export interface AgentSession {
   browserContext?: BrowserContext
   /** MCP server names used when the session was created, for change detection. */
   mcpServerKey?: string
+  /**
+   * Provider/model/baseUrl stamp for mid-chat LLM hot-switch detection.
+   * When this changes we rebuild the ToolLoopAgent but keep the transcript.
+   */
+  llmKey?: string
   /** Workspace directory when the session was created, for change detection. */
   workingDir?: string
   /** Browser-generated output paths returned during this conversation. */
