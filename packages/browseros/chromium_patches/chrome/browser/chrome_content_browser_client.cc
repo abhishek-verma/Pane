@@ -61,7 +61,7 @@ index f823433796c5c7888bbece301c29d51d5e24461d..e1751fed2f02a42e2337095fbd1bc2a9
 +}
 +
 +// Handles pi:// URLs by rewriting to the Pane agent extension HashRouter.
-+// Forward: pi://sites/S/pages/P -> chrome-extension://…/app.html#/pi/sites/S/pages/P
++// Forward: pi://sites/S/pages/P -> chrome-extension://…/pi.html#/pi/sites/S/pages/P
 +static bool HandlePiURL(GURL* url, content::BrowserContext* browser_context) {
 +  if (!url->SchemeIs(browseros::kPiScheme)) {
 +    return false;
@@ -77,7 +77,7 @@ index f823433796c5c7888bbece301c29d51d5e24461d..e1751fed2f02a42e2337095fbd1bc2a9
 +  return true;
 +}
 +
-+// Reverse: chrome-extension://…/app.html#/pi/… -> pi://…
++// Reverse: chrome-extension://…/pi.html#/pi/… -> pi://…
 +static bool ReversePiURL(GURL* url, content::BrowserContext* browser_context) {
 +  if (!url->SchemeIs(extensions::kExtensionScheme)) {
 +    return false;
@@ -107,7 +107,7 @@ index f823433796c5c7888bbece301c29d51d5e24461d..e1751fed2f02a42e2337095fbd1bc2a9
 +  handler->AddHandlerPair(BrowserURLHandler::null_handler(),
 +                          &ReverseBrowserOSURL);
 +
-+  // Personalised Internet: pi://… ↔ agent app.html#/pi/…
++  // Personalised Internet: pi://… ↔ agent pi.html#/pi/…
 +  handler->AddHandlerPair(&HandlePiURL, &ReversePiURL);
 +  handler->AddHandlerPair(BrowserURLHandler::null_handler(), &ReversePiURL);
 +

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Pane</title>
+        <link rel="icon" type="image/png" sizes="32x32" href="/icon/32.png" />
+        <link rel="icon" type="image/png" sizes="128x128" href="/icon/128.png" />
+        <link rel="apple-touch-icon" href="/icon/128.png" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
+
+        <meta name="manifest.open_in_tab" content="true" />
+        <!-- External script: MV3 CSP forbids inline <script> without unsafe-inline. -->
+        <script src="/set-favicon.js"></script>
+        <script type="module">
+            import { themeStorage } from '@/lib/theme/theme-storage';
+
+            const applyTheme = (theme) => {
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                } else if (theme === 'light') {
+                    document.documentElement.classList.add('light');
+                } else if (theme === 'system') {
+                    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.add('light');
+                    }
+                }
+            };
+
+            themeStorage.getValue().then(applyTheme);
+        </script>
+    </head>
+    <body class="bg-background h-screen w-screen">
+        <div id="root"></div>
+        <script type="module" src="./main.tsx"></script>
+    </body>
+</html>

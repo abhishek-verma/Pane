@@ -9,6 +9,11 @@
 import { type FC, type ReactNode, useState } from 'react'
 import { Link } from 'react-router'
 import { normalizePiHref } from '@/lib/personal-internet/open-pi-href'
+import {
+  isPiDocument,
+  isPiRoutePath,
+  navigateAppShell,
+} from '@/lib/personal-internet/pi-document'
 import { cn } from '@/lib/utils'
 
 export const PiTopRail: FC<{
@@ -45,6 +50,19 @@ export const PiRailAction: FC<{
     className,
   )
   if (to) {
+    // Leaving PI for Home/settings must switch documents (pi.html → app.html).
+    if (isPiDocument() && !isPiRoutePath(to)) {
+      return (
+        <button
+          type="button"
+          disabled={disabled}
+          className={classes}
+          onClick={() => navigateAppShell(to)}
+        >
+          {children}
+        </button>
+      )
+    }
     return (
       <Link to={to} className={classes}>
         {children}

@@ -104,6 +104,7 @@ export const streamdownLinkSafety: LinkSafetyConfig = {
   onLinkCheck: (url) =>
     url.startsWith('pi://') ||
     url.startsWith('#/pi/') ||
+    url.includes('/pi.html#/pi/') ||
     url.includes('/app.html#/pi/'),
   renderModal: (props) => <StreamdownExternalLinkModal {...props} />,
 }

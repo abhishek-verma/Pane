@@ -1,5 +1,5 @@
 import { CheckSquare, Home, Mic } from 'lucide-react'
-import type { FC } from 'react'
+import type { FC, MouseEvent } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import {
   Tooltip,
@@ -7,6 +7,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  isPiDocument,
+  isPiRoutePath,
+  navigateAppShell,
+} from '@/lib/personal-internet/pi-document'
 import { cn } from '@/lib/utils'
 
 export interface SidebarNavigationProps {
@@ -45,9 +50,17 @@ export const SidebarNavigation: FC<SidebarNavigationProps> = ({
             const Icon = item.icon
             const isActive = isNavItemActive(item, location.pathname)
 
+            const leavePiDocument = isPiDocument() && !isPiRoutePath(item.to)
+            const onNavClick = (event: MouseEvent<HTMLAnchorElement>) => {
+              if (!leavePiDocument) return
+              event.preventDefault()
+              navigateAppShell(item.to)
+            }
+
             const navItem = (
               <NavLink
                 to={item.to}
+                onClick={onNavClick}
                 className={cn(
                   'flex h-9 items-center gap-2 overflow-hidden whitespace-nowrap rounded-md px-3 font-medium text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                   isActive &&

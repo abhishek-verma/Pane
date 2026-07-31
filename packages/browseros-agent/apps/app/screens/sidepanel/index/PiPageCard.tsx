@@ -23,8 +23,8 @@ export type PiPageCardProps = {
   preview?: PiPagePreview | null
   className?: string
   /**
-   * Navigate once for a live pi_open during an active stream.
-   * History revisits never auto-open (requires isStreaming).
+   * Open once when pi_open completes during a live stream.
+   * Idempotent across remounts; history revisits never navigate.
    */
   autoOpen?: boolean
   autoOpenKey?: string
@@ -48,6 +48,7 @@ function kindLabel(kind?: PiPagePreview['kind']): string {
 
 const openedKeys = new Set<string>()
 
+/** Tool-event idempotency: one auto-open per toolCall key per session. */
 function markOpened(key: string): boolean {
   if (openedKeys.has(key)) return false
   try {
@@ -87,7 +88,7 @@ export const PiPageCard: FC<PiPageCardProps> = ({
       : undefined)
 
   useEffect(() => {
-    // Only during a live stream — reopening a finished chat must not navigate.
+    // Live stream only — reopening a finished chat must not navigate.
     if (!autoOpen || !isStreaming || !autoOpenKey) return
     if (!markOpened(autoOpenKey)) return
     void openPiHref(href)

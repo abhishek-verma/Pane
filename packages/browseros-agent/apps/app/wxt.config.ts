@@ -49,7 +49,7 @@ export default defineConfig({
         }),
     web_accessible_resources: [
       {
-        resources: ['app.html'],
+        resources: ['app.html', 'pi.html'],
         matches: [
           `https://${PRODUCT_WEB_HOST}/*`,
           `https://*.${PRODUCT_WEB_HOST}/*`,
