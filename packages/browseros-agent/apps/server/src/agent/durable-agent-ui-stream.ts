@@ -34,31 +34,62 @@ export function formatAgentStreamError(error: unknown): string {
   if (isTypeValidationError(error)) {
     return 'Chat history had an invalid tool approval state. Send your message again to continue.'
   }
-  // Walk cause chain — AI SDK often wraps the provider/API error.
-  let current: unknown = error
-  for (let depth = 0; depth < 5 && current != null; depth++) {
-    if (current instanceof Error && current.message.trim()) {
-      const firstLine = current.message.split('\n')[0]?.trim() ?? ''
-      // Skip the SDK's opaque default so we can surface the real cause.
-      if (firstLine && firstLine !== 'An error occurred.') {
-        return firstLine.length > 280
-          ? `${firstLine.slice(0, 277)}...`
-          : firstLine
-      }
-      current = (current as Error & { cause?: unknown }).cause
-      continue
-    }
-    if (typeof current === 'string' && current.trim()) {
-      const firstLine = current.split('\n')[0]?.trim() ?? ''
-      if (firstLine && firstLine !== 'An error occurred.') {
-        return firstLine.length > 280
-          ? `${firstLine.slice(0, 277)}...`
-          : firstLine
-      }
-    }
-    break
-  }
+  const message = findStreamErrorMessage(error)
+  if (message) return truncateStreamErrorMessage(message)
   return 'An error occurred.'
+}
+
+/**
+ * ACPX sometimes returns JSON-RPC failures as plain objects rather than
+ * Error instances. Walk both shapes so a useful adapter/server detail is not
+ * discarded and replaced by the SDK's generic error text.
+ */
+function findStreamErrorMessage(error: unknown): string | null {
+  const visited = new Set<unknown>()
+  let fallback: string | null = null
+  let current: unknown = error
+
+  for (let depth = 0; depth < 8 && current != null; depth++) {
+    if (typeof current === 'string') {
+      const message = firstErrorLine(current)
+      if (message && !isOpaqueStreamError(message)) return message
+      fallback ??= message || null
+      break
+    }
+
+    if (typeof current !== 'object' || visited.has(current)) break
+    visited.add(current)
+
+    const value = current as {
+      message?: unknown
+      error?: unknown
+      detail?: unknown
+      data?: unknown
+      cause?: unknown
+    }
+    const message =
+      typeof value.message === 'string' ? firstErrorLine(value.message) : ''
+    if (message && !isOpaqueStreamError(message)) return message
+    fallback ??= message || null
+
+    // ACP JSON-RPC errors commonly keep the actionable detail in data or
+    // error; ordinary SDK errors put it in cause.
+    current = value.cause ?? value.data ?? value.error ?? value.detail
+  }
+
+  return fallback
+}
+
+function firstErrorLine(value: string): string {
+  return value.split('\n')[0]?.trim() ?? ''
+}
+
+function isOpaqueStreamError(message: string): boolean {
+  return message === 'An error occurred.' || message === 'Internal error'
+}
+
+function truncateStreamErrorMessage(message: string): string {
+  return message.length > 280 ? `${message.slice(0, 277)}...` : message
 }
 
 function describeStreamError(error: unknown): Record<string, unknown> {
@@ -71,11 +102,22 @@ function describeStreamError(error: unknown): Record<string, unknown> {
         cause instanceof Error
           ? { name: cause.name, message: cause.message }
           : cause != null
-            ? String(cause).slice(0, 500)
+            ? describeUnknownError(cause)
             : undefined,
     }
   }
   return { value: String(error).slice(0, 500) }
+}
+
+function describeUnknownError(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null) {
+    return String(value).slice(0, 500)
+  }
+  try {
+    return JSON.parse(JSON.stringify(value))
+  } catch {
+    return String(value).slice(0, 500)
+  }
 }
 
 function isMissingToolResults(error: unknown): boolean {

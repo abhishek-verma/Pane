@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type FC, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import type { Provider } from '@/components/chat/chatComponentTypes'
@@ -78,6 +78,7 @@ function homeStatusLabel(pi: HomeData['pi'], loading: boolean): string {
 
 export const AgentCommandHome: FC = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const activeHint = useActiveHint()
   const {
     providers: llmProviders,
@@ -119,9 +120,9 @@ export const AgentCommandHome: FC = () => {
       const now = Date.now()
       if (now - lastFired < HOME_FOCUSED_DEBOUNCE_MS) return
       lastFired = now
-      void piPost('/pi/refresh', { trigger: 'home-focused' }).catch(
-        () => undefined,
-      )
+      void piPost('/pi/refresh', { trigger: 'home-focused' })
+        .then(() => queryClient.invalidateQueries({ queryKey: HOME_QUERY_KEY }))
+        .catch(() => undefined)
     }
 
     // Initial focus after short settle (still subject to debounce window).
@@ -138,7 +139,7 @@ export const AgentCommandHome: FC = () => {
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('focus', onFocus)
     }
-  }, [])
+  }, [queryClient])
 
   const targets = useMemo(
     () =>

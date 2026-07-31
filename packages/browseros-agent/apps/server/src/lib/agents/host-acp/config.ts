@@ -29,10 +29,10 @@ export const HOST_ACP_ADAPTER_CONFIG = {
   codex: {
     displayName: 'Codex',
     nativeBinary: 'codex',
-    acpCommand: 'npx -y @zed-industries/codex-acp@^0.12.0',
-    acpPackageSpec: '@zed-industries/codex-acp@^0.12.0',
+    acpCommand: 'npx -y @zed-industries/codex-acp@^0.16.0',
+    acpPackageSpec: '@zed-industries/codex-acp@^0.16.0',
     acpPackageName: '@zed-industries/codex-acp',
-    acpPackageVersionRange: '^0.12.0',
+    acpPackageVersionRange: '^0.16.0',
     acpBin: 'codex-acp',
   },
 } as const satisfies Record<HostAcpAdapter, HostAcpAdapterConfig>

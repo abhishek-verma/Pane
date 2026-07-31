@@ -155,6 +155,22 @@ describe('pi refresh bus', () => {
     )
   })
 
+  it('startup catch-up refreshes Home without replaying every site', async () => {
+    setup()
+    await upsertSite({
+      name: 'Older work',
+      slug: 'older-work',
+      doorwayEligible: true,
+    })
+    const { browserStartedCatchUp } = await import(
+      '../../src/personal-internet/refresh/sweeper'
+    )
+    expect(browserStartedCatchUp()).toEqual({ enqueued: 1 })
+    const pending = listPendingRefreshJobs()
+    expect(pending).toHaveLength(1)
+    expect(pending[0]?.targetType).toBe('home')
+  })
+
   it('host filter matches exact/subdomain, not substring spoof', async () => {
     const { hostMatchesFilter } = await import(
       '../../src/personal-internet/refresh/policy'

@@ -7,28 +7,23 @@
  */
 
 import { buildPiHomeProjection } from '../home-projection'
-import { clearDismissedContinuity, writeHomeContinuity } from '../store'
 import type { PiContinuityBlock } from '../types'
 
-/** Rebuild Today continuity from approvals + doorway urgencies; persist. */
+/** Rebuild Today continuity from canonical approvals + doorway urgencies. */
 export async function reviseHomeContinuityLocal(): Promise<{
   blocks: PiContinuityBlock[]
 }> {
-  // Projection merges live approvals at read time. Never persist approval-*
-  // cards — after server restart / expiry they become Approve/Deny ghosts
-  // with tokens that resolve nothing useful for the dead run.
   const projection = await buildPiHomeProjection()
-  const blocks = projection.continuity
-    .filter((b) => !b.id.startsWith('approval-'))
-    .slice(0, 5)
-  await writeHomeContinuity(blocks)
-  return { blocks }
+  return { blocks: projection.continuity.slice(0, 5) }
 }
 
-/** Manual Today refresh: clear removals, then rebuild from current urgencies. */
+/** Manual Today refresh: rebuild from current canonical facts.
+ *
+ * Dismissals are user intent and must survive refresh; an explicit removal
+ * should not reappear merely because Home happened to refresh.
+ */
 export async function refreshHomeToday(): Promise<{
   blocks: PiContinuityBlock[]
 }> {
-  await clearDismissedContinuity()
   return reviseHomeContinuityLocal()
 }

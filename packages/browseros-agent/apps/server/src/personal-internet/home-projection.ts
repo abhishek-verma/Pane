@@ -6,12 +6,11 @@
  * Build the additive `pi` block for GET /scheduler/home — never calls an LLM.
  */
 
-import { readFile } from 'node:fs/promises'
 import {
   continuityFromApprovals,
   mergeContinuityBlocks,
 } from './continuity-sources'
-import { homeRegionsFile, siteRoute } from './paths'
+import { siteRoute } from './paths'
 import { recomputePulse } from './pulse'
 import { getPulse, listSites, readHomePrefs } from './store'
 import type { PiContinuityBlock, PiDoorway, PiHomeProjection } from './types'
@@ -104,45 +103,24 @@ async function loadContinuity(
   const prefs = await readHomePrefs()
   const dismissed = new Set(prefs.dismissedContinuityIds)
   const liveApprovals = withoutDismissed(continuityFromApprovals(), dismissed)
-  const liveApprovalIds = new Set(liveApprovals.map((b) => b.id))
   const blocks: PiContinuityBlock[] = []
 
-  try {
-    const raw = await readFile(homeRegionsFile(), 'utf-8')
-    const parsed = JSON.parse(raw) as {
-      continuity?: PiContinuityBlock[]
-    }
-    if (Array.isArray(parsed.continuity)) {
-      for (const c of parsed.continuity.slice(0, 5)) {
-        if (!c?.id || !c?.title || !c?.body) continue
-        if (dismissed.has(c.id)) continue
-        // Drop persisted approval cards once resolved (kind D rewrite used to
-        // leave ghost Approve/Deny tokens on home).
-        if (c.id.startsWith('approval-') && !liveApprovalIds.has(c.id)) {
-          continue
-        }
-        blocks.push(c)
-      }
-    }
-  } catch {
-    // no regions file yet
-  }
-
-  if (blocks.length === 0) {
-    for (const d of doorways) {
-      if (!d.secondary) continue
-      const urgencyId = `urgency-${d.siteId}`
-      if (dismissed.has(urgencyId)) continue
-      blocks.push({
-        id: urgencyId,
-        title: d.name,
-        body: d.secondary.label,
-        route: d.secondary.deepLink,
-        agentQuery: d.secondary.agentQuery,
-        metadata: d.secondary.metadata,
-      })
-      if (blocks.length >= 3) break
-    }
+  // Home is a projection, never a cache of its own cards.  In particular, do
+  // not read the legacy home-regions JSON here: treating it as an input made a
+  // refresh read yesterday's cards and write them straight back forever.
+  for (const d of doorways) {
+    if (!d.secondary) continue
+    const urgencyId = `urgency-${d.siteId}`
+    if (dismissed.has(urgencyId)) continue
+    blocks.push({
+      id: urgencyId,
+      title: d.name,
+      body: d.secondary.label,
+      route: d.secondary.deepLink,
+      agentQuery: d.secondary.agentQuery,
+      metadata: d.secondary.metadata,
+    })
+    if (blocks.length >= 3) break
   }
 
   return mergeContinuityBlocks(liveApprovals, blocks, 5)

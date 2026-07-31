@@ -9,12 +9,12 @@ import { z } from 'zod'
 import { validatePageDoc } from '../../personal-internet/dsl'
 import { getLastPiMutationAt } from '../../personal-internet/events'
 import { releasePiFocus } from '../../personal-internet/focus'
+import { buildPiHomeProjection } from '../../personal-internet/home-projection'
 import { ensureAndMaterialize } from '../../personal-internet/materialize'
 import {
   handleHostOpened,
   handleRefreshTrigger,
 } from '../../personal-internet/refresh/bus'
-import { refreshHomeToday } from '../../personal-internet/refresh/home-revise'
 import { drainRefreshJobs } from '../../personal-internet/refresh/runner'
 import {
   deleteTemp,
@@ -409,8 +409,19 @@ export function createPersonalInternetRoutes() {
       return c.json({ ok: true, dismissedId: body.id, prefs })
     })
     .post('/home/refresh', async (c) => {
-      const result = await refreshHomeToday()
-      return c.json({ ok: true, continuity: result.blocks })
+      // A manual Home refresh participates in the same durable queue as every
+      // other refresh.  Return its outcome so the UI can distinguish a real
+      // refresh from a button that merely invalidated a cache.
+      const jobs = handleRefreshTrigger({ trigger: 'manual-refresh' })
+      const refreshed = await drainRefreshJobs(10)
+      const projection = await buildPiHomeProjection()
+      return c.json({
+        ok: true,
+        jobIds: jobs.map((job) => job.id),
+        refreshed: refreshed.ran,
+        generatedAt: projection.generatedAt,
+        continuity: projection.continuity,
+      })
     })
     .post('/hooks/host-opened', async (c) => {
       const body = HostOpenedSchema.parse(await c.req.json())

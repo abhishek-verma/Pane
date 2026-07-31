@@ -56,7 +56,7 @@ describe('pi home bridge', () => {
     )
   })
 
-  it('hide removes doorway; continuity write surfaces on projection', async () => {
+  it('hide removes doorway and legacy continuity never becomes Home truth', async () => {
     setup()
     const created = await applyPiMutation({
       type: 'upsert-site',
@@ -82,11 +82,11 @@ describe('pi home bridge', () => {
 
     const pi = await buildPiHomeProjection()
     expect(pi.doorways.find((d) => d.siteId === siteId)).toBeUndefined()
-    expect(pi.continuity.some((c) => c.id === 'today-1')).toBe(true)
+    expect(pi.continuity.some((c) => c.id === 'today-1')).toBe(false)
     expect(pi.libraryCount).toBe(1)
   })
 
-  it('dismiss hides a Today block until refresh', async () => {
+  it('refresh keeps a user dismissal and ignores stale persisted cards', async () => {
     setup()
     const created = await applyPiMutation({
       type: 'upsert-site',
@@ -120,7 +120,7 @@ describe('pi home bridge', () => {
       false,
     )
     expect(afterDismiss.continuity.some((c) => c.id === 'today-keep')).toBe(
-      true,
+      false,
     )
     expect((await readHomePrefs()).dismissedContinuityIds).toContain(
       'today-stale',
@@ -128,8 +128,10 @@ describe('pi home bridge', () => {
 
     await refreshHomeToday()
     const afterRefresh = await buildPiHomeProjection()
-    expect((await readHomePrefs()).dismissedContinuityIds).toEqual([])
-    // Refresh rebuilds from current urgencies; explicit custom ids may drop.
+    expect((await readHomePrefs()).dismissedContinuityIds).toContain(
+      'today-stale',
+    )
+    // Refresh rebuilds from current canonical inputs only.
     expect(afterRefresh.continuity.some((c) => c.id === 'today-stale')).toBe(
       false,
     )

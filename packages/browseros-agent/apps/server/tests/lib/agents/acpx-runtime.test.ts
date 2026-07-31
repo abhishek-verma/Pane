@@ -1201,7 +1201,7 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
         `'${bunPath}' x --bun --silent --package '@agentclientprotocol/claude-agent-acp@^0.31.0' 'claude-agent-acp'`,
       )
       expect(codexCommand).toContain(
-        `'${bunPath}' x --bun --silent --package '@zed-industries/codex-acp@^0.12.0' 'codex-acp'`,
+        `'${bunPath}' x --bun --silent --package '@zed-industries/codex-acp@^0.16.0' 'codex-acp'`,
       )
       expect(codexCommand).toContain('BUN_INSTALL_CACHE_DIR=')
       expect(codexCommand).toContain('cache/acp-node-shim')

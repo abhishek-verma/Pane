@@ -383,7 +383,7 @@ describe('probeNpxPackageCache', () => {
         'codex-acp',
         'package.json',
       ),
-      '{"version":"0.12.1"}',
+      '{"version":"0.16.1"}',
     )
     await writeFile(
       join(
@@ -398,13 +398,13 @@ describe('probeNpxPackageCache', () => {
         'codex-acp',
         'package.json',
       ),
-      '{"version":"0.12.1"}',
+      '{"version":"0.16.1"}',
     )
 
     await expect(
       probeNpxPackageCache('@zed-industries/codex-acp', {
         npxCacheDir: join(npmCacheDir, '_npx'),
-        versionRange: '^0.12.0',
+        versionRange: '^0.16.0',
       }),
     ).resolves.toBe(true)
   })
@@ -439,7 +439,7 @@ describe('probeNpxPackageCache', () => {
     await expect(
       probeNpxPackageCache('@zed-industries/codex-acp', {
         npxCacheDir: join(npmCacheDir, '_npx'),
-        versionRange: '^0.12.0',
+        versionRange: '^0.16.0',
       }),
     ).resolves.toBe(false)
   })

@@ -57,6 +57,7 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
   const [openingId, setOpeningId] = useState<string | null>(null)
   const [dismissBusyId, setDismissBusyId] = useState<string | null>(null)
   const [refreshingToday, setRefreshingToday] = useState(false)
+  const [refreshNote, setRefreshNote] = useState<string | null>(null)
 
   if (!data) return null
   const { doorways, continuity, libraryCount, proposeDoorways } = data
@@ -137,9 +138,27 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
 
   const refreshToday = async () => {
     setRefreshingToday(true)
+    setRefreshNote(null)
     try {
       const res = await piPost('/pi/home/refresh', {})
-      if (res.ok) invalidateHome()
+      if (res.ok) {
+        const payload = (await res.json()) as {
+          refreshed?: Array<{ outcome: string }>
+        }
+        const count = payload.refreshed?.length ?? 0
+        setRefreshNote(
+          count > 0
+            ? `Updated from current Pane data (${count} refresh${count === 1 ? '' : 'es'}).`
+            : 'Up to date with current Pane data.',
+        )
+        invalidateHome()
+      } else {
+        setRefreshNote(
+          'Refresh could not complete. Your last view is unchanged.',
+        )
+      }
+    } catch {
+      setRefreshNote('Refresh could not complete. Your last view is unchanged.')
     } finally {
       setRefreshingToday(false)
     }
@@ -164,6 +183,11 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
             </div>
           </div>
           <div className="divide-y divide-border border-border border-t">
+            {refreshNote ? (
+              <div className="py-2 font-mono text-[10px] text-muted-foreground tracking-wide">
+                {refreshNote}
+              </div>
+            ) : null}
             {continuity.length === 0 ? (
               <div className="py-3 font-mono text-[11px] text-muted-foreground tracking-wide">
                 Nothing for today. Refresh to pull current follow-ups.

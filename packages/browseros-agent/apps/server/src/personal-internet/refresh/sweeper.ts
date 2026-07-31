@@ -11,7 +11,6 @@
  */
 
 import { getDbHandle } from '../../lib/db'
-import { listSites } from '../store'
 import { dispatchTrigger, enqueueRefresh, type PiRefreshJob } from './bus'
 import {
   maybeDispatchNewDay,
@@ -46,28 +45,19 @@ export function expireTemps(nowMs: number = Date.now()): string[] {
 }
 
 /**
- * Browser-started catch-up: enqueue a single `browser-started` reproject for
- * every live site and home. Cheap kind-A only — no harvest replay.
+ * Browser-started catch-up rebuilds the one surface that is immediately
+ * relevant: Home. Individual PI sites are refreshed on visit or by their own
+ * configured trigger. This deliberately avoids turning a week away from Pane
+ * into a burst of background work for every historical site.
  */
 export function browserStartedCatchUp(): { enqueued: number } {
-  let enqueued = 0
-  for (const site of listSites({ status: ['active', 'dormant'] })) {
-    enqueueRefresh({
-      targetType: 'site',
-      targetId: site.id,
-      kind: 'A',
-      triggerName: 'browser-started',
-    })
-    enqueued += 1
-  }
   enqueueRefresh({
     targetType: 'home',
     targetId: HOME_TARGET_ID,
     kind: 'A',
     triggerName: 'browser-started',
   })
-  enqueued += 1
-  return { enqueued }
+  return { enqueued: 1 }
 }
 
 /** Test / API helper — expire temps and return count. */

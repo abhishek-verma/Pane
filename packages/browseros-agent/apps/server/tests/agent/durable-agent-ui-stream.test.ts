@@ -23,6 +23,16 @@ describe('formatAgentStreamError', () => {
     expect(formatAgentStreamError(new Error('boom\nstack'))).toBe('boom')
   })
 
+  it('surfaces a structured ACP cause behind an opaque internal error', () => {
+    const err = new Error('Internal error')
+    ;(err as Error & { cause?: unknown }).cause = {
+      data: { message: 'Codex session authentication expired' },
+    }
+    expect(formatAgentStreamError(err)).toBe(
+      'Codex session authentication expired',
+    )
+  })
+
   it('maps Type validation failures to a short recovery hint', () => {
     expect(
       formatAgentStreamError({
