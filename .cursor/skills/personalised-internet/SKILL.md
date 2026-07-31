@@ -35,7 +35,7 @@ Normative: [specs/20-personalised-internet.md](../../../specs/20-personalised-in
 **Read:** `pi_list`, `pi_read`, `pi_pulse_get`  
 **Write-local:** `pi_site_upsert`, `pi_page_create`, `pi_page_patch`, `pi_page_delete`, `pi_site_archive`, `pi_preserve_temp`, `pi_home_regions_patch`
 
-Templates: `job-search`, `research-hub`, `sales-leads`. Create responses should include `route: '#/pi/...'`.
+Templates: `job-search`, `research-hub`, `sales-leads`. Create responses include `href: 'pi://...'` (+ `route` for SPA) and `preview`. Use `pi_open` to navigate when the user should see the page now.
 
 ## Refresh
 

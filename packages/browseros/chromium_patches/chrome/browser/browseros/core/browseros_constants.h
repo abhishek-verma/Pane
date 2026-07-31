@@ -1,9 +1,9 @@
 diff --git a/chrome/browser/browseros/core/browseros_constants.h b/chrome/browser/browseros/core/browseros_constants.h
 new file mode 100644
-index 0000000000..76a5f0d644
+index 0000000000000000000000000000000000000000..ba2c35c1ceee8ccb479129089d5fd8df8876b194
 --- /dev/null
 +++ b/chrome/browser/browseros/core/browseros_constants.h
-@@ -0,0 +1,227 @@
+@@ -0,0 +1,274 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -58,6 +58,53 @@ index 0000000000..76a5f0d644
 +
 +// chrome://browseros host constant
 +inline constexpr char kBrowserOSHost[] = "browseros";
++
++// Personalised Internet scheme (pi://sites/... → agent app.html#/pi/...)
++inline constexpr char kPiScheme[] = "pi";
++inline constexpr char kPiAppPage[] = "app.html";
++
++// Forward: pi://sites/S/pages/P → chrome-extension://…/app.html#/pi/sites/S/pages/P
++inline std::string GetPiExtensionURL(std::string_view host,
++                                     std::string_view path) {
++  if (IsURLOverridesDisabled()) {
++    return std::string();
++  }
++  std::string ref = "/pi";
++  if (!host.empty()) {
++    ref += "/";
++    ref += host;
++  }
++  if (!path.empty() && path != "/") {
++    ref += path;
++  }
++  return std::string("chrome-extension://") + kAgentExtensionId + "/" +
++         kPiAppPage + "#" + ref;
++}
++
++// Reverse: chrome-extension://…/app.html#/pi/sites/… → pi://sites/…
++inline std::string GetPiVirtualURL(std::string_view extension_id,
++                                   std::string_view extension_path,
++                                   std::string_view extension_ref) {
++  if (IsURLOverridesDisabled()) {
++    return std::string();
++  }
++  if (extension_id != kAgentExtensionId) {
++    return std::string();
++  }
++  std::string route_path = std::string("/") + kPiAppPage;
++  if (extension_path != route_path && extension_path != kPiAppPage) {
++    return std::string();
++  }
++
++  std::string normalized(extension_ref);
++  if (!normalized.empty() && normalized[0] == '/') {
++    normalized = normalized.substr(1);
++  }
++  if (normalized.size() < 3 || normalized.compare(0, 3, "pi/") != 0) {
++    return std::string();
++  }
++  return std::string(kPiScheme) + "://" + normalized.substr(3);
++}
 +
 +// URL route mapping for chrome://browseros/* virtual URLs
 +struct BrowserOSURLRoute {

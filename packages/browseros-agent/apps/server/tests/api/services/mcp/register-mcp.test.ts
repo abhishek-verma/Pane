@@ -115,6 +115,7 @@ describe('registerTools', () => {
     'pi_site_upsert',
     'pi_page_create',
     'pi_page_patch',
+    'pi_open',
     'pi_page_delete',
     'pi_site_archive',
     'pi_preserve_temp',

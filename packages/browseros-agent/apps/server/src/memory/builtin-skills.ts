@@ -177,10 +177,10 @@ Private **sites** hold multi-day operable work. Pages live under sites (or as te
    - \`job-search\` — board by stage (Applied → …). Set \`harvestEnabled: true\` only when the user wants LinkedIn harvest when that host tab is open (default off).
    - \`research-hub\` — topics table
    - \`sales-leads\` — leads table
-3. Tell the user the \`#/pi/sites/...\` route from the tool result.
+3. Share the \`pi://sites/...\` href from the tool result. Call \`pi_open\` when this site is the turn’s deliverable the user should see now.
 4. **Job Search SoT:** import/update applications with \`pi_record_upsert\` (\`recordType: job-application\`, fields: company, role?, stage, url?, nextAction?, notes?). Board + chart sync from records — do **not** only dump markdown into board cards.
-5. **Company details:** use \`#/pi/sites/<siteId>/entities/<entityKey>\` (lazy per-company pages). **Never** one mega "Company Details" page for all companies.
-6. Board card actions must be labeled: \`{ "label": "Details", "action": { "kind": "open-internal", "route": "#/pi/sites/.../entities/..." } }\`.
+5. **Company details:** use \`pi://sites/<siteId>/entities/<entityKey>\` (lazy per-company pages). **Never** one mega "Company Details" page for all companies.
+6. Board card actions must be labeled: \`{ "label": "Details", "action": { "kind": "open-internal", "route": "#/pi/sites/.../entities/..." } }\` (SPA still uses hash routes inside the page).
 7. Later freeform page edits → load \`pi-page-dsl\` / \`pi-page-patch\` as needed.
 8. Archive with \`pi_site_archive\` when the campaign ends (doorway drops; data kept until hard delete).
 
@@ -222,9 +222,9 @@ You author JSON; Pane renders a **closed element set**. No freeform HTML/CSS. Fo
 ## Durable vs temp
 
 - \`mode=durable\` — needs \`siteId\` (create site first via \`pi-sites\` / \`pi_site_upsert\`).
-- \`mode=temp\` — one-shot structured answer; returns \`#/pi/temp/...\`; user may Keep later.
+- \`mode=temp\` — one-shot structured answer; returns \`pi://temp/...\`; user may Keep later.
 
-After create, share the route from the tool result. Optionally \`pi_read\` to confirm.
+After create, share the \`pi://\` href from the tool result. Call \`pi_open\` when the user should see the page now. Optionally \`pi_read\` to confirm.
 
 ## Elements → how they render
 

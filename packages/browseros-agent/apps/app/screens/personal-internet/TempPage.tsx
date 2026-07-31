@@ -8,7 +8,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { type FC, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
+import { tempHref } from '@/lib/personal-internet/pi-href'
 import { executePiAction } from '@/lib/pi-actions'
+import { PiLinkActions } from './PiChrome'
 import { PiPageRenderer } from './PiPageRenderer'
 import { piDelete, piPost, usePiTemp } from './usePiApi'
 
@@ -37,7 +39,13 @@ export const TempPage: FC = () => {
             Keep to save into your private web, or discard.
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {tempId ? (
+            <PiLinkActions
+              href={tempHref(tempId)}
+              bookmarkTitle={query.data.temp.title}
+            />
+          ) : null}
           <Button
             size="sm"
             variant="outline"

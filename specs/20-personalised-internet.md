@@ -32,15 +32,15 @@ Chat and markdown are not enough for multi-day operable state. Pages are.
 
 ## 3. V1 surfaces
 
-| Route | Purpose |
-| --- | --- |
-| `#/home` | Composer + PI doorways/continuity (or empty-site starters) |
-| `#/pi/sites/:siteId` (+ `/pages/:pageId`) | Durable site / page |
-| `#/pi/sites/:siteId/entities/:entityKey` | Lazy per-entity page (stub → materialize) |
-| `#/pi/temp/:tempId` | Temp page with Keep / Discard |
-| `#/pi/library` | List sites (“My sites”) |
+| Address | SPA route | Purpose |
+| --- | --- | --- |
+| (home) | `#/home` | Composer + PI doorways/continuity (or empty-site starters) |
+| `pi://sites/:siteId` (+ `/pages/:pageId`) | `#/pi/sites/…` | Durable site / page |
+| `pi://sites/:siteId/entities/:entityKey` | `#/pi/sites/…/entities/…` | Lazy per-entity page (stub → materialize) |
+| `pi://temp/:tempId` | `#/pi/temp/…` | Temp page with Keep / Discard |
+| `pi://library` | `#/pi/library` | List sites (“My sites”) |
 
-Empty home starters prefill chat to create Job Search / Research Hub via tools.
+Canonical user-facing addresses are `pi://…` (Pane Chromium rewrites to the agent extension HashRouter). Empty home starters prefill chat to create Job Search / Research Hub via tools.
 
 ---
 
@@ -57,14 +57,14 @@ Page documents are versioned DSL JSON (`PiPageDoc`): title, text, note, badge, s
 
 ## 5. Agent tools & trust
 
-**Read:** `pi_list`, `pi_read`, `pi_pulse_get`, `pi_record_list`  
+**Read:** `pi_list`, `pi_read`, `pi_pulse_get`, `pi_record_list`, `pi_open`  
 **Write-local:** `pi_site_upsert`, `pi_page_create`, `pi_page_patch`, `pi_page_delete`, `pi_site_archive`, `pi_preserve_temp`, `pi_home_regions_patch`, `pi_record_upsert`, `pi_entity_ensure`
 
 Registered in AI SDK tools, MCP, and `consequence-class` READ / WRITE_LOCAL sets. Chat mode keeps reads and drops writes.
 
 Job Search **source of truth** is `pi_records` (`job-application`); board/chart sync from records. Company details use entity routes — not one mega page.
 
-Create tools return `{ siteId, pageId, route: '#/pi/...' }` so the agent can show the user the page.
+Create tools return `{ siteId, pageId, route: '#/pi/...', href: 'pi://...', preview }` so the agent can share the page. `pi_open` navigates the user to a `pi://` address when contextually appropriate.
 
 ---
 

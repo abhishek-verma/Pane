@@ -7,6 +7,8 @@
 import type { FC } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
+import { libraryHref } from '@/lib/personal-internet/pi-href'
+import { PiAddressChip, PiLinkActions } from './PiChrome'
 import { usePiLibrary } from './usePiApi'
 
 export const LibraryPage: FC = () => {
@@ -15,12 +17,16 @@ export const LibraryPage: FC = () => {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="font-semibold text-xl">My sites</h1>
           <p className="text-muted-foreground text-sm">
             Your Personalised Internet — living work pages.
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <PiAddressChip href={libraryHref()} />
+            <PiLinkActions href={libraryHref()} bookmarkTitle="My sites" />
+          </div>
         </div>
         <Button asChild size="sm" variant="ghost">
           <Link to="/home">Home</Link>

@@ -38,6 +38,7 @@ import {
   growMessageWindow,
   MESSAGE_WINDOW_SIZE,
 } from './message-window'
+import { PiPageCard } from './PiPageCard'
 import { ScheduleSuggestionCard } from './ScheduleSuggestionCard'
 import { ToolBatch } from './ToolBatch'
 import { UserActionMessage } from './UserActionMessage'
@@ -168,6 +169,15 @@ const ChatMessageRow = memo(function ChatMessageRow({
                       key={segment.key}
                       data={segment.data}
                       isLastMessage={isLastMessage}
+                    />
+                  )
+                case 'pi-preview':
+                  return (
+                    <PiPageCard
+                      key={segment.key}
+                      href={segment.href}
+                      preview={segment.preview}
+                      autoOpen={segment.autoOpen}
                     />
                   )
                 default:

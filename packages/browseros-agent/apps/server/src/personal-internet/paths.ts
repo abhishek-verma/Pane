@@ -7,6 +7,24 @@
 import { join } from 'node:path'
 import { getBrowserosDir } from '../lib/browseros-dir'
 
+export {
+  entityHref,
+  entityRoute,
+  hrefToRoute,
+  libraryHref,
+  libraryRoute,
+  PI_HREF_RE,
+  pageHref,
+  pageRoute,
+  parsePiHref,
+  parsePiRoute,
+  routeToHref,
+  siteHref,
+  siteRoute,
+  tempHref,
+  tempRoute,
+} from './pi-href'
+
 export function piRoot(browserosDir?: string): string {
   return join(browserosDir ?? getBrowserosDir(), 'personal-internet')
 }
@@ -40,20 +58,4 @@ export function homeRegionsFile(browserosDir?: string): string {
 
 export function homePrefsFile(browserosDir?: string): string {
   return join(piRoot(browserosDir), 'home', 'prefs.json')
-}
-
-export function siteRoute(siteId: string): string {
-  return `#/pi/sites/${siteId}`
-}
-
-export function pageRoute(siteId: string, pageId: string): string {
-  return `#/pi/sites/${siteId}/pages/${pageId}`
-}
-
-export function entityRoute(siteId: string, entityKey: string): string {
-  return `#/pi/sites/${siteId}/entities/${encodeURIComponent(entityKey)}`
-}
-
-export function tempRoute(tempId: string): string {
-  return `#/pi/temp/${tempId}`
 }

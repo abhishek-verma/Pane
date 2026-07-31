@@ -64,6 +64,7 @@ const READ_CONTEXT_TOOLS = new Set([
   'pi_read',
   'pi_pulse_get',
   'pi_record_list',
+  'pi_open',
   // PI page DSL is the agent's response surface (like streaming chat text),
   // not a side-effect the user must approve. Deletes / site archive stay gated.
   'pi_page_create',
@@ -448,6 +449,10 @@ export function describeToolCall(
     const action = typeof args.action === 'string' ? args.action : 'list'
     const url = typeof args.url === 'string' ? ` ${args.url}` : ''
     return `tabs ${action}${url}`
+  }
+  if (toolName === 'pi_open') {
+    const href = typeof args.href === 'string' ? args.href : ''
+    return href ? `open ${href}` : 'open PI page'
   }
   return toolName
 }

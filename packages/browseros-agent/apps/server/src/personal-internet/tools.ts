@@ -16,7 +16,16 @@ import {
 import { validatePageDoc } from './dsl'
 import { getPiFocus } from './focus'
 import { ensureAndMaterialize } from './materialize'
-import { entityRoute } from './paths'
+import {
+  entityHref,
+  entityRoute,
+  hrefToRoute,
+  pageHref,
+  parsePiHref,
+  routeToHref,
+  siteHref,
+  tempHref,
+} from './paths'
 import { pageDocSchema, patchOpSchema } from './pi-node-schema'
 import { normalizeJobSearchRecord, parseRecordData } from './records'
 import {
@@ -45,8 +54,87 @@ import { applyPiMutation, preserveTemp } from './write-path'
 
 const templateIdSchema = z.enum(['job-search', 'research-hub', 'sales-leads'])
 
+type PiPreview = {
+  title: string
+  siteName?: string
+  pulseLine?: string
+  kind: 'site' | 'page' | 'entity' | 'temp' | 'library'
+}
+
 function ok(data: Record<string, unknown>) {
   return { text: JSON.stringify(data) }
+}
+
+function previewForRoute(
+  route: string,
+  fallbackTitle?: string,
+): PiPreview | null {
+  const href = routeToHref(route)
+  if (!href) return null
+  const parts = parsePiHref(href)
+  if (!parts) return null
+  switch (parts.kind) {
+    case 'library':
+      return { title: 'My sites', kind: 'library' }
+    case 'site': {
+      const site = getSite(parts.siteId)
+      return {
+        title: site?.name ?? fallbackTitle ?? parts.siteId,
+        siteName: site?.name,
+        pulseLine: getPulse(parts.siteId)?.pulseLine,
+        kind: 'site',
+      }
+    }
+    case 'page': {
+      const page = getPage(parts.pageId)
+      const site = getSite(parts.siteId)
+      return {
+        title: page?.title ?? fallbackTitle ?? parts.pageId,
+        siteName: site?.name,
+        pulseLine: getPulse(parts.siteId)?.pulseLine,
+        kind: 'page',
+      }
+    }
+    case 'entity': {
+      const site = getSite(parts.siteId)
+      return {
+        title: fallbackTitle ?? parts.entityKey,
+        siteName: site?.name,
+        pulseLine: getPulse(parts.siteId)?.pulseLine,
+        kind: 'entity',
+      }
+    }
+    case 'temp': {
+      const temp = getTemp(parts.tempId)
+      return {
+        title: temp?.title ?? fallbackTitle ?? parts.tempId,
+        kind: 'temp',
+      }
+    }
+  }
+}
+
+/** Attach canonical pi:// href + preview; keep route for SPA helpers. */
+function withPiAddress(
+  data: Record<string, unknown>,
+  opts?: { route?: string; title?: string; openHref?: string },
+): Record<string, unknown> {
+  const route =
+    opts?.route ??
+    (typeof data.route === 'string' ? data.route : undefined) ??
+    (typeof data.entityRoute === 'string' ? data.entityRoute : undefined)
+  if (!route) return data
+  const href = routeToHref(route)
+  if (!href) return { ...data, route }
+  const preview = previewForRoute(route, opts?.title) ?? undefined
+  const openHref = opts?.openHref ?? href
+  return {
+    ...data,
+    route,
+    href,
+    preview,
+    piOpenRoute: openHref,
+  }
 }
 
 function isActiveMaterializeStatus(status: string): boolean {
@@ -127,16 +215,20 @@ export function buildPersonalInternetToolSet(
       execute: async ({ includeTemps, status }) => {
         const sites = listSites(
           status ? { status } : { status: ['active', 'dormant', 'drafting'] },
-        ).map((s) => ({
-          id: s.id,
-          name: s.name,
-          slug: s.slug,
-          status: s.status,
-          templateId: s.templateId,
-          doorwayEligible: !!s.doorwayEligible,
-          pulseLine: getPulse(s.id)?.pulseLine ?? null,
-          route: `#/pi/sites/${s.id}`,
-        }))
+        ).map((s) => {
+          const route = `#/pi/sites/${s.id}`
+          return {
+            id: s.id,
+            name: s.name,
+            slug: s.slug,
+            status: s.status,
+            templateId: s.templateId,
+            doorwayEligible: !!s.doorwayEligible,
+            pulseLine: getPulse(s.id)?.pulseLine ?? null,
+            route,
+            href: siteHref(s.id),
+          }
+        })
         const temps = includeTemps
           ? listTemps().map((t) => ({
               id: t.id,
@@ -144,6 +236,7 @@ export function buildPersonalInternetToolSet(
               status: t.status,
               expiresAt: t.expiresAt,
               route: `#/pi/temp/${t.id}`,
+              href: tempHref(t.id),
             }))
           : undefined
         return ok({ sites, temps })
@@ -163,15 +256,20 @@ export function buildPersonalInternetToolSet(
           const temp = getTemp(tempId)
           if (!temp) return err(`temp not found: ${tempId}`)
           const inspection = await inspectPageDoc(tempId)
-          return ok({
-            temp,
-            doc: inspection?.doc ?? null,
-            raw: inspection?.raw ?? null,
-            ok: inspection?.ok ?? false,
-            issues: inspection?.issues ?? ['temp doc missing'],
-            fixHint: inspection?.fixHint,
-            route: `#/pi/temp/${tempId}`,
-          })
+          return ok(
+            withPiAddress(
+              {
+                temp,
+                doc: inspection?.doc ?? null,
+                raw: inspection?.raw ?? null,
+                ok: inspection?.ok ?? false,
+                issues: inspection?.issues ?? ['temp doc missing'],
+                fixHint: inspection?.fixHint,
+                route: `#/pi/temp/${tempId}`,
+              },
+              { title: temp.title },
+            ),
+          )
         }
         if (pageId) {
           const page = getPage(pageId)
@@ -183,46 +281,55 @@ export function buildPersonalInternetToolSet(
           const needsAgent = inspection.diagnosis.findings.some(
             (f) => f.severity === 'needs_agent',
           )
-          return ok({
-            page,
-            doc: inspection.doc,
-            ok: inspection.ok,
-            diagnosis: {
-              agentBrief: inspection.diagnosis.agentBrief,
-              needsRaw: inspection.diagnosis.needsRaw,
-              findings: inspection.diagnosis.findings,
-              autoFixesApplied: inspection.diagnosis.autoFixesApplied,
-            },
-            contentSummary: inspection.contentSummary,
-            // Raw only when the agent truly needs content reconstruction.
-            ...(inspection.diagnosis.needsRaw || needsAgent
-              ? {
-                  raw: inspection.diagnosis.needsRaw
-                    ? inspection.raw
-                    : undefined,
-                }
-              : {}),
-            issues: inspection.issues,
-            fixHint: inspection.fixHint,
-            route: inspection.route,
-            message: needsAgent
-              ? `Follow diagnosis.agentBrief. ${inspection.diagnosis.agentBrief.slice(0, 400)}`
-              : inspection.ok
-                ? undefined
-                : 'Page could not be loaded; see diagnosis.',
-          })
+          return ok(
+            withPiAddress(
+              {
+                page,
+                doc: inspection.doc,
+                ok: inspection.ok,
+                diagnosis: {
+                  agentBrief: inspection.diagnosis.agentBrief,
+                  needsRaw: inspection.diagnosis.needsRaw,
+                  findings: inspection.diagnosis.findings,
+                  autoFixesApplied: inspection.diagnosis.autoFixesApplied,
+                },
+                contentSummary: inspection.contentSummary,
+                ...(inspection.diagnosis.needsRaw || needsAgent
+                  ? {
+                      raw: inspection.diagnosis.needsRaw
+                        ? inspection.raw
+                        : undefined,
+                    }
+                  : {}),
+                issues: inspection.issues,
+                fixHint: inspection.fixHint,
+                route: inspection.route,
+                message: needsAgent
+                  ? `Follow diagnosis.agentBrief. ${inspection.diagnosis.agentBrief.slice(0, 400)}`
+                  : inspection.ok
+                    ? undefined
+                    : 'Page could not be loaded; see diagnosis.',
+              },
+              { title: page.title },
+            ),
+          )
         }
         if (siteId) {
           const site = getSite(siteId)
           if (!site) return err(`site not found: ${siteId}`)
           const pages = listPagesForSite(siteId)
           const pulse = getPulse(siteId)
-          return ok({
-            site,
-            pages,
-            pulse,
-            route: `#/pi/sites/${siteId}`,
-          })
+          return ok(
+            withPiAddress(
+              {
+                site,
+                pages,
+                pulse,
+                route: `#/pi/sites/${siteId}`,
+              },
+              { title: site.name },
+            ),
+          )
         }
         return err('Provide siteId, pageId, or tempId')
       },
@@ -262,6 +369,7 @@ export function buildPersonalInternetToolSet(
               entityKey =
                 typeof data.entityKey === 'string' ? data.entityKey : undefined
             }
+            const eRoute = entityKey ? entityRoute(siteId, entityKey) : null
             return {
               id: r.id,
               type: r.type,
@@ -269,7 +377,8 @@ export function buildPersonalInternetToolSet(
               updatedAt: r.updatedAt,
               data,
               entityKey,
-              entityRoute: entityKey ? entityRoute(siteId, entityKey) : null,
+              entityRoute: eRoute,
+              href: entityKey ? entityHref(siteId, entityKey) : null,
             }
           })
         return ok({ siteId, records, count: records.length })
@@ -278,7 +387,7 @@ export function buildPersonalInternetToolSet(
 
     pi_record_upsert: tool({
       description:
-        'Create or update a site record (Job Search SoT). Use recordType job-application with {company, role?, stage, url?, nextAction?, notes?}. Syncs board/chart by default. Do NOT invent companies. Prefer this over only patching board cards. Load skill "pi-sites".',
+        'Create or update a site record (Job Search SoT). Use recordType job-application with {company, role?, stage, url?, nextAction?, notes?}. Syncs board/chart by default. Do NOT invent companies. Prefer this over only patching board cards. Load skill "pi-sites". Returns pi:// href.',
       inputSchema: z.object({
         siteId: z.string().min(1),
         recordId: z.string().optional(),
@@ -298,10 +407,10 @@ export function buildPersonalInternetToolSet(
             syncBoard: input.syncBoard,
             expectedVersion: input.expectedVersion,
           })
+          const linked = withPiAddress({ ...result })
           return ok({
-            ...result,
-            piOpenRoute: result.route,
-            message: `Record saved. Pulse: ${result.pulseLine ?? 'n/a'}`,
+            ...linked,
+            message: `Record saved. Pulse: ${result.pulseLine ?? 'n/a'}. ${linked.href ?? ''}`,
           })
         } catch (e) {
           return err(String(e))
@@ -311,7 +420,7 @@ export function buildPersonalInternetToolSet(
 
     pi_entity_ensure: tool({
       description:
-        'Ensure a per-company (entity) ATF page exists at #/pi/sites/<siteId>/entities/<entityKey>. Default materialize=false (cheap ATF only). Set materialize=true only when the user asked to deepen that one company. Never create one mega details page for all companies. During a pi-materialize run, do not call this for other entities.',
+        'Ensure a per-company (entity) ATF page exists at pi://sites/<siteId>/entities/<entityKey>. Default materialize=false (cheap ATF only). Set materialize=true only when the user asked to deepen that one company. Never create one mega details page for all companies. During a pi-materialize run, do not call this for other entities. Share the pi:// href; call pi_open when the user should see it now.',
       inputSchema: z.object({
         siteId: z.string().min(1),
         entityKey: z.string().min(1),
@@ -323,10 +432,13 @@ export function buildPersonalInternetToolSet(
           const result = await ensureAndMaterialize(siteId, entityKey, {
             materialize,
           })
+          const linked = withPiAddress(
+            { ...result, route: result.entityRoute },
+            { title: entityKey, openHref: entityHref(siteId, entityKey) },
+          )
           return ok({
-            ...result,
-            piOpenRoute: result.entityRoute,
-            message: `Entity page ready. Open ${result.entityRoute}`,
+            ...linked,
+            message: `Entity page ready. ${linked.href}`,
           })
         } catch (e) {
           return err(String(e))
@@ -336,7 +448,7 @@ export function buildPersonalInternetToolSet(
 
     pi_site_upsert: tool({
       description:
-        'Create or upsert a durable Personalised Internet site. Prefer templateId job-search | research-hub | sales-leads (seeds board/table). Load skill "pi-sites" for lifecycle; for freeform pages after, "pi-page-dsl" / "pi-page-patch". Returns siteId, pageId, route — tell the user the #/pi/... link.',
+        'Create or upsert a durable Personalised Internet site. Prefer templateId job-search | research-hub | sales-leads (seeds board/table). Load skill "pi-sites" for lifecycle; for freeform pages after, "pi-page-dsl" / "pi-page-patch". Returns siteId, pageId, href (pi://…) — share that link; call pi_open when the user should see the site now.',
       inputSchema: z.object({
         templateId: templateIdSchema.optional(),
         name: z.string().optional(),
@@ -354,10 +466,10 @@ export function buildPersonalInternetToolSet(
             jtbd: input.jtbd,
             harvestEnabled: input.harvestEnabled,
           })
+          const linked = withPiAddress({ ...result }, { title: input.name })
           return ok({
-            ...result,
-            piOpenRoute: result.route,
-            message: `Site ready. Open ${result.route}`,
+            ...linked,
+            message: `Site ready. ${linked.href}`,
           })
         } catch (e) {
           return err(String(e))
@@ -367,7 +479,7 @@ export function buildPersonalInternetToolSet(
 
     pi_page_create: tool({
       description:
-        'Create a Personalised Internet page as structured DSL JSON (not HTML). mode=temp for one-shot visuals; mode=durable needs siteId. doc={version:1,title,nodes:PiNode[]}. Boards MUST use columns[].cardIds + cards[].{id,title,subtitle?} — never card.columnId/description (that fails validation). Prefer empty board + upsertBoardCard for cards. Load "pi-page-dsl"; for chart/mermaid/svg load "pi-page-viz". Returns #/pi/... route. Not allowed during a pi-materialize BTF run — patch the bound pageId instead.',
+        'Create a Personalised Internet page as structured DSL JSON (not HTML). mode=temp for one-shot visuals; mode=durable needs siteId. doc={version:1,title,nodes:PiNode[]}. Boards MUST use columns[].cardIds + cards[].{id,title,subtitle?} — never card.columnId/description (that fails validation). Prefer empty board + upsertBoardCard for cards. Load "pi-page-dsl"; for chart/mermaid/svg load "pi-page-viz". Returns pi:// href. Share the href; call pi_open when the user should see the page now. Not allowed during a pi-materialize BTF run — patch the bound pageId instead.',
       inputSchema: z.object({
         mode: z.enum(['durable', 'temp']),
         siteId: z.string().optional(),
@@ -389,10 +501,10 @@ export function buildPersonalInternetToolSet(
             kind: input.kind,
             ttlMs: input.ttlMs,
           })
+          const linked = withPiAddress({ ...result }, { title: input.title })
           return ok({
-            ...result,
-            piOpenRoute: result.route,
-            message: `Page created. Open ${result.route}`,
+            ...linked,
+            message: `Page created. ${linked.href}`,
           })
         } catch (e) {
           return err(String(e))
@@ -415,10 +527,70 @@ export function buildPersonalInternetToolSet(
             pageId,
             ops: ops as PiPatchOp[],
           })
-          return ok({ ...result, piOpenRoute: result.route })
+          return ok(withPiAddress({ ...result }))
         } catch (e) {
           return err(String(e))
         }
+      },
+    }),
+
+    pi_open: tool({
+      description:
+        'Open a Personalised Internet page for the user in Pane (navigates to the pi:// address). Use when the turn’s deliverable is a page they should see now — after create/show/open requests. Do NOT call for multi-page batches or side-effect listings; share the pi:// href instead. Pass href (pi://…) or ids.',
+      inputSchema: z.object({
+        href: z.string().optional(),
+        siteId: z.string().optional(),
+        pageId: z.string().optional(),
+        tempId: z.string().optional(),
+        entityKey: z.string().optional(),
+      }),
+      execute: async (input) => {
+        let href = input.href?.trim()
+        if (!href) {
+          if (input.tempId) href = tempHref(input.tempId)
+          else if (input.siteId && input.entityKey)
+            href = entityHref(input.siteId, input.entityKey)
+          else if (input.siteId && input.pageId)
+            href = pageHref(input.siteId, input.pageId)
+          else if (input.siteId) href = siteHref(input.siteId)
+          else return err('Provide href or siteId/pageId/tempId/entityKey')
+        }
+        if (!href.startsWith('pi://')) {
+          if (href.startsWith('#/pi/') || href.startsWith('/pi/')) {
+            const mapped = routeToHref(href.startsWith('#') ? href : `#${href}`)
+            if (!mapped) return err(`Unrecognized PI route: ${href}`)
+            href = mapped
+          } else {
+            return err(`Invalid PI address (want pi://…): ${href}`)
+          }
+        }
+        const parts = parsePiHref(href)
+        if (!parts) return err(`Unrecognized pi:// address: ${href}`)
+
+        if (parts.kind === 'site' && !getSite(parts.siteId)) {
+          return err(`site not found: ${parts.siteId}`)
+        }
+        if (parts.kind === 'page' && !getPage(parts.pageId)) {
+          return err(`page not found: ${parts.pageId}`)
+        }
+        if (parts.kind === 'temp' && !getTemp(parts.tempId)) {
+          return err(`temp not found: ${parts.tempId}`)
+        }
+        if (parts.kind === 'entity' && !getSite(parts.siteId)) {
+          return err(`site not found: ${parts.siteId}`)
+        }
+
+        const route = hrefToRoute(href)
+        if (!route) return err(`Could not map href: ${href}`)
+        const preview = previewForRoute(route)
+        return ok({
+          type: 'pi_page',
+          href,
+          route,
+          preview,
+          navigate: true,
+          message: `Opening ${href}`,
+        })
       },
     }),
 
@@ -482,10 +654,10 @@ export function buildPersonalInternetToolSet(
             title: input.title,
             templateId: input.templateId as PiTemplateId | undefined,
           })
+          const linked = withPiAddress({ ...result })
           return ok({
-            ...result,
-            piOpenRoute: result.route,
-            message: `Preserved. Open ${result.route}`,
+            ...linked,
+            message: `Preserved. ${linked.href}`,
           })
         } catch (e) {
           return err(String(e))
