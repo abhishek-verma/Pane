@@ -6,7 +6,10 @@ import {
   streamText,
 } from 'ai'
 import { logger } from '../lib/logger'
-import { stripBinaryContent } from './compaction/content'
+import {
+  stripBinaryContent,
+  stripOrphanReasoningMessages,
+} from './compaction/content'
 import {
   buildSummarizationPrompt,
   buildSummarizationSystemPrompt,
@@ -329,15 +332,27 @@ export function createCompactionPrepareStep(
       ? experimental_context
       : { existingSummary: null, compactionCount: 0 }
 
+    const finalize = (msgs: ModelMessage[]) => {
+      const cleaned = stripOrphanReasoningMessages(msgs)
+      if (cleaned.length < msgs.length) {
+        logger.info('Removed orphan reasoning-only assistants', {
+          before: msgs.length,
+          after: cleaned.length,
+          removed: msgs.length - cleaned.length,
+        })
+      }
+      return cleaned
+    }
+
     let currentTokens = getCurrentTokenCount(steps, messages, config)
     if (currentTokens <= config.triggerThreshold) {
-      return { messages, experimental_context: state }
+      return { messages: finalize(messages), experimental_context: state }
     }
 
     let current = stripBinaryContent(messages)
     currentTokens = estimateTokensForThreshold(current, config)
     if (currentTokens <= config.triggerThreshold) {
-      return { messages: current, experimental_context: state }
+      return { messages: finalize(current), experimental_context: state }
     }
 
     const keepRecent = AGENT_LIMITS.COMPACTION_PRUNE_KEEP_RECENT_MESSAGES
@@ -355,7 +370,7 @@ export function createCompactionPrepareStep(
       current = pruned
       currentTokens = estimateTokensForThreshold(current, config)
       if (currentTokens <= config.triggerThreshold) {
-        return { messages: current, experimental_context: state }
+        return { messages: finalize(current), experimental_context: state }
       }
     }
 
@@ -365,7 +380,7 @@ export function createCompactionPrepareStep(
     })
     currentTokens = estimateTokensForThreshold(reduced, config)
     if (currentTokens <= config.triggerThreshold) {
-      return { messages: reduced, experimental_context: state }
+      return { messages: finalize(reduced), experimental_context: state }
     }
 
     logger.warn(
@@ -378,6 +393,6 @@ export function createCompactionPrepareStep(
     )
 
     const compacted = await compactMessages(model, reduced, config, state)
-    return { messages: compacted, experimental_context: state }
+    return { messages: finalize(compacted), experimental_context: state }
   }
 }

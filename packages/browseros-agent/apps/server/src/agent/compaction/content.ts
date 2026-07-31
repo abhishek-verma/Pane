@@ -232,6 +232,37 @@ export function stripBinaryContent(messages: ModelMessage[]): ModelMessage[] {
   })
 }
 
+/**
+ * Drop assistant messages that only contain reasoning parts.
+ *
+ * `pruneMessages` can strip tool-calls from older turns while leaving the
+ * reasoning shells behind. DeepSeek (and similar thinking models) return HTTP
+ * 400 when `reasoning_content` is echoed without its tool_calls for a
+ * tool-using turn. These orphans also waste context for every provider.
+ */
+export function stripOrphanReasoningMessages(
+  messages: ModelMessage[],
+): ModelMessage[] {
+  let removed = 0
+  const next = messages.filter((msg) => {
+    if (msg.role !== 'assistant') return true
+    if (typeof msg.content === 'string') return msg.content.length > 0
+    if (msg.content.length === 0) {
+      removed++
+      return false
+    }
+    const hasNonReasoning = msg.content.some(
+      (part) => part.type !== 'reasoning',
+    )
+    if (!hasNonReasoning) {
+      removed++
+      return false
+    }
+    return true
+  })
+  return removed > 0 ? next : messages
+}
+
 export function countBinaryParts(messages: ModelMessage[]): number {
   let count = 0
 

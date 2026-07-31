@@ -31,6 +31,7 @@ import {
 } from '../../agent/detachable-ui-stream'
 import { createDurableAgentUIStreamResponse } from '../../agent/durable-agent-ui-stream'
 import { formatUserMessage } from '../../agent/format-message'
+import { guardUiMessagesForContext } from '../../agent/guard-ui-messages-for-context'
 import { prepareMessagesForAgentTurn } from '../../agent/message-repair'
 import {
   filterValidMessages,
@@ -719,6 +720,24 @@ export class ChatService {
       session.agent.messages,
       false,
     )
+
+    // Mega-transcripts (e.g. 100k+ token PI turns) can fail convert/stream
+    // before prepareStep compaction runs, with the SDK only surfacing
+    // "An error occurred.". Truncate fat tool bodies before the model turn.
+    const guarded = guardUiMessagesForContext(session.agent.messages)
+    if (guarded.truncated) {
+      logger.warn('Truncated fat tool outputs before agent turn', {
+        conversationId: request.conversationId,
+        approxCharsBefore: guarded.approxChars,
+        messageCount: guarded.messages.length,
+      })
+      session.agent.messages = guarded.messages
+      await this.checkpointMessages(
+        request.conversationId,
+        session.agent.messages,
+        false,
+      )
+    }
 
     const promptUserText = contextPrefix + userContent
     const wrappedUserMessageId =
