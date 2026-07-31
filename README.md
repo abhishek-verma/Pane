@@ -41,6 +41,19 @@ Chats are poor containers for work that lasts days or weeks. Pane creates privat
 
 These sites live in your browser profile and get more useful the longer you use Pane.
 
+### A glimpse of the Personalised Internet
+
+The web gives everyone the same interfaces, tuned for what platforms want. A personal internet would reshape them around what matters to you:
+
+- **A personal X** that shows only the posts and notifications relevant to you, without making you fight the algorithm
+- **A personal Hacker News** with a useful summary beside every title and stories ranked against your interests
+- **A personal LinkedIn** where every profile and company carries an explainable ICP match score
+- **A personal YouTube** that turns long videos into the chapters, claims, and clips worth your time
+- **A personal GitHub** that summarizes unfamiliar repositories, highlights issues you can actually help with, and follows the work you depend on
+- **A personal shopping layer** that ranks products by your real constraints, not ad spend, and remembers why you rejected the alternatives
+
+These are not six more feeds to configure. They are private views assembled by your agent on top of the web you already use, shaped by your goals, memory, and judgment. That is the longer-term promise of the Personalised Internet.
+
 ### Work moves while you are away
 
 Save a successful task as a schedule and Pane can run it later, surface the result, and ask for approval when an action has consequences.

@@ -9,6 +9,7 @@ import { useParams } from 'react-router'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
+import { entityHref } from '@/lib/personal-internet/pi-href'
 import { executePiAction, refreshPiPageWithAgent } from '@/lib/pi-actions'
 import { emitPiInvalidate } from '@/lib/pi-invalidate'
 import { PiFieldSurface, piEntityField } from './field'
@@ -21,7 +22,13 @@ import {
   type MaterializeActivityLine,
 } from './materializeActivity'
 import { PiBrokenPagePanel } from './PiBrokenPagePanel'
-import { PiRailAction, PiStatusDot, PiTopRail } from './PiChrome'
+import {
+  PiAddressChip,
+  PiLinkActions,
+  PiRailAction,
+  PiStatusDot,
+  PiTopRail,
+} from './PiChrome'
 import { PiPageErrorBoundary } from './PiPageErrorBoundary'
 import { PiPageRenderer } from './PiPageRenderer'
 import {
@@ -502,6 +509,15 @@ export const EntityPage: FC = () => {
           }
           actions={
             <>
+              {siteId && entityKey ? (
+                <>
+                  <PiAddressChip href={entityHref(siteId, entityKey)} />
+                  <PiLinkActions
+                    href={entityHref(siteId, entityKey)}
+                    bookmarkTitle={title}
+                  />
+                </>
+              ) : null}
               {enriching || timedOut ? (
                 <PiRailAction
                   onClick={() =>

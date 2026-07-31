@@ -1,4 +1,12 @@
+/**
+ * @license
+ * Copyright 2025 BrowserOS
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 import type { UIMessage } from 'ai'
+import { PI_HREF_RE } from '@/lib/personal-internet/pi-href'
+import type { PiPagePreview } from './PiPageCard'
 
 export type ToolInvocationState =
   | 'partial-call'
@@ -33,21 +41,45 @@ export type MessageSegment =
   | { type: 'reasoning'; key: string; text: string; isStreaming: boolean }
   | { type: 'tool-batch'; key: string; tools: ToolInvocationInfo[] }
   | { type: 'nudge'; key: string; nudgeType: NudgeType; data: NudgeData }
+  | {
+      type: 'pi-preview'
+      key: string
+      href: string
+      preview?: PiPagePreview | null
+      autoOpen?: boolean
+    }
 
 const NUDGE_TOOLS = new Set(['suggest_schedule', 'suggest_app_connection'])
 
-function parseNudgeOutput(output: unknown): NudgeData | null {
+/** Tools whose success payload surfaces a PI page card (hide generic row). */
+const PI_CARD_TOOLS = new Set([
+  'pi_open',
+  'pi_site_upsert',
+  'pi_page_create',
+  'pi_entity_ensure',
+  'pi_preserve_temp',
+])
+
+function toolOutputText(output: unknown): string | null {
   try {
-    // output is { content: [{ type: "text", text: "JSON..." }], isError: false }
     const result = output as {
       content?: Array<{ type: string; text?: string }>
       isError?: boolean
+      text?: string
     }
     if (result?.isError) return null
-
+    if (typeof result?.text === 'string') return result.text
     const text = result?.content?.find((c) => c.type === 'text')?.text
-    if (!text) return null
+    return text ?? null
+  } catch {
+    return null
+  }
+}
 
+function parseNudgeOutput(output: unknown): NudgeData | null {
+  try {
+    const text = toolOutputText(output)
+    if (!text) return null
     const parsed = JSON.parse(text)
     if (
       parsed?.type === 'schedule_suggestion' ||
@@ -56,9 +88,89 @@ function parseNudgeOutput(output: unknown): NudgeData | null {
       return parsed as NudgeData
     }
   } catch {
-    // ignore parse errors
+    // ignore
   }
   return null
+}
+
+function parsePiCardOutput(
+  output: unknown,
+  toolName: string,
+): { href: string; preview?: PiPagePreview | null; autoOpen: boolean } | null {
+  try {
+    const text = toolOutputText(output)
+    if (!text) return null
+    const parsed = JSON.parse(text) as {
+      href?: string
+      piOpenRoute?: string
+      preview?: PiPagePreview
+      navigate?: boolean
+      type?: string
+    }
+    const href =
+      (typeof parsed.href === 'string' && parsed.href.startsWith('pi://')
+        ? parsed.href
+        : null) ??
+      (typeof parsed.piOpenRoute === 'string' &&
+      parsed.piOpenRoute.startsWith('pi://')
+        ? parsed.piOpenRoute
+        : null)
+    if (!href) return null
+    return {
+      href,
+      preview: parsed.preview ?? null,
+      autoOpen: toolName === 'pi_open' || parsed.navigate === true,
+    }
+  } catch {
+    return null
+  }
+}
+
+function pushTextWithPiLinks(
+  segments: MessageSegment[],
+  messageId: string,
+  text: string,
+  isStreaming: boolean,
+  textIndex: { n: number },
+  piIndex: { n: number },
+  seenHrefs: Set<string>,
+): void {
+  PI_HREF_RE.lastIndex = 0
+  let last = 0
+  let found = false
+  let match: RegExpExecArray | null = PI_HREF_RE.exec(text)
+  while (match) {
+    found = true
+    const before = text.slice(last, match.index)
+    if (before) {
+      segments.push({
+        type: 'text',
+        key: `${messageId}-text-${textIndex.n++}`,
+        text: before,
+        isStreaming: false,
+      })
+    }
+    const href = match[0].replace(/[.,;:!?]+$/, '')
+    if (!seenHrefs.has(href)) {
+      seenHrefs.add(href)
+      segments.push({
+        type: 'pi-preview',
+        key: `${messageId}-pi-${piIndex.n++}`,
+        href,
+      })
+    }
+    last = match.index + match[0].length
+    match = PI_HREF_RE.exec(text)
+  }
+  const rest = text.slice(last)
+  if (rest || !found) {
+    segments.push({
+      type: 'text',
+      key: `${messageId}-text-${textIndex.n++}`,
+      text: found ? rest : text,
+      isStreaming,
+    })
+  }
 }
 
 export const getMessageSegments = (
@@ -68,10 +180,12 @@ export const getMessageSegments = (
 ): MessageSegment[] => {
   const segments: MessageSegment[] = []
   let currentToolBatch: ToolInvocationInfo[] = []
-  let textSegmentCount = 0
   let reasoningSegmentCount = 0
+  const textIndex = { n: 0 }
+  const piIndex = { n: 0 }
   const seenToolCallIds = new Set<string>()
   const seenReasoningTexts = new Set<string>()
+  const seenPiHrefs = new Set<string>()
 
   const flushToolBatch = () => {
     if (currentToolBatch.length > 0) {
@@ -89,17 +203,30 @@ export const getMessageSegments = (
 
     if (part.type === 'text') {
       flushToolBatch()
-      segments.push({
-        type: 'text',
-        key: `${message.id}-text-${textSegmentCount}`,
-        text: part.text,
-        isStreaming:
-          isStreaming && i === message.parts.length - 1 && isLastMessage,
-      })
-      textSegmentCount++
+      const streaming =
+        isStreaming && i === message.parts.length - 1 && isLastMessage
+      if (streaming || !PI_HREF_RE.test(part.text)) {
+        PI_HREF_RE.lastIndex = 0
+        segments.push({
+          type: 'text',
+          key: `${message.id}-text-${textIndex.n++}`,
+          text: part.text,
+          isStreaming: streaming,
+        })
+      } else {
+        PI_HREF_RE.lastIndex = 0
+        pushTextWithPiLinks(
+          segments,
+          message.id,
+          part.text,
+          false,
+          textIndex,
+          piIndex,
+          seenPiHrefs,
+        )
+      }
     } else if (part.type === 'reasoning') {
       flushToolBatch()
-      // Approval resume can re-emit the same reasoning block; keep the first.
       const reasoningKey = part.text.trim()
       if (reasoningKey && seenReasoningTexts.has(reasoningKey)) {
         continue
@@ -123,12 +250,6 @@ export const getMessageSegments = (
         output: unknown
         approval?: { id: string; approved?: boolean; reason?: string }
       }
-      // Phantom acpx-ai-provider tool-input-* stream emitted under a fresh
-      // blockId ("acpx-N") that never reconciles with the real tool-call
-      // id. The translator emits a paired dynamic-tool part with the real
-      // id and full input + output, so dropping the phantom keeps the UI
-      // honest until upstream fixes the id mismatch.
-      // See: https://github.com/DaniAkash/acpx/issues/37
       if (toolPart.toolCallId?.startsWith('acpx-')) {
         continue
       }
@@ -148,6 +269,23 @@ export const getMessageSegments = (
             data: nudgeData,
           })
         }
+      } else if (
+        PI_CARD_TOOLS.has(toolName) &&
+        toolPart.state === 'output-available'
+      ) {
+        flushToolBatch()
+        const card = parsePiCardOutput(toolPart.output, toolName)
+        if (card && !seenPiHrefs.has(card.href)) {
+          seenPiHrefs.add(card.href)
+          segments.push({
+            type: 'pi-preview',
+            key: `${message.id}-pi-${toolPart.toolCallId}`,
+            href: card.href,
+            preview: card.preview,
+            autoOpen: card.autoOpen,
+          })
+        }
+      } else if (NUDGE_TOOLS.has(toolName) || PI_CARD_TOOLS.has(toolName)) {
       } else if (!NUDGE_TOOLS.has(toolName)) {
         const nextTool: ToolInvocationInfo = {
           state: toolPart.state,
@@ -157,8 +295,6 @@ export const getMessageSegments = (
           output: toolPart?.output ?? null,
           approval: toolPart?.approval,
         }
-        // Prefer the latest part for a given toolCallId (e.g. approval-requested
-        // then output-available after resume) so the UI shows one card.
         if (seenToolCallIds.has(toolPart.toolCallId)) {
           const existingIdx = currentToolBatch.findIndex(
             (t) => t.toolCallId === toolPart.toolCallId,
@@ -167,7 +303,6 @@ export const getMessageSegments = (
             currentToolBatch[existingIdx] = nextTool
             continue
           }
-          // Already flushed in an earlier batch — upgrade that card in place.
           for (const segment of segments) {
             if (segment.type !== 'tool-batch') continue
             const idx = segment.tools.findIndex(

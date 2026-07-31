@@ -6,8 +6,9 @@
  * Living Grid chrome for PI places (spec 21) — mono top rail, hairline actions.
  */
 
-import type { FC, ReactNode } from 'react'
+import { type FC, type ReactNode, useState } from 'react'
 import { Link } from 'react-router'
+import { normalizePiHref } from '@/lib/personal-internet/open-pi-href'
 import { cn } from '@/lib/utils'
 
 export const PiTopRail: FC<{
@@ -90,3 +91,62 @@ export const PiSectionLabel: FC<{
     {children}
   </div>
 )
+
+/** Copy pi:// and bookmark the same address (Pane Chromium resolves it). */
+export const PiLinkActions: FC<{
+  href: string
+  bookmarkTitle?: string
+}> = ({ href, bookmarkTitle }) => {
+  const [copied, setCopied] = useState(false)
+  const [bookmarked, setBookmarked] = useState(false)
+  const canonical = normalizePiHref(href) ?? href
+
+  return (
+    <>
+      <PiRailAction
+        onClick={() => {
+          void navigator.clipboard.writeText(canonical).then(() => {
+            setCopied(true)
+            window.setTimeout(() => setCopied(false), 1500)
+          })
+        }}
+      >
+        {copied ? 'Copied' : 'Copy link'}
+      </PiRailAction>
+      <PiRailAction
+        onClick={() => {
+          if (typeof chrome === 'undefined' || !chrome.bookmarks?.create) {
+            void navigator.clipboard.writeText(canonical)
+            return
+          }
+          void chrome.bookmarks
+            .create({
+              title: bookmarkTitle?.trim() || canonical,
+              url: canonical,
+            })
+            .then(() => {
+              setBookmarked(true)
+              window.setTimeout(() => setBookmarked(false), 1500)
+            })
+            .catch(() => {
+              void navigator.clipboard.writeText(canonical)
+            })
+        }}
+      >
+        {bookmarked ? 'Bookmarked' : 'Bookmark'}
+      </PiRailAction>
+    </>
+  )
+}
+
+export const PiAddressChip: FC<{ href: string }> = ({ href }) => {
+  const canonical = normalizePiHref(href) ?? href
+  return (
+    <span
+      className="max-w-[12rem] truncate font-mono text-[10px] text-muted-foreground normal-case tracking-[0.02em]"
+      title={canonical}
+    >
+      {canonical}
+    </span>
+  )
+}

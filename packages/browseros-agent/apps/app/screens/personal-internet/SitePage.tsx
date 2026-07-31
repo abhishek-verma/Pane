@@ -6,11 +6,18 @@
 
 import { type FC, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { pageHref, siteHref } from '@/lib/personal-internet/pi-href'
 import { executePiAction, refreshPiPageWithAgent } from '@/lib/pi-actions'
 import { cn } from '@/lib/utils'
 import { PiFieldSurface, piSiteField } from './field'
 import { PiBrokenPagePanel } from './PiBrokenPagePanel'
-import { PiRailAction, PiStatusDot, PiTopRail } from './PiChrome'
+import {
+  PiAddressChip,
+  PiLinkActions,
+  PiRailAction,
+  PiStatusDot,
+  PiTopRail,
+} from './PiChrome'
 import { PiPageErrorBoundary } from './PiPageErrorBoundary'
 import { PiPageRenderer } from './PiPageRenderer'
 import { RecordsPanel } from './RecordsPanel'
@@ -80,6 +87,25 @@ export const SitePage: FC = () => {
         status={<PiStatusDot label={statusLabel} live={!staleAt && !!pulse} />}
         actions={
           <>
+            {siteId ? (
+              <>
+                <PiAddressChip
+                  href={
+                    pageId && resolvedPageId
+                      ? pageHref(siteId, resolvedPageId)
+                      : siteHref(siteId)
+                  }
+                />
+                <PiLinkActions
+                  href={
+                    pageId && resolvedPageId
+                      ? pageHref(siteId, resolvedPageId)
+                      : siteHref(siteId)
+                  }
+                  bookmarkTitle={doc?.title || site.name}
+                />
+              </>
+            ) : null}
             <PiRailAction
               disabled={refreshing || !resolvedPageId}
               onClick={() => {

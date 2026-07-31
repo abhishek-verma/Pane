@@ -52,6 +52,7 @@ describe('pi tools + trust', () => {
     expect(deriveClass('pi_record_list', {}, ctx)).toBe('read')
     expect(deriveClass('pi_site_upsert', {}, ctx)).toBe('write-local')
     expect(deriveClass('pi_page_create', {}, ctx)).toBe('read')
+    expect(deriveClass('pi_open', {}, ctx)).toBe('read')
     expect(deriveClass('pi_page_patch', {}, ctx)).toBe('read')
     expect(deriveClass('pi_page_delete', {}, ctx)).toBe('write-local')
     expect(deriveClass('pi_site_archive', {}, ctx)).toBe('write-local')

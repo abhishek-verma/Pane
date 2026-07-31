@@ -99,5 +99,11 @@ function StreamdownExternalLinkModal({
 /** Stable config for Streamdown — avoid new object identity per message row. */
 export const streamdownLinkSafety: LinkSafetyConfig = {
   enabled: true,
+  // pi:// is first-class in Pane (Chromium rewrite). Skip the external modal;
+  // Streamdown then window.open(pi://…) which the browser handles.
+  onLinkCheck: (url) =>
+    url.startsWith('pi://') ||
+    url.startsWith('#/pi/') ||
+    url.includes('/app.html#/pi/'),
   renderModal: (props) => <StreamdownExternalLinkModal {...props} />,
 }

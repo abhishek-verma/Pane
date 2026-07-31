@@ -1,5 +1,5 @@
 diff --git a/chrome/browser/chrome_content_browser_client.cc b/chrome/browser/chrome_content_browser_client.cc
-index f823433796..4ec24d90df 100644
+index f823433796c5c7888bbece301c29d51d5e24461d..e1751fed2f02a42e2337095fbd1bc2a9e50c2628 100644
 --- a/chrome/browser/chrome_content_browser_client.cc
 +++ b/chrome/browser/chrome_content_browser_client.cc
 @@ -623,6 +623,7 @@
@@ -19,7 +19,7 @@ index f823433796..4ec24d90df 100644
    // Register user prefs for mapping SitePerProcess and IsolateOrigins in
    // user policy in addition to the same named ones in Local State (which are
    // used for mapping the command-line flags).
-@@ -5052,6 +5053,43 @@ bool ChromeContentBrowserClient::
+@@ -5052,6 +5053,76 @@ bool ChromeContentBrowserClient::
               prefs.root_scrollbar_theme_color;
  }
  
@@ -60,10 +60,43 @@ index f823433796..4ec24d90df 100644
 +  return true;
 +}
 +
++// Handles pi:// URLs by rewriting to the Pane agent extension HashRouter.
++// Forward: pi://sites/S/pages/P -> chrome-extension://…/app.html#/pi/sites/S/pages/P
++static bool HandlePiURL(GURL* url, content::BrowserContext* browser_context) {
++  if (!url->SchemeIs(browseros::kPiScheme)) {
++    return false;
++  }
++
++  std::string extension_url =
++      browseros::GetPiExtensionURL(url->host(), url->path());
++  if (extension_url.empty()) {
++    return false;
++  }
++
++  *url = GURL(extension_url);
++  return true;
++}
++
++// Reverse: chrome-extension://…/app.html#/pi/… -> pi://…
++static bool ReversePiURL(GURL* url, content::BrowserContext* browser_context) {
++  if (!url->SchemeIs(extensions::kExtensionScheme)) {
++    return false;
++  }
++
++  std::string virtual_url =
++      browseros::GetPiVirtualURL(url->host(), url->path(), url->ref());
++  if (virtual_url.empty()) {
++    return false;
++  }
++
++  *url = GURL(virtual_url);
++  return true;
++}
++
  void ChromeContentBrowserClient::BrowserURLHandlerCreated(
      BrowserURLHandler* handler) {
    // The group policy NTP URL handler must be registered before the other NTP
-@@ -5068,6 +5106,13 @@ void ChromeContentBrowserClient::BrowserURLHandlerCreated(
+@@ -5068,6 +5139,17 @@ void ChromeContentBrowserClient::BrowserURLHandlerCreated(
    handler->AddHandlerPair(&HandleChromeAboutAndChromeSyncRewrite,
                            BrowserURLHandler::null_handler());
  
@@ -74,10 +107,14 @@ index f823433796..4ec24d90df 100644
 +  handler->AddHandlerPair(BrowserURLHandler::null_handler(),
 +                          &ReverseBrowserOSURL);
 +
++  // Personalised Internet: pi://… ↔ agent app.html#/pi/…
++  handler->AddHandlerPair(&HandlePiURL, &ReversePiURL);
++  handler->AddHandlerPair(BrowserURLHandler::null_handler(), &ReversePiURL);
++
  #if BUILDFLAG(IS_ANDROID)
    // Handler to rewrite chrome://newtab on Android.
    handler->AddHandlerPair(&chrome::android::HandleAndroidNativePageURL,
-@@ -7901,6 +7946,15 @@ content::ContentBrowserClient::LocalNetworkAccessRequestPolicyOverride
+@@ -7901,6 +7983,15 @@ content::ContentBrowserClient::LocalNetworkAccessRequestPolicyOverride
  ChromeContentBrowserClient::ShouldOverrideLocalNetworkAccessRequestPolicy(
      content::BrowserContext* browser_context,
      const url::Origin& origin) {
