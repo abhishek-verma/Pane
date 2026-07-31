@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'bun:test'
 import {
+  extensionDocumentForHash,
   type QueuedOsNotification,
   resolveNotificationClickTarget,
   toChromeNotificationOptions,
@@ -37,7 +38,14 @@ describe('resolveNotificationClickTarget', () => {
     })
   })
 
-  it('keeps hash deep links for newtab', () => {
+  it('keeps canonical PI urls', () => {
+    expect(resolveNotificationClickTarget('pi://sites/site_1')).toEqual({
+      kind: 'url',
+      url: 'pi://sites/site_1',
+    })
+  })
+
+  it('keeps extension hash deep links', () => {
     expect(resolveNotificationClickTarget('#/home')).toEqual({
       kind: 'hash',
       hash: '#/home',
@@ -48,5 +56,20 @@ describe('resolveNotificationClickTarget', () => {
     expect(
       resolveNotificationClickTarget('browseros://scheduled-runs/run_1'),
     ).toEqual({ kind: 'hash', hash: '#/home' })
+  })
+})
+
+describe('extensionDocumentForHash', () => {
+  it('routes PI hashes to pi.html', () => {
+    expect(extensionDocumentForHash('#/pi')).toBe('pi.html')
+    expect(extensionDocumentForHash('#/pi/library')).toBe('pi.html')
+    expect(extensionDocumentForHash('#/pi/sites/site_1?view=board')).toBe(
+      'pi.html',
+    )
+  })
+
+  it('routes application hashes to app.html', () => {
+    expect(extensionDocumentForHash('#/home')).toBe('app.html')
+    expect(extensionDocumentForHash('#/settings/ai')).toBe('app.html')
   })
 })

@@ -8,6 +8,11 @@
 
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { openPiHref } from '@/lib/personal-internet/open-pi-href'
+import {
+  isPiRoutePath,
+  navigateOwnedRoute,
+} from '@/lib/personal-internet/pi-document'
 
 type QueryClientLike = {
   invalidateQueries: (opts: { queryKey: string[] }) => unknown
@@ -38,6 +43,10 @@ export async function executeWidgetAction(
 
   switch (action.type) {
     case 'navigate':
+      if (action.url.startsWith('pi://') || action.url.startsWith('#/pi/')) {
+        await openPiHref(action.url)
+        break
+      }
       if (typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.create({ url: action.url })
       } else {
@@ -45,11 +54,25 @@ export async function executeWidgetAction(
       }
       break
 
-    case 'navigate-route':
-      window.location.hash = action.route
+    case 'navigate-route': {
+      const path = action.route.startsWith('#')
+        ? action.route.slice(1)
+        : action.route.startsWith('/')
+          ? action.route
+          : `/${action.route}`
+      if (isPiRoutePath(path)) {
+        await openPiHref(`#${path}`)
+        break
+      }
+      navigateOwnedRoute(path)
       break
+    }
 
     case 'open-context-item':
+      if (action.uri.startsWith('pi://')) {
+        await openPiHref(action.uri)
+        break
+      }
       if (typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.create({ url: action.uri })
       } else {

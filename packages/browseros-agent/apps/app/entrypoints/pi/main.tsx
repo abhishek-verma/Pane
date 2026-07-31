@@ -15,14 +15,16 @@ import { Toaster } from '@/components/ui/sonner'
 import { AnalyticsProvider } from '@/lib/analytics/AnalyticsProvider.tsx'
 import { initPostHog } from '@/lib/analytics/posthog'
 import { QueryProvider } from '@/lib/graphql/QueryProvider'
+import { defaultPiDocumentHash } from '@/lib/personal-internet/pi-document'
 import { initSentry } from '@/lib/sentry/sentry'
 import { sentryRootErrorHandler } from '@/lib/sentry/sentryRootErrorHandler.ts'
 import { App } from '../app/App'
 
-// Non-PI hashes on this document are not valid — land on the library.
-const hash = window.location.hash
-if (!hash.startsWith('#/pi/') && hash !== '#/pi') {
-  window.location.hash = '/pi/library'
+// A bare pi.html means Library. Explicit non-PI routes are preserved so the
+// document guard can transfer them to app.html instead of swallowing them.
+const defaultHash = defaultPiDocumentHash(window.location.hash)
+if (defaultHash) {
+  window.location.hash = defaultHash
 }
 
 initPostHog().catch(() => {})

@@ -6,8 +6,8 @@
 
 import { useQueryClient } from '@tanstack/react-query'
 import { type FC, useState } from 'react'
-import { Link } from 'react-router'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
+import { navigatePiDocument } from '@/lib/personal-internet/pi-document'
 import { executePiAction } from '@/lib/pi-actions'
 import { executeWidgetAction } from '@/lib/widget-actions'
 import { HOME_QUERY_KEY } from '@/screens/newtab/home/home-data'
@@ -273,9 +273,10 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                 key={d.siteId}
                 className="flex items-center justify-between gap-4 py-3"
               >
-                <Link
-                  to={routePath(d.primaryRoute)}
-                  className="min-w-0 flex-1 transition-opacity hover:opacity-80"
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left transition-opacity hover:opacity-80"
+                  onClick={() => navigatePiDocument(routePath(d.primaryRoute))}
                 >
                   <div className="truncate font-medium text-sm">{d.name}</div>
                   <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground tracking-wide">
@@ -284,7 +285,7 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                       ? ` · ${new Date(d.lastUpdatedAt).toLocaleString()}`
                       : ''}
                   </div>
-                </Link>
+                </button>
                 <div className="flex shrink-0 items-center gap-2">
                   {d.secondary ? (
                     d.secondary.deepLink ? (
