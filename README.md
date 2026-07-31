@@ -15,19 +15,17 @@ Browsers are also passive, like an IDE from the pre-AI era. What passes for "mod
 
 Pane is an open-source Chromium browser with a personal agent built into the session you already use. It can connect what happened across pages, meetings, research, files, and terminal; and do the work you were supposed to do, and that's only half the story.
 
-<p align="center">
-  <img src="assets/branding/png/pane-poster-1280.png" alt="Pane — a browser that keeps work moving when you step away" width="900" />
-</p>
+
 
 ## What changes when the agent is the browser
+
+
 
 ### What mattered stays
 
 Pane can capture a web meeting locally, keep a multi-day research trail, and search the activity around your work. You can close the tabs and return to the decisions, sources, and unfinished thread later.
 
-<p align="center">
-  <img src="assets/readme/features/gif/01-meetings.gif" alt="Pane capturing a meeting in the browser and answering from its local transcript" width="720" />
-</p>
+
 
 Meeting capture and research mode are opt-in. Recording is visible, domain-specific, and pauseable. Transcription can run on-device after a one-time model download.
 
@@ -35,40 +33,21 @@ Meeting capture and research mode are opt-in. Recording is visible, domain-speci
 
 Chats are poor containers for work that lasts days or weeks. Pane creates private, living sites for it instead: a Job Search pipeline, a Research Hub, a Sales Pipeline, or a site shaped around what you are doing. Chatting with an AI is so last year.
 
-<p align="center">
-  <img src="assets/readme/features/gif/02-personalised-internet.gif" alt="Pane turning ongoing work into a living private site" width="720" />
-</p>
+
 
 These sites live in your browser profile and get more useful the longer you use Pane.
-
-### A glimpse of the Personalised Internet
-
-The web gives everyone the same interfaces, tuned for what platforms want. A personal internet would reshape them around what matters to you:
-
-- **A personal X** that shows only the posts and notifications relevant to you, without making you fight the algorithm
-- **A personal Hacker News** with a useful summary beside every title and stories ranked against your interests
-- **A personal LinkedIn** where every profile and company carries an explainable ICP match score
-- **A personal YouTube** that turns long videos into the chapters, claims, and clips worth your time
-- **A personal GitHub** that summarizes unfamiliar repositories, highlights issues you can actually help with, and follows the work you depend on
-- **A personal shopping layer** that ranks products by your real constraints, not ad spend, and remembers why you rejected the alternatives
-
-These are not six more feeds to configure. They are private views assembled by your agent on top of the web you already use, shaped by your goals, memory, and judgment. That is the longer-term promise of the Personalised Internet.
 
 ### Work moves while you are away
 
 Save a successful task as a schedule and Pane can run it later, surface the result, and ask for approval when an action has consequences.
 
-<p align="center">
-  <img src="assets/readme/features/gif/04-work-in-motion.gif" alt="Pane completing scheduled work while the user is away and surfacing the result" width="720" />
-</p>
+
 
 ### Pane gets better at your work
 
 Pane keeps editable local memory files and a library of skills. Repeating successful workflows can produce staged skill drafts for you to inspect and approve. Ongoing projects become living sites, and the useful parts of prior work can carry into the next task.
 
-<p align="center">
-  <img src="assets/readme/features/gif/06-skills.gif" alt="Pane staging a reusable skill learned from repeated work for approval" width="720" />
-</p>
+
 
 ## For developers: one loop from browser to code
 
@@ -76,15 +55,11 @@ Pane can attach a granted workspace to the in-browser agent, combining live page
 
 ### Reproduce, fix, verify
 
-<p align="center">
-  <img src="assets/readme/features/gif/05-developer-cowork.gif" alt="Pane reproducing a localhost bug, editing the granted workspace, and verifying the fix" width="720" />
-</p>
+
 
 ### Give your coding agent its real browser
 
-<p align="center">
-  <img src="assets/readme/features/gif/08-pane-as-mcp.gif" alt="Claude Code driving Pane's real tabs over MCP" width="720" />
-</p>
+
 
 **Quick path:** Settings → Pane as MCP → copy the URL → `claude mcp add pane <url>`. Then ask your coding agent: *"Open localhost:3000, reproduce the signup bug, read the console, fix it, and verify the result."*
 
@@ -102,11 +77,8 @@ Early doesn't mean bare-bones. Pane already ships:
 - **Pane as MCP** — expose your live browser session to Claude Code, Cursor, and other MCP clients
 - **Your models** — API keys, ChatGPT Pro / Copilot / Qwen OAuth, or local models through Ollama and LM Studio
 
-### Honest limits
 
-- Pane does not run browser work while the browser is fully quit or the machine is asleep. Optional keep-alive can start the local agent server, but browser actions still need a browser process.
 
-  
 ## Why this needs to be a browser
 
 A sidebar extension can read a page. An external agent can attach through a debug port. Neither owns the whole situation reliably: the authenticated session, tab history, meeting media, local context, scheduled runtime, and permission surface.
@@ -117,10 +89,18 @@ Pane pays the cost of being a Chromium fork because the agent needs to be native
 
 The direction is larger than the current build:
 
-- Pages that can layer project-specific context onto the web
-- Richer proactive reach and delivery when you are away
+### A glimpse of the future Personalised Internet
 
-These are roadmap items, not hidden claims about the current release. The working plan is in [`specs/IMPLEMENTATION-PLAN.md`](specs/IMPLEMENTATION-PLAN.md).
+Personalised Internet could go beyond private project sites and toward personal views over the public web.
+
+- **A personal X** that shows only the posts and notifications that matter to you
+- **A personal Hacker News** with a useful summary beside every title and stories ranked against your interests
+- **A personal LinkedIn** where every person and company has an explainable ICP match score for your current goal
+- **A personal YouTube** that turns long videos into the chapters, claims, and clips worth your time
+- **A personal GitHub** that summarizes unfamiliar repositories, highlights issues you can help with, and follows the work you depend on
+- **A personal shopping layer** that ranks products by your actual constraints, not ad spend, and remembers why you rejected the alternatives
+
+Your agent would assemble private views on top of the web you already use, shaped by your goals, memory, and judgment.
 
 ## Try it
 
@@ -132,6 +112,8 @@ These are roadmap items, not hidden claims about the current release. The workin
 
 > **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[Discord](https://discord.gg/652JHSyS4)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
 
+
+
 ## Built on trust
 
 - **Open source** (AGPL-3.0) — inspect the code, fork it, contribute
@@ -141,11 +123,19 @@ These are roadmap items, not hidden claims about the current release. The workin
 - **Approvals match consequence** — actions that send, spend, or modify ask before they cross the boundary
 - **No Pane servers required** — the core product works without infrastructure operated by Pane
 
-## Why Pane is a BrowserOS fork
+
+
+## Why Pane forked BrowserOS
 
 Pane builds on [BrowserOS](https://github.com/browseros-ai/BrowserOS), which supplied the Chromium fork, agent runtime, browser tools, Cowork foundation, and MCP surface.
 
-We forked for a different product direction: a local personal agent that is the browser, with native capture, Personalised Internet, inspectable memory and skills, and no Pane-operated cloud required for core features. BrowserOS is an excellent project; use it if its direction fits you better.
+Both projects share a conviction: the agent belongs inside the browser, where it can work with your real session and tools.
+
+Pane's distinct thesis is that browser work should compound across sessions. Meetings become searchable local transcripts. Research becomes a trail you can resume days later. Repeated workflows become inspectable skills. Ongoing projects become living private sites, and the wider web can become a Personalised Internet shaped around your goals.
+
+Pane is building toward a personal agent that carries the thread across days and weeks, turning browser activity into durable memory, reusable capabilities, and personal views of the web.
+
+BrowserOS is an excellent project, and worth checking out on its own.
 
 ## Contributing
 
@@ -155,9 +145,11 @@ Product specs live in [specs/](specs/README.md). Architecture in [specs/ARCHITEC
 
 ## Credits
 
-- **[BrowserOS](https://github.com/browseros-ai/BrowserOS)** — Pane's Chromium fork, agent runtime, and MCP substrate. An excellent project; go check it out if Pane's direction is not what you need.
+- **[BrowserOS](https://github.com/browseros-ai/BrowserOS)** — Pane's Chromium fork, agent runtime, and MCP substrate. An excellent open-source project worth checking out.
 - [ungoogled-chromium](https://github.com/ungoogled-software/ungoogled-chromium) — privacy patches
 - [The Chromium Project](https://www.chromium.org/)
+
+
 
 ## License
 
