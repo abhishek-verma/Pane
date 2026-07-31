@@ -34,12 +34,48 @@ export function formatAgentStreamError(error: unknown): string {
   if (isTypeValidationError(error)) {
     return 'Chat history had an invalid tool approval state. Send your message again to continue.'
   }
-  if (error instanceof Error && error.message.trim()) {
-    // Keep short; avoid dumping multi-line SDK stacks into the chat UI.
-    const firstLine = error.message.split('\n')[0]?.trim() ?? ''
-    return firstLine.length > 280 ? `${firstLine.slice(0, 277)}...` : firstLine
+  // Walk cause chain — AI SDK often wraps the provider/API error.
+  let current: unknown = error
+  for (let depth = 0; depth < 5 && current != null; depth++) {
+    if (current instanceof Error && current.message.trim()) {
+      const firstLine = current.message.split('\n')[0]?.trim() ?? ''
+      // Skip the SDK's opaque default so we can surface the real cause.
+      if (firstLine && firstLine !== 'An error occurred.') {
+        return firstLine.length > 280
+          ? `${firstLine.slice(0, 277)}...`
+          : firstLine
+      }
+      current = (current as Error & { cause?: unknown }).cause
+      continue
+    }
+    if (typeof current === 'string' && current.trim()) {
+      const firstLine = current.split('\n')[0]?.trim() ?? ''
+      if (firstLine && firstLine !== 'An error occurred.') {
+        return firstLine.length > 280
+          ? `${firstLine.slice(0, 277)}...`
+          : firstLine
+      }
+    }
+    break
   }
   return 'An error occurred.'
+}
+
+function describeStreamError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    const cause = (error as Error & { cause?: unknown }).cause
+    return {
+      name: error.name,
+      message: error.message,
+      cause:
+        cause instanceof Error
+          ? { name: cause.name, message: cause.message }
+          : cause != null
+            ? String(cause).slice(0, 500)
+            : undefined,
+    }
+  }
+  return { value: String(error).slice(0, 500) }
 }
 
 function isMissingToolResults(error: unknown): boolean {
@@ -163,16 +199,29 @@ export async function createDurableAgentUIStreamResponse(
     onError: (error) => {
       const text = formatAgentStreamError(error)
       lastStreamError = text
-      logger.warn('Agent UI stream error', { error: text })
+      logger.warn('Agent UI stream error', {
+        error: text,
+        ...describeStreamError(error),
+      })
       return text
     },
     execute: async ({ writer }) => {
-      // Omit onFinish/onStepFinish so createAgentUIStream returns raw chunks;
-      // createUIMessageStream owns message-level persistence callbacks.
+      // Pass onError into createAgentUIStream → toUIMessageStream. Without
+      // this, the SDK defaults to () => "An error occurred." and the real
+      // provider/context error is lost before our outer onError sees it.
       const agentStream = await createAgentUIStream({
         agent,
         uiMessages,
         abortSignal,
+        onError: (error: unknown) => {
+          const text = formatAgentStreamError(error)
+          lastStreamError = text
+          logger.warn('Agent stream error (toUIMessageStream)', {
+            error: text,
+            ...describeStreamError(error),
+          })
+          return text
+        },
       })
       writer.merge(agentStream)
     },

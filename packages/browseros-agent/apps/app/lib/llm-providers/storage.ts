@@ -5,6 +5,7 @@ import { BROWSEROS_PREFS } from '@/lib/browseros/prefs'
 import { productFeatures } from '@/lib/constants/product-features'
 import {
   migrateLlmProvidersToV3,
+  migrateLlmProvidersToV4,
   normalizeProviderNames,
 } from './provider-name-normalization'
 import {
@@ -24,7 +25,7 @@ export { DEFAULT_PROVIDER_ID } from './provider-selection'
 export const providersStorage = storage.defineItem<LlmProviderConfig[]>(
   'local:llm-providers',
   {
-    version: 3,
+    version: 4,
     migrations: {
       2: (
         providers: LlmProviderConfig[] | null,
@@ -44,6 +45,11 @@ export const providersStorage = storage.defineItem<LlmProviderConfig[]>(
         providers: LlmProviderConfig[] | null,
       ): LlmProviderConfig[] | null => {
         return migrateLlmProvidersToV3(providers)
+      },
+      4: (
+        providers: LlmProviderConfig[] | null,
+      ): LlmProviderConfig[] | null => {
+        return migrateLlmProvidersToV4(providers)
       },
     },
   },

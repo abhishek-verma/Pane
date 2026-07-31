@@ -42,6 +42,7 @@ import {
 import { buildNudgeToolSet } from './nudge-tools'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
+import { resolveContextWindowSize } from './resolve-context-window'
 import type { ToolImageStore } from './session-store'
 import { buildBrowserToolSet } from './tool-adapter'
 import { wrapToolSetWithGate } from './trust/gate'
@@ -99,9 +100,11 @@ export class AiSdkAgent {
   }
 
   static async create(config: AiSdkAgentConfig): Promise<AiSdkAgent> {
-    const contextWindow =
-      config.resolvedConfig.contextWindowSize ??
-      AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW
+    const contextWindow = resolveContextWindowSize(
+      config.resolvedConfig.model,
+      config.resolvedConfig.contextWindowSize,
+      AGENT_LIMITS.DEFAULT_CONTEXT_WINDOW,
+    )
 
     const { model: rawModel, close: modelClose } = await createLanguageModel(
       config.resolvedConfig,

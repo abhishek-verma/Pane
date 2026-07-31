@@ -13,6 +13,30 @@ export function migrateLlmProvidersToV3(
   return normalizeProviderNames(providers)
 }
 
+const DEEPSEEK_V4_CONTEXT_WINDOW = 1_000_000
+
+/** Bumps stale DeepSeek V4 context windows (template used to ship 64k). */
+export function migrateLlmProvidersToV4(
+  providers: LlmProviderConfig[] | null,
+): LlmProviderConfig[] | null {
+  if (!providers) return providers
+  return providers.map((provider) => {
+    if (
+      provider.type === 'deepseek' &&
+      (provider.modelId === 'deepseek-v4-flash' ||
+        provider.modelId === 'deepseek-v4-pro') &&
+      provider.contextWindow < DEEPSEEK_V4_CONTEXT_WINDOW
+    ) {
+      return {
+        ...provider,
+        contextWindow: DEEPSEEK_V4_CONTEXT_WINDOW,
+        updatedAt: Date.now(),
+      }
+    }
+    return provider
+  })
+}
+
 /** Applies compatibility renames for stored provider display names. */
 export function normalizeProviderNames(
   providers: LlmProviderConfig[],

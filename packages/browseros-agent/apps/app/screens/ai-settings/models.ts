@@ -43,12 +43,13 @@ const CUSTOM_PROVIDER_MODELS: Partial<Record<ProviderType, ModelInfo[]>> = {
   deepseek: [
     {
       modelId: 'deepseek-v4-flash',
-      contextLength: 64000,
+      contextLength: 1000000,
       supportsToolCall: true,
+      supportsReasoning: true,
     },
     {
       modelId: 'deepseek-v4-pro',
-      contextLength: 64000,
+      contextLength: 1000000,
       supportsToolCall: true,
       supportsReasoning: true,
     },

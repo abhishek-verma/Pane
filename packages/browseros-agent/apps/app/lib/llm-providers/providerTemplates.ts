@@ -160,7 +160,7 @@ export const providerTemplates: ProviderTemplate[] = [
     defaultBaseUrl: 'https://api.deepseek.com/v1',
     defaultModelId: 'deepseek-v4-flash',
     supportsImages: false,
-    contextWindow: 64000,
+    contextWindow: 1000000,
     apiKeyUrl: 'https://platform.deepseek.com/api_keys',
     setupGuideUrl: 'https://api-docs.deepseek.com/',
   },

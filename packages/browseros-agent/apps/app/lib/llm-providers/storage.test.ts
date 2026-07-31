@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import {
   migrateLlmProvidersToV3,
+  migrateLlmProvidersToV4,
   normalizeProviderNames,
 } from './provider-name-normalization'
 import type { LlmProviderConfig } from './types'
@@ -74,5 +75,21 @@ describe('migrateLlmProvidersToV3', () => {
     ])
 
     expect(providers?.map((provider) => provider.name)).toEqual(['ChatGPT'])
+  })
+})
+
+describe('migrateLlmProvidersToV4', () => {
+  it('bumps stale DeepSeek V4 context windows to 1M', () => {
+    const providers = migrateLlmProvidersToV4([
+      providerConfig({
+        id: 'deepseek-1',
+        type: 'deepseek',
+        name: 'DeepSeek',
+        modelId: 'deepseek-v4-flash',
+        contextWindow: 64000,
+      }),
+    ])
+
+    expect(providers?.[0]?.contextWindow).toBe(1_000_000)
   })
 })
