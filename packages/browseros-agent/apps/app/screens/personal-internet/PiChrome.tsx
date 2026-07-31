@@ -13,6 +13,7 @@ import {
   isPiDocument,
   isPiRoutePath,
   navigateAppShell,
+  navigatePiDocument,
 } from '@/lib/personal-internet/pi-document'
 import { cn } from '@/lib/utils'
 
@@ -50,7 +51,8 @@ export const PiRailAction: FC<{
     className,
   )
   if (to) {
-    // Leaving PI for Home/settings must switch documents (pi.html → app.html).
+    // Cross-document hops hard-navigate so HashRouter alone cannot leave PI
+    // stranded on the NTP shell (or Home stranded on pi.html).
     if (isPiDocument() && !isPiRoutePath(to)) {
       return (
         <button
@@ -58,6 +60,18 @@ export const PiRailAction: FC<{
           disabled={disabled}
           className={classes}
           onClick={() => navigateAppShell(to)}
+        >
+          {children}
+        </button>
+      )
+    }
+    if (!isPiDocument() && isPiRoutePath(to)) {
+      return (
+        <button
+          type="button"
+          disabled={disabled}
+          className={classes}
+          onClick={() => navigatePiDocument(to)}
         >
           {children}
         </button>

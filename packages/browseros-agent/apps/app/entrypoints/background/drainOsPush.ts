@@ -8,9 +8,11 @@
 
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { openPiHref } from '@/lib/personal-internet/open-pi-href'
 import {
   type ChromeNotificationOptions,
   drainOsPushQueueOnce,
+  extensionDocumentForHash,
   resolveNotificationClickTarget,
 } from '@/lib/schedules/drainOsPushQueue'
 
@@ -78,11 +80,21 @@ export function drainOsPush(): void {
     const target = resolveNotificationClickTarget(deepLink)
     if (!target) return
     if (target.kind === 'url') {
+      if (target.url.startsWith('pi://')) {
+        void openPiHref(target.url)
+        return
+      }
       void chrome.tabs.create({ url: target.url })
       return
     }
+    if (target.hash === '#/pi' || target.hash.startsWith('#/pi/')) {
+      void openPiHref(target.hash)
+      return
+    }
     void chrome.tabs.create({
-      url: chrome.runtime.getURL(`newtab.html${target.hash}`),
+      url: chrome.runtime.getURL(
+        `${extensionDocumentForHash(target.hash)}${target.hash}`,
+      ),
     })
   })
 

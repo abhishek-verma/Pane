@@ -263,21 +263,34 @@ bun scripts/dev/inspect-ui.ts eval sidepanel "fetch('http://127.0.0.1:<serverPor
 
 `<target>` is a URL substring (e.g., `sidepanel`, `app.html`) or numeric index from `targets` output.
 
-## Known app.html routes
+## Known document routes
 
-These can be used with `eval app.html "window.location.hash = '#/<route>'"`:
+Home/settings live on **`app.html`**. PI pages live on **`pi.html`** (never leave PI on the NTP `app.html` shell).
+
+App shell (`eval app.html "window.location.hash = '#/<route>'"`):
 
 | Route | View |
 |-------|------|
-| `/home` | PI front door: composer + doorways/continuity or empty-site starters (not Adaptive Home widgets) |
+| `/home` | PI front door: composer + doorways/continuity or empty-site starters |
+| `/settings` | Settings (AI, customization, MCP, …) |
+| `/tasks` | Tasks |
+| `/meetings` | Capture / meetings |
+| `/onboarding` | Onboarding flow (first-run experience) |
+
+PI document (open `pi.html` / `pi://…`, then assert pathname ends with `pi.html`):
+
+| Route | View |
+|-------|------|
 | `/pi/library` | My sites library |
 | `/pi/sites/:siteId` | Durable personal site |
 | `/pi/sites/:siteId/pages/:pageId` | Site page |
 | `/pi/temp/:tempId` | Temp page Keep/Discard |
-| `/settings` | Settings (AI, customization, MCP, …) — no Home widgets page |
-| `/tasks` | Tasks |
-| `/meetings` | Capture / meetings |
-| `/onboarding` | Onboarding flow (first-run experience) |
+
+PI smoke checks before ship:
+1. Home → Library / doorway Open lands on `pi.html` (not `app.html` / blank omnibox)
+2. PI → Home lands on `app.html#/home`
+3. `pi://library` omnibox shows `pi://…` and `chrome.tabs` reports `pi://…`
+4. Attach picker lists the open PI tab
 
 When verifying home after UI changes: expect **composer** + either **Living work** doorways or **PI starters** (“Start a job search pipeline”). Do **not** expect a widget grid, proposal cards, or “+ Add” widget tiles. See **pi-home** skill.
 

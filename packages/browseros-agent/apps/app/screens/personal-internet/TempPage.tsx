@@ -6,11 +6,12 @@
 
 import { useQueryClient } from '@tanstack/react-query'
 import { type FC, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { Button } from '@/components/ui/button'
+import { navigateAppShell } from '@/lib/personal-internet/pi-document'
 import { tempHref } from '@/lib/personal-internet/pi-href'
 import { executePiAction } from '@/lib/pi-actions'
-import { PiLinkActions } from './PiChrome'
+import { PiLinkActions, PiRailAction } from './PiChrome'
 import { PiPageRenderer } from './PiPageRenderer'
 import { piDelete, piPost, usePiTemp } from './usePiApi'
 
@@ -55,7 +56,7 @@ export const TempPage: FC = () => {
               setBusy(true)
               try {
                 await piDelete(`/pi/temps/${tempId}`)
-                navigate('/home')
+                navigateAppShell('/home')
               } finally {
                 setBusy(false)
               }
@@ -101,9 +102,7 @@ export const TempPage: FC = () => {
           >
             Keep
           </Button>
-          <Button asChild size="sm" variant="ghost">
-            <Link to="/home">Home</Link>
-          </Button>
+          <PiRailAction to="/home">Home</PiRailAction>
         </div>
       </div>
       <PiPageRenderer

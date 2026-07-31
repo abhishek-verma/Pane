@@ -8,7 +8,7 @@ import type { FC } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { libraryHref } from '@/lib/personal-internet/pi-href'
-import { PiAddressChip, PiLinkActions } from './PiChrome'
+import { PiAddressChip, PiLinkActions, PiRailAction } from './PiChrome'
 import { usePiLibrary } from './usePiApi'
 
 export const LibraryPage: FC = () => {
@@ -28,9 +28,7 @@ export const LibraryPage: FC = () => {
             <PiLinkActions href={libraryHref()} bookmarkTitle="My sites" />
           </div>
         </div>
-        <Button asChild size="sm" variant="ghost">
-          <Link to="/home">Home</Link>
-        </Button>
+        <PiRailAction to="/home">Home</PiRailAction>
       </div>
       {query.isLoading ? (
         <p className="text-muted-foreground text-sm">Loading…</p>

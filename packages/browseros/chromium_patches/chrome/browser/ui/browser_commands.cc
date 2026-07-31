@@ -10,21 +10,27 @@ index cd7f650386..3ad7051526 100644
  #include "chrome/common/chrome_features.h"
  #include "chrome/common/content_restriction.h"
  #include "chrome/common/pref_names.h"
-@@ -2528,7 +2529,20 @@ bool IsDebuggerAttachedToCurrentTab(BrowserWindowInterface* browser) {
+@@ -2528,7 +2529,28 @@ bool IsDebuggerAttachedToCurrentTab(BrowserWindowInterface* browser) {
  void CopyURL(BrowserWindowInterface* browser,
               content::WebContents* web_contents) {
    ui::ScopedClipboardWriter scw(ui::ClipboardBuffer::kCopyPaste);
 -  scw.WriteText(base::UTF8ToUTF16(web_contents->GetVisibleURL().spec()));
 +  GURL url = web_contents->GetVisibleURL();
 +
-+  // Transform BrowserOS extension URLs to virtual URLs for copying
++  // Transform BrowserOS / PI extension URLs to virtual URLs for copying
 +  if (url.SchemeIs(extensions::kExtensionScheme)) {
-+    std::string virtual_url = browseros::GetBrowserOSVirtualURL(
-+        url.host(), url.path(), url.ref());
-+    if (!virtual_url.empty()) {
-+      scw.WriteText(base::UTF8ToUTF16(virtual_url));
++    std::string pi_url =
++        browseros::GetPiVirtualURL(url.host(), url.path(), url.ref());
++    if (!pi_url.empty()) {
++      scw.WriteText(base::UTF8ToUTF16(pi_url));
 +    } else {
-+      scw.WriteText(base::UTF8ToUTF16(url.spec()));
++      std::string virtual_url = browseros::GetBrowserOSVirtualURL(
++          url.host(), url.path(), url.ref());
++      if (!virtual_url.empty()) {
++        scw.WriteText(base::UTF8ToUTF16(virtual_url));
++      } else {
++        scw.WriteText(base::UTF8ToUTF16(url.spec()));
++      }
 +    }
 +  } else {
 +    scw.WriteText(base::UTF8ToUTF16(url.spec()));

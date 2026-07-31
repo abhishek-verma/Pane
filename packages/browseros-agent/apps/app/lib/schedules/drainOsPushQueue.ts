@@ -34,14 +34,18 @@ export function toChromeNotificationOptions(
 }
 
 /**
- * Resolve a reach deepLink into something chrome.tabs / newtab can open.
+ * Resolve a reach deepLink into something chrome.tabs / Pane documents can open.
  * Returns `{ kind: 'url', url }` for absolute http(s), or `{ kind: 'hash', hash }`
- * for in-extension navigation (caller prefixes with newtab.html).
+ * for in-extension navigation (caller selects app.html or pi.html).
  */
 export function resolveNotificationClickTarget(
   deepLink: string,
 ): { kind: 'url'; url: string } | { kind: 'hash'; hash: string } | null {
-  if (deepLink.startsWith('http://') || deepLink.startsWith('https://')) {
+  if (
+    deepLink.startsWith('http://') ||
+    deepLink.startsWith('https://') ||
+    deepLink.startsWith('pi://')
+  ) {
     return { kind: 'url', url: deepLink }
   }
   if (deepLink.startsWith('#')) {
@@ -52,6 +56,11 @@ export function resolveNotificationClickTarget(
     return { kind: 'hash', hash: '#/home' }
   }
   return null
+}
+
+/** Pick the extension document that owns a HashRouter route. */
+export function extensionDocumentForHash(hash: string): 'app.html' | 'pi.html' {
+  return hash === '#/pi' || hash.startsWith('#/pi/') ? 'pi.html' : 'app.html'
 }
 
 export interface DrainOsPushDeps {

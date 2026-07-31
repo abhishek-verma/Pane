@@ -23,6 +23,14 @@ export function normalizePiHref(input: string): string | null {
   return parseAttachablePiHref(s)
 }
 
+/** Only an already-valid PI document may change PI routes in place. */
+export function canNavigatePiInPlace(pathname: string, hash: string): boolean {
+  return (
+    pathname.endsWith('/pi.html') &&
+    (hash.startsWith('#/pi/') || hash === '#/pi')
+  )
+}
+
 /**
  * Open a PI page without stealing Home / chat.
  * - Already on the dedicated PI document → in-place hash navigate
@@ -37,10 +45,7 @@ export async function openPiHref(hrefOrRoute: string): Promise<void> {
     const path = window.location.pathname
     const hash = window.location.hash
     // In-place only on the dedicated PI document — never on Home/chat NTP.
-    if (
-      path.endsWith('/pi.html') &&
-      (hash.startsWith('#/pi/') || hash === '#/pi')
-    ) {
+    if (canNavigatePiInPlace(path, hash)) {
       const next = route.startsWith('#') ? route.slice(1) : route
       window.location.hash = next.startsWith('/') ? next : `/${next}`
       return
