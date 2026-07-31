@@ -5,6 +5,7 @@
  */
 
 const toolOutputTextCache = new Map<string, string>()
+const toolImageBlobUrlCache = new Map<string, string>()
 
 export function getCachedToolOutputText(
   toolCallId: string,
@@ -23,7 +24,37 @@ export function clearCachedToolOutputText(toolCallId: string): void {
   toolOutputTextCache.delete(toolCallId)
 }
 
-/** Drop cached spilled outputs for tools belonging to these messages. */
+export function getCachedToolImageBlobUrl(
+  toolCallId: string,
+): string | undefined {
+  return toolImageBlobUrlCache.get(toolCallId)
+}
+
+export function setCachedToolImageBlobUrl(
+  toolCallId: string,
+  blobUrl: string,
+): void {
+  const prev = toolImageBlobUrlCache.get(toolCallId)
+  if (prev && prev !== blobUrl) {
+    URL.revokeObjectURL(prev)
+  }
+  toolImageBlobUrlCache.set(toolCallId, blobUrl)
+}
+
+export function clearCachedToolImageBlobUrl(toolCallId: string): void {
+  const prev = toolImageBlobUrlCache.get(toolCallId)
+  if (prev) {
+    URL.revokeObjectURL(prev)
+    toolImageBlobUrlCache.delete(toolCallId)
+  }
+}
+
+function releaseToolCallMedia(toolCallId: string): void {
+  toolOutputTextCache.delete(toolCallId)
+  clearCachedToolImageBlobUrl(toolCallId)
+}
+
+/** Drop cached spilled outputs + image blob URLs for tools in these messages. */
 export function releaseMediaForMessages(
   messages: Array<{ parts?: unknown[] }>,
 ): void {
@@ -33,7 +64,7 @@ export function releaseMediaForMessages(
       const p = part as { type?: string; toolCallId?: string }
       if (typeof p.type !== 'string' || !p.type.startsWith('tool-')) continue
       if (typeof p.toolCallId === 'string') {
-        toolOutputTextCache.delete(p.toolCallId)
+        releaseToolCallMedia(p.toolCallId)
       }
     }
   }
@@ -44,6 +75,14 @@ export function _toolOutputCacheSizeForTests(): number {
   return toolOutputTextCache.size
 }
 
+export function _toolImageBlobCacheSizeForTests(): number {
+  return toolImageBlobUrlCache.size
+}
+
 export function _clearToolOutputCacheForTests(): void {
   toolOutputTextCache.clear()
+  for (const url of toolImageBlobUrlCache.values()) {
+    URL.revokeObjectURL(url)
+  }
+  toolImageBlobUrlCache.clear()
 }

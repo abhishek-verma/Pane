@@ -14,16 +14,13 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
-import {
-  Message,
-  MessageContent,
-  MessageResponse,
-} from '@/components/ai-elements/message'
+import { Message, MessageContent } from '@/components/ai-elements/message'
 import {
   Reasoning,
   ReasoningContent,
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning'
+import { ChatMarkdown } from '@/components/tool-evidence/ChatMarkdown'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import { ChatMessageActions } from './ChatMessageActions'
@@ -120,18 +117,12 @@ const ChatMessageRow = memo(function ChatMessageRow({
               switch (segment.type) {
                 case 'text':
                   return (
-                    <MessageResponse
+                    <ChatMarkdown
                       key={segment.key}
-                      // Completed segments stay static so Streamdown
-                      // does not re-parse every token / load mermaid.
-                      mode={segment.isStreaming ? 'streaming' : 'static'}
-                      parseIncompleteMarkdown={segment.isStreaming}
-                      // Keep mermaid plugin off the side-panel hot path
-                      // (Crashpad OOM last-alloc was mermaid chunk).
-                      plugins={{}}
-                    >
-                      {segment.text}
-                    </MessageResponse>
+                      segmentKey={segment.key}
+                      text={segment.text}
+                      isStreaming={segment.isStreaming}
+                    />
                   )
                 case 'reasoning':
                   return (

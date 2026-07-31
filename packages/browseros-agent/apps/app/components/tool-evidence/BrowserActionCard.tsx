@@ -6,6 +6,7 @@ import {
   THUMB_ROOT_MARGIN,
 } from '@/lib/tool-evidence/browser-thumb-mount'
 import { useScreenshotPrefs } from '@/lib/tool-evidence/screenshot-prefs'
+import { resolveToolImageBlobUrl } from '@/lib/tool-evidence/tool-image-url'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
 import { cn } from '@/lib/utils'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
@@ -15,6 +16,32 @@ import { ToolStatusIcon } from './ToolStatusIcon'
 function toSrc(data: string, mimeType: string): string {
   if (data.startsWith('data:')) return data
   return `data:${mimeType};base64,${data}`
+}
+
+function BrowserThumbFallback({
+  pageDiffSummary,
+  completed,
+  showBrowserScreenshots,
+}: {
+  pageDiffSummary?: string
+  completed: boolean
+  showBrowserScreenshots: boolean
+}) {
+  if (pageDiffSummary) {
+    return (
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        {pageDiffSummary}
+      </p>
+    )
+  }
+  if (!completed) return null
+  return (
+    <p className="mt-1 text-[11px] text-muted-foreground">
+      {showBrowserScreenshots
+        ? 'Screenshot unavailable'
+        : 'Screenshots hidden in settings'}
+    </p>
+  )
 }
 
 export const BrowserActionCard: FC<{
@@ -28,6 +55,8 @@ export const BrowserActionCard: FC<{
   // Track which src failed so a new src/tool identity can retry automatically.
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const [nearViewport, setNearViewport] = useState(false)
+  const [strippedBlobUrl, setStrippedBlobUrl] = useState<string | null>(null)
+  const [strippedLoadFailed, setStrippedLoadFailed] = useState(false)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const { showBrowserScreenshots, blurScreenshotsUntilClick } =
     useScreenshotPrefs()
@@ -50,36 +79,86 @@ export const BrowserActionCard: FC<{
   }, [])
 
   const media = browser?.media[0]
-  // If no inline image but the server stripped one, build a lazy-load URL.
+  // If no inline image but the server stripped one, lazy-load via agentFetch
+  // (profile header) into a cached blob URL — raw <img src> cannot auth.
   const strippedMeta =
     browser && !media ? (browser.strippedImages?.[0] ?? null) : null
-  const strippedSrc =
-    strippedMeta && serverBaseUrl && conversationId
-      ? `${serverBaseUrl}/chat/${conversationId}/tool-images/${evidence.toolCallId}`
-      : null
-
-  const imgSrc = media ? toSrc(media.data, media.mimeType) : (strippedSrc ?? '')
+  const canFetchStripped = Boolean(
+    strippedMeta && serverBaseUrl && conversationId,
+  )
+  const hasImageSource = Boolean(media || canFetchStripped)
   const imgMimeType = media?.mimeType ?? strippedMeta?.mimeType ?? 'image/png'
-  const imageFailed = failedSrc != null && failedSrc === imgSrc
-  const hasImageSource = Boolean(media || strippedSrc)
-  const showImageSlot = hasImageSource && showBrowserScreenshots && !imageFailed
+
   // Only decode the bitmap when near the viewport (or force-mounted for replay).
   const mountImage = shouldMountBrowserThumb({
     nearViewport,
     highlighted,
     hasImageSource,
     showBrowserScreenshots,
-    imageFailed,
+    imageFailed: false,
   })
-  const blurred = mountImage && blurScreenshotsUntilClick && !revealed
+
+  useEffect(() => {
+    if (!mountImage || media || !canFetchStripped) {
+      setStrippedBlobUrl(null)
+      return
+    }
+    if (!serverBaseUrl || !conversationId) return
+
+    let cancelled = false
+    const controller = new AbortController()
+    setStrippedLoadFailed(false)
+
+    void resolveToolImageBlobUrl({
+      serverBaseUrl,
+      conversationId,
+      toolCallId: evidence.toolCallId,
+      signal: controller.signal,
+    })
+      .then((url) => {
+        if (cancelled || !url) return
+        setStrippedBlobUrl(url)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setStrippedBlobUrl(null)
+          setStrippedLoadFailed(true)
+        }
+      })
+
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [
+    mountImage,
+    media,
+    canFetchStripped,
+    serverBaseUrl,
+    conversationId,
+    evidence.toolCallId,
+  ])
+
+  const imgSrc = media
+    ? toSrc(media.data, media.mimeType)
+    : (strippedBlobUrl ?? '')
+  const imageFailed =
+    strippedLoadFailed || (failedSrc != null && failedSrc === imgSrc)
+  const showImageSlot =
+    hasImageSource &&
+    showBrowserScreenshots &&
+    !imageFailed &&
+    !strippedLoadFailed
+  const showMountedThumb = mountImage && Boolean(imgSrc) && !imageFailed
+  const blurred = showMountedThumb && blurScreenshotsUntilClick && !revealed
 
   // Close the lightbox when the thumb demounts so it does not reopen on remount.
   useEffect(() => {
-    if (!mountImage) setOpen(false)
-  }, [mountImage])
+    if (!showMountedThumb) setOpen(false)
+  }, [showMountedThumb])
 
   const onThumbClick = () => {
-    if (!mountImage) return
+    if (!showMountedThumb) return
     if (blurred) setRevealed(true)
     setOpen(true)
   }
@@ -110,9 +189,9 @@ export const BrowserActionCard: FC<{
             type="button"
             className="mt-1.5 block w-full overflow-hidden"
             onClick={onThumbClick}
-            disabled={!mountImage}
+            disabled={!showMountedThumb}
           >
-            {mountImage ? (
+            {showMountedThumb ? (
               <img
                 src={imgSrc}
                 alt={browser.caption}
@@ -124,7 +203,8 @@ export const BrowserActionCard: FC<{
                 )}
               />
             ) : (
-              // Reserved box keeps layout stable while the bitmap is demounted.
+              // Reserved box keeps layout stable while the bitmap is demounted
+              // or the profile-aware blob fetch is in flight.
               <div
                 aria-hidden
                 className="aspect-video max-h-40 w-full bg-muted/40"
@@ -136,17 +216,13 @@ export const BrowserActionCard: FC<{
               </span>
             ) : null}
           </button>
-        ) : browser.pageDiffSummary ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {browser.pageDiffSummary}
-          </p>
-        ) : evidence.state === 'completed' ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {showBrowserScreenshots
-              ? 'Screenshot unavailable'
-              : 'Screenshots hidden in settings'}
-          </p>
-        ) : null}
+        ) : (
+          <BrowserThumbFallback
+            pageDiffSummary={browser.pageDiffSummary}
+            completed={evidence.state === 'completed'}
+            showBrowserScreenshots={showBrowserScreenshots}
+          />
+        )}
         <div className="mt-1.5">
           <button
             type="button"
@@ -157,7 +233,7 @@ export const BrowserActionCard: FC<{
           </button>
         </div>
       </div>
-      {mountImage ? (
+      {showMountedThumb ? (
         <ImageLightbox
           open={open}
           onOpenChange={setOpen}

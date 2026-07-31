@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { BROWSEROS_PROFILE_ID_HEADER } from '@browseros/shared/constants/headers'
 import type { cors } from 'hono/cors'
 import { logger } from '../../lib/logger'
 
@@ -80,6 +81,12 @@ export const defaultCorsConfig: CorsOptions = {
     return null
   },
   allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  allowHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Accept',
+    // Extension agentFetch attaches this for per-profile SQLite isolation.
+    BROWSEROS_PROFILE_ID_HEADER,
+  ],
   credentials: true,
 }
