@@ -1380,7 +1380,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     )
     if (!target) return
 
-    const previousTarget = selectedChatTargetRef.current
     track(PROVIDER_SELECTED_EVENT, {
       provider_id: target.id,
       provider_type: target.kind === 'acp' ? 'acp' : target.type,
@@ -1400,15 +1399,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       })
     })
     if (target.kind === 'llm') setDefaultProvider(target.provider.id)
-
-    if (
-      previousTarget &&
-      (previousTarget.kind !== target.kind ||
-        previousTarget.id !== target.id) &&
-      messagesRef.current.length > 0
-    ) {
-      resetConversationState()
-    }
+    // Do not resetConversationState here — mid-chat model/provider switches
+    // must keep the open transcript. Server hot-switches the agent binding.
   }
 
   const getActionForMessage = (message: UIMessage) => {
