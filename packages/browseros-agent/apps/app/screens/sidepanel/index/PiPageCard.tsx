@@ -5,7 +5,7 @@
  */
 
 import { Check, Copy, ExternalLink } from 'lucide-react'
-import { type FC, useEffect, useRef, useState } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { openPiHref } from '@/lib/personal-internet/open-pi-href'
 import { parsePiHref } from '@/lib/personal-internet/pi-href'
@@ -22,8 +22,13 @@ export type PiPageCardProps = {
   href: string
   preview?: PiPagePreview | null
   className?: string
-  /** When true, auto-navigate once on mount (pi_open). */
+  /**
+   * Navigate once for a live pi_open during an active stream.
+   * History revisits never auto-open (requires isStreaming).
+   */
   autoOpen?: boolean
+  autoOpenKey?: string
+  isStreaming?: boolean
 }
 
 function kindLabel(kind?: PiPagePreview['kind']): string {
@@ -41,14 +46,30 @@ function kindLabel(kind?: PiPagePreview['kind']): string {
   }
 }
 
+const openedKeys = new Set<string>()
+
+function markOpened(key: string): boolean {
+  if (openedKeys.has(key)) return false
+  try {
+    const storageKey = `pane.pi.autoOpen.${key}`
+    if (sessionStorage.getItem(storageKey)) return false
+    sessionStorage.setItem(storageKey, '1')
+  } catch {
+    // sessionStorage unavailable — fall through to in-memory only
+  }
+  openedKeys.add(key)
+  return true
+}
+
 export const PiPageCard: FC<PiPageCardProps> = ({
   href,
   preview,
   className,
   autoOpen = false,
+  autoOpenKey,
+  isStreaming = false,
 }) => {
   const [copied, setCopied] = useState(false)
-  const autoOpened = useRef(false)
 
   const parts = parsePiHref(href)
   const title =
@@ -66,10 +87,11 @@ export const PiPageCard: FC<PiPageCardProps> = ({
       : undefined)
 
   useEffect(() => {
-    if (!autoOpen || autoOpened.current) return
-    autoOpened.current = true
+    // Only during a live stream — reopening a finished chat must not navigate.
+    if (!autoOpen || !isStreaming || !autoOpenKey) return
+    if (!markOpened(autoOpenKey)) return
     void openPiHref(href)
-  }, [autoOpen, href])
+  }, [autoOpen, autoOpenKey, href, isStreaming])
 
   const handleOpen = () => {
     void openPiHref(href)

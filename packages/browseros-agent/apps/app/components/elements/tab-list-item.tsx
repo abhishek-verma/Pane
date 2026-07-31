@@ -1,5 +1,6 @@
 import { Check, Globe } from 'lucide-react'
 import type { FC } from 'react'
+import { displayTabUrl } from '@/lib/personal-internet/attachable-tab-url'
 import { cn } from '@/lib/utils'
 
 export interface TabListItemProps {
@@ -36,7 +37,7 @@ export const TabListItem: FC<TabListItemProps> = ({
           {tab.title}
         </div>
         <div className="truncate text-[10px] text-muted-foreground">
-          {tab.url}
+          {displayTabUrl(tab.url)}
         </div>
       </div>
     </div>
