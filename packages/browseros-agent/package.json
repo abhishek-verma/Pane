@@ -54,7 +54,11 @@
     "fallow": "fallow check",
     "lint:fix": "bunx @biomejs/biome check --write --unsafe",
     "gen:cdp": "bun scripts/codegen/cdp-protocol.ts",
-    "generate:models": "bun scripts/generate-models.ts"
+    "generate:models": "bun scripts/generate-models.ts",
+    "assert:privileged-bundle": "bun scripts/assert-privileged-bundle.ts",
+    "assert:agent-heap-flag": "bun scripts/assert-agent-extension-heap-flag.ts",
+    "test:mermaid-crash-survival": "bun scripts/dev/mermaid-sandbox-crash-survival.ts",
+    "test:privileged-heap-soak": "bun scripts/dev/privileged-renderer-heap-soak.ts"
   },
   "repository": "browseros-ai/Pane",
   "author": "Pane",

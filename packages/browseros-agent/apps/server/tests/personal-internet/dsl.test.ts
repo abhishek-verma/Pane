@@ -426,4 +426,73 @@ describe('pi dsl', () => {
       }),
     ).toThrow(PiDslError)
   })
+
+  it('rejects mermaid init directives that override limits', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'Bad mmd',
+        nodes: [
+          {
+            type: 'mermaid',
+            source: '%%{init: {"maxEdges": 99999}}%%\nflowchart LR\nA-->B',
+          },
+        ],
+      }),
+    ).toThrow(/init directives/)
+  })
+
+  it('rejects too many mermaid nodes per page', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'Many diagrams',
+        nodes: Array.from({ length: 5 }, (_, i) => ({
+          type: 'mermaid' as const,
+          source: `flowchart LR\nA${i}-->B${i}`,
+        })),
+      }),
+    ).toThrow(/mermaid nodes/)
+  })
+
+  it('rejects nesting deeper than 12', () => {
+    let node: Record<string, unknown> = { type: 'text', text: 'leaf' }
+    for (let i = 0; i < 14; i++) {
+      node = { type: 'stack', children: [node] }
+    }
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'Deep',
+        nodes: [node],
+      }),
+    ).toThrow(/nesting depth/)
+  })
+
+  it('rejects docs with more than 200 nodes', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'Huge',
+        nodes: Array.from({ length: 201 }, (_, i) => ({
+          type: 'text' as const,
+          text: `n${i}`,
+        })),
+      }),
+    ).toThrow(/exceeds 200 nodes/)
+  })
+
+  it('rejects mermaid with too many edges', () => {
+    const edges = Array.from(
+      { length: 201 },
+      (_, i) => `N${i}-->N${i + 1}`,
+    ).join('\n')
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'Edges',
+        nodes: [{ type: 'mermaid', source: `flowchart LR\n${edges}` }],
+      }),
+    ).toThrow(/edges/)
+  })
 })

@@ -8,7 +8,7 @@
  * external resource URLs before persist / render.
  */
 
-const MAX_SVG_CHARS = 64 * 1024
+import { PI_LIMITS } from '@browseros/shared/constants/limits'
 
 const FORBIDDEN_TAGS =
   /<\/?(?:script|foreignObject|iframe|object|embed|link|meta|style|use)\b/i
@@ -25,8 +25,8 @@ export function sanitizePiSvg(markup: string, path = 'svg'): string {
   if (typeof markup !== 'string' || !markup.trim()) {
     throw new Error(`${path}: svg markup required`)
   }
-  if (markup.length > MAX_SVG_CHARS) {
-    throw new Error(`${path}: svg exceeds ${MAX_SVG_CHARS} chars`)
+  if (markup.length > PI_LIMITS.MAX_SVG_CHARS) {
+    throw new Error(`${path}: svg exceeds ${PI_LIMITS.MAX_SVG_CHARS} chars`)
   }
 
   let cleaned = markup.trim()
@@ -53,6 +53,12 @@ export function sanitizePiSvg(markup: string, path = 'svg'): string {
   return cleaned
 }
 
-export const PI_MAX_SVG_CHARS = MAX_SVG_CHARS
-export const PI_MAX_MERMAID_CHARS = 16 * 1024
-export const PI_MAX_CHART_POINTS = 24
+export const PI_MAX_SVG_CHARS = PI_LIMITS.MAX_SVG_CHARS
+export const PI_MAX_MERMAID_CHARS = PI_LIMITS.MAX_MERMAID_CHARS
+export const PI_MAX_CHART_POINTS = PI_LIMITS.MAX_CHART_POINTS
+export const PI_MAX_MERMAID_EDGES = PI_LIMITS.MAX_MERMAID_EDGES
+export const PI_MAX_MERMAID_SVG_CHARS = PI_LIMITS.MAX_MERMAID_SVG_CHARS
+export const PI_MAX_NODES = PI_LIMITS.MAX_NODES
+export const PI_MAX_NESTING_DEPTH = PI_LIMITS.MAX_NESTING_DEPTH
+export const PI_MAX_MERMAID_NODES_PER_PAGE =
+  PI_LIMITS.MAX_MERMAID_NODES_PER_PAGE

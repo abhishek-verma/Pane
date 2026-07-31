@@ -1,5 +1,4 @@
 import posthog from 'posthog-js'
-import 'posthog-js/dist/posthog-recorder'
 import { env } from '../env'
 
 import { telemetryStorage } from './telemetryStorage'
@@ -16,12 +15,12 @@ export const initPostHog = async () => {
       api_host: env.VITE_PUBLIC_POSTHOG_HOST,
       person_profiles: 'identified_only',
       disable_external_dependency_loading: true,
-      disable_session_recording: false,
+      // DOM session recording is banned in the privileged extension renderer:
+      // the recorder package must never be imported here, and init must not
+      // enable recording even if a future posthog-js default flips.
+      disable_session_recording: true,
       capture_pageview: true,
       autocapture: true,
-      session_recording: {
-        maskAllInputs: true,
-      },
       persistence: 'localStorage',
       loaded: (posthog) => {
         posthog.register({

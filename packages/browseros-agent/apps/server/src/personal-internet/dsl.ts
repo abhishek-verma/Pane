@@ -8,6 +8,10 @@ import { BOARD_SHAPE_HINT } from './pi-node-schema'
 import {
   PI_MAX_CHART_POINTS,
   PI_MAX_MERMAID_CHARS,
+  PI_MAX_MERMAID_EDGES,
+  PI_MAX_MERMAID_NODES_PER_PAGE,
+  PI_MAX_NESTING_DEPTH,
+  PI_MAX_NODES,
   sanitizePiSvg,
 } from './sanitize-svg'
 import type {
@@ -21,6 +25,61 @@ import type {
   PiPatchOp,
   TableRow,
 } from './types'
+
+/** Rough edge count: mermaid arrow operators. */
+export function countMermaidEdges(source: string): number {
+  const re =
+    /(?:-->|---|-\.-|==>|==|~.>~|-\.->|===>|<-->|<--|<===|o--|x--|-->>)/g
+  let count = 0
+  while (re.exec(source)) count++
+  return count
+}
+
+/** Reject %%{init}%% directives that try to override secure Mermaid limits. */
+export function hasForbiddenMermaidDirective(source: string): boolean {
+  if (!/%%\s*\{\s*init\s*:/i.test(source)) return false
+  return /maxTextSize|maxEdges|securityLevel|startOnLoad/i.test(source)
+}
+
+function countPiNodes(nodes: PiNode[]): number {
+  let n = 0
+  const walk = (node: PiNode) => {
+    n++
+    if (node.type === 'stack') {
+      for (const c of node.children) walk(c)
+    } else if (node.type === 'button' && node.replaceWith) {
+      walk(node.replaceWith)
+    } else if (node.type === 'table') {
+      for (const row of node.rows) {
+        for (const v of Object.values(row.cells)) {
+          if (v && typeof v === 'object' && 'type' in v) walk(v as PiNode)
+        }
+      }
+    }
+  }
+  for (const node of nodes) walk(node)
+  return n
+}
+
+function countMermaidNodes(nodes: PiNode[]): number {
+  let n = 0
+  const walk = (node: PiNode) => {
+    if (node.type === 'mermaid') n++
+    if (node.type === 'stack') {
+      for (const c of node.children) walk(c)
+    } else if (node.type === 'button' && node.replaceWith) {
+      walk(node.replaceWith)
+    } else if (node.type === 'table') {
+      for (const row of node.rows) {
+        for (const v of Object.values(row.cells)) {
+          if (v && typeof v === 'object' && 'type' in v) walk(v as PiNode)
+        }
+      }
+    }
+  }
+  for (const node of nodes) walk(node)
+  return n
+}
 
 /** Normalize `{ label, action }` or bare `PiAction` into a labeled pair. */
 export function normalizeCardAction(entry: PiCardAction): {
@@ -258,8 +317,15 @@ function validateAction(action: PiAction, path: string): void {
 function validateNode(
   node: PiNode,
   path: string,
-  opts: { coerceBoards?: boolean } = {},
+  opts: { coerceBoards?: boolean; depth?: number } = {},
 ): void {
+  const depth = opts.depth ?? 0
+  if (depth > PI_MAX_NESTING_DEPTH) {
+    throw new PiDslError(
+      `${path}: nesting depth exceeds ${PI_MAX_NESTING_DEPTH}`,
+    )
+  }
+  const childOpts = { ...opts, depth: depth + 1 }
   switch (node.type) {
     case 'title':
     case 'text':
@@ -282,14 +348,14 @@ function validateNode(
         assertSafeText(node.id, `${path}.id`)
       }
       for (const [i, child] of node.children.entries()) {
-        validateNode(child, `${path}.children[${i}]`, opts)
+        validateNode(child, `${path}.children[${i}]`, childOpts)
       }
       return
     case 'button':
       assertSafeText(node.label, path)
       validateAction(node.action, `${path}.action`)
       if (node.replaceWith)
-        validateNode(node.replaceWith, `${path}.replaceWith`, opts)
+        validateNode(node.replaceWith, `${path}.replaceWith`, childOpts)
       return
     case 'link':
       assertSafeText(node.label, path)
@@ -324,7 +390,11 @@ function validateNode(
               if (typeof cell.value === 'string')
                 assertSafeText(cell.value, path)
               else
-                validateNode(cell.value, `${path}.cells.${cell.columnId}`, opts)
+                validateNode(
+                  cell.value,
+                  `${path}.cells.${cell.columnId}`,
+                  childOpts,
+                )
               rec[cell.columnId] = cell.value
             }
           } else {
@@ -332,7 +402,7 @@ function validateNode(
               const v = rawCells[i]
               if (typeof v === 'string') assertSafeText(v, path)
               else if (v != null)
-                validateNode(v as PiNode, `${path}.cells.${col.id}`, opts)
+                validateNode(v as PiNode, `${path}.cells.${col.id}`, childOpts)
               if (v != null) rec[col.id] = v as PiNode | string
             }
           }
@@ -341,7 +411,7 @@ function validateNode(
           for (const [k, v] of Object.entries(row.cells)) {
             assertSafeText(k, path)
             if (typeof v === 'string') assertSafeText(v, path)
-            else validateNode(v, `${path}.cells.${k}`, opts)
+            else validateNode(v, `${path}.cells.${k}`, childOpts)
           }
         }
       }
@@ -413,6 +483,16 @@ function validateNode(
       if (node.source.length > PI_MAX_MERMAID_CHARS) {
         throw new PiDslError(
           `${path}: mermaid exceeds ${PI_MAX_MERMAID_CHARS} chars`,
+        )
+      }
+      if (hasForbiddenMermaidDirective(node.source)) {
+        throw new PiDslError(
+          `${path}: mermaid init directives that override limits are not allowed`,
+        )
+      }
+      if (countMermaidEdges(node.source) > PI_MAX_MERMAID_EDGES) {
+        throw new PiDslError(
+          `${path}: mermaid exceeds ${PI_MAX_MERMAID_EDGES} edges`,
         )
       }
       assertSafeText(node.source, path)
@@ -547,8 +627,20 @@ export function validatePageDoc(
   if (bytes > MAX_DOC_BYTES) {
     throw new PiDslError(`Page doc exceeds ${MAX_DOC_BYTES} bytes`)
   }
+  const totalNodes = countPiNodes(doc.nodes)
+  if (totalNodes > PI_MAX_NODES) {
+    throw new PiDslError(
+      `Page doc exceeds ${PI_MAX_NODES} nodes (got ${totalNodes})`,
+    )
+  }
+  const mermaidCount = countMermaidNodes(doc.nodes)
+  if (mermaidCount > PI_MAX_MERMAID_NODES_PER_PAGE) {
+    throw new PiDslError(
+      `Page doc exceeds ${PI_MAX_MERMAID_NODES_PER_PAGE} mermaid nodes (got ${mermaidCount})`,
+    )
+  }
   for (const [i, node] of doc.nodes.entries()) {
-    validateNode(node, `nodes[${i}]`, opts)
+    validateNode(node, `nodes[${i}]`, { ...opts, depth: 0 })
   }
   return doc
 }
@@ -747,7 +839,7 @@ export function applyPatchOps(doc: PiPageDoc, ops: PiPatchOp[]): PiPageDoc {
         }
         const sections = [...materialize.sections]
         const idx = sections.findIndex((s) => s.id === op.id)
-        const title = op.title ?? (idx >= 0 ? sections[idx]!.title : op.id)
+        const title = op.title ?? (idx >= 0 ? sections[idx]?.title : op.id)
         const section: PiMaterializeSection = {
           id: op.id,
           title,

@@ -108,3 +108,29 @@ export const AGENT_HARNESS_LIMITS = {
   /** Maximum size in bytes for a single queued message's text. */
   QUEUE_MESSAGE_MAX_BYTES: 64 * 1024,
 } as const
+
+/**
+ * Personalised Internet page / viz budgets.
+ * Enforced on the server at validate time and mirrored cheaply in the
+ * extension Mermaid sandbox broker before creating a render iframe.
+ */
+export const PI_LIMITS = {
+  /** Authored SVG markup stored on svg nodes. */
+  MAX_SVG_CHARS: 64 * 1024,
+  /** Mermaid source length (also Mermaid maxTextSize). */
+  MAX_MERMAID_CHARS: 16 * 1024,
+  /** Mermaid edge count (also Mermaid maxEdges). */
+  MAX_MERMAID_EDGES: 200,
+  /** SVG returned from a Mermaid sandbox render. */
+  MAX_MERMAID_SVG_CHARS: 512 * 1024,
+  /** Chart series points. */
+  MAX_CHART_POINTS: 24,
+  /** Total PiNode count in a page doc (recursive). */
+  MAX_NODES: 200,
+  /** Max stack/table nesting depth. */
+  MAX_NESTING_DEPTH: 12,
+  /** Max mermaid nodes anywhere in one page doc. */
+  MAX_MERMAID_NODES_PER_PAGE: 4,
+  /** Sandbox render wall-clock timeout. */
+  MERMAID_RENDER_TIMEOUT_MS: 5_000,
+} as const

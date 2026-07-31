@@ -93,6 +93,12 @@ export default defineConfig({
       'audioCapture',
     ],
     host_permissions: ['http://127.0.0.1/*', 'https://*/*', 'http://*/*'],
+    // Sandbox page CSP for Mermaid isolation (mermaid-sandbox.html via
+    // entrypoints/mermaid-sandbox.sandbox/). Scripts from extension only.
+    content_security_policy: {
+      sandbox:
+        "sandbox allow-scripts; script-src 'self' 'wasm-unsafe-eval'; object-src 'self';",
+    },
   },
   vite: () => ({
     build: {

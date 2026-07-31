@@ -20,6 +20,9 @@ export const PiMarkdown: FC<{
     mode="static"
     parseIncompleteMarkdown={false}
     linkSafety={streamdownLinkSafety}
+    // Mermaid stays off privileged Streamdown paths; PI diagrams use the
+    // disposable mermaid-sandbox iframe broker instead.
+    plugins={{}}
     className={cn(
       '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-0 [&_strong]:font-semibold',
       className,

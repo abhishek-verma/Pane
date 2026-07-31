@@ -7,6 +7,7 @@
  * Exposed on agent tools so models see the real board shape (cardIds, not columnId).
  */
 
+import { PI_LIMITS } from '@browseros/shared/constants/limits'
 import { z } from 'zod'
 
 const actionSchema = z.discriminatedUnion('kind', [
@@ -78,18 +79,19 @@ const chartNodeSchema = z.object({
   unit: z.string().optional(),
   data: z
     .array(z.object({ label: z.string(), value: z.number().finite() }))
-    .min(1),
+    .min(1)
+    .max(PI_LIMITS.MAX_CHART_POINTS),
 })
 
 const mermaidNodeSchema = z.object({
   type: z.literal('mermaid'),
-  source: z.string().min(1),
+  source: z.string().min(1).max(PI_LIMITS.MAX_MERMAID_CHARS),
   title: z.string().optional(),
 })
 
 const svgNodeSchema = z.object({
   type: z.literal('svg'),
-  markup: z.string().min(1),
+  markup: z.string().min(1).max(PI_LIMITS.MAX_SVG_CHARS),
   title: z.string().optional(),
   alt: z.string().optional(),
 })
@@ -155,11 +157,11 @@ export const pageDocSchema = z
   .object({
     version: z.literal(1),
     title: z.string().min(1),
-    nodes: z.array(piNodeSchema),
+    nodes: z.array(piNodeSchema).max(PI_LIMITS.MAX_NODES),
     meta: z.record(z.unknown()).optional(),
   })
   .describe(
-    'PI page doc. For boards: columns[].cardIds + cards[].id/title/subtitle. Never put columnId or description on cards — use upsertBoardCard to place cards by columnId.',
+    'PI page doc. For boards: columns[].cardIds + cards[].id/title/subtitle. Never put columnId or description on cards — use upsertBoardCard to place cards by columnId. Budgets: max 200 nodes, depth 12, at most 4 mermaid nodes, mermaid source ≤16KiB / 200 edges.',
   )
 
 export const upsertBoardCardOpSchema = z.object({
