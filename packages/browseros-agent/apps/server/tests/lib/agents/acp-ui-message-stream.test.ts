@@ -121,6 +121,35 @@ describe('createAcpUIMessageStream', () => {
     })
   })
 
+  it('strips Tool: server/ MCP titles to bare tool names', async () => {
+    const chunks = await collectChunks([
+      {
+        type: 'tool_call',
+        id: 'tool-1',
+        title: 'Tool: browseros/pi_read',
+        text: 'Reading page',
+        status: 'running',
+      },
+      {
+        type: 'tool_call',
+        id: 'tool-1',
+        title: 'Tool: browseros/pi_read',
+        text: 'page doc',
+        status: 'completed',
+      },
+      { type: 'done', stopReason: 'end_turn' },
+    ])
+
+    expect(chunks).toContainEqual({
+      type: 'tool-input-available',
+      toolCallId: 'tool-1',
+      toolName: 'pi_read',
+      title: 'Tool: browseros/pi_read',
+      input: { description: 'Reading page' },
+      dynamic: true,
+    })
+  })
+
   it('uses a fallback error text for failed ACP tool calls without text', async () => {
     const chunks = await collectChunks([
       {

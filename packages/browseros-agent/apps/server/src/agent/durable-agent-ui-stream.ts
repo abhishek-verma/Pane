@@ -34,8 +34,16 @@ export function formatAgentStreamError(error: unknown): string {
   if (isTypeValidationError(error)) {
     return 'Chat history had an invalid tool approval state. Send your message again to continue.'
   }
+  if (isNoSuchToolError(error)) {
+    return 'The agent called a tool the chat runtime did not recognize. Send your message again to continue.'
+  }
   const message = findStreamErrorMessage(error)
-  if (message) return truncateStreamErrorMessage(message)
+  if (message) {
+    if (isOpaqueStreamError(message) && isAcpxRuntimeError(error)) {
+      return 'The agent runtime hit an internal error. Send your message again to continue.'
+    }
+    return truncateStreamErrorMessage(message)
+  }
   return 'An error occurred.'
 }
 
@@ -139,6 +147,29 @@ function isTypeValidationError(error: unknown): boolean {
     name === 'AI_TypeValidationError' ||
     name === 'TypeValidationError' ||
     message.startsWith('Type validation failed')
+  )
+}
+
+function isNoSuchToolError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const name = (error as { name?: string }).name
+  const message = (error as { message?: string }).message ?? ''
+  return (
+    name === 'AI_NoSuchToolError' ||
+    name === 'NoSuchToolError' ||
+    message.startsWith('Model tried to call unavailable tool')
+  )
+}
+
+function isAcpxRuntimeError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const name = (error as { name?: string }).name
+  const cause = (error as { cause?: { code?: unknown } }).cause
+  return (
+    name === 'AcpxError' ||
+    (typeof cause === 'object' &&
+      cause !== null &&
+      (cause as { code?: unknown }).code === 'RUNTIME')
   )
 }
 

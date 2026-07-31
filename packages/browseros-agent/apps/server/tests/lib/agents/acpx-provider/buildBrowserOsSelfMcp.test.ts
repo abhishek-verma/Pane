@@ -98,6 +98,31 @@ describe('buildBrowserOsSelfMcpEntry', () => {
     ).toBe('0')
   })
 
+  it('writes the profile header when profileId is set', () => {
+    const entry = buildBrowserOsSelfMcpEntry({
+      serverPort: 9100,
+      conversationId: 'conv-1',
+      providerId: 'codex',
+      profileId: 'c097a059-0744-4a57-a430-964669b6fc65',
+    })
+    if (entry.type !== 'http') throw new Error('expected http entry')
+    expect(
+      entry.headers.find((h) => h.name === 'X-BrowserOS-Profile-Id')?.value,
+    ).toBe('c097a059-0744-4a57-a430-964669b6fc65')
+  })
+
+  it('omits the profile header when profileId is absent', () => {
+    const entry = buildBrowserOsSelfMcpEntry({
+      serverPort: 9100,
+      conversationId: 'conv-1',
+      providerId: 'codex',
+    })
+    if (entry.type !== 'http') throw new Error('expected http entry')
+    expect(
+      entry.headers.find((h) => h.name === 'X-BrowserOS-Profile-Id'),
+    ).toBeUndefined()
+  })
+
   it('encodes selected managed MCP server names into the scope header', () => {
     const entry = buildBrowserOsSelfMcpEntry({
       serverPort: 9100,

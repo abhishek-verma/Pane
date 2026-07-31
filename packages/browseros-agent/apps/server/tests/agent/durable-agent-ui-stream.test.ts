@@ -33,6 +33,26 @@ describe('formatAgentStreamError', () => {
     )
   })
 
+  it('maps AI_NoSuchToolError to a short recovery hint', () => {
+    expect(
+      formatAgentStreamError({
+        name: 'AI_NoSuchToolError',
+        message:
+          "Model tried to call unavailable tool 'Tool: browseros/pi_read'. Available tools: pi_read",
+      }),
+    ).toContain('did not recognize')
+  })
+
+  it('maps opaque AcpxError Internal error to a recovery hint', () => {
+    const err = new Error('Internal error')
+    err.name = 'AcpxError'
+    ;(err as Error & { cause?: unknown }).cause = {
+      message: 'Internal error',
+      code: 'RUNTIME',
+    }
+    expect(formatAgentStreamError(err)).toContain('agent runtime')
+  })
+
   it('maps Type validation failures to a short recovery hint', () => {
     expect(
       formatAgentStreamError({

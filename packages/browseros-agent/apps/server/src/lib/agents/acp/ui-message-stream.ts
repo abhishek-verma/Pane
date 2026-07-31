@@ -8,6 +8,7 @@ import type { FinishReason, UIMessageChunk } from 'ai'
 
 import type { AgentStreamEvent } from '../types'
 import { isNudgeToolName } from './nudge'
+import { normalizeAcpToolTitle } from './tool-title'
 
 const TEXT_PART_ID = 'acp-text'
 const REASONING_PART_ID = 'acp-reasoning'
@@ -380,7 +381,8 @@ function nextToolCallId(state: AcpUIMessageStreamState): string {
 }
 
 function normalizeToolName(value: string): string {
-  const normalized = value
+  const bare = normalizeAcpToolTitle(value)
+  const normalized = bare
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')

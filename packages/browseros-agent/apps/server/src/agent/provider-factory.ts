@@ -12,6 +12,7 @@ import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import type { AcpxProvider } from 'acpx-ai-provider'
 import type { LanguageModel } from 'ai'
+import { wrapAcpProviderExecutedTools } from '../lib/agents/acp/wrap-acp-provider-tools'
 import { buildAcpxProvider } from '../lib/agents/acpx-provider/buildAcpxProvider'
 import {
   DANGEROUS_ALLOW_MODE_CANDIDATES,
@@ -181,7 +182,9 @@ async function createAcpLanguageModel(
     await applyDangerouslyAllowMode(provider, agentId, config.conversationId)
   }
   return {
-    model: provider.languageModel() as LanguageModel,
+    model: wrapAcpProviderExecutedTools(
+      provider.languageModel() as LanguageModel,
+    ),
     // acpx-ai-provider's docs put close() ownership on the caller: skip
     // it and the spawned agent process outlives the conversation.
     close: () => provider.close(),

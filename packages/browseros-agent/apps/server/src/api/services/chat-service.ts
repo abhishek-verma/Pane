@@ -46,6 +46,7 @@ import type { ResolvedAgentConfig } from '../../agent/types'
 import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpServers'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
+import { tryGetProfileKey } from '../../lib/profile-context'
 import { finalizeSkillOutcomesForRun } from '../../memory/skill-outcomes'
 import { indexWorkspaceFiles } from '../../retrieval/workspace-index'
 import { defaultWorkspace } from '../../tools/filesystem/workspace'
@@ -349,6 +350,7 @@ export class ChatService {
             serverPort: this.deps.serverPort,
             conversationId: request.conversationId,
             providerId: llmConfig.provider,
+            profileId: tryGetProfileKey() ?? undefined,
             defaultWindowId: request.browserContext?.windowId,
             enabledMcpServers: request.browserContext?.enabledMcpServers,
             customMcpServers: request.browserContext?.customMcpServers,

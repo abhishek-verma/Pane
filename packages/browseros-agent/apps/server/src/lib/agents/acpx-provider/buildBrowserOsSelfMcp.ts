@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { BROWSEROS_PROFILE_ID_HEADER } from '@browseros/shared/constants/headers'
 import type { McpServerSpec } from './buildAcpxProvider'
 
 const BROWSEROS_SELF_MCP_NAME = 'browseros'
@@ -19,6 +20,14 @@ export interface BuildBrowserOsSelfMcpOptions {
   conversationId: string
   /** Provider id forwarded as `X-BrowserOS-Agent-Id` for audit logs. */
   providerId: string
+  /**
+   * Chrome profile key forwarded as `X-BrowserOS-Profile-Id` so `/mcp`
+   * binds the same per-profile data root the chat UI uses (PI sites,
+   * memories/skills, sessions). Without this, optionalProfile leaves
+   * MCP on the empty install-root DB and tools like pi_read/pi_list
+   * report everything as missing.
+   */
+  profileId?: string
   /**
    * Active window the agent should default to when a tool that takes a
    * `windowId` is called without one. Sourced from the request's
@@ -48,6 +57,12 @@ export function buildBrowserOsSelfMcpEntry(
     { name: 'X-BrowserOS-Scope-Id', value: opts.conversationId },
     { name: 'X-BrowserOS-Agent-Id', value: opts.providerId },
   ]
+  if (opts.profileId) {
+    headers.push({
+      name: BROWSEROS_PROFILE_ID_HEADER,
+      value: opts.profileId,
+    })
+  }
   if (typeof opts.defaultWindowId === 'number') {
     headers.push({
       name: 'X-BrowserOS-Default-Window-Id',

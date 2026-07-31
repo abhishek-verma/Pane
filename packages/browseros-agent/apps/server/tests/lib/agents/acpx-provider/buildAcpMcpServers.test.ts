@@ -73,6 +73,17 @@ describe('buildAcpMcpServers', () => {
     ).toBe('Slack,Google%20Docs')
   })
 
+  it('forwards profileId into the BrowserOS entry headers', () => {
+    const out = buildAcpMcpServers({
+      ...baseOpts,
+      profileId: 'c097a059-0744-4a57-a430-964669b6fc65',
+    })
+    if (out[0]?.type !== 'http') throw new Error('expected http entry')
+    expect(
+      out[0].headers.find((h) => h.name === 'X-BrowserOS-Profile-Id')?.value,
+    ).toBe('c097a059-0744-4a57-a430-964669b6fc65')
+  })
+
   it('handles an undefined customMcpServers list', () => {
     const out = buildAcpMcpServers(baseOpts)
     expect(out).toHaveLength(1)

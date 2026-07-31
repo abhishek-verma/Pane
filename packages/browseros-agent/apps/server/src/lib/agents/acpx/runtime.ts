@@ -5,6 +5,7 @@
  */
 
 import { join } from 'node:path'
+import { BROWSEROS_PROFILE_ID_HEADER } from '@browseros/shared/constants/headers'
 import { DEFAULT_PORTS } from '@browseros/shared/constants/ports'
 import {
   type AcpRuntimeEvent,
@@ -20,6 +21,7 @@ import {
 } from 'acpx/runtime'
 import { getBrowserosDir } from '../../browseros-dir'
 import { logger } from '../../logger'
+import { tryGetProfileKey } from '../../profile-context'
 import {
   type AgentDefinition,
   type AgentHistoryEntry,
@@ -740,12 +742,20 @@ function createBrowserosMcpServers(
   host: string,
   turnIdentity: { agentId: string; sessionId: AgentSessionId },
 ): NonNullable<AcpRuntimeOptions['mcpServers']> {
+  const browserosHeaders: Array<{ name: string; value: string }> = []
+  const profileId = tryGetProfileKey()
+  if (profileId) {
+    browserosHeaders.push({
+      name: BROWSEROS_PROFILE_ID_HEADER,
+      value: profileId,
+    })
+  }
   return [
     {
       type: 'http',
       name: 'browseros',
       url: `http://${host}:${browserosServerPort}/mcp`,
-      headers: [],
+      headers: browserosHeaders,
     },
     // Second entry: in-process nudge MCP server. Host LLMs see this as
     // `nudge/suggest_app_connection` and call it whenever a connection
