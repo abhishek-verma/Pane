@@ -16,12 +16,53 @@ function truncateText(text: string, maxChars: number): string {
   return `${text.slice(0, maxChars)}\n…[truncated ${text.length - maxChars} chars]`
 }
 
-function estimateBytes(value: unknown): number {
-  try {
-    return JSON.stringify(value).length
-  } catch {
-    return Number.POSITIVE_INFINITY
+/** Size estimate that never JSON.stringify's image `data` fields. */
+export function estimateToolOutputBytes(value: unknown): number {
+  if (value == null) return 0
+  if (typeof value === 'string') return value.length
+  if (typeof value !== 'object') return 8
+  if (Array.isArray(value)) {
+    let n = 0
+    for (const item of value) n += estimateToolOutputBytes(item)
+    return n
   }
+  const rec = value as Record<string, unknown>
+  if (rec.type === 'image' && typeof rec.data === 'string') {
+    return rec.data.length + 32
+  }
+  let n = 0
+  for (const [k, v] of Object.entries(rec)) {
+    n += k.length
+    if (k === 'data' && typeof v === 'string' && rec.type === 'image') {
+      n += v.length
+      continue
+    }
+    if (k === 'image' && typeof v === 'string') {
+      n += v.length
+      continue
+    }
+    n += estimateToolOutputBytes(v)
+  }
+  return n
+}
+
+function firstTextPreview(
+  rec: Record<string, unknown>,
+  maxChars: number,
+): string {
+  if (typeof rec.preview === 'string' && rec.preview) {
+    return truncateText(rec.preview, maxChars)
+  }
+  if (Array.isArray(rec.content)) {
+    for (const item of rec.content) {
+      if (typeof item !== 'object' || item === null) continue
+      const block = item as Record<string, unknown>
+      if (block.type === 'text' && typeof block.text === 'string') {
+        return truncateText(block.text, maxChars)
+      }
+    }
+  }
+  return ''
 }
 
 /**
@@ -43,10 +84,7 @@ export function slimMessagesForClientUi(
       const output = anyPart.output
       if (!output || typeof output !== 'object') return part
       const rec = output as Record<string, unknown>
-      // Server already spilled — leave the stub alone.
-      if (rec.spilled === true) return part
-
-      const bytes = estimateBytes(output)
+      // Server already spilled — leave the stub alone (still strip images).
       const structured = rec.structuredContent
       const sc =
         structured &&
@@ -54,11 +92,37 @@ export function slimMessagesForClientUi(
         !Array.isArray(structured)
           ? (structured as Record<string, unknown>)
           : null
+
+      let hasInlineImage = false
+      if (Array.isArray(rec.content)) {
+        for (const item of rec.content) {
+          if (
+            item &&
+            typeof item === 'object' &&
+            (item as { type?: string; data?: unknown; stripped?: boolean })
+              .type === 'image' &&
+            typeof (item as { data?: unknown }).data === 'string' &&
+            (item as { stripped?: boolean }).stripped !== true
+          ) {
+            hasInlineImage = true
+            break
+          }
+        }
+      }
+      if (sc && typeof sc.image === 'string' && sc.image.length > 0) {
+        hasInlineImage = true
+      }
+
+      if (rec.spilled === true && !hasInlineImage) return part
+
+      const bytes = estimateToolOutputBytes(output)
       const fatSnapshot =
         sc &&
         typeof sc.snapshot === 'string' &&
         sc.snapshot.length > previewMaxChars
-      if (bytes <= previewMaxChars * 2 && !fatSnapshot) return part
+      if (bytes <= previewMaxChars * 2 && !fatSnapshot && !hasInlineImage) {
+        return part
+      }
 
       anyChanged = true
       partsChanged = true
@@ -73,7 +137,7 @@ export function slimMessagesForClientUi(
             if (!preview) preview = truncated
             return { ...block, text: truncated }
           }
-          if (block.type === 'image' && typeof block.data === 'string') {
+          if (block.type === 'image') {
             const { data: _d, ...rest } = block
             return { ...rest, stripped: true }
           }
@@ -95,8 +159,8 @@ export function slimMessagesForClientUi(
         structuredContent = nextSc
       }
       if (!preview) {
-        preview = truncateText(
-          JSON.stringify(rec).slice(0, previewMaxChars * 2),
+        preview = firstTextPreview(
+          { ...rec, content: nextContent },
           previewMaxChars,
         )
       }

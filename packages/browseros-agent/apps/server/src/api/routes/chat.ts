@@ -255,6 +255,36 @@ export function createChatRoutes(deps: ChatRouteDeps) {
       },
     )
     .get(
+      '/:conversationId/activity',
+      zValidator('param', ConversationIdParamSchema),
+      zValidator(
+        'query',
+        z.object({
+          limit: z.coerce.number().int().positive().max(20).optional(),
+        }),
+      ),
+      async (c) => {
+        const { conversationId } = c.req.valid('param')
+        const query = c.req.valid('query')
+        try {
+          const activity = await service.getConversationActivity(
+            conversationId,
+            { lineLimit: query.limit },
+          )
+          if (!activity) {
+            return c.json({ error: 'Conversation not found' }, 404)
+          }
+          return c.json(activity)
+        } catch (error) {
+          logger.error('Failed to get conversation activity', {
+            conversationId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return c.json({ error: 'Failed to fetch activity' }, 500)
+        }
+      },
+    )
+    .get(
       '/:conversationId/tool-outputs/:toolCallId',
       zValidator(
         'param',

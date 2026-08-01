@@ -1,23 +1,87 @@
 /**
  * Client caches for lazily loaded tool media / spilled outputs.
- * Cleared when messages leave the infinite-scroll resident window so heap
- * falls with the scroll window (plan Phase 1b / 2 media lifecycle).
+ * LRU + byte caps keep privileged LO-space bounded; also cleared when messages
+ * leave the infinite-scroll resident window.
  */
 
+import { UI_TOOL_MEDIA_LIMITS } from '@browseros/shared/constants/limits'
+
+type ImageEntry = { url: string; bytes: number }
+
 const toolOutputTextCache = new Map<string, string>()
-const toolImageBlobUrlCache = new Map<string, string>()
+const toolImageBlobUrlCache = new Map<string, ImageEntry>()
+
+let lastImageEvictionAt = 0
+let imageEvictionCount = 0
+
+function touchMapKey<K, V>(map: Map<K, V>, key: K, value: V): void {
+  map.delete(key)
+  map.set(key, value)
+}
+
+function totalImageBytes(): number {
+  let sum = 0
+  for (const e of toolImageBlobUrlCache.values()) sum += e.bytes
+  return sum
+}
+
+function totalOutputTextChars(): number {
+  let sum = 0
+  for (const t of toolOutputTextCache.values()) sum += t.length
+  return sum
+}
+
+function evictOldestImage(): void {
+  const oldest = toolImageBlobUrlCache.keys().next().value
+  if (typeof oldest !== 'string') return
+  const prev = toolImageBlobUrlCache.get(oldest)
+  if (prev) URL.revokeObjectURL(prev.url)
+  toolImageBlobUrlCache.delete(oldest)
+  lastImageEvictionAt = Date.now()
+  imageEvictionCount += 1
+}
+
+function enforceImageLimits(): void {
+  while (
+    toolImageBlobUrlCache.size > UI_TOOL_MEDIA_LIMITS.MAX_IMAGE_BLOB_ENTRIES ||
+    totalImageBytes() > UI_TOOL_MEDIA_LIMITS.MAX_IMAGE_BLOB_BYTES
+  ) {
+    if (toolImageBlobUrlCache.size === 0) break
+    evictOldestImage()
+  }
+}
+
+function evictOldestOutputText(): void {
+  const oldest = toolOutputTextCache.keys().next().value
+  if (typeof oldest !== 'string') return
+  toolOutputTextCache.delete(oldest)
+}
+
+function enforceOutputTextLimits(): void {
+  while (
+    toolOutputTextCache.size > UI_TOOL_MEDIA_LIMITS.MAX_OUTPUT_TEXT_ENTRIES ||
+    totalOutputTextChars() > UI_TOOL_MEDIA_LIMITS.MAX_OUTPUT_TEXT_CHARS
+  ) {
+    if (toolOutputTextCache.size === 0) break
+    evictOldestOutputText()
+  }
+}
 
 export function getCachedToolOutputText(
   toolCallId: string,
 ): string | undefined {
-  return toolOutputTextCache.get(toolCallId)
+  const text = toolOutputTextCache.get(toolCallId)
+  if (text === undefined) return undefined
+  touchMapKey(toolOutputTextCache, toolCallId, text)
+  return text
 }
 
 export function setCachedToolOutputText(
   toolCallId: string,
   text: string,
 ): void {
-  toolOutputTextCache.set(toolCallId, text)
+  touchMapKey(toolOutputTextCache, toolCallId, text)
+  enforceOutputTextLimits()
 }
 
 export function clearCachedToolOutputText(toolCallId: string): void {
@@ -27,24 +91,32 @@ export function clearCachedToolOutputText(toolCallId: string): void {
 export function getCachedToolImageBlobUrl(
   toolCallId: string,
 ): string | undefined {
-  return toolImageBlobUrlCache.get(toolCallId)
+  const entry = toolImageBlobUrlCache.get(toolCallId)
+  if (!entry) return undefined
+  touchMapKey(toolImageBlobUrlCache, toolCallId, entry)
+  return entry.url
 }
 
 export function setCachedToolImageBlobUrl(
   toolCallId: string,
   blobUrl: string,
+  bytes = 0,
 ): void {
   const prev = toolImageBlobUrlCache.get(toolCallId)
-  if (prev && prev !== blobUrl) {
-    URL.revokeObjectURL(prev)
+  if (prev && prev.url !== blobUrl) {
+    URL.revokeObjectURL(prev.url)
   }
-  toolImageBlobUrlCache.set(toolCallId, blobUrl)
+  touchMapKey(toolImageBlobUrlCache, toolCallId, {
+    url: blobUrl,
+    bytes: Math.max(0, bytes),
+  })
+  enforceImageLimits()
 }
 
 export function clearCachedToolImageBlobUrl(toolCallId: string): void {
   const prev = toolImageBlobUrlCache.get(toolCallId)
   if (prev) {
-    URL.revokeObjectURL(prev)
+    URL.revokeObjectURL(prev.url)
     toolImageBlobUrlCache.delete(toolCallId)
   }
 }
@@ -70,6 +142,33 @@ export function releaseMediaForMessages(
   }
 }
 
+/** Debug / soak counters for LO containment. */
+export function getToolMediaCacheStats(): {
+  imageEntries: number
+  imageBytes: number
+  outputTextEntries: number
+  outputTextChars: number
+  imageEvictionCount: number
+  lastImageEvictionAt: number
+} {
+  return {
+    imageEntries: toolImageBlobUrlCache.size,
+    imageBytes: totalImageBytes(),
+    outputTextEntries: toolOutputTextCache.size,
+    outputTextChars: totalOutputTextChars(),
+    imageEvictionCount,
+    lastImageEvictionAt,
+  }
+}
+
+if (typeof globalThis !== 'undefined') {
+  ;(
+    globalThis as typeof globalThis & {
+      __paneLoDebug?: { getToolMediaCacheStats: typeof getToolMediaCacheStats }
+    }
+  ).__paneLoDebug = { getToolMediaCacheStats }
+}
+
 /** Test helper */
 export function _toolOutputCacheSizeForTests(): number {
   return toolOutputTextCache.size
@@ -81,8 +180,10 @@ export function _toolImageBlobCacheSizeForTests(): number {
 
 export function _clearToolOutputCacheForTests(): void {
   toolOutputTextCache.clear()
-  for (const url of toolImageBlobUrlCache.values()) {
-    URL.revokeObjectURL(url)
+  for (const entry of toolImageBlobUrlCache.values()) {
+    URL.revokeObjectURL(entry.url)
   }
   toolImageBlobUrlCache.clear()
+  imageEvictionCount = 0
+  lastImageEvictionAt = 0
 }

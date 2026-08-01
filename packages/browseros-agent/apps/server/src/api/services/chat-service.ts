@@ -32,6 +32,10 @@ import {
 import { createDurableAgentUIStreamResponse } from '../../agent/durable-agent-ui-stream'
 import { formatUserMessage } from '../../agent/format-message'
 import { guardUiMessagesForContext } from '../../agent/guard-ui-messages-for-context'
+import {
+  deriveMaterializeActivity,
+  type MaterializeActivitySnapshot,
+} from '../../agent/materialize-activity'
 import { prepareMessagesForAgentTurn } from '../../agent/message-repair'
 import {
   filterValidMessages,
@@ -1144,6 +1148,35 @@ export class ChatService {
    * Projects for UI only — does not load the full transcript into memory
    * when the conversation is persisted.
    */
+  /**
+   * Slim activity strip for PI materialize UI. Never returns full messages —
+   * only clipped lines derived from the newest page of the transcript.
+   */
+  async getConversationActivity(
+    conversationId: string,
+    options: { lineLimit?: number; messageWindow?: number } = {},
+  ): Promise<MaterializeActivitySnapshot | null> {
+    const lineLimit = Math.max(1, Math.min(options.lineLimit ?? 4, 20))
+    const messageWindow = Math.max(1, Math.min(options.messageWindow ?? 20, 50))
+    const exists =
+      await this.deps.sessionStore.hasPersistedSession(conversationId)
+
+    let recent: UIMessage[]
+    if (!exists) {
+      const live = this.deps.sessionStore.get(conversationId)
+      if (!live) return null
+      const all = filterValidMessages(live.agent.messages)
+      recent = all.slice(-messageWindow)
+    } else {
+      const page = await this.deps.sessionStore.loadMessagesPage(
+        conversationId,
+        { limit: messageWindow },
+      )
+      recent = filterValidMessages(page.messages)
+    }
+    return deriveMaterializeActivity(recent, lineLimit)
+  }
+
   async listConversationMessages(
     conversationId: string,
     options: { beforeId?: string; limit?: number } = {},
@@ -1179,12 +1212,31 @@ export class ChatService {
       beforeId: options.beforeId,
       limit,
     })
-    // Image backfill on the page only (not the whole transcript).
-    stripUIImageOutputs(
+    // Image backfill on the page: move inline base64 into tool_images and
+    // rewrite only those SQLite rows (never persistMessages — that deletes
+    // the rest of the transcript).
+    const stripped = stripUIImageOutputs(
       page.messages,
       conversationId,
       this.deps.sessionStore.imageStore,
     )
+    if (stripped) {
+      try {
+        await this.deps.sessionStore.updatePersistedMessageContents(
+          conversationId,
+          page.messages,
+        )
+        logger.info('Backfilled inline tool images on message page', {
+          conversationId,
+          messageCount: page.messages.length,
+        })
+      } catch (err: unknown) {
+        logger.warn('Failed to persist image backfill on message page', {
+          conversationId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    }
     return {
       messages: this.projectForUiClient(conversationId, page.messages),
       hasMore: page.hasMore,

@@ -17,9 +17,9 @@ import {
   MaterializeActivityBar,
   type PendingMaterializeApproval,
 } from './MaterializeActivityBar'
-import {
-  deriveMaterializeActivity,
-  type MaterializeActivityLine,
+import type {
+  MaterializeActivityLine,
+  MaterializeActivitySnapshot,
 } from './materializeActivity'
 import { PiBrokenPagePanel } from './PiBrokenPagePanel'
 import {
@@ -346,16 +346,17 @@ export const EntityPage: FC = () => {
     const tick = async () => {
       try {
         const base = await getAgentServerUrl()
-        const [chatRes, approvalsRes] = await Promise.all([
-          agentFetch(`${base}/chat/${encodeURIComponent(conversationId)}`),
+        const [activityRes, approvalsRes] = await Promise.all([
+          agentFetch(
+            `${base}/chat/${encodeURIComponent(conversationId)}/activity?limit=4`,
+          ),
           agentFetch(`${base}/scheduler/approvals`),
         ])
         if (cancelled) return
-        if (chatRes.ok) {
-          const body = (await chatRes.json()) as { messages?: unknown[] }
-          const snap = deriveMaterializeActivity(body.messages ?? [], 4)
-          setActivityLines(snap.lines)
-          setToolWaiting(snap.toolWaiting)
+        if (activityRes.ok) {
+          const snap = (await activityRes.json()) as MaterializeActivitySnapshot
+          setActivityLines(snap.lines ?? [])
+          setToolWaiting(Boolean(snap.toolWaiting))
         }
         if (approvalsRes.ok) {
           const body = (await approvalsRes.json()) as {

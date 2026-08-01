@@ -517,6 +517,33 @@ export class SessionStore {
       hasMore,
     }
   }
+
+  /**
+   * Rewrite SQLite content for specific messages after inline-image strip.
+   * Does **not** delete other rows (unlike persistMessages).
+   */
+  async updatePersistedMessageContents(
+    sessionId: string,
+    messages: UIMessage[],
+  ): Promise<void> {
+    if (messages.length === 0) return
+    const db = getDb()
+    for (const m of messages) {
+      const id = typeof m.id === 'string' ? m.id.trim() : ''
+      if (!id) continue
+      await db
+        .update(chatMessages)
+        .set({
+          content: JSON.stringify({
+            id,
+            parts: m.parts ?? [],
+          }),
+        })
+        .where(
+          and(eq(chatMessages.sessionId, sessionId), eq(chatMessages.id, id)),
+        )
+    }
+  }
 }
 
 function rowToUiMessage(r: {

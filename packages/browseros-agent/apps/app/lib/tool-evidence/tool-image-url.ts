@@ -55,6 +55,6 @@ export async function resolveToolImageBlobUrl(
   }
 
   const objectUrl = URL.createObjectURL(blob)
-  setCachedToolImageBlobUrl(args.toolCallId, objectUrl)
+  setCachedToolImageBlobUrl(args.toolCallId, objectUrl, blob.size)
   return objectUrl
 }

@@ -7,16 +7,12 @@ import {
 } from '@/lib/tool-evidence/browser-thumb-mount'
 import { useScreenshotPrefs } from '@/lib/tool-evidence/screenshot-prefs'
 import { resolveToolImageBlobUrl } from '@/lib/tool-evidence/tool-image-url'
+import { clearCachedToolImageBlobUrl } from '@/lib/tool-evidence/tool-media-cache'
 import type { ToolEvidence } from '@/lib/tool-evidence/types'
 import { cn } from '@/lib/utils'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { ImageLightbox } from './ImageLightbox'
 import { ToolStatusIcon } from './ToolStatusIcon'
-
-function toSrc(data: string, mimeType: string): string {
-  if (data.startsWith('data:')) return data
-  return `data:${mimeType};base64,${data}`
-}
 
 function BrowserThumbFallback({
   pageDiffSummary,
@@ -55,8 +51,8 @@ export const BrowserActionCard: FC<{
   // Track which src failed so a new src/tool identity can retry automatically.
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const [nearViewport, setNearViewport] = useState(false)
-  const [strippedBlobUrl, setStrippedBlobUrl] = useState<string | null>(null)
-  const [strippedLoadFailed, setStrippedLoadFailed] = useState(false)
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const { showBrowserScreenshots, blurScreenshotsUntilClick } =
     useScreenshotPrefs()
@@ -78,18 +74,16 @@ export const BrowserActionCard: FC<{
     return () => observer.disconnect()
   }, [])
 
+  // Never mount inline base64 / data: URLs — always profile-aware blob fetch.
   const media = browser?.media[0]
-  // If no inline image but the server stripped one, lazy-load via agentFetch
-  // (profile header) into a cached blob URL — raw <img src> cannot auth.
-  const strippedMeta =
-    browser && !media ? (browser.strippedImages?.[0] ?? null) : null
-  const canFetchStripped = Boolean(
-    strippedMeta && serverBaseUrl && conversationId,
+  const strippedMeta = browser?.strippedImages?.[0] ?? null
+  const wantsScreenshot = Boolean(media || strippedMeta)
+  const canFetch = Boolean(
+    wantsScreenshot && serverBaseUrl && conversationId && evidence.toolCallId,
   )
-  const hasImageSource = Boolean(media || canFetchStripped)
-  const imgMimeType = media?.mimeType ?? strippedMeta?.mimeType ?? 'image/png'
+  const hasImageSource = canFetch
+  const imgMimeType = strippedMeta?.mimeType ?? media?.mimeType ?? 'image/png'
 
-  // Only decode the bitmap when near the viewport (or force-mounted for replay).
   const mountImage = shouldMountBrowserThumb({
     nearViewport,
     highlighted,
@@ -99,15 +93,18 @@ export const BrowserActionCard: FC<{
   })
 
   useEffect(() => {
-    if (!mountImage || media || !canFetchStripped) {
-      setStrippedBlobUrl(null)
+    if (!mountImage || !canFetch) {
+      setBlobUrl(null)
+      if (evidence.toolCallId) {
+        clearCachedToolImageBlobUrl(evidence.toolCallId)
+      }
       return
     }
     if (!serverBaseUrl || !conversationId) return
 
     let cancelled = false
     const controller = new AbortController()
-    setStrippedLoadFailed(false)
+    setLoadFailed(false)
 
     void resolveToolImageBlobUrl({
       serverBaseUrl,
@@ -117,12 +114,12 @@ export const BrowserActionCard: FC<{
     })
       .then((url) => {
         if (cancelled || !url) return
-        setStrippedBlobUrl(url)
+        setBlobUrl(url)
       })
       .catch(() => {
         if (!cancelled) {
-          setStrippedBlobUrl(null)
-          setStrippedLoadFailed(true)
+          setBlobUrl(null)
+          setLoadFailed(true)
         }
       })
 
@@ -130,29 +127,15 @@ export const BrowserActionCard: FC<{
       cancelled = true
       controller.abort()
     }
-  }, [
-    mountImage,
-    media,
-    canFetchStripped,
-    serverBaseUrl,
-    conversationId,
-    evidence.toolCallId,
-  ])
+  }, [mountImage, canFetch, serverBaseUrl, conversationId, evidence.toolCallId])
 
-  const imgSrc = media
-    ? toSrc(media.data, media.mimeType)
-    : (strippedBlobUrl ?? '')
-  const imageFailed =
-    strippedLoadFailed || (failedSrc != null && failedSrc === imgSrc)
+  const imgSrc = blobUrl ?? ''
+  const imageFailed = loadFailed || (failedSrc != null && failedSrc === imgSrc)
   const showImageSlot =
-    hasImageSource &&
-    showBrowserScreenshots &&
-    !imageFailed &&
-    !strippedLoadFailed
+    hasImageSource && showBrowserScreenshots && !imageFailed && !loadFailed
   const showMountedThumb = mountImage && Boolean(imgSrc) && !imageFailed
   const blurred = showMountedThumb && blurScreenshotsUntilClick && !revealed
 
-  // Close the lightbox when the thumb demounts so it does not reopen on remount.
   useEffect(() => {
     if (!showMountedThumb) setOpen(false)
   }, [showMountedThumb])
@@ -203,8 +186,6 @@ export const BrowserActionCard: FC<{
                 )}
               />
             ) : (
-              // Reserved box keeps layout stable while the bitmap is demounted
-              // or the profile-aware blob fetch is in flight.
               <div
                 aria-hidden
                 className="aspect-video max-h-40 w-full bg-muted/40"

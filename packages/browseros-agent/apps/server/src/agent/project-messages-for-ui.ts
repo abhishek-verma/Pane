@@ -23,17 +23,62 @@ function truncateText(text: string, maxChars: number): string {
   return `${text.slice(0, maxChars)}\n…[truncated ${text.length - maxChars} chars; open details]`
 }
 
-function estimateJsonBytes(value: unknown): number {
-  try {
-    return JSON.stringify(value).length
-  } catch {
-    return Number.POSITIVE_INFINITY
+/** Size estimate that never JSON.stringify's image `data` (LO spike). */
+function estimateOutputBytes(value: unknown): number {
+  if (value == null) return 0
+  if (typeof value === 'string') return value.length
+  if (typeof value !== 'object') return 8
+  if (Array.isArray(value)) {
+    let n = 0
+    for (const item of value) n += estimateOutputBytes(item)
+    return n
   }
+  const rec = value as Record<string, unknown>
+  if (rec.type === 'image' && typeof rec.data === 'string') {
+    return rec.data.length + 32
+  }
+  let n = 0
+  for (const [k, v] of Object.entries(rec)) {
+    n += k.length
+    if (k === 'data' && typeof v === 'string' && rec.type === 'image') {
+      n += v.length
+      continue
+    }
+    if (k === 'image' && typeof v === 'string') {
+      n += v.length
+      continue
+    }
+    n += estimateOutputBytes(v)
+  }
+  return n
+}
+
+function hasInlineImageData(rec: Record<string, unknown>): boolean {
+  if (Array.isArray(rec.content)) {
+    for (const item of rec.content) {
+      if (
+        item &&
+        typeof item === 'object' &&
+        (item as { type?: string }).type === 'image' &&
+        typeof (item as { data?: unknown }).data === 'string' &&
+        (item as { stripped?: boolean }).stripped !== true
+      ) {
+        return true
+      }
+    }
+  }
+  const sc = rec.structuredContent
+  if (sc && typeof sc === 'object' && !Array.isArray(sc)) {
+    const image = (sc as { image?: unknown }).image
+    if (typeof image === 'string' && image.length > 0) return true
+  }
+  return false
 }
 
 /**
  * Project a single tool output value for the UI wire (SSE chunk or message
  * part). Spills fat bodies to ToolOutputStore. Does not mutate `output`.
+ * Always strips inline image `data` from the UI clone.
  */
 export function projectToolOutputForUi(
   output: unknown,
@@ -50,11 +95,12 @@ export function projectToolOutputForUi(
   const maxChars =
     options.previewMaxChars ?? AGENT_LIMITS.UI_TOOL_OUTPUT_PREVIEW_MAX_CHARS
   const rec = output as Record<string, unknown>
-  if (rec.spilled === true && typeof rec.preview === 'string') {
+  const hasImage = hasInlineImageData(rec)
+  if (rec.spilled === true && typeof rec.preview === 'string' && !hasImage) {
     return { output, changed: false }
   }
 
-  const bytes = estimateJsonBytes(output)
+  const bytes = estimateOutputBytes(output)
   const structured = rec.structuredContent
   const structuredRec =
     structured && typeof structured === 'object' && !Array.isArray(structured)
@@ -65,16 +111,19 @@ export function projectToolOutputForUi(
     typeof structuredRec.snapshot === 'string' &&
     structuredRec.snapshot.length > maxChars
 
-  if (bytes <= maxChars * 2 && !fatSnapshot) {
+  if (bytes <= maxChars * 2 && !fatSnapshot && !hasImage) {
     return { output, changed: false }
   }
 
-  const stored = options.outputStore.store(
-    options.sessionId,
-    options.toolCallId,
-    JSON.stringify(output),
-    'application/json',
-  )
+  const needsSpill = bytes > maxChars * 2 || Boolean(fatSnapshot)
+  const stored = needsSpill
+    ? options.outputStore.store(
+        options.sessionId,
+        options.toolCallId,
+        JSON.stringify(output),
+        'application/json',
+      )
+    : false
   return {
     output: shrinkOutputForUi(rec, maxChars, stored),
     changed: true,
@@ -189,7 +238,11 @@ function shrinkOutputForUi(
 
   if (!preview) {
     preview = truncateText(
-      typeof rec === 'object' ? JSON.stringify(rec).slice(0, maxChars * 2) : '',
+      typeof content?.[0] === 'object' &&
+        content[0] !== null &&
+        typeof (content[0] as { text?: unknown }).text === 'string'
+        ? String((content[0] as { text: string }).text)
+        : '',
       maxChars,
     )
   }
@@ -200,6 +253,6 @@ function shrinkOutputForUi(
     structuredContent,
     spilled,
     preview,
-    contentLength: estimateJsonBytes(rec),
+    contentLength: estimateOutputBytes(rec),
   }
 }

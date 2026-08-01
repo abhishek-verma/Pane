@@ -39,13 +39,19 @@ describe('stripFatInlineImagesFromMessages', () => {
     expect(content[0]?.data).toBeUndefined()
   })
 
-  test('keeps small inline data', () => {
+  test('strips all inline image data by default', () => {
     const messages = [makeMsg('small')]
     const next = stripFatInlineImagesFromMessages(messages)
-    expect(next).toBe(messages)
+    expect(next).not.toBe(messages)
+    const part = next[0]?.parts[0] as Record<string, unknown>
+    const content = (part.output as Record<string, unknown>).content as Array<
+      Record<string, unknown>
+    >
+    expect(content[0]?.stripped).toBe(true)
+    expect(content[0]?.data).toBeUndefined()
   })
 
-  test('estimateUiMessagesBytes grows with content', () => {
+  test('estimateUiMessagesBytes grows with content without requiring stringify of fat images', () => {
     const small = estimateUiMessagesBytes([makeMsg('x')])
     const large = estimateUiMessagesBytes([makeMsg('y'.repeat(10_000))])
     expect(large).toBeGreaterThan(small)

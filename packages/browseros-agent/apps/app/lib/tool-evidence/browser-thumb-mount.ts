@@ -1,5 +1,5 @@
 /** Prefetch buffer so thumbs mount slightly before they enter the viewport. */
-export const THUMB_ROOT_MARGIN = '600px 0px 600px 0px'
+export const THUMB_ROOT_MARGIN = '200px 0px 200px 0px'
 
 /**
  * Whether a browser-action card should mount its `<img>` (decode bitmap).

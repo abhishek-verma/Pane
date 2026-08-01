@@ -72,6 +72,21 @@ export const UI_CHAT_LIMITS = {
   MAX_RESIDENT_MESSAGES: 60,
 } as const
 
+/**
+ * Privileged renderer tool-media retention (blob URLs + spilled expand text).
+ * Keeps LO-space bounded when scrolling long browser-tool traces.
+ */
+export const UI_TOOL_MEDIA_LIMITS = {
+  /** Max concurrent tool-image blob: URLs in the privileged cache. */
+  MAX_IMAGE_BLOB_ENTRIES: 12,
+  /** Approximate max retained blob bytes (sum of Blob.size). */
+  MAX_IMAGE_BLOB_BYTES: 24 * 1024 * 1024,
+  /** Max spilled tool-output text strings retained after expand. */
+  MAX_OUTPUT_TEXT_ENTRIES: 8,
+  /** Max total chars across spilled tool-output text cache. */
+  MAX_OUTPUT_TEXT_CHARS: 2 * 1024 * 1024,
+} as const
+
 export const TOOL_LIMITS = {
   INLINE_PAGE_CONTENT_MAX_CHARS: 5_000,
   FILESYSTEM_READ_MAX_LINES: 500,

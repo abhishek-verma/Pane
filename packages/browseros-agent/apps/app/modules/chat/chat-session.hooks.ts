@@ -649,14 +649,56 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   // Bound live useChat heap: truncate fat tool bodies as they stream in.
   // Server still holds full fidelity; spilled expand uses /tool-outputs.
+  const livePoisonInFlightRef = useRef(false)
   useEffect(() => {
     const slimmed = slimMessagesForClientUi(
       stripFatInlineImagesFromMessages(messages),
     )
     if (slimmed !== messages) {
       setMessages(slimmed)
+      return
     }
-  }, [messages, setMessages])
+    // Live poison: if slimmed resident window is still huge, re-page from
+    // server rather than keeping multi-MB strings in the privileged heap.
+    if (
+      messages.length > 0 &&
+      isPoisonSessionPayload(messages) &&
+      status === 'ready' &&
+      !livePoisonInFlightRef.current
+    ) {
+      const conversationId = conversationIdRef.current
+      const baseUrl = agentUrlRef.current
+      if (!conversationId || !baseUrl) return
+      livePoisonInFlightRef.current = true
+      void fetchChatMessagePage(conversationId, {
+        limit: CHAT_PAGE_SIZE,
+        baseUrl,
+      })
+        .then((page) => {
+          const safe = slimMessagesForClientUi(
+            stripFatInlineImagesFromMessages(page.messages),
+          )
+          if (isPoisonSessionPayload(safe)) {
+            setMessages([])
+            setHasMoreAbove(false)
+            return
+          }
+          setHasMoreAbove(page.hasMore)
+          setMessages(
+            prepareMessagesForClientTurn(takeNewestPage(safe, CHAT_PAGE_SIZE), {
+              settleApprovals: false,
+            }),
+          )
+        })
+        .catch(() => {
+          setMessages([])
+          setHasMoreAbove(false)
+        })
+        .finally(() => {
+          livePoisonInFlightRef.current = false
+        })
+    }
+  }, [messages, setMessages, status])
 
   // `addToolApprovalResponse` flips the tool part to `approval-responded`
   // synchronously but only kicks off the actual resume request (and the
@@ -1078,7 +1120,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
               .filter((node): node is NonNullable<typeof node> => node !== null)
               .map((node) => node.message as UIMessage),
           )
-          if (isPoisonSessionPayload(restoredMessages)) {
+          // Page to newest 30 BEFORE poison estimate — never stringify 100 msgs.
+          const paged = takeNewestPage(
+            slimMessagesForClientUi(restoredMessages),
+            CHAT_PAGE_SIZE,
+          )
+          if (isPoisonSessionPayload(paged)) {
             quarantineAndOpenBlank(
               'chat.restore.quarantined_oversized_conversation',
             )
@@ -1088,13 +1135,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           // History restore must not force-deny already-answered approvals.
           // Default settle turns stop-raced `approval-responded` into a false
           // `output-denied` even when the tool side effect already ran.
-          const preparedMessages = prepareMessagesForClientTurn(
-            takeNewestPage(
-              slimMessagesForClientUi(restoredMessages),
-              CHAT_PAGE_SIZE,
-            ),
-            { settleApprovals: false },
-          )
+          const preparedMessages = prepareMessagesForClientTurn(paged, {
+            settleApprovals: false,
+          })
           setConversationId(
             conversationIdParam as ReturnType<typeof crypto.randomUUID>,
           )
@@ -1522,7 +1565,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             setMessages((current) => {
               const { messages: next } = hydrateClientMessagesFromServer(
                 current,
-                stripFatInlineImagesFromMessages(page.messages),
+                slimMessagesForClientUi(
+                  stripFatInlineImagesFromMessages(page.messages),
+                ),
               )
               for (const message of next) {
                 if (message.role !== 'assistant') continue

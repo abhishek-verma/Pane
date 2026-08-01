@@ -93,4 +93,45 @@ describe('projectMessagesForUi', () => {
     expect(projected).toBe(original)
     expect(store.map.size).toBe(0)
   })
+
+  it('strips inline image data without requiring a tool-output spill', () => {
+    const original: UIMessage[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'call-img',
+            state: 'output-available',
+            input: {},
+            output: {
+              content: [
+                { type: 'text', text: 'ok' },
+                {
+                  type: 'image',
+                  data: 'abc123',
+                  mimeType: 'image/jpeg',
+                },
+              ],
+            },
+          } as never,
+        ],
+      },
+    ]
+    const store = new MemoryOutputStore()
+    const projected = projectMessagesForUi(original, {
+      sessionId: 's1',
+      outputStore: store as never,
+    })
+    expect(projected).not.toBe(original)
+    const content = (
+      projected[0].parts[0] as {
+        output: { content: Array<Record<string, unknown>>; spilled?: boolean }
+      }
+    ).output.content
+    expect(content[1]?.stripped).toBe(true)
+    expect(content[1]?.data).toBeUndefined()
+    expect(store.map.size).toBe(0)
+  })
 })

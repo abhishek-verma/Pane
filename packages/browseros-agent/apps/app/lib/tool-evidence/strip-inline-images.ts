@@ -1,15 +1,18 @@
 import type { UIMessage } from 'ai'
 
-/** Inline base64 larger than this is replaced with a stripped placeholder. */
-export const INLINE_IMAGE_STRIP_THRESHOLD_BYTES = 100_000
+/**
+ * @deprecated Prefer stripping all tool images for UI. Kept for callers that
+ * pass an explicit threshold; default strip uses 0 (all inline image data).
+ */
+export const INLINE_IMAGE_STRIP_THRESHOLD_BYTES = 0
 
 /** Conversations larger than this after strip are quarantined (safe open). */
 export const POISON_SESSION_BYTES = 2_000_000
 
 /**
- * Client-side defense: never put multi-MB base64 image `data` into React /
- * useChat state. Replaces large inline images with `{ stripped: true }` and
- * drops legacy `structuredContent.image` duplicates.
+ * Client-side defense: never put tool screenshot `data` into React / useChat.
+ * Replaces inline images with `{ stripped: true }` and drops legacy
+ * `structuredContent.image` duplicates.
  *
  * Returns a new messages array when any image was stripped; otherwise the
  * original reference.
@@ -80,13 +83,67 @@ export function stripFatInlineImagesFromMessages(
   return changed ? next : messages
 }
 
-/** Rough serialized size for safe-open gates. */
+/**
+ * Approximate serialized size without JSON.stringify of fat image `data`
+ * fields (those alone can allocate multi-MB LO strings during the estimate).
+ */
 export function estimateUiMessagesBytes(messages: UIMessage[]): number {
-  try {
-    return JSON.stringify(messages).length
-  } catch {
-    return Number.POSITIVE_INFINITY
+  let total = 2 // []
+  for (let i = 0; i < messages.length; i++) {
+    if (i > 0) total += 1
+    total += estimateValueBytes(messages[i], 0)
+    if (total > POISON_SESSION_BYTES * 2) return total
   }
+  return total
+}
+
+function estimateValueBytes(value: unknown, depth: number): number {
+  if (value == null) return 4
+  if (typeof value === 'boolean') return value ? 4 : 5
+  if (typeof value === 'number') return String(value).length
+  if (typeof value === 'string') return value.length + 2
+  if (depth > 30) return 8
+  if (Array.isArray(value)) {
+    let n = 2
+    for (let i = 0; i < value.length; i++) {
+      if (i > 0) n += 1
+      n += estimateValueBytes(value[i], depth + 1)
+    }
+    return n
+  }
+  if (typeof value === 'object') {
+    const rec = value as Record<string, unknown>
+    // Short-circuit known fat image payloads.
+    if (rec.type === 'image' && typeof rec.data === 'string') {
+      return 64 + rec.data.length
+    }
+    let n = 2
+    let first = true
+    for (const key of Object.keys(rec)) {
+      if (!first) n += 1
+      first = false
+      n += key.length + 3
+      if (
+        key === 'data' &&
+        typeof rec.data === 'string' &&
+        rec.type === 'image'
+      ) {
+        n += rec.data.length + 2
+        continue
+      }
+      if (
+        key === 'image' &&
+        typeof rec.image === 'string' &&
+        rec.image.length > 10_000
+      ) {
+        n += rec.image.length + 2
+        continue
+      }
+      n += estimateValueBytes(rec[key], depth + 1)
+    }
+    return n
+  }
+  return 8
 }
 
 /** True when messages are still too large to safely hydrate into useChat. */

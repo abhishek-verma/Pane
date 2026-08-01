@@ -58,4 +58,36 @@ describe('slimMessagesForClientUi', () => {
     ]
     expect(slimMessagesForClientUi(messages)).toBe(messages)
   })
+
+  test('strips image data without JSON.stringify of the payload', () => {
+    const fat = 'i'.repeat(50_000)
+    const messages: UIMessage[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-act',
+            toolCallId: 'c1',
+            state: 'output-available',
+            input: {},
+            output: {
+              content: [
+                { type: 'text', text: 'ok' },
+                { type: 'image', data: fat, mimeType: 'image/jpeg' },
+              ],
+            },
+          } as never,
+        ],
+      },
+    ]
+    const next = slimMessagesForClientUi(messages)
+    const content = (
+      next[0].parts[0] as {
+        output: { content: Array<Record<string, unknown>> }
+      }
+    ).output.content
+    expect(content[1]?.stripped).toBe(true)
+    expect(content[1]?.data).toBeUndefined()
+  })
 })
