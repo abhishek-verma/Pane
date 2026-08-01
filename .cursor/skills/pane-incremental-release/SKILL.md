@@ -78,7 +78,8 @@ Identity is already in the login keychain — **do not** import the P12 locally.
 
 ```bash
 export MACOS_CERTIFICATE_NAME="Developer ID Application: Abhishek Verma (4Z2UAB6AWC)"
-export NOTARY_KEY="$(cat secrets/pane-release/AuthKey_LG3BDKV6WC.p8)"
+# Prefer the .p8 path locally (PEM-in-env also works after resolve_notary_key_file).
+export NOTARY_KEY="/Users/abhishek/workspace/Pane/secrets/pane-release/AuthKey_LG3BDKV6WC.p8"
 export NOTARY_KEY_ID="$(tr -d '[:space:]' < secrets/pane-release/NOTARY_KEY_ID.txt)"
 export NOTARY_ISSUER="$(tr -d '[:space:]' < secrets/pane-release/NOTARY_ISSUER.txt)"
 export SPARKLE_PRIVATE_KEY="$(cat secrets/pane-release/sparkle-private.b64)"
@@ -92,7 +93,11 @@ uv run browseros build --modules resources,bundled_extensions \
   --arch arm64 --build-type release --chromium-src /Users/abhishek/chromium/src
 
 APP="/Users/abhishek/chromium/src/out/Default_arm64/Pane.app"
-FW_RES="$(echo "$APP"/Contents/Frameworks/Pane\ Framework.framework/Versions/*/Resources/browseros_extensions)"
+# Pin the versioned Resources path — do NOT glob (Current + versioned expands to two
+# destinations and rsync can create a corrupted nested path inside the bundle).
+FW_RES="$APP/Contents/Frameworks/Pane Framework.framework/Versions/148.0.7949.97/Resources/browseros_extensions"
+# If the version folder name drifts, resolve the non-Current Versions/* entry:
+# FW_RES="$(find "$APP/Contents/Frameworks/Pane Framework.framework/Versions" -maxdepth 1 -type d ! -name Current ! -name Versions | head -1)/Resources/browseros_extensions"
 rsync -a /Users/abhishek/chromium/src/chrome/browser/browseros/server/resources/ \
   "$APP/Contents/Resources/BrowserOSServer/default/resources/"
 rsync -a /Users/abhishek/chromium/src/chrome/browser/browseros/claw_server/resources/ \

@@ -156,9 +156,20 @@ def resolve_notary_key_file(
     Accepts either a path to a .p8 file or the PEM contents themselves
     (as stored in GitHub Actions secrets).
     """
-    candidate = Path(notary_key)
-    if candidate.is_file():
-        return candidate
+    stripped = notary_key.strip()
+    # PEM / raw key material must never be treated as a path (Errno 63 on macOS).
+    looks_like_pem = (
+        stripped.startswith("-----BEGIN")
+        or "\n" in notary_key
+        or len(stripped) > 512
+    )
+    if not looks_like_pem:
+        candidate = Path(notary_key)
+        try:
+            if candidate.is_file():
+                return candidate
+        except OSError:
+            pass
 
     tmp = tempfile.NamedTemporaryFile(
         mode="w",
@@ -484,9 +495,11 @@ def find_components_to_sign(
 
     framework_path = join_paths(app_path, "Contents", "Frameworks")
 
-    # Check both versioned and non-versioned paths for BrowserOS Framework
-    # Handle both release and debug framework names
+    # Check both versioned and non-versioned paths for the branded framework
+    # Handle Pane (current) and BrowserOS (legacy) framework names
     framework_names = [
+        "Pane Framework.framework",
+        "Pane Dev Framework.framework",
         "BrowserOS Framework.framework",
         "BrowserOS Dev Framework.framework",
     ]
@@ -558,9 +571,16 @@ def find_components_to_sign(
         if not bundle_root.exists():
             continue
         for item in bundle_root.rglob("*"):
+            if not item.is_file():
+                continue
+            # Native modules / dylibs shipped under server resources (e.g. whisper)
+            # must be Developer ID signed with a secure timestamp for notarization.
+            if item.suffix in {".dylib", ".node", ".so"}:
+                if item not in components["dylibs"]:
+                    components["dylibs"].append(item)
+                continue
             if (
-                item.is_file()
-                and not item.suffix
+                not item.suffix
                 and os.access(item, os.X_OK)
                 and get_browseros_server_binary_info(item) is not None
             ):
@@ -609,7 +629,12 @@ def get_identifier_for_component(
 
     # For frameworks
     if component_path.suffix == ".framework":
-        if name == "BrowserOS Framework" or name == "BrowserOS Dev Framework":
+        if name in (
+            "Pane Framework",
+            "Pane Dev Framework",
+            "BrowserOS Framework",
+            "BrowserOS Dev Framework",
+        ):
             return f"{base_identifier}.framework"
         else:
             return f"{base_identifier}.{name.replace(' ', '_').lower()}"
@@ -643,8 +668,8 @@ def get_signing_options(component_path: Path) -> str:
     if browseros_server_info:
         return browseros_server_info.get("options", "runtime")
 
-    # For dylibs - library flag ONLY for dynamic libraries
-    if component_path.suffix == ".dylib":
+    # For dylibs / native node addons - library flag for dynamic libraries
+    if component_path.suffix in {".dylib", ".node", ".so"}:
         return "restrict,library,runtime,kill"
 
     # Default for other executables - no library flag
@@ -908,8 +933,8 @@ def sign_all_components(
 
     # 7. Sign main executable
     log_info("\n🔏 Signing main executable...")
-    # Handle both release and debug executable names
-    main_exe_names = ["BrowserOS", "BrowserOS Dev"]
+    # Handle both release and debug executable names (Pane brand + legacy BrowserOS)
+    main_exe_names = ["Pane", "Pane Dev", "BrowserOS", "BrowserOS Dev"]
     main_exe = None
     for exe_name in main_exe_names:
         exe_path = join_paths(app_path, "Contents", "MacOS", exe_name)
