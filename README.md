@@ -15,17 +15,19 @@ Browsers are also passive, like an IDE from the pre-AI era. What passes for "mod
 
 Pane is an open-source Chromium browser with a personal agent built into the session you already use. It can connect what happened across pages, meetings, research, files, and terminal; and do the work you were supposed to do, and that's only half the story.
 
-
+<p align="center">
+  <img src="assets/branding/png/pane-poster-1280.png" alt="Pane — a browser that keeps work moving when you step away" width="900" />
+</p>
 
 ## What changes when the agent is the browser
-
-
 
 ### What mattered stays
 
 Pane can capture a web meeting locally, keep a multi-day research trail, and search the activity around your work. You can close the tabs and return to the decisions, sources, and unfinished thread later.
 
-
+<p align="center">
+  <img src="assets/readme/features/gif/01-meetings.gif" alt="Pane capturing a meeting in the browser and answering from its local transcript" width="720" />
+</p>
 
 Meeting capture and research mode are opt-in. Recording is visible, domain-specific, and pauseable. Transcription can run on-device after a one-time model download.
 
@@ -33,7 +35,9 @@ Meeting capture and research mode are opt-in. Recording is visible, domain-speci
 
 Chats are poor containers for work that lasts days or weeks. Pane creates private, living sites for it instead: a Job Search pipeline, a Research Hub, a Sales Pipeline, or a site shaped around what you are doing. Chatting with an AI is so last year.
 
-
+<p align="center">
+  <img src="assets/readme/features/gif/02-personalised-internet.gif" alt="Pane turning ongoing work into a living private site" width="720" />
+</p>
 
 These sites live in your browser profile and get more useful the longer you use Pane.
 
@@ -41,13 +45,17 @@ These sites live in your browser profile and get more useful the longer you use 
 
 Save a successful task as a schedule and Pane can run it later, surface the result, and ask for approval when an action has consequences.
 
-
+<p align="center">
+  <img src="assets/readme/features/gif/04-work-in-motion.gif" alt="Pane completing scheduled work while the user is away and surfacing the result" width="720" />
+</p>
 
 ### Pane gets better at your work
 
 Pane keeps editable local memory files and a library of skills. Repeating successful workflows can produce staged skill drafts for you to inspect and approve. Ongoing projects become living sites, and the useful parts of prior work can carry into the next task.
 
-
+<p align="center">
+  <img src="assets/readme/features/gif/06-skills.gif" alt="Pane staging a reusable skill learned from repeated work for approval" width="720" />
+</p>
 
 ## For developers: one loop from browser to code
 
@@ -55,11 +63,15 @@ Pane can attach a granted workspace to the in-browser agent, combining live page
 
 ### Reproduce, fix, verify
 
-
+<p align="center">
+  <img src="assets/readme/features/gif/05-developer-cowork.gif" alt="Pane reproducing a localhost bug, editing the granted workspace, and verifying the fix" width="720" />
+</p>
 
 ### Give your coding agent its real browser
 
-
+<p align="center">
+  <img src="assets/readme/features/gif/08-pane-as-mcp.gif" alt="Claude Code driving Pane's real tabs over MCP" width="720" />
+</p>
 
 **Quick path:** Settings → Pane as MCP → copy the URL → `claude mcp add pane <url>`. Then ask your coding agent: *"Open localhost:3000, reproduce the signup bug, read the console, fix it, and verify the result."*
 
@@ -77,7 +89,9 @@ Early doesn't mean bare-bones. Pane already ships:
 - **Pane as MCP** — expose your live browser session to Claude Code, Cursor, and other MCP clients
 - **Your models** — API keys, ChatGPT Pro / Copilot / Qwen OAuth, or local models through Ollama and LM Studio
 
+### Honest limits
 
+- Pane does not run browser work while the browser is fully quit or the machine is asleep. Optional keep-alive can start the local agent server, but browser actions still need a browser process.
 
 ## Why this needs to be a browser
 
@@ -112,8 +126,6 @@ Your agent would assemble private views on top of the web you already use, shape
 
 > **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[Discord](https://discord.gg/652JHSyS4)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
 
-
-
 ## Built on trust
 
 - **Open source** (AGPL-3.0) — inspect the code, fork it, contribute
@@ -122,8 +134,6 @@ Your agent would assemble private views on top of the web you already use, shape
 - **Consent off by default** — capture is permissioned, domain-specific, visible, and pauseable
 - **Approvals match consequence** — actions that send, spend, or modify ask before they cross the boundary
 - **No Pane servers required** — the core product works without infrastructure operated by Pane
-
-
 
 ## Why Pane forked BrowserOS
 
@@ -148,8 +158,6 @@ Product specs live in [specs/](specs/README.md). Architecture in [specs/ARCHITEC
 - **[BrowserOS](https://github.com/browseros-ai/BrowserOS)** — Pane's Chromium fork, agent runtime, and MCP substrate. An excellent open-source project worth checking out.
 - [ungoogled-chromium](https://github.com/ungoogled-software/ungoogled-chromium) — privacy patches
 - [The Chromium Project](https://www.chromium.org/)
-
-
 
 ## License
 
