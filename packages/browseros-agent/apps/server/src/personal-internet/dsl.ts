@@ -185,7 +185,12 @@ export function normalizeBoardNode(
   }
 
   const agentShaped = node.cards.some((c) => {
-    const raw = c as { columnId?: unknown; description?: unknown; id?: unknown }
+    const raw = c as {
+      columnId?: unknown
+      description?: unknown
+      subtitle?: unknown
+      id?: unknown
+    }
     return (
       typeof raw.columnId === 'string' ||
       (raw.description != null && raw.subtitle == null) ||

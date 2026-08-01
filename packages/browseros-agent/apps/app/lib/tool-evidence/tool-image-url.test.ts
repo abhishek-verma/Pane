@@ -53,7 +53,7 @@ describe('resolveToolImageBlobUrl', () => {
     expect(String(calledWith)).toBe(
       'http://127.0.0.1:9100/chat/conv-1/tool-images/call-1',
     )
-    expect(getCachedToolImageBlobUrl('call-1')).toBe(url)
+    expect(getCachedToolImageBlobUrl('call-1')).toBe(url ?? undefined)
     expect(_toolImageBlobCacheSizeForTests()).toBe(1)
   })
 

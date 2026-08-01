@@ -8,11 +8,12 @@ import { describe, expect, test } from 'bun:test'
 import { type Query, QueryClient } from '@tanstack/react-query'
 import { shouldDehydrateQueryForLoContainment } from './QueryProvider'
 
-function fakeQuery(queryKey: unknown[]): Query {
+function fakeQuery(queryKey: readonly unknown[]): Query {
   const client = new QueryClient()
-  return client
-    .getQueryCache()
-    .build(client, { queryKey, queryFn: async () => null })
+  return client.getQueryCache().build(client, {
+    queryKey,
+    queryFn: async () => null,
+  }) as Query
 }
 
 describe('shouldDehydrateQueryForLoContainment', () => {

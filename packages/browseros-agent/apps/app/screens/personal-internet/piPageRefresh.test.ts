@@ -18,6 +18,7 @@ describe('buildPiPageRefreshAction', () => {
     })
 
     expect(action.kind).toBe('agent')
+    if (action.kind !== 'agent') throw new Error('expected agent action')
     expect(action.metadata).toMatchObject({
       returnRoute: '/pi/sites/site_1/entities/nablon',
       siteId: 'site_1',
@@ -42,6 +43,8 @@ describe('buildPiPageRefreshAction', () => {
       pageTitle: 'Job Search',
     })
 
+    expect(action.kind).toBe('agent')
+    if (action.kind !== 'agent') throw new Error('expected agent action')
     expect(action.metadata.returnRoute).toBe(
       '/pi/sites/site_1/pages/page_board',
     )
