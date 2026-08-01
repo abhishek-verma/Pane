@@ -397,6 +397,11 @@ export const currentMigrationHistory = [
     hash: 'e5f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde012345',
     createdAt: 1786100000000,
   },
+  {
+    tag: '0017_pi_harvest_config',
+    hash: 'f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde0123456',
+    createdAt: 1786200000000,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -942,6 +947,13 @@ const currentSchemaStatements = [
       template_id text,
       harvest_enabled integer DEFAULT 0 NOT NULL,
       harvest_host text,
+      harvest_sources_json text DEFAULT '[]' NOT NULL,
+      harvest_cadence_days integer DEFAULT 1 NOT NULL,
+      harvest_instructions text DEFAULT '' NOT NULL,
+      harvest_from_meetings integer DEFAULT 0 NOT NULL,
+      harvest_on_host_opened integer DEFAULT 0 NOT NULL,
+      harvest_allow_navigate integer DEFAULT 0 NOT NULL,
+      last_harvest_at integer,
       doorway_eligible integer DEFAULT 0 NOT NULL,
       created_at integer NOT NULL,
       updated_at integer NOT NULL,
@@ -1019,6 +1031,7 @@ const currentSchemaStatements = [
       coalesce_key text NOT NULL,
       status text DEFAULT 'pending' NOT NULL,
       error_text text,
+      filter_value text,
       created_at integer NOT NULL,
       updated_at integer NOT NULL
     )

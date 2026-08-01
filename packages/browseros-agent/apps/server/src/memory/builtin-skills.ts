@@ -21,6 +21,7 @@ export const BUILTIN_PI_PAGE_DSL_SKILL_ID = 'builtin-pi-page-dsl'
 export const BUILTIN_PI_PAGE_PATCH_SKILL_ID = 'builtin-pi-page-patch'
 export const BUILTIN_PI_PAGE_VIZ_SKILL_ID = 'builtin-pi-page-viz'
 export const BUILTIN_PI_HOME_SKILL_ID = 'builtin-pi-home'
+export const BUILTIN_PI_HARVEST_SKILL_ID = 'builtin-pi-harvest'
 export const BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_ID =
   'builtin-pi-harvest-job-search'
 export const BUILTIN_PI_PIPELINE_UPDATE_SKILL_ID = 'builtin-pi-pipeline-update'
@@ -156,7 +157,7 @@ Skip until \`context_search\` is exhausted when the question is about the user's
 
 export const BUILTIN_PI_SITES_SKILL_BODY = `---
 name: pi-sites
-description: Create and manage Personalised Internet sites (templates, list/upsert/archive, temp preserve, doorways). Use for living pipelines like Job Search / Research / Sales — before pi_site_upsert or pi_preserve_temp.
+description: Create and manage Personalised Internet sites (templates, list/upsert/archive, temp preserve, doorways, harvest config). Use for living pipelines like Job Search / Research / Sales / outreach / news — before pi_site_upsert or pi_preserve_temp.
 ---
 
 # Personal sites (lifecycle)
@@ -165,7 +166,7 @@ Private **sites** hold multi-day operable work. Pages live under sites (or as te
 
 ## When to create a site
 
-- Job search pipeline, research hub, sales board, or similar living work spanning days
+- Any living pipeline: job search, sales, marketing/outreach, research, news, social listening, analysis, etc.
 - User asks to "set up", "track", or "keep a board/pipeline" for ongoing work
 
 **Skip** for one-shot Q&A, a single link, or a short comparison — use \`pi-page-dsl\` + temp page instead (or just chat).
@@ -173,14 +174,18 @@ Private **sites** hold multi-day operable work. Pages live under sites (or as te
 ## Workflow
 
 1. \`pi_list\` — avoid duplicate slugs/templates.
-2. \`pi_site_upsert\` with \`templateId\` when it fits:
-   - \`job-search\` — board by stage (Applied → …). Set \`harvestEnabled: true\` only when the user wants LinkedIn harvest when that host tab is open (default off).
-   - \`research-hub\` — topics table
-   - \`sales-leads\` — leads table
-3. Share the \`pi://sites/...\` href from the tool result. Call \`pi_open\` when this site is the turn’s deliverable the user should see now.
-4. **Job Search SoT:** import/update applications with \`pi_record_upsert\` (\`recordType: job-application\`, fields: company, role?, stage, url?, nextAction?, notes?). Board + chart sync from records — do **not** only dump markdown into board cards.
-5. **Company details:** use \`pi://sites/<siteId>/entities/<entityKey>\` (lazy per-company pages). **Never** one mega "Company Details" page for all companies.
-6. Board card actions must be labeled: \`{ "label": "Details", "action": { "kind": "open-internal", "route": "#/pi/sites/.../entities/..." } }\` (SPA still uses hash routes inside the page).
+2. \`pi_site_upsert\` with \`templateId\` when it fits (\`job-search\` | \`research-hub\` | \`sales-leads\`) or a custom name/slug/jtbd. Templates do **not** pre-wire harvest hosts.
+3. **Harvest (propose → confirm):** On create, the tool returns \`harvestOffer.proposedConfig\`. Proactively present a **full** proposed config tailored to use case + conversation:
+   - \`harvestSources\` — browser hostnames inferred from provenance ("where did this data come from?", URLs mentioned). Can be many sites (CRM, webmail, LinkedIn, news, dashboards, …). Never invent a default host the user did not confirm.
+   - \`harvestCadenceDays\` — browser sync interval (default propose 1)
+   - \`harvestInstructions\` — optional custom instructions for the harvestor
+   - \`harvestFromMeetings\` — update from meeting-ended + transcript
+   - \`harvestOnHostOpened\` — sync when a source tab opens
+   - \`harvestAllowNavigate\` — scheduled sync may open sources even if the user did not visit them today
+   User may accept, change any field, or decline. **Never** set \`harvestEnabled: true\` (or write harvest fields) until they agree. Later edits: propose a diff, then upsert only confirmed fields.
+4. Share the \`pi://sites/...\` href from the tool result. Call \`pi_open\` when this site is the turn’s deliverable the user should see now.
+5. **Records SoT:** update with \`pi_record_upsert\` using types that fit the JTBD (e.g. \`job-application\` for Job Search). Board + chart sync from records — do **not** only dump markdown into board cards.
+6. **Company/entity details:** use \`pi://sites/<siteId>/entities/<entityKey>\` when relevant. **Never** one mega details page for all entities.
 7. Later freeform page edits → load \`pi-page-dsl\` / \`pi-page-patch\` as needed.
 8. Archive with \`pi_site_archive\` when the campaign ends (doorway drops; data kept until hard delete).
 
@@ -197,8 +202,8 @@ P0 template sites are doorway-eligible; pulse lines surface on home. Do not rebu
 
 - Invent HTML pages. Sites are DSL-backed.
 - Create a new site when \`pi_list\` already has the same template/slug — upsert instead.
-- Invent companies or stages not present in records / vault.
-- Author one shared details page for every company.
+- Silent-enable harvest or silent-add sources.
+- Assume LinkedIn / job-search is the only harvest shape.
 `
 
 export const BUILTIN_PI_PAGE_DSL_SKILL_BODY = `---
@@ -471,26 +476,50 @@ Creating a P0 site is usually enough. Prefer that over hand-editing home.
 - Put the full board on home — home is the front door; depth stays on the site.
 `
 
-export const BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_BODY = `---
-name: pi-harvest-job-search
-description: Harvest LinkedIn (or harvestHost) into Job Search pi_records. Use when a pi-harvest scheduled run asks to update applications — or when the user enables harvest and opens the host.
+export const BUILTIN_PI_HARVEST_SKILL_BODY = `---
+name: pi-harvest
+description: Background Personalised Internet sync agent. Use when a pi-harvest scheduled run prompt asks you to update pi_records from configured sources or a meeting transcript.
 ---
 
-# Job Search harvest
+# PI harvest (generic)
 
-\`harvestEnabled\` is **opt-in** per site (default off). When a harvest run starts:
+Follow the **run prompt** exactly. It lists user-confirmed config, trigger, sources, navigate rights, JTBD, and existing record types. Do **not** assume LinkedIn or job-application.
 
-1. \`pi_list\` / \`pi_record_list\` for the siteId in the prompt — know current applications.
-2. Use browser tools only on the harvest host tab/session. Do not invent companies.
-3. Upsert via \`pi_record_upsert\` (\`job-application\`: company, role?, stage, url?, nextAction?). Board/chart sync automatically.
-4. Per-company ATF only → \`#/pi/sites/<siteId>/entities/<entityKey>\` / \`pi_entity_ensure\` (default materialize:false) — never one mega details page; do not materialize every company.
-5. If the host tab is gone or nothing changed, stop — pulse may show stale; do not fabricate.
+## Workflow
+
+1. Read the prompt sections (Site, Why this run, Confirmed harvest config, Capabilities, Data model).
+2. Load this skill; load a domain overlay (e.g. \`pi-harvest-job-search\`) only if the prompt's templateId/JTBD matches.
+3. \`pi_record_list\` for siteId — know current state.
+4. Gather facts only from configured sources (browser and/or listed MCP) or the meeting transcript when trigger=meeting-ended.
+5. Upsert via \`pi_record_upsert\` using record types that fit this site (see existing types / JTBD). Board/chart/pulse sync from records.
+6. If nothing relevant changed or the event is irrelevant to the JTBD, make no writes and finish.
 
 ## Do not
 
-- Invent applications or stages.
+- Invent entities or statuses.
+- Hand-edit board JSON as source of truth.
+- Visit hosts outside \`sourcesInScope\` unless a listed MCP applies.
+- Ignore \`mayOpenOrNavigateSources=no\`.
+`
+
+export const BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_BODY = `---
+name: pi-harvest-job-search
+description: Optional Job Search overlay for pi-harvest runs when templateId/JTBD is job search. Prefer the generic pi-harvest skill first; follow the run prompt config.
+---
+
+# Job Search harvest overlay
+
+Use only when the run prompt's site is Job Search / applications. Still obey the prompt's sources, navigate flags, and custom instructions.
+
+1. \`pi_record_list\` for siteId.
+2. Upsert \`job-application\` records: company, role?, stage, url?, nextAction?, notes?.
+3. Optional per-company ATF → \`pi_entity_ensure\` (default materialize:false) — never one mega details page.
+4. If nothing changed, stop — do not fabricate companies.
+
+## Do not
+
+- Assume LinkedIn if sources list other hosts.
 - Bypass \`pi_record_*\` by only rewriting board JSON.
-- Claim Gmail/Calendar sync — not in this ship.
 `
 
 export const BUILTIN_PI_PIPELINE_UPDATE_SKILL_BODY = `---
@@ -504,7 +533,7 @@ Job Search **source of truth** is \`pi_records\`, not markdown alone and not boa
 
 ## Workflow (no hardcoded IDs)
 
-1. \`pi_list\` — find Job Search (\`templateId\` / slug \`job-search\`). Missing → \`pi_site_upsert\` with \`templateId: "job-search"\` (set \`harvestEnabled: true\` only if user wants LinkedIn harvest).
+1. \`pi_list\` — find Job Search (\`templateId\` / slug \`job-search\`). Missing → \`pi_site_upsert\` with \`templateId: "job-search"\` (propose harvest via harvestOffer; enable only after user confirms).
 2. Parse vault / workspace markdown for applications.
 3. For each application → \`pi_record_upsert\`:
    - \`siteId\` from step 1
@@ -572,6 +601,7 @@ const BUILTIN_SKILLS: ReadonlyArray<{ id: string; body: string }> = [
   },
   { id: BUILTIN_PI_PAGE_VIZ_SKILL_ID, body: BUILTIN_PI_PAGE_VIZ_SKILL_BODY },
   { id: BUILTIN_PI_HOME_SKILL_ID, body: BUILTIN_PI_HOME_SKILL_BODY },
+  { id: BUILTIN_PI_HARVEST_SKILL_ID, body: BUILTIN_PI_HARVEST_SKILL_BODY },
   {
     id: BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_ID,
     body: BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_BODY,

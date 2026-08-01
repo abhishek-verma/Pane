@@ -72,7 +72,7 @@ export type SweepResult = {
   refreshed: RefreshRunResult
 }
 
-/** Interval tick: expire temps, clock triggers, then drain pending jobs. */
+/** Interval tick: expire temps, clock triggers, harvest-due, then drain jobs. */
 export async function runPersonalInternetTick(
   options: { now?: number } = {},
 ): Promise<SweepResult> {
@@ -81,6 +81,7 @@ export async function runPersonalInternetTick(
   maybeDispatchReturnFromSleep(nowMs)
   maybeDispatchNewDay(new Date(nowMs))
   maybeDispatchPreEventFromActiveMeetings()
+  dispatchTrigger({ triggerName: 'harvest-due', skipHome: true })
   const refreshed = await runRefreshJobs()
   return { expired, refreshed }
 }
@@ -91,6 +92,7 @@ export async function runBrowserStartedCatchUp(): Promise<SweepResult> {
   maybeDispatchNewDay()
   maybeDispatchReturnFromSleep()
   browserStartedCatchUp()
+  dispatchTrigger({ triggerName: 'harvest-due', skipHome: true })
   const refreshed = await runRefreshJobs()
   return { expired, refreshed }
 }

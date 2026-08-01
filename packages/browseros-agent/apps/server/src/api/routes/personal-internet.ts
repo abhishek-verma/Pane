@@ -52,6 +52,12 @@ const UpsertSiteSchema = z.object({
   slug: z.string().optional(),
   jtbd: z.string().optional(),
   harvestEnabled: z.boolean().optional(),
+  harvestSources: z.array(z.string()).optional(),
+  harvestCadenceDays: z.number().int().min(1).max(30).optional(),
+  harvestInstructions: z.string().optional(),
+  harvestFromMeetings: z.boolean().optional(),
+  harvestOnHostOpened: z.boolean().optional(),
+  harvestAllowNavigate: z.boolean().optional(),
 })
 
 const CreatePageSchema = z.object({
@@ -113,6 +119,12 @@ export function createPersonalInternetRoutes() {
         slug: body.slug,
         jtbd: body.jtbd,
         harvestEnabled: body.harvestEnabled,
+        harvestSources: body.harvestSources,
+        harvestCadenceDays: body.harvestCadenceDays,
+        harvestInstructions: body.harvestInstructions,
+        harvestFromMeetings: body.harvestFromMeetings,
+        harvestOnHostOpened: body.harvestOnHostOpened,
+        harvestAllowNavigate: body.harvestAllowNavigate,
       })
       return c.json(result, 201)
     })
@@ -352,6 +364,11 @@ export function createPersonalInternetRoutes() {
         doorwayEligible: !!s.doorwayEligible,
         harvestEnabled: !!s.harvestEnabled,
         harvestHost: s.harvestHost,
+        harvestSourcesJson: s.harvestSourcesJson,
+        harvestCadenceDays: s.harvestCadenceDays,
+        harvestFromMeetings: !!s.harvestFromMeetings,
+        harvestOnHostOpened: !!s.harvestOnHostOpened,
+        harvestAllowNavigate: !!s.harvestAllowNavigate,
         pulseLine: getPulse(s.id)?.pulseLine ?? null,
         route: `#/pi/sites/${s.id}`,
         updatedAt: s.updatedAt,

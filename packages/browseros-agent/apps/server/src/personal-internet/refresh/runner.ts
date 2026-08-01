@@ -6,19 +6,34 @@
  * Refresh runner — drains pending jobs and executes them by kind:
  *   A. Reproject — cheap local recompute of site pulse (no LLM, no network).
  *   B. Sync      — pull structured API/MCP into store (no calendar yet → no-op).
- *   C. Harvest   — browser-session extraction; enqueues a scheduled_run when
+ *   C. Harvest   — browser/event extraction; enqueues a scheduled_run when
  *                  harvest is enabled, otherwise skips and marks the pulse
  *                  stale. Harvest defaults OFF per site.
- *   D. Revise    — home continuity revise (local merge) or skip for pages.
+ *   D. Revise    — home continuity revise (local merge) or site board sync.
  *   E. Full task — user-visible scheduled job (owned by Scheduled Tasks → n/a).
  */
 
+import { readFileSync } from 'node:fs'
 import { detectOnBattery, getPauseOnBatteryPref } from '../../context/battery'
 import { getDbHandle } from '../../lib/db'
 import { logger } from '../../lib/logger'
 import { isInQuietHours } from '../../reach/quiet-hours'
+import {
+  browserCadenceBucket,
+  browserCadenceElapsed,
+  buildHarvestPrompt,
+  harvestConfigFromSite,
+  normalizeHost,
+} from '../harvest-config'
 import { recomputePulse } from '../pulse'
-import { getPulse, getSite, listRecords, newPiId, upsertPulse } from '../store'
+import {
+  getPulse,
+  getSite,
+  listRecords,
+  newPiId,
+  setSiteLastHarvestAt,
+  upsertPulse,
+} from '../store'
 import {
   getJob,
   listPendingJobs,
@@ -72,10 +87,40 @@ export function setHarvestOpenHostsProvider(
   openHostsProvider = provider
 }
 
+async function resolveOpenHosts(
+  options: RunRefreshOptions,
+): Promise<string[] | undefined> {
+  if (options.openHosts !== undefined) return options.openHosts
+  if (!openHostsProvider) return undefined
+  try {
+    const resolved = await openHostsProvider()
+    return resolved ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
+function isMeetingTrigger(triggerName: string): boolean {
+  return triggerName === 'meeting-ended'
+}
+
+function isBrowserHarvestTrigger(triggerName: string): boolean {
+  return triggerName === 'host-opened' || triggerName === 'harvest-due'
+}
+
 async function harvestGuardsAllow(
   site: NonNullable<ReturnType<typeof getSite>>,
+  job: PiRefreshJob,
   options: RunRefreshOptions,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
+): Promise<{ ok: true; openHosts?: string[] } | { ok: false; reason: string }> {
+  const config = harvestConfigFromSite(site)
+  const meeting = isMeetingTrigger(job.triggerName)
+
+  if (meeting) {
+    // User just finished a meeting — do not block on quiet hours / battery / tabs.
+    return { ok: true }
+  }
+
   if (getPauseOnBatteryPref()) {
     const onBattery = await detectOnBattery()
     if (onBattery === true) {
@@ -85,75 +130,164 @@ async function harvestGuardsAllow(
   if (isInQuietHours()) {
     return { ok: false, reason: 'quiet-hours' }
   }
-  const host = site.harvestHost
-  if (host) {
-    let openHosts: string[] | undefined = options.openHosts
-    if (openHosts === undefined && openHostsProvider) {
-      try {
-        const resolved = await openHostsProvider()
-        if (resolved != null) openHosts = resolved
-      } catch {
-        // CDP unknown — do not block harvest
-      }
-    }
-    if (openHosts !== undefined) {
-      const matched = openHosts.some((h) => hostMatchesFilter(h, host))
-      if (!matched) {
-        return { ok: false, reason: 'host-tab-closed' }
-      }
+
+  if (!browserCadenceElapsed(config)) {
+    return { ok: false, reason: 'cadence' }
+  }
+
+  const openHosts = await resolveOpenHosts(options)
+  const needsOpenTab =
+    job.triggerName === 'host-opened' ||
+    (job.triggerName === 'harvest-due' && !config.allowNavigate)
+
+  if (needsOpenTab && config.sources.length > 0 && openHosts !== undefined) {
+    const matched = config.sources.some((src) =>
+      openHosts.some((h) => hostMatchesFilter(normalizeHost(h), src)),
+    )
+    if (!matched) {
+      return { ok: false, reason: 'host-tab-closed' }
     }
   }
-  return { ok: true }
+
+  return { ok: true, openHosts }
 }
 
-function buildHarvestPrompt(
+function findScheduledRunByKey(idempotencyKey: string): {
+  id: string
+  status: string
+} | null {
+  const row = sqlite()
+    .prepare(
+      `SELECT id, status FROM scheduled_runs WHERE idempotency_key = ? LIMIT 1`,
+    )
+    .get(idempotencyKey) as { id: string; status: string } | null
+  return row ?? null
+}
+
+function hasPendingBrowserHarvest(siteId: string): boolean {
+  const row = sqlite()
+    .prepare(
+      `SELECT id FROM scheduled_runs
+       WHERE source = 'pi-harvest' AND source_id = ?
+         AND status IN ('pending', 'running')
+         AND idempotency_key NOT LIKE '%:meeting:%'
+       LIMIT 1`,
+    )
+    .get(siteId) as { id: string } | null
+  return !!row
+}
+
+function loadMeetingTranscript(sessionId: string | null | undefined): {
+  path: string | null
+  excerpt: string | null
+} {
+  if (!sessionId) return { path: null, excerpt: null }
+  try {
+    const row = sqlite()
+      .prepare(
+        `SELECT transcript_path, summary_path FROM capture_sessions WHERE id = ?`,
+      )
+      .get(sessionId) as {
+      transcript_path: string | null
+      summary_path: string | null
+    } | null
+    if (!row) return { path: null, excerpt: null }
+    const path = row.summary_path ?? row.transcript_path
+    if (!path) return { path: null, excerpt: null }
+    try {
+      const text = readFileSync(path, 'utf-8')
+      return { path, excerpt: text.slice(0, 6000) }
+    } catch {
+      return { path, excerpt: null }
+    }
+  } catch {
+    return { path: null, excerpt: null }
+  }
+}
+
+/** Exported for tests — builds the structured harvest prompt. */
+export function buildHarvestPromptForJob(
   site: NonNullable<ReturnType<typeof getSite>>,
+  job: PiRefreshJob,
+  openHosts?: string[],
 ): string {
+  const meeting = isMeetingTrigger(job.triggerName)
+  const transcript = meeting
+    ? loadMeetingTranscript(job.filterValue)
+    : { path: null, excerpt: null }
   const records = listRecords(site.id).map((r) => {
     try {
-      return { id: r.id, type: r.type, data: JSON.parse(r.dataJson) }
+      return {
+        id: r.id,
+        type: r.type,
+        data: JSON.parse(r.dataJson) as Record<string, unknown>,
+      }
     } catch {
-      return { id: r.id, type: r.type, data: {} }
+      return { id: r.id, type: r.type, data: {} as Record<string, unknown> }
     }
   })
-  return [
-    `Harvest ${site.harvestHost ?? 'connected source'} for Personalised Internet site "${site.name}".`,
-    `siteId=${site.id}`,
-    `harvestHost=${site.harvestHost ?? ''}`,
-    '',
-    'Current records (do not invent companies not on the host or in vault):',
-    JSON.stringify(records.slice(0, 40)),
-    '',
-    'Instructions:',
-    '1. Load skill pi-harvest-job-search if available (skills_load).',
-    '2. Navigate the harvest host only when a matching tab/session exists; do not invent pages.',
-    '3. Upsert applications via pi_record_upsert (recordType job-application) — board syncs automatically.',
-    '4. Prefer pi_record_list to see prior state before writing.',
-    '5. If nothing to update, leave records unchanged — never fabricate companies.',
-    '6. When done, pulse should reflect real stages.',
-  ].join('\n')
+  return buildHarvestPrompt({
+    site,
+    triggerName: job.triggerName,
+    filterValue: job.filterValue,
+    transcriptExcerpt: transcript.excerpt,
+    transcriptPath: transcript.path,
+    openHosts: openHosts ?? null,
+    records,
+  })
 }
 
 /** "Easy" harvest path: hand the work to the server run queue, then reproject. */
-function enqueueHarvestRun(job: PiRefreshJob): void {
+function enqueueHarvestRun(
+  job: PiRefreshJob,
+  openHosts?: string[],
+): 'harvested' | 'skipped-stale' {
   const site = getSite(job.targetId)
-  if (!site) return
-  const id = newPiId('run')
+  if (!site) return 'skipped-stale'
+  const config = harvestConfigFromSite(site)
+  const meeting = isMeetingTrigger(job.triggerName)
   const ts = Date.now()
+
+  let idempotencyKey: string
+  if (meeting) {
+    const sessionId = job.filterValue ?? 'unknown'
+    idempotencyKey = `pi-harvest:${site.id}:meeting:${sessionId}`
+  } else {
+    if (hasPendingBrowserHarvest(site.id)) {
+      logger.info('pi harvest coalesced', {
+        siteId: site.id,
+        reason: 'pending',
+      })
+      return 'skipped-stale'
+    }
+    idempotencyKey = `pi-harvest:${site.id}:${browserCadenceBucket(config, ts)}`
+  }
+
+  const existing = findScheduledRunByKey(idempotencyKey)
+  if (existing) {
+    logger.info('pi harvest idempotent skip', {
+      siteId: site.id,
+      key: idempotencyKey,
+      status: existing.status,
+    })
+    return 'skipped-stale'
+  }
+
+  const prompt = buildHarvestPromptForJob(site, job, openHosts)
+  const id = newPiId('run')
   sqlite()
     .prepare(
       `INSERT INTO scheduled_runs
         (id, source, source_id, idempotency_key, prompt, bucket_id, status, completed_steps_json, created_at)
        VALUES (?, 'pi-harvest', ?, ?, ?, ?, 'pending', '[]', ?)`,
     )
-    .run(
-      id,
-      site.id,
-      `pi-harvest:${site.id}:${ts}`,
-      buildHarvestPrompt(site),
-      site.bucketId,
-      ts,
-    )
+    .run(id, site.id, idempotencyKey, prompt, site.bucketId, ts)
+
+  if (isBrowserHarvestTrigger(job.triggerName)) {
+    setSiteLastHarvestAt(site.id, ts)
+  }
+
+  return 'harvested'
 }
 
 async function runOne(
@@ -169,7 +303,6 @@ async function runOne(
       return 'reprojected'
     }
     case 'B': {
-      // No structured sync source wired yet — keep last good snapshot.
       return 'synced'
     }
     case 'C': {
@@ -180,17 +313,17 @@ async function runOne(
         if (job.targetType === 'site') markSiteStale(job.targetId)
         return 'skipped-stale'
       }
-      const guards = await harvestGuardsAllow(site, options)
+      const guards = await harvestGuardsAllow(site, job, options)
       if (!guards.ok) {
         markSiteStale(site.id)
         logger.info('pi harvest skipped', {
           siteId: site.id,
           reason: guards.reason,
+          trigger: job.triggerName,
         })
         return 'skipped-stale'
       }
-      enqueueHarvestRun(job)
-      return 'harvested'
+      return enqueueHarvestRun(job, guards.openHosts)
     }
     case 'D': {
       if (job.targetType === 'home') {

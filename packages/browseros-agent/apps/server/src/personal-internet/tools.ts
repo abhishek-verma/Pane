@@ -448,13 +448,19 @@ export function buildPersonalInternetToolSet(
 
     pi_site_upsert: tool({
       description:
-        'Create or upsert a durable Personalised Internet site. Prefer templateId job-search | research-hub | sales-leads (seeds board/table). Load skill "pi-sites" for lifecycle; for freeform pages after, "pi-page-dsl" / "pi-page-patch". Returns siteId, pageId, href (pi://…) — share that link; call pi_open when the user should see the site now.',
+        'Create or upsert a durable Personalised Internet site. Prefer templateId job-search | research-hub | sales-leads (seeds board/table). On create, returns harvestOffer.proposedConfig — present it to the user, fill harvestSources from conversation provenance, and only set harvest fields after the user accepts or revises. Load skill "pi-sites". Returns siteId, pageId, href (pi://…) — share that link; call pi_open when the user should see the site now.',
       inputSchema: z.object({
         templateId: templateIdSchema.optional(),
         name: z.string().optional(),
         slug: z.string().optional(),
         jtbd: z.string().optional(),
         harvestEnabled: z.boolean().optional(),
+        harvestSources: z.array(z.string()).optional(),
+        harvestCadenceDays: z.number().int().min(1).max(30).optional(),
+        harvestInstructions: z.string().optional(),
+        harvestFromMeetings: z.boolean().optional(),
+        harvestOnHostOpened: z.boolean().optional(),
+        harvestAllowNavigate: z.boolean().optional(),
       }),
       execute: async (input) => {
         try {
@@ -465,11 +471,21 @@ export function buildPersonalInternetToolSet(
             slug: input.slug,
             jtbd: input.jtbd,
             harvestEnabled: input.harvestEnabled,
+            harvestSources: input.harvestSources,
+            harvestCadenceDays: input.harvestCadenceDays,
+            harvestInstructions: input.harvestInstructions,
+            harvestFromMeetings: input.harvestFromMeetings,
+            harvestOnHostOpened: input.harvestOnHostOpened,
+            harvestAllowNavigate: input.harvestAllowNavigate,
           })
           const linked = withPiAddress({ ...result }, { title: input.name })
           return ok({
             ...linked,
-            message: `Site ready. ${linked.href}`,
+            harvestOffer: result.harvestOffer,
+            harvestConfig: result.harvestConfig,
+            message: result.harvestOffer
+              ? `Site ready. ${linked.href} Propose harvest config from harvestOffer before enabling.`
+              : `Site ready. ${linked.href}`,
           })
         } catch (e) {
           return err(String(e))

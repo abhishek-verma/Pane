@@ -28,7 +28,8 @@ export function triggerPriority(
   // Lower number = higher priority (drains first).
   if (triggerName === 'pre-event' || triggerName === 'meeting-started') return 0
   if (triggerName === 'manual-refresh') return 1
-  if (triggerName === 'host-opened') return 6
+  if (triggerName === 'meeting-ended' && kind === 'C') return 5
+  if (triggerName === 'host-opened' || triggerName === 'harvest-due') return 6
   if (kind === 'A') return 2
   if (kind === 'B') return 3
   if (kind === 'D') return 4

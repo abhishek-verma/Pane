@@ -19,6 +19,15 @@ export const piSites = sqliteTable(
     templateId: text('template_id'),
     harvestEnabled: integer('harvest_enabled').notNull().default(0),
     harvestHost: text('harvest_host'),
+    harvestSourcesJson: text('harvest_sources_json').notNull().default('[]'),
+    harvestCadenceDays: integer('harvest_cadence_days').notNull().default(1),
+    harvestInstructions: text('harvest_instructions').notNull().default(''),
+    harvestFromMeetings: integer('harvest_from_meetings').notNull().default(0),
+    harvestOnHostOpened: integer('harvest_on_host_opened').notNull().default(0),
+    harvestAllowNavigate: integer('harvest_allow_navigate')
+      .notNull()
+      .default(0),
+    lastHarvestAt: integer('last_harvest_at'),
     doorwayEligible: integer('doorway_eligible').notNull().default(0),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
@@ -94,6 +103,7 @@ export const piRefreshJobs = sqliteTable(
     coalesceKey: text('coalesce_key').notNull(),
     status: text('status').notNull().default('pending'),
     errorText: text('error_text'),
+    filterValue: text('filter_value'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },

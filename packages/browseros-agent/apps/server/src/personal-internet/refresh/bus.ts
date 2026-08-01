@@ -9,12 +9,18 @@
  */
 
 import { getDbHandle } from '../../lib/db'
-import { getSite, listSites, newPiId } from '../store'
+import {
+  buildHarvestPolicy,
+  harvestConfigFromSite,
+  normalizeHost,
+} from '../harvest-config'
+import { getSite, listSites, newPiId, upsertPolicy } from '../store'
 import type { PiRefreshKind } from '../types'
 import { setAfterMutationHook } from '../write-path'
 import {
   HOME_TARGET_ID,
   homePolicy,
+  hostMatchesFilter,
   matchTriggers,
   resolveSitePolicy,
   triggerPriority,
@@ -41,6 +47,7 @@ export type PiRefreshJob = {
   coalesceKey: string
   status: RefreshJobStatus
   errorText: string | null
+  filterValue: string | null
   createdAt: number
   updatedAt: number
 }
@@ -55,13 +62,27 @@ export type EnqueueRefreshInput = {
   trigger?: string
   /** Reserved for future cooldown windows (pending coalesce covers v1). */
   cooldownMs?: number
+  /** Event payload (opened host, meeting session id, …). */
+  filterValue?: string | null
 }
 
 export function coalesceKeyFor(input: {
   targetType: RefreshTargetType
   targetId: string
   kind: PiRefreshKind
+  triggerName?: string
+  filterValue?: string | null
 }): string {
+  if (
+    input.kind === 'C' &&
+    input.triggerName === 'meeting-ended' &&
+    input.filterValue
+  ) {
+    return `${input.targetType}:${input.targetId}:C:meeting:${input.filterValue}`
+  }
+  if (input.kind === 'C') {
+    return `${input.targetType}:${input.targetId}:C:browser`
+  }
   return `${input.targetType}:${input.targetId}:${input.kind}`
 }
 
@@ -75,6 +96,7 @@ function rowToJob(row: Record<string, unknown>): PiRefreshJob {
     coalesceKey: row.coalesce_key as string,
     status: row.status as RefreshJobStatus,
     errorText: (row.error_text as string | null) ?? null,
+    filterValue: (row.filter_value as string | null) ?? null,
     createdAt: row.created_at as number,
     updatedAt: row.updated_at as number,
   }
@@ -82,12 +104,18 @@ function rowToJob(row: Record<string, unknown>): PiRefreshJob {
 
 /**
  * Enqueue a refresh job. Coalesces: a pending job with the same
- * target+kind is reused rather than duplicated. Higher-priority triggers
+ * coalesce key is reused rather than duplicated. Higher-priority triggers
  * upgrade the pending job's trigger name.
  */
 export function enqueueRefresh(input: EnqueueRefreshInput): PiRefreshJob {
   const triggerName = input.triggerName ?? input.trigger ?? 'manual-refresh'
-  const coalesceKey = coalesceKeyFor(input)
+  const coalesceKey = coalesceKeyFor({
+    targetType: input.targetType,
+    targetId: input.targetId,
+    kind: input.kind,
+    triggerName,
+    filterValue: input.filterValue,
+  })
   const existing = sqlite()
     .prepare(
       `SELECT * FROM pi_refresh_jobs
@@ -99,7 +127,6 @@ export function enqueueRefresh(input: EnqueueRefreshInput): PiRefreshJob {
   if (existing) {
     const job = rowToJob(existing)
     if (job.status === 'running') {
-      // Already in flight for this target+kind — do not enqueue a duplicate.
       return job
     }
     const nextPri = triggerPriority(triggerName, input.kind)
@@ -107,10 +134,15 @@ export function enqueueRefresh(input: EnqueueRefreshInput): PiRefreshJob {
     if (nextPri < curPri) {
       sqlite()
         .prepare(
-          `UPDATE pi_refresh_jobs SET trigger_name = ?, updated_at = ? WHERE id = ?`,
+          `UPDATE pi_refresh_jobs SET trigger_name = ?, filter_value = ?, updated_at = ? WHERE id = ?`,
         )
-        .run(triggerName, now(), job.id)
-      return { ...job, triggerName, updatedAt: now() }
+        .run(triggerName, input.filterValue ?? null, now(), job.id)
+      return {
+        ...job,
+        triggerName,
+        filterValue: input.filterValue ?? null,
+        updatedAt: now(),
+      }
     }
     return job
   }
@@ -120,8 +152,8 @@ export function enqueueRefresh(input: EnqueueRefreshInput): PiRefreshJob {
   sqlite()
     .prepare(
       `INSERT INTO pi_refresh_jobs
-        (id, target_type, target_id, kind, trigger_name, coalesce_key, status, error_text, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL, ?, ?)`,
+        (id, target_type, target_id, kind, trigger_name, coalesce_key, status, error_text, filter_value, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL, ?, ?, ?)`,
     )
     .run(
       id,
@@ -130,6 +162,7 @@ export function enqueueRefresh(input: EnqueueRefreshInput): PiRefreshJob {
       input.kind,
       triggerName,
       coalesceKey,
+      input.filterValue ?? null,
       ts,
       ts,
     )
@@ -190,6 +223,42 @@ function shouldSkipKind(
   return !site || !site.harvestEnabled
 }
 
+/** Keep stored policy aligned with harvest flags (covers migrated sites). */
+function syncHarvestPolicy(siteId: string): void {
+  const site = getSite(siteId)
+  if (!site) return
+  upsertPolicy('site', siteId, buildHarvestPolicy(harvestConfigFromSite(site)))
+}
+
+function enqueueSiteKinds(
+  siteId: string,
+  triggerName: string,
+  filterValue?: string,
+): PiRefreshJob[] {
+  const jobs: PiRefreshJob[] = []
+  if (
+    triggerName === 'host-opened' ||
+    triggerName === 'harvest-due' ||
+    triggerName === 'meeting-ended'
+  ) {
+    syncHarvestPolicy(siteId)
+  }
+  const policy = resolveSitePolicy(siteId)
+  for (const kind of matchTriggers(policy, triggerName, filterValue)) {
+    if (shouldSkipKind(siteId, kind, policy)) continue
+    jobs.push(
+      enqueueRefresh({
+        targetType: 'site',
+        targetId: siteId,
+        kind,
+        triggerName,
+        filterValue,
+      }),
+    )
+  }
+  return jobs
+}
+
 /**
  * Fan a trigger out to the pages that declared it and enqueue their jobs.
  * Returns the (coalesced) jobs. Site + home are the v1 targets.
@@ -198,41 +267,39 @@ export function dispatchTrigger(input: DispatchTriggerInput): PiRefreshJob[] {
   const jobs: PiRefreshJob[] = []
 
   if (input.siteId) {
-    const policy = resolveSitePolicy(input.siteId)
-    for (const kind of matchTriggers(
-      policy,
-      input.triggerName,
-      input.filterValue,
-    )) {
-      if (shouldSkipKind(input.siteId, kind, policy)) continue
-      jobs.push(
-        enqueueRefresh({
-          targetType: 'site',
-          targetId: input.siteId,
-          kind,
-          triggerName: input.triggerName,
-        }),
-      )
-    }
+    jobs.push(
+      ...enqueueSiteKinds(input.siteId, input.triggerName, input.filterValue),
+    )
   } else if (input.triggerName === 'host-opened' && input.filterValue) {
+    const opened = normalizeHost(input.filterValue)
     for (const site of listSites({ status: ['active', 'dormant'] })) {
-      if (!site.harvestHost) continue
-      const policy = resolveSitePolicy(site.id)
-      for (const kind of matchTriggers(
-        policy,
-        'host-opened',
-        input.filterValue,
-      )) {
-        if (shouldSkipKind(site.id, kind, policy)) continue
-        jobs.push(
-          enqueueRefresh({
-            targetType: 'site',
-            targetId: site.id,
-            kind,
-            triggerName: 'host-opened',
-          }),
-        )
+      const config = harvestConfigFromSite(site)
+      if (
+        !config.enabled ||
+        !config.onHostOpened ||
+        config.sources.length === 0
+      ) {
+        continue
       }
+      const matched = config.sources.some((src) =>
+        hostMatchesFilter(opened, src),
+      )
+      if (!matched) continue
+      jobs.push(...enqueueSiteKinds(site.id, 'host-opened', opened))
+    }
+  } else if (input.triggerName === 'harvest-due') {
+    for (const site of listSites({ status: ['active', 'dormant'] })) {
+      const config = harvestConfigFromSite(site)
+      if (!config.enabled || config.sources.length === 0) continue
+      jobs.push(...enqueueSiteKinds(site.id, 'harvest-due'))
+    }
+  } else if (input.triggerName === 'meeting-ended') {
+    for (const site of listSites({ status: ['active', 'dormant'] })) {
+      const config = harvestConfigFromSite(site)
+      if (!config.enabled || !config.fromMeetings) continue
+      jobs.push(
+        ...enqueueSiteKinds(site.id, 'meeting-ended', input.filterValue),
+      )
     }
   }
 
@@ -244,6 +311,7 @@ export function dispatchTrigger(input: DispatchTriggerInput): PiRefreshJob[] {
           targetId: HOME_TARGET_ID,
           kind,
           triggerName: input.triggerName,
+          filterValue: input.filterValue,
         }),
       )
     }
@@ -268,10 +336,7 @@ const HOST_OPENED_COOLDOWN_MS = 30_000
 const lastHostOpenedAt = new Map<string, number>()
 
 export function handleHostOpened(host: string): PiRefreshJob[] {
-  const normalized = host
-    .trim()
-    .toLowerCase()
-    .replace(/^www\./, '')
+  const normalized = normalizeHost(host)
   if (!normalized) return []
   const nowMs = Date.now()
   const last = lastHostOpenedAt.get(normalized) ?? 0
@@ -308,6 +373,7 @@ export function wireRefreshBus(): void {
 }
 
 export function unwireRefreshBus(): void {
+  if (!hookInstalled) return
   hookInstalled = false
   setAfterMutationHook(null)
 }
