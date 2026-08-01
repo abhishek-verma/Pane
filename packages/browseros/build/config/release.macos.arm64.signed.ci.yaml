@@ -1,0 +1,48 @@
+# Pane macOS arm64 signed CI release (no R2 upload).
+#
+# Used by .github/workflows/release-browser.yml on macos-14.
+# Signs with Developer ID + notarizes via App Store Connect API key
+# (NOTARY_KEY / NOTARY_KEY_ID / NOTARY_ISSUER). Do not use apple-id/password
+# auth in CI — 2FA breaks it.
+#
+# Skips download_resources (R2). Workflow must stage server/claw binaries first
+# via stage-pane-browser-resources.sh (same as local unsigned builds).
+#
+# Expects CHROMIUM_SRC at a synced Chromium tree. Omits clean/git_setup so a
+# cached tree stays intact; pass --modules clean,git_setup separately if needed.
+#
+# Run (from packages/browseros):
+#   uv run browseros build \
+#     --config build/config/release.macos.arm64.signed.ci.yaml \
+#     --chromium-src "$CHROMIUM_SRC"
+
+build:
+  type: release
+  architecture: arm64
+
+gn_flags:
+  file: build/config/gn/flags.macos.release.gn
+
+modules:
+  - sparkle_setup
+  - resources
+  - bundled_extensions
+  - chromium_replace
+  - string_replaces
+  - series_patches
+  - patches
+  - configure
+  - compile
+  - sign_macos
+  - package_macos
+  - sparkle_sign
+
+required_envs:
+  - MACOS_CERTIFICATE_NAME
+  - NOTARY_KEY
+  - NOTARY_KEY_ID
+  - NOTARY_ISSUER
+  - SPARKLE_PRIVATE_KEY
+
+notifications:
+  slack: false

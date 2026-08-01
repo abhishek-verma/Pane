@@ -1,5 +1,10 @@
 name: Release Pane Browser
 
+# Tag browser/v* → signed+notarized macOS DMGs on GitHub Releases + Sparkle appcast.
+# Secrets (repository): DEVELOPER_ID_P12, P12_PASSWORD, NOTARY_KEY, NOTARY_KEY_ID,
+#   NOTARY_ISSUER, SPARKLE_PRIVATE_KEY.
+# Runner variable (recommended for Chromium): CHROMIUM_SRC → absolute path to src/.
+
 on:
   push:
     tags:
@@ -7,13 +12,25 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to publish, e.g. browser/v0.31.0
+        description: Existing release tag to publish, e.g. browser/v0.47.0.52
         required: true
         type: string
+      build_mode:
+        description: full (default) | incremental | repackage — needs existing out/ on the runner
+        required: false
+        default: full
+        type: choice
+        options:
+          - full
+          - incremental
+          - repackage
 
 concurrency:
   group: release-browser
   cancel-in-progress: false
+
+env:
+  MACOS_CERTIFICATE_NAME: "Developer ID Application: Abhishek Verma (4Z2UAB6AWC)"
 
 jobs:
   authorize_manual_dispatch:
@@ -23,7 +40,7 @@ jobs:
     steps:
       - run: echo "Manual dispatch approved through release-core."
 
-  release:
+  prepare:
     needs: authorize_manual_dispatch
     if: |
       always() &&
@@ -31,13 +48,23 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
-
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      previous_tag: ${{ steps.release.outputs.previous_tag }}
+      build_mode: ${{ steps.mode.outputs.build_mode }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.event.repository.default_branch || 'main' }}
+
+      - name: Resolve build mode
+        id: mode
+        run: |
+          MODE="${{ github.event_name == 'workflow_dispatch' && inputs.build_mode || 'full' }}"
+          echo "build_mode=$MODE" >> "$GITHUB_OUTPUT"
 
       - name: Resolve release metadata
         id: release
@@ -53,46 +80,14 @@ jobs:
 
           VERSION="${RELEASE_TAG#browser/v}"
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-          Maintainer browser release flow (unsigned builds are OK for early releases):
-          1. Build locally: \`packages/browseros-agent/scripts/release/build-unsigned-browser.sh\`
-          2. Bump browser version in a PR and merge to \`$DEFAULT_BRANCH\`.
-          3. \`git tag -a browser/v${VERSION} -m "browser v${VERSION}"\` and push the tag.
-          4. Upload \`Pane_v${VERSION}_arm64.dmg\` (and metadata JSON) to the GitHub release.
-          5. Re-run this workflow to refresh \`updates/browser/appcast*.xml\` on \`main\`.
-          Install guide for users: docs/install/macos.mdx
+          ## Pane browser release \`${RELEASE_TAG}\`
+
+          Signed CI path (Developer ID + notarytool API key):
+          1. Bump \`BROWSEROS_PATCH\`, merge to \`$DEFAULT_BRANCH\`.
+          2. \`git tag -a browser/v${VERSION} -m "browser v${VERSION}" && git push origin browser/v${VERSION}\`
+          3. This workflow builds arm64 + x64, signs (hardened runtime), notarizes, staples, packages DMGs, lipo→universal, uploads artifacts, refreshes Sparkle appcasts.
           EOF
         working-directory: ${{ github.workspace }}
-
-      - name: Checkout release commit
-        run: git checkout --detach "${{ steps.release.outputs.release_sha }}"
-        working-directory: ${{ github.workspace }}
-
-      - name: Sign macOS builds
-        if: env.APPLE_DEVELOPER_ID_CERT != ''
-        env:
-          APPLE_DEVELOPER_ID_CERT: ${{ secrets.APPLE_DEVELOPER_ID_CERT }}
-          APPLE_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERT_PASSWORD }}
-          APPLE_NOTARIZATION_APPLE_ID: ${{ secrets.APPLE_NOTARIZATION_APPLE_ID }}
-          APPLE_NOTARIZATION_TEAM_ID: ${{ secrets.APPLE_NOTARIZATION_TEAM_ID }}
-          APPLE_NOTARIZATION_PASSWORD: ${{ secrets.APPLE_NOTARIZATION_PASSWORD }}
-        run: |
-          echo "::notice::macOS code signing and notarization configured. Builds will be signed."
-          echo "signing_available=true" >> "$GITHUB_OUTPUT"
-
-      - name: Sign Windows builds
-        if: env.WINDOWS_CODESIGN_CERT != ''
-        env:
-          WINDOWS_CODESIGN_CERT: ${{ secrets.WINDOWS_CODESIGN_CERT }}
-        run: |
-          echo "::notice::Windows Authenticode signing configured."
-
-      - name: Warn if signing unavailable
-        if: env.APPLE_DEVELOPER_ID_CERT == '' && env.WINDOWS_CODESIGN_CERT == ''
-        env:
-          APPLE_DEVELOPER_ID_CERT: ${{ secrets.APPLE_DEVELOPER_ID_CERT }}
-          WINDOWS_CODESIGN_CERT: ${{ secrets.WINDOWS_CODESIGN_CERT }}
-        run: |
-          echo "::warning::No code signing certificates configured. Producing unsigned builds (OK for OSS contributors)."
 
       - name: Generate release notes
         env:
@@ -102,22 +97,21 @@ jobs:
           BROWSER_PATH="packages/browseros"
           RELEASE_SHA="${{ steps.release.outputs.release_sha }}"
           PREV_TAG="${{ steps.release.outputs.previous_tag }}"
+          VERSION="${{ steps.release.outputs.version }}"
 
           if [ -z "$PREV_TAG" ]; then
             echo "Initial Pane browser release." > /tmp/release-notes.md
           else
-            COMMITS=$(git log "$PREV_TAG..$RELEASE_SHA" --pretty=format:"%H" -- "$BROWSER_PATH")
-
+            COMMITS=$(git log "$PREV_TAG..$RELEASE_SHA" --pretty=format:"%H" -- "$BROWSER_PATH" || true)
             if [ -z "$COMMITS" ]; then
               echo "No notable changes." > /tmp/release-notes.md
             else
               echo "## What's Changed" > /tmp/release-notes.md
               echo "" >> /tmp/release-notes.md
-
               while IFS= read -r SHA; do
+                [ -z "$SHA" ] && continue
                 SUBJECT=$(git log -1 --pretty=format:"%s" "$SHA")
-                PR_NUM=$(gh api "/repos/${{ github.repository }}/commits/${SHA}/pulls" --jq '.[0].number // empty' 2>/dev/null)
-
+                PR_NUM=$(gh api "/repos/${{ github.repository }}/commits/${SHA}/pulls" --jq '.[0].number // empty' 2>/dev/null || true)
                 if [ -n "$PR_NUM" ] && ! echo "$SUBJECT" | grep -qF "(#${PR_NUM})"; then
                   echo "- ${SUBJECT} (#${PR_NUM})" >> /tmp/release-notes.md
                 else
@@ -127,18 +121,15 @@ jobs:
             fi
           fi
 
-          cat >> /tmp/release-notes.md <<'EOF'
+          cat >> /tmp/release-notes.md <<EOF
 
           ## Downloads
 
-          Upload signed artifacts to this release after the workflow completes:
+          Signed and notarized macOS builds (Developer ID):
 
-          - macOS arm64: `Pane_v{version}_arm64.dmg`
-          - macOS x86_64: `Pane_v{version}_x64.dmg`
-          - Windows: `Pane_v{version}_x64_installer.exe`
-          - Linux: `Pane_v{version}_x64.AppImage` / `Pane_v{version}_amd64.deb`
-
-          Unsigned macOS builds: users follow docs/install/macos.mdx (Right-click → Open on first launch).
+          - Universal: \`Pane_v${VERSION}_universal.dmg\`
+          - Apple Silicon: \`Pane_v${VERSION}_arm64.dmg\`
+          - Intel: \`Pane_v${VERSION}_x64.dmg\`
           EOF
         working-directory: ${{ github.workspace }}
 
@@ -164,11 +155,339 @@ jobs:
           fi
         working-directory: ${{ github.workspace }}
 
+  build-macos:
+    needs: prepare
+    if: needs.prepare.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+            config: build/config/release.macos.arm64.signed.ci.yaml
+            resource_target: darwin-arm64
+          - runner: macos-13
+            arch: x64
+            config: build/config/release.macos.x64.signed.ci.yaml
+            resource_target: darwin-x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 720
+    permissions:
+      contents: write
+    env:
+      DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+      NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
+      NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+      NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.release_sha }}
+
+      - name: Require signing secrets
+        run: |
+          set -euo pipefail
+          missing=()
+          for v in DEVELOPER_ID_P12 P12_PASSWORD NOTARY_KEY NOTARY_KEY_ID NOTARY_ISSUER SPARKLE_PRIVATE_KEY; do
+            if [ -z "${!v:-}" ]; then
+              missing+=("$v")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Import Developer ID into temp keychain
+        run: |
+          set -euo pipefail
+          python3 packages/browseros/scripts/ci/import-signing-identity.py
+          security find-identity -v -p codesigning | tee /tmp/codesign-identities.txt
+          grep -F "$MACOS_CERTIFICATE_NAME" /tmp/codesign-identities.txt
+
+      - name: Resolve Chromium source
+        id: chromium
+        env:
+          CHROMIUM_SRC_VAR: ${{ vars.CHROMIUM_SRC }}
+        run: |
+          set -euo pipefail
+          if [ -n "${CHROMIUM_SRC_VAR:-}" ] && [ -d "$CHROMIUM_SRC_VAR" ]; then
+            echo "path=$CHROMIUM_SRC_VAR" >> "$GITHUB_OUTPUT"
+            echo "Using repository variable CHROMIUM_SRC=$CHROMIUM_SRC_VAR"
+          elif [ -d "$HOME/chromium/src" ]; then
+            echo "path=$HOME/chromium/src" >> "$GITHUB_OUTPUT"
+            echo "Using $HOME/chromium/src"
+          else
+            echo "::error::No Chromium checkout found. Set repository variable CHROMIUM_SRC to a synced src/ on this runner (self-hosted Mac with a warm tree is recommended). Full Chromium exceeds GitHub Actions cache size limits."
+            exit 1
+          fi
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install browseros package
+        working-directory: packages/browseros
+        run: uv sync
+
+      - name: Build + stage server/claw resources
+        run: |
+          set -euo pipefail
+          TARGET="${{ matrix.resource_target }}"
+          cd packages/browseros-agent
+          bun install --frozen-lockfile
+          PANE_BUILD=true bun scripts/build/server.ts --target="$TARGET" --no-upload --ci
+          PANE_BUILD=true bun scripts/build/claw-server.ts --target="$TARGET" --no-upload --ci
+          cd ../..
+          bash packages/browseros-agent/scripts/release/stage-pane-browser-resources.sh "$TARGET"
+
+      - name: Select build config
+        id: buildcfg
+        env:
+          BUILD_MODE: ${{ needs.prepare.outputs.build_mode }}
+          ARCH: ${{ matrix.arch }}
+          DEFAULT_CONFIG: ${{ matrix.config }}
+        run: |
+          set -euo pipefail
+          case "$BUILD_MODE" in
+            repackage)
+              if [ "$ARCH" != "arm64" ]; then
+                echo "::error::repackage mode is arm64-only today"
+                exit 1
+              fi
+              echo "config=build/config/release.macos.arm64.signed.repackage.yaml" >> "$GITHUB_OUTPUT"
+              ;;
+            incremental)
+              if [ "$ARCH" = "arm64" ]; then
+                echo "config=build/config/release.macos.arm64.signed.incremental.yaml" >> "$GITHUB_OUTPUT"
+              else
+                echo "config=$DEFAULT_CONFIG" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            *)
+              echo "config=$DEFAULT_CONFIG" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Build, sign, notarize, package
+        working-directory: packages/browseros
+        env:
+          CHROMIUM_SRC: ${{ steps.chromium.outputs.path }}
+          DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          if [ ! -d "${DEVELOPER_DIR:-}" ]; then
+            unset DEVELOPER_DIR || true
+          fi
+          uv run browseros build \
+            --config "${{ steps.buildcfg.outputs.config }}" \
+            --chromium-src "$CHROMIUM_SRC"
+
+      - name: Upload DMG + metadata to GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          RELEASE_DIR="packages/browseros/releases/${VERSION}"
+          DMG="${RELEASE_DIR}/Pane_v${VERSION}_${ARCH}.dmg"
+          META="${RELEASE_DIR}/pane-browser-release-metadata.json"
+          if [ ! -f "$DMG" ]; then
+            echo "::error::DMG not found at $DMG"
+            ls -la "$RELEASE_DIR" || true
+            exit 1
+          fi
+          UPLOAD=("$DMG")
+          if [ -f "$META" ]; then
+            ARCH_META="${RELEASE_DIR}/pane-browser-release-metadata-${ARCH}.json"
+            cp "$META" "$ARCH_META"
+            UPLOAD+=("$ARCH_META")
+          fi
+          gh release upload "$TAG" "${UPLOAD[@]}" --clobber
+
+      - name: Upload Pane.app for universal merge
+        uses: actions/upload-artifact@v4
+        with:
+          name: pane-app-${{ matrix.arch }}
+          path: ${{ steps.chromium.outputs.path }}/out/Default_${{ matrix.arch }}/Pane.app
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload pkg-dmg tool
+        if: matrix.arch == 'arm64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkg-dmg
+          path: ${{ steps.chromium.outputs.path }}/chrome/installer/mac/pkg-dmg
+          if-no-files-found: warn
+          retention-days: 3
+
+  universal:
+    needs: [prepare, build-macos]
+    if: needs.build-macos.result == 'success'
+    runs-on: macos-14
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    env:
+      DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+      NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
+      NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+      NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.release_sha }}
+
+      - name: Import Developer ID into temp keychain
+        run: python3 packages/browseros/scripts/ci/import-signing-identity.py
+
+      - name: Resolve Chromium workspace
+        id: chromium
+        env:
+          CHROMIUM_SRC_VAR: ${{ vars.CHROMIUM_SRC }}
+        run: |
+          set -euo pipefail
+          if [ -n "${CHROMIUM_SRC_VAR:-}" ] && [ -d "$CHROMIUM_SRC_VAR" ]; then
+            echo "path=$CHROMIUM_SRC_VAR" >> "$GITHUB_OUTPUT"
+          elif [ -d "$HOME/chromium/src" ]; then
+            echo "path=$HOME/chromium/src" >> "$GITHUB_OUTPUT"
+          else
+            STUB="$RUNNER_TEMP/chromium-stub/src"
+            mkdir -p "$STUB/out" "$STUB/chrome/installer/mac"
+            echo "path=$STUB" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download arch apps
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/pane-apps
+
+      - name: Restore pkg-dmg into chromium tree
+        run: |
+          set -euo pipefail
+          PKG="$RUNNER_TEMP/pane-apps/pkg-dmg/pkg-dmg"
+          DEST="${{ steps.chromium.outputs.path }}/chrome/installer/mac/pkg-dmg"
+          if [ -f "$PKG" ]; then
+            mkdir -p "$(dirname "$DEST")"
+            cp "$PKG" "$DEST"
+            chmod +x "$DEST"
+          elif [ ! -f "$DEST" ]; then
+            echo "::warning::pkg-dmg not found; DMG creation may fail without Chromium's pkg-dmg"
+          fi
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install browseros package
+        working-directory: packages/browseros
+        run: uv sync
+
+      - name: Lipo → sign → notarize → package universal DMG
+        env:
+          CHROMIUM_SRC: ${{ steps.chromium.outputs.path }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        working-directory: packages/browseros
+        run: |
+          set -euo pipefail
+          ARM64_APP="$RUNNER_TEMP/pane-apps/pane-app-arm64/Pane.app"
+          X64_APP="$RUNNER_TEMP/pane-apps/pane-app-x64/Pane.app"
+          OUT_ARM="$CHROMIUM_SRC/out/Default_arm64"
+          OUT_X64="$CHROMIUM_SRC/out/Default_x64"
+          mkdir -p "$OUT_ARM" "$OUT_X64"
+          rm -rf "$OUT_ARM/Pane.app" "$OUT_X64/Pane.app"
+          ditto "$ARM64_APP" "$OUT_ARM/Pane.app"
+          ditto "$X64_APP" "$OUT_X64/Pane.app"
+
+          uv run python - <<'PY'
+          import os
+          from pathlib import Path
+          from build.common.context import Context
+          from build.modules.sign.macos import sign_universal
+          from build.modules.package.macos import MacOSPackageModule
+
+          root = Path.cwd()
+          chromium = Path(os.environ["CHROMIUM_SRC"])
+          contexts = [
+              Context(root_dir=root, chromium_src=chromium, architecture="arm64", build_type="release"),
+              Context(root_dir=root, chromium_src=chromium, architecture="x64", build_type="release"),
+          ]
+          if not sign_universal(contexts):
+              raise SystemExit("sign_universal failed")
+
+          universal_ctx = Context(
+              root_dir=root,
+              chromium_src=chromium,
+              architecture="universal",
+              build_type="release",
+          )
+          universal_ctx.out_dir = "out/Default_universal"
+          universal_ctx.artifact_registry.add(
+              "signed_app", universal_ctx.get_app_path()
+          )
+          MacOSPackageModule().execute(universal_ctx)
+
+          from build.modules.sign.sparkle import SparkleSignModule
+          SparkleSignModule().execute(universal_ctx)
+          PY
+
+      - name: Upload universal DMG + metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          RELEASE_DIR="packages/browseros/releases/${VERSION}"
+          DMG="${RELEASE_DIR}/Pane_v${VERSION}_universal.dmg"
+          META="${RELEASE_DIR}/pane-browser-release-metadata.json"
+          if [ ! -f "$DMG" ]; then
+            echo "::error::Universal DMG not found at $DMG"
+            ls -la "$RELEASE_DIR" || true
+            exit 1
+          fi
+          UPLOAD=("$DMG")
+          if [ -f "$META" ]; then
+            UPLOAD+=("$META")
+          fi
+          gh release upload "$TAG" "${UPLOAD[@]}" --clobber
+
+  appcast:
+    needs: [prepare, build-macos, universal]
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.build-macos.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch || 'main' }}
+
       - name: Publish browser appcasts
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           set -euo pipefail
           if [ -z "${SPARKLE_PRIVATE_KEY:-}" ]; then
@@ -176,11 +495,9 @@ jobs:
             exit 0
           fi
 
-          VERSION="${{ steps.release.outputs.version }}"
-          TAG="${{ steps.release.outputs.tag }}"
           ASSET_COUNT="$(gh release view "$TAG" --json assets --jq '.assets | length')"
           if [ "$ASSET_COUNT" = "0" ]; then
-            echo "::warning::No release assets yet. Upload DMG/installer files, then re-run workflow_dispatch to publish appcasts."
+            echo "::warning::No release assets yet; skipping appcast"
             exit 0
           fi
 

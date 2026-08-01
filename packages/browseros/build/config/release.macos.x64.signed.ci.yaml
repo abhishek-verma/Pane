@@ -1,0 +1,35 @@
+# Pane macOS x64 (Intel) signed CI release (no R2 upload).
+#
+# Used by .github/workflows/release-browser.yml on macos-13.
+# Same signing/notarization path as release.macos.arm64.signed.ci.yaml.
+
+build:
+  type: release
+  architecture: x64
+
+gn_flags:
+  file: build/config/gn/flags.macos.release.gn
+
+modules:
+  - sparkle_setup
+  - resources
+  - bundled_extensions
+  - chromium_replace
+  - string_replaces
+  - series_patches
+  - patches
+  - configure
+  - compile
+  - sign_macos
+  - package_macos
+  - sparkle_sign
+
+required_envs:
+  - MACOS_CERTIFICATE_NAME
+  - NOTARY_KEY
+  - NOTARY_KEY_ID
+  - NOTARY_ISSUER
+  - SPARKLE_PRIVATE_KEY
+
+notifications:
+  slack: false

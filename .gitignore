@@ -28,7 +28,8 @@ gclient.json
 AGENTS.md
 **/resources/binaries/
 
-secrets/pane-release/
+# Release private keys (agent/claw extension .pem, Sparkle Ed25519) — NEVER commit
+secrets/
 
 # Bun compile scratch artifacts
 **/*.bun-build

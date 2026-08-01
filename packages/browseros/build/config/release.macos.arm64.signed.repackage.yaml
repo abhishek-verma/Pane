@@ -1,0 +1,28 @@
+# Pane macOS arm64 signed resource-only repackage.
+# Extension / server / static resources only — no Chromium recompile.
+# Requires existing out/Default_arm64/Pane.app from a prior build.
+# Unsigned sibling: release.macos.arm64.unsigned.repackage.yaml
+
+build:
+  type: release
+  architecture: arm64
+
+gn_flags:
+  file: build/config/gn/flags.macos.release.gn
+
+modules:
+  - resources
+  - bundled_extensions
+  - sign_macos
+  - package_macos
+  - sparkle_sign
+
+required_envs:
+  - MACOS_CERTIFICATE_NAME
+  - NOTARY_KEY
+  - NOTARY_KEY_ID
+  - NOTARY_ISSUER
+  - SPARKLE_PRIVATE_KEY
+
+notifications:
+  slack: false

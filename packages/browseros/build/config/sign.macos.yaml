@@ -5,6 +5,13 @@
 #
 # Expects: out/Default_universal/BrowserOS.app (or architecture-specific path)
 #
+# Notarization (preferred): App Store Connect API key
+#   NOTARY_KEY, NOTARY_KEY_ID, NOTARY_ISSUER
+# Fallback (local only; 2FA breaks CI):
+#   PROD_MACOS_NOTARIZATION_APPLE_ID, PROD_MACOS_NOTARIZATION_TEAM_ID,
+#   PROD_MACOS_NOTARIZATION_PWD
+# CI also imports DEVELOPER_ID_P12 + P12_PASSWORD into a temp keychain.
+#
 # Environment Variables:
 #   Use !env tag to reference environment variables:
 #     Example: chromium_src: !env CHROMIUM_SRC
@@ -21,16 +28,11 @@ modules:
   - sign_macos
   - package_macos
 
-# Required environment variables
-# Note: CHROMIUM_SRC can be provided via --chromium-src CLI flag, YAML config, or env var
-# Note: GCS_BUCKET defaults to 'nxtscape' if not set
+# Certificate is always required. Notarization credentials are validated by
+# the sign module (API key preferred, apple-id fallback).
 required_envs:
   - MACOS_CERTIFICATE_NAME
-  - PROD_MACOS_NOTARIZATION_APPLE_ID
-  - PROD_MACOS_NOTARIZATION_TEAM_ID
-  - PROD_MACOS_NOTARIZATION_PWD
 
 # Notification settings
 notifications:
   slack: true  # Enable Slack notifications for signing operations
-

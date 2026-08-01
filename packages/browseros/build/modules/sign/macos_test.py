@@ -15,7 +15,11 @@ from . import macos as macos_module
 from .macos import (
     SERVER_RESOURCES_SOURCE_REL,
     MacOSSignModule,
+    check_environment,
     find_components_to_sign,
+    materialize_notary_auth,
+    notarytool_auth_args,
+    resolve_notary_key_file,
     sign_component,
     verify_server_resources_bundle,
     verify_signature,
@@ -519,6 +523,164 @@ class VerifySignatureComponentTest(unittest.TestCase):
                     for c in calls
                 )
             )
+
+
+class CheckEnvironmentAuthTest(unittest.TestCase):
+    """API-key notarization is preferred; apple-id remains a local fallback."""
+
+    _AUTH_KEYS = (
+        "MACOS_CERTIFICATE_NAME",
+        "NOTARY_KEY",
+        "NOTARY_KEY_ID",
+        "NOTARY_ISSUER",
+        "PROD_MACOS_NOTARIZATION_APPLE_ID",
+        "PROD_MACOS_NOTARIZATION_TEAM_ID",
+        "PROD_MACOS_NOTARIZATION_PWD",
+    )
+
+    def _run_with_auth_env(self, env: dict):
+        """Isolate notarization env vars for the duration of check_environment()."""
+        saved = {key: os.environ.get(key) for key in self._AUTH_KEYS}
+        try:
+            for key in self._AUTH_KEYS:
+                os.environ.pop(key, None)
+            os.environ.update(env)
+            return check_environment()
+        finally:
+            for key in self._AUTH_KEYS:
+                os.environ.pop(key, None)
+            for key, value in saved.items():
+                if value is not None:
+                    os.environ[key] = value
+
+    def test_api_key_path_accepted(self):
+        ok, env_vars = self._run_with_auth_env(
+            {
+                "MACOS_CERTIFICATE_NAME": "Developer ID Application: Test",
+                "NOTARY_KEY": (
+                    "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"
+                ),
+                "NOTARY_KEY_ID": "LG3BDKV6WC",
+                "NOTARY_ISSUER": "fa8e5bb9-db14-4d16-aa76-e234ebac5dd7",
+            }
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(env_vars["auth_mode"], "api_key")
+        self.assertEqual(env_vars["notary_key_id"], "LG3BDKV6WC")
+        self.assertEqual(
+            env_vars["notary_issuer"], "fa8e5bb9-db14-4d16-aa76-e234ebac5dd7"
+        )
+
+    def test_apple_id_fallback_accepted(self):
+        ok, env_vars = self._run_with_auth_env(
+            {
+                "MACOS_CERTIFICATE_NAME": "Developer ID Application: Test",
+                "PROD_MACOS_NOTARIZATION_APPLE_ID": "dev@example.com",
+                "PROD_MACOS_NOTARIZATION_TEAM_ID": "TEAM123",
+                "PROD_MACOS_NOTARIZATION_PWD": "app-specific-password",
+            }
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(env_vars["auth_mode"], "apple_id")
+        self.assertEqual(env_vars["apple_id"], "dev@example.com")
+
+    def test_api_key_preferred_over_apple_id(self):
+        ok, env_vars = self._run_with_auth_env(
+            {
+                "MACOS_CERTIFICATE_NAME": "Developer ID Application: Test",
+                "NOTARY_KEY": "/tmp/does-not-need-to-exist-for-check.p8",
+                "NOTARY_KEY_ID": "KEYID",
+                "NOTARY_ISSUER": "issuer-uuid",
+                "PROD_MACOS_NOTARIZATION_APPLE_ID": "dev@example.com",
+                "PROD_MACOS_NOTARIZATION_TEAM_ID": "TEAM123",
+                "PROD_MACOS_NOTARIZATION_PWD": "pwd",
+            }
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(env_vars["auth_mode"], "api_key")
+
+    def test_missing_both_auth_paths_fails(self):
+        ok, _ = self._run_with_auth_env(
+            {"MACOS_CERTIFICATE_NAME": "Developer ID Application: Test"}
+        )
+        self.assertFalse(ok)
+
+    def test_notarytool_auth_args_api_key(self):
+        args = notarytool_auth_args(
+            {
+                "auth_mode": "api_key",
+                "notary_key_path": "/tmp/AuthKey.p8",
+                "notary_key_id": "LG3BDKV6WC",
+                "notary_issuer": "fa8e5bb9-db14-4d16-aa76-e234ebac5dd7",
+            }
+        )
+        self.assertEqual(
+            args,
+            [
+                "--key",
+                "/tmp/AuthKey.p8",
+                "--key-id",
+                "LG3BDKV6WC",
+                "--issuer",
+                "fa8e5bb9-db14-4d16-aa76-e234ebac5dd7",
+            ],
+        )
+
+    def test_notarytool_auth_args_apple_id_inline(self):
+        args = notarytool_auth_args(
+            {
+                "auth_mode": "apple_id",
+                "use_keychain_profile": "",
+                "apple_id": "dev@example.com",
+                "team_id": "TEAM123",
+                "notarization_pwd": "pwd",
+            }
+        )
+        self.assertEqual(
+            args,
+            [
+                "--apple-id",
+                "dev@example.com",
+                "--team-id",
+                "TEAM123",
+                "--password",
+                "pwd",
+            ],
+        )
+
+    def test_resolve_notary_key_file_writes_pem_contents(self):
+        pem = "-----BEGIN PRIVATE KEY-----\nxyz\n-----END PRIVATE KEY-----\n"
+        cleanup = []
+        path = resolve_notary_key_file(pem, cleanup)
+        try:
+            self.assertTrue(path.is_file())
+            self.assertEqual(path.read_text(), pem)
+            self.assertEqual(cleanup, [path])
+        finally:
+            for p in cleanup:
+                p.unlink(missing_ok=True)
+
+    def test_materialize_notary_auth_sets_key_path(self):
+        pem = "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"
+        env_vars = {
+            "auth_mode": "api_key",
+            "notary_key": pem,
+            "notary_key_id": "ID",
+            "notary_issuer": "ISSUER",
+        }
+        resolved = materialize_notary_auth(env_vars)
+        try:
+            self.assertTrue(Path(resolved["notary_key_path"]).is_file())
+            args = notarytool_auth_args(resolved)
+            self.assertEqual(args[0], "--key")
+            self.assertEqual(args[1], resolved["notary_key_path"])
+        finally:
+            for raw in resolved.get("_cleanup_paths", "").split(":"):
+                if raw:
+                    Path(raw).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

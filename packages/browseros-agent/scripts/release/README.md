@@ -80,12 +80,22 @@ python3 packages/browseros-agent/scripts/release/verify_release_secrets.py
 
 See `apps/app/lib/constants/paneExtensionIds.ts` (generated). Agent ID changes whenever you rotate the agent `manifest.key`.
 
-## Unsigned browser releases (no Apple Developer account)
+## Signed browser releases (production)
 
-Until Apple code signing is set up, ship the browser as an **unsigned DMG** on GitHub Releases.
-Users see a one-time Gatekeeper warning on first launch. Install steps: `docs/install/macos.mdx`.
+Push a `browser/v*` tag after bumping `BROWSEROS_PATCH`. GitHub Actions
+(`.github/workflows/release-browser.yml`) builds arm64 + x64, signs with
+Developer ID, notarizes via App Store Connect API key, uploads DMGs, and
+refreshes Sparkle appcasts. See `.cursor/skills/pane-incremental-release/SKILL.md`.
 
-### Build (maintainer)
+Secrets: `DEVELOPER_ID_P12`, `P12_PASSWORD`, `NOTARY_KEY`, `NOTARY_KEY_ID`,
+`NOTARY_ISSUER`, `SPARKLE_PRIVATE_KEY`. Runner variable: `CHROMIUM_SRC`.
+
+## Unsigned browser builds (local testing only)
+
+Local unsigned DMGs are for pre-release smoke tests. Users see a Gatekeeper
+warning; do not ship them as production. Install steps for unsigned: `docs/install/macos.mdx`.
+
+### Build (maintainer, local)
 
 ```bash
 # 1. Fetch Chromium once (see docs/contributing.mdx)
@@ -97,20 +107,7 @@ packages/browseros-agent/scripts/release/build-unsigned-browser.sh
 
 Output: `packages/browseros/releases/<version>/Pane_v<version>_arm64.dmg`
 
-### Publish
-
-```bash
-git tag -a browser/v0.47.0.1 -m "browser v0.47.0.1"
-git push origin browser/v0.47.0.1
-
-packages/browseros-agent/scripts/release/upload-browser-release.sh \
-  browser/v0.47.0.1 \
-  packages/browseros/releases/0.47.0.1/Pane_v0.47.0.1_arm64.dmg \
-  packages/browseros/releases/0.47.0.1/pane-browser-release-metadata.json
-
-# Re-run Release Pane Browser workflow (workflow_dispatch) to refresh appcasts
-```
-
 Config: `packages/browseros/build/config/release.macos.arm64.unsigned.yaml`
 
-Signed releases later: use `release.macos.arm64.yaml` once Apple certs are in `.env`.
+Signed local configs (when cert + NOTARY_* are in env): `release.macos.arm64.yaml`
+or the `*.signed.*.yaml` CI variants.

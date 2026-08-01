@@ -148,6 +148,188 @@ def unlock_keychain(env: Optional[EnvConfig] = None) -> None:
     )
 
 
+def resolve_notary_key_file(
+    notary_key: str, cleanup: Optional[List[Path]] = None
+) -> Path:
+    """Resolve NOTARY_KEY to a filesystem path.
+
+    Accepts either a path to a .p8 file or the PEM contents themselves
+    (as stored in GitHub Actions secrets).
+    """
+    candidate = Path(notary_key)
+    if candidate.is_file():
+        return candidate
+
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".p8",
+        prefix="AuthKey_",
+        delete=False,
+    )
+    tmp.write(notary_key)
+    if not notary_key.endswith("\n"):
+        tmp.write("\n")
+    tmp.close()
+    path = Path(tmp.name)
+    if cleanup is not None:
+        cleanup.append(path)
+    return path
+
+
+def notarytool_auth_args(env_vars: Dict[str, str]) -> List[str]:
+    """Return notarytool CLI auth flags for the active credential mode.
+
+    Preferred: App Store Connect API key (--key/--key-id/--issuer).
+    Fallback: apple-id + app-specific password, via keychain profile when
+    available, otherwise inline flags.
+    """
+    auth_mode = env_vars.get("auth_mode", "")
+    if auth_mode == "api_key":
+        key_path = env_vars.get("notary_key_path") or env_vars.get("notary_key", "")
+        return [
+            "--key",
+            key_path,
+            "--key-id",
+            env_vars["notary_key_id"],
+            "--issuer",
+            env_vars["notary_issuer"],
+        ]
+
+    if env_vars.get("use_keychain_profile"):
+        return [
+            "--keychain-profile",
+            env_vars.get("keychain_profile", "notarytool-profile"),
+        ]
+
+    return [
+        "--apple-id",
+        env_vars["apple_id"],
+        "--team-id",
+        env_vars["team_id"],
+        "--password",
+        env_vars["notarization_pwd"],
+    ]
+
+
+def import_developer_id_certificate(
+    env: Optional[EnvConfig] = None,
+) -> Optional[Path]:
+    """Import DEVELOPER_ID_P12 into a temporary keychain for CI codesign.
+
+    Returns the keychain path when import ran, or None when P12 env vars are
+    unset (local machines that already have the identity in login.keychain).
+    """
+    if env is None:
+        env = EnvConfig()
+
+    p12_b64 = env.developer_id_p12
+    p12_password = env.p12_password
+    if not p12_b64:
+        return None
+    if not p12_password:
+        raise RuntimeError("DEVELOPER_ID_P12 is set but P12_PASSWORD is missing")
+
+    import base64
+
+    keychain_password = env.macos_keychain_password or p12_password
+    runner_temp = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir()))
+    keychain_path = runner_temp / "pane-signing.keychain-db"
+    p12_path = runner_temp / "developer-id.p12"
+
+    log_info("🔐 Importing Developer ID certificate into temporary keychain...")
+    if keychain_path.exists():
+        run_command(
+            ["security", "delete-keychain", str(keychain_path)],
+            check=False,
+        )
+
+    p12_path.write_bytes(base64.b64decode(p12_b64))
+    try:
+        run_command(
+            [
+                "security",
+                "create-keychain",
+                "-p",
+                keychain_password,
+                str(keychain_path),
+            ]
+        )
+        run_command(
+            [
+                "security",
+                "set-keychain-settings",
+                "-lut",
+                "21600",
+                str(keychain_path),
+            ]
+        )
+        run_command(
+            [
+                "security",
+                "unlock-keychain",
+                "-p",
+                keychain_password,
+                str(keychain_path),
+            ]
+        )
+        run_command(
+            [
+                "security",
+                "import",
+                str(p12_path),
+                "-P",
+                p12_password,
+                "-A",
+                "-t",
+                "cert",
+                "-f",
+                "pkcs12",
+                "-k",
+                str(keychain_path),
+            ]
+        )
+        # Prefer the CI keychain but keep login so system roots remain visible.
+        list_result = run_command(
+            ["security", "list-keychains", "-d", "user"],
+            check=False,
+        )
+        existing = []
+        if list_result.returncode == 0:
+            for line in list_result.stdout.splitlines():
+                path = line.strip().strip('"')
+                if path and path != str(keychain_path):
+                    existing.append(path)
+        run_command(
+            [
+                "security",
+                "list-keychains",
+                "-d",
+                "user",
+                "-s",
+                str(keychain_path),
+                *existing,
+            ]
+        )
+        run_command(
+            [
+                "security",
+                "set-key-partition-list",
+                "-S",
+                "apple-tool:,apple:",
+                "-s",
+                "-k",
+                keychain_password,
+                str(keychain_path),
+            ],
+            check=False,
+        )
+        log_success(f"Developer ID certificate imported: {keychain_path}")
+        return keychain_path
+    finally:
+        if p12_path.exists():
+            p12_path.unlink()
+
+
 class MacOSSignModule(CommandModule):
     produces = ["signed_app"]
     requires = ["built_app"]
@@ -170,6 +352,7 @@ class MacOSSignModule(CommandModule):
         log_info("🚀 Starting signing process for Pane...")
         log_info("=" * 70)
 
+        import_developer_id_certificate(ctx.env)
         unlock_keychain(ctx.env)
 
         app_path = ctx.get_app_path()
@@ -207,6 +390,8 @@ class MacOSSignModule(CommandModule):
     def _notarize(self, app_path: Path, env_vars: Dict[str, str], ctx: Context) -> None:
         if not notarize_app(app_path, ctx.root_dir, env_vars, ctx):
             raise RuntimeError("Notarization failed")
+
+
 def check_signing_environment(env: Optional[EnvConfig] = None) -> bool:
     """Check if all required environment variables are set for signing (early check)
 
@@ -217,31 +402,17 @@ def check_signing_environment(env: Optional[EnvConfig] = None) -> bool:
     if not IS_MACOS:
         return True
 
-    if env is None:
-        env = EnvConfig()
-
-    missing = []
-
-    if not env.macos_certificate_name:
-        missing.append("MACOS_CERTIFICATE_NAME")
-    if not env.macos_notarization_apple_id:
-        missing.append("PROD_MACOS_NOTARIZATION_APPLE_ID")
-    if not env.macos_notarization_team_id:
-        missing.append("PROD_MACOS_NOTARIZATION_TEAM_ID")
-    if not env.macos_notarization_password:
-        missing.append("PROD_MACOS_NOTARIZATION_PWD")
-
-    if missing:
-        log_error("❌ Signing requires macOS environment variables!")
-        log_error(f"Missing environment variables: {', '.join(missing)}")
-        log_error("Please set all required environment variables before signing.")
-        return False
-
-    return True
+    ok, _ = check_environment(env)
+    return ok
 
 
 def check_environment(env: Optional[EnvConfig] = None) -> Tuple[bool, Dict[str, str]]:
-    """Check if all required environment variables are set
+    """Check signing + notarization credentials.
+
+    Preferred notarization path: NOTARY_KEY + NOTARY_KEY_ID + NOTARY_ISSUER
+    (App Store Connect API key — works in CI without 2FA).
+
+    Fallback: PROD_MACOS_NOTARIZATION_APPLE_ID + TEAM_ID + PWD.
 
     Args:
         env: Optional EnvConfig instance. If not provided, creates a new one.
@@ -249,29 +420,53 @@ def check_environment(env: Optional[EnvConfig] = None) -> Tuple[bool, Dict[str, 
     if env is None:
         env = EnvConfig()
 
-    env_vars = {
+    env_vars: Dict[str, str] = {
         "certificate_name": env.macos_certificate_name or "",
+        "notary_key": env.notary_key or "",
+        "notary_key_id": env.notary_key_id or "",
+        "notary_issuer": env.notary_issuer or "",
         "apple_id": env.macos_notarization_apple_id or "",
         "team_id": env.macos_notarization_team_id or "",
         "notarization_pwd": env.macos_notarization_password or "",
+        "keychain_profile": "notarytool-profile",
+        "use_keychain_profile": "",
+        "auth_mode": "",
+        "notary_key_path": "",
     }
 
-    missing = []
-    for key, value in env_vars.items():
-        if not value:
-            env_name = {
-                "certificate_name": "MACOS_CERTIFICATE_NAME",
-                "apple_id": "PROD_MACOS_NOTARIZATION_APPLE_ID",
-                "team_id": "PROD_MACOS_NOTARIZATION_TEAM_ID",
-                "notarization_pwd": "PROD_MACOS_NOTARIZATION_PWD",
-            }[key]
-            missing.append(env_name)
+    missing: List[str] = []
+    if not env_vars["certificate_name"]:
+        missing.append("MACOS_CERTIFICATE_NAME")
+
+    if env.has_notary_api_key():
+        env_vars["auth_mode"] = "api_key"
+    elif env.has_notary_apple_id():
+        env_vars["auth_mode"] = "apple_id"
+    else:
+        missing.append(
+            "NOTARY_KEY + NOTARY_KEY_ID + NOTARY_ISSUER "
+            "(preferred) or PROD_MACOS_NOTARIZATION_APPLE_ID + "
+            "PROD_MACOS_NOTARIZATION_TEAM_ID + PROD_MACOS_NOTARIZATION_PWD"
+        )
 
     if missing:
         log_error(f"Required environment variables not set: {', '.join(missing)}")
         return False, env_vars
 
     return True, env_vars
+
+
+def materialize_notary_auth(env_vars: Dict[str, str]) -> Dict[str, str]:
+    """Resolve API-key path (and temp-file cleanup list) for notarytool calls."""
+    resolved = dict(env_vars)
+    if resolved.get("auth_mode") != "api_key":
+        return resolved
+
+    cleanup: List[Path] = []
+    key_path = resolve_notary_key_file(resolved["notary_key"], cleanup)
+    resolved["notary_key_path"] = str(key_path)
+    resolved["_cleanup_paths"] = ":".join(str(p) for p in cleanup)
+    return resolved
 
 
 def find_components_to_sign(
@@ -838,6 +1033,7 @@ def notarize_app(
 ) -> bool:
     """Notarize the application"""
     log_info("\n📤 Preparing for notarization...")
+    env_vars = materialize_notary_auth(env_vars)
 
     # Create zip for notarization
     notarize_zip = (
@@ -849,53 +1045,45 @@ def notarize_app(
     run_command(["ditto", "-c", "-k", "--keepParent", str(app_path), str(notarize_zip)])
     log_success("Archive created for notarization")
 
-    # Store credentials
-    log_info("🔑 Storing notarization credentials...")
-    store_result = run_command(
-        [
-            "xcrun",
-            "notarytool",
-            "store-credentials",
-            "notarytool-profile",
-            "--apple-id",
-            env_vars["apple_id"],
-            "--team-id",
-            env_vars["team_id"],
-            "--password",
-            env_vars["notarization_pwd"],
-        ],
-        check=False,
-    )
-
-    # Submit for notarization — if store-credentials failed, pass creds
-    # directly to avoid depending on the keychain profile.
-    log_info("📤 Submitting application for notarization (this may take a while)...")
-    use_keychain_profile = store_result.returncode == 0
-    if use_keychain_profile:
-        submit_cmd = [
-            "xcrun",
-            "notarytool",
-            "submit",
-            str(notarize_zip),
-            "--keychain-profile",
-            "notarytool-profile",
-            "--wait",
-        ]
+    auth_mode = env_vars.get("auth_mode", "apple_id")
+    if auth_mode == "api_key":
+        log_info("🔑 Using App Store Connect API key for notarization...")
     else:
-        log_warning("Keychain profile unavailable — passing credentials directly")
-        submit_cmd = [
-            "xcrun",
-            "notarytool",
-            "submit",
-            str(notarize_zip),
-            "--apple-id",
-            env_vars["apple_id"],
-            "--team-id",
-            env_vars["team_id"],
-            "--password",
-            env_vars["notarization_pwd"],
-            "--wait",
-        ]
+        # Store credentials into a keychain profile when possible; fall back to
+        # inline apple-id flags if store-credentials fails (locked keychain).
+        log_info("🔑 Storing notarization credentials (apple-id fallback)...")
+        store_result = run_command(
+            [
+                "xcrun",
+                "notarytool",
+                "store-credentials",
+                env_vars.get("keychain_profile", "notarytool-profile"),
+                "--apple-id",
+                env_vars["apple_id"],
+                "--team-id",
+                env_vars["team_id"],
+                "--password",
+                env_vars["notarization_pwd"],
+            ],
+            check=False,
+        )
+        env_vars = dict(env_vars)
+        env_vars["use_keychain_profile"] = (
+            "1" if store_result.returncode == 0 else ""
+        )
+        if not env_vars["use_keychain_profile"]:
+            log_warning("Keychain profile unavailable — passing credentials directly")
+
+    # Submit for notarization
+    log_info("📤 Submitting application for notarization (this may take a while)...")
+    submit_cmd = [
+        "xcrun",
+        "notarytool",
+        "submit",
+        str(notarize_zip),
+        *notarytool_auth_args(env_vars),
+        "--wait",
+    ]
     result = run_command(submit_cmd, check=False)
 
     log_info(result.stdout)
@@ -904,6 +1092,7 @@ def notarize_app(
 
     if result.returncode != 0:
         log_error("Notarization submission failed")
+        _cleanup_notary_temp_files(env_vars)
         return False
 
     # Check if accepted
@@ -914,9 +1103,11 @@ def notarize_app(
             if "id:" in line:
                 submission_id = line.split("id:")[1].strip().split()[0]
                 log_info(
-                    f'Get detailed logs with: xcrun notarytool log {submission_id} --keychain-profile "notarytool-profile"'
+                    f"Get detailed logs with: xcrun notarytool log {submission_id} "
+                    f"{' '.join(notarytool_auth_args(env_vars))}"
                 )
                 break
+        _cleanup_notary_temp_files(env_vars)
         return False
 
     log_success("App notarization successful - status: Accepted")
@@ -927,12 +1118,14 @@ def notarize_app(
 
     if result.returncode != 0:
         log_error("Failed to staple notarization ticket!")
+        _cleanup_notary_temp_files(env_vars)
         return False
 
     log_success("Notarization ticket stapled successfully")
 
     # Clean up
     notarize_zip.unlink()
+    _cleanup_notary_temp_files(env_vars)
 
     # Verify notarization
     log_info("\n🔍 Verifying notarization status...")
@@ -955,12 +1148,25 @@ def notarize_app(
     return True
 
 
+def _cleanup_notary_temp_files(env_vars: Dict[str, str]) -> None:
+    cleanup = env_vars.get("_cleanup_paths", "")
+    if not cleanup:
+        return
+    for raw in cleanup.split(":"):
+        if not raw:
+            continue
+        path = Path(raw)
+        if path.exists():
+            path.unlink()
+
+
 def sign_app(ctx: Context, create_dmg: bool = True) -> bool:
     """Main signing function that uses BuildContext from build.py"""
     log_info("=" * 70)
     log_info("🚀 Starting signing process for Pane...")
     log_info("=" * 70)
 
+    import_developer_id_certificate(ctx.env if ctx else None)
     unlock_keychain(ctx.env if ctx else None)
 
     # Error tracking similar to bash script
@@ -974,7 +1180,7 @@ def sign_app(ctx: Context, create_dmg: bool = True) -> bool:
         log_error(msg)
 
     # Check environment
-    env_ok, env_vars = check_environment()
+    env_ok, env_vars = check_environment(ctx.env if ctx else None)
     if not env_ok:
         return False
 
@@ -1040,7 +1246,7 @@ def sign_app(ctx: Context, create_dmg: bool = True) -> bool:
                 certificate_name=env_vars["certificate_name"],
                 volume_name="Pane",
                 pkg_dmg_path=pkg_dmg_path,
-                keychain_profile="notarytool-profile",
+                env_vars=env_vars,
             ):
                 log_error("DMG creation/notarization failed")
                 return False

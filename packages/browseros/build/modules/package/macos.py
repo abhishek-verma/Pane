@@ -64,15 +64,19 @@ class MacOSPackageModule(CommandModule):
     ) -> None:
         from ..sign.macos import check_environment
 
-        env_ok, env_vars = check_environment()
+        env_ok, env_vars = check_environment(ctx.env)
         if not env_ok:
             raise ValidationError("Signing environment not configured")
 
         certificate_name = env_vars["certificate_name"]
-        keychain_profile = env_vars.get("keychain_profile", "notarytool-profile")
 
         if not create_signed_notarized_dmg(
-            app_path, dmg_path, certificate_name, "Pane", pkg_dmg_path, keychain_profile
+            app_path,
+            dmg_path,
+            certificate_name,
+            "Pane",
+            pkg_dmg_path,
+            env_vars=env_vars,
         ):
             raise RuntimeError("Failed to create signed and notarized DMG")
 def create_dmg(
@@ -172,8 +176,16 @@ def sign_dmg(dmg_path: Path, certificate_name: str) -> bool:
         return False
 
 
-def notarize_dmg(dmg_path: Path, keychain_profile: str = "notarytool-profile") -> bool:
-    """Notarize a DMG file"""
+def notarize_dmg(
+    dmg_path: Path,
+    keychain_profile: str = "notarytool-profile",
+    env_vars: Optional[dict] = None,
+) -> bool:
+    """Notarize a DMG file.
+
+    Prefer passing env_vars from check_environment so API-key auth works in CI.
+    keychain_profile is the apple-id fallback when env_vars is omitted.
+    """
     log_info(f"\n📤 Notarizing DMG: {dmg_path.name}")
 
     if not dmg_path.exists():
@@ -181,6 +193,19 @@ def notarize_dmg(dmg_path: Path, keychain_profile: str = "notarytool-profile") -
         return False
 
     try:
+        from ..sign.macos import (
+            _cleanup_notary_temp_files,
+            materialize_notary_auth,
+            notarytool_auth_args,
+        )
+
+        auth_env = None
+        if env_vars is not None:
+            auth_env = materialize_notary_auth(env_vars)
+            auth_args = notarytool_auth_args(auth_env)
+        else:
+            auth_args = ["--keychain-profile", keychain_profile]
+
         # Submit for notarization
         log_info("📤 Submitting DMG for notarization (this may take a while)...")
         result = run_command(
@@ -189,8 +214,7 @@ def notarize_dmg(dmg_path: Path, keychain_profile: str = "notarytool-profile") -
                 "notarytool",
                 "submit",
                 str(dmg_path),
-                "--keychain-profile",
-                keychain_profile,
+                *auth_args,
                 "--wait",
             ],
             check=False,
@@ -202,6 +226,8 @@ def notarize_dmg(dmg_path: Path, keychain_profile: str = "notarytool-profile") -
 
         if result.returncode != 0:
             log_error("DMG notarization submission failed")
+            if auth_env is not None:
+                _cleanup_notary_temp_files(auth_env)
             return False
 
         # Check if accepted
@@ -212,9 +238,12 @@ def notarize_dmg(dmg_path: Path, keychain_profile: str = "notarytool-profile") -
                 if "id:" in line:
                     submission_id = line.split("id:")[1].strip().split()[0]
                     log_info(
-                        f'Get detailed logs with: xcrun notarytool log {submission_id} --keychain-profile "{keychain_profile}"'
+                        f"Get detailed logs with: xcrun notarytool log {submission_id} "
+                        f"{' '.join(auth_args)}"
                     )
                     break
+            if auth_env is not None:
+                _cleanup_notary_temp_files(auth_env)
             return False
 
         log_success("DMG notarization successful - status: Accepted")
@@ -225,6 +254,8 @@ def notarize_dmg(dmg_path: Path, keychain_profile: str = "notarytool-profile") -
 
         if result.returncode != 0:
             log_error("Failed to staple notarization ticket to DMG")
+            if auth_env is not None:
+                _cleanup_notary_temp_files(auth_env)
             return False
 
         log_success("DMG notarization ticket stapled successfully")
@@ -237,6 +268,8 @@ def notarize_dmg(dmg_path: Path, keychain_profile: str = "notarytool-profile") -
 
         if result.returncode != 0:
             log_error("DMG stapling verification failed")
+            if auth_env is not None:
+                _cleanup_notary_temp_files(auth_env)
             return False
 
         log_success("DMG stapling verification successful")
@@ -257,6 +290,9 @@ def notarize_dmg(dmg_path: Path, keychain_profile: str = "notarytool-profile") -
             check=False,
         )
 
+        if auth_env is not None:
+            _cleanup_notary_temp_files(auth_env)
+
         if result.returncode != 0:
             log_error("Final security assessment failed")
             return False
@@ -276,6 +312,7 @@ def create_signed_notarized_dmg(
     volume_name: str = "Pane",
     pkg_dmg_path: Optional[Path] = None,
     keychain_profile: str = "notarytool-profile",
+    env_vars: Optional[dict] = None,
 ) -> bool:
     """Create, sign, and notarize a DMG in one go"""
     log_info("=" * 70)
@@ -291,7 +328,7 @@ def create_signed_notarized_dmg(
         return False
 
     # Notarize DMG
-    if not notarize_dmg(dmg_path, keychain_profile):
+    if not notarize_dmg(dmg_path, keychain_profile, env_vars=env_vars):
         return False
 
     log_info("=" * 70)

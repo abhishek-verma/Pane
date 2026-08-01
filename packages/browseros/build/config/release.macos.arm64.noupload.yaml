@@ -40,11 +40,10 @@ modules:
 
 # Required environment variables
 # Note: CHROMIUM_SRC can be provided via --chromium-src CLI flag, YAML config, or env var
+# Notarization: NOTARY_KEY + NOTARY_KEY_ID + NOTARY_ISSUER (preferred)
+#   or PROD_MACOS_NOTARIZATION_* apple-id fallback. Validated by sign module.
 required_envs:
   - MACOS_CERTIFICATE_NAME
-  - PROD_MACOS_NOTARIZATION_APPLE_ID
-  - PROD_MACOS_NOTARIZATION_TEAM_ID
-  - PROD_MACOS_NOTARIZATION_PWD
 
 # Notification settings
 notifications:

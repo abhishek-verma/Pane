@@ -82,24 +82,61 @@ class EnvConfig:
         return os.environ.get("MACOS_CERTIFICATE_NAME")
 
     @property
+    def developer_id_p12(self) -> Optional[str]:
+        """Base64-encoded Developer ID Application .p12 (CI runners)"""
+        return os.environ.get("DEVELOPER_ID_P12")
+
+    @property
+    def p12_password(self) -> Optional[str]:
+        """Password for DEVELOPER_ID_P12"""
+        return os.environ.get("P12_PASSWORD")
+
+    @property
+    def notary_key(self) -> Optional[str]:
+        """App Store Connect API key (.p8 path or PEM contents). Preferred notarization auth."""
+        return os.environ.get("NOTARY_KEY")
+
+    @property
+    def notary_key_id(self) -> Optional[str]:
+        """App Store Connect API key ID (e.g. LG3BDKV6WC)"""
+        return os.environ.get("NOTARY_KEY_ID")
+
+    @property
+    def notary_issuer(self) -> Optional[str]:
+        """App Store Connect issuer UUID"""
+        return os.environ.get("NOTARY_ISSUER")
+
+    @property
     def macos_notarization_apple_id(self) -> Optional[str]:
-        """Apple ID for macOS notarization"""
+        """Apple ID for macOS notarization (fallback; prefer NOTARY_KEY)"""
         return os.environ.get("PROD_MACOS_NOTARIZATION_APPLE_ID")
 
     @property
     def macos_notarization_team_id(self) -> Optional[str]:
-        """Team ID for macOS notarization"""
+        """Team ID for macOS notarization (apple-id fallback path)"""
         return os.environ.get("PROD_MACOS_NOTARIZATION_TEAM_ID")
 
     @property
     def macos_notarization_password(self) -> Optional[str]:
-        """App-specific password for macOS notarization"""
+        """App-specific password for macOS notarization (apple-id fallback path)"""
         return os.environ.get("PROD_MACOS_NOTARIZATION_PWD")
 
     @property
     def macos_keychain_password(self) -> Optional[str]:
         """macOS login keychain password (used to unlock keychain on build servers)"""
         return os.environ.get("MACOS_KEYCHAIN_PASSWORD")
+
+    def has_notary_api_key(self) -> bool:
+        """True when App Store Connect API key notarization credentials are set."""
+        return bool(self.notary_key and self.notary_key_id and self.notary_issuer)
+
+    def has_notary_apple_id(self) -> bool:
+        """True when apple-id + app-specific password notarization credentials are set."""
+        return bool(
+            self.macos_notarization_apple_id
+            and self.macos_notarization_team_id
+            and self.macos_notarization_password
+        )
 
     # === Windows Code Signing ===
 
@@ -194,10 +231,13 @@ class EnvConfig:
         Get all macOS signing configuration as a dict
 
         Returns:
-            dict with keys: certificate_name, apple_id, team_id, notarization_pwd
+            dict with certificate_name plus either API-key or apple-id notarization fields
         """
         return {
             "certificate_name": self.macos_certificate_name or "",
+            "notary_key": self.notary_key or "",
+            "notary_key_id": self.notary_key_id or "",
+            "notary_issuer": self.notary_issuer or "",
             "apple_id": self.macos_notarization_apple_id or "",
             "team_id": self.macos_notarization_team_id or "",
             "notarization_pwd": self.macos_notarization_password or "",
