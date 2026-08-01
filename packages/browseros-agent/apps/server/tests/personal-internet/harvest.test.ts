@@ -35,6 +35,18 @@ describe('pi harvest guards', () => {
     initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
   }
 
+  async function enableHarvest(siteId: string) {
+    const site = getSite(siteId)!
+    await applyPiMutation({
+      type: 'upsert-site',
+      slug: site.slug,
+      harvestEnabled: true,
+      harvestSources: ['linkedin.com'],
+      harvestOnHostOpened: true,
+      harvestAllowNavigate: false,
+    })
+  }
+
   it('skips harvest when quiet hours and marks stale', async () => {
     setup()
     setQuietHoursConfig({
@@ -45,11 +57,8 @@ describe('pi harvest guards', () => {
     const site = await applyPiMutation({
       type: 'upsert-site',
       templateId: 'job-search',
-      harvestEnabled: true,
     })
-    // Force harvestEnabled in case template path differs
-    const row = getSite(site.siteId!)
-    expect(row).toBeTruthy()
+    await enableHarvest(site.siteId!)
 
     enqueueRefresh({
       targetType: 'site',
@@ -71,8 +80,8 @@ describe('pi harvest guards', () => {
     const site = await applyPiMutation({
       type: 'upsert-site',
       templateId: 'job-search',
-      harvestEnabled: true,
     })
+    await enableHarvest(site.siteId!)
     enqueueRefresh({
       targetType: 'site',
       targetId: site.siteId!,
@@ -87,14 +96,14 @@ describe('pi harvest guards', () => {
     expect(outcome).toBe('skipped-stale')
   })
 
-  it('enqueues rich pi-harvest run when guards pass', async () => {
+  it('enqueues structured pi-harvest run when guards pass', async () => {
     setup()
     setQuietHoursConfig({ enabled: false })
     const site = await applyPiMutation({
       type: 'upsert-site',
       templateId: 'job-search',
-      harvestEnabled: true,
     })
+    await enableHarvest(site.siteId!)
     enqueueRefresh({
       targetType: 'site',
       targetId: site.siteId!,
@@ -115,6 +124,8 @@ describe('pi harvest guards', () => {
       .get() as { prompt: string; source: string } | null
     expect(row?.source).toBe('pi-harvest')
     expect(row?.prompt).toContain(site.siteId!)
+    expect(row?.prompt).toContain('Confirmed harvest config')
     expect(row?.prompt).toContain('pi_record_upsert')
+    expect(row?.prompt).toContain('linkedin.com')
   })
 })

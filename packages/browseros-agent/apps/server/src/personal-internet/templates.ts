@@ -11,6 +11,7 @@ export type SiteTemplate = {
   name: string
   slug: string
   jtbd: string
+  /** @deprecated Templates no longer pre-wire hosts; always null. */
   harvestHost: string | null
   indexDoc: PiPageDoc
   policy: PiRefreshPolicy
@@ -114,17 +115,14 @@ function salesLeads(): PiPageDoc {
   }
 }
 
-const defaultSitePolicy = (harvestHost: string | null): PiRefreshPolicy => ({
+/** Base site policy — no harvest triggers until user-confirmed config. */
+export const defaultSitePolicy = (): PiRefreshPolicy => ({
   triggers: [
     { name: 'entity-mutated', kind: 'A' },
-    // Kind D: board/chart sync from records + pulse (not reproject-only).
     { name: 'new-day', kind: 'D' },
     { name: 'manual-refresh', kind: 'A' },
-    ...(harvestHost
-      ? [{ name: 'host-opened', filter: harvestHost, kind: 'C' as const }]
-      : []),
   ],
-  guards: { cooldownMs: 60_000, requireHarvestEnabled: !!harvestHost },
+  guards: { cooldownMs: 60_000, requireHarvestEnabled: false },
 })
 
 export function getSiteTemplate(id: PiTemplateId): SiteTemplate {
@@ -135,9 +133,9 @@ export function getSiteTemplate(id: PiTemplateId): SiteTemplate {
         name: 'Job Search',
         slug: 'job-search',
         jtbd: 'Maintain applications, interviews, and company research',
-        harvestHost: 'linkedin.com',
+        harvestHost: null,
         indexDoc: jobSearchBoard(),
-        policy: defaultSitePolicy('linkedin.com'),
+        policy: defaultSitePolicy(),
       }
     case 'research-hub':
       return {
@@ -147,7 +145,7 @@ export function getSiteTemplate(id: PiTemplateId): SiteTemplate {
         jtbd: 'Ongoing multi-source research hub',
         harvestHost: null,
         indexDoc: researchHub(),
-        policy: defaultSitePolicy(null),
+        policy: defaultSitePolicy(),
       }
     case 'sales-leads':
       return {
@@ -157,7 +155,7 @@ export function getSiteTemplate(id: PiTemplateId): SiteTemplate {
         jtbd: 'Qualify and advance leads',
         harvestHost: null,
         indexDoc: salesLeads(),
-        policy: defaultSitePolicy(null),
+        policy: defaultSitePolicy(),
       }
   }
 }

@@ -6,6 +6,11 @@
 
 import { applyPatchOps, validatePageDoc } from './dsl'
 import { emitPiEvent } from './events'
+import {
+  buildHarvestPolicy,
+  harvestConfigFromSite,
+  proposeHarvestConfig,
+} from './harvest-config'
 import { indexPiPage, indexPiRecord, removePiSiteIndex } from './index-pi'
 import { pageRoute, siteRoute, tempRoute } from './paths'
 import { shouldAutoDoorway } from './promote'
@@ -44,6 +49,12 @@ export type ApplyPiMutationInput =
       slug?: string
       jtbd?: string
       harvestEnabled?: boolean
+      harvestSources?: string[]
+      harvestCadenceDays?: number
+      harvestInstructions?: string
+      harvestFromMeetings?: boolean
+      harvestOnHostOpened?: boolean
+      harvestAllowNavigate?: boolean
     }
   | {
       type: 'patch-page'
@@ -86,6 +97,12 @@ export type ApplyPiMutationResult = {
   recordId?: string
   route?: string
   pulseLine?: string
+  created?: boolean
+  harvestOffer?: ReturnType<typeof proposeHarvestConfig> & {
+    requiresUserConfirmation: true
+    message: string
+  }
+  harvestConfig?: ReturnType<typeof harvestConfigFromSite>
 }
 
 /** Optional hook so refresh bus can enqueue without circular imports. */
@@ -107,20 +124,35 @@ export async function applyPiMutation(
         : null
       const slug = input.slug ?? template?.slug ?? 'site'
       const existing = getSiteBySlug(slug)
+      const created = !existing
       const site = await upsertSite({
         id: existing?.id,
         name: input.name ?? template?.name ?? existing?.name ?? 'Personal site',
         slug,
         jtbd: input.jtbd ?? template?.jtbd ?? existing?.jtbd ?? '',
         templateId: input.templateId ?? existing?.templateId,
-        // Only override harvest when the caller explicitly sets it — omit
-        // otherwise so store keeps the existing site's harvest settings.
         ...(input.harvestEnabled !== undefined
           ? { harvestEnabled: input.harvestEnabled }
           : {}),
-        // Seed harvestHost from the template only on first create.
-        ...(template && !existing
-          ? { harvestHost: template.harvestHost ?? null }
+        ...(input.harvestSources !== undefined
+          ? { harvestSources: input.harvestSources }
+          : created
+            ? { harvestSources: [] }
+            : {}),
+        ...(input.harvestCadenceDays !== undefined
+          ? { harvestCadenceDays: input.harvestCadenceDays }
+          : {}),
+        ...(input.harvestInstructions !== undefined
+          ? { harvestInstructions: input.harvestInstructions }
+          : {}),
+        ...(input.harvestFromMeetings !== undefined
+          ? { harvestFromMeetings: input.harvestFromMeetings }
+          : {}),
+        ...(input.harvestOnHostOpened !== undefined
+          ? { harvestOnHostOpened: input.harvestOnHostOpened }
+          : {}),
+        ...(input.harvestAllowNavigate !== undefined
+          ? { harvestAllowNavigate: input.harvestAllowNavigate }
           : {}),
         doorwayEligible: shouldAutoDoorway(
           input.templateId ?? existing?.templateId,
@@ -128,8 +160,21 @@ export async function applyPiMutation(
         status: 'active',
       })
 
-      if (template && !existing) {
+      const harvestConfig = harvestConfigFromSite(site)
+      const harvestTouched =
+        input.harvestEnabled !== undefined ||
+        input.harvestSources !== undefined ||
+        input.harvestCadenceDays !== undefined ||
+        input.harvestInstructions !== undefined ||
+        input.harvestFromMeetings !== undefined ||
+        input.harvestOnHostOpened !== undefined ||
+        input.harvestAllowNavigate !== undefined
+
+      if (created && template) {
         upsertPolicy('site', site.id, template.policy)
+      }
+      if (harvestTouched || created) {
+        upsertPolicy('site', site.id, buildHarvestPolicy(harvestConfig))
       }
 
       let indexPage = listPagesForSite(site.id).find((p) => p.kind === 'index')
@@ -149,17 +194,35 @@ export async function applyPiMutation(
       }
 
       const pulse = recomputePulse(site.id)
-      emitPiEvent(existing ? 'site-updated' : 'site-created', {
+      emitPiEvent(created ? 'site-created' : 'site-updated', {
         siteId: site.id,
         pageId: indexPage?.id,
       })
       afterMutationHook?.(site.id)
+
+      const offer = proposeHarvestConfig({
+        name: site.name,
+        jtbd: site.jtbd,
+        templateId: site.templateId,
+      })
 
       return {
         siteId: site.id,
         pageId: indexPage?.id,
         route: siteRoute(site.id),
         pulseLine: pulse?.pulseLine,
+        created,
+        harvestConfig,
+        ...(created
+          ? {
+              harvestOffer: {
+                ...offer,
+                requiresUserConfirmation: true as const,
+                message:
+                  'Propose this harvest config (fill sources from conversation provenance). Do not enable until the user accepts or revises it.',
+              },
+            }
+          : {}),
       }
     }
 

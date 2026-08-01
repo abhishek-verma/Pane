@@ -24,7 +24,6 @@ import {
   findPendingJobByCoalesce,
   getPulse,
   listPendingRefreshJobs,
-  upsertPolicy,
   upsertSite,
 } from '../../src/personal-internet/store'
 import { applyPiMutation } from '../../src/personal-internet/write-path'
@@ -99,16 +98,13 @@ describe('pi refresh bus', () => {
 
   it('harvest disabled skips kind C', async () => {
     setup()
-    const site = await upsertSite({
+    await upsertSite({
       name: 'Job Search',
       slug: 'job-search',
       harvestEnabled: false,
-      harvestHost: 'linkedin.com',
+      harvestSources: ['linkedin.com'],
+      harvestOnHostOpened: true,
       doorwayEligible: true,
-    })
-    upsertPolicy('site', site.id, {
-      triggers: [{ name: 'host-opened', filter: 'linkedin.com', kind: 'C' }],
-      guards: { cooldownMs: 0, requireHarvestEnabled: true },
     })
     const jobs = handleHostOpened('linkedin.com')
     expect(jobs).toHaveLength(0)

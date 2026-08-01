@@ -120,6 +120,13 @@
       "when": 1786100000000,
       "tag": "0016_drop_home_widgets",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1786200000000,
+      "tag": "0017_pi_harvest_config",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,11 @@ import type {
   PiTempRow,
 } from '../lib/db/schema/personal-internet'
 import { validatePageDoc } from './dsl'
+import {
+  clampCadenceDays,
+  normalizeHarvestSources,
+  primaryHarvestHost,
+} from './harvest-config'
 import { removePiIndex, removePiSiteIndex } from './index-pi'
 import { inspectPageFile, type PiPageInspection } from './inspect'
 import {
@@ -52,6 +57,13 @@ export type UpsertSiteInput = {
   templateId?: string | null
   harvestEnabled?: boolean
   harvestHost?: string | null
+  harvestSources?: string[]
+  harvestCadenceDays?: number
+  harvestInstructions?: string
+  harvestFromMeetings?: boolean
+  harvestOnHostOpened?: boolean
+  harvestAllowNavigate?: boolean
+  lastHarvestAt?: number | null
   doorwayEligible?: boolean
   bucketId?: string
 }
@@ -60,6 +72,35 @@ export async function upsertSite(input: UpsertSiteInput): Promise<PiSiteRow> {
   const ts = now()
   const existing = input.id ? getSite(input.id) : getSiteBySlug(input.slug)
   const id = existing?.id ?? input.id ?? newPiId('site')
+
+  let sources: string[]
+  if (input.harvestSources !== undefined) {
+    sources = normalizeHarvestSources(input.harvestSources)
+  } else if (existing?.harvestSourcesJson) {
+    try {
+      sources = normalizeHarvestSources(JSON.parse(existing.harvestSourcesJson))
+    } catch {
+      sources = existing.harvestHost
+        ? normalizeHarvestSources([existing.harvestHost])
+        : []
+    }
+  } else {
+    sources = existing?.harvestHost
+      ? normalizeHarvestSources([existing.harvestHost])
+      : []
+  }
+  if (
+    input.harvestSources === undefined &&
+    input.harvestHost !== undefined &&
+    input.harvestHost
+  ) {
+    sources = normalizeHarvestSources([input.harvestHost, ...sources])
+  }
+  const harvestHost =
+    input.harvestHost !== undefined && input.harvestSources === undefined
+      ? input.harvestHost
+      : primaryHarvestHost(sources)
+
   const row = {
     id,
     bucket_id: input.bucketId ?? existing?.bucketId ?? 'default',
@@ -74,10 +115,38 @@ export async function upsertSite(input: UpsertSiteInput): Promise<PiSiteRow> {
         : input.harvestEnabled
           ? 1
           : 0,
-    harvest_host:
-      input.harvestHost === undefined
-        ? (existing?.harvestHost ?? null)
-        : input.harvestHost,
+    harvest_host: harvestHost,
+    harvest_sources_json: JSON.stringify(sources),
+    harvest_cadence_days:
+      input.harvestCadenceDays === undefined
+        ? clampCadenceDays(existing?.harvestCadenceDays ?? 1)
+        : clampCadenceDays(input.harvestCadenceDays),
+    harvest_instructions:
+      input.harvestInstructions === undefined
+        ? (existing?.harvestInstructions ?? '')
+        : input.harvestInstructions,
+    harvest_from_meetings:
+      input.harvestFromMeetings === undefined
+        ? (existing?.harvestFromMeetings ?? 0)
+        : input.harvestFromMeetings
+          ? 1
+          : 0,
+    harvest_on_host_opened:
+      input.harvestOnHostOpened === undefined
+        ? (existing?.harvestOnHostOpened ?? 0)
+        : input.harvestOnHostOpened
+          ? 1
+          : 0,
+    harvest_allow_navigate:
+      input.harvestAllowNavigate === undefined
+        ? (existing?.harvestAllowNavigate ?? 0)
+        : input.harvestAllowNavigate
+          ? 1
+          : 0,
+    last_harvest_at:
+      input.lastHarvestAt === undefined
+        ? (existing?.lastHarvestAt ?? null)
+        : input.lastHarvestAt,
     doorway_eligible:
       input.doorwayEligible === undefined
         ? (existing?.doorwayEligible ?? 0)
@@ -92,8 +161,10 @@ export async function upsertSite(input: UpsertSiteInput): Promise<PiSiteRow> {
     .prepare(
       `INSERT OR REPLACE INTO pi_sites
         (id, bucket_id, name, slug, jtbd, status, template_id, harvest_enabled,
-         harvest_host, doorway_eligible, created_at, updated_at, archived_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         harvest_host, harvest_sources_json, harvest_cadence_days, harvest_instructions,
+         harvest_from_meetings, harvest_on_host_opened, harvest_allow_navigate,
+         last_harvest_at, doorway_eligible, created_at, updated_at, archived_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       row.id,
@@ -105,6 +176,13 @@ export async function upsertSite(input: UpsertSiteInput): Promise<PiSiteRow> {
       row.template_id,
       row.harvest_enabled,
       row.harvest_host,
+      row.harvest_sources_json,
+      row.harvest_cadence_days,
+      row.harvest_instructions,
+      row.harvest_from_meetings,
+      row.harvest_on_host_opened,
+      row.harvest_allow_navigate,
+      row.last_harvest_at,
       row.doorway_eligible,
       row.created_at,
       row.updated_at,
@@ -119,6 +197,9 @@ export async function upsertSite(input: UpsertSiteInput): Promise<PiSiteRow> {
 }
 
 function rowToSite(row: Record<string, unknown>): PiSiteRow {
+  const sourcesJson =
+    (row.harvest_sources_json as string | null | undefined) ?? '[]'
+  const harvestHost = (row.harvest_host as string | null) ?? null
   return {
     id: row.id as string,
     bucketId: row.bucket_id as string,
@@ -127,13 +208,28 @@ function rowToSite(row: Record<string, unknown>): PiSiteRow {
     jtbd: row.jtbd as string,
     status: row.status as string,
     templateId: (row.template_id as string | null) ?? null,
-    harvestEnabled: row.harvest_enabled as number,
-    harvestHost: (row.harvest_host as string | null) ?? null,
+    harvestEnabled: (row.harvest_enabled as number) ?? 0,
+    harvestHost,
+    harvestSourcesJson: sourcesJson,
+    harvestCadenceDays: (row.harvest_cadence_days as number) ?? 1,
+    harvestInstructions: (row.harvest_instructions as string) ?? '',
+    harvestFromMeetings: (row.harvest_from_meetings as number) ?? 0,
+    harvestOnHostOpened: (row.harvest_on_host_opened as number) ?? 0,
+    harvestAllowNavigate: (row.harvest_allow_navigate as number) ?? 0,
+    lastHarvestAt: (row.last_harvest_at as number | null) ?? null,
     doorwayEligible: row.doorway_eligible as number,
     createdAt: row.created_at as number,
     updatedAt: row.updated_at as number,
     archivedAt: (row.archived_at as number | null) ?? null,
   }
+}
+
+export function setSiteLastHarvestAt(siteId: string, at: number): void {
+  sqlite()
+    .prepare(
+      `UPDATE pi_sites SET last_harvest_at = ?, updated_at = ? WHERE id = ?`,
+    )
+    .run(at, now(), siteId)
 }
 
 export function getSite(id: string): PiSiteRow | null {
@@ -601,6 +697,7 @@ export type PiRefreshJobRow = {
   coalesceKey: string
   status: string
   errorText: string | null
+  filterValue: string | null
   createdAt: number
   updatedAt: number
 }
@@ -615,6 +712,7 @@ function rowToJob(row: Record<string, unknown>): PiRefreshJobRow {
     coalesceKey: row.coalesce_key as string,
     status: row.status as string,
     errorText: (row.error_text as string | null) ?? null,
+    filterValue: (row.filter_value as string | null) ?? null,
     createdAt: row.created_at as number,
     updatedAt: row.updated_at as number,
   }
@@ -639,6 +737,7 @@ export function insertRefreshJob(input: {
   kind: string
   triggerName: string
   coalesceKey: string
+  filterValue?: string | null
 }): PiRefreshJobRow {
   const id = newPiId('rjob')
   const ts = now()
@@ -646,8 +745,8 @@ export function insertRefreshJob(input: {
     .prepare(
       `INSERT INTO pi_refresh_jobs
         (id, target_type, target_id, kind, trigger_name, coalesce_key,
-         status, error_text, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL, ?, ?)`,
+         status, error_text, filter_value, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', NULL, ?, ?, ?)`,
     )
     .run(
       id,
@@ -656,6 +755,7 @@ export function insertRefreshJob(input: {
       input.kind,
       input.triggerName,
       input.coalesceKey,
+      input.filterValue ?? null,
       ts,
       ts,
     )
