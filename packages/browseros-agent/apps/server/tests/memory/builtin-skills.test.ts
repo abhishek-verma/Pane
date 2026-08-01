@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { closeDb, initializeDb } from '../../src/lib/db'
 import {
+  BUILTIN_BROWSER_AUTOMATE_SKILL_ID,
   BUILTIN_BROWSER_OBSERVE_SKILL_ID,
   BUILTIN_MEETINGS_SKILL_ID,
   BUILTIN_MEMORY_SKILL_ID,
@@ -41,7 +42,7 @@ describe('builtin skills', () => {
     closeDb()
   })
 
-  it('seeds core + focused pi-* skills; archives mega personalised-internet', async () => {
+  it('seeds core + focused pi-* skills; archives mega personalised-internet and browser-observe', async () => {
     await ensureBuiltinSkills({ memoriesRoot })
     const meetings = getSkill(BUILTIN_MEETINGS_SKILL_ID)
     expect(meetings?.status).toBe('active')
@@ -49,8 +50,11 @@ describe('builtin skills', () => {
 
     const listed = listSkills({ status: 'active' })
     expect(listed.some((s) => s.id === BUILTIN_MEETINGS_SKILL_ID)).toBe(true)
-    expect(listed.some((s) => s.id === BUILTIN_BROWSER_OBSERVE_SKILL_ID)).toBe(
+    expect(listed.some((s) => s.id === BUILTIN_BROWSER_AUTOMATE_SKILL_ID)).toBe(
       true,
+    )
+    expect(listed.some((s) => s.id === BUILTIN_BROWSER_OBSERVE_SKILL_ID)).toBe(
+      false,
     )
     expect(listed.some((s) => s.id === BUILTIN_MEMORY_SKILL_ID)).toBe(true)
     expect(listed.some((s) => s.id === BUILTIN_RESEARCH_SKILL_ID)).toBe(true)
@@ -69,10 +73,12 @@ describe('builtin skills', () => {
     expect(byName?.id).toBe(BUILTIN_MEETINGS_SKILL_ID)
     expect(byName?.body).toContain('capture_list')
 
-    const browser = await loadSkill('browser-observe', { memoriesRoot })
-    expect(browser?.id).toBe(BUILTIN_BROWSER_OBSERVE_SKILL_ID)
+    const browser = await loadSkill('browser-automate', { memoriesRoot })
+    expect(browser?.id).toBe(BUILTIN_BROWSER_AUTOMATE_SKILL_ID)
     expect(browser?.body).toContain('evaluate')
     expect(browser?.body).toContain('page ID from Browser Context')
+    expect(browser?.body).toContain('User-required gates')
+    expect(browser?.body).toContain('memory_add')
     expect(browser?.body).not.toMatch(/Find pages with `tabs` action="list"/i)
 
     const memory = await loadSkill('memory', { memoriesRoot })
@@ -84,7 +90,8 @@ describe('builtin skills', () => {
     expect(research?.body).toContain('context_search')
     expect(research?.body).toContain('search angles')
     expect(research?.body).toContain('background tabs')
-    expect(research?.body).toContain('cited sources')
+    expect(research?.body).toContain('browser-automate')
+    expect(research?.body).toContain('pi_page_create')
 
     const sites = await loadSkill('pi-sites', { memoriesRoot })
     expect(sites?.id).toBe(BUILTIN_PI_SITES_SKILL_ID)
@@ -95,6 +102,8 @@ describe('builtin skills', () => {
     expect(dsl?.id).toBe(BUILTIN_PI_PAGE_DSL_SKILL_ID)
     expect(dsl?.body).toContain('closed element set')
     expect(dsl?.body).toContain('open-internal')
+    expect(dsl?.body).toContain('wall of text')
+    expect(dsl?.body).toContain('pi_open')
 
     const patch = await loadSkill('pi-page-patch', { memoriesRoot })
     expect(patch?.id).toBe(BUILTIN_PI_PAGE_PATCH_SKILL_ID)
@@ -125,6 +134,14 @@ describe('builtin skills', () => {
     )
   })
 
+  it('archives previously installed browser-observe skill', async () => {
+    await installLegacyBrowserObserve(memoriesRoot)
+    expect(getSkill(BUILTIN_BROWSER_OBSERVE_SKILL_ID)?.status).toBe('active')
+    await ensureBuiltinSkills({ memoriesRoot })
+    expect(getSkill(BUILTIN_BROWSER_OBSERVE_SKILL_ID)?.status).toBe('archived')
+    expect(getSkill(BUILTIN_BROWSER_AUTOMATE_SKILL_ID)?.status).toBe('active')
+  })
+
   it('does not reactivate an archived builtin skill', async () => {
     await ensureBuiltinSkills({ memoriesRoot })
     setSkillStatus(BUILTIN_MEETINGS_SKILL_ID, 'archived')
@@ -143,6 +160,24 @@ description: legacy mega skill
 ---
 
 # Legacy
+`,
+    provenance: 'imported',
+    memoriesRoot,
+  })
+}
+
+async function installLegacyBrowserObserve(
+  memoriesRoot: string,
+): Promise<void> {
+  const { installSkillFromBody } = await import('../../src/memory/store')
+  await installSkillFromBody({
+    id: BUILTIN_BROWSER_OBSERVE_SKILL_ID,
+    body: `---
+name: browser-observe
+description: legacy observe skill
+---
+
+# Legacy observe
 `,
     provenance: 'imported',
     memoriesRoot,
