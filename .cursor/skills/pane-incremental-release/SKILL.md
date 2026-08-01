@@ -1,167 +1,183 @@
 ---
 name: pane-incremental-release
 description: >-
-  Ship a Pane incremental (delta) release for macOS arm64 via Sparkle: bump
-  versions, pack/publish CRX, run signed CI release (preferred) or local
-  unsigned repackage/incremental for pre-release testing, publish DMG, update
-  appcast. Use when the user asks for a Pane incremental release, Pane delta
-  release, Pane repackage, incremental Pane build, Sparkle OTA ship for Pane,
-  signed CI release, or to publish Pane extension/server/browser-patch changes
-  without a full Chromium rebuild.
+  One-shot Pane incremental release for macOS arm64: classify changes, bump
+  versions, rebuild/stage server if needed, pack extension CRX if needed, run
+  LOCAL signed+notarized build (default production path), tag, upload DMG,
+  update Sparkle appcast. Use when the user asks for a Pane incremental /
+  delta / signed release, Pane repackage, Sparkle OTA ship, or invokes this
+  skill with no further instructions — run end-to-end autonomously.
 ---
 
-# Pane incremental release
+# Pane incremental release (one-shot)
 
-Ship a **delta / incremental** Pane release (macOS). Repo: `/Users/abhishek/workspace/Pane`.
-SOP for detail: `.cursor/docs/build-release-sop.md`. Prefer judgment over rigid checklists when something unexpected comes up — just don't do a full Chromium rebuild unless the user asks.
+Ship a **delta** Pane browser release (`0.47.0.N`) that existing installs pick up via Sparkle.
+Repo: `/Users/abhishek/workspace/Pane`. SOP detail: `.cursor/docs/build-release-sop.md`.
 
-## Goal
-Publish whatever changed: extension and/or server and/or browser patches, as a new browser version (`0.47.0.N`) that existing installs can pick up via Sparkle.
+When the user invokes this skill **with no further instructions**, run the entire
+**Local signed production** path end-to-end. Do not stop for confirmation unless a
+hard don't would be violated or the tree needs a full Chromium rebuild.
 
 ## Hard don'ts
 - Do **not** run `git reset --hard`, `git clean`, or `gclient sync` in `/Users/abhishek/chromium/src` without asking.
-- Do **not** use the full unsigned config (`release.macos.arm64.unsigned.local.yaml`) unless the user confirms a full rebuild.
-- Do **not** bump `BROWSEROS_PATCH` until you're ready to build+ship a DMG in this session.
-
-## Choose release path (do this first)
-
-| What you want | Path | Notes |
-| --- | --- | --- |
-| **Ship to users** (signed + notarized DMG) | **Signed CI release** (preferred) | Bump → push `browser/v*` tag → GitHub Actions builds, signs, notarizes, uploads, appcasts |
-| Local smoke / pre-release DMG only | **Unsigned repackage or incremental** | Testing only — Gatekeeper warns; not for production Sparkle |
-
-### Local unsigned paths (testing only)
-
-Classify the local ship, then pick **one**:
-
-| What changed | Path | Config / command |
-| --- | --- | --- |
-| Extension and/or server (or static resources) **only** — no Chromium C++ / browser patches | **Repackage** (preferred; minutes) | `build/config/release.macos.arm64.unsigned.repackage.yaml` — **unsigned — testing only** |
-| Browser patches / C++ / prefs / capture patches, Chromium base tag unchanged | **Incremental compile** | `bash packages/browseros-agent/scripts/release/run-unsigned-browser-build.sh` — **unsigned — testing only** |
-| Chromium base tag change or unknown tree | **Full rebuild** | Ask user first — `...unsigned.local.yaml` — **unsigned — testing only** |
-
-If the user says “repackage”, use the repackage path. If unsure whether browser code changed, check the diff: only touch `packages/browseros/chromium_patches/` or files under Chromium that need ninja → incremental compile; otherwise repackage.
-
-Prerequisite for **both** non-full local paths: a prior build left
-`/Users/abhishek/chromium/src/out/Default_arm64/Pane.app` intact.
-
-## Signed CI release (production)
-
-Identity: `Developer ID Application: Abhishek Verma (4Z2UAB6AWC)` (Team ID `4Z2UAB6AWC`).
-Notarization: App Store Connect API key only (`NOTARY_KEY` / `NOTARY_KEY_ID` / `NOTARY_ISSUER`) — never apple-id/password in CI (2FA breaks it).
-
-### Tag → release flow
-
-1. Land feature work on `main`. Bump extension (if needed) and `BROWSEROS_PATCH`. Commit + push.
-2. Tag and push:
-   ```bash
-   git tag -a browser/v0.47.0.N -m "browser v0.47.0.N"
-   git push origin browser/v0.47.0.N
-   ```
-3. Workflow [`.github/workflows/release-browser.yml`](.github/workflows/release-browser.yml) runs on the tag:
-   - Creates/updates the GitHub release
-   - **macos-14 (arm64)** + **macos-13 (x64)**: import `DEVELOPER_ID_P12` → temp keychain → build (signed CI / incremental / repackage) → codesign (hardened runtime / `--options runtime`) → notarytool (API key) → staple → package DMG → Sparkle-sign → upload DMG + metadata
-   - Lipo arm64+x64 → re-sign/notarize universal DMG → upload
-   - Generate Sparkle appcasts → `commit-updates-via-pr.sh`
-4. DMGs on the release are **signed and notarized** (Gatekeeper-clean). Users install without Right-click → Open workarounds.
-
-Configs:
-- Full: `release.macos.arm64.signed.ci.yaml` / `release.macos.x64.signed.ci.yaml`
-- Incremental: `release.macos.arm64.signed.incremental.yaml`
-- Repackage: `release.macos.arm64.signed.repackage.yaml`
-
-Runner prerequisite: repository variable `CHROMIUM_SRC` (or `~/chromium/src`) pointing at a synced Chromium tree on the Mac runner. GitHub-hosted runners need a self-hosted/warm tree — full Chromium exceeds Actions cache limits.
-
-Secrets (already on `abhishek-verma/Pane`): `DEVELOPER_ID_P12`, `P12_PASSWORD`, `NOTARY_KEY`, `NOTARY_KEY_ID`, `NOTARY_ISSUER`, `SPARKLE_PRIVATE_KEY`.
-
-Manual re-run: Actions → Release Pane Browser → workflow_dispatch with tag + optional `build_mode` (`full` / `incremental` / `repackage`).
+- Do **not** use full unsigned configs (`release.macos.arm64.unsigned.local.yaml`) for production.
+- Do **not** bump `BROWSEROS_PATCH` until ready to build+ship a DMG in this session.
+- Ask before anything destructive or if the Chromium tree is in an unknown state.
+- Never reuse an existing `browser/v*` tag.
 
 ## Context
-- Chromium src: `/Users/abhishek/chromium/src` — expect tag/base `148.0.7778.97` (or a `browseros` branch on it)
+- Chromium src: `/Users/abhishek/chromium/src` (base `148.0.7778.97`)
+- Warm app prerequisite for repackage/incremental: `out/Default_arm64/Pane.app`
 - Extension PEM: `secrets/pane-release/agent-extension.pem`
 - Extension app id: `biedncddmddkpapdplhcnkhhplnfgbif`
-- Sparkle: `packages/browseros/.env` / `secrets/pane-release/sparkle-private.b64`
-- Apple signing material (local, git-ignored): `secrets/pane-release/DeveloperID_Pane.p12`, `AuthKey_LG3BDKV6WC.p8`, …
-- GitHub repo: `abhishek-verma/Pane`
+- Sparkle key: `secrets/pane-release/sparkle-private.b64` (or `packages/browseros/.env`)
+- Notary API key: `secrets/pane-release/AuthKey_LG3BDKV6WC.p8`, `NOTARY_KEY_ID.txt`, `NOTARY_ISSUER.txt`
+- Signing identity (already in login keychain locally): `Developer ID Application: Abhishek Verma (4Z2UAB6AWC)`
+- GitHub: `abhishek-verma/Pane`
+- Versions: `packages/browseros/resources/BROWSEROS_VERSION` → `0.47.0.N`; extension `packages/browseros-agent/apps/app/package.json` → `0.0.Y`
+- Manifests: `updates/extensions/bundled-manifest.xml`, `updates/extensions/update-manifest.xml`
+- Appcast: `updates/browser/appcast.xml`
+- CRX URLs must use `%2F` in the tag path (`agent-extension%2Fv0.0.Y`)
 
-Versions:
-- Browser: `packages/browseros/resources/BROWSEROS_VERSION` → `BROWSEROS_PATCH` → `0.47.0.N`
-- Extension: `packages/browseros-agent/apps/app/package.json` → `0.0.Y`
-- Manifests: `updates/extensions/bundled-manifest.xml` and `updates/extensions/update-manifest.xml`
-- Appcast: `updates/browser/appcast.xml` (also under `packages/browseros/updates/browser/`)
+---
 
-CRX download URLs must use `%2F` in the tag path (`agent-extension%2Fv0.0.Y`).
+## Autonomous one-shot algorithm
 
-## Typical flow (shared prep, then choose path)
-1. Start from up-to-date `main`. Land feature work first if it isn't merged yet.
-2. Rebuild server binaries if server/runtime changed:
-   ```bash
-   cd packages/browseros-agent
-   PANE_BUILD=true bun scripts/build/server.ts --target=darwin-arm64 --no-upload --ci
-   PANE_BUILD=true bun scripts/build/claw-server.ts --target=darwin-arm64 --no-upload --ci
-   bash packages/browseros-agent/scripts/release/stage-pane-browser-resources.sh darwin-arm64
-   ```
-   Skip server rebuild if clearly extension-UI-only and binaries are already staged.
-3. Bump extension version if shipping extension changes; build zip → pack CRX → publish `agent-extension/v0.0.Y` → update both manifests. Keep a local CRX at `/tmp/pane-agent-0.0.Y.crx` (bundled_extensions prefers it).
-4. Bump `BROWSEROS_PATCH`, commit release bumps + manifests, push.
-5. **Production:** push `browser/v0.47.0.N` and let Signed CI ship (above).  
-   **Local testing only:** run unsigned repackage or incremental compile (below).
-6. For local unsigned only: publish `browser/v…` yourself with DMG + metadata, then generate appcast.
-7. Report extension URL, browser URL, appcast PR, DMG path, and **which path** ran.
+### 1. Classify the ship
+Diff `main` (or HEAD) against the latest `browser/v*` tag:
 
-## Repackage path (extension / server only) — unsigned, testing only
+| Diff touches | Path | Config |
+| --- | --- | --- |
+| Only extension UI / server / static resources / agent (no `chromium_patches/`, no C++ that needs ninja) | **Repackage** | `release.macos.arm64.signed.repackage.yaml` |
+| `packages/browseros/chromium_patches/` or Chromium C++/prefs that need compile; base tag unchanged | **Incremental** | `release.macos.arm64.signed.incremental.yaml` |
+| Chromium base tag change or unknown/broken tree | **Full** | **Ask user first** |
 
-Config: `packages/browseros/build/config/release.macos.arm64.unsigned.repackage.yaml`  
-Pipeline: `resources → bundled_extensions → package_macos → sparkle_sign` (no `gn gen`, no compile).
+Server rebuild needed when diff touches `packages/browseros-agent/apps/server/**`, claw-server build inputs, or staged binary contents would otherwise be stale.
 
-**Critical:** `resources` / `bundled_extensions` write into Chromium *source* trees. `package_macos` packs the existing `out/Default_arm64/Pane.app`. If you skip injecting into the app bundle, the DMG ships **stale** extension/server.
+Extension bump needed only when `packages/browseros-agent/apps/app/**` (shipped extension) changed since the last extension tag.
 
-Before packaging, sync new artifacts into `Pane.app`:
+### 2. Decide versions
+- Always bump `BROWSEROS_PATCH` to the next unused `0.47.0.N` (check `git tag -l 'browser/v*'` and GitHub releases — never reuse).
+- Bump extension `package.json` version **only** if extension app code changed.
 
+### 3. Prep artifacts
+If server rebuild needed:
 ```bash
-APP="/Users/abhishek/chromium/src/out/Default_arm64/Pane.app"
-FW_RES="$(echo "$APP"/Contents/Frameworks/Pane\ Framework.framework/Versions/*/Resources/browseros_extensions)"
-# Server + claw (after stage-pane-browser-resources.sh)
-rsync -a packages/browseros/resources/binaries/browseros_server/darwin-arm64/resources/ \
-  "$APP/Contents/Resources/BrowserOSServer/default/resources/"
-rsync -a packages/browseros/resources/binaries/browseros_claw_server/darwin-arm64/resources/ \
-  "$APP/Contents/Resources/BrowserOSClawServer/default/resources/"
-# Extension CRX + manifest (after bundled_extensions has written chromium src)
-rsync -a /Users/abhishek/chromium/src/chrome/browser/browseros/bundled_extensions/ "$FW_RES/"
-# Verify before DMG
-python3 -c "import json; p='$FW_RES/bundled_extensions.json'; print(json.load(open(p)))"
+cd packages/browseros-agent
+PANE_BUILD=true bun scripts/build/server.ts --target=darwin-arm64 --no-upload --ci
+PANE_BUILD=true bun scripts/build/claw-server.ts --target=darwin-arm64 --no-upload --ci
+bash packages/browseros-agent/scripts/release/stage-pane-browser-resources.sh darwin-arm64
 ```
 
-Then run (detached / durable so `pkg-dmg` is not killed with the agent shell):
+If extension changed: build zip → pack CRX with `AGENT_EXTENSION_PRIVATE_KEY` → publish `agent-extension/v0.0.Y` → update both manifests → keep `/tmp/pane-agent-0.0.Y.crx`.
+
+Commit version bumps (+ manifests if any) on `main` and push before tagging the browser.
+
+### 4. Local signed build (default production)
+Identity is already in the login keychain — **do not** import the P12 locally.
 
 ```bash
-cd packages/browseros
+export MACOS_CERTIFICATE_NAME="Developer ID Application: Abhishek Verma (4Z2UAB6AWC)"
+export NOTARY_KEY="$(cat secrets/pane-release/AuthKey_LG3BDKV6WC.p8)"
+export NOTARY_KEY_ID="$(tr -d '[:space:]' < secrets/pane-release/NOTARY_KEY_ID.txt)"
+export NOTARY_ISSUER="$(tr -d '[:space:]' < secrets/pane-release/NOTARY_ISSUER.txt)"
+export SPARKLE_PRIVATE_KEY="$(cat secrets/pane-release/sparkle-private.b64)"
 export PANE_BUNDLED_MANIFEST_PATH="/Users/abhishek/workspace/Pane/updates/extensions/bundled-manifest.xml"
-# Log: packages/browseros/logs/repackage-build.log
+```
+
+Practical split that always passes the sign guard (`--config` and `--modules` are mutually exclusive — use modules mode for the split):
+```bash
+cd packages/browseros
+uv run browseros build --modules resources,bundled_extensions \
+  --arch arm64 --build-type release --chromium-src /Users/abhishek/chromium/src
+
+APP="/Users/abhishek/chromium/src/out/Default_arm64/Pane.app"
+FW_RES="$(echo "$APP"/Contents/Frameworks/Pane\ Framework.framework/Versions/*/Resources/browseros_extensions)"
+rsync -a /Users/abhishek/chromium/src/chrome/browser/browseros/server/resources/ \
+  "$APP/Contents/Resources/BrowserOSServer/default/resources/"
+rsync -a /Users/abhishek/chromium/src/chrome/browser/browseros/claw_server/resources/ \
+  "$APP/Contents/Resources/BrowserOSClawServer/default/resources/"
+rsync -a /Users/abhishek/chromium/src/chrome/browser/browseros/bundled_extensions/ "$FW_RES/"
+
+uv run browseros build --modules sign_macos,package_macos,sparkle_sign \
+  --arch arm64 --build-type release --chromium-src /Users/abhishek/chromium/src
+```
+
+One-shot config (only if the app bundle is already injected to match staged resources):
+```bash
 uv run browseros build \
-  --config build/config/release.macos.arm64.unsigned.repackage.yaml \
+  --config build/config/release.macos.arm64.signed.repackage.yaml \
   --chromium-src /Users/abhishek/chromium/src
 ```
 
-Expect ~minutes. Confirm DMG size is in the same ballpark as the prior release (~200MB), not a truncated partial file. Verify appcast/signing steps still run (`sparkle_sign`).
+For **incremental**, use `release.macos.arm64.signed.incremental.yaml` (compile included; still set the same env).
 
-For a **signed** local repackage (rare; prefer CI): use `release.macos.arm64.signed.repackage.yaml` with `NOTARY_*` + cert in keychain / `DEVELOPER_ID_P12`.
+Output: `packages/browseros/releases/<version>/Pane_v<version>_arm64.dmg` + `pane-browser-release-metadata.json`.
 
-## Incremental compile path (browser / C++ changed) — unsigned, testing only
-
+### 5. Verify Gatekeeper cleanliness
 ```bash
-bash packages/browseros-agent/scripts/release/run-unsigned-browser-build.sh
+APP="/Users/abhishek/chromium/src/out/Default_arm64/Pane.app"
+DMG="packages/browseros/releases/<version>/Pane_v<version>_arm64.dmg"
+codesign --verify --deep --strict "$APP"
+spctl -a -vv "$APP"
+xcrun stapler validate "$DMG"
 ```
 
-Watch `packages/browseros/logs/unsigned-release-build.log`. Expect minutes (longer if C++ changed), not hours. Confirm the log says incremental (`...unsigned.incremental.yaml`, no reset / no gclient sync). If it wants a full build, stop and ask.
+### 6. Tag → upload → appcast
+```bash
+VERSION=0.47.0.N
+TAG=browser/v$VERSION
+git tag -a "$TAG" -m "browser v$VERSION"
+git push origin "$TAG"   # also push the bump commit on main
 
-Signed sibling: `release.macos.arm64.signed.incremental.yaml` (prefer CI tag push).
+# Create release if the tag-push workflow did not (no self-hosted runner yet):
+gh release create "$TAG" --title "Pane Browser - v$VERSION" --notes "Signed release." || true
+gh release upload "$TAG" \
+  packages/browseros/releases/$VERSION/Pane_v${VERSION}_arm64.dmg \
+  packages/browseros/releases/$VERSION/pane-browser-release-metadata.json \
+  --clobber
+
+cd packages/browseros
+uv run browseros ota browser appcast --version "$VERSION" --tag "$TAG" \
+  --output-dir /Users/abhishek/workspace/Pane/updates/browser
+
+# From repo root — lands appcast via PR:
+packages/browseros-agent/scripts/release/commit-updates-via-pr.sh \
+  main "chore/browser-appcast-v${VERSION}" \
+  "chore: update browser appcasts for v${VERSION}" \
+  updates/browser/appcast.xml \
+  updates/browser/appcast-x86_64.xml \
+  updates/browser/appcast-win.xml \
+  updates/browser/appcast-win-arm64.xml
+```
+
+### 7. Report
+DMG path + size, notarization acceptance / stapler result, `spctl` output, release URL, appcast PR URL, path used (signed.repackage vs signed.incremental).
+
+---
+
+## Signed CI path (when a self-hosted runner exists)
+
+Tag-push `browser/v*` runs `.github/workflows/release-browser.yml` (arm64 + x64 + universal by default). Requires repository variable `CHROMIUM_SRC` on the runner and secrets `DEVELOPER_ID_P12`, `P12_PASSWORD`, `NOTARY_*`, `SPARKLE_PRIVATE_KEY`.
+
+`workflow_dispatch` inputs: `tag`, `build_mode` (`full`/`incremental`/`repackage`), `skip_universal` (arm64-only when true).
+
+Until a self-hosted Mac runner is registered, **use Local signed** above — CI cannot build Chromium on stock GitHub-hosted runners.
+
+---
+
+## Unsigned local paths (testing only — not for production Sparkle)
+
+| Path | Config |
+| --- | --- |
+| Repackage | `release.macos.arm64.unsigned.repackage.yaml` |
+| Incremental | `run-unsigned-browser-build.sh` → `...unsigned.incremental.yaml` |
+
+Gatekeeper will warn. Do not ship these as production.
+
+---
 
 ## Notes
-- Production ships go through **Signed CI** (tag → notarized DMG). Local unsigned paths are for pre-release testing only.
-- Extension-only or server-only → **repackage**, not incremental compile.
-- Browser/C++ patch changes are still delta if the Chromium base tag didn't change → incremental compile.
+- Prefer judgment when a release is partially done — fix forward.
 - Keep release commits focused; don't scoop unrelated dirty files.
-- Adapt steps if versions are already bumped, a release partially exists, or something fails — fix forward, ask when unsure about destructive Chromium ops.
-
-Optional fill-in: release notes / why: <one sentence>
+- Optional fill-in: release notes / why: <one sentence>

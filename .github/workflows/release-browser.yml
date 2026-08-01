@@ -24,6 +24,11 @@ on:
           - full
           - incremental
           - repackage
+      skip_universal:
+        description: When true, build arm64 only (skip x64 matrix leg and universal lipo)
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: release-browser
@@ -54,6 +59,7 @@ jobs:
       release_sha: ${{ steps.release.outputs.release_sha }}
       previous_tag: ${{ steps.release.outputs.previous_tag }}
       build_mode: ${{ steps.mode.outputs.build_mode }}
+      skip_universal: ${{ steps.mode.outputs.skip_universal }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -65,6 +71,12 @@ jobs:
         run: |
           MODE="${{ github.event_name == 'workflow_dispatch' && inputs.build_mode || 'full' }}"
           echo "build_mode=$MODE" >> "$GITHUB_OUTPUT"
+          # Tag pushes always build arm64+x64+universal. Manual dispatch may skip.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.skip_universal }}" = "true" ]; then
+            echo "skip_universal=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip_universal=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Resolve release metadata
         id: release
@@ -157,7 +169,6 @@ jobs:
 
   build-macos:
     needs: prepare
-    if: needs.prepare.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -170,6 +181,11 @@ jobs:
             arch: x64
             config: build/config/release.macos.x64.signed.ci.yaml
             resource_target: darwin-x64
+    # Skip the x64 leg when workflow_dispatch sets skip_universal=true (arm64-only).
+    # Tag pushes always run both arches (skip_universal=false from prepare).
+    if: |
+      needs.prepare.result == 'success' &&
+      (matrix.arch != 'x64' || needs.prepare.outputs.skip_universal != 'true')
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 720
     permissions:
@@ -334,7 +350,11 @@ jobs:
 
   universal:
     needs: [prepare, build-macos]
-    if: needs.build-macos.result == 'success'
+    # Chromium stub fallback is safe: job only needs out/ dirs + pkg-dmg artifact
+    # (restored from arm64 build); no full Chromium tree required for lipo/sign.
+    if: |
+      needs.build-macos.result == 'success' &&
+      needs.prepare.outputs.skip_universal != 'true'
     runs-on: macos-14
     timeout-minutes: 120
     permissions:
