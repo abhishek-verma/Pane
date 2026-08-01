@@ -12,6 +12,7 @@ const globals = globalThis as unknown as Record<string, unknown>
 
 afterEach(() => {
   Reflect.deleteProperty(globals, 'chrome')
+  Reflect.deleteProperty(globals, 'window')
 })
 
 describe('canNavigatePiInPlace', () => {
@@ -26,6 +27,8 @@ describe('canNavigatePiInPlace', () => {
 describe('openPiHref', () => {
   test('creates a canonical pi:// tab when no matching tab exists', async () => {
     const created: unknown[] = []
+    // CI shells sometimes expose window without location — must still use tabs.
+    globals.window = {}
     globals.chrome = {
       tabs: {
         query: async () => [],

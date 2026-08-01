@@ -71,7 +71,7 @@ function firstTextPreview(
  */
 export function slimMessagesForClientUi(
   messages: UIMessage[],
-  previewMaxChars = AGENT_LIMITS.UI_TOOL_OUTPUT_PREVIEW_MAX_CHARS,
+  previewMaxChars: number = AGENT_LIMITS.UI_TOOL_OUTPUT_PREVIEW_MAX_CHARS,
 ): UIMessage[] {
   let anyChanged = false
   const next = messages.map((msg) => {

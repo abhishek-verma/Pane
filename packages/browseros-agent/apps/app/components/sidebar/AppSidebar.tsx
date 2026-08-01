@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { Bot, Clock, MessageSquare, Search } from 'lucide-react'
-import { type FC, useMemo, useState } from 'react'
+import { type FC, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import {
+  type ChatListScope,
+  ChatListScopeSwitcher,
+} from '@/components/chat/ChatListScopeSwitcher'
 import {
   Tooltip,
   TooltipContent,
@@ -66,6 +70,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
   const [searchParams] = useSearchParams()
   const activeConversationId = searchParams.get('conversationId')
   const [searchQuery, setSearchQuery] = useState('')
+  const [scope, setScope] = useState<ChatListScope>('recent')
 
   const { data: historyList = [] } = useQuery<ChatHistoryListItem[]>({
     queryKey: ['sidepanel-chat-history'],
@@ -85,7 +90,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
       filteredHistory
         .filter((c) => c.isBackground)
         .sort((a, b) => b.lastMessagedAt - a.lastMessagedAt)
-        .slice(0, 8),
+        .slice(0, 20),
     [filteredHistory],
   )
 
@@ -93,6 +98,26 @@ export const AppSidebar: FC<AppSidebarProps> = ({
     () => filteredHistory.filter((c) => !c.isBackground).slice(0, 10),
     [filteredHistory],
   )
+
+  const activeIsBackground = useMemo(
+    () =>
+      Boolean(
+        activeConversationId &&
+          historyList.some(
+            (c) => c.id === activeConversationId && c.isBackground,
+          ),
+      ),
+    [activeConversationId, historyList],
+  )
+
+  // Follow the open conversation: background agent open → Background tab.
+  useEffect(() => {
+    if (!activeConversationId) return
+    setScope(activeIsBackground ? 'background' : 'recent')
+  }, [activeConversationId, activeIsBackground])
+
+  const visibleChats = scope === 'background' ? backgroundChats : recentChats
+  const showSwitcher = backgroundChats.length > 0 || activeIsBackground
 
   return (
     <div
@@ -104,37 +129,32 @@ export const AppSidebar: FC<AppSidebarProps> = ({
       <SidebarBranding expanded={expanded} />
       <SidebarNavigation expanded={expanded} />
 
-      {/* Middle Zone: Recent Chats */}
       {expanded ? (
         <div className="flex min-h-0 flex-1 flex-col border-t px-2 py-3">
-          {backgroundChats.length > 0 ? (
-            <>
-              <div className="mb-2 flex items-center gap-1.5 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
-                <Bot className="size-3" />
-                <span>Background agents</span>
-              </div>
-              <div className="mb-3 space-y-0.5">
-                {backgroundChats.map((chat) => (
-                  <ChatRow
-                    key={chat.id}
-                    chat={chat}
-                    isActive={chat.id === activeConversationId}
-                  />
-                ))}
-              </div>
-            </>
-          ) : null}
-
-          <div className="mb-2 flex items-center gap-1.5 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
-            <Clock className="size-3" />
-            <span>Recent Chats</span>
-          </div>
+          {showSwitcher ? (
+            <div className="mb-2 px-1">
+              <ChatListScopeSwitcher
+                scope={scope}
+                onScopeChange={setScope}
+                backgroundCount={backgroundChats.length}
+              />
+            </div>
+          ) : (
+            <div className="mb-2 flex items-center gap-1.5 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
+              <Clock className="size-3" />
+              <span>Recent Chats</span>
+            </div>
+          )}
 
           <div className="relative mb-2 px-1">
             <Search className="absolute top-2.5 left-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="search"
-              placeholder="Search chats..."
+              placeholder={
+                scope === 'background'
+                  ? 'Search background…'
+                  : 'Search chats...'
+              }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-8 w-full rounded-md border border-input bg-transparent pr-3 pl-8 text-xs ring-offset-background file:border-0 file:bg-transparent file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -142,16 +162,14 @@ export const AppSidebar: FC<AppSidebarProps> = ({
           </div>
 
           <div className="styled-scrollbar flex-1 space-y-0.5 overflow-y-auto pr-1">
-            {recentChats.length === 0 && backgroundChats.length === 0 ? (
+            {visibleChats.length === 0 ? (
               <p className="px-3 py-4 text-center text-muted-foreground text-xs">
-                No chats found
-              </p>
-            ) : recentChats.length === 0 ? (
-              <p className="px-3 py-2 text-muted-foreground text-xs">
-                No recent chats
+                {scope === 'background'
+                  ? 'No background agents'
+                  : 'No chats found'}
               </p>
             ) : (
-              recentChats.map((chat) => (
+              visibleChats.map((chat) => (
                 <ChatRow
                   key={chat.id}
                   chat={chat}

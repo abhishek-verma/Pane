@@ -41,13 +41,15 @@ export async function openPiHref(hrefOrRoute: string): Promise<void> {
   if (!href) return
 
   const route = hrefToRoute(href)
-  if (route && typeof window !== 'undefined') {
-    const path = window.location.pathname
-    const hash = window.location.hash
+  // Some test/runtime shells define `window` without `location`.
+  const location = typeof window !== 'undefined' ? window.location : undefined
+  if (route && location) {
+    const path = location.pathname
+    const hash = location.hash
     // In-place only on the dedicated PI document — never on Home/chat NTP.
     if (canNavigatePiInPlace(path, hash)) {
       const next = route.startsWith('#') ? route.slice(1) : route
-      window.location.hash = next.startsWith('/') ? next : `/${next}`
+      location.hash = next.startsWith('/') ? next : `/${next}`
       return
     }
   }

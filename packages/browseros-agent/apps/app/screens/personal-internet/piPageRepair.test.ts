@@ -37,6 +37,8 @@ describe('buildPiPageRepairAction', () => {
       },
       renderError: 'Cannot read properties of undefined',
     })
+    expect(action.kind).toBe('agent')
+    if (action.kind !== 'agent') throw new Error('expected agent action')
     expect(action.query).toContain('Do NOT reverse-engineer raw validator')
     expect(action.query).toContain('upsertBoardCard')
     expect(action.query).toContain('diagnosis.needsRaw')

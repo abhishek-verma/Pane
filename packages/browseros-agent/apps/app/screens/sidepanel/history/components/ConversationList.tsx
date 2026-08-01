@@ -1,6 +1,10 @@
 import { Loader2, MessageSquare } from 'lucide-react'
-import { type FC, useEffect, useRef } from 'react'
+import { type FC, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
+import {
+  type ChatListScope,
+  ChatListScopeSwitcher,
+} from '@/components/chat/ChatListScopeSwitcher'
 import { ConversationGroup } from './ConversationGroup'
 import type { GroupedConversations } from './types'
 import { TIME_GROUP_LABELS } from './utils'
@@ -25,6 +29,18 @@ export const ConversationList: FC<ConversationListProps> = ({
   isRefreshing,
 }) => {
   const loadMoreRef = useRef<HTMLDivElement>(null)
+  const [scope, setScope] = useState<ChatListScope>('recent')
+
+  const activeIsBackground = groupedConversations.background.some(
+    (c) => c.id === activeConversationId,
+  )
+  const backgroundCount = groupedConversations.background.length
+  const showSwitcher = backgroundCount > 0 || activeIsBackground
+
+  useEffect(() => {
+    if (!activeConversationId) return
+    setScope(activeIsBackground ? 'background' : 'recent')
+  }, [activeConversationId, activeIsBackground])
 
   useEffect(() => {
     if (!hasNextPage || !onLoadMore) return
@@ -50,16 +66,25 @@ export const ConversationList: FC<ConversationListProps> = ({
     }
   }, [hasNextPage, isFetchingNextPage, onLoadMore])
 
-  const hasConversations =
-    groupedConversations.background.length > 0 ||
+  const hasRecent =
     groupedConversations.today.length > 0 ||
     groupedConversations.thisWeek.length > 0 ||
     groupedConversations.thisMonth.length > 0 ||
     groupedConversations.older.length > 0
+  const hasConversations = hasRecent || backgroundCount > 0
 
   return (
     <main className="mt-4 flex h-full flex-1 flex-col space-y-4 overflow-y-auto">
       <div className="w-full p-3">
+        {showSwitcher ? (
+          <div className="mb-3 px-1">
+            <ChatListScopeSwitcher
+              scope={scope}
+              onScopeChange={setScope}
+              backgroundCount={backgroundCount}
+            />
+          </div>
+        ) : null}
         {isRefreshing && (
           <div className="flex items-center justify-center gap-2 pb-3 text-muted-foreground text-xs">
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -76,14 +101,25 @@ export const ConversationList: FC<ConversationListProps> = ({
               Start a new chat
             </Link>
           </div>
-        ) : (
-          <>
+        ) : scope === 'background' ? (
+          backgroundCount === 0 ? (
+            <p className="px-3 py-8 text-center text-muted-foreground text-sm">
+              No background agents
+            </p>
+          ) : (
             <ConversationGroup
               label="Background agents"
               conversations={groupedConversations.background}
               onDelete={onDelete}
               activeConversationId={activeConversationId}
             />
+          )
+        ) : !hasRecent ? (
+          <p className="px-3 py-8 text-center text-muted-foreground text-sm">
+            No recent chats
+          </p>
+        ) : (
+          <>
             <ConversationGroup
               label={TIME_GROUP_LABELS.today}
               conversations={groupedConversations.today}

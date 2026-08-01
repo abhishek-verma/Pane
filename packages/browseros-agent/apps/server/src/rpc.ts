@@ -1,4 +1,9 @@
-import type { createHttpServer } from './api/server'
+import type { createApiRoutes } from './api/routes'
 
-// Export type for client inference (e.g., hono/client)
-export type AppType = Awaited<ReturnType<typeof createHttpServer>>['app']
+/**
+ * Flattened for hono/client. Inferring via
+ * `Awaited<ReturnType<typeof createHttpServer>>['app']` hits TS2589
+ * (excessively deep instantiation) once the route graph is large.
+ */
+type ApiApp = ReturnType<typeof createApiRoutes>
+export interface AppType extends ApiApp {}

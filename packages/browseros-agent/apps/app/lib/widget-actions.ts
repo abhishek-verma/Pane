@@ -33,7 +33,12 @@ export type WidgetAction =
   | { type: 'agent-with-context'; prompt: string; context: unknown }
   | { type: 'copy'; text: string }
 
-export type WidgetActionResult = { ok: boolean; detail: string }
+export type WidgetActionResult = {
+  ok: boolean
+  detail: string
+  /** False when approve/deny hit a dead waiter (timeout/restart). */
+  resumed?: boolean
+}
 
 export async function executeWidgetAction(
   action: WidgetAction,

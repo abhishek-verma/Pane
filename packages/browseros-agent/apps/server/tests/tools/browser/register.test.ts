@@ -1488,7 +1488,7 @@ return 'late'
     })
   })
 
-  it('keeps small snapshots inline with the existing structured content', async () => {
+  it('keeps small snapshots inline without duplicating the tree in structuredContent', async () => {
     const fake = createFakeServer()
     const session = {
       observe: () => ({
@@ -1505,11 +1505,13 @@ return 'late'
 
     expect(result?.isError).toBeFalsy()
     const data = result?.structuredContent as
-      | { page: number; snapshot: string }
+      | { page: number; contentLength: number; tokenEstimate: number }
       | undefined
     expect(data).toMatchObject({ page: 2 })
-    expect(data?.snapshot).toContain('[UNTRUSTED_PAGE_CONTENT')
-    expect(data?.snapshot).toContain('- button "Save" [ref=e1]')
+    expect(data?.contentLength).toBeGreaterThan(0)
+    expect(data?.tokenEstimate).toBeGreaterThan(0)
+    // Full tree lives in text content only (scalable UI / agent heap).
+    expect(data).not.toHaveProperty('snapshot')
     expect(result?.content).toEqual([
       expect.objectContaining({
         type: 'text',
@@ -1545,14 +1547,14 @@ return 'late'
       const data = result?.structuredContent as
         | {
             page: number
-            snapshot: string
+            contentLength: number
+            tokenEstimate: number
           }
         | undefined
       expect(data).toMatchObject({
         page: 4,
       })
-      expect(data?.snapshot).toContain('last-node')
-      expect(data?.snapshot).toContain('[UNTRUSTED_PAGE_CONTENT')
+      expect(data).not.toHaveProperty('snapshot')
       expect(JSON.stringify(result?.structuredContent)).not.toContain('path')
       expect(result?.content).toEqual([
         expect.objectContaining({
@@ -1597,7 +1599,6 @@ return 'late'
             contentLength: number
             tokenEstimate: number
             writtenToFile: boolean
-            snapshot: string
           }
         | undefined
       expect(data).toMatchObject({
@@ -1605,6 +1606,7 @@ return 'late'
         writtenToFile: true,
       })
       expect(data?.tokenEstimate).toBeGreaterThan(15_000)
+      expect(data).not.toHaveProperty('snapshot')
       const savedPath = data?.path
       await expectBrowserToolOutputPath(savedPath)
       expect(savedPath?.endsWith('.md')).toBe(true)
@@ -1630,7 +1632,6 @@ return 'late'
       expect(savedContent).toContain('[UNTRUSTED_PAGE_CONTENT')
       expect(savedContent).toContain('[END_UNTRUSTED_PAGE_CONTENT')
       expect(savedContent).toContain(lastMarker)
-      expect(data?.snapshot).toBe(savedContent)
       expect(data?.contentLength).toBe(savedContent.length)
     })
   })
