@@ -65,6 +65,7 @@ describe('buildSidepanelPreparedSendMessagesRequest', () => {
       workspaceId: undefined,
       bucketId: undefined,
       trustPins: undefined,
+      requireBrowserInputApproval: undefined,
       toolApprovalResponses: undefined,
       selectedText: 'selected text',
       selectedTextSource: {

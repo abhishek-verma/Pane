@@ -62,6 +62,38 @@ export function getScheduledRun(id: string): ScheduledRunRecord | null {
   return row ? rowToRecord(row) : null
 }
 
+/** Most recent scheduled run linked to a chat conversation (background agent). */
+export function findScheduledRunByConversationId(
+  conversationId: string,
+): ScheduledRunRecord | null {
+  const rows = getDb()
+    .select()
+    .from(scheduledRuns)
+    .where(eq(scheduledRuns.conversationId, conversationId))
+    .all()
+  if (rows.length === 0) return null
+  rows.sort((a, b) => b.createdAt - a.createdAt)
+  return rowToRecord(rows[0]!)
+}
+
+/** Map conversationId → latest scheduled run source for history enrichment. */
+export function mapBackgroundSourcesByConversationIds(
+  conversationIds: string[],
+): Map<string, string> {
+  const out = new Map<string, string>()
+  if (conversationIds.length === 0) return out
+  const idSet = new Set(conversationIds)
+  const rows = getDb().select().from(scheduledRuns).all()
+  // Prefer newest run per conversation.
+  rows.sort((a, b) => b.createdAt - a.createdAt)
+  for (const row of rows) {
+    if (!row.conversationId || !idSet.has(row.conversationId)) continue
+    if (out.has(row.conversationId)) continue
+    out.set(row.conversationId, row.source)
+  }
+  return out
+}
+
 export function listScheduledRuns(options?: {
   status?: RunStatus | RunStatus[]
   limit?: number

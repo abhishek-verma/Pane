@@ -142,6 +142,11 @@ export interface GateContext {
   scheduledRunId?: string
   /** Stable key for consequential step dedupe (prefer over chat runId). */
   idempotencyKey?: string
+  /**
+   * When true, act click/type/fill/press/… require write-external approval.
+   * Default false — browser input gestures auto-run (payment hosts still spend).
+   */
+  requireBrowserInputApproval?: boolean
 }
 
 export function isConsequentialClass(cls: ConsequenceClass): boolean {
@@ -206,6 +211,9 @@ function baseClassForTool(
   if (toolName === 'act') {
     const kind = typeof args.kind === 'string' ? args.kind : ''
     if (READ_ACT_KINDS.has(kind)) return 'read'
+    // Mutating gestures default to read in deriveClass (unless gated);
+    // baseClass only needs a conservative fallback for unknown kinds.
+    if (MUTATING_ACT_KINDS.has(kind)) return 'read'
     return 'write-external'
   }
 
@@ -250,17 +258,6 @@ function escalatesActToSpend(
   return MUTATING_ACT_KINDS.has(kind)
 }
 
-function escalatesActToWriteExternal(
-  args: Record<string, unknown>,
-  _ctx: GateContext,
-): boolean {
-  const kind = typeof args.kind === 'string' ? args.kind : ''
-  if (!MUTATING_ACT_KINDS.has(kind)) return false
-  if (kind === 'fill' && args.fields != null) return true
-  if (kind === 'fill' || kind === 'type' || kind === 'type_at') return true
-  return false
-}
-
 /** Derives consequence class from tool name and args only — never from model output. */
 export function deriveClass(
   toolName: string,
@@ -286,8 +283,9 @@ export function deriveClass(
       cls = 'read'
     } else if (escalatesActToSpend(args, ctx)) {
       cls = 'spend'
-    } else if (escalatesActToWriteExternal(args, ctx)) {
-      cls = 'write-external'
+    } else if (MUTATING_ACT_KINDS.has(kind)) {
+      // Clicks/types auto-run by default. Opt into gating via Trust settings.
+      cls = ctx.requireBrowserInputApproval ? 'write-external' : 'read'
     } else {
       cls = 'write-external'
     }

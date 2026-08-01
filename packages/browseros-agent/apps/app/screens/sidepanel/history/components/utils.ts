@@ -39,6 +39,7 @@ export const groupConversations = (
   conversations: HistoryConversation[],
 ): GroupedConversations => {
   const groups: GroupedConversations = {
+    background: [],
     today: [],
     thisWeek: [],
     thisMonth: [],
@@ -46,9 +47,16 @@ export const groupConversations = (
   }
 
   for (const conversation of conversations) {
+    if (conversation.isBackground) {
+      groups.background.push(conversation)
+      continue
+    }
     const group = getTimeGroup(conversation.lastMessagedAt)
     groups[group].push(conversation)
   }
+
+  // Newest background agents first
+  groups.background.sort((a, b) => b.lastMessagedAt - a.lastMessagedAt)
 
   return groups
 }

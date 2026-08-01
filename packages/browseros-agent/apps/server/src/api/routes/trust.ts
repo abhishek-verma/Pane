@@ -27,6 +27,7 @@ const ReplayToolRequestSchema = z.object({
     )
     .optional(),
   browserContext: BrowserContextSchema.optional(),
+  requireBrowserInputApproval: z.boolean().optional(),
 })
 
 interface TrustRouteDeps {

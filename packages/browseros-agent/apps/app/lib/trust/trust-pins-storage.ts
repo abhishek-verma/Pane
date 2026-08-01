@@ -13,6 +13,15 @@ export const trustPinsStorage = storage.defineItem<TrustPinsMap>(
   { fallback: {} },
 )
 
+/**
+ * When true, browser click/type/fill/press require write-external approval.
+ * Default false — those gestures auto-run (payment hosts still gated as spend).
+ */
+export const requireBrowserInputApprovalStorage = storage.defineItem<boolean>(
+  'local:require-browser-input-approval',
+  { fallback: false },
+)
+
 export const PINNABLE_CLASSES = [
   'write-local',
   'system',

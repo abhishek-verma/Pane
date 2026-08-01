@@ -5,7 +5,7 @@
  */
 
 import { useQueryClient } from '@tanstack/react-query'
-import { type FC, useState } from 'react'
+import { type FC, useEffect, useState } from 'react'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { navigatePiDocument } from '@/lib/personal-internet/pi-document'
 import { executePiAction } from '@/lib/pi-actions'
@@ -37,6 +37,16 @@ function approvalTokens(metadata: Record<string, unknown> | undefined): {
   return { approvalId, approveToken, denyToken, conversationId }
 }
 
+function isApprovalStillValid(
+  metadata: Record<string, unknown> | undefined,
+  now = Date.now(),
+): boolean {
+  if (metadata?.kind !== 'approval') return true
+  const expiresAt = metadata.expiresAt
+  if (typeof expiresAt === 'number' && expiresAt <= now) return false
+  return true
+}
+
 function routePath(route: string): string {
   return route.startsWith('#/') ? route.slice(1) : route
 }
@@ -58,9 +68,41 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
   const [dismissBusyId, setDismissBusyId] = useState<string | null>(null)
   const [refreshingToday, setRefreshingToday] = useState(false)
   const [refreshNote, setRefreshNote] = useState<string | null>(null)
+  const [, setExpiryTick] = useState(0)
+
+  // Drop expired approval cards locally and refetch home so server expiry sticks.
+  useEffect(() => {
+    const blocks = data?.continuity ?? []
+    const now = Date.now()
+    let soonest: number | null = null
+    let anyExpired = false
+    for (const block of blocks) {
+      if (block.metadata?.kind !== 'approval') continue
+      const expiresAt = block.metadata.expiresAt
+      if (typeof expiresAt !== 'number') continue
+      if (expiresAt <= now) {
+        anyExpired = true
+        continue
+      }
+      if (soonest == null || expiresAt < soonest) soonest = expiresAt
+    }
+    if (anyExpired) {
+      void queryClient.invalidateQueries({ queryKey: [...HOME_QUERY_KEY] })
+    }
+    if (soonest == null) return
+    const delay = Math.max(250, soonest - Date.now() + 50)
+    const id = window.setTimeout(() => {
+      setExpiryTick((n) => n + 1)
+      void queryClient.invalidateQueries({ queryKey: [...HOME_QUERY_KEY] })
+    }, delay)
+    return () => window.clearTimeout(id)
+  }, [data?.continuity, queryClient])
 
   if (!data) return null
-  const { doorways, continuity, libraryCount, proposeDoorways } = data
+  const { doorways, libraryCount, proposeDoorways } = data
+  const continuity = data.continuity.filter((block) =>
+    isApprovalStillValid(block.metadata),
+  )
   if (
     doorways.length === 0 &&
     continuity.length === 0 &&

@@ -11,6 +11,7 @@ export interface ReplayToolParams {
   bucketId?: string
   trustPins?: Record<string, { pinned: boolean; expiresAt?: number }>
   browserContext?: ChatRequestBrowserContext
+  requireBrowserInputApproval?: boolean
 }
 
 export interface ReplayToolResponse {

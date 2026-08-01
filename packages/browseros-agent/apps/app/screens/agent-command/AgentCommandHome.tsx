@@ -107,7 +107,14 @@ export const AgentCommandHome: FC = () => {
     queryKey: HOME_QUERY_KEY,
     queryFn: fetchHome,
     staleTime: 5_000,
-    refetchInterval: 20_000,
+    refetchInterval: (query) => {
+      const continuity = query.state.data?.pi?.continuity ?? []
+      const hasApproval = continuity.some(
+        (b) => b.metadata?.kind === 'approval',
+      )
+      // Pending approvals expire in ~2m — poll faster so cards clear promptly.
+      return hasApproval ? 5_000 : 20_000
+    },
   })
 
   useEffect(() => {

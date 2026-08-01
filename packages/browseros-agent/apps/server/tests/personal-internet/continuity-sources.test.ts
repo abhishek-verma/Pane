@@ -16,7 +16,6 @@ import {
 import { buildPiHomeProjection } from '../../src/personal-internet/home-projection'
 import { reviseHomeContinuityLocal } from '../../src/personal-internet/refresh/home-revise'
 import { writeHomeContinuity } from '../../src/personal-internet/store'
-import { applyPiMutation } from '../../src/personal-internet/write-path'
 import {
   createPendingApproval,
   resolveByToken,
@@ -51,7 +50,7 @@ describe('pi continuity sources', () => {
     expect(merged.map((b) => b.id)).toEqual(['a', 'b'])
   })
 
-  it('surfaces pending approvals in continuity and home revise', async () => {
+  it('surfaces pending approvals in live home projection', async () => {
     setup()
     createPendingApproval({
       runId: 'run1',
@@ -67,12 +66,11 @@ describe('pi continuity sources', () => {
     expect(fromApprovals[0].body).toContain('Open linkedin.com')
     expect(fromApprovals[0].metadata?.approveToken).toBeTruthy()
     expect(fromApprovals[0].metadata?.denyToken).toBeTruthy()
+    expect(fromApprovals[0].metadata?.expiresAt).toBeTruthy()
     expect(fromApprovals[0].route).toBe('#/settings/action-log')
 
-    await applyPiMutation({ type: 'upsert-site', templateId: 'job-search' })
     const revised = await reviseHomeContinuityLocal()
-    // Live approvals show in projection; revise must not persist them.
-    expect(revised.blocks.some((b) => b.id.startsWith('approval-'))).toBe(false)
+    expect(revised.blocks.some((b) => b.id.startsWith('approval-'))).toBe(true)
 
     const projection = await buildPiHomeProjection()
     expect(
@@ -98,7 +96,7 @@ describe('pi continuity sources', () => {
       preview: 'Needs approval: click e13',
     })
     const [block] = continuityFromApprovals()
-    expect(block.title).toBe('Harvest paused — needs approval')
+    expect(block.title).toBe('Background harvest paused — needs approval')
     expect(block.body).toContain('Action: click e13')
     expect(block.body).toContain('Harvest linkedin.com')
     expect(block.body).toContain('Open agent')
@@ -106,7 +104,7 @@ describe('pi continuity sources', () => {
     expect(block.route).toBeUndefined()
   })
 
-  it('prefers live approvals over a full persisted continuity list', async () => {
+  it('home projection ignores persisted continuity file (live approvals only)', async () => {
     setup()
     createPendingApproval({
       runId: 'run-live',
@@ -125,19 +123,13 @@ describe('pi continuity sources', () => {
     ])
     const projection = await buildPiHomeProjection()
     expect(projection.continuity[0]?.id.startsWith('approval-')).toBe(true)
-    expect(projection.continuity).toHaveLength(5)
+    // Persisted cards are not recycled into the projection.
+    expect(
+      projection.continuity.every((b) => b.id.startsWith('approval-')),
+    ).toBe(true)
   })
 
-  it('home revise persists continuity file', async () => {
-    setup()
-    await writeHomeContinuity([
-      { id: 'custom', title: 'Custom', body: 'Keep me' },
-    ])
-    const revised = await reviseHomeContinuityLocal()
-    expect(revised.blocks.some((b) => b.id === 'custom')).toBe(true)
-  })
-
-  it('drops resolved approval blocks from persisted continuity', async () => {
+  it('drops resolved approvals from live projection', async () => {
     setup()
     const approval = createPendingApproval({
       runId: 'run2',
@@ -166,6 +158,5 @@ describe('pi continuity sources', () => {
     expect(
       projection.continuity.some((b) => b.id === `approval-${approval.id}`),
     ).toBe(false)
-    expect(projection.continuity.some((b) => b.id === 'custom')).toBe(true)
   })
 })

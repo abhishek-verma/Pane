@@ -12,6 +12,9 @@ export interface ChatHistoryListItem {
   id: string
   lastMessagedAt: number
   previewText: string
+  /** True when this conversation was created by a scheduled/background run. */
+  isBackground?: boolean
+  backgroundSource?: string | null
 }
 
 export interface ChatConversationDetail {
@@ -22,6 +25,8 @@ export interface ChatConversationDetail {
     status: string
     startedAt: number
   } | null
+  isBackground?: boolean
+  backgroundSource?: string | null
 }
 
 async function resolveBaseUrl(baseUrl?: string): Promise<string> {

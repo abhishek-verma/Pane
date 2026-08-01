@@ -192,6 +192,8 @@ export function createChatRoutes(deps: ChatRouteDeps) {
             id: conversation.id,
             messages: conversation.messages as unknown[],
             activeTurn: active,
+            isBackground: conversation.isBackground ?? false,
+            backgroundSource: conversation.backgroundSource ?? null,
           })
         } catch (err) {
           logger.error('Failed to get conversation', {

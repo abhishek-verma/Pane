@@ -55,6 +55,7 @@ import {
 import { replayToolOnServer } from '@/lib/trust/replay-tool'
 import {
   conversationTrustStorage,
+  requireBrowserInputApprovalStorage,
   trustPinsStorage,
 } from '@/lib/trust/trust-pins-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
@@ -532,6 +533,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             mergedPins[cls as ConsequenceClass] = { pinned: true }
           }
         }
+        const requireBrowserInputApproval =
+          (await requireBrowserInputApprovalStorage.getValue()) ?? false
 
         const commonRequest = {
           conversationId: conversationIdRef.current,
@@ -543,6 +546,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           workspaceId: workspaceIdRef.current,
           bucketId: bucketIdRef.current ?? 'default',
           trustPins: mergedPins,
+          requireBrowserInputApproval,
           previousConversation,
           declinedApps,
           toolApprovalResponses,
@@ -1515,6 +1519,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         bucketId: bucketIdRef.current ?? 'default',
         trustPins: mergedPins,
         browserContext,
+        requireBrowserInputApproval:
+          (await requireBrowserInputApprovalStorage.getValue()) ?? false,
       })
 
       const formatted = formatReplayOutputForTool(tool, result.output)

@@ -5,6 +5,7 @@ import { resolveStoredChatProvider } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
 import { buildChatRequestBody } from '@/lib/messaging/server/buildChatRequestBody'
+import { requireBrowserInputApprovalStorage } from '@/lib/trust/trust-pins-storage'
 import type { ChatMode } from '@/modules/chat/chat-types'
 import { personalizationStorage } from '../personalization/personalizationStorage'
 import { scheduleSystemPrompt } from './scheduleSystemPrompt'
@@ -99,6 +100,9 @@ export async function getChatServerResponse(
     // biome-ignore lint/style/noNonNullAssertion: filter guarantees url exists
     .map((s) => ({ name: s.displayName, url: s.config!.url }))
 
+  const requireBrowserInputApproval =
+    (await requireBrowserInputApprovalStorage.getValue()) ?? false
+
   const response = await agentFetch(`${agentServerUrl}/chat`, {
     method: 'POST',
     signal: request.signal,
@@ -128,6 +132,7 @@ export async function getChatServerResponse(
             : undefined,
         userSystemPrompt: `${personalization}\n${scheduleSystemPrompt}`,
         supportsImages: provider.supportsImages,
+        requireBrowserInputApproval,
         isScheduledTask: true,
         scheduledRunId: request.scheduledRunId,
         idempotencyKey: request.idempotencyKey,

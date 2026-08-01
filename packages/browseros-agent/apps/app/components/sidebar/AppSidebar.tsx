@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { Clock, MessageSquare, Search } from 'lucide-react'
-import { type FC, useState } from 'react'
+import { Bot, Clock, MessageSquare, Search } from 'lucide-react'
+import { type FC, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import {
   Tooltip,
@@ -8,6 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { backgroundAgentLabel } from '@/lib/conversations/background-agent-label'
 import {
   type ChatHistoryListItem,
   fetchChatHistoryList,
@@ -21,6 +22,41 @@ import { WorkspaceSidebarSwitcher } from './WorkspaceSidebarSwitcher'
 export interface AppSidebarProps {
   expanded?: boolean
   onOpenShortcuts?: () => void
+}
+
+function ChatRow({
+  chat,
+  isActive,
+}: {
+  chat: ChatHistoryListItem
+  isActive: boolean
+}) {
+  const isBackground = Boolean(chat.isBackground)
+  return (
+    <Link
+      to={`/home/chat?conversationId=${chat.id}`}
+      className={cn(
+        'flex items-start gap-2 rounded-md px-3 py-2 font-medium text-xs transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+        isActive
+          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+          : 'text-muted-foreground',
+      )}
+    >
+      {isBackground ? (
+        <Bot className="mt-0.5 size-3.5 shrink-0" />
+      ) : (
+        <MessageSquare className="mt-0.5 size-3.5 shrink-0" />
+      )}
+      <span className="flex min-w-0 flex-1 flex-col text-left leading-snug">
+        {isBackground ? (
+          <span className="font-mono text-[9px] text-[var(--signal)] uppercase tracking-wide">
+            {backgroundAgentLabel(chat.backgroundSource)}
+          </span>
+        ) : null}
+        <span className="truncate">{chat.previewText || 'Empty chat'}</span>
+      </span>
+    </Link>
+  )
 }
 
 export const AppSidebar: FC<AppSidebarProps> = ({
@@ -37,11 +73,26 @@ export const AppSidebar: FC<AppSidebarProps> = ({
     staleTime: 30000,
   })
 
-  const filteredHistory = historyList
-    .filter((item) =>
-      item.previewText.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredHistory = useMemo(() => {
+    const q = searchQuery.toLowerCase()
+    return historyList.filter((item) =>
+      item.previewText.toLowerCase().includes(q),
     )
-    .slice(0, 10)
+  }, [historyList, searchQuery])
+
+  const backgroundChats = useMemo(
+    () =>
+      filteredHistory
+        .filter((c) => c.isBackground)
+        .sort((a, b) => b.lastMessagedAt - a.lastMessagedAt)
+        .slice(0, 8),
+    [filteredHistory],
+  )
+
+  const recentChats = useMemo(
+    () => filteredHistory.filter((c) => !c.isBackground).slice(0, 10),
+    [filteredHistory],
+  )
 
   return (
     <div
@@ -56,6 +107,24 @@ export const AppSidebar: FC<AppSidebarProps> = ({
       {/* Middle Zone: Recent Chats */}
       {expanded ? (
         <div className="flex min-h-0 flex-1 flex-col border-t px-2 py-3">
+          {backgroundChats.length > 0 ? (
+            <>
+              <div className="mb-2 flex items-center gap-1.5 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
+                <Bot className="size-3" />
+                <span>Background agents</span>
+              </div>
+              <div className="mb-3 space-y-0.5">
+                {backgroundChats.map((chat) => (
+                  <ChatRow
+                    key={chat.id}
+                    chat={chat}
+                    isActive={chat.id === activeConversationId}
+                  />
+                ))}
+              </div>
+            </>
+          ) : null}
+
           <div className="mb-2 flex items-center gap-1.5 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
             <Clock className="size-3" />
             <span>Recent Chats</span>
@@ -73,31 +142,22 @@ export const AppSidebar: FC<AppSidebarProps> = ({
           </div>
 
           <div className="styled-scrollbar flex-1 space-y-0.5 overflow-y-auto pr-1">
-            {filteredHistory.length === 0 ? (
+            {recentChats.length === 0 && backgroundChats.length === 0 ? (
               <p className="px-3 py-4 text-center text-muted-foreground text-xs">
                 No chats found
               </p>
+            ) : recentChats.length === 0 ? (
+              <p className="px-3 py-2 text-muted-foreground text-xs">
+                No recent chats
+              </p>
             ) : (
-              filteredHistory.map((chat) => {
-                const isActive = chat.id === activeConversationId
-                return (
-                  <Link
-                    key={chat.id}
-                    to={`/home/chat?conversationId=${chat.id}`}
-                    className={cn(
-                      'flex items-start gap-2 rounded-md px-3 py-2 font-medium text-xs transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                      isActive
-                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                        : 'text-muted-foreground',
-                    )}
-                  >
-                    <MessageSquare className="mt-0.5 size-3.5 shrink-0" />
-                    <span className="flex-1 truncate text-left leading-snug">
-                      {chat.previewText || 'Empty chat'}
-                    </span>
-                  </Link>
-                )
-              })
+              recentChats.map((chat) => (
+                <ChatRow
+                  key={chat.id}
+                  chat={chat}
+                  isActive={chat.id === activeConversationId}
+                />
+              ))
             )}
           </div>
         </div>

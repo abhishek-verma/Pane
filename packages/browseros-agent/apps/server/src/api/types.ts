@@ -43,6 +43,8 @@ export const ChatRequestSchema = AgentLLMConfigSchema.extend({
       }),
     )
     .optional(),
+  /** When true, act click/type/fill require approval. Default allow. */
+  requireBrowserInputApproval: z.boolean().optional().default(false),
   supportsImages: z.boolean().optional().default(true),
   mode: z.enum(['chat', 'agent']).optional().default('agent'),
   origin: z.enum(['sidepanel', 'newtab']).optional().default('sidepanel'),

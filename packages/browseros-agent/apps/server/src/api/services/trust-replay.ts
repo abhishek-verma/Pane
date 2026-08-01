@@ -27,6 +27,7 @@ export interface ReplayToolRequest {
   bucketId?: string
   trustPins?: Partial<Record<ConsequenceClass, TrustPin>>
   browserContext?: BrowserContext
+  requireBrowserInputApproval?: boolean
 }
 
 export interface ReplayToolResult {
@@ -53,6 +54,7 @@ function buildGateContext(request: ReplayToolRequest): GateContext {
     isNewUser: Object.keys(pins).length === 0,
     surface: 'loop',
     conversationId: request.conversationId,
+    requireBrowserInputApproval: Boolean(request.requireBrowserInputApproval),
   }
 }
 

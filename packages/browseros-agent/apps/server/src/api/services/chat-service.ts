@@ -150,6 +150,7 @@ export class ChatService {
       unattended: Boolean(request.isScheduledTask),
       scheduledRunId: request.scheduledRunId,
       idempotencyKey: request.idempotencyKey,
+      requireBrowserInputApproval: Boolean(request.requireBrowserInputApproval),
     }
   }
 
@@ -170,6 +171,9 @@ export class ChatService {
     gateContext.unattended = Boolean(request.isScheduledTask)
     gateContext.scheduledRunId = request.scheduledRunId
     gateContext.idempotencyKey = request.idempotencyKey
+    gateContext.requireBrowserInputApproval = Boolean(
+      request.requireBrowserInputApproval,
+    )
   }
 
   async processMessage(
@@ -1058,7 +1062,13 @@ export class ChatService {
    * `getConversation` so tool parts are not degraded to text.
    */
   async getHistory(): Promise<
-    { id: string; lastMessagedAt: number; previewText: string }[]
+    {
+      id: string
+      lastMessagedAt: number
+      previewText: string
+      isBackground?: boolean
+      backgroundSource?: string | null
+    }[]
   > {
     const db = require('../../lib/db').getDb()
     const {
@@ -1066,12 +1076,19 @@ export class ChatService {
       chatSessions,
     } = require('../../lib/db/schema/chat-sessions')
     const { asc, desc, eq } = require('drizzle-orm')
+    const {
+      mapBackgroundSourcesByConversationIds,
+    } = require('../../scheduler/run-executor')
 
     const sessions = await db
       .select()
       .from(chatSessions)
       .orderBy(desc(chatSessions.updatedAt))
       .all()
+
+    const backgroundByConvo = mapBackgroundSourcesByConversationIds(
+      sessions.map((s: { id: string }) => s.id),
+    ) as Map<string, string>
 
     return Promise.all(
       sessions.map(async (s: { id: string; updatedAt: number }) => {
@@ -1090,18 +1107,35 @@ export class ChatService {
           if (previewText) break
         }
 
+        const backgroundSource = backgroundByConvo.get(s.id) ?? null
         return {
           id: s.id,
           lastMessagedAt: s.updatedAt,
           previewText,
+          isBackground: backgroundSource != null,
+          backgroundSource,
         }
       }),
     )
   }
 
-  async getConversation(
-    conversationId: string,
-  ): Promise<{ id: string; messages: UIMessage[] } | null> {
+  async getConversation(conversationId: string): Promise<{
+    id: string
+    messages: UIMessage[]
+    isBackground?: boolean
+    backgroundSource?: string | null
+  } | null> {
+    const {
+      findScheduledRunByConversationId,
+    } = require('../../scheduler/run-executor')
+    const bgRun = findScheduledRunByConversationId(conversationId) as {
+      source: string
+    } | null
+    const backgroundMeta = {
+      isBackground: bgRun != null,
+      backgroundSource: bgRun?.source ?? null,
+    }
+
     const exists =
       await this.deps.sessionStore.hasPersistedSession(conversationId)
     if (!exists) {
@@ -1111,6 +1145,7 @@ export class ChatService {
       return {
         id: conversationId,
         messages: this.projectForUiClient(conversationId, live.agent.messages),
+        ...backgroundMeta,
       }
     }
     const messages = await this.deps.sessionStore.loadMessages(conversationId)
@@ -1140,6 +1175,7 @@ export class ChatService {
     return {
       id: conversationId,
       messages: this.projectForUiClient(conversationId, valid),
+      ...backgroundMeta,
     }
   }
 

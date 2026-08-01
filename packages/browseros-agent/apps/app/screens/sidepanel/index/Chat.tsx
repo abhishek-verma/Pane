@@ -23,11 +23,15 @@ import {
 import { isBenignClientRenderError } from '@/modules/chat/benign-client-render-error'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import type { ChatMode } from '@/modules/chat/chat-types'
+import { useConversationBackgroundMeta } from '@/modules/chat/use-conversation-background-meta'
+import { useConversationPendingApprovals } from '@/modules/chat/use-conversation-pending-approvals'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
 import {
   type ChatSessionLike,
   useVoiceLoop,
 } from '@/modules/voice/voice-loop.hooks'
+import { BackgroundAgentBanner } from './BackgroundAgentBanner'
+import { ChannelApprovalCard } from './ChannelApprovalCard'
 import { ChatEmptyState } from './ChatEmptyState'
 import { ChatError } from './ChatError'
 import { ChatFooter } from './ChatFooter'
@@ -62,7 +66,12 @@ export const Chat = () => {
     isTurnActive,
     hasMoreAbove,
     loadOlderMessages,
+    conversationId,
   } = useChatSessionContext()
+
+  const channelApprovals = useConversationPendingApprovals(conversationId)
+  const { isBackground, backgroundSource } =
+    useConversationBackgroundMeta(conversationId)
 
   const voice = useVoiceInput()
   const chatSessionRef = useRef<ChatSessionLike | null>(null)
@@ -205,28 +214,54 @@ export const Chat = () => {
           <div className="flex flex-1 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && channelApprovals.approvals.length === 0 ? (
           <ChatEmptyState
             mode={mode}
             mounted={mounted}
             onSuggestionClick={handleSuggestionClick}
           />
         ) : (
-          <ChatMessages
-            messages={messages}
-            status={status}
-            getActionForMessage={getActionForMessage}
-            liked={liked}
-            onClickLike={onClickLike}
-            disliked={disliked}
-            onClickDislike={onClickDislike}
-            onApprove={approveTool}
-            onDeny={denyTool}
-            onPromote={promoteTool}
-            hasMoreAbove={hasMoreAbove}
-            onLoadOlder={loadOlderMessages}
-          />
+          <>
+            {isBackground ? (
+              <BackgroundAgentBanner source={backgroundSource} />
+            ) : null}
+            {messages.length > 0 ? (
+              <ChatMessages
+                messages={messages}
+                status={status}
+                getActionForMessage={getActionForMessage}
+                liked={liked}
+                onClickLike={onClickLike}
+                disliked={disliked}
+                onClickDislike={onClickDislike}
+                onApprove={approveTool}
+                onDeny={denyTool}
+                onPromote={promoteTool}
+                hasMoreAbove={hasMoreAbove}
+                onLoadOlder={loadOlderMessages}
+              />
+            ) : null}
+          </>
         )}
+        {channelApprovals.approvals.map((approval) => (
+          <ChannelApprovalCard
+            key={approval.id}
+            approval={approval}
+            busy={channelApprovals.resolvingId === approval.id}
+            note={
+              channelApprovals.resolvingId === approval.id ||
+              channelApprovals.approvals.length === 1
+                ? channelApprovals.note
+                : null
+            }
+            onApprove={() => {
+              void channelApprovals.resolve(approval, 'approve')
+            }}
+            onDeny={() => {
+              void channelApprovals.resolve(approval, 'deny')
+            }}
+          />
+        ))}
         {agentUrlError && (
           <ChatError
             error={agentUrlError}

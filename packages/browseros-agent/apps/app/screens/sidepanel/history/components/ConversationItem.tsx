@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
-import { MessageSquare, Trash2 } from 'lucide-react'
+import { Bot, MessageSquare, Trash2 } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { Link } from 'react-router'
 import {
@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { backgroundAgentLabel } from '@/lib/conversations/background-agent-label'
 import type { HistoryConversation } from './types'
 
 dayjs.extend(relativeTime)
@@ -31,6 +32,10 @@ export const ConversationItem: FC<ConversationItemProps> = ({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const label = conversation.lastUserMessage
   const relativeTimeAgo = dayjs(conversation.lastMessagedAt).fromNow()
+  const isBackground = Boolean(conversation.isBackground)
+  const bgLabel = isBackground
+    ? backgroundAgentLabel(conversation.backgroundSource)
+    : null
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -54,9 +59,18 @@ export const ConversationItem: FC<ConversationItemProps> = ({
         <div
           className={`mt-0.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
         >
-          <MessageSquare className="h-4 w-4" />
+          {isBackground ? (
+            <Bot className="h-4 w-4" />
+          ) : (
+            <MessageSquare className="h-4 w-4" />
+          )}
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
+          {bgLabel ? (
+            <p className="font-mono text-[10px] text-[var(--signal)] uppercase tracking-wide">
+              {bgLabel}
+            </p>
+          ) : null}
           <p className="truncate font-medium text-foreground text-sm">
             {label}
           </p>

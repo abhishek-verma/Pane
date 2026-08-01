@@ -3,7 +3,8 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Unattended approval-over-channel. Never auto-approves on silence.
+ * Unattended approval-over-channel. Never auto-approves on silence —
+ * timeout skips the step so the agent can continue.
  */
 
 import { eq } from 'drizzle-orm'
@@ -15,7 +16,11 @@ import {
 import { logger } from '../lib/logger'
 import { notifyApproval } from '../reach/notify'
 
-export const DEFAULT_APPROVAL_TIMEOUT_MS = 45 * 60 * 1000
+/** Background agents: short window then continue without executing. */
+export const DEFAULT_APPROVAL_TIMEOUT_MS = 2 * 60 * 1000
+
+/** Wall clock when this process loaded — used to detect pre-restart orphans. */
+const PROCESS_STARTED_AT = Date.now()
 
 export type ApprovalResolution = 'approved' | 'denied' | 'timeout'
 
@@ -33,6 +38,13 @@ export interface PendingApproval {
   createdAt: number
   expiresAt: number
   resolvedAt: number | null
+}
+
+export type ResolveByTokenResult = {
+  approval: PendingApproval
+  resolution: ApprovalResolution
+  /** False when the in-memory waiter is gone (restart / already timed out). */
+  resumed: boolean
 }
 
 function newToken(): string {
@@ -106,15 +118,17 @@ export function findPendingByToken(token: string): PendingApproval | null {
 }
 
 /**
- * Mark past-expiresAt rows as timeout. Server restarts drop in-memory
- * waiters, so without this, home shows Approve/Deny forever for dead runs.
+ * Mark past-expiresAt rows as timeout, and expire orphans left from a prior
+ * process (server restart drops in-memory waiters).
  */
 export function expireStalePendingApprovals(now = Date.now()): number {
   const rows = getDb().select().from(pendingApprovals).all()
   let n = 0
   for (const row of rows) {
     if (row.status !== 'pending') continue
-    if (row.expiresAt > now) continue
+    const pastExpiry = row.expiresAt <= now
+    const orphanFromPriorProcess = row.createdAt < PROCESS_STARTED_AT
+    if (!pastExpiry && !orphanFromPriorProcess) continue
     getDb()
       .update(pendingApprovals)
       .set({ status: 'timeout', resolvedAt: now })
@@ -151,14 +165,25 @@ function resolveApproval(
   return { ...existing, status, resolvedAt: now }
 }
 
+/** Channel waiters keyed by approval id */
+const waiters = new Map<
+  string,
+  {
+    resolve: (r: ApprovalResolution) => void
+    timer: ReturnType<typeof setTimeout>
+  }
+>()
+
+export function hasActiveWaiter(approvalId: string): boolean {
+  return waiters.has(approvalId)
+}
+
 /**
  * Resolve by approve/deny token. Returns null if token unknown.
  * Cannot set __promoted — callers must use the returned status through
  * the gate wait path.
  */
-export function resolveByToken(
-  token: string,
-): { approval: PendingApproval; resolution: ApprovalResolution } | null {
+export function resolveByToken(token: string): ResolveByTokenResult | null {
   const approval = findPendingByToken(token)
   if (!approval) return null
   if (approval.status !== 'pending') {
@@ -170,27 +195,27 @@ export function resolveByToken(
           : approval.status === 'denied'
             ? 'denied'
             : 'timeout',
+      resumed: false,
     }
   }
   if (token === approval.approveToken) {
     const updated = resolveApproval(approval.id, 'approved')!
-    return { approval: updated, resolution: 'approved' }
+    return {
+      approval: updated,
+      resolution: 'approved',
+      resumed: hasActiveWaiter(approval.id),
+    }
   }
   if (token === approval.denyToken) {
     const updated = resolveApproval(approval.id, 'denied')!
-    return { approval: updated, resolution: 'denied' }
+    return {
+      approval: updated,
+      resolution: 'denied',
+      resumed: hasActiveWaiter(approval.id),
+    }
   }
   return null
 }
-
-/** Channel waiters keyed by approval id */
-const waiters = new Map<
-  string,
-  {
-    resolve: (r: ApprovalResolution) => void
-    timer: ReturnType<typeof setTimeout>
-  }
->()
 
 export function signalApprovalResolved(
   approvalId: string,
@@ -206,7 +231,7 @@ export function signalApprovalResolved(
 
 /**
  * Create pending approval, notify via reach, block until approve/deny/timeout.
- * Never treats silence as approve.
+ * Never treats silence as approve — timeout skips the step.
  */
 export async function requestChannelApproval(input: {
   runId: string
@@ -256,6 +281,7 @@ export function handleApprovalInboundText(text: string): {
   handled: boolean
   resolution?: ApprovalResolution
   approval?: PendingApproval
+  resumed?: boolean
 } {
   const trimmed = text.trim()
   const approveMatch = trimmed.match(/^\/?approve\s+(\S+)/i)
@@ -286,6 +312,7 @@ export function handleApprovalInboundText(text: string): {
     handled: true,
     resolution: result.resolution,
     approval: result.approval,
+    resumed: result.resumed,
   }
 }
 

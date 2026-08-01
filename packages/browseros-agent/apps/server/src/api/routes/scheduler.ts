@@ -185,7 +185,11 @@ export function createSchedulerRoutes() {
       const result = resolveByToken(body.token)
       if (!result) return c.json({ error: 'unknown token' }, 404)
       signalApprovalResolved(result.approval.id, result.resolution)
-      return c.json(result)
+      return c.json({
+        ...result,
+        resumed: result.resumed,
+        reason: result.resumed ? undefined : 'no_active_waiter',
+      })
     })
     .post('/approvals/inbound', async (c) => {
       const body = z.object({ text: z.string() }).parse(await c.req.json())

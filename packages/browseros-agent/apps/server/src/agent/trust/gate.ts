@@ -365,7 +365,7 @@ export function wrapToolWithGate<T extends Tool>(
           )
           return false
         }
-        const runId = ctx.runId ?? 'unattended'
+        const runId = ctx.scheduledRunId ?? ctx.runId ?? 'unattended'
         const fp = stepFingerprint(
           toolName,
           args,
@@ -413,7 +413,7 @@ export function wrapToolWithGate<T extends Tool>(
         !isPromoted(args) &&
         !isPiMaterializeScheduledRun(ctx)
       ) {
-        const runId = ctx.runId ?? 'unattended'
+        const runId = ctx.scheduledRunId ?? ctx.runId ?? 'unattended'
         const fp = stepFingerprint(
           toolName,
           args,
@@ -425,8 +425,8 @@ export function wrapToolWithGate<T extends Tool>(
         if (outcome === 'denied' || outcome === 'timeout') {
           const msg =
             outcome === 'denied'
-              ? 'Denied via reach channel. Run cancelled for this action.'
-              : 'Approval timed out. Action skipped (never auto-approved).'
+              ? 'Denied via reach channel. Continue without performing this action.'
+              : 'User was not available to approve or deny this action. Continue without performing it.'
           logGateDecision(toolName, args, ctx, cls, 'denied', msg)
           return { text: msg, isError: true }
         }
@@ -464,7 +464,7 @@ export function wrapToolWithGate<T extends Tool>(
               ?.filter((c) => c.type === 'text')
               .map((c) => c.text)
               .join('\n')
-          const runId = ctx.runId ?? 'unattended'
+          const runId = ctx.scheduledRunId ?? ctx.runId ?? 'unattended'
           const fp = stepFingerprint(
             toolName,
             args,

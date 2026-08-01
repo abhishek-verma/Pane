@@ -10,7 +10,10 @@ import {
   listPendingApprovals,
   type PendingApproval,
 } from '../scheduler/approvals'
-import { getScheduledRun } from '../scheduler/run-executor'
+import {
+  findScheduledRunByConversationId,
+  getScheduledRun,
+} from '../scheduler/run-executor'
 import type { PiContinuityBlock } from './types'
 
 function firstPromptLine(prompt: string): string {
@@ -27,13 +30,15 @@ function stripPreviewPrefix(preview: string): string {
 }
 
 function approvalTitle(a: PendingApproval, source: string | undefined): string {
-  if (source === 'pi-harvest') return 'Harvest paused — needs approval'
-  if (source === 'pi-materialize') return 'Page fill paused — needs approval'
-  if (source === 'trigger' || source === 'schedule')
-    return 'Scheduled agent paused — needs approval'
+  if (source === 'pi-harvest')
+    return 'Background harvest paused — needs approval'
+  if (source === 'pi-materialize')
+    return 'Background page fill paused — needs approval'
+  if (source === 'trigger' || source === 'schedule' || source === 'keepalive')
+    return 'Background agent paused — needs approval'
   if (a.toolName === 'act') return 'Browser click needs approval'
   if (a.toolName === 'tabs') return 'New tab needs approval'
-  return 'Agent paused — needs approval'
+  return 'Background agent paused — needs approval'
 }
 
 function approvalBody(
@@ -60,7 +65,10 @@ export function continuityFromApprovals(): PiContinuityBlock[] {
   try {
     const pending = listPendingApprovals()
     return pending.slice(0, 5).map((a) => {
-      const run = a.runId ? getScheduledRun(a.runId) : null
+      let run = a.runId ? getScheduledRun(a.runId) : null
+      if (!run && a.conversationId) {
+        run = findScheduledRunByConversationId(a.conversationId)
+      }
       const source = run?.source
       const promptLine = run?.prompt ? firstPromptLine(run.prompt) : ''
       return {
@@ -78,6 +86,7 @@ export function continuityFromApprovals(): PiContinuityBlock[] {
           denyToken: a.denyToken,
           source: source ?? null,
           runId: a.runId,
+          expiresAt: a.expiresAt,
         },
       }
     })

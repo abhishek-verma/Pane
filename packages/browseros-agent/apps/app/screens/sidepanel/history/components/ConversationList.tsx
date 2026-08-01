@@ -51,6 +51,7 @@ export const ConversationList: FC<ConversationListProps> = ({
   }, [hasNextPage, isFetchingNextPage, onLoadMore])
 
   const hasConversations =
+    groupedConversations.background.length > 0 ||
     groupedConversations.today.length > 0 ||
     groupedConversations.thisWeek.length > 0 ||
     groupedConversations.thisMonth.length > 0 ||
@@ -77,6 +78,12 @@ export const ConversationList: FC<ConversationListProps> = ({
           </div>
         ) : (
           <>
+            <ConversationGroup
+              label="Background agents"
+              conversations={groupedConversations.background}
+              onDelete={onDelete}
+              activeConversationId={activeConversationId}
+            />
             <ConversationGroup
               label={TIME_GROUP_LABELS.today}
               conversations={groupedConversations.today}

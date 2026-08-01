@@ -43,6 +43,7 @@ export function buildSidepanelPreparedSendMessagesRequest({
         workspaceId: common.workspaceId,
         bucketId: common.bucketId,
         trustPins: common.trustPins,
+        requireBrowserInputApproval: common.requireBrowserInputApproval,
         toolApprovalResponses: common.toolApprovalResponses,
         selectedText: common.selectedText,
         selectedTextSource: common.selectedTextSource,

@@ -123,6 +123,42 @@ describe('approval-over-channel (M5.5)', () => {
     })
     expect(result.resolution).toBe('timeout')
   })
+
+  it('resolve without active waiter reports resumed=false', () => {
+    setup()
+    const a = createPendingApproval({
+      runId: 'orphan',
+      toolCallId: 't',
+      toolName: 'run',
+      consequenceClass: 'system',
+      preview: 'x',
+    })
+    const resolved = resolveByToken(a.approveToken)
+    expect(resolved?.resolution).toBe('approved')
+    expect(resolved?.resumed).toBe(false)
+  })
+
+  it('resolve with active waiter reports resumed=true', async () => {
+    setup()
+    const notified: string[] = []
+    const pending = requestChannelApproval({
+      runId: 'live',
+      toolCallId: 't',
+      toolName: 'run',
+      consequenceClass: 'system',
+      preview: 'x',
+      waitMs: 5000,
+      notify: async (msg) => {
+        notified.push(msg.approveToken)
+      },
+    })
+    await new Promise((r) => setTimeout(r, 20))
+    const approval = findPendingByToken(notified[0]!)
+    const resolved = resolveByToken(approval!.approveToken)
+    expect(resolved?.resumed).toBe(true)
+    signalApprovalResolved(approval!.id, 'approved')
+    expect((await pending).resolution).toBe('approved')
+  })
 })
 
 describe('idempotency (M5.6)', () => {

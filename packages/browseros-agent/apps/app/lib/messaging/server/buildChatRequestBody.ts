@@ -48,6 +48,8 @@ export interface ChatRequestBodyParams {
   workspaceId?: string
   bucketId?: string
   trustPins?: Record<string, { pinned: boolean; expiresAt?: number }>
+  /** When true, act click/type/fill require approval. Default allow. */
+  requireBrowserInputApproval?: boolean
   supportsImages?: boolean
   previousConversation?: ChatHistoryEntry[] | string
   declinedApps?: string[]
@@ -75,6 +77,7 @@ export const buildChatRequestBody = ({
   workspaceId,
   bucketId,
   trustPins,
+  requireBrowserInputApproval,
   supportsImages,
   previousConversation,
   declinedApps,
@@ -117,6 +120,7 @@ export const buildChatRequestBody = ({
   workspaceId,
   bucketId,
   trustPins,
+  requireBrowserInputApproval,
   supportsImages: supportsImages ?? provider.supportsImages,
   previousConversation,
   declinedApps: declinedApps?.length ? declinedApps : undefined,

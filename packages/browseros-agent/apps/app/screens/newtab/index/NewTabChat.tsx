@@ -22,7 +22,11 @@ import {
 import { track } from '@/lib/metrics/track'
 import { VOICE_SUPPORTED } from '@/lib/voice/voice-supported'
 import { isBenignClientRenderError } from '@/modules/chat/benign-client-render-error'
+import { useConversationBackgroundMeta } from '@/modules/chat/use-conversation-background-meta'
+import { useConversationPendingApprovals } from '@/modules/chat/use-conversation-pending-approvals'
 import { useChatActions } from '@/modules/chat-actions/chat-actions.hooks'
+import { BackgroundAgentBanner } from '@/screens/sidepanel/index/BackgroundAgentBanner'
+import { ChannelApprovalCard } from '@/screens/sidepanel/index/ChannelApprovalCard'
 import { ChatEmptyState } from '@/screens/sidepanel/index/ChatEmptyState'
 import { ChatError } from '@/screens/sidepanel/index/ChatError'
 import { ChatFooter } from '@/screens/sidepanel/index/ChatFooter'
@@ -73,6 +77,7 @@ export const NewTabChat: FC = () => {
     retryLastTurn,
     hasMoreAbove,
     loadOlderMessages,
+    conversationId,
   } = useChatActions({
     events: {
       modeChanged: NEWTAB_CHAT_MODE_CHANGED_EVENT,
@@ -87,6 +92,10 @@ export const NewTabChat: FC = () => {
       voiceError: NEWTAB_VOICE_ERROR_EVENT,
     },
   })
+
+  const channelApprovals = useConversationPendingApprovals(conversationId)
+  const { isBackground, backgroundSource } =
+    useConversationBackgroundMeta(conversationId)
 
   // Send the initial message from URL query params (from /home search bar).
   // Always mint a fresh conversation first — a remount alone is not enough if
@@ -194,28 +203,54 @@ export const NewTabChat: FC = () => {
           <div className="flex flex-1 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && channelApprovals.approvals.length === 0 ? (
           <ChatEmptyState
             mode={mode}
             mounted={mounted}
             onSuggestionClick={handleSuggestionClick}
           />
         ) : (
-          <ChatMessages
-            messages={messages}
-            status={status}
-            getActionForMessage={getActionForMessage}
-            liked={liked}
-            onClickLike={onClickLike}
-            disliked={disliked}
-            onClickDislike={onClickDislike}
-            onApprove={approveTool}
-            onDeny={denyTool}
-            onPromote={promoteTool}
-            hasMoreAbove={hasMoreAbove}
-            onLoadOlder={loadOlderMessages}
-          />
+          <>
+            {isBackground ? (
+              <BackgroundAgentBanner source={backgroundSource} />
+            ) : null}
+            {messages.length > 0 ? (
+              <ChatMessages
+                messages={messages}
+                status={status}
+                getActionForMessage={getActionForMessage}
+                liked={liked}
+                onClickLike={onClickLike}
+                disliked={disliked}
+                onClickDislike={onClickDislike}
+                onApprove={approveTool}
+                onDeny={denyTool}
+                onPromote={promoteTool}
+                hasMoreAbove={hasMoreAbove}
+                onLoadOlder={loadOlderMessages}
+              />
+            ) : null}
+          </>
         )}
+        {channelApprovals.approvals.map((approval) => (
+          <ChannelApprovalCard
+            key={approval.id}
+            approval={approval}
+            busy={channelApprovals.resolvingId === approval.id}
+            note={
+              channelApprovals.resolvingId === approval.id ||
+              channelApprovals.approvals.length === 1
+                ? channelApprovals.note
+                : null
+            }
+            onApprove={() => {
+              void channelApprovals.resolve(approval, 'approve')
+            }}
+            onDeny={() => {
+              void channelApprovals.resolve(approval, 'deny')
+            }}
+          />
+        ))}
         {agentUrlError && (
           <ChatError
             error={agentUrlError}

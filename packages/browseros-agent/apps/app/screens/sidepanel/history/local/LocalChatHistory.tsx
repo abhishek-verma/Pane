@@ -23,6 +23,8 @@ export const LocalChatHistory: FC = () => {
       id: conv.id,
       lastMessagedAt: conv.lastMessagedAt,
       lastUserMessage: conv.previewText || 'New conversation',
+      isBackground: conv.isBackground,
+      backgroundSource: conv.backgroundSource,
     }))
   }, [serverConversations])
 

@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch'
 import {
   PINNABLE_CLASSES,
   type PinnableClass,
+  requireBrowserInputApprovalStorage,
   type TrustPinRecord,
   type TrustPinsMap,
   trustPinsStorage,
@@ -20,10 +21,21 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
 
 export const TrustPinsSettings: FC = () => {
   const [pins, setPins] = useState<TrustPinsMap>({})
+  const [requireBrowserInput, setRequireBrowserInput] = useState(false)
 
   useEffect(() => {
     trustPinsStorage.getValue().then((value) => setPins(value ?? {}))
-    return trustPinsStorage.watch((value) => setPins(value ?? {}))
+    requireBrowserInputApprovalStorage
+      .getValue()
+      .then((value) => setRequireBrowserInput(Boolean(value)))
+    const unwatchPins = trustPinsStorage.watch((value) => setPins(value ?? {}))
+    const unwatchInput = requireBrowserInputApprovalStorage.watch((value) =>
+      setRequireBrowserInput(Boolean(value)),
+    )
+    return () => {
+      unwatchPins()
+      unwatchInput()
+    }
   }, [])
 
   const updatePin = async (
@@ -47,6 +59,27 @@ export const TrustPinsSettings: FC = () => {
           Pin a consequence class to reduce approval prompts. Pins expire after
           seven days by default.
         </p>
+      </div>
+      <div className="flex flex-col gap-3 border-t pt-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <Label htmlFor="require-browser-input">
+              Require approval for clicks and typing
+            </Label>
+            <p className="mt-1 text-muted-foreground text-xs">
+              Off by default — the browser agent can click and type without
+              asking. Payment pages still always require approval.
+            </p>
+          </div>
+          <Switch
+            id="require-browser-input"
+            checked={requireBrowserInput}
+            onCheckedChange={(checked) => {
+              setRequireBrowserInput(checked)
+              void requireBrowserInputApprovalStorage.setValue(checked)
+            }}
+          />
+        </div>
       </div>
       {PINNABLE_CLASSES.map((cls) => {
         const pin = pins[cls]

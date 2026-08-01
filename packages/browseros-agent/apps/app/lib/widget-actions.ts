@@ -83,6 +83,7 @@ export async function executeWidgetAction(
     case 'resolve-approval': {
       let ok = false
       let detail = 'Could not reach the agent server'
+      let resumed = false
       try {
         const res = await agentFetch(`${base}/scheduler/approvals/resolve`, {
           method: 'POST',
@@ -91,10 +92,21 @@ export async function executeWidgetAction(
         })
         if (res.ok) {
           ok = true
-          detail =
-            action.resolution === 'approve'
+          const body = (await res.json().catch(() => null)) as {
+            resolution?: string
+            resumed?: boolean
+            reason?: string
+          } | null
+          resumed = Boolean(body?.resumed)
+          if (action.resolution === 'approve') {
+            detail = resumed
               ? 'Approved — the agent can continue this step'
-              : 'Denied — the agent will skip this step'
+              : 'Approved, but the agent is no longer waiting (timed out or restarted). This step will not run.'
+          } else {
+            detail = resumed
+              ? 'Denied — the agent will skip this step'
+              : 'Denied. The agent was no longer waiting on this approval.'
+          }
         } else {
           const body = (await res.json().catch(() => null)) as {
             error?: string
@@ -109,7 +121,7 @@ export async function executeWidgetAction(
           queryKey: ['scheduler', 'home'],
         })
       }
-      return { ok, detail }
+      return { ok, detail, resumed }
     }
 
     case 'complete-task':
