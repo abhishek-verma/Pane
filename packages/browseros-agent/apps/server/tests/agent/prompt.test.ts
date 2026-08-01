@@ -108,6 +108,7 @@ describe('section presence', () => {
       '<retrieval_first>', // retrieval-first
       '<tool_dispatch>', // tool-dispatch
       '<execution>', // execution
+      '<user_handoff>', // user-handoff
       '<error_recovery>', // error-recovery
       '<workspace>', // workspace
       '<nudge_tools>', // nudges
@@ -784,8 +785,8 @@ describe('user context', () => {
 //
 // Why: The style section governs how the agent communicates. The
 // tool_call_style subsection prevents verbose narration that wastes tokens
-// and annoys users. The data-rich response guidance prevents
-// over-summarization of emails, calendar events, etc.
+// and annoys users. Long structured answers go to temp PI pages instead of
+// chat walls; short answers stay in chat.
 // ---------------------------------------------------------------------------
 
 describe('style and tool call patterns', () => {
@@ -800,12 +801,12 @@ describe('style and tool call patterns', () => {
     expect(prompt).toContain('Execute independent tool calls in parallel')
   })
 
-  it('includes data-rich response guidance', () => {
-    // Why: v5 said "1-2 lines for status updates" which caused the agent
-    // to over-summarize email content, calendar events, and file reads.
-    // Users want the actual data, not a 1-line summary.
+  it('routes long deliverables to temp PI pages', () => {
     const prompt = buildRegular()
-    expect(prompt).toContain("don't over-summarize")
+    expect(prompt).toContain('Chat vs page')
+    expect(prompt).toContain('wall of text')
+    expect(prompt).toContain('pi_page_create')
+    expect(prompt).toContain('pi_open')
   })
 })
 
@@ -880,11 +881,14 @@ describe('execution section', () => {
     expect(prompt).toContain('After actions')
   })
 
-  it('includes obstacle handling', () => {
+  it('includes user handoff for human-only gates', () => {
     const prompt = buildRegular()
+    expect(prompt).toContain('<user_handoff>')
     expect(prompt).toContain('Cookie banners')
     expect(prompt).toContain('CAPTCHA')
     expect(prompt).toContain('2FA')
+    expect(prompt).toContain('file chooser')
+    expect(prompt).toContain('User-required gate')
   })
 
   it('includes 404/500 error handling', () => {
@@ -892,6 +896,12 @@ describe('execution section', () => {
     const prompt = buildRegular()
     expect(prompt).toContain('404')
     expect(prompt).toContain('500')
+  })
+
+  it('routes browse/automate through browser-automate skill', () => {
+    const prompt = buildRegular()
+    expect(prompt).toContain('browser-automate')
+    expect(prompt).toContain('skills_load` browser-automate')
   })
 
   it('includes multi-tab workflow guidance', () => {
@@ -942,6 +952,7 @@ describe('execution section', () => {
     const prompt = buildRegular()
     expect(prompt).toContain('Retry budget')
     expect(prompt).toContain('3-4 attempts')
+    expect(prompt).toContain('0 retries')
   })
 })
 
