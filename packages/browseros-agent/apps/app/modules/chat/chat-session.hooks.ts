@@ -1357,9 +1357,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const appliedRef = { id: '' }
 
     const applySearchAction = (storageAction: SearchActionStorage) => {
-      // Dedup: getValue() and watch() can both fire for the same write.
-      // Use a stable fingerprint of the payload so repeated button clicks
-      // (new writes) still work, but a single write only fires once.
+      // Dedup: getValue() and watch() can both fire for the same write within
+      // the same micro-task batch, launching two agents. Guard by fingerprinting
+      // the payload; reset after consuming so the next identical button click
+      // (a new write) still fires correctly.
       const id = JSON.stringify(storageAction)
       if (appliedRef.id === id) return
       appliedRef.id = id
@@ -1371,6 +1372,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           { replace: true },
         )
         void searchActionsStorage.setValue(null)
+        appliedRef.id = ''
         return
       }
       resetConversationState()
@@ -1382,6 +1384,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         })
       }, 0)
       void searchActionsStorage.setValue(null)
+      appliedRef.id = ''
     }
 
     // Cold mount: background may have written handoff before this watch attaches.
