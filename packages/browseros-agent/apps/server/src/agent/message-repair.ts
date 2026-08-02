@@ -120,6 +120,7 @@ export type PrepareMessagesSummary = {
   repairedApprovals: number
   settledApprovals: number
   settledIncomplete: number
+  nullContentStripped: number
 }
 
 function hasChanges(summary: PrepareMessagesSummary): boolean {
@@ -128,12 +129,47 @@ function hasChanges(summary: PrepareMessagesSummary): boolean {
     summary.migrated > 0 ||
     summary.repairedApprovals > 0 ||
     summary.settledApprovals > 0 ||
-    summary.settledIncomplete > 0
+    summary.settledIncomplete > 0 ||
+    summary.nullContentStripped > 0
   )
 }
 
 export type PrepareMessagesResult = PrepareMessagesSummary & {
   changed: boolean
+}
+
+/**
+ * Strip UIMessages that carry a tool-invocation part whose output is
+ * null or undefined. These messages survive `settleIncompleteToolParts`
+ * (their state is already `output-available`) but collapse to a model
+ * message with `content: undefined` inside `convertToModelMessages`,
+ * which then throws `TypeError: Z.content.filter is not a function`
+ * deep in the AI SDK's `collectToolApprovals` or `streamText` loop.
+ *
+ * Root cause: a browser CDP session dies mid-tool-call, the tool runner
+ * records an undefined output, and the message is persisted before the
+ * server can sanitize it.
+ *
+ * Returns the count of messages removed.
+ */
+export function stripMessagesWithNullContent(messages: UIMessage[]): {
+  messages: UIMessage[]
+  removed: number
+} {
+  const filtered = messages.filter((msg) => {
+    if (msg.role !== 'assistant') return true
+    return !msg.parts.some((part) => {
+      if (!isToolPart(part)) return false
+      const mutable = asMutableToolPart(part)
+      // A tool part in output-available state with a null/undefined output
+      // is the direct precursor to the content: undefined crash.
+      return (
+        mutable.state === 'output-available' &&
+        (mutable.output === null || mutable.output === undefined)
+      )
+    })
+  })
+  return { messages: filtered, removed: messages.length - filtered.length }
 }
 
 /**
@@ -173,12 +209,17 @@ export function prepareMessagesForAgentTurn(
       )
     : 0
 
+  const { messages: stripped, removed: nullContentStripped } =
+    stripMessagesWithNullContent(working)
+  working = stripped
+
   const summary: PrepareMessagesSummary = {
     sanitizedCount,
     migrated,
     repairedApprovals,
     settledApprovals,
     settledIncomplete,
+    nullContentStripped,
   }
 
   return { messages: working, ...summary, changed: hasChanges(summary) }

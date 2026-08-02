@@ -20,10 +20,10 @@ export const HOST_ACP_ADAPTER_CONFIG = {
   claude: {
     displayName: 'Claude Code',
     nativeBinary: 'claude',
-    acpCommand: 'npx -y @agentclientprotocol/claude-agent-acp@^0.31.0',
-    acpPackageSpec: '@agentclientprotocol/claude-agent-acp@^0.31.0',
+    acpCommand: 'npx -y @agentclientprotocol/claude-agent-acp@^0.64.0',
+    acpPackageSpec: '@agentclientprotocol/claude-agent-acp@^0.64.0',
     acpPackageName: '@agentclientprotocol/claude-agent-acp',
-    acpPackageVersionRange: '^0.31.0',
+    acpPackageVersionRange: '^0.64.0',
     acpBin: 'claude-agent-acp',
   },
   codex: {
@@ -47,11 +47,13 @@ export const HOST_ACP_ADAPTER_CONFIG = {
  * @agentclientprotocol/codex-acp advertises `agent-full-access` while
  * @zed-industries/codex-acp (bundled-bun / npx fallback) uses
  * `full-access` for the same approval=never + danger-full-access preset.
+ * Claude lists two ids because different adapter versions use different
+ * names for the same full-bypass mode.
  */
 export const DANGEROUS_ALLOW_MODE_CANDIDATES: Readonly<
   Partial<Record<HostAcpAdapter, readonly string[]>>
 > = {
-  claude: ['bypassPermissions'],
+  claude: ['bypassPermissions', 'dangerouslySkipPermissions'],
   codex: ['agent-full-access', 'full-access'],
 }
 

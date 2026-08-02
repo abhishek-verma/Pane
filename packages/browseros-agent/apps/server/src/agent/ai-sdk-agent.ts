@@ -128,6 +128,14 @@ export class AiSdkAgent {
       })
     }
 
+    // Register for background jobs (skill review, etc.) only for non-ACP
+    // providers — ACP models are subprocess-backed and may be closed before
+    // the next review cycle fires.
+    if (!modelClose) {
+      const { registerLastUsedModel } = await import('../memory/draft-model')
+      registerLastUsedModel(model)
+    }
+
     // ACP-backed providers (Claude Code, Codex, custom ACP) reach tools
     // exclusively through the MCP boundary acpx-ai-provider sets up; the
     // ai-sdk `tools` argument never crosses the ACP wire. Skip every
@@ -359,14 +367,21 @@ export class AiSdkAgent {
       steps: ReadonlyArray<StepWithUsage>
       model: LanguageModel
       experimental_context: unknown
-    }) =>
-      compactionPrepareStep({
-        ...options,
-        messages: normalizeMessagesForModel(
-          options.messages,
-          normalizationOptions,
-        ),
+    }) => {
+      // Guard against ModelMessages with undefined content — these arise when
+      // a browser CDP session dies mid-tool-call and the AI SDK's
+      // collectToolApprovals or convertToModelMessages accesses `.content`
+      // without a null check, crashing with "Z.content.filter is not a
+      // function". Strip any such messages before they reach the SDK.
+      const safeMessages = options.messages.filter((msg) => {
+        if ('content' in msg && msg.content == null) return false
+        return true
       })
+      return compactionPrepareStep({
+        ...options,
+        messages: normalizeMessagesForModel(safeMessages, normalizationOptions),
+      })
+    }
 
     // Codex requires store=false — tell the SDK to inline content
     // instead of using item_reference (which fails with store=false)
