@@ -1,5 +1,12 @@
 import type { FC } from 'react'
-import { HashRouter, Navigate, Route, Routes, useParams } from 'react-router'
+import {
+  HashRouter,
+  Navigate,
+  Route,
+  Routes,
+  useParams,
+  useSearchParams,
+} from 'react-router'
 import { SettingsSidebarLayout } from '@/components/layout/SettingsSidebarLayout'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { RouteDocumentTitle } from '@/lib/document-title/RouteDocumentTitle'
@@ -44,6 +51,7 @@ const LegacyAgentRedirect: FC = () => {
 
 const OptionsRedirect: FC = () => {
   const params = useParams()
+  const [searchParams] = useSearchParams()
   const path = params['*'] || ''
 
   const routeMap: Record<string, string> = {
@@ -52,10 +60,20 @@ const OptionsRedirect: FC = () => {
     mcp: '/settings/mcp',
     customization: '/settings/customization',
     search: '/settings/ai',
-    scheduled: '/tasks?tab=scheduled',
+    scheduled: '/tasks',
   }
 
-  const newPath = routeMap[path] || '/settings/ai'
+  const basePath = routeMap[path] || '/settings/ai'
+
+  // Forward source query params so deep-linked URLs like
+  // options.html#/options/scheduled?openDialog=true&name=...
+  // arrive at the destination page with all params intact.
+  const forwarded = new URLSearchParams(searchParams)
+  if (path === 'scheduled' && !forwarded.has('tab')) {
+    forwarded.set('tab', 'scheduled')
+  }
+  const qs = forwarded.toString()
+  const newPath = qs ? `${basePath}?${qs}` : basePath
   return <Navigate to={newPath} replace />
 }
 

@@ -47,8 +47,10 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
       suggested_name: suggestedName,
       schedule_type: scheduleType,
     })
+    setDismissed(true)
 
     const params = new URLSearchParams({
+      tab: 'scheduled',
       name: suggestedName,
       query,
       scheduleType,
@@ -56,9 +58,7 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
       openDialog: 'true',
     })
 
-    const url = chrome.runtime.getURL(
-      `app.html#/scheduled?${params.toString()}`,
-    )
+    const url = chrome.runtime.getURL(`app.html#/tasks?${params.toString()}`)
     chrome.tabs.create({ url })
   }
 
