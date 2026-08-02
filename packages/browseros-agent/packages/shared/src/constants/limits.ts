@@ -48,6 +48,11 @@ export const AGENT_LIMITS = {
   COMPACTION_SAFETY_MULTIPLIER: 1.3,
   COMPACTION_IMAGE_TOKEN_ESTIMATE: 1_000,
 
+  // Per-provider image limits enforced during message normalization.
+  // Bedrock's Converse API hard-caps images per request; exceeding it
+  // returns a 400 Bad Request before the model even runs.
+  BEDROCK_MAX_IMAGES: 20,
+
   // Compaction — pruning (before LLM summarization)
   COMPACTION_PRUNE_KEEP_RECENT_MESSAGES: 6,
   COMPACTION_CLEAR_OUTPUT_MIN_CHARS: 100,

@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process'
 import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -16,6 +17,7 @@ import { wrapAcpProviderExecutedTools } from '../lib/agents/acp/wrap-acp-provide
 import { buildAcpxProvider } from '../lib/agents/acpx-provider/buildAcpxProvider'
 import {
   DANGEROUS_ALLOW_MODE_CANDIDATES,
+  HOST_ACP_ADAPTER_CONFIG,
   isHostAcpAdapter,
 } from '../lib/agents/host-acp/config'
 import { resolveAcpSpawnCommand } from '../lib/agents/host-acp/launcher'
@@ -102,6 +104,90 @@ function resolveAcpAgentId(config: ResolvedAgentConfig): string {
   return config.acpAgentId ?? builtIn
 }
 
+/**
+ * Kill any surviving adapter child processes (codex-acp, claude-agent-acp,
+ * etc.) that match the workspace directory. acpx closes the ACP session via
+ * JSON-RPC but does not send SIGTERM to the spawned process; without this,
+ * provider hot-switches leave zombie processes that contend for the same
+ * workspace directory and cause the next Codex/Claude turn to stall.
+ *
+ * The 2 s grace window lets the adapter handle the session/close message
+ * before we terminate the process.
+ */
+async function terminateAcpProvider(
+  provider: AcpxProvider,
+  agentId: string,
+  workspacePath: string,
+): Promise<void> {
+  await provider.close().catch((err: unknown) => {
+    logger.warn('ACP provider close failed', {
+      agentId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  })
+
+  // Only terminate built-in adapters — we know their process names.
+  if (!isHostAcpAdapter(agentId)) return
+
+  const adapterBin = HOST_ACP_ADAPTER_CONFIG[agentId].acpBin
+  if (!adapterBin) return
+
+  await new Promise<void>((resolve) => setTimeout(resolve, 2_000))
+
+  // Use `pkill` (macOS/Linux) to SIGTERM any surviving process that:
+  //  1. Has the adapter binary name in its command line
+  //  2. Is running with the conversation workspace as its cwd
+  // Escape the workspace path so filesystem dots/brackets/etc. are not
+  // treated as regex metacharacters by pkill -f's ERE engine.
+  const escapedWorkspacePath = workspacePath.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&',
+  )
+  execFile('pkill', ['-f', `${adapterBin}.*${escapedWorkspacePath}`], (err) => {
+    if (err && err.code !== 1) {
+      // exit code 1 means "no matching process" — not an error here.
+      logger.debug('ACP adapter pkill returned non-zero', {
+        agentId,
+        adapterBin,
+        workspacePath,
+        code: err.code,
+      })
+    } else {
+      logger.info('ACP adapter process terminated', {
+        agentId,
+        adapterBin,
+        workspacePath,
+      })
+    }
+  })
+}
+
+/**
+ * Verify that `binaryName` is findable on the user's PATH. Throws a
+ * descriptive error so the UI can surface a clear install instruction
+ * rather than letting acpx fail with an opaque spawn error.
+ */
+async function checkNativeBinaryOnPath(
+  binaryName: string,
+  displayName: string,
+): Promise<void> {
+  const whichCmd = process.platform === 'win32' ? 'where' : 'which'
+  await new Promise<void>((resolve, reject) => {
+    execFile(whichCmd, [binaryName], (err) => {
+      if (err) {
+        reject(
+          new Error(
+            `${displayName} requires the \`${binaryName}\` CLI to be installed and on PATH. ` +
+              `Install it first, then retry.`,
+          ),
+        )
+      } else {
+        resolve()
+      }
+    })
+  })
+}
+
 async function createAcpLanguageModel(
   config: ResolvedAgentConfig,
 ): Promise<LanguageModelWithCleanup> {
@@ -165,6 +251,21 @@ async function createAcpLanguageModel(
       agentRegistryOverrides[builtIn] = launcher.command
     }
   }
+
+  // Pre-flight: verify the native CLI binary is on PATH for built-in adapters.
+  // Skip when the bundled-bun launcher resolved — it doesn't need the native
+  // binary. Only check when we'll fall back to the system PATH (e.g. the
+  // bundled binary is absent on a development machine).
+  if (isHostAcpAdapter(agentId)) {
+    const adapterConfig = HOST_ACP_ADAPTER_CONFIG[agentId]
+    const hasBundledLauncher = agentRegistryOverrides[agentId] != null
+    if (!hasBundledLauncher) {
+      await checkNativeBinaryOnPath(
+        adapterConfig.nativeBinary,
+        adapterConfig.displayName,
+      )
+    }
+  }
   if (config.provider === LLM_PROVIDERS.ACP_CUSTOM && config.acpCommand) {
     agentRegistryOverrides[agentId] = config.acpCommand
   }
@@ -185,9 +286,7 @@ async function createAcpLanguageModel(
     model: wrapAcpProviderExecutedTools(
       provider.languageModel() as LanguageModel,
     ),
-    // acpx-ai-provider's docs put close() ownership on the caller: skip
-    // it and the spawned agent process outlives the conversation.
-    close: () => provider.close(),
+    close: () => terminateAcpProvider(provider, agentId, workspacePath),
   }
 }
 

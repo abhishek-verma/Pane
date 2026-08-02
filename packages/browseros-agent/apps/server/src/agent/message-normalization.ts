@@ -1,3 +1,4 @@
+import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import type {
   FilePart,
@@ -22,6 +23,13 @@ type UserMediaPart = Extract<UserMessagePart, ImagePart | FilePart>
 export interface MessageNormalizationOptions {
   supportsImages: boolean
   supportsMediaInToolResults: boolean
+  /**
+   * Maximum number of images that may appear across the full conversation
+   * history before the model call. When set, oldest images are stripped
+   * first until the total is within the cap. Bedrock enforces a hard
+   * 20-image limit per Converse API request; exceeding it returns 400.
+   */
+  maxImages?: number
 }
 
 // See how opencode handles, inspiration from there
@@ -55,6 +63,9 @@ export function getMessageNormalizationOptions(
   return {
     supportsImages: config.supportsImages !== false,
     supportsMediaInToolResults: supportsToolResultMediaTransport(config),
+    ...(config.provider === LLM_PROVIDERS.BEDROCK && {
+      maxImages: AGENT_LIMITS.BEDROCK_MAX_IMAGES,
+    }),
   }
 }
 
@@ -171,6 +182,85 @@ function normalizeToolMessageForModel(
   return [normalizedToolMessage, mediaMessage]
 }
 
+/**
+ * Count the total number of image parts across all tool-result messages.
+ * Used to enforce per-provider image caps (e.g. Bedrock's 20-image limit).
+ */
+function countImagesInToolResults(messages: ModelMessage[]): number {
+  let count = 0
+  for (const message of messages) {
+    if (message.role !== 'tool') continue
+    for (const part of message.content) {
+      if (part.type !== 'tool-result' || part.output.type !== 'content')
+        continue
+      for (const contentPart of part.output.value) {
+        if (
+          (contentPart.type === 'image-data' ||
+            contentPart.type === 'media' ||
+            contentPart.type === 'file-data') &&
+          contentPart.mediaType.startsWith('image/')
+        ) {
+          count++
+        }
+      }
+    }
+  }
+  return count
+}
+
+/**
+ * Strip images from the oldest tool-result messages first until the total
+ * image count across the conversation is within `maxImages`. Returns the
+ * original array reference unchanged if no stripping was needed.
+ */
+function applyImageCap(
+  messages: ModelMessage[],
+  maxImages: number,
+): ModelMessage[] {
+  let totalImages = countImagesInToolResults(messages)
+  if (totalImages <= maxImages) return messages
+
+  const result: ModelMessage[] = [...messages]
+  for (let i = 0; i < result.length && totalImages > maxImages; i++) {
+    const msg = result[i]
+    if (msg.role !== 'tool') continue
+
+    let msgChanged = false
+    const newContent = msg.content.map((part) => {
+      if (
+        part.type !== 'tool-result' ||
+        part.output.type !== 'content' ||
+        totalImages <= maxImages
+      ) {
+        return part
+      }
+
+      const imageCount = part.output.value.filter(
+        (p) =>
+          (p.type === 'image-data' ||
+            p.type === 'media' ||
+            p.type === 'file-data') &&
+          p.mediaType.startsWith('image/'),
+      ).length
+
+      if (imageCount === 0) return part
+
+      msgChanged = true
+      totalImages -= imageCount
+      return {
+        ...part,
+        output: stripToolResultOutput(part.output),
+      }
+    })
+
+    if (msgChanged) {
+      result[i] = { ...msg, content: newContent }
+    }
+  }
+
+  return result
+}
+
 // opencode handles this at message serialization time for providers that do not
 // reliably support media inside tool results. BrowserOS uses the same boundary:
 // normalize model messages before the next step, not inside the screenshot tool.
@@ -178,14 +268,22 @@ export function normalizeMessagesForModel(
   messages: ModelMessage[],
   options: MessageNormalizationOptions,
 ): ModelMessage[] {
+  // Apply the per-provider image cap first (independent of transport mode).
+  // Bedrock accepts images natively in tool results but imposes a 20-image
+  // hard limit per request — strip oldest images before sending.
+  const result =
+    options.maxImages != null
+      ? applyImageCap(messages, options.maxImages)
+      : messages
+
   if (options.supportsMediaInToolResults) {
-    return messages
+    return result
   }
 
-  let changed = false
+  let changed = result !== messages
   const normalized: ModelMessage[] = []
 
-  for (const message of messages) {
+  for (const message of result) {
     if (message.role !== 'tool') {
       normalized.push(message)
       continue
