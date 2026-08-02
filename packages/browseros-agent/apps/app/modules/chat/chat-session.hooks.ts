@@ -1354,7 +1354,17 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
   useEffect(() => {
+    const appliedRef = { id: '' }
+
     const applySearchAction = (storageAction: SearchActionStorage) => {
+      // Dedup: getValue() and watch() can both fire for the same write within
+      // the same micro-task batch, launching two agents. Guard by fingerprinting
+      // the payload; reset after consuming so the next identical button click
+      // (a new write) still fires correctly.
+      const id = JSON.stringify(storageAction)
+      if (appliedRef.id === id) return
+      appliedRef.id = id
+
       if (storageAction.conversationId) {
         setMode(storageAction.mode)
         setSearchParams(
@@ -1362,6 +1372,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           { replace: true },
         )
         void searchActionsStorage.setValue(null)
+        appliedRef.id = ''
         return
       }
       resetConversationState()
@@ -1373,6 +1384,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         })
       }, 0)
       void searchActionsStorage.setValue(null)
+      appliedRef.id = ''
     }
 
     // Cold mount: background may have written handoff before this watch attaches.
@@ -1417,6 +1429,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     setLiked({})
     setDisliked({})
     setRestoredConversationId(null)
+    // Clear conversationId from the URL so the restore effect does not see a
+    // stale stored conversation ID and overwrite the new chat (wrong/empty chat).
+    setSearchParams({}, { replace: true })
     resetRemoteConversation()
   }
 
