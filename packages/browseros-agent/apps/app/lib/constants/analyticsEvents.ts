@@ -231,6 +231,9 @@ export const BREADCRUMB_SCHEDULE_CLICKED_EVENT = 'breadcrumb.schedule.clicked'
 export const BREADCRUMB_CONNECT_CLICKED_EVENT = 'breadcrumb.connect.clicked'
 
 /** @public */
+export const BREADCRUMB_CONNECT_DISMISSED_EVENT = 'breadcrumb.connect.dismissed'
+
+/** @public */
 export const BREADCRUMB_CONNECT_MANUAL_EVENT = 'breadcrumb.connect.manual'
 
 /** @public */
