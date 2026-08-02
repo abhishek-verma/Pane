@@ -11,9 +11,11 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { DEFAULT_BUCKET_ID } from '@browseros/memory/constants'
 import { MemoryWriteRejectedError } from '@browseros/memory/scan'
+import { generateText } from 'ai'
 import { detectOnBattery, getPauseOnBatteryPref } from '../context/battery'
 import { getDbHandle } from '../lib/db'
 import { logger } from '../lib/logger'
+import { getLastUsedModel } from './draft-model'
 import { writeStagedSkill } from './files'
 import { upsertSkillRecord } from './store'
 
@@ -183,6 +185,55 @@ export function extractWorkflowCandidates(
   return candidates
 }
 
+const DRAFT_SYSTEM_PROMPT = `You are writing a reusable skill file for a browser automation agent.
+A skill describes a repeating workflow so the agent can recognise and invoke it efficiently in future sessions.
+
+Output ONLY valid YAML front-matter + Markdown. No preamble, no explanation.
+
+Format exactly:
+---
+name: <kebab-case-id, ≤40 chars>
+description: <one clear sentence, ≤120 chars, what the workflow achieves>
+---
+
+# <name>
+
+## When to use
+<1–2 sentences: trigger condition or user intent>
+
+## Steps
+<numbered list of plain-English steps derived from the tool sequence>`
+
+/**
+ * Draft a skill using the last-used language model if one is available.
+ * Returns null on any LLM error so the caller falls back to defaultDraft.
+ */
+async function llmDraft(candidate: WorkflowCandidate): Promise<string | null> {
+  const model = getLastUsedModel()
+  if (!model) return null
+
+  const toolList = candidate.toolNames.join(' → ')
+  const userPrompt = `Tool sequence (${candidate.toolCallCount} calls, repeated ${candidate.runIds.length} times):\n${toolList}\n\nWrite the skill file.`
+
+  try {
+    const { text } = await generateText({
+      model,
+      system: DRAFT_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
+      maxOutputTokens: 400,
+      abortSignal: AbortSignal.timeout(30_000),
+    })
+    const trimmed = text?.trim()
+    if (!trimmed?.startsWith('---')) return null
+    return trimmed
+  } catch (err) {
+    logger.warn('skill review LLM draft failed, using template', {
+      error: err instanceof Error ? err.message : String(err),
+    })
+    return null
+  }
+}
+
 function defaultDraft(candidate: WorkflowCandidate): string {
   const id = createHash('sha1')
     .update(candidate.signature)
@@ -257,9 +308,11 @@ export async function runSkillReviewJob(
   const draft =
     options.draftSkill ??
     (async (c) => {
-      // No cheaper model wired by default — deterministic draft is enough for
-      // staging; production can inject an LLM drafter later.
-      logger.info('skill review using template drafter (no model configured)')
+      const result = await llmDraft(c)
+      if (result) return result
+      logger.info(
+        'skill review using template drafter (no model registered yet)',
+      )
       return defaultDraft(c)
     })
 
