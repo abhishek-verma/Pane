@@ -1354,7 +1354,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
   useEffect(() => {
+    const appliedRef = { id: '' }
+
     const applySearchAction = (storageAction: SearchActionStorage) => {
+      // Dedup: getValue() and watch() can both fire for the same write.
+      // Use a stable fingerprint of the payload so repeated button clicks
+      // (new writes) still work, but a single write only fires once.
+      const id = JSON.stringify(storageAction)
+      if (appliedRef.id === id) return
+      appliedRef.id = id
+
       if (storageAction.conversationId) {
         setMode(storageAction.mode)
         setSearchParams(
@@ -1417,6 +1426,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     setLiked({})
     setDisliked({})
     setRestoredConversationId(null)
+    // Clear conversationId from the URL so the restore effect does not see a
+    // stale stored conversation ID and overwrite the new chat (wrong/empty chat).
+    setSearchParams({}, { replace: true })
     resetRemoteConversation()
   }
 
