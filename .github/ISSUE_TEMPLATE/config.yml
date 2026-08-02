@@ -3,12 +3,9 @@ contact_links:
   - name: 💬 Discord
     url: https://discord.gg/652JHSyS4
     about: Join our Discord for help and discussions!
-  - name: 💼 Slack
-    url: https://dub.sh/browserOS-slack
-    about: Join our Slack for help and queries!
   - name: 💡 Feature Requests
-    url: https://github.com/browseros-ai/BrowserOS/issues/99
+    url: https://github.com/abhishek-verma/Pane/issues
     about: Have an idea? Share it here and vote on others
   - name: 📚 Documentation
-    url: https://docs.browseros.com/
+    url: https://github.com/abhishek-verma/Pane#readme
     about: Find setup guides and learn how to use Pane

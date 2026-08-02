@@ -1,0 +1,96 @@
+name: Install / Launch Issue
+description: Pane won't open, won't install, or shows a security warning on macOS
+title: "[Install] <short description>"
+labels:
+  - "install"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Having trouble getting Pane running? Most issues are solved by downloading the latest notarized build from [GitHub Releases](https://github.com/abhishek-verma/Pane/releases/latest). Please check that first before filing. 🙏
+
+  - id: checklist
+    type: checkboxes
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I downloaded Pane from the [official GitHub Releases page](https://github.com/abhishek-verma/Pane/releases/latest) (not a third-party site)
+          required: true
+        - label: I am on the latest release
+          required: true
+
+  - id: issue-type
+    type: dropdown
+    attributes:
+      label: Issue type
+      options:
+        - "'Apple cannot check it for malicious software' warning"
+        - Pane won't open / crashes immediately
+        - DMG won't mount
+        - App damaged / can't be opened
+        - Install hangs or fails silently
+        - Other
+    validations:
+      required: true
+
+  - id: macos-version
+    type: input
+    attributes:
+      label: macOS version
+      description: "Found in  → About This Mac"
+      placeholder: "e.g. macOS Sequoia 15.3"
+    validations:
+      required: true
+
+  - id: chip
+    type: dropdown
+    attributes:
+      label: Apple Silicon or Intel?
+      options:
+        - Apple Silicon (M1 / M2 / M3 / M4)
+        - Intel
+        - Not sure
+    validations:
+      required: true
+
+  - id: pane-version
+    type: input
+    attributes:
+      label: Pane version / release tag
+      description: "The release tag you downloaded (e.g. v0.47.0)"
+      placeholder: "e.g. v0.47.0"
+    validations:
+      required: true
+
+  - id: download-source
+    type: dropdown
+    attributes:
+      label: How did you install Pane?
+      options:
+        - GitHub Releases (downloaded .dmg)
+        - Homebrew cask
+        - Other (describe below)
+    validations:
+      required: true
+
+  - id: error-text
+    type: textarea
+    attributes:
+      label: Exact error message
+      description: Copy the full text of any error dialog or paste a screenshot.
+      placeholder: |
+        e.g. "Pane.app is damaged and can't be opened. You should move it to the Trash."
+    validations:
+      required: true
+
+  - id: screenshots
+    type: textarea
+    attributes:
+      label: Screenshots
+      description: Drag and drop images here.
+
+  - id: additional-context
+    type: textarea
+    attributes:
+      label: Additional context
+      description: Anything else that might help (e.g. security software, MDM, corporate Mac).
