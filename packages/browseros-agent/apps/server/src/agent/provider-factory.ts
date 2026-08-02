@@ -137,8 +137,13 @@ async function terminateAcpProvider(
   // Use `pkill` (macOS/Linux) to SIGTERM any surviving process that:
   //  1. Has the adapter binary name in its command line
   //  2. Is running with the conversation workspace as its cwd
-  // We use pgrep first to check existence so we only warn on a real miss.
-  execFile('pkill', ['-f', `${adapterBin}.*${workspacePath}`], (err) => {
+  // Escape the workspace path so filesystem dots/brackets/etc. are not
+  // treated as regex metacharacters by pkill -f's ERE engine.
+  const escapedWorkspacePath = workspacePath.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&',
+  )
+  execFile('pkill', ['-f', `${adapterBin}.*${escapedWorkspacePath}`], (err) => {
     if (err && err.code !== 1) {
       // exit code 1 means "no matching process" — not an error here.
       logger.debug('ACP adapter pkill returned non-zero', {
