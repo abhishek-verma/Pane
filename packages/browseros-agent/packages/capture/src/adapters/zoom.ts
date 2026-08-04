@@ -62,6 +62,9 @@ function evaluateCallState(probe: MeetingDomProbe): MeetingCallState {
   // Present in every call UI on every platform; never on pre-join screens.
   // Accessibility-critical — Zoom must label it for screen readers, so it
   // survives icon redesigns, localization, and future client versions.
+  // TODO: replace the OR logic here (and in all mature adapters) with a
+  // scoring model so mute alone (weak signal) requires corroboration from a
+  // second signal (e.g. call timer, participant tiles) before returning in-call.
   if (probe.facts.hasVisibleMuteControl) return 'in-call'
 
   return 'prejoin'
