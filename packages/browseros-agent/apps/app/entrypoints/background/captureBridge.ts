@@ -235,7 +235,9 @@ async function startCaptureAudio(
 
 /**
  * Generic sites: allow start on `in-call`, or `unknown` held > N ms while tab audible.
- * Mature sites: strict `in-call` only.
+ * Mature sites: strict `in-call` only — EXCEPT when the tab has been audible and
+ * on a room URL for longer than GENERIC_UNKNOWN_START_MS (last-resort fallback for
+ * icon-only UIs or future Zoom clients where the DOM probe returns nothing useful).
  */
 async function shouldStartCaptureForState(
   adapter: MeetingSiteAdapter,
@@ -246,11 +248,11 @@ async function shouldStartCaptureForState(
     genericUnknownSince.delete(tabId)
     return true
   }
-  if (adapter.maturity !== 'generic') return false
   if (callState !== 'unknown') {
     genericUnknownSince.delete(tabId)
     return false
   }
+  // `unknown` path: generic always eligible; mature eligible after audibility hold.
   const since = genericUnknownSince.get(tabId) ?? Date.now()
   if (!genericUnknownSince.has(tabId)) {
     genericUnknownSince.set(tabId, since)

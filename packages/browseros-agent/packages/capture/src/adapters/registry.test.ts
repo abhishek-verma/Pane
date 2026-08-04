@@ -258,8 +258,11 @@ describe('adapters call-state from facts (A-T2)', () => {
       ),
     ).toBe('in-call')
   })
+})
 
-  it('Zoom PWA (app.zoom.us) in-call via visible leave control', () => {
+describe('Zoom PWA call-state resilience', () => {
+  // Participant — sees "Leave" button
+  it('participant in-call via Leave button', () => {
     expect(
       evaluateMeetingCallStateFromProbe(
         factsProbe({
@@ -267,35 +270,78 @@ describe('adapters call-state from facts (A-T2)', () => {
           href: 'https://app.zoom.us/wc/82259304410/start',
           facts: {
             matchedSelectors: [],
-            ariaLabels: ['Leave meeting'],
+            ariaLabels: ['Mute', 'Stop Video', 'Leave meeting'],
             speakingCandidates: [],
             hasVisibleLeaveControl: true,
             hasVisibleJoinControl: false,
+            hasVisibleMuteControl: true,
           },
         }),
       ),
     ).toBe('in-call')
   })
 
-  it('Zoom PWA prejoin when join control visible', () => {
+  // Host — sees "End" button, not "Leave"
+  it('host in-call via End button', () => {
     expect(
       evaluateMeetingCallStateFromProbe(
         factsProbe({
           hostname: 'app.zoom.us',
-          href: 'https://app.zoom.us/wc/82259304410/start',
+          href: 'https://app.zoom.us/wc/86539747306/start',
           facts: {
             matchedSelectors: [],
-            ariaLabels: ['Join Now'],
+            ariaLabels: ['Mute', 'Stop Video', 'Participants', 'End'],
+            speakingCandidates: [],
+            hasVisibleLeaveControl: true,
+            hasVisibleJoinControl: false,
+            hasVisibleMuteControl: true,
+          },
+        }),
+      ),
+    ).toBe('in-call')
+  })
+
+  // Icon-only UI — no aria-label on leave/end, but mute button is always labeled
+  it('in-call via mute button alone (icon-only leave button)', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'app.zoom.us',
+          href: 'https://app.zoom.us/wc/86539747306/start',
+          facts: {
+            matchedSelectors: [],
+            ariaLabels: ['Unmute', 'Start Video', 'Chat'],
+            speakingCandidates: [],
+            hasVisibleLeaveControl: false,
+            hasVisibleJoinControl: false,
+            hasVisibleMuteControl: true,
+          },
+        }),
+      ),
+    ).toBe('in-call')
+  })
+
+  // Pre-join — join button present overrides mute
+  it('prejoin when join button present even if mute visible', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'app.zoom.us',
+          facts: {
+            matchedSelectors: [],
+            ariaLabels: ['Mute', 'Join Now'],
             speakingCandidates: [],
             hasVisibleLeaveControl: false,
             hasVisibleJoinControl: true,
+            hasVisibleMuteControl: true,
           },
         }),
       ),
     ).toBe('prejoin')
   })
 
-  it('Zoom PWA prejoin on waiting room text', () => {
+  // Waiting room
+  it('prejoin on waiting room body text', () => {
     expect(
       evaluateMeetingCallStateFromProbe(
         factsProbe({
@@ -311,18 +357,33 @@ describe('adapters call-state from facts (A-T2)', () => {
     ).toBe('prejoin')
   })
 
-  it('Zoom PWA host in-call via "End" button (host sees End not Leave)', () => {
+  // Passcode screen
+  it('prejoin on passcode screen body text', () => {
     expect(
       evaluateMeetingCallStateFromProbe(
         factsProbe({
           hostname: 'app.zoom.us',
-          href: 'https://app.zoom.us/wc/86539747306/start',
+          bodyText: 'Enter meeting passcode',
           facts: {
-            matchedSelectors: ['button[aria-label="End"]'],
-            ariaLabels: ['Mute', 'Video', 'Participants', 'End'],
+            matchedSelectors: [],
+            ariaLabels: [],
             speakingCandidates: [],
-            hasVisibleLeaveControl: true,
-            hasVisibleJoinControl: false,
+          },
+        }),
+      ),
+    ).toBe('prejoin')
+  })
+
+  // Classic web client still works
+  it('classic client in-call via #meeting-client', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'us05web.zoom.us',
+          facts: {
+            matchedSelectors: ['#meeting-client'],
+            ariaLabels: [],
+            speakingCandidates: [],
           },
         }),
       ),

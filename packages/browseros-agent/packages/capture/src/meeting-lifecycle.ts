@@ -12,8 +12,11 @@ import type { MeetingCallState } from './types'
 /**
  * Consecutive `unknown` probes while recording before we hard-stop.
  * At a ~4s poll this is ~8s of grace for flaky DOM.
+ * Mature adapters (Zoom, Meet, Teams) need more: their SPAs can temporarily
+ * return `unknown` during in-call UI redraws, participant joins, etc.
  */
 export const UNKNOWN_STOP_STREAK = 2
+export const UNKNOWN_STOP_STREAK_MATURE = 5
 
 export type CaptureLifecycleAction = 'start' | 'keep' | 'stop' | 'wait'
 
@@ -109,8 +112,12 @@ export function decideCaptureLifecycle(
         clearInCall: false,
       }
     }
+    const stopAt =
+      input.maturity === 'mature'
+        ? UNKNOWN_STOP_STREAK_MATURE
+        : UNKNOWN_STOP_STREAK
     const next = input.unknownStreak + 1
-    if (next >= UNKNOWN_STOP_STREAK) {
+    if (next >= stopAt) {
       return {
         action: 'stop',
         reason: 'unknown_streak',

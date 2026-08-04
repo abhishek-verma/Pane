@@ -37,9 +37,7 @@ export const MEETING_SELECTOR_ALLOWLIST = [
   '[aria-live="polite"]',
   'button[aria-label="End"]',
   'button[aria-label="End meeting"]',
-] as const
-
-/**
+] as const /**
  * Runs inside the meeting tab. Collects host/url/text + selector/aria facts.
  * No imports from outer scope beyond what is inlined when serialized.
  */
@@ -351,43 +349,75 @@ export function collectMeetingDomFactsPage(): {
 
   let hasVisibleLeaveControl = false
   let hasVisibleJoinControl = false
+  let hasVisibleMuteControl = false
   try {
     for (const el of Array.from(
       document.querySelectorAll('[aria-label]'),
     ).slice(0, 120)) {
       if (!isVisible(el)) continue
-      const label = (el.getAttribute('aria-label') ?? '').toLowerCase()
+      const label = (el.getAttribute('aria-label') ?? '').toLowerCase().trim()
+
+      // Leave / end: any visible button that ends your participation.
+      // Matches: "Leave", "Leave call", "Leave meeting", "End", "End call",
+      // "End meeting", "End for all", "Hang up", "Disconnect", etc.
       if (
-        label.includes('leave call') ||
-        label.includes('end call') ||
-        label.includes('leave meeting') ||
-        label.includes('end meeting') ||
-        label.includes('hang up') ||
         label === 'leave' ||
         label === 'end' ||
+        label === 'hang up' ||
+        label === 'disconnect' ||
         label.startsWith('leave ') ||
-        label.startsWith('end ')
+        label.startsWith('end ') ||
+        label.includes('leave call') ||
+        label.includes('leave meeting') ||
+        label.includes('end call') ||
+        label.includes('end meeting') ||
+        label.includes('hang up') ||
+        label.includes('disconnect')
       ) {
         hasVisibleLeaveControl = true
       }
+
+      // Join: any visible button that puts you into the call.
       if (
+        label === 'join' ||
         label.includes('join now') ||
         label.includes('ask to join') ||
-        label === 'join' ||
         label.startsWith('join ')
       ) {
         hasVisibleJoinControl = true
       }
+
+      // Mute / unmute: present in every call UI; never on pre-join screens.
+      // Accessibility-critical — platforms must label these for screen readers.
+      if (
+        label === 'mute' ||
+        label === 'unmute' ||
+        label.startsWith('mute ') ||
+        label.startsWith('unmute ') ||
+        label.includes(' mute') ||
+        label.includes(' unmute')
+      ) {
+        hasVisibleMuteControl = true
+      }
     }
-    // Common hangup buttons without aria-label text in body
-    for (const sel of [
-      '[data-tid="call-hangup"]',
-      '[data-qa="huddle_leave_button"]',
-      'button[aria-label*="Leave" i]',
-    ]) {
+
+    // Broader selector checks for platforms that use data attributes
+    // instead of aria-labels for their call controls.
+    for (const [sel, kind] of [
+      ['[data-tid="call-hangup"]', 'leave'],
+      ['[data-qa="huddle_leave_button"]', 'leave'],
+      ['button[aria-label*="Leave" i]', 'leave'],
+      ['button[aria-label*="End" i]', 'leave'],
+      ['button[aria-label*="Hang up" i]', 'leave'],
+      ['button[aria-label*="Mute" i]', 'mute'],
+      ['button[aria-label*="Unmute" i]', 'mute'],
+    ] as const) {
       try {
         const el = document.querySelector(sel)
-        if (el && isVisible(el)) hasVisibleLeaveControl = true
+        if (el && isVisible(el)) {
+          if (kind === 'leave') hasVisibleLeaveControl = true
+          if (kind === 'mute') hasVisibleMuteControl = true
+        }
       } catch {
         /* ignore */
       }
@@ -410,6 +440,7 @@ export function collectMeetingDomFactsPage(): {
       attendees: attendees.slice(0, 40),
       hasVisibleLeaveControl,
       hasVisibleJoinControl,
+      hasVisibleMuteControl,
     },
   }
 }

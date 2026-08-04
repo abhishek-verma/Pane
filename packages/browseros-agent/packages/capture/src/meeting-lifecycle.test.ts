@@ -8,6 +8,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   decideCaptureLifecycle,
   UNKNOWN_STOP_STREAK,
+  UNKNOWN_STOP_STREAK_MATURE,
 } from './meeting-lifecycle'
 
 describe('decideCaptureLifecycle', () => {
@@ -114,7 +115,7 @@ describe('decideCaptureLifecycle', () => {
     expect(d.action).toBe('wait')
   })
 
-  it('keeps briefly on unknown then stops after streak', () => {
+  it('keeps briefly on unknown then stops after streak (generic threshold)', () => {
     const grace = decideCaptureLifecycle({
       callState: 'unknown',
       isRecording: true,
@@ -126,12 +127,38 @@ describe('decideCaptureLifecycle', () => {
     expect(grace.action).toBe('keep')
     expect(grace.nextUnknownStreak).toBe(1)
 
+    // mature threshold is UNKNOWN_STOP_STREAK_MATURE, not UNKNOWN_STOP_STREAK
     const stop = decideCaptureLifecycle({
       callState: 'unknown',
       isRecording: true,
       wasInCall: true,
       tabOpen: true,
-      unknownStreak: UNKNOWN_STOP_STREAK - 1,
+      unknownStreak: UNKNOWN_STOP_STREAK_MATURE - 1,
+      maturity: 'mature',
+    })
+    expect(stop.action).toBe('stop')
+    expect(stop.reason).toBe('unknown_streak')
+  })
+
+  it('mature adapters get longer unknown grace than generic stop threshold', () => {
+    // Still keeping at the old generic streak threshold
+    const stillKeeping = decideCaptureLifecycle({
+      callState: 'unknown',
+      isRecording: true,
+      wasInCall: true,
+      tabOpen: true,
+      unknownStreak: UNKNOWN_STOP_STREAK,
+      maturity: 'mature',
+    })
+    expect(stillKeeping.action).toBe('keep')
+
+    // Stops only at the mature threshold
+    const stop = decideCaptureLifecycle({
+      callState: 'unknown',
+      isRecording: true,
+      wasInCall: true,
+      tabOpen: true,
+      unknownStreak: UNKNOWN_STOP_STREAK_MATURE - 1,
       maturity: 'mature',
     })
     expect(stop.action).toBe('stop')

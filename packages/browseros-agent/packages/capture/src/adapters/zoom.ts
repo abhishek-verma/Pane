@@ -33,7 +33,8 @@ const ZOOM_PRE_JOIN_TEXT = [
 ]
 
 function evaluateCallState(probe: MeetingDomProbe): MeetingCallState {
-  // Classic web client containers (us05web.zoom.us, zoom.us/wc/*)
+  // Layer 1: classic web client (us05web.zoom.us, zoom.us/wc/*).
+  // These selectors are only present once fully in-call, never on pre-join.
   const inMeetingDom =
     hasSelector(probe, '#meeting-client') ||
     hasSelector(probe, '.meeting-app') ||
@@ -42,15 +43,26 @@ function evaluateCallState(probe: MeetingDomProbe): MeetingCallState {
     hasSelector(probe, '#join-btn') || hasSelector(probe, '.join-meeting')
   if (inMeetingDom && !hasJoinDom) return 'in-call'
 
-  // PWA (app.zoom.us) and any future client: use aria-label leave/join signals.
-  // hasVisibleJoinControl takes priority — joining screen must not trigger capture.
+  // Strongest negative: a visible join button means pre-join regardless of
+  // any other signals. Check before positives so a momentary DOM flicker
+  // on the in-call page (SPA route change) doesn't falsely stop capture.
   if (probe.facts.hasVisibleJoinControl) return 'prejoin'
-  if (probe.facts.hasVisibleLeaveControl) return 'in-call'
 
-  // Fallback: body text pre-join phrases (waiting room, passcode screen, etc.)
+  // Body text pre-join phrases: waiting room, passcode prompt, etc.
   const text = probe.bodyText.toLowerCase()
   if (ZOOM_PRE_JOIN_TEXT.some((phrase) => text.includes(phrase)))
     return 'prejoin'
+
+  // Layer 2: visible leave/end control.
+  // Works for both host ("End") and participant ("Leave") on the PWA and
+  // any future Zoom client. Covers Leave, End, End meeting, Hang up, etc.
+  if (probe.facts.hasVisibleLeaveControl) return 'in-call'
+
+  // Layer 3: visible mute/unmute control.
+  // Present in every call UI on every platform; never on pre-join screens.
+  // Accessibility-critical — Zoom must label it for screen readers, so it
+  // survives icon redesigns, localization, and future client versions.
+  if (probe.facts.hasVisibleMuteControl) return 'in-call'
 
   return 'prejoin'
 }

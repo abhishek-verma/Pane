@@ -45,6 +45,12 @@ export interface MeetingDomFacts {
   hasVisibleLeaveControl?: boolean
   /** Visible join control (pre-call). */
   hasVisibleJoinControl?: boolean
+  /**
+   * Visible mute or unmute control. Present in every call UI on every platform.
+   * Never present on pre-join screens. Use as a secondary in-call signal
+   * when leave/end controls are absent (icon-only UIs, future redesigns).
+   */
+  hasVisibleMuteControl?: boolean
 }
 
 export interface MeetingDomProbe {
