@@ -155,6 +155,29 @@ describe('per-profile data roots and DB isolation', () => {
       ),
     ).toBe(false)
   })
+
+  it('never hands stray install-root data to a new profile once other profiles exist', () => {
+    // PROFILE_A already exists from a prior session.
+    mkdirSync(join(dir, PATHS.PROFILES_DIR_NAME, PROFILE_A), {
+      recursive: true,
+    })
+
+    // Data reappears at the install root (e.g. a caller wrote there by
+    // mistake) after PROFILE_A was already provisioned.
+    mkdirSync(join(dir, PATHS.DB_DIR_NAME), { recursive: true })
+    writeFileSync(join(dir, PATHS.DB_DIR_NAME, PATHS.DB_FILE_NAME), 'stray')
+
+    resetLegacyClaimForTests()
+    claimLegacyProfileData(PROFILE_B)
+
+    expect(
+      existsSync(
+        join(dir, PATHS.PROFILES_DIR_NAME, PROFILE_B, PATHS.DB_DIR_NAME),
+      ),
+    ).toBe(false)
+    // Stray data is left in place rather than silently vanishing or moving.
+    expect(existsSync(join(dir, PATHS.DB_DIR_NAME))).toBe(true)
+  })
 })
 
 describe('profile header constant', () => {
