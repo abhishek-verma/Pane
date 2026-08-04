@@ -218,4 +218,36 @@ describe('getMessageSegments', () => {
       throw new Error('expected a pi-preview segment')
     }
   })
+
+  test('strips markdown bold ** wrapping from PI hrefs in text', () => {
+    const message = assistantMessage([
+      {
+        type: 'text',
+        text: 'See **pi://temp/temp_abc123** for details.',
+      },
+    ])
+    const segments = getMessageSegments(message, true, false)
+    const card = segments.find((s) => s.type === 'pi-preview')
+    if (card?.type === 'pi-preview') {
+      expect(card.href).toBe('pi://temp/temp_abc123')
+    } else {
+      throw new Error('expected a pi-preview segment')
+    }
+  })
+
+  test('strips markdown italic _ wrapping from PI hrefs in text', () => {
+    const message = assistantMessage([
+      {
+        type: 'text',
+        text: 'Visit _pi://sites/abc_ now.',
+      },
+    ])
+    const segments = getMessageSegments(message, true, false)
+    const card = segments.find((s) => s.type === 'pi-preview')
+    if (card?.type === 'pi-preview') {
+      expect(card.href).toBe('pi://sites/abc')
+    } else {
+      throw new Error('expected a pi-preview segment')
+    }
+  })
 })

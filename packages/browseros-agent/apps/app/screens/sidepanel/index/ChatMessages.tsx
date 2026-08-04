@@ -92,6 +92,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
     () => getMessageSegments(message, isLastMessage, isStreaming),
     [message, isLastMessage, isStreaming],
   )
+
   const toolBatches = segments.filter((s) => s.type === 'tool-batch')
   const lastToolBatchKey = toolBatches[toolBatches.length - 1]?.key
 

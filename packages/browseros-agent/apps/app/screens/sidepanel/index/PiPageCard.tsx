@@ -23,11 +23,13 @@ export type PiPageCardProps = {
   preview?: PiPagePreview | null
   className?: string
   /**
-   * Open once when pi_open completes during a live stream.
-   * Idempotent across remounts; history revisits never navigate.
+   * Navigate once when pi_open delivers its result.
+   * Idempotent across remounts via sessionStorage — history revisits never
+   * re-navigate even though the isStreaming guard was removed.
    */
   autoOpen?: boolean
   autoOpenKey?: string
+  /** @deprecated no longer used for navigation gating; kept for call-site compat */
   isStreaming?: boolean
 }
 
@@ -68,7 +70,6 @@ export const PiPageCard: FC<PiPageCardProps> = ({
   className,
   autoOpen = false,
   autoOpenKey,
-  isStreaming = false,
 }) => {
   const [copied, setCopied] = useState(false)
 
@@ -88,11 +89,14 @@ export const PiPageCard: FC<PiPageCardProps> = ({
       : undefined)
 
   useEffect(() => {
-    // Live stream only — reopening a finished chat must not navigate.
-    if (!autoOpen || !isStreaming || !autoOpenKey) return
+    // Fire once when the tool result lands (autoOpen=true from pi_open).
+    // isStreaming may already be false when pi_open is the last tool in the
+    // turn — the markOpened idempotency guard prevents re-navigation on
+    // history revisit, so the live-stream guard is not needed here.
+    if (!autoOpen || !autoOpenKey) return
     if (!markOpened(autoOpenKey)) return
     void openPiHref(href)
-  }, [autoOpen, autoOpenKey, href, isStreaming])
+  }, [autoOpen, autoOpenKey, href])
 
   const handleOpen = () => {
     void openPiHref(href)
