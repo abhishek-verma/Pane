@@ -37,6 +37,9 @@ export function formatAgentStreamError(error: unknown): string {
   if (isNoSuchToolError(error)) {
     return 'The agent called a tool the chat runtime did not recognize. Send your message again to continue.'
   }
+  if (isBedrockExpiredCredentials(error)) {
+    return 'AWS credentials have expired. Re-enter your Bedrock access key, secret, and session token in Settings → Providers.'
+  }
   const message = findStreamErrorMessage(error)
   if (message) {
     if (isOpaqueStreamError(message) && isAcpxRuntimeError(error)) {
@@ -96,6 +99,37 @@ function isOpaqueStreamError(message: string): boolean {
   return message === 'An error occurred.' || message === 'Internal error'
 }
 
+/**
+ * Bedrock signals an expired STS session token via the
+ * `x-amzn-errortype: ExpiredTokenException` response header. Keyed
+ * specifically on that header rather than "HTTP 400 with an empty body" —
+ * Bedrock also returns an empty-body 400 for SerializationException (e.g. a
+ * malformed request payload), which is a request-shape bug, not an expired
+ * credential, and must not be shown or persisted as one.
+ */
+function isBedrockExpiredCredentials(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  const e = error as {
+    name?: unknown
+    url?: unknown
+    responseHeaders?: unknown
+  }
+  if (e.name !== 'AI_APICallError') return false
+  if (typeof e.url !== 'string' || !e.url.includes('bedrock-runtime')) {
+    return false
+  }
+  if (typeof e.responseHeaders !== 'object' || e.responseHeaders === null) {
+    return false
+  }
+  const errorType = (e.responseHeaders as Record<string, unknown>)[
+    'x-amzn-errortype'
+  ]
+  return (
+    typeof errorType === 'string' &&
+    errorType.startsWith('ExpiredTokenException')
+  )
+}
+
 function truncateStreamErrorMessage(message: string): string {
   return message.length > 280 ? `${message.slice(0, 277)}...` : message
 }
@@ -103,9 +137,23 @@ function truncateStreamErrorMessage(message: string): string {
 function describeStreamError(error: unknown): Record<string, unknown> {
   if (error instanceof Error) {
     const cause = (error as Error & { cause?: unknown }).cause
+    const apiError = error as Error & {
+      statusCode?: number
+      responseBody?: string
+      responseHeaders?: Record<string, string>
+      url?: string
+    }
     return {
       name: error.name,
       message: error.message,
+      ...(apiError.statusCode != null && { statusCode: apiError.statusCode }),
+      ...(apiError.responseBody != null && {
+        responseBody: apiError.responseBody.slice(0, 1000),
+      }),
+      ...(apiError.responseHeaders?.['x-amzn-errortype'] != null && {
+        awsErrorType: apiError.responseHeaders['x-amzn-errortype'],
+      }),
+      ...(apiError.url != null && { url: apiError.url }),
       cause:
         cause instanceof Error
           ? { name: cause.name, message: cause.message }

@@ -239,6 +239,29 @@ describe('ToolImageStore', () => {
     expect(Buffer.from(result!.data).toString('base64')).toBe(data)
   })
 
+  it('returns a real Buffer whose .toString("base64") round-trips directly', () => {
+    // Regression: bun:sqlite returns BLOB columns as a plain Uint8Array.
+    // Uint8Array#toString() ignores its argument and joins bytes as
+    // comma-separated decimals instead of base64-encoding them — a caller
+    // that trusts the `data: Buffer` type and calls `.toString('base64')`
+    // directly (as rehydrateImagesForModel does) would silently send
+    // garbage to the model/provider. Assert the *unwrapped* value here so
+    // this test fails if ToolImageStore.get() ever regresses to returning
+    // a raw Uint8Array again.
+    const store = new ToolImageStore()
+    const jpegLikeBytes = Buffer.from(Array.from({ length: 256 }, (_, i) => i))
+    const data = jpegLikeBytes.toString('base64')
+    store.store('sess-1', 'call-1', data, 'image/jpeg')
+
+    const result = store.get('call-1')
+    expect(result).not.toBeNull()
+    expect(Buffer.isBuffer(result!.data)).toBe(true)
+    expect(result!.data.toString('base64')).toBe(data)
+    // A comma-joined Uint8Array#toString() would be many times longer than
+    // the correct base64 string — pin the exact expected length too.
+    expect(result!.data.toString('base64').length).toBe(data.length)
+  })
+
   it('returns null for an unknown toolCallId', () => {
     const store = new ToolImageStore()
     expect(store.get('nonexistent-call')).toBeNull()
