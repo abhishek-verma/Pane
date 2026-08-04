@@ -1198,7 +1198,7 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
       const claudeCommand = registry.resolve('claude')
       const codexCommand = registry.resolve('codex')
       expect(claudeCommand).toContain(
-        `'${bunPath}' x --bun --silent --package '@agentclientprotocol/claude-agent-acp@^0.31.0' 'claude-agent-acp'`,
+        `'${bunPath}' x --bun --silent --package '@agentclientprotocol/claude-agent-acp@^0.64.0' 'claude-agent-acp'`,
       )
       expect(codexCommand).toContain(
         `'${bunPath}' x --bun --silent --package '@zed-industries/codex-acp@^0.16.0' 'codex-acp'`,
@@ -1324,7 +1324,7 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
     expect(events).toEqual([
       {
         type: 'status',
-        text: 'Requested Claude Code bypassPermissions mode, but this acpx/runtime version does not expose mode control.',
+        text: 'Requested Claude Code bypassPermissions / dangerouslySkipPermissions mode, but this acpx/runtime version does not expose mode control.',
       },
       {
         type: 'text_delta',

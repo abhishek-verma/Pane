@@ -45,7 +45,7 @@ describe('adapter detection', () => {
       },
       probePackageCache: async (packageName, versionRange) => {
         expect(packageName).toBe('@agentclientprotocol/claude-agent-acp')
-        expect(versionRange).toBe('^0.31.0')
+        expect(versionRange).toBe('^0.64.0')
         return true
       },
     })

@@ -57,6 +57,9 @@ const realBrowserosDir = requireFromHere(
   '../../src/lib/browseros-dir.ts',
 ) as typeof import('../../src/lib/browseros-dir')
 const realGetBrowserosDir = realBrowserosDir.getBrowserosDir
+const realChildProcess = requireFromHere(
+  'node:child_process',
+) as typeof import('node:child_process')
 
 mock.module('node:fs/promises', () => ({
   ...realFsPromises,
@@ -69,6 +72,30 @@ mock.module('node:fs/promises', () => ({
     }
     mkdirCalls.push({ path, opts })
     return realFsPromises.mkdir(path, opts)
+  },
+}))
+
+// getBrowserosDir is mocked to a throwaway ~/.browseros-test path (below),
+// so provider-factory's bundled-bun launcher never resolves here and every
+// built-in-adapter test falls through to checkNativeBinaryOnPath's real
+// `which claude` / `which codex` shell-out. That only happens to succeed on
+// a machine that has those CLIs on PATH (e.g. a dev box running inside
+// Claude Code itself) and fails deterministically in CI. Stub execFile so
+// `which`/`where` always report the binary as found, while every other
+// execFile call (e.g. provider-factory's own `pkill` on close) still runs
+// for real.
+mock.module('node:child_process', () => ({
+  ...realChildProcess,
+  execFile: (
+    ...args: Parameters<typeof realChildProcess.execFile>
+  ): ReturnType<typeof realChildProcess.execFile> => {
+    const [cmd, cmdArgs, callback] = args
+    const isWhich = cmd === 'which' || cmd === 'where'
+    if (isWhich && typeof callback === 'function') {
+      callback(null, `/usr/bin/${(cmdArgs as string[])[0]}`, '')
+      return undefined as never
+    }
+    return realChildProcess.execFile(...args)
   },
 }))
 
@@ -101,6 +128,7 @@ afterAll(() => {
   // later suites are not poisoned by this file's process-global mocks.
   mock.module('node:fs/promises', () => realFsPromises)
   mock.module('../../src/lib/browseros-dir', () => realBrowserosDir)
+  mock.module('node:child_process', () => realChildProcess)
 })
 
 function baseConfig(): Record<string, unknown> {
