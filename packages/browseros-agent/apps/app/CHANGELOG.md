@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.155 (2026-08-04)
+
+## What's Changed
+
+- chore(release): publish extension v0.0.155 and bump browser to 0.47.0.58
+- chore(release): publish extension v0.0.154 and bump browser to 0.47.0.57
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
