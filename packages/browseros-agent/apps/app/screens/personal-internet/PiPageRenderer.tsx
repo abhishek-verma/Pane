@@ -5,9 +5,9 @@
  */
 
 import type { FC } from 'react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { BoardKanban } from './BoardKanban'
-import { PiRailAction } from './PiChrome'
 import { PiMarkdown } from './PiMarkdown'
 import { PiNodeErrorBoundary } from './PiNodeErrorBoundary'
 import type { PiAction, PiNode, PiPageDoc } from './types'
@@ -20,6 +20,22 @@ const toneClass: Record<string, string> = {
   good: 'border-emerald-600/40 text-emerald-800 dark:text-emerald-300',
   warn: 'border-amber-600/40 text-amber-900 dark:text-amber-200',
   bad: 'border-red-600/40 text-red-800 dark:text-red-300',
+}
+
+const statToneClass: Record<string, string> = {
+  neutral: 'text-foreground',
+  good: 'text-emerald-700 dark:text-emerald-300',
+  warn: 'text-amber-800 dark:text-amber-200',
+  bad: 'text-red-700 dark:text-red-300',
+}
+
+/** Static (non-interpolated) so Tailwind's compiler picks these up. Collapses
+ * to one column below `sm` so multi-column sections never collide on narrow
+ * viewports. */
+const columnGridClass: Record<number, string> = {
+  2: 'sm:grid-cols-2',
+  3: 'sm:grid-cols-3',
+  4: 'sm:grid-cols-4',
 }
 
 export type PiActionHandler = (
@@ -39,6 +55,8 @@ function nodeKey(node: PiNode, path: string): string {
       return `${path}:${node.type}:${String(node.text ?? '').slice(0, 48)}`
     case 'badge':
       return `${path}:badge:${node.tone ?? 'neutral'}:${String(node.text ?? '').slice(0, 32)}`
+    case 'stat':
+      return `${path}:stat:${node.label ?? ''}:${node.value ?? ''}`
     case 'divider':
       return `${path}:divider`
     case 'button':
@@ -46,7 +64,7 @@ function nodeKey(node: PiNode, path: string): string {
     case 'link':
       return `${path}:link:${node.label ?? ''}`
     case 'stack':
-      return `${path}:stack:${node.direction ?? 'col'}:${safeLen(node.children)}`
+      return `${path}:stack:${node.direction ?? 'col'}:${node.columns ?? 0}:${safeLen(node.children)}`
     case 'table':
       return `${path}:table:${Array.isArray(node.rows) ? node.rows.map((r) => r.id).join(',') : ''}`
     case 'board':
@@ -121,19 +139,41 @@ const PiNodeView: FC<{
           {node.text}
         </span>
       )
+    case 'stat':
+      return (
+        <div className="flex flex-col gap-1">
+          <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
+            {node.label}
+          </div>
+          <div
+            className={cn(
+              'font-semibold text-2xl tabular-nums',
+              statToneClass[node.tone ?? 'neutral'],
+            )}
+          >
+            {node.value}
+          </div>
+        </div>
+      )
     case 'divider':
       return <hr className="border-border" />
-    case 'stack':
+    case 'stack': {
       if (!Array.isArray(node.children)) {
         return <PiBrokenBlock reason="stack without children" />
       }
+      const gridClass = node.columns ? columnGridClass[node.columns] : undefined
       return (
         <div
           className={cn(
-            'flex gap-3',
-            node.direction === 'row'
-              ? 'flex-row flex-wrap items-center'
-              : 'flex-col',
+            'gap-3',
+            gridClass
+              ? cn('grid grid-cols-1 items-start', gridClass)
+              : cn(
+                  'flex',
+                  node.direction === 'row'
+                    ? 'flex-row flex-wrap items-center'
+                    : 'flex-col',
+                ),
           )}
         >
           {node.children.map((child, i) => {
@@ -153,16 +193,18 @@ const PiNodeView: FC<{
           })}
         </div>
       )
+    }
     case 'button': {
       const key = `btn:${node.label}`
       const pending = pendingKey === key
       return (
-        <PiRailAction
+        <Button
+          size="sm"
           disabled={pending}
           onClick={() => void onAction(node.action, { pendingKey: key })}
         >
           {pending ? 'Working…' : node.label}
-        </PiRailAction>
+        </Button>
       )
     }
     case 'link':
