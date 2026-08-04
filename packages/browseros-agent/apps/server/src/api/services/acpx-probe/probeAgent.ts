@@ -81,25 +81,24 @@ export async function probeAcpAgent(
   const timeoutMs = resolveTimeout(input.timeoutMs)
 
   // Built-in agent ids (claude, codex) get rewritten to an explicit
-  // command when the bundled-Bun launcher resolves. When the launcher
-  // would fall back to `npx -y …` we deliberately leave the agentId
-  // alone so acpx's built-in registry produces the same command via
-  // its own code path; this keeps callers that have not threaded
-  // resourcesDir yet on the exact pre-existing behaviour.
+  // command by the launcher so the resolved npx path (with its enriched
+  // env prefix) is used. This is necessary on macOS where GUI-launched
+  // apps have a minimal PATH that doesn't contain npx / node.
   let agentId = input.agentId
   let command = input.command
   if (!command && agentId) {
-    const launcher = resolveAcpSpawnCommand({
+    const launcher = await resolveAcpSpawnCommand({
       agentType: agentId,
       browserosDir: input.browserosDir ?? getBrowserosDir(),
       resourcesDir: input.resourcesDir,
       platform: input.platform,
     })
-    if (launcher?.source === 'bundled-bun') {
+    if (launcher) {
       command = launcher.command
       agentId = undefined
-      logger.debug('ACP probe using bundled-bun launcher', {
+      logger.debug('ACP probe using launcher', {
         originalAgentId: input.agentId,
+        source: launcher.source,
       })
     }
   }

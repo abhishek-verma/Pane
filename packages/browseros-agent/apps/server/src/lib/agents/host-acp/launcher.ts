@@ -11,6 +11,7 @@
  * outside darwin / linux / win32).
  */
 
+import { resolveHostBinary } from './binary-resolver'
 import { resolveBundledBun, withBundledBunAcpAdapterEnv } from './bundled-bun'
 import {
   HOST_ACP_ADAPTER_CONFIG,
@@ -33,6 +34,8 @@ export interface ResolveAcpSpawnCommandInput {
   platform?: NodeJS.Platform
   /** Injected for tests; production callers leave it unset. */
   resolveBundledBun?: typeof resolveBundledBun
+  /** Injected for tests; production callers leave it unset. */
+  resolveNpx?: (name: string) => Promise<{ path: string } | null>
 }
 
 /**
@@ -43,9 +46,9 @@ export interface ResolveAcpSpawnCommandInput {
  *     uses the user-supplied command instead), OR
  *   - the registry entry has no package spec.
  */
-export function resolveAcpSpawnCommand(
+export async function resolveAcpSpawnCommand(
   input: ResolveAcpSpawnCommandInput,
-): AcpLauncherResolution | null {
+): Promise<AcpLauncherResolution | null> {
   if (!(input.agentType in HOST_ACP_ADAPTER_CONFIG)) return null
   const config = HOST_ACP_ADAPTER_CONFIG[input.agentType as HostAcpAdapter]
   if (!hasAcpPackageConfig(config)) return null
@@ -69,7 +72,24 @@ export function resolveAcpSpawnCommand(
       source: 'bundled-bun',
     }
   }
-  return { command: config.acpCommand, source: 'host-npx-fallback' }
+
+  // Bundled bun unavailable — resolve npx via the user's login shell so
+  // GUI-launched apps (which have a minimal PATH) can still find it.
+  const resolveNpx =
+    input.resolveNpx ??
+    ((name: string) => resolveHostBinary(name, { env: input.env }))
+  const npxResolved = await resolveNpx('npx').catch(() => null)
+  const npxBin = npxResolved?.path ?? 'npx'
+  const baseCommand = config.acpCommand.replace(
+    /^npx\b/,
+    quoteAcpCommandToken(npxBin),
+  )
+  // Wrap with the enriched env so that shebang interpreters (e.g. `#!/usr/bin/env node`)
+  // referenced by the npx script can be found even in a GUI-launched minimal PATH.
+  const command = npxResolved?.env
+    ? wrapCommandWithEnv(baseCommand, npxResolved.env as Record<string, string>)
+    : baseCommand
+  return { command, source: 'host-npx-fallback' }
 }
 
 /** Quotes a token for acpx command splitting while preserving Windows backslashes. */

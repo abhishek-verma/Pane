@@ -18,6 +18,22 @@ const stubBunPresent: typeof import('../../../../src/lib/agents/host-acp/bundled
 const stubBunMissing: typeof import('../../../../src/lib/agents/host-acp/bundled-bun').resolveBundledBun =
   () => null
 
+const FAKE_NPX_PATH = '/usr/local/bin/npx'
+
+const stubNpxPresent: (
+  name: string,
+) => Promise<{ path: string; env: NodeJS.ProcessEnv } | null> = async (
+  _name,
+) => ({
+  path: FAKE_NPX_PATH,
+  env: { PATH: `${dirname(FAKE_NPX_PATH)}:/usr/bin` },
+})
+
+const stubNpxMissing: (
+  name: string,
+) => Promise<{ path: string; env: NodeJS.ProcessEnv } | null> = async (_name) =>
+  null
+
 function splitCommandLikeAcpx(value: string): {
   command: string
   args: string[]
@@ -65,8 +81,8 @@ function splitCommandLikeAcpx(value: string): {
 }
 
 describe('resolveAcpSpawnCommand', () => {
-  it('returns the bundled-bun launcher for claude when the binary exists', () => {
-    const out = resolveAcpSpawnCommand({
+  it('returns the bundled-bun launcher for claude when the binary exists', async () => {
+    const out = await resolveAcpSpawnCommand({
       agentType: 'claude',
       env: { PATH: '/usr/bin' },
       resourcesDir: '/fake/resources',
@@ -79,8 +95,8 @@ describe('resolveAcpSpawnCommand', () => {
     )
   })
 
-  it('returns the bundled-bun launcher for codex when the binary exists', () => {
-    const out = resolveAcpSpawnCommand({
+  it('returns the bundled-bun launcher for codex when the binary exists', async () => {
+    const out = await resolveAcpSpawnCommand({
       agentType: 'codex',
       env: { PATH: '/usr/bin' },
       resourcesDir: '/fake/resources',
@@ -92,18 +108,34 @@ describe('resolveAcpSpawnCommand', () => {
     )
   })
 
-  it('falls back to the host npx command when the bundled binary is missing', () => {
-    const out = resolveAcpSpawnCommand({
+  it('falls back to the host npx command when the bundled binary is missing', async () => {
+    const out = await resolveAcpSpawnCommand({
       agentType: 'claude',
       resourcesDir: '/fake/resources',
       resolveBundledBun: stubBunMissing,
+      resolveNpx: stubNpxPresent,
     })
     expect(out?.source).toBe('host-npx-fallback')
-    expect(out?.command).toBe(HOST_ACP_ADAPTER_CONFIG.claude.acpCommand)
+    const split = splitCommandLikeAcpx(out?.command ?? '')
+    expect(split.command).toBe('env')
+    expect(split.args).toContain(FAKE_NPX_PATH)
   })
 
-  it('returns null for acp-custom so the caller uses the user-supplied command', () => {
-    const out = resolveAcpSpawnCommand({
+  it('falls back to bare npx command when npx cannot be resolved', async () => {
+    const out = await resolveAcpSpawnCommand({
+      agentType: 'claude',
+      resourcesDir: '/fake/resources',
+      resolveBundledBun: stubBunMissing,
+      resolveNpx: stubNpxMissing,
+    })
+    expect(out?.source).toBe('host-npx-fallback')
+    // bare 'npx' gets shell-quoted; acpx's splitCommandLine strips quotes so the spawned token is still `npx`
+    const split = splitCommandLikeAcpx(out?.command ?? '')
+    expect(split.command).toBe('npx')
+  })
+
+  it('returns null for acp-custom so the caller uses the user-supplied command', async () => {
+    const out = await resolveAcpSpawnCommand({
       agentType: 'acp-custom',
       resourcesDir: '/fake/resources',
       resolveBundledBun: stubBunPresent,
@@ -111,8 +143,8 @@ describe('resolveAcpSpawnCommand', () => {
     expect(out).toBeNull()
   })
 
-  it('returns null for an unknown agent type', () => {
-    const out = resolveAcpSpawnCommand({
+  it('returns null for an unknown agent type', async () => {
+    const out = await resolveAcpSpawnCommand({
       agentType: 'gemini',
       resourcesDir: '/fake/resources',
       resolveBundledBun: stubBunPresent,
@@ -120,10 +152,10 @@ describe('resolveAcpSpawnCommand', () => {
     expect(out).toBeNull()
   })
 
-  it('quotes the bundled bun path so paths with spaces survive', () => {
+  it('quotes the bundled bun path so paths with spaces survive', async () => {
     const bunWithSpaces =
       '/Applications/BrowserOS App/Contents/bin/third party/bun'
-    const out = resolveAcpSpawnCommand({
+    const out = await resolveAcpSpawnCommand({
       agentType: 'claude',
       resourcesDir: '/Applications/BrowserOS.app/Contents/Resources',
       resolveBundledBun: () => bunWithSpaces,
@@ -143,8 +175,8 @@ describe('resolveAcpSpawnCommand', () => {
     ])
   })
 
-  it('preserves Windows bundled bun path separators through acpx command splitting', () => {
-    const out = resolveAcpSpawnCommand({
+  it('preserves Windows bundled bun path separators through acpx command splitting', async () => {
+    const out = await resolveAcpSpawnCommand({
       agentType: 'claude',
       resourcesDir: 'C:\\fake\\resources',
       platform: 'win32',
