@@ -1,4 +1,4 @@
-# Pane Browser <sup>Alpha</sup>
+# Pane Browser <sup>α</sup>
 
 > **Early access** — Pane is in active development. Expect rough edges, and please [report bugs](https://github.com/abhishek-verma/Pane/issues).
 
