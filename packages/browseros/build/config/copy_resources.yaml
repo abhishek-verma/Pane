@@ -39,44 +39,6 @@ copy_operations:
     destination: "chrome/BROWSEROS_VERSION"
     type: "file"
 
-  # Version file alongside server resources so the server binary can read the
-  # correct browser version at runtime (repackage builds don't recompile Chromium,
-  # so version_info::GetBrowserOSVersionNumber() stays frozen at last compile).
-  - name: "BrowserOS Version File (server darwin-arm64)"
-    source: "resources/BROWSEROS_VERSION"
-    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
-    type: "file"
-    arch: ["arm64"]
-    os: ["macos"]
-
-  - name: "BrowserOS Version File (server darwin-x64)"
-    source: "resources/BROWSEROS_VERSION"
-    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
-    type: "file"
-    arch: ["x64"]
-    os: ["macos"]
-
-  - name: "BrowserOS Version File (server linux-arm64)"
-    source: "resources/BROWSEROS_VERSION"
-    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
-    type: "file"
-    arch: ["arm64"]
-    os: ["linux"]
-
-  - name: "BrowserOS Version File (server linux-x64)"
-    source: "resources/BROWSEROS_VERSION"
-    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
-    type: "file"
-    arch: ["x64"]
-    os: ["linux"]
-
-  - name: "BrowserOS Version File (server windows-x64)"
-    source: "resources/BROWSEROS_VERSION"
-    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
-    type: "file"
-    arch: ["x64"]
-    os: ["windows"]
-
   # Icons - General
   - name: "Product Logo Icons"
     source: "resources/icons/*.png"
@@ -161,6 +123,46 @@ copy_operations:
     type: "directory"
     os: ["windows"]
     arch: ["x64"]
+
+  # BROWSEROS_VERSION alongside server resources — must run AFTER the server
+  # directory copy entries above, otherwise the directory copy clobbers it.
+  # The server reads this file at startup to report the correct installed
+  # browser version (repackage builds don't recompile Chromium, so the
+  # compiled-in version_info value stays frozen at the last full build).
+  - name: "BrowserOS Version File (server darwin-arm64)"
+    source: "resources/BROWSEROS_VERSION"
+    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
+    type: "file"
+    arch: ["arm64"]
+    os: ["macos"]
+
+  - name: "BrowserOS Version File (server darwin-x64)"
+    source: "resources/BROWSEROS_VERSION"
+    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
+    type: "file"
+    arch: ["x64"]
+    os: ["macos"]
+
+  - name: "BrowserOS Version File (server linux-arm64)"
+    source: "resources/BROWSEROS_VERSION"
+    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
+    type: "file"
+    arch: ["arm64"]
+    os: ["linux"]
+
+  - name: "BrowserOS Version File (server linux-x64)"
+    source: "resources/BROWSEROS_VERSION"
+    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
+    type: "file"
+    arch: ["x64"]
+    os: ["linux"]
+
+  - name: "BrowserOS Version File (server windows-x64)"
+    source: "resources/BROWSEROS_VERSION"
+    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
+    type: "file"
+    arch: ["x64"]
+    os: ["windows"]
 
   # BrowserOS Claw Server resources - Platform & Architecture specific
   - name: "BrowserOS Claw Server Resources - macOS ARM64"
