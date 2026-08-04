@@ -1,4 +1,6 @@
-# Pane
+# Pane <sup>Beta</sup>
+
+> **Early access** — Pane is in active development. Expect rough edges, and please [report bugs](https://github.com/abhishek-verma/Pane/issues).
 
 Created by **Abhishek Verma**  
 [LinkedIn](https://www.linkedin.com/in/abhi-vrma/) · [GitHub](http://github.com/abhishek-verma/) · [X](https://x.com/vrma_abhi)
@@ -118,11 +120,19 @@ Your agent would assemble private views on top of the web you already use, shape
 
 ## Try it
 
-1. **Download** the latest build from [GitHub Releases](https://github.com/abhishek-verma/Pane/releases) ([macOS install guide](docs/install/macos.mdx)).
+<p align="center">
+  <a href="https://github.com/abhishek-verma/Pane/releases/latest">
+    <img src="https://img.shields.io/github/v/release/abhishek-verma/Pane?filter=browser%2Fv*&label=Download%20for%20macOS&logo=apple&style=for-the-badge&color=black" alt="Download for macOS" />
+  </a>
+</p>
+
+> macOS arm64 (Apple Silicon). Click the badge, then download `Pane_v*_arm64.dmg`. [All releases →](https://github.com/abhishek-verma/Pane/releases?q=browser%2Fv)
+
+1. **Download** the DMG above, open it, and drag Pane to Applications ([macOS install guide](docs/install/macos.mdx)).
 2. **Import from Chrome** if you want your bookmarks, passwords, history, and extensions.
 3. **Connect a model.** OAuth is usually the easiest path if you already pay for Claude, ChatGPT Pro, GitHub Copilot, or Qwen. You can also paste an API key or use a local model ([setup guide](docs/features/bring-your-own-llm.mdx)).
 4. **Open Pane** from the toolbar on any page or from the new-tab home.
-5. **Enable capture** Meeting capture, research mode, and browsing learnings are off until you opt in.
+5. **Enable capture** — meeting capture, research mode, and browsing learnings are off until you opt in.
 
 > **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[Discord](https://discord.gg/652JHSyS4)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
 
