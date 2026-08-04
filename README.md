@@ -46,7 +46,7 @@ Pane is an open-source Chromium browser with a personal agent built into the ses
 Chats are poor containers for work that lasts days or weeks. Pane creates private, living sites for it instead: a Job Search pipeline, a Research Hub, a Sales Pipeline, or a site shaped around what you are doing. Chatting with an AI is so last year.
 
 <p align="center">
-  <img src="assets/readme/features/gif/02-personalised-internet.gif" alt="Pane turning ongoing work into a living private site" width="720" />
+  <img src="assets/readme/features/gif/02-personalised-internet-v2.gif" alt="Pane turning ongoing work into a living private site" width="720" />
 </p>
 
 These sites live in your browser profile and get more useful the longer you use Pane.
