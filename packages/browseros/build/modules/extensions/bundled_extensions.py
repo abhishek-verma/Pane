@@ -6,7 +6,7 @@ import shutil
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, List, NamedTuple
+from typing import Dict, List, NamedTuple, Optional
 
 import requests
 
@@ -77,6 +77,10 @@ class BundledExtensionsModule(CommandModule):
             self._download_extension(ext, output_dir)
 
         self._generate_json(extensions, output_dir)
+
+        # Also inject directly into the built app bundle so the repackage build
+        # picks up the latest extension without requiring a manual rsync step.
+        self._inject_into_app_bundle(extensions, output_dir, ctx)
 
         log_success(f"Bundled {len(extensions)} extensions successfully")
 
@@ -202,6 +206,59 @@ class BundledExtensionsModule(CommandModule):
 
         except requests.RequestException as e:
             raise RuntimeError(f"Failed to download {ext.id}: {e}")
+
+    def _get_app_bundle_extensions_dir(self, ctx: Context) -> Optional[Path]:
+        """Resolve the browseros_extensions directory inside the built app bundle.
+
+        Returns None when there is no built app (e.g. pure source-tree update
+        without a prior compile step), so callers can skip injection gracefully.
+        """
+        try:
+            app_path = ctx.get_app_path()
+        except Exception:
+            return None
+
+        if not app_path.exists():
+            return None
+
+        fw_versions = app_path / "Contents" / "Frameworks" / "Pane Framework.framework" / "Versions"
+        if not fw_versions.exists():
+            return None
+
+        versioned = sorted(
+            [p for p in fw_versions.iterdir() if p.is_dir() and p.name != "Current"]
+        )
+        if not versioned:
+            return None
+
+        return versioned[-1] / "Resources" / "browseros_extensions"
+
+    def _inject_into_app_bundle(
+        self,
+        extensions: List[ExtensionInfo],
+        source_dir: Path,
+        ctx: Context,
+    ) -> None:
+        """Copy updated extension files from the source dir into the live app bundle.
+
+        The repackage config runs bundled_extensions → sign_macos.  Without this
+        step the sign module signs whatever CRX was compiled into the app, not the
+        freshly downloaded one.  This method bridges that gap so the one-shot config
+        always embeds the correct version.
+        """
+        bundle_ext_dir = self._get_app_bundle_extensions_dir(ctx)
+        if bundle_ext_dir is None:
+            log_info("  ℹ️  No built app bundle found — skipping app-bundle injection")
+            return
+
+        bundle_ext_dir.mkdir(parents=True, exist_ok=True)
+        log_info(f"  Injecting into app bundle: {bundle_ext_dir}")
+
+        for src_file in source_dir.iterdir():
+            if src_file.suffix in (".crx", ".json", ".xml") and src_file.is_file():
+                shutil.copy2(src_file, bundle_ext_dir / src_file.name)
+
+        log_info("  ✓ App bundle extensions injected")
 
     def _generate_json(self, extensions: List[ExtensionInfo], output_dir: Path) -> None:
         """Generate bundled_extensions.json"""
