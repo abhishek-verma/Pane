@@ -310,4 +310,22 @@ describe('adapters call-state from facts (A-T2)', () => {
       ),
     ).toBe('prejoin')
   })
+
+  it('Zoom PWA host in-call via "End" button (host sees End not Leave)', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'app.zoom.us',
+          href: 'https://app.zoom.us/wc/86539747306/start',
+          facts: {
+            matchedSelectors: ['button[aria-label="End"]'],
+            ariaLabels: ['Mute', 'Video', 'Participants', 'End'],
+            speakingCandidates: [],
+            hasVisibleLeaveControl: true,
+            hasVisibleJoinControl: false,
+          },
+        }),
+      ),
+    ).toBe('in-call')
+  })
 })

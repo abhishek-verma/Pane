@@ -35,6 +35,8 @@ export const MEETING_SELECTOR_ALLOWLIST = [
   '[role="region"][aria-label="captions"]',
   '[aria-label="Captions"]',
   '[aria-live="polite"]',
+  'button[aria-label="End"]',
+  'button[aria-label="End meeting"]',
 ] as const
 
 /**
@@ -73,6 +75,8 @@ export function collectMeetingDomFactsPage(): {
     '[role="region"][aria-label="captions"]',
     '[aria-label="Captions"]',
     '[aria-live="polite"]',
+    'button[aria-label="End"]',
+    'button[aria-label="End meeting"]',
   ]
 
   const matchedSelectors: string[] = []
@@ -357,9 +361,12 @@ export function collectMeetingDomFactsPage(): {
         label.includes('leave call') ||
         label.includes('end call') ||
         label.includes('leave meeting') ||
+        label.includes('end meeting') ||
         label.includes('hang up') ||
         label === 'leave' ||
-        label.startsWith('leave ')
+        label === 'end' ||
+        label.startsWith('leave ') ||
+        label.startsWith('end ')
       ) {
         hasVisibleLeaveControl = true
       }
