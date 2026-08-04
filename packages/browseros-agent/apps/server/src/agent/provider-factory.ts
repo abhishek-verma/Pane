@@ -442,11 +442,132 @@ function createBedrockFactory(
       'Bedrock provider requires accessKeyId, secretAccessKey, and region',
     )
   }
+  const bedrockFetch = (async (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => {
+    const response = await fetch(input, init)
+    if (response.status === 400) {
+      try {
+        // Clone the response so the SDK can still consume the original body.
+        const cloned = response.clone()
+        const responseBodyText = await cloned.text().catch(() => '<unreadable>')
+        const errorHeaders: Record<string, string> = {}
+        response.headers.forEach((v, k) => {
+          errorHeaders[k] = v
+        })
+
+        const clonedBody = init?.body
+        const requestBodyStr =
+          typeof clonedBody === 'string'
+            ? clonedBody
+            : clonedBody instanceof Uint8Array
+              ? new TextDecoder().decode(clonedBody)
+              : null
+        if (requestBodyStr) {
+          const parsed = JSON.parse(requestBodyStr)
+          const messages = parsed?.messages ?? []
+          const structuredMessages = messages.map(
+            (m: { role: string; content: unknown[] }) => ({
+              role: m.role,
+              contentBlocks: (m.content ?? []).map((c: unknown) => {
+                const block = c as Record<string, unknown>
+                // Bedrock wire format uses top-level keys like {text:...}, {toolUse:...}, {toolResult:...}
+                if ('text' in block) {
+                  const t = String(block.text ?? '')
+                  return {
+                    type: 'text',
+                    textLen: t.length,
+                    textPreview: t.slice(0, 120),
+                  }
+                }
+                if ('toolUse' in block) {
+                  const tu = block.toolUse as Record<string, unknown>
+                  return {
+                    type: 'toolUse',
+                    name: tu.name,
+                    id: String(tu.toolUseId ?? '').slice(0, 24),
+                    inputLen: JSON.stringify(tu.input ?? '').length,
+                  }
+                }
+                if ('toolResult' in block) {
+                  const tr = block.toolResult as Record<string, unknown>
+                  const sub = (tr.content as unknown[]) ?? []
+                  return {
+                    type: 'toolResult',
+                    id: String(tr.toolUseId ?? '').slice(0, 24),
+                    status: tr.status,
+                    subLen: sub.length,
+                    // Log each sub-block size so we can see if a large image is present
+                    subBlocks: sub.map((s: unknown) => {
+                      const sb = s as Record<string, unknown>
+                      const sbBytes = JSON.stringify(sb).length
+                      // Bedrock wire format: {text: "..."} | {image: {format, source: {bytes}}} | {document: ...}
+                      if ('text' in sb)
+                        return { t: 'text', len: String(sb.text ?? '').length }
+                      if ('image' in sb) {
+                        const img = sb.image as Record<string, unknown>
+                        const src = img?.source as Record<string, unknown>
+                        const bytes = src?.bytes
+                        const bytesLen =
+                          typeof bytes === 'string'
+                            ? bytes.length
+                            : bytes instanceof Uint8Array
+                              ? bytes.length
+                              : -1
+                        const bytesPreview =
+                          typeof bytes === 'string'
+                            ? bytes.slice(0, 60)
+                            : bytes instanceof Uint8Array
+                              ? `Uint8Array[${bytes.length}]`
+                              : String(bytes).slice(0, 60)
+                        return {
+                          t: 'image',
+                          format: img.format,
+                          bytesLen,
+                          bytesPreview,
+                        }
+                      }
+                      return { t: 'unknown', len: sbBytes }
+                    }),
+                  }
+                }
+                return {
+                  unknownKeys: Object.keys(block),
+                  raw: JSON.stringify(block).slice(0, 200),
+                }
+              }),
+            }),
+          )
+          logger.warn('Bedrock 400: request+response snapshot', {
+            url: typeof input === 'string' ? input : String(input),
+            requestBodyBytes: requestBodyStr.length,
+            bedrockErrorBody: responseBodyText.slice(0, 2000),
+            bedrockErrorHeaders: errorHeaders,
+            messageCount: messages.length,
+            messageRoles: messages.map((m: { role: string }) => m.role),
+            toolCount: parsed?.toolConfig?.tools?.length,
+            structuredMessages,
+          })
+        } else {
+          logger.warn('Bedrock 400: no request body captured', {
+            url: typeof input === 'string' ? input : String(input),
+            bedrockErrorBody: responseBodyText.slice(0, 2000),
+            bedrockErrorHeaders: errorHeaders,
+          })
+        }
+      } catch {
+        // logging is best-effort
+      }
+    }
+    return response
+  }) as typeof fetch
   return createAmazonBedrock({
     region: config.region,
     accessKeyId: config.accessKeyId,
     secretAccessKey: config.secretAccessKey,
     sessionToken: config.sessionToken,
+    fetch: bedrockFetch,
   })
 }
 

@@ -62,4 +62,45 @@ describe('formatAgentStreamError', () => {
       }),
     ).toContain('invalid tool approval state')
   })
+
+  it('maps a real expired Bedrock session token to a re-enter-credentials hint', () => {
+    expect(
+      formatAgentStreamError({
+        name: 'AI_APICallError',
+        message: 'Bad Request',
+        url: 'https://bedrock-runtime.us-east-1.amazonaws.com/model/x/converse-stream',
+        statusCode: 400,
+        responseBody: '{}',
+        responseHeaders: { 'x-amzn-errortype': 'ExpiredTokenException' },
+      }),
+    ).toContain('credentials have expired')
+  })
+
+  it('does not mistake a Bedrock SerializationException for expired credentials', () => {
+    // Regression: SerializationException (e.g. a malformed request payload)
+    // also surfaces as an empty-body HTTP 400 from bedrock-runtime. The old
+    // heuristic keyed on "400 + empty body" alone and would tell the user to
+    // re-enter perfectly valid credentials, then persist that wrong message
+    // into history on every retry.
+    const result = formatAgentStreamError({
+      name: 'AI_APICallError',
+      message: 'Bad Request',
+      url: 'https://bedrock-runtime.us-east-1.amazonaws.com/model/x/converse-stream',
+      statusCode: 400,
+      responseBody: '{}',
+      responseHeaders: { 'x-amzn-errortype': 'SerializationException' },
+    })
+    expect(result).not.toContain('credentials have expired')
+  })
+
+  it('does not mistake a headerless Bedrock 400 for expired credentials', () => {
+    const result = formatAgentStreamError({
+      name: 'AI_APICallError',
+      message: 'Bad Request',
+      url: 'https://bedrock-runtime.us-east-1.amazonaws.com/model/x/converse-stream',
+      statusCode: 400,
+      responseBody: '{}',
+    })
+    expect(result).not.toContain('credentials have expired')
+  })
 })

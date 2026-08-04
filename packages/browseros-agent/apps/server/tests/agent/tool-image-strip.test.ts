@@ -1,10 +1,15 @@
-import { describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { ContentBlock } from '@browseros/browser-mcp/tools/framework'
+import { ToolImageStore } from '../../src/agent/session-store'
 import { toBrowserToolExecuteResult } from '../../src/agent/tool-adapter'
 import {
   rehydrateImagesForModel,
   stripAndStoreImages,
 } from '../../src/agent/tool-image-strip'
+import { closeDb, initializeDb } from '../../src/lib/db'
 
 class MockImageStore {
   stored: Array<{
@@ -173,5 +178,59 @@ describe('rehydrateImagesForModel', () => {
       imageStore: store as never,
     })
     expect(next).toEqual([{ type: 'text', text: 'ok' }])
+  })
+})
+
+describe('rehydrateImagesForModel with a real ToolImageStore (bun:sqlite)', () => {
+  // MockImageStore above stores/returns genuine Buffers and never exercised
+  // the real store: bun:sqlite hands BLOB columns back as a plain
+  // Uint8Array, and rehydrateImagesForModel calls `stored.data.toString
+  // ('base64')` directly. Uint8Array#toString() ignores the 'base64'
+  // argument and joins bytes as comma-separated decimals — producing a
+  // string that is 3-4x too long and not valid base64, which is exactly
+  // what made Bedrock reject the request with SerializationException.
+  // This test exercises the real store end-to-end so that regression can't
+  // hide behind a mock again.
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'browseros-tool-image-strip-'))
+    initializeDb({ dbPath: join(tmpDir, 'test.db'), runMigrations: true })
+  })
+
+  afterEach(() => {
+    closeDb()
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('produces valid, correctly-sized base64 for the model after a DB round-trip', () => {
+    const store = new ToolImageStore()
+    // Every byte value 0-255 at least once, so a comma-decimal encoding
+    // bug (which is byte-value-length dependent) can't hide by luck.
+    const jpegLikeBytes = Buffer.from(
+      Array.from({ length: 256 * 8 }, (_, i) => i % 256),
+    )
+    const expectedBase64 = jpegLikeBytes.toString('base64')
+    store.store('sess-1', 'call-1', expectedBase64, 'image/jpeg')
+
+    const content: ContentBlock[] = [
+      { type: 'text', text: '[Page 5 screenshot]' },
+      { type: 'image', mimeType: 'image/jpeg', stripped: true },
+    ]
+    const rehydrated = rehydrateImagesForModel(content, {
+      toolCallId: 'call-1',
+      imageStore: store,
+    })
+
+    const img = rehydrated.find((c) => c.type === 'image') as {
+      data?: string
+      mimeType: string
+    }
+    expect(img.data).toBe(expectedBase64)
+    // Valid base64 alphabet only — no commas, no decimal-byte artifacts.
+    expect(img.data).toMatch(/^[A-Za-z0-9+/]*={0,2}$/)
+    expect(Buffer.from(img.data ?? '', 'base64').equals(jpegLikeBytes)).toBe(
+      true,
+    )
   })
 })

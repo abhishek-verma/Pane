@@ -30,6 +30,14 @@ export interface MessageNormalizationOptions {
    * 20-image limit per Converse API request; exceeding it returns 400.
    */
   maxImages?: number
+  /**
+   * When true, a synthetic empty assistant message is inserted between a
+   * trailing `tool` message and the following `user` message. Required for
+   * Bedrock: its Converse API groups consecutive `tool` + `user` messages
+   * into one user block, producing mixed `[toolResult, text]` content that
+   * it then rejects with HTTP 400.
+   */
+  separateToolAndUserMessages?: boolean
 }
 
 // See how opencode handles, inspiration from there
@@ -65,6 +73,7 @@ export function getMessageNormalizationOptions(
     supportsMediaInToolResults: supportsToolResultMediaTransport(config),
     ...(config.provider === LLM_PROVIDERS.BEDROCK && {
       maxImages: AGENT_LIMITS.BEDROCK_MAX_IMAGES,
+      separateToolAndUserMessages: true,
     }),
   }
 }
@@ -261,6 +270,39 @@ function applyImageCap(
   return result
 }
 
+/**
+ * Bedrock's `groupIntoBlocks` merges consecutive `tool` + `user` role messages
+ * into a single Bedrock user block. This produces `[toolResult, text]` mixed
+ * content which Bedrock rejects with HTTP 400. Fix: insert a synthetic empty
+ * assistant message between the last tool message and the following user message
+ * so they land in separate Bedrock blocks.
+ */
+function separateToolAndUserMessages(messages: ModelMessage[]): ModelMessage[] {
+  let changed = false
+  const result: ModelMessage[] = []
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]
+    result.push(msg)
+
+    // When a `tool` message is followed by a `user` message, insert a
+    // filler assistant message so Bedrock sees them as distinct blocks.
+    if (
+      msg.role === 'tool' &&
+      i + 1 < messages.length &&
+      messages[i + 1].role === 'user'
+    ) {
+      result.push({
+        role: 'assistant',
+        content: [{ type: 'text', text: '...' }],
+      })
+      changed = true
+    }
+  }
+
+  return changed ? result : messages
+}
+
 // opencode handles this at message serialization time for providers that do not
 // reliably support media inside tool results. BrowserOS uses the same boundary:
 // normalize model messages before the next step, not inside the screenshot tool.
@@ -271,10 +313,17 @@ export function normalizeMessagesForModel(
   // Apply the per-provider image cap first (independent of transport mode).
   // Bedrock accepts images natively in tool results but imposes a 20-image
   // hard limit per request — strip oldest images before sending.
-  const result =
+  const afterImageCap =
     options.maxImages != null
       ? applyImageCap(messages, options.maxImages)
       : messages
+
+  // Bedrock merges consecutive tool+user role messages into one block,
+  // producing mixed [toolResult, text] content it then rejects with 400.
+  // Insert a synthetic empty assistant turn to force separate blocks.
+  const result = options.separateToolAndUserMessages
+    ? separateToolAndUserMessages(afterImageCap)
+    : afterImageCap
 
   if (options.supportsMediaInToolResults) {
     return result

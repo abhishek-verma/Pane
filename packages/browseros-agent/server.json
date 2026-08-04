@@ -3,7 +3,7 @@
   "name": "Pane MCP Server",
   "description": "Model Context Protocol server exposing Chromium browser automation capabilities through Pane",
   "repository": {
-    "url": "https://github.com/browseros/browseros-server",
+    "url": "https://github.com/abhishek-verma/Pane",
     "source": "github"
   },
   "version": "0.0.1",

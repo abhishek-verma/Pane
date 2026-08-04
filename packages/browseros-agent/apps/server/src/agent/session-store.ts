@@ -81,9 +81,15 @@ export class ToolImageStore {
         .prepare(
           `SELECT data, mime_type FROM tool_images WHERE tool_call_id = ?`,
         )
-        .get(toolCallId) as { data: Buffer; mime_type: string } | null
+        // bun:sqlite returns BLOB columns as a plain Uint8Array, not a
+        // Buffer — despite this cast. Uint8Array#toString() ignores its
+        // argument and joins bytes as comma-separated decimals (inherited
+        // from %TypedArray%.prototype.toString), so `.toString('base64')`
+        // on the raw row silently produces garbage instead of base64.
+        // Wrap in Buffer.from() here so every caller gets a real Buffer.
+        .get(toolCallId) as { data: Uint8Array; mime_type: string } | null
       if (!row) return null
-      return { data: row.data, mimeType: row.mime_type }
+      return { data: Buffer.from(row.data), mimeType: row.mime_type }
     } catch (err) {
       logger.warn('ToolImageStore: failed to get image', {
         toolCallId,

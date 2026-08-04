@@ -19,6 +19,15 @@ import { notifyApproval } from '../reach/notify'
 /** Background agents: short window then continue without executing. */
 export const DEFAULT_APPROVAL_TIMEOUT_MS = 2 * 60 * 1000
 
+/**
+ * External MCP clients (Claude Code, Cursor, etc.) blocking on a consequential
+ * tool call: a human is presumably at their machine driving the session, but
+ * needs time to notice the push notification / open the approvals page.
+ * Longer than DEFAULT_APPROVAL_TIMEOUT_MS since nothing else in the run
+ * proceeds while the HTTP request is held open.
+ */
+export const MCP_APPROVAL_TIMEOUT_MS = 5 * 60 * 1000
+
 /** Wall clock when this process loaded — used to detect pre-restart orphans. */
 const PROCESS_STARTED_AT = Date.now()
 

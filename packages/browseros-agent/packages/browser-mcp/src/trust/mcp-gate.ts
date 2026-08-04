@@ -1,8 +1,10 @@
 import {
   decideGate,
   deriveClass,
+  describeToolCall,
   type GateContext,
   isConsequentialClass,
+  PROMOTED_ARG,
   recordConsequentialExecution,
   stripPromotedArg,
 } from '@browseros/shared/trust/consequence-class'
@@ -34,6 +36,29 @@ export async function gateMcpHandler(
   }
 
   if (decision.action === 'dry-run') {
+    if (ctx.requestApproval) {
+      const resolution = await ctx.requestApproval({
+        toolName,
+        args,
+        consequenceClass: cls,
+        preview: describeToolCall(toolName, args),
+      })
+      if (resolution === 'approved') {
+        // Server (not the model) sets __promoted after a human resolved it —
+        // re-run through the gate so execute/record/logging stay one path.
+        return gateMcpHandler(
+          toolName,
+          { ...args, [PROMOTED_ARG]: true },
+          ctx,
+          underlying,
+        )
+      }
+      const text =
+        resolution === 'denied'
+          ? `Denied: ${describeToolCall(toolName, args)}`
+          : `Approval timed out: ${describeToolCall(toolName, args)}`
+      return { content: [{ type: 'text', text }], isError: true }
+    }
     return {
       content: [{ type: 'text', text: decision.preview }],
       isError: false,

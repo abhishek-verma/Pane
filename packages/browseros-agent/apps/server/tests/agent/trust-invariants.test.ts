@@ -445,6 +445,82 @@ describe('gateExecute dry-run never calls underlying execute (MCP surface)', () 
   })
 })
 
+describe('gateExecute with requestApproval (MCP surface human-in-the-loop)', () => {
+  it('executes once a human approves, without the static "re-call" dead end', async () => {
+    let executedArgs: Record<string, unknown> | undefined
+    const ctx = makeCtx({
+      surface: 'mcp',
+      requestApproval: async () => 'approved',
+    })
+    const res = await gateExecute(
+      'filesystem_bash',
+      { command: 'ls' },
+      ctx,
+      async (args) => {
+        executedArgs = args
+        return { text: 'ran ls' }
+      },
+      'text',
+    )
+    expect(executedArgs).toEqual({ command: 'ls' })
+    expect(res.text).toBe('ran ls')
+    expect(ctx.runConsequentialCount.count).toBe(1)
+  })
+
+  it('returns a denial and never executes when the human denies', async () => {
+    let called = false
+    const res = await gateExecute(
+      'filesystem_bash',
+      { command: 'rm -rf /' },
+      makeCtx({ surface: 'mcp', requestApproval: async () => 'denied' }),
+      async () => {
+        called = true
+        return { text: 'ran' }
+      },
+      'text',
+    )
+    expect(called).toBe(false)
+    expect(res.isError).toBe(true)
+    expect(res.text).toContain('Denied')
+  })
+
+  it('returns a timeout message and never executes on timeout', async () => {
+    let called = false
+    const res = await gateExecute(
+      'filesystem_bash',
+      { command: 'ls' },
+      makeCtx({ surface: 'mcp', requestApproval: async () => 'timeout' }),
+      async () => {
+        called = true
+        return { text: 'ran' }
+      },
+      'text',
+    )
+    expect(called).toBe(false)
+    expect(res.isError).toBe(true)
+    expect(res.text).toContain('timed out')
+  })
+
+  it('passes a clean, ctx-free preview to requestApproval (no __promoted instruction)', async () => {
+    let preview = ''
+    await gateExecute(
+      'filesystem_bash',
+      { command: 'ls' },
+      makeCtx({
+        surface: 'mcp',
+        requestApproval: async (request) => {
+          preview = request.preview
+          return 'denied'
+        },
+      }),
+      async () => ({ text: 'ran' }),
+      'text',
+    )
+    expect(preview).not.toContain('__promoted')
+    expect(preview).toContain('ls')
+  })
+})
+
 describe('wrapToolWithGate loop surface', () => {
   const makeTool = () =>
     tool({
