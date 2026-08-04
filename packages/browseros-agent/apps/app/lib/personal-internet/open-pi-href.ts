@@ -34,7 +34,8 @@ export function canNavigatePiInPlace(pathname: string, hash: string): boolean {
 /**
  * Open a PI page without stealing Home / chat.
  * - Already on the dedicated PI document → in-place hash navigate
- * - Otherwise → focus a tab already on this href, or create a new pi:// tab
+ * - Otherwise → update the current active tab to this href, or focus a tab
+ *   already showing it (avoids duplicate PI tabs)
  */
 export async function openPiHref(hrefOrRoute: string): Promise<void> {
   const href = normalizePiHref(hrefOrRoute)
@@ -54,18 +55,36 @@ export async function openPiHref(hrefOrRoute: string): Promise<void> {
     }
   }
 
-  if (typeof chrome === 'undefined' || !chrome.tabs?.create) {
+  if (typeof chrome === 'undefined' || !chrome.tabs?.query) {
     return
   }
 
   const tabs = await chrome.tabs.query({})
   const match = tabs.find((t) => parseAttachablePiHref(t.url) === href)
   if (match?.id != null) {
-    // Prefer the canonical pi:// URL so legacy NTP/app.html tabs migrate.
-    await chrome.tabs.update(match.id, { url: href, active: true })
+    // Canonical pi.html tab → just focus; legacy NTP/app.html tab → migrate URL too.
+    const needsMigration =
+      match.url != null &&
+      !match.url.startsWith('pi://') &&
+      !match.url.includes('/pi.html')
+    const updateProps = needsMigration
+      ? { url: href, active: true }
+      : { active: true }
+    await chrome.tabs.update(match.id, updateProps)
     if (match.windowId != null) {
       await chrome.windows.update(match.windowId, { focused: true })
     }
+    return
+  }
+
+  // Navigate the current active tab — agent-initiated open should feel like
+  // navigation, not a new background tab appearing.
+  const [activeTab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
+  })
+  if (activeTab?.id != null) {
+    await chrome.tabs.update(activeTab.id, { url: href })
     return
   }
 

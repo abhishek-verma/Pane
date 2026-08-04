@@ -27,20 +27,59 @@ describe('canNavigatePiInPlace', () => {
 describe('openPiHref', () => {
   test('creates a canonical pi:// tab when no matching tab exists', async () => {
     const created: unknown[] = []
-    // CI shells sometimes expose window without location — must still use tabs.
+    const updated: unknown[] = []
     globals.window = {}
     globals.chrome = {
       tabs: {
-        query: async () => [],
+        query: async (filter?: {
+          active?: boolean
+          currentWindow?: boolean
+        }) => {
+          // active tab query returns empty — no active tab found
+          if (filter?.active) return []
+          return []
+        },
         create: async (properties: unknown) => {
           created.push(properties)
+        },
+        update: async (tabId: unknown, properties: unknown) => {
+          updated.push([tabId, properties])
         },
       },
     }
 
     await openPiHref('#/pi/sites/site_1')
 
+    // Falls through to create when no active tab is available
     expect(created).toEqual([{ url: 'pi://sites/site_1', active: true }])
+    expect(updated).toHaveLength(0)
+  })
+
+  test('navigates current active tab when no existing PI tab matches', async () => {
+    const updated: unknown[] = []
+    globals.window = {}
+    globals.chrome = {
+      tabs: {
+        query: async (filter?: {
+          active?: boolean
+          currentWindow?: boolean
+        }) => {
+          if (filter?.active)
+            return [{ id: 3, windowId: 1, url: 'https://example.com' }]
+          return [{ id: 3, windowId: 1, url: 'https://example.com' }]
+        },
+        create: async () => {
+          throw new Error('must not create a new tab when active tab available')
+        },
+        update: async (tabId: unknown, properties: unknown) => {
+          updated.push([tabId, properties])
+        },
+      },
+    }
+
+    await openPiHref('pi://sites/site_1')
+
+    expect(updated).toEqual([[3, { url: 'pi://sites/site_1' }]])
   })
 
   test('canonicalizes and focuses an existing internal PI tab', async () => {
@@ -71,7 +110,7 @@ describe('openPiHref', () => {
 
     await openPiHref('pi://sites/site_1')
 
-    expect(updates).toEqual([[7, { url: 'pi://sites/site_1', active: true }]])
+    expect(updates).toEqual([[7, { active: true }]])
     expect(focused).toEqual([[9, { focused: true }]])
   })
 

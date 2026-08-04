@@ -54,6 +54,42 @@ function sanitizeToolCallInput(input: unknown): unknown {
   }
 }
 
+/**
+ * The acpx-ai-provider bundles ACP status traces into `tool-result.result`
+ * as a plain string: `<toolName> (pending)…tool call (completed): <json>`.
+ *
+ * We only attempt extraction when the string starts with `<toolName> (pending)`
+ * — that prefix is unique to the acpx-ai-provider trace format and guards
+ * against misfiring on legitimate tool results that incidentally contain
+ * the `completed): ` substring.
+ */
+function sanitizeToolResult(result: unknown, toolName?: string): unknown {
+  if (typeof result !== 'string') return result
+  try {
+    JSON.parse(result)
+    return result
+  } catch {
+    // Guard: only process strings that look like acpx-ai-provider traces.
+    // Require the string to begin with "<toolName> (pending)" so we don't
+    // misinterpret plain-text results that happen to contain "completed): ".
+    if (!toolName || !result.startsWith(`${toolName} (pending)`)) {
+      return { description: result }
+    }
+    const marker = 'tool call (completed): '
+    const idx = result.lastIndexOf(marker)
+    if (idx !== -1) {
+      const candidate = result.slice(idx + marker.length)
+      try {
+        JSON.parse(candidate)
+        return { text: candidate }
+      } catch {
+        // fall through
+      }
+    }
+    return { description: result }
+  }
+}
+
 function rewriteToolishPart<T extends ToolishPart>(part: T): T {
   if (
     part.type !== 'tool-call' &&
@@ -72,6 +108,12 @@ function rewriteToolishPart<T extends ToolishPart>(part: T): T {
   }
   if (part.type === 'tool-call') {
     next.input = sanitizeToolCallInput(next.input)
+  }
+  if (part.type === 'tool-result') {
+    ;(next as ToolishPart).result = sanitizeToolResult(
+      (next as ToolishPart).result,
+      typeof next.toolName === 'string' ? next.toolName : undefined,
+    )
   }
   return next
 }

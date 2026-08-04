@@ -151,7 +151,7 @@ function pushTextWithPiLinks(
         isStreaming: false,
       })
     }
-    const href = match[0].replace(/[.,;:!?`]+$/, '')
+    const href = match[0].replace(/[.,;:!?`*_|\\]+$/, '')
     if (!seenHrefs.has(href)) {
       seenHrefs.add(href)
       segments.push({

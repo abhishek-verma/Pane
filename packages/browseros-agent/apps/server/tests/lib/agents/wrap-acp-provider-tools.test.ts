@@ -189,4 +189,132 @@ describe('wrapAcpProviderExecutedTools', () => {
       expect(parts[0]?.input).toEqual({ already: 'an object' })
     })
   })
+
+  describe('tool-result result sanitization (acpx-ai-provider trace-string bug)', () => {
+    function streamOf(chunks: Array<Record<string, unknown>>): LanguageModel {
+      const base = {
+        specificationVersion: 'v2' as const,
+        provider: 'acpx',
+        modelId: 'codex',
+        supportedUrls: {},
+        async doStream() {
+          return {
+            stream: new ReadableStream({
+              start(controller) {
+                for (const chunk of chunks) controller.enqueue(chunk)
+                controller.close()
+              },
+            }),
+          }
+        },
+      }
+      return base as unknown as LanguageModel
+    }
+
+    async function collect(model: LanguageModel) {
+      const wrapped = wrapAcpProviderExecutedTools(model) as {
+        doStream: () => Promise<{ stream: ReadableStream<unknown> }>
+      }
+      const { stream } = await wrapped.doStream()
+      const parts: Array<Record<string, unknown>> = []
+      for await (const part of stream as ReadableStream<
+        Record<string, unknown>
+      >) {
+        parts.push(part)
+      }
+      return parts
+    }
+
+    it('extracts JSON payload from acpx trace string in tool-result.result', async () => {
+      const json = JSON.stringify({
+        type: 'pi_page',
+        href: 'pi://temp/temp_abc',
+        navigate: true,
+      })
+      const trace = `mcp__browseros__pi_open (pending)mcp__browseros__pi_opentool calltool call (completed): ${json}`
+      const parts = await collect(
+        streamOf([
+          {
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'mcp__browseros__pi_open',
+            result: trace,
+            providerExecuted: true,
+          },
+        ]),
+      )
+      const result = parts[0]?.result as { text?: string }
+      expect(result).toEqual({ text: json })
+      expect(JSON.parse(result.text ?? '')).toMatchObject({
+        type: 'pi_page',
+        navigate: true,
+      })
+    })
+
+    it('leaves already-valid JSON result (object) untouched', async () => {
+      const parts = await collect(
+        streamOf([
+          {
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'pi_read',
+            result: { ok: true },
+            providerExecuted: true,
+          },
+        ]),
+      )
+      expect(parts[0]?.result).toEqual({ ok: true })
+    })
+
+    it('leaves already-valid JSON result (string) untouched', async () => {
+      const json = '{"ok":true}'
+      const parts = await collect(
+        streamOf([
+          {
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'pi_read',
+            result: json,
+            providerExecuted: true,
+          },
+        ]),
+      )
+      expect(parts[0]?.result).toBe(json)
+    })
+
+    it('does not rewrite plain-text results that incidentally contain "completed): "', async () => {
+      const result =
+        'Action completed): {"url":"https://example.com","title":"Example"} — navigation done'
+      const parts = await collect(
+        streamOf([
+          {
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'browser_navigate',
+            result,
+            providerExecuted: true,
+          },
+        ]),
+      )
+      // Must NOT extract the JSON fragment — result doesn't start with toolName prefix.
+      expect(parts[0]?.result).toEqual({ description: result })
+    })
+
+    it('falls back to description wrapper when no JSON after completed marker', async () => {
+      const trace =
+        'some_tool (pending)some_tool: argstool calltool call (completed): not valid json {'
+      const parts = await collect(
+        streamOf([
+          {
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'some_tool',
+            result: trace,
+            providerExecuted: true,
+          },
+        ]),
+      )
+      expect(parts[0]?.result).toEqual({ description: trace })
+    })
+  })
 })

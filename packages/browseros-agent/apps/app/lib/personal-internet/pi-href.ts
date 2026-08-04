@@ -146,4 +146,4 @@ function parsePiPath(path: string): PiHrefParts | null {
   return null
 }
 
-export const PI_HREF_RE = /pi:\/\/[^\s)\]>'"`]+/g
+export const PI_HREF_RE = /pi:\/\/[^\s)\]>'"`*]+/g
