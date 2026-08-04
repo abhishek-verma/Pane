@@ -258,4 +258,56 @@ describe('adapters call-state from facts (A-T2)', () => {
       ),
     ).toBe('in-call')
   })
+
+  it('Zoom PWA (app.zoom.us) in-call via visible leave control', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'app.zoom.us',
+          href: 'https://app.zoom.us/wc/82259304410/start',
+          facts: {
+            matchedSelectors: [],
+            ariaLabels: ['Leave meeting'],
+            speakingCandidates: [],
+            hasVisibleLeaveControl: true,
+            hasVisibleJoinControl: false,
+          },
+        }),
+      ),
+    ).toBe('in-call')
+  })
+
+  it('Zoom PWA prejoin when join control visible', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'app.zoom.us',
+          href: 'https://app.zoom.us/wc/82259304410/start',
+          facts: {
+            matchedSelectors: [],
+            ariaLabels: ['Join Now'],
+            speakingCandidates: [],
+            hasVisibleLeaveControl: false,
+            hasVisibleJoinControl: true,
+          },
+        }),
+      ),
+    ).toBe('prejoin')
+  })
+
+  it('Zoom PWA prejoin on waiting room text', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'app.zoom.us',
+          bodyText: 'Please wait, the meeting host will let you in soon.',
+          facts: {
+            matchedSelectors: [],
+            ariaLabels: [],
+            speakingCandidates: [],
+          },
+        }),
+      ),
+    ).toBe('prejoin')
+  })
 })

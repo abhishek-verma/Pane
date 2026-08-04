@@ -20,14 +20,39 @@ function hasSelector(probe: MeetingDomProbe, selector: string): boolean {
   return probe.facts.matchedSelectors.includes(selector)
 }
 
+const ZOOM_PRE_JOIN_TEXT = [
+  'join meeting',
+  'join a meeting',
+  'your meeting is starting',
+  'meeting id',
+  'passcode',
+  'waiting for the host',
+  'waiting room',
+  'ask to join',
+  'please wait',
+]
+
 function evaluateCallState(probe: MeetingDomProbe): MeetingCallState {
-  const inMeeting =
+  // Classic web client containers (us05web.zoom.us, zoom.us/wc/*)
+  const inMeetingDom =
     hasSelector(probe, '#meeting-client') ||
     hasSelector(probe, '.meeting-app') ||
     hasSelector(probe, '#wc-container')
-  const hasJoin =
+  const hasJoinDom =
     hasSelector(probe, '#join-btn') || hasSelector(probe, '.join-meeting')
-  return inMeeting && !hasJoin ? 'in-call' : 'prejoin'
+  if (inMeetingDom && !hasJoinDom) return 'in-call'
+
+  // PWA (app.zoom.us) and any future client: use aria-label leave/join signals.
+  // hasVisibleJoinControl takes priority — joining screen must not trigger capture.
+  if (probe.facts.hasVisibleJoinControl) return 'prejoin'
+  if (probe.facts.hasVisibleLeaveControl) return 'in-call'
+
+  // Fallback: body text pre-join phrases (waiting room, passcode screen, etc.)
+  const text = probe.bodyText.toLowerCase()
+  if (ZOOM_PRE_JOIN_TEXT.some((phrase) => text.includes(phrase)))
+    return 'prejoin'
+
+  return 'prejoin'
 }
 
 function resolveName(
