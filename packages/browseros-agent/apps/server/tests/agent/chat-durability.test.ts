@@ -88,14 +88,32 @@ afterAll(() => {
 
 const { ChatService } = await import('../../src/api/services/chat-service')
 
+/**
+ * The real AiSdkAgent backs `messages` with a single `_messages` field via a
+ * getter/setter, and `appendUserMessage` pushes onto that same field — so
+ * `session.agent.messages = <new array>` (chat-service.ts reassigns this
+ * legitimately, e.g. via prepareMessagesForAgentTurn) and a later
+ * `appendUserMessage` call always see the same state. Mirror that here with
+ * a real getter/setter: a plain captured-closure array would let an external
+ * `.messages = X` reassignment silently orphan the array appendUserMessage
+ * pushes onto, so appended messages vanish from what chat-service reads next
+ * (this previously broke `wrappedUserMessageId` lookups and crashed
+ * `applyStreamMessages` on `messages.map` over an array that no longer had
+ * the expected entries).
+ */
 function makeAgent(seed: MockMessage[] = []): MockAgent {
-  const messages = [...seed]
+  let currentMessages = [...seed]
   return {
     toolLoopAgent: {},
     toolNames: new Set<string>(),
-    messages,
+    get messages() {
+      return currentMessages
+    },
+    set messages(next: MockMessage[]) {
+      currentMessages = next
+    },
     appendUserMessage(text: string) {
-      const last = messages[messages.length - 1]
+      const last = currentMessages[currentMessages.length - 1]
       if (last?.role === 'user') {
         const lastText = last.parts
           .filter((p) => p.type === 'text')
@@ -103,8 +121,8 @@ function makeAgent(seed: MockMessage[] = []): MockAgent {
           .join('\n')
         if (lastText === text) return
       }
-      messages.push({
-        id: `u-${messages.length + 1}`,
+      currentMessages.push({
+        id: `u-${currentMessages.length + 1}`,
         role: 'user',
         parts: [{ type: 'text', text }],
       })
