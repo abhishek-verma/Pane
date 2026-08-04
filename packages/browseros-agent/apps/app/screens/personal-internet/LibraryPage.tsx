@@ -6,7 +6,6 @@
 
 import type { FC } from 'react'
 import { Link } from 'react-router'
-import { Button } from '@/components/ui/button'
 import { libraryHref } from '@/lib/personal-internet/pi-href'
 import { PiAddressChip, PiLinkActions, PiRailAction } from './PiChrome'
 import { usePiLibrary } from './usePiApi'
@@ -16,7 +15,7 @@ export const LibraryPage: FC = () => {
   const sites = query.data?.sites ?? []
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6">
+    <div className="mx-auto w-full max-w-3xl px-6 py-8 sm:px-10">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h1 className="font-semibold text-xl">My sites</h1>
@@ -55,9 +54,7 @@ export const LibraryPage: FC = () => {
                   {s.pulseLine ? ` · ${s.pulseLine}` : ''}
                 </div>
               </div>
-              <Button asChild size="sm" variant="secondary">
-                <Link to={`/pi/sites/${s.id}`}>Open</Link>
-              </Button>
+              <PiRailAction to={`/pi/sites/${s.id}`}>Open</PiRailAction>
             </li>
           ))}
         </ul>

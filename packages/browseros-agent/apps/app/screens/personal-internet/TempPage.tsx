@@ -7,7 +7,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { type FC, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { Button } from '@/components/ui/button'
 import { navigateAppShell } from '@/lib/personal-internet/pi-document'
 import { tempHref } from '@/lib/personal-internet/pi-href'
 import { executePiAction } from '@/lib/pi-actions'
@@ -33,12 +32,11 @@ export const TempPage: FC = () => {
 
   return (
     <div className="flex min-h-full flex-col">
-      <div className="flex items-center justify-between gap-3 border-border/60 border-b px-4 py-3">
-        <div>
-          <div className="font-medium text-sm">Temporary page</div>
-          <div className="text-muted-foreground text-xs">
-            Keep to save into your private web, or discard.
-          </div>
+      <div className="flex items-center justify-between gap-3 border-border border-b px-5 py-3">
+        <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
+          <span className="text-foreground/80">Temp</span>
+          <span className="mx-1.5 text-border">/</span>
+          Keep to save, or discard
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {tempId ? (
@@ -47,9 +45,7 @@ export const TempPage: FC = () => {
               bookmarkTitle={query.data.temp.title}
             />
           ) : null}
-          <Button
-            size="sm"
-            variant="outline"
+          <PiRailAction
             disabled={busy}
             onClick={async () => {
               if (!tempId) return
@@ -63,9 +59,9 @@ export const TempPage: FC = () => {
             }}
           >
             Discard
-          </Button>
-          <Button
-            size="sm"
+          </PiRailAction>
+          <PiRailAction
+            variant="primary"
             disabled={busy}
             onClick={async () => {
               if (!tempId) return
@@ -101,7 +97,7 @@ export const TempPage: FC = () => {
             }}
           >
             Keep
-          </Button>
+          </PiRailAction>
           <PiRailAction to="/home">Home</PiRailAction>
         </div>
       </div>

@@ -5,9 +5,9 @@
  */
 
 import type { FC } from 'react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { BoardKanban } from './BoardKanban'
+import { PiRailAction } from './PiChrome'
 import { PiMarkdown } from './PiMarkdown'
 import { PiNodeErrorBoundary } from './PiNodeErrorBoundary'
 import type { PiAction, PiNode, PiPageDoc } from './types'
@@ -98,7 +98,7 @@ const PiNodeView: FC<{
   switch (node.type) {
     case 'title':
       return (
-        <header className="flex flex-col gap-1 border-border border-b pb-4">
+        <header className="flex flex-col gap-1.5 border-border border-b pb-5">
           {titleIndex != null && titleIndex > 0 ? (
             <div className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
               {String(titleIndex).padStart(2, '0')}
@@ -109,7 +109,7 @@ const PiNodeView: FC<{
               'text-foreground tracking-tight',
               titleIndex === 0 || titleIndex == null
                 ? 'font-semibold text-3xl'
-                : 'font-medium text-xl',
+                : 'mt-2 font-medium text-xl',
             )}
           >
             {node.text}
@@ -141,7 +141,7 @@ const PiNodeView: FC<{
       )
     case 'stat':
       return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5 border border-border/60 px-4 py-3">
           <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.06em]">
             {node.label}
           </div>
@@ -165,7 +165,7 @@ const PiNodeView: FC<{
       return (
         <div
           className={cn(
-            'gap-3',
+            gridClass ? 'gap-4' : 'gap-3',
             gridClass
               ? cn('grid grid-cols-1 items-start', gridClass)
               : cn(
@@ -198,13 +198,13 @@ const PiNodeView: FC<{
       const key = `btn:${node.label}`
       const pending = pendingKey === key
       return (
-        <Button
-          size="sm"
+        <PiRailAction
+          variant="primary"
           disabled={pending}
           onClick={() => void onAction(node.action, { pendingKey: key })}
         >
           {pending ? 'Working…' : node.label}
-        </Button>
+        </PiRailAction>
       )
     }
     case 'link':
@@ -222,14 +222,14 @@ const PiNodeView: FC<{
         return <PiBrokenBlock reason="table missing columns/rows" />
       }
       return (
-        <div className="overflow-x-auto border-border border-y">
+        <div className="overflow-x-auto border border-border/60">
           <table className="w-full min-w-[28rem] text-left text-sm">
             <thead>
-              <tr className="border-border border-b">
+              <tr className="border-border border-b bg-muted/30">
                 {node.columns.map((c) => (
                   <th
                     key={c.id}
-                    className="px-3 py-2.5 font-mono font-normal text-[10px] text-muted-foreground uppercase tracking-[0.06em]"
+                    className="px-4 py-2.5 font-mono font-normal text-[10px] text-muted-foreground uppercase tracking-[0.06em]"
                   >
                     {c.header}
                   </th>
@@ -238,13 +238,13 @@ const PiNodeView: FC<{
             </thead>
             <tbody>
               {node.rows.map((row) => (
-                <tr key={row.id} className="border-border/70 border-t">
+                <tr key={row.id} className="border-border/50 border-t">
                   {node.columns.map((c) => {
                     const cell = row.cells?.[c.id]
                     return (
                       <td
                         key={c.id}
-                        className="px-3 py-2.5 align-top text-foreground"
+                        className="px-4 py-3 align-top text-foreground"
                       >
                         {typeof cell === 'string' || cell == null ? (
                           cell ? (
@@ -312,7 +312,7 @@ export const PiPageRenderer: FC<{
   const nodes = Array.isArray(doc.nodes) ? doc.nodes : []
   return (
     <div
-      className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-8"
+      className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-10 sm:px-10"
       style={
         {
           '--pi-accent': 'var(--signal)',
