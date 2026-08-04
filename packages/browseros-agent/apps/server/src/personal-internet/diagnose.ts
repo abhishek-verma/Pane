@@ -475,3 +475,79 @@ export function assertValidNodes(nodes: PiNode[]): void {
   // Exported for tests / future use
   void nodes
 }
+
+function truncateForRender(text: string, max = 70): string {
+  const clean = text.replace(/\s+/g, ' ').trim()
+  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
+}
+
+/** One-line plain-English description of a node, matching what the user sees on screen. */
+function describeNodeRender(node: PiNode, depth: number): string {
+  const indent = '  '.repeat(depth)
+  switch (node.type) {
+    case 'title':
+      return `${indent}Heading: "${truncateForRender(node.text)}"`
+    case 'text':
+      return `${indent}Paragraph: "${truncateForRender(node.text)}"`
+    case 'note':
+      return `${indent}Callout: "${truncateForRender(node.text)}"`
+    case 'badge':
+      return `${indent}Badge (${node.tone ?? 'neutral'}): "${truncateForRender(node.text)}"`
+    case 'stat':
+      return `${indent}Stat: ${node.label} = ${node.value}`
+    case 'divider':
+      return `${indent}Divider`
+    case 'stack': {
+      const label = node.columns
+        ? `${node.columns}-column section`
+        : node.direction === 'row'
+          ? 'Row group'
+          : 'Section'
+      return [
+        `${indent}${label}:`,
+        ...node.children.map((c) => describeNodeRender(c, depth + 1)),
+      ].join('\n')
+    }
+    case 'button':
+      return `${indent}Button: "${node.label}"`
+    case 'link':
+      return `${indent}Link: "${node.label}"`
+    case 'table': {
+      const headers = node.columns.map((c) => c.header).join(', ')
+      return `${indent}Table [${headers}] — ${node.rows.length} row(s)`
+    }
+    case 'board': {
+      const cols = node.columns
+        .map((c) => `${c.title} (${c.cardIds.length})`)
+        .join(', ')
+      return `${indent}Board — columns: ${cols || '(none)'}; ${node.cards.length} card(s) total`
+    }
+    case 'chart':
+      return `${indent}Chart (${node.chartType})${node.title ? ` "${node.title}"` : ''} — ${node.data.length} data point(s)`
+    case 'mermaid':
+      return `${indent}Diagram${node.title ? ` "${node.title}"` : ''} (Mermaid)`
+    case 'svg':
+      return `${indent}Custom illustration${node.title ? ` "${node.title}"` : ''}`
+    default:
+      return `${indent}(unrecognized node)`
+  }
+}
+
+/**
+ * Plain-English outline of how a page doc will render, top to bottom — the
+ * same shape the user sees, not the JSON tree. Use to sanity-check a create/
+ * patch result instead of re-reading raw nodes, and to spot an empty-looking
+ * page (e.g. a board with no cards) before telling the user it's ready.
+ */
+export function describePageRender(doc: {
+  title: string
+  nodes: PiNode[]
+}): string {
+  if (doc.nodes.length === 0) {
+    return `Page: "${doc.title}"\n(empty — no content nodes yet)`
+  }
+  return [
+    `Page: "${doc.title}"`,
+    ...doc.nodes.map((n) => describeNodeRender(n, 0)),
+  ].join('\n')
+}

@@ -218,7 +218,7 @@ Private **sites** hold multi-day operable work. Pages live under sites (or as te
 ## Workflow
 
 1. \`pi_list\` — avoid duplicate slugs/templates.
-2. \`pi_site_upsert\` with \`templateId\` when it fits (\`job-search\` | \`research-hub\` | \`sales-leads\`) or a custom name/slug/jtbd. Templates do **not** pre-wire harvest hosts.
+2. \`pi_site_upsert\` with \`templateId\` when it fits (\`job-search\` | \`research-hub\` | \`sales-leads\` | \`reading-list\` | \`habit-tracker\` | \`project-tracker\`), or \`blank\` for a freeform site with no starter structure when nothing else fits. Templates do **not** pre-wire harvest hosts. \`blank\` has no singleton slug (unlike the named templates) — always pass an explicit, distinct \`slug\`/\`name\` for it, or omitting them creates a new randomly-slugged site on every call instead of reusing the one you meant.
 3. **Harvest (propose → confirm):** On create, the tool returns \`harvestOffer.proposedConfig\`. Proactively present a **full** proposed config tailored to use case + conversation:
    - \`harvestSources\` — browser hostnames inferred from provenance ("where did this data come from?", URLs mentioned). Can be many sites (CRM, webmail, LinkedIn, news, dashboards, …). Never invent a default host the user did not confirm.
    - \`harvestCadenceDays\` — browser sync interval (default propose 1)
@@ -257,7 +257,9 @@ description: Compose Personalised Internet page documents (element DSL, layout, 
 
 # Page DSL (compose)
 
-You author JSON; Pane renders a **closed element set**. No freeform HTML/CSS. For charts / Mermaid / SVG, also load \`pi-page-viz\`.
+You author JSON; Pane renders a **closed element set** of nodes — never a single freeform HTML/Markdown blob as the whole page. Within that structure, \`text\`/\`note\`/board-card \`subtitle\` fields render full Markdown (bold, lists, links, inline code, headings) — prefer Markdown formatting for any prose content over flat unformatted paragraphs. For charts / Mermaid / SVG, also load \`pi-page-viz\`.
+
+PI pages are first-class communication surfaces, not a fallback for when chat gets long — default to a page (with a visual where one fits, see \`pi-page-viz\`) over a dense wall of chat text.
 
 ## When to use a temp page (not chat)
 
@@ -281,18 +283,23 @@ Prefer temp pages for **long agent deliverables**. Chat is the teaser; the page 
 - \`mode=durable\` — needs \`siteId\` (create site first via \`pi-sites\` / \`pi_site_upsert\`).
 - \`mode=temp\` — one-shot structured answer; returns \`pi://temp/...\`; user may Keep later.
 
-After create, share the \`pi://\` href from the tool result. Call \`pi_open\` when the user should see the page now. Optionally \`pi_read\` to confirm. In chat, give a one-line teaser — do not dump the full page content again.
+After create, share the \`pi://\` href from the tool result. Call \`pi_open\` when the user should see the page now. In chat, give a one-line teaser — do not dump the full page content again.
+
+## Check what you actually built
+
+\`pi_page_create\` / \`pi_page_patch\` / \`pi_read\` all return \`renderPreview\`: a plain-English, top-to-bottom outline of the page as the user will actually see it (headings, paragraphs, table/board shape, chart types) — not the JSON tree. Read \`renderPreview\`, not the raw \`doc\`, to sanity-check structure before telling the user it's ready: an empty-looking board, a paragraph that came out as one giant unformatted block, or a section that landed in the wrong place will show up there. If it doesn't match what the user asked for, patch it before replying instead of describing the JSON to them as if it were the rendered page.
 
 ## Elements → how they render
 
 | type | Fields | Renders as |
 | --- | --- | --- |
 | \`title\` | \`text\` | Large heading |
-| \`text\` | \`text\` | Muted paragraph |
-| \`note\` | \`text\` | Callout box |
+| \`text\` | \`text\` | Muted paragraph — **renders Markdown** (bold, lists, links, inline code, headings). Prefer Markdown formatting over flat prose. |
+| \`note\` | \`text\` | Callout box — same Markdown support as \`text\` |
 | \`badge\` | \`text\`, \`tone?\`: neutral\\|good\\|warn\\|bad | Pill |
+| \`stat\` | \`label\`, \`value\`, \`tone?\`: neutral\\|good\\|warn\\|bad | KPI tile — big value + label. Put 2-4 side by side in a \`stack\` with \`direction:"row"\` for a stats strip |
 | \`divider\` | — | Rule |
-| \`stack\` | \`direction?\`: row\\|col, \`children\` | Flex group (row wraps) |
+| \`stack\` | \`direction?\`: row\\|col, \`columns?\`: 2-4, \`children\` | \`columns\` set → top-aligned equal-width column grid (side-by-side sections, e.g. a paragraph next to a table); otherwise a flex row (wraps) or col group |
 | \`button\` | \`label\`, \`action\`, \`replaceWith?\` | Button (Working… while pending) |
 | \`link\` | \`label\`, open-internal\\|open-external action | Text link |
 | \`table\` | \`columns\`, \`rows\` (cells = string or nested node) | Table |
@@ -347,7 +354,7 @@ For Job Search / Research / Sales, create the site with \`pi-sites\` + \`templat
 
 ## Do not
 
-- Emit Markdown/HTML as the page body.
+- Replace the node structure with one giant text/HTML blob as the whole page body — use title/table/board/chart nodes for structure; Markdown formatting belongs *inside* text/note/subtitle content, not instead of nodes.
 - Assume pixel layout control.
 - Author raw chart SVG when \`type:"chart"\` data will do — load \`pi-page-viz\`.
 - Put \`columnId\` or \`description\` on board cards in the page doc (use \`cardIds\` + \`subtitle\`, or \`upsertBoardCard\`).
@@ -393,33 +400,37 @@ Entity BTF protocol → load \`pi-entity-materialize\`.
 
 1. \`pi_read\` / \`pi_record_list\` if you lack ids (rowId, cardId, columnId, recordId).
 2. Apply the smallest op set.
-3. Share/update the \`#/pi/...\` route if useful; pulse/home may refresh from write path.
+3. Check the patch response's \`renderPreview\` — the plain-English outline of the page as the user sees it — to confirm the patch landed where you meant, not just that the call succeeded.
+4. Share/update the \`#/pi/...\` route if useful; pulse/home may refresh from write path.
 
 ## Do not
 
 - Guess row/card ids — read first.
 - Use table ops when multiple tables need independent updates — \`replaceNodes\` instead.
 - Ignore \`pi_read\` \`diagnosis.agentBrief\` when a page is corrupt — follow those tool steps (use raw only if \`needsRaw\`).
+- Trust the op call succeeding as proof the page looks right — check \`renderPreview\`.
 `
 
 export const BUILTIN_PI_PAGE_VIZ_SKILL_BODY = `---
 name: pi-page-viz
-description: Add charts, Mermaid diagrams, and sanitized SVG visuals to Personalised Internet pages. Use with pi_page_create / pi_page_patch when the user needs a graph, funnel, architecture diagram, or custom illustration.
+description: Add charts, Mermaid diagrams, and sanitized SVG visuals to Personalised Internet pages. Use with pi_page_create / pi_page_patch any time page content has real shape (counts, stages, a process, a structure) — not only when the user explicitly asks for a graph.
 ---
 
 # Page visuals (chart / mermaid / svg)
 
-Prefer **structured data** over freeform drawing. Pane renders visuals; you do not invent HTML/CSS.
+Default to a visual whenever content has real shape — counts to compare, a process to follow, a structure to show. Visible information beats a wall of text or a paragraph describing numbers in prose. Prefer **structured data** over freeform drawing. Pane renders visuals; you do not invent HTML/CSS.
 
 ## Choose the right node
 
 | Need | Node | Why |
 | --- | --- | --- |
+| A single headline number (no comparison) | \`stat\` | Simpler than a one-point chart — load \`pi-page-dsl\` for its shape |
 | Numbers over categories (counts, scores, spend) | \`chart\` | App draws SVG from data — safest |
 | Process / funnel / architecture / sequence | \`mermaid\` | Text DSL → diagram |
 | One-off illustration the chart types cannot express | \`svg\` | Allowed only after sanitize; no scripts/URLs |
+| Comparable rows/columns without a chart-worthy metric | \`table\` / \`board\` | Still a visual, not prose |
 
-**Skip visuals** when a table/board already answers the question.
+**Skip a visual only when it would be forced** — a single number, a one-line status, or content with no real structure. If you're about to write "X: 12, Y: 4, Z: 1" in a \`text\` node, that's a \`chart\` instead.
 
 ## \`chart\` (preferred for quantitative)
 

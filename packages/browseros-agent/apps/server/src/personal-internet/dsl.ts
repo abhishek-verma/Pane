@@ -340,6 +340,10 @@ function validateNode(
     case 'badge':
       assertSafeText(node.text, path)
       return
+    case 'stat':
+      assertSafeText(node.label, path)
+      assertSafeText(node.value, path)
+      return
     case 'divider':
       return
     case 'stack':
@@ -351,6 +355,14 @@ function validateNode(
           throw new PiDslError(`${path}: stack id must be a non-empty string`)
         }
         assertSafeText(node.id, `${path}.id`)
+      }
+      if (
+        node.columns != null &&
+        (!Number.isInteger(node.columns) ||
+          node.columns < 2 ||
+          node.columns > 4)
+      ) {
+        throw new PiDslError(`${path}: stack columns must be an integer 2-4`)
       }
       for (const [i, child] of node.children.entries()) {
         validateNode(child, `${path}.children[${i}]`, childOpts)

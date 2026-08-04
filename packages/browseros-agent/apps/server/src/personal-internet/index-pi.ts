@@ -24,6 +24,8 @@ function extractNodeText(node: PiNode): string {
       return node.text
     case 'badge':
       return node.text
+    case 'stat':
+      return [node.label, node.value].join(' ')
     case 'button':
       return node.label
     case 'link':

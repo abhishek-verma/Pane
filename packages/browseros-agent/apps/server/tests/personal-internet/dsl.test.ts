@@ -44,6 +44,66 @@ describe('pi dsl', () => {
     ).toThrow(PiDslError)
   })
 
+  it('validates a stat node', () => {
+    const doc = validatePageDoc({
+      version: 1,
+      title: 'x',
+      nodes: [{ type: 'stat', label: 'Applications', value: '12' }],
+    })
+    expect(doc.nodes[0]).toEqual({
+      type: 'stat',
+      label: 'Applications',
+      value: '12',
+    })
+  })
+
+  it('rejects an unsafe stat value', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'x',
+        nodes: [
+          { type: 'stat', label: 'x', value: '<script>alert(1)</script>' },
+        ],
+      }),
+    ).toThrow(PiDslError)
+  })
+
+  it('validates a multi-column stack', () => {
+    const doc = validatePageDoc({
+      version: 1,
+      title: 'x',
+      nodes: [
+        {
+          type: 'stack',
+          columns: 3,
+          children: [
+            { type: 'text', text: 'a' },
+            { type: 'text', text: 'b' },
+            { type: 'text', text: 'c' },
+          ],
+        },
+      ],
+    })
+    expect(doc.nodes[0]).toMatchObject({ type: 'stack', columns: 3 })
+  })
+
+  it('rejects a stack with columns outside 2-4', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'x',
+        nodes: [
+          {
+            type: 'stack',
+            columns: 1,
+            children: [{ type: 'text', text: 'a' }],
+          },
+        ],
+      }),
+    ).toThrow(PiDslError)
+  })
+
   it('setTitle and upsertTableRow', () => {
     const next = applyPatchOps(baseDoc, [
       { op: 'setTitle', title: 'Pipeline' },

@@ -13,6 +13,7 @@ import {
   findActiveMaterializeRunForPage,
   getScheduledRun,
 } from '../scheduler/run-executor'
+import { describePageRender } from './diagnose'
 import { validatePageDoc } from './dsl'
 import { getPiFocus } from './focus'
 import { ensureAndMaterialize } from './materialize'
@@ -52,7 +53,15 @@ import type {
 } from './types'
 import { applyPiMutation, preserveTemp } from './write-path'
 
-const templateIdSchema = z.enum(['job-search', 'research-hub', 'sales-leads'])
+const templateIdSchema = z.enum([
+  'job-search',
+  'research-hub',
+  'sales-leads',
+  'reading-list',
+  'habit-tracker',
+  'project-tracker',
+  'blank',
+])
 
 type PiPreview = {
   title: string
@@ -154,24 +163,21 @@ function assertMaterializeToolAllowed(
   const scheduledRunId = getActiveGateContext()?.scheduledRunId
   let run = scheduledRunId ? getScheduledRun(scheduledRunId) : null
   if (
-    !run ||
-    run.source !== 'pi-materialize' ||
+    run?.source !== 'pi-materialize' ||
     !isActiveMaterializeStatus(run.status)
   ) {
     const focus = getPiFocus()
     if (!focus) return
     run = focus.runId ? getScheduledRun(focus.runId) : null
     if (
-      !run ||
-      run.source !== 'pi-materialize' ||
+      run?.source !== 'pi-materialize' ||
       !isActiveMaterializeStatus(run.status)
     ) {
       run = findActiveMaterializeRunForPage(focus.pageId)
     }
   }
   if (
-    !run ||
-    run.source !== 'pi-materialize' ||
+    run?.source !== 'pi-materialize' ||
     !isActiveMaterializeStatus(run.status)
   ) {
     return
@@ -245,7 +251,7 @@ export function buildPersonalInternetToolSet(
 
     pi_read: tool({
       description:
-        'Read a Personalised Internet site, page document, or temp page. Read-only. For pages: returns diagnosis.agentBrief (structured repair plan) and contentSummary. Raw JSON only when diagnosis.needsRaw. Prefer following agentBrief with pi_page_patch over interpreting raw validator errors.',
+        'Read a Personalised Internet site, page document, or temp page. Read-only. For pages: returns renderPreview — a plain-English, top-to-bottom outline of how the page actually looks to the user (headings, paragraphs, tables, board columns/cards, charts) — read that instead of the raw doc tree to check a page matches what the user expects. Also returns diagnosis.agentBrief (structured repair plan) and contentSummary. Raw JSON only when diagnosis.needsRaw. Prefer following agentBrief with pi_page_patch over interpreting raw validator errors.',
       inputSchema: z.object({
         siteId: z.string().optional(),
         pageId: z.string().optional(),
@@ -294,6 +300,9 @@ export function buildPersonalInternetToolSet(
                   autoFixesApplied: inspection.diagnosis.autoFixesApplied,
                 },
                 contentSummary: inspection.contentSummary,
+                renderPreview: inspection.doc
+                  ? describePageRender(inspection.doc)
+                  : undefined,
                 ...(inspection.diagnosis.needsRaw || needsAgent
                   ? {
                       raw: inspection.diagnosis.needsRaw
@@ -448,7 +457,7 @@ export function buildPersonalInternetToolSet(
 
     pi_site_upsert: tool({
       description:
-        'Create or upsert a durable Personalised Internet site. Prefer templateId job-search | research-hub | sales-leads (seeds board/table). On create, returns harvestOffer.proposedConfig — present it to the user, fill harvestSources from conversation provenance, and only set harvest fields after the user accepts or revises. Load skill "pi-sites". Returns siteId, pageId, href (pi://…) — share that link; call pi_open when the user should see the site now.',
+        'Create or upsert a durable Personalised Internet site. Prefer templateId job-search | research-hub | sales-leads | reading-list | habit-tracker | project-tracker when it fits (seeds board/table); use templateId=blank for a freeform site with no starter structure when nothing else fits. blank has no singleton slug — ALWAYS pass an explicit unique slug/name for it, or repeated calls without one create a new random-slugged site each time. On create, returns harvestOffer.proposedConfig — present it to the user, fill harvestSources from conversation provenance, and only set harvest fields after the user accepts or revises. Load skill "pi-sites". Returns siteId, pageId, href (pi://…) — share that link; call pi_open when the user should see the site now.',
       inputSchema: z.object({
         templateId: templateIdSchema.optional(),
         name: z.string().optional(),
@@ -495,7 +504,7 @@ export function buildPersonalInternetToolSet(
 
     pi_page_create: tool({
       description:
-        'Create a Personalised Internet page as structured DSL JSON (not HTML). mode=temp for one-shot visuals; mode=durable needs siteId. doc={version:1,title,nodes:PiNode[]}. Boards MUST use columns[].cardIds + cards[].{id,title,subtitle?} — never card.columnId/description (that fails validation). Prefer empty board + upsertBoardCard for cards. Load "pi-page-dsl"; for chart/mermaid/svg load "pi-page-viz". Returns pi:// href. Share the href; call pi_open when the user should see the page now. Not allowed during a pi-materialize BTF run — patch the bound pageId instead.',
+        'Create a Personalised Internet page as structured DSL JSON (not HTML). mode=temp for one-shot visuals; mode=durable needs siteId. doc={version:1,title,nodes:PiNode[]}. Boards MUST use columns[].cardIds + cards[].{id,title,subtitle?} — never card.columnId/description (that fails validation). Prefer empty board + upsertBoardCard for cards. MUST call skills_load("pi-page-dsl") first unless you already have its node/board schema in context this turn; for chart/mermaid/svg also load "pi-page-viz". Returns pi:// href and renderPreview (plain-English outline of how it will actually look — check it matches what the user asked for before replying). Share the href; call pi_open when the user should see the page now. Not allowed during a pi-materialize BTF run — patch the bound pageId instead.',
       inputSchema: z.object({
         mode: z.enum(['durable', 'temp']),
         siteId: z.string().optional(),
@@ -518,9 +527,13 @@ export function buildPersonalInternetToolSet(
             ttlMs: input.ttlMs,
           })
           const linked = withPiAddress({ ...result }, { title: input.title })
+          const renderPreview = result.doc
+            ? describePageRender(result.doc)
+            : undefined
           return ok({
             ...linked,
-            message: `Page created. ${linked.href}`,
+            renderPreview,
+            message: `Page created. ${linked.href}${renderPreview ? `\n\nRenders as:\n${renderPreview}` : ''}`,
           })
         } catch (e) {
           return err(String(e))
@@ -530,7 +543,7 @@ export function buildPersonalInternetToolSet(
 
     pi_page_patch: tool({
       description:
-        'Patch a page. Prefer upsertBoardCard { id, title, columnId, subtitle? } to add/move cards — do not rewrite boards with card.columnId. Prefer appendNodes for BTF fills; replaceNodes with a single section can wipe ATF (server may coerce to append during materialize). Table row/cell ops hit the first table only. During pi-materialize, only the run\'s pageId is allowed. Load skill "pi-page-patch" / "pi-entity-materialize".',
+        'Patch a page. Prefer upsertBoardCard { id, title, columnId, subtitle? } to add/move cards — do not rewrite boards with card.columnId. Prefer appendNodes for BTF fills; replaceNodes with a single section can wipe ATF (server may coerce to append during materialize). Table row/cell ops hit the first table only. During pi-materialize, only the run\'s pageId is allowed. MUST call skills_load("pi-page-patch") first (also "pi-entity-materialize" during a materialize run) unless you already have the op shapes in context this turn. Returns renderPreview — a plain-English outline of the patched page as the user will see it; check it before telling the user it\'s done.',
       inputSchema: z.object({
         pageId: z.string().min(1),
         ops: z.array(patchOpSchema).min(1),
@@ -543,7 +556,17 @@ export function buildPersonalInternetToolSet(
             pageId,
             ops: ops as PiPatchOp[],
           })
-          return ok(withPiAddress({ ...result }))
+          const linked = withPiAddress({ ...result })
+          const renderPreview = result.doc
+            ? describePageRender(result.doc)
+            : undefined
+          return ok({
+            ...linked,
+            renderPreview,
+            message: renderPreview
+              ? `Page updated. Renders as:\n${renderPreview}`
+              : 'Page updated.',
+          })
         } catch (e) {
           return err(String(e))
         }

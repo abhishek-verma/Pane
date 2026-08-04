@@ -39,7 +39,15 @@ describe('pi write-path and templates', () => {
   }
 
   it('templates produce valid page docs', () => {
-    for (const id of ['job-search', 'research-hub', 'sales-leads'] as const) {
+    for (const id of [
+      'job-search',
+      'research-hub',
+      'sales-leads',
+      'reading-list',
+      'habit-tracker',
+      'project-tracker',
+      'blank',
+    ] as const) {
       const t = getSiteTemplate(id)
       expect(() => validatePageDoc(t.indexDoc)).not.toThrow()
     }
@@ -93,6 +101,36 @@ describe('pi write-path and templates', () => {
     const pulse = getPulse(created.siteId!)
     expect(pulse?.counts.applied).toBe(1)
     expect(listRecords(created.siteId!)).toHaveLength(1)
+  })
+
+  it('blank template creates a distinct site per call when slug is omitted', async () => {
+    setup()
+    const first = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'blank',
+    })
+    const second = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'blank',
+    })
+    expect(first.siteId).toBeTruthy()
+    expect(second.siteId).toBeTruthy()
+    expect(second.siteId).not.toBe(first.siteId)
+  })
+
+  it('blank template reuses the site when an explicit slug is passed', async () => {
+    setup()
+    const first = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'blank',
+      slug: 'my-custom-site',
+    })
+    const second = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'blank',
+      slug: 'my-custom-site',
+    })
+    expect(second.siteId).toBe(first.siteId)
   })
 
   it('creates temp page and preserves attach', async () => {
