@@ -153,4 +153,4 @@ function parsePiPath(path: string): PiHrefParts | null {
 }
 
 /** Match pi://… tokens in prose (stops at whitespace / common markdown closers). */
-export const PI_HREF_RE = /pi:\/\/[^\s)\]>'"]+/g
+export const PI_HREF_RE = /pi:\/\/[^\s)\]>'"`]+/g

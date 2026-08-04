@@ -21,6 +21,25 @@ describe('buildToolEvidence', () => {
     expect(e.file?.path).toBe('a.ts')
   })
 
+  test('ACP-namespaced tool name (mcp__browseros__ prefix) still classifies as a file-change card', () => {
+    const e = buildToolEvidence({
+      toolCallId: 'c1b',
+      toolName: 'mcp__browseros__filesystem_edit',
+      state: 'output-available',
+      input: {
+        path: 'a.ts',
+        old_string: 'x',
+        new_string: 'y',
+      },
+      output: {
+        content: [{ type: 'text', text: 'Applied edit to a.ts\n\n- x\n+ y' }],
+      },
+    })
+    expect(e.specialized).toBe(true)
+    expect(e.kind).toBe('file-change')
+    expect(e.file?.path).toBe('a.ts')
+  })
+
   test('approval-requested → not specialized preview', () => {
     const e = buildToolEvidence({
       toolCallId: 'c2',

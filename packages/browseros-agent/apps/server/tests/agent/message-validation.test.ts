@@ -447,6 +447,31 @@ describe('sanitizeMessagesForToolset', () => {
     expect(result[0].parts).toHaveLength(2)
   })
 
+  it('preserves an ACP-namespaced tool part (mcp__browseros__ prefix) whose bare name is in the toolset', () => {
+    // Reproduces a mid-conversation provider switch: history recorded a
+    // tool call while running through an ACP provider (which persists tool
+    // names as `mcp__browseros__<name>`); rebuilding against the in-process
+    // toolset (bare names only) must not treat that as an unknown tool and
+    // drop it from history.
+    const messages: UIMessage[] = [
+      makeAssistantMessage([
+        { type: 'text', text: 'Taking a snapshot...' },
+        {
+          type: 'tool-mcp__browseros__take_snapshot',
+          toolCallId: 'call-1',
+          toolName: 'mcp__browseros__take_snapshot',
+          state: 'result',
+          input: { page: 1 },
+          output: { content: 'snapshot data' },
+        } as unknown as UIMessage['parts'][number],
+      ]),
+    ]
+
+    const result = sanitizeMessagesForToolset(messages, allTools)
+    expect(result).toHaveLength(1)
+    expect(result[0].parts).toHaveLength(2)
+  })
+
   it('strips tool parts when tool is NOT in the toolset', () => {
     const messages: UIMessage[] = [
       makeAssistantMessage([
@@ -759,12 +784,12 @@ describe('stripUIImageOutputs integration with ToolImageStore', () => {
     const screenshot = imageStore.get('call-screenshot')
     expect(screenshot).not.toBeNull()
     expect(screenshot?.mimeType).toBe('image/jpeg')
-    expect(Buffer.from(screenshot!.data).toString('base64')).toBe(jpegData)
+    expect(Buffer.from(screenshot?.data).toString('base64')).toBe(jpegData)
 
     const actImg = imageStore.get('call-act')
     expect(actImg).not.toBeNull()
     expect(actImg?.mimeType).toBe('image/png')
-    expect(Buffer.from(actImg!.data).toString('base64')).toBe(pngData)
+    expect(Buffer.from(actImg?.data).toString('base64')).toBe(pngData)
 
     expect(imageStore.get('call-r1')).not.toBeNull()
     expect(imageStore.get('call-r2')).not.toBeNull()

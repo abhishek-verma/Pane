@@ -73,4 +73,70 @@ describe('pi-node-schema', () => {
     })
     expect(op.op).toBe('upsertBoardCard')
   })
+
+  it('accepts a stat node with label/value/tone', () => {
+    const doc = pageDocSchema.parse({
+      version: 1,
+      title: 'Demo',
+      nodes: [
+        {
+          type: 'stat',
+          label: 'Active applications',
+          value: '12',
+          tone: 'good',
+        },
+      ],
+    })
+    expect(doc.nodes[0]).toEqual({
+      type: 'stat',
+      label: 'Active applications',
+      value: '12',
+      tone: 'good',
+    })
+  })
+
+  it('accepts a stack node with a 2-4 column grid', () => {
+    const doc = pageDocSchema.parse({
+      version: 1,
+      title: 'Demo',
+      nodes: [
+        {
+          type: 'stack',
+          columns: 2,
+          children: [
+            { type: 'text', text: 'Left' },
+            { type: 'text', text: 'Right' },
+          ],
+        },
+      ],
+    })
+    expect(doc.nodes[0]).toMatchObject({ type: 'stack', columns: 2 })
+  })
+
+  it('rejects a stack columns value outside 2-4', () => {
+    const result = pageDocSchema.safeParse({
+      version: 1,
+      title: 'Demo',
+      nodes: [
+        { type: 'stack', columns: 5, children: [{ type: 'text', text: 'x' }] },
+      ],
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a stat node with an empty label or value', () => {
+    const missingLabel = pageDocSchema.safeParse({
+      version: 1,
+      title: 'Demo',
+      nodes: [{ type: 'stat', label: '', value: '12' }],
+    })
+    expect(missingLabel.success).toBe(false)
+
+    const missingValue = pageDocSchema.safeParse({
+      version: 1,
+      title: 'Demo',
+      nodes: [{ type: 'stat', label: 'Active', value: '' }],
+    })
+    expect(missingValue.success).toBe(false)
+  })
 })

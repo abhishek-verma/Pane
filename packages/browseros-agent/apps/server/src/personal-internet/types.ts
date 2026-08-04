@@ -56,11 +56,24 @@ export type PiNode =
       text: string
       tone?: 'neutral' | 'good' | 'warn' | 'bad'
     }
+  /** Small KPI tile — a headline number/value with a label. */
+  | {
+      type: 'stat'
+      label: string
+      value: string
+      tone?: 'neutral' | 'good' | 'warn' | 'bad'
+    }
   | { type: 'divider' }
   | {
       type: 'stack'
       id?: string
       direction?: 'row' | 'col'
+      /**
+       * When set (2-4), renders children as a top-aligned equal-width column
+       * grid instead of the flex-wrap row/col layout — for side-by-side
+       * sections (e.g. a paragraph next to a table), not chip rows.
+       */
+      columns?: number
       children: PiNode[]
     }
   | {
@@ -238,4 +251,11 @@ export type PiRefreshPolicy = {
 
 export type PreserveMode = 'attach' | 'new_site' | 'standalone'
 
-export type PiTemplateId = 'job-search' | 'research-hub' | 'sales-leads'
+export type PiTemplateId =
+  | 'job-search'
+  | 'research-hub'
+  | 'sales-leads'
+  | 'reading-list'
+  | 'habit-tracker'
+  | 'project-tracker'
+  | 'blank'

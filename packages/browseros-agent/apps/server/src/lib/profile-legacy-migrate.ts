@@ -7,7 +7,13 @@
  * Chrome profile that connects after upgrade.
  */
 
-import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { PATHS } from '@browseros/shared/constants/paths'
 import { getInstallBrowserosDir } from './browseros-dir'
@@ -35,6 +41,12 @@ function alreadyClaimed(installDir: string): boolean {
   return existsSync(join(installDir, PATHS.PROFILES_DIR_NAME, CLAIM_MARKER))
 }
 
+/** True when any profile directory has already been created under `profiles/`. */
+function hasOtherProfiles(profilesRoot: string): boolean {
+  if (!existsSync(profilesRoot)) return false
+  return readdirSync(profilesRoot).some((entry) => !entry.startsWith('.'))
+}
+
 /**
  * If install-wide user-data dirs still exist at the BrowserOS root, move them
  * into `profiles/<profileKey>/` for the first caller. Later profiles start empty.
@@ -49,6 +61,17 @@ export function claimLegacyProfileData(profileKey: string): void {
   }
 
   const profilesRoot = join(installDir, PATHS.PROFILES_DIR_NAME)
+  if (hasOtherProfiles(profilesRoot)) {
+    // Legacy data reappearing at the install root after other profiles
+    // already exist is not the single-profile upgrade case this claim
+    // exists for (e.g. a caller dropped the profile header and wrote here
+    // by mistake). Never hand that data to an unrelated profile.
+    logger.warn('Skipped legacy profile claim: other profiles already exist', {
+      profileKey,
+    })
+    return
+  }
+
   const profileDir = join(profilesRoot, profileKey)
   mkdirSync(profileDir, { recursive: true })
 

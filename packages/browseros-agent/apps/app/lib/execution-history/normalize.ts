@@ -1,4 +1,5 @@
 import type { DynamicToolUIPart, ToolUIPart, UIMessage } from 'ai'
+import { bareToolName } from '@/lib/tool-name'
 import type {
   ExecutionStepApproval,
   ExecutionStepRecord,
@@ -22,10 +23,10 @@ function truncateText(value: string): string {
 
 function getToolName(part: ToolLikePart): string {
   if (part.type === 'dynamic-tool') {
-    return part.toolName
+    return bareToolName(part.toolName)
   }
 
-  return part.type.replace('tool-', '')
+  return bareToolName(part.type.replace('tool-', ''))
 }
 
 function isToolPart(part: UIMessage['parts'][number]): part is ToolLikePart {

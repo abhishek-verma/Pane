@@ -35,4 +35,24 @@ describe('deriveMaterializeActivity', () => {
     expect(snap.lines.at(-1)?.text).toContain('Waiting')
     expect(snap.lines.some((l) => l.text.includes('pi-page-patch'))).toBe(true)
   })
+
+  it('recognizes an ACP-namespaced tool name (mcp__browseros__ prefix)', () => {
+    const snap = deriveMaterializeActivity(
+      [
+        {
+          role: 'assistant',
+          parts: [
+            {
+              type: 'tool-mcp__browseros__pi_read',
+              state: 'output-available',
+              input: {},
+            },
+          ],
+        },
+      ],
+      4,
+    )
+    expect(snap.lastToolName).toBe('pi_read')
+    expect(snap.lines.at(-1)?.text).toBe('Reading page…')
+  })
 })

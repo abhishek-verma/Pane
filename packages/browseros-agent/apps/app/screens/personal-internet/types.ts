@@ -30,11 +30,18 @@ export type PiNode =
       text: string
       tone?: 'neutral' | 'good' | 'warn' | 'bad'
     }
+  | {
+      type: 'stat'
+      label: string
+      value: string
+      tone?: 'neutral' | 'good' | 'warn' | 'bad'
+    }
   | { type: 'divider' }
   | {
       type: 'stack'
       id?: string
       direction?: 'row' | 'col'
+      columns?: number
       children: PiNode[]
     }
   | {

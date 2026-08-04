@@ -15,12 +15,24 @@ export const POST_ACTION_SCREENSHOT_QUALITY = 80
 export const POST_ACTION_SCREENSHOT_SIZE = { width: 1024, height: 768 } as const
 
 /** Builds CDP captureScreenshot options for act/navigate post-action stills. */
-export function buildPostActionScreenshotOptions(viewport: {
-  pageX: number
-  pageY: number
-  clientWidth: number
-  clientHeight: number
-}): {
+export function buildPostActionScreenshotOptions(
+  viewport: {
+    pageX: number
+    pageY: number
+    clientWidth: number
+    clientHeight: number
+  },
+  /**
+   * CDP's `clip.scale` multiplies CSS pixels, but the captured raster still
+   * comes out at the page's actual device pixel ratio on top of that (a
+   * "1024x768" clip on a 2x/3x HiDPI display rasterizes at ~2048x1536 /
+   * ~3072x2304). Without accounting for it, that can exceed downstream
+   * image-size limits (e.g. a 2000x2000px cap) even though the logical
+   * clip size looks safely small. Divide the target size by DPR so the
+   * final raster — not just the CSS clip — stays within budget.
+   */
+  devicePixelRatio = 1,
+): {
   format: 'jpeg'
   quality: number
   captureBeyondViewport: false
@@ -32,12 +44,13 @@ export function buildPostActionScreenshotOptions(viewport: {
     scale: number
   }
 } {
+  const dpr = devicePixelRatio > 0 ? devicePixelRatio : 1
   const scale =
     viewport.clientWidth > 0 && viewport.clientHeight > 0
       ? Math.min(
           1,
-          POST_ACTION_SCREENSHOT_SIZE.width / viewport.clientWidth,
-          POST_ACTION_SCREENSHOT_SIZE.height / viewport.clientHeight,
+          POST_ACTION_SCREENSHOT_SIZE.width / (viewport.clientWidth * dpr),
+          POST_ACTION_SCREENSHOT_SIZE.height / (viewport.clientHeight * dpr),
         )
       : 1
   return {
@@ -175,10 +188,20 @@ export class ToolResponse {
         const { session: pageSession } = await session.pages.getSession(
           action.page,
         )
-        const metrics = await pageSession.Page.getLayoutMetrics()
+        const [metrics, dprResult] = await Promise.all([
+          pageSession.Page.getLayoutMetrics(),
+          pageSession.Runtime.evaluate({
+            expression: 'window.devicePixelRatio',
+            returnByValue: true,
+          }).catch(() => null),
+        ])
         const viewport = metrics.cssLayoutViewport ?? metrics.layoutViewport
+        const devicePixelRatio =
+          typeof dprResult?.result?.value === 'number'
+            ? dprResult.result.value
+            : 1
         const result = await pageSession.Page.captureScreenshot(
-          buildPostActionScreenshotOptions(viewport),
+          buildPostActionScreenshotOptions(viewport, devicePixelRatio),
         )
         this.text(`[Page ${action.page} screenshot]`)
         this.image(result.data, 'image/jpeg')

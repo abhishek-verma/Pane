@@ -1,11 +1,12 @@
 import type { UIMessage } from 'ai'
+import { bareToolName } from '@/lib/tool-name'
 import { classifyToolVisibility } from './classify'
 
 function toolNameFromPart(part: { type?: string; toolName?: string }): string {
-  return (
+  const raw =
     part.toolName ??
     (part.type?.startsWith('tool-') ? part.type.slice('tool-'.length) : '')
-  )
+  return raw ? bareToolName(raw) : raw
 }
 
 function isBrowserWatchTool(toolName: string): boolean {

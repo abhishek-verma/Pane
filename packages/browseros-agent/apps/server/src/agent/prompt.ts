@@ -51,6 +51,26 @@ You do not have a filesystem workspace in this session. Prefer short answers in 
 }
 
 // -----------------------------------------------------------------------------
+// section: current-date
+// -----------------------------------------------------------------------------
+
+/** Server runs on the user's machine, so local time here is the user's local time. */
+function getCurrentDate(): string {
+  const now = new Date()
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const formatted = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(now)
+  return `<current_date>\n${formatted} (${timeZone})\n</current_date>`
+}
+
+// -----------------------------------------------------------------------------
 // section: security
 // -----------------------------------------------------------------------------
 
@@ -244,9 +264,9 @@ ${navRow}${workspaceRows}| Group browser tabs | \`tab_groups\` | — | Page ids 
 | Living pipeline / personal site | \`skills_load\` pi-sites → \`pi_list\` → \`pi_site_upsert\` (templateId) | \`pi_read\` / \`pi_record_list\` | Prefer templates; freeform body → also load \`pi-page-dsl\` |
 | Job Search applications / stage / company | \`pi_list\` → \`pi_record_list\` / \`pi_record_upsert\` | \`pi_read\` / \`pi_entity_ensure\` | SoT = records; board syncs; per-company → \`pi://sites/…/entities/<key>\` (never one mega details page) |
 | Import vault / Job Prep markdown into Job Search | \`skills_load\` pi-pipeline-update → \`pi_list\` → \`pi_record_upsert\` | — | **No hardcoded site/page IDs** |
-| Long / structured deliverable (comparison, report, large table, multi-section) | \`skills_load\` pi-page-dsl → \`pi_page_create\` mode=temp → \`pi_open\` | — | Chat = short teaser; page = artifact. Preserve later via \`pi_preserve_temp\` / \`pi-sites\` |
+| Long / structured deliverable (comparison, report, large table, multi-section) | \`skills_load\` pi-page-dsl → \`pi_page_create\` mode=temp → \`pi_open\` | — | Chat = short teaser; page = artifact. Preserve later via \`pi_preserve_temp\` / \`pi-sites\`. Also load \`pi-page-viz\` if any content has real shape (counts, stages, a process) — default to a visual over prose, not only when asked |
 | Short Q&A / status / tiny list | chat reply | — | Keep under ~10 bullets; no wall of text |
-| Chart / Mermaid / custom SVG on a PI page | \`skills_load\` pi-page-viz → \`pi_page_create\` / \`pi_page_patch\` | — | Prefer \`chart\` data over freeform \`svg\` |
+| Chart / Mermaid / custom SVG on a PI page | \`skills_load\` pi-page-viz → \`pi_page_create\` / \`pi_page_patch\` | — | Default to this whenever content is quantitative or structured, not just when explicitly requested; prefer \`chart\` data over freeform \`svg\` |
 | Update existing PI page (rows/cards) | \`skills_load\` pi-page-patch → \`pi_page_patch\` | \`pi_read\` | \`replaceNodes\` if multiple tables; prefer \`pi_record_upsert\` for Job Search |
 | PI home doorways / Today continuity | \`skills_load\` pi-home → \`pi_home_regions_patch\` | — | P0 sites auto-doorway; never rebuild pipelines on home |
 
@@ -596,7 +616,7 @@ This is essential because the user can't see the background tabs — chat is the
 - Be concise: 1-2 lines for status updates and action confirmations.
 - Act, then report outcome.
 - Report outcomes, not step-by-step process.
-- **Chat vs page:** Short answers, status, one clarifying question, and tiny lists (~≤10 bullets) stay in chat. Comparisons, multi-section reports, large tables, research syntheses, or anything that would be a wall of text → \`skills_load\` pi-page-dsl → \`pi_page_create\` mode=temp → \`pi_open\`. In chat, give a one-line teaser (e.g. "Opened a page with the full breakdown") — do not dump the same content twice.`
+- **Chat vs page:** Short answers, status, one clarifying question, and tiny lists (~≤10 bullets) stay in chat. Comparisons, multi-section reports, large tables, research syntheses, or anything that would be a wall of text → \`skills_load\` pi-page-dsl → \`pi_page_create\` mode=temp → \`pi_open\`. On that page, prefer a visual (\`chart\`/\`table\`/\`board\`/\`mermaid\` — load \`pi-page-viz\`) over prose whenever content has real shape; visible information beats a wall of text. In chat, give a one-line teaser (e.g. "Opened a page with the full breakdown") — do not dump the same content twice.`
 
   if (!hasWorkspace && hasGeneratedOutputRead) {
     style += `
@@ -806,6 +826,7 @@ type PromptSectionFn = (
 
 const promptSections: Record<string, PromptSectionFn> = {
   'role-and-mode': getRoleAndMode,
+  'current-date': getCurrentDate,
   security: getSecurity,
   capabilities: getCapabilities,
   'acp-tool-namespace': getAcpToolNamespace,

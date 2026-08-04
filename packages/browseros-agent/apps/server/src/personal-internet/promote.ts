@@ -33,6 +33,14 @@ export function slugForTemplate(templateId: PiTemplateId): string {
       return 'research'
     case 'sales-leads':
       return 'sales-leads'
+    case 'reading-list':
+      return 'reading-list'
+    case 'habit-tracker':
+      return 'habit-tracker'
+    case 'project-tracker':
+      return 'project-tracker'
+    case 'blank':
+      return 'site'
   }
 }
 
@@ -44,5 +52,13 @@ export function defaultNameForTemplate(templateId: PiTemplateId): string {
       return 'Research'
     case 'sales-leads':
       return 'Sales Pipeline'
+    case 'reading-list':
+      return 'Reading List'
+    case 'habit-tracker':
+      return 'Habit Tracker'
+    case 'project-tracker':
+      return 'Project Tracker'
+    case 'blank':
+      return 'New site'
   }
 }

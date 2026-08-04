@@ -98,6 +98,8 @@ export type ApplyPiMutationResult = {
   route?: string
   pulseLine?: string
   created?: boolean
+  /** Resulting page doc, for callers that want to describe how it renders. */
+  doc?: PiPageDoc
   harvestOffer?: ReturnType<typeof proposeHarvestConfig> & {
     requiresUserConfirmation: true
     message: string
@@ -122,7 +124,13 @@ export async function applyPiMutation(
       const template = input.templateId
         ? getSiteTemplate(input.templateId)
         : null
-      const slug = input.slug ?? template?.slug ?? 'site'
+      // 'blank' has no natural singleton slug (unlike job-search/research/etc,
+      // it's meant to be created many times) — never collapse distinct custom
+      // sites onto one shared slug just because the caller omitted it.
+      const slug =
+        input.slug ??
+        (input.templateId === 'blank' ? newPiId('site') : template?.slug) ??
+        'site'
       const existing = getSiteBySlug(slug)
       const created = !existing
       const site = await upsertSite({
@@ -229,14 +237,16 @@ export async function applyPiMutation(
     case 'create-page': {
       validatePageDoc(input.doc)
       if (input.mode === 'temp') {
+        const tempDoc = { ...input.doc, title: input.title }
         const temp = await createTemp({
           title: input.title,
-          doc: { ...input.doc, title: input.title },
+          doc: tempDoc,
           ttlMs: input.ttlMs,
         })
         return {
           pageId: temp.id,
           route: tempRoute(temp.id),
+          doc: tempDoc,
         }
       }
       if (!input.siteId) {
@@ -265,6 +275,7 @@ export async function applyPiMutation(
         siteId: input.siteId,
         pageId,
         route: pageRoute(input.siteId, pageId),
+        doc: input.doc,
       }
     }
 
@@ -345,6 +356,7 @@ export async function applyPiMutation(
         route: page.siteId
           ? pageRoute(page.siteId, page.id)
           : tempRoute(page.id),
+        doc: next,
         ...(repairedFromCorrupt ? { repairedFromCorrupt: true } : {}),
       }
     }
@@ -441,7 +453,7 @@ export async function preserveTemp(input: {
   templateId?: PiTemplateId
 }): Promise<ApplyPiMutationResult> {
   const temp = getTemp(input.tempId)
-  if (!temp || temp.status !== 'active') {
+  if (temp?.status !== 'active') {
     throw new Error(`temp not found: ${input.tempId}`)
   }
   const doc = await readPageDoc(input.tempId)

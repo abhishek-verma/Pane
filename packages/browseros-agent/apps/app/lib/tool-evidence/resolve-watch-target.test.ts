@@ -63,6 +63,25 @@ describe('resolveWatchPageId', () => {
 
     expect(resolveWatchPageId(messages)).toBeUndefined()
   })
+
+  it('recognizes an ACP-namespaced browser tool (mcp__browseros__ prefix)', () => {
+    const messages = [
+      {
+        id: '1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-mcp__browseros__navigate',
+            toolCallId: 'a',
+            state: 'output-available',
+            input: { page: 4, url: 'https://example.com' },
+          },
+        ],
+      },
+    ] as unknown as UIMessage[]
+
+    expect(resolveWatchPageId(messages)).toBe(4)
+  })
 })
 
 describe('shouldEnableLiveWatch', () => {
@@ -106,6 +125,24 @@ describe('shouldEnableLiveWatch', () => {
             toolCallId: 'a',
             state: 'input-available',
             input: { page: 2, url: 'https://example.com' },
+          },
+        ],
+      },
+    ] as unknown as UIMessage[]
+    expect(shouldEnableLiveWatch(messages, true)).toBe(true)
+  })
+
+  it('is true for an ACP-namespaced browser tool (mcp__browseros__ prefix)', () => {
+    const messages = [
+      {
+        id: '1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-mcp__browseros__act',
+            toolCallId: 'a',
+            state: 'input-available',
+            input: { page: 2 },
           },
         ],
       },

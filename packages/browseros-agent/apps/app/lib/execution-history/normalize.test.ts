@@ -55,6 +55,37 @@ describe('normalizeExecutionSteps', () => {
     })
   })
 
+  it('filters an ACP-namespaced nudge tool (mcp__browseros__ prefix)', () => {
+    const message = createAssistantMessage([
+      asMessagePart({
+        type: 'tool-mcp__browseros__suggest_schedule',
+        toolCallId: 'nudge-2',
+        state: 'output-available',
+        input: { scheduleType: 'daily' },
+        output: { suggestedName: 'Morning briefing' },
+      }),
+      asMessagePart({
+        type: 'tool-mcp__browseros__pi_open',
+        toolCallId: 'tool-2',
+        state: 'output-available',
+        input: { href: 'pi://sites/s1' },
+        output: { pageId: 1 },
+      }),
+    ])
+
+    const normalized = normalizeExecutionSteps({
+      assistantMessage: message,
+      nowIso: '2026-03-26T10:00:00.000Z',
+    })
+
+    expect(normalized.actionCount).toBe(1)
+    expect(normalized.steps).toHaveLength(1)
+    expect(normalized.steps[0]).toMatchObject({
+      id: 'tool-2',
+      toolName: 'pi_open',
+    })
+  })
+
   it('preserves the original start time when a tool step reaches a terminal state', () => {
     const initialTimestamp = '2026-03-26T10:00:00.000Z'
     const completedTimestamp = '2026-03-26T10:00:04.000Z'

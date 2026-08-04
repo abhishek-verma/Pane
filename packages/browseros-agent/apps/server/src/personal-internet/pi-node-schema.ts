@@ -49,7 +49,9 @@ export const boardCardSchema = z
     subtitle: z
       .string()
       .optional()
-      .describe('Optional secondary line (not "description")'),
+      .describe(
+        'Optional secondary line (not "description"). Renders as Markdown.',
+      ),
     recordId: z.string().optional(),
     entityKey: z.string().optional(),
     actions: z.array(cardActionSchema).optional(),
@@ -99,11 +101,34 @@ const svgNodeSchema = z.object({
 export const piNodeSchema: z.ZodType<unknown> = z.lazy(() =>
   z.discriminatedUnion('type', [
     z.object({ type: z.literal('title'), text: z.string() }),
-    z.object({ type: z.literal('text'), text: z.string() }),
-    z.object({ type: z.literal('note'), text: z.string() }),
+    z.object({
+      type: z.literal('text'),
+      text: z
+        .string()
+        .describe(
+          'Muted paragraph. Renders as Markdown (bold, italics, bullet/numbered lists, links, inline code, headings) — prefer Markdown formatting over a flat unformatted paragraph.',
+        ),
+    }),
+    z.object({
+      type: z.literal('note'),
+      text: z
+        .string()
+        .describe('Callout box. Renders the same Markdown as `text`.'),
+    }),
     z.object({
       type: z.literal('badge'),
       text: z.string(),
+      tone: z.enum(['neutral', 'good', 'warn', 'bad']).optional(),
+    }),
+    z.object({
+      type: z.literal('stat'),
+      label: z.string().min(1),
+      value: z
+        .string()
+        .min(1)
+        .describe(
+          'Headline value as a string, e.g. "12", "$45K", "87%" — formatted by you, not computed by the renderer.',
+        ),
       tone: z.enum(['neutral', 'good', 'warn', 'bad']).optional(),
     }),
     z.object({ type: z.literal('divider') }),
@@ -111,6 +136,15 @@ export const piNodeSchema: z.ZodType<unknown> = z.lazy(() =>
       type: z.literal('stack'),
       id: z.string().optional(),
       direction: z.enum(['row', 'col']).optional(),
+      columns: z
+        .number()
+        .int()
+        .min(2)
+        .max(4)
+        .optional()
+        .describe(
+          'Set 2-4 for a top-aligned equal-width column grid (side-by-side sections) instead of the flex row/col layout. Use for e.g. a paragraph next to a table, not for chip rows of badges/buttons.',
+        ),
       children: z.array(piNodeSchema),
     }),
     z.object({
