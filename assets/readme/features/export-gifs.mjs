@@ -27,7 +27,7 @@ const WIDTH = 800;
 const HEIGHT = 450;
 const FPS = 12;
 const DURATION_MS = 7000;
-const DURATION_OVERRIDES = { "02-personalised-internet": 10000 };
+const DURATION_OVERRIDES = { "02-personalised-internet": 9000 };
 const MAX_BYTES = 1.5 * 1024 * 1024;
 
 const outGifDir = join(__dirname, "gif");

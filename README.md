@@ -41,16 +41,6 @@ Pane is an open-source Chromium browser with a personal agent built into the ses
 
 ## What changes when the agent is the browser
 
-### What mattered stays
-
-Pane can capture a web meeting locally, keep a multi-day research trail, and search the activity around your work. You can close the tabs and return to the decisions, sources, and unfinished thread later.
-
-<p align="center">
-  <img src="assets/readme/features/gif/01-meetings.gif" alt="Pane capturing a meeting in the browser and answering from its local transcript" width="720" />
-</p>
-
-Meeting capture and research mode are opt-in. Recording is visible, domain-specific, and pauseable. Transcription can run on-device after a one-time model download.
-
 ### Personalised Internet: A new way to work and browse
 
 Chats are poor containers for work that lasts days or weeks. Pane creates private, living sites for it instead: a Job Search pipeline, a Research Hub, a Sales Pipeline, or a site shaped around what you are doing. Chatting with an AI is so last year.
@@ -60,6 +50,16 @@ Chats are poor containers for work that lasts days or weeks. Pane creates privat
 </p>
 
 These sites live in your browser profile and get more useful the longer you use Pane.
+
+### What mattered stays
+
+Pane can capture a web meeting locally, keep a multi-day research trail, and search the activity around your work. You can close the tabs and return to the decisions, sources, and unfinished thread later.
+
+<p align="center">
+  <img src="assets/readme/features/gif/01-meetings.gif" alt="Pane capturing a meeting in the browser and answering from its local transcript" width="720" />
+</p>
+
+Meeting capture and research mode are opt-in. Recording is visible, domain-specific, and pauseable. Transcription can run on-device after a one-time model download.
 
 ### Work moves while you are away
 
