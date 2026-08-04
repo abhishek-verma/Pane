@@ -21,19 +21,38 @@ function screenshotQuality(format: ScreenshotFormat, quality?: number) {
   return quality ?? DEFAULT_SCREENSHOT_QUALITY
 }
 
-/** Builds a viewport clip that fits the capture within the requested target size. */
-async function buildScreenshotClip(
+/**
+ * Builds a viewport clip that fits the capture within the requested target
+ * size. CDP's clip.scale multiplies CSS pixels, but the captured raster is
+ * still emitted at the page's actual device pixel ratio on top of that — a
+ * "1024x768" clip on a 2x/3x HiDPI display rasterizes at ~2048x1536 /
+ * ~3072x2304, which can exceed a downstream image-size limit (e.g. a
+ * 2000x2000px cap enforced by an ACP host) even though the requested target
+ * looked safely small. Fold devicePixelRatio into the scale so the final
+ * raster — not just the CSS clip — stays within the target size.
+ */
+export async function buildScreenshotClip(
   session: ProtocolApi,
   target: ScreenshotSize,
 ): Promise<Viewport> {
-  const metrics = await session.Page.getLayoutMetrics()
+  const [metrics, dprResult] = await Promise.all([
+    session.Page.getLayoutMetrics(),
+    session.Runtime.evaluate({
+      expression: 'window.devicePixelRatio',
+      returnByValue: true,
+    }).catch(() => null),
+  ])
   const viewport = metrics.cssLayoutViewport ?? metrics.layoutViewport
+  const devicePixelRatio =
+    typeof dprResult?.result?.value === 'number' && dprResult.result.value > 0
+      ? dprResult.result.value
+      : 1
   const scale =
     viewport.clientWidth > 0 && viewport.clientHeight > 0
       ? Math.min(
           1,
-          target.width / viewport.clientWidth,
-          target.height / viewport.clientHeight,
+          target.width / (viewport.clientWidth * devicePixelRatio),
+          target.height / (viewport.clientHeight * devicePixelRatio),
         )
       : 1
 

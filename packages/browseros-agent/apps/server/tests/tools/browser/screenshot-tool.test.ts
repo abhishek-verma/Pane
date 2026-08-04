@@ -48,6 +48,9 @@ describe('screenshot tool', () => {
                 },
               }),
             },
+            Runtime: {
+              evaluate: async () => ({ result: { value: 1 } }),
+            },
           },
         }),
       },

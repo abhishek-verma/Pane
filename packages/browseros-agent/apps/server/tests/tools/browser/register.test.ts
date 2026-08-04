@@ -151,6 +151,9 @@ describe('registerBrowserTools', () => {
                 },
               }),
             },
+            Runtime: {
+              evaluate: async () => ({ result: { value: 1 } }),
+            },
           },
         }),
       },
@@ -246,6 +249,9 @@ describe('registerBrowserTools', () => {
                   },
                 }
               },
+            },
+            Runtime: {
+              evaluate: async () => ({ result: { value: 1 } }),
             },
           },
         }),

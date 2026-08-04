@@ -200,6 +200,9 @@ describe('ToolResponse', () => {
                 return { data: 'fake-jpeg-base64' }
               },
             },
+            Runtime: {
+              evaluate: async () => ({ result: { value: 1 } }),
+            },
           },
         }),
       },
