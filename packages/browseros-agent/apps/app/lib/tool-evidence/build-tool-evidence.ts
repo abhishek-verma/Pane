@@ -1,3 +1,4 @@
+import { bareToolName } from '@/lib/tool-name'
 import { buildAppSendDetail } from './app-send-evidence'
 import { buildBrowserActionDetail } from './browser-evidence'
 import { classifyToolVisibility, isSpecializedKind } from './classify'
@@ -152,7 +153,7 @@ function buildBrowserEvidence(args: {
 }
 
 export function buildToolEvidence(args: BuildToolEvidenceArgs): ToolEvidence {
-  const toolName = args.toolName.replace(/^tool-/, '')
+  const toolName = bareToolName(args.toolName)
   const kind = classifyToolVisibility(toolName)
   const state = mapInvocationState(args.state)
   const input = args.input ?? {}

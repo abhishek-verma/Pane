@@ -7,6 +7,18 @@
 import type { UIMessage } from 'ai'
 import type { ToolImageStore } from './session-store'
 
+// ACP-backed providers (Claude Code, etc.) persist tool-call history with a
+// server-name prefix — `mcp__browseros__pi_open`, `mcp.browseros.navigate`
+// — instead of the bare name the in-process toolset registers. Without
+// stripping it, sanitizeMessagesForToolset() below treats every ACP-sourced
+// tool part as unknown and silently drops it from history on the next
+// rebuild (e.g. a mid-conversation provider switch).
+const MCP_TOOL_PREFIX_RE = /^mcp[._]+[a-z0-9-]+[._]+/i
+
+function bareToolName(name: string): string {
+  return name.replace(MCP_TOOL_PREFIX_RE, '')
+}
+
 /**
  * Checks whether a UIMessage has meaningful content that can be sent
  * to the AI provider without causing validation errors.
@@ -68,7 +80,7 @@ export function sanitizeMessagesForToolset(
       const filteredParts = msg.parts.filter((part) => {
         // Static tool parts have type `tool-${toolName}`
         if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
-          const toolName = part.type.slice(5)
+          const toolName = bareToolName(part.type.slice(5))
           if (!toolNames.has(toolName)) return false
         }
         // Dynamic (MCP) tool parts carry the name in `toolName` instead of
@@ -76,7 +88,10 @@ export function sanitizeMessagesForToolset(
         // behind the same way a removed static tool does.
         if (part.type === 'dynamic-tool') {
           const toolName = (part as { toolName?: string }).toolName
-          if (typeof toolName === 'string' && !toolNames.has(toolName)) {
+          if (
+            typeof toolName === 'string' &&
+            !toolNames.has(bareToolName(toolName))
+          ) {
             return false
           }
         }

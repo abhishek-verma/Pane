@@ -32,11 +32,19 @@ type UiMessage = {
   parts?: UiPart[]
 }
 
+// ACP-backed providers (Claude Code, etc.) report BrowserOS tool calls with
+// a server-name prefix — `mcp__browseros__pi_read`, `mcp.browseros.pi_read`
+// — instead of the bare name summarizeTool() below matches on.
+const MCP_TOOL_PREFIX_RE = /^mcp[._]+[a-z0-9-]+[._]+/i
+
 function toolNameFromPart(part: UiPart): string | null {
-  if (typeof part.toolName === 'string' && part.toolName) return part.toolName
-  const t = part.type ?? ''
-  if (t.startsWith('tool-')) return t.slice('tool-'.length)
-  return null
+  const raw =
+    typeof part.toolName === 'string' && part.toolName
+      ? part.toolName
+      : part.type?.startsWith('tool-')
+        ? part.type.slice('tool-'.length)
+        : null
+  return raw ? raw.replace(MCP_TOOL_PREFIX_RE, '') : null
 }
 
 function summarizeTool(name: string, input: unknown): string {

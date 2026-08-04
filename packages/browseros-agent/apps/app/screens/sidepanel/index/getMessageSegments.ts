@@ -6,6 +6,7 @@
 
 import type { UIMessage } from 'ai'
 import { PI_HREF_RE } from '@/lib/personal-internet/pi-href'
+import { bareToolName } from '@/lib/tool-name'
 import type { PiPagePreview } from './PiPageCard'
 
 export type ToolInvocationState =
@@ -150,7 +151,7 @@ function pushTextWithPiLinks(
         isStreaming: false,
       })
     }
-    const href = match[0].replace(/[.,;:!?]+$/, '')
+    const href = match[0].replace(/[.,;:!?`]+$/, '')
     if (!seenHrefs.has(href)) {
       seenHrefs.add(href)
       segments.push({
@@ -186,6 +187,11 @@ export const getMessageSegments = (
   const seenToolCallIds = new Set<string>()
   const seenReasoningTexts = new Set<string>()
   const seenPiHrefs = new Set<string>()
+  // Tracks which `segments` index holds the pi-preview card for a given
+  // href so a later tool call for the same page (e.g. pi_open after
+  // pi_page_create) can upgrade autoOpen instead of being silently dropped
+  // as a duplicate.
+  const piCardIndexByHref = new Map<string, number>()
 
   const flushToolBatch = () => {
     if (currentToolBatch.length > 0) {
@@ -253,10 +259,11 @@ export const getMessageSegments = (
       if (toolPart.toolCallId?.startsWith('acpx-')) {
         continue
       }
-      const toolName =
+      const toolName = bareToolName(
         part.type === 'dynamic-tool'
           ? (toolPart.toolName ?? 'tool')
-          : toolPart.type.replace('tool-', '')
+          : toolPart.type.replace('tool-', ''),
+      )
 
       if (NUDGE_TOOLS.has(toolName) && toolPart.state === 'output-available') {
         flushToolBatch()
@@ -275,15 +282,31 @@ export const getMessageSegments = (
       ) {
         flushToolBatch()
         const card = parsePiCardOutput(toolPart.output, toolName)
-        if (card && !seenPiHrefs.has(card.href)) {
-          seenPiHrefs.add(card.href)
-          segments.push({
-            type: 'pi-preview',
-            key: `${message.id}-pi-${toolPart.toolCallId}`,
-            href: card.href,
-            preview: card.preview,
-            autoOpen: card.autoOpen,
-          })
+        if (card) {
+          const existingIdx = piCardIndexByHref.get(card.href)
+          const existing =
+            existingIdx !== undefined ? segments[existingIdx] : undefined
+          if (existing?.type === 'pi-preview') {
+            // e.g. pi_page_create's own card arrived first (no autoOpen);
+            // a later pi_open for the same href must still trigger navigation.
+            if (card.autoOpen && !existing.autoOpen) {
+              segments[existingIdx as number] = {
+                ...existing,
+                preview: card.preview ?? existing.preview,
+                autoOpen: true,
+              }
+            }
+          } else {
+            seenPiHrefs.add(card.href)
+            piCardIndexByHref.set(card.href, segments.length)
+            segments.push({
+              type: 'pi-preview',
+              key: `${message.id}-pi-${toolPart.toolCallId}`,
+              href: card.href,
+              preview: card.preview,
+              autoOpen: card.autoOpen,
+            })
+          }
         }
       } else if (NUDGE_TOOLS.has(toolName) || PI_CARD_TOOLS.has(toolName)) {
       } else if (!NUDGE_TOOLS.has(toolName)) {

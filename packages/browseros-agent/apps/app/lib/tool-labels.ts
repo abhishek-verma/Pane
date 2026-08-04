@@ -9,6 +9,8 @@
  * snake_case identifiers into agent-speak verbs.
  */
 
+import { bareToolName } from '@/lib/tool-name'
+
 const VERB_OVERRIDES: Record<string, string> = {
   // Navigation
   navigate_page: 'Navigated to',
@@ -278,11 +280,11 @@ export interface ToolLabelResult {
 }
 
 /**
- * Strip MCP namespace prefixes (e.g. "browseros__", "mcp_") to find the
- * canonical tool name used in the override maps.
+ * Strip MCP namespace prefixes (e.g. "mcp__browseros__", "mcp.browseros.")
+ * to find the canonical tool name used in the override maps.
  */
 function canonicalName(rawName: string): string {
-  return rawName.replace(/^browseros__/, '').replace(/^mcp_/, '')
+  return bareToolName(rawName)
 }
 
 /**
