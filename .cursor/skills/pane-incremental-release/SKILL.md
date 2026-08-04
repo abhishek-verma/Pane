@@ -18,6 +18,12 @@ When the user invokes this skill **with no further instructions**, run the entir
 **Local signed production** path end-to-end. Do not stop for confirmation unless a
 hard don't would be violated or the tree needs a full Chromium rebuild.
 
+**Test first.** If the diff touches only server (`packages/browseros-agent/apps/server/**`)
+or extension (`packages/browseros-agent/apps/app/**`) code, verify the changes in the
+installed app with the **`pane-quick-test`** skill before building/shipping here. Only
+proceed to the release when the user confirms the quick test passed. Chromium C++ /
+`chromium_patches/` changes have no quick path — go straight to the incremental build.
+
 ## Hard don'ts
 - Do **not** run `git reset --hard`, `git clean`, or `gclient sync` in `/Users/abhishek/chromium/src` without asking.
 - Do **not** use full unsigned configs (`release.macos.arm64.unsigned.local.yaml`) for production.
@@ -125,7 +131,8 @@ APP="/Users/abhishek/chromium/src/out/Default_arm64/Pane.app"
 DMG="packages/browseros/releases/<version>/Pane_v<version>_arm64.dmg"
 codesign --verify --deep --strict "$APP"
 spctl -a -vv "$APP"
-xcrun stapler validate "$DMG"
+xcrun stapler validate "$APP"    # ticket stapled to the app by notarization
+xcrun stapler validate "$DMG"    # Sparkle-served DMG must also be clean
 ```
 
 ### 6. Tag → upload → appcast
@@ -160,6 +167,23 @@ packages/browseros-agent/scripts/release/commit-updates-via-pr.sh \
 DMG path + size, notarization acceptance / stapler result, `spctl` output, release URL, appcast PR URL, path used (signed.repackage vs signed.incremental).
 
 ---
+
+## Resume after an interrupted release
+
+If notarization or the build terminal dies mid-release (the app is already signed,
+but the DMG/tag/upload never happened), do **not** restart from scratch. Run:
+
+```bash
+bash packages/browseros-agent/scripts/release/resume-signed-browser-release.sh <version>
+# e.g. bash .../resume-signed-browser-release.sh 0.47.0.54
+```
+
+It re-runs only `package_macos,sparkle_sign` (the app is already signed, so it
+skips `sign_macos`) if the DMG isn't already at `releases/<version>/`, then verifies
+Gatekeeper cleanliness (§5), tags, uploads, and updates the appcast (§6) — the same
+steps below, scripted end to end. If notarytool timed out, re-submit with
+`uv run browseros build --modules notarize_macos,...` or `xcrun notarytool submit`
+against the zipped app, then staple, before running the script.
 
 ## Signed CI path (when a self-hosted runner exists)
 

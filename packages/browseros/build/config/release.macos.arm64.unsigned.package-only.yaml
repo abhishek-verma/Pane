@@ -1,0 +1,14 @@
+# Package + Sparkle only. Assumes out/Default_arm64/Pane.app already built.
+build:
+  type: release
+  architecture: arm64
+
+gn_flags:
+  file: build/config/gn/flags.macos.release.gn
+
+modules:
+  - package_macos
+  - sparkle_sign
+
+notifications:
+  slack: false
