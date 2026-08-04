@@ -21,6 +21,24 @@ Pane is an open-source Chromium browser with a personal agent built into the ses
   <img src="assets/branding/png/pane-poster-1280.png" alt="Pane — a browser that keeps work moving when you step away" width="900" />
 </p>
 
+## Download
+
+<p align="center">
+  <a href="https://github.com/abhishek-verma/Pane/releases/latest">
+    <img src="https://img.shields.io/github/v/release/abhishek-verma/Pane?filter=browser%2Fv*&label=Download%20for%20macOS&logo=apple&style=for-the-badge&color=black" alt="Download for macOS" />
+  </a>
+</p>
+
+> macOS arm64 (Apple Silicon). Click the badge, then download `Pane_v*_arm64.dmg`. [All releases →](https://github.com/abhishek-verma/Pane/releases?q=browser%2Fv)
+
+1. **Download** the DMG above, open it, and drag Pane to Applications ([macOS install guide](docs/install/macos.mdx)).
+2. **Import from Chrome** if you want your bookmarks, passwords, history, and extensions.
+3. **Connect a model.** OAuth is usually the easiest path if you already pay for Claude, ChatGPT Pro, GitHub Copilot, or Qwen. You can also paste an API key or use a local model ([setup guide](docs/features/bring-your-own-llm.mdx)).
+4. **Open Pane** from the toolbar on any page or from the new-tab home.
+5. **Enable capture** — meeting capture, research mode, and browsing learnings are off until you opt in.
+
+> **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[Discord](https://discord.gg/652JHSyS4)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
+
 ## What changes when the agent is the browser
 
 ### What mattered stays
@@ -117,24 +135,6 @@ Personalised Internet could go beyond private project sites and toward personal 
 - **A personal shopping layer** that ranks products by your actual constraints, not ad spend, and remembers why you rejected the alternatives
 
 Your agent would assemble private views on top of the web you already use, shaped by your goals, memory, and judgment.
-
-## Try it
-
-<p align="center">
-  <a href="https://github.com/abhishek-verma/Pane/releases/latest">
-    <img src="https://img.shields.io/github/v/release/abhishek-verma/Pane?filter=browser%2Fv*&label=Download%20for%20macOS&logo=apple&style=for-the-badge&color=black" alt="Download for macOS" />
-  </a>
-</p>
-
-> macOS arm64 (Apple Silicon). Click the badge, then download `Pane_v*_arm64.dmg`. [All releases →](https://github.com/abhishek-verma/Pane/releases?q=browser%2Fv)
-
-1. **Download** the DMG above, open it, and drag Pane to Applications ([macOS install guide](docs/install/macos.mdx)).
-2. **Import from Chrome** if you want your bookmarks, passwords, history, and extensions.
-3. **Connect a model.** OAuth is usually the easiest path if you already pay for Claude, ChatGPT Pro, GitHub Copilot, or Qwen. You can also paste an API key or use a local model ([setup guide](docs/features/bring-your-own-llm.mdx)).
-4. **Open Pane** from the toolbar on any page or from the new-tab home.
-5. **Enable capture** — meeting capture, research mode, and browsing learnings are off until you opt in.
-
-> **[Documentation](https://github.com/abhishek-verma/Pane/tree/main/docs)** · **[Discord](https://discord.gg/652JHSyS4)** · **[Feature requests](https://github.com/abhishek-verma/Pane/issues)**
 
 ## Built on trust
 
