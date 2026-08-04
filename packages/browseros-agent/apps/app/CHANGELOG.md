@@ -1,5 +1,15 @@
 # BrowserOS Agent Extension
 
+## v0.0.156 (2026-08-04)
+
+## What's Changed
+
+- chore(release): publish extension v0.0.156 and bump browser to 0.47.0.59
+- fix(capture): resilient call-state detection for Zoom PWA and future clients
+- docs(readme): rename PI GIF to bust GitHub CDN cache
+- docs(readme): export PI GIF and move section to top of features
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
