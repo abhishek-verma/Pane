@@ -103,6 +103,7 @@ describe('section presence', () => {
     // Each section has a unique XML tag or heading that identifies it
     const expectedMarkers = [
       '<role>', // role-and-mode
+      '<current_date>', // current-date
       '<security>', // security
       '<capabilities>', // capabilities
       '<retrieval_first>', // retrieval-first
@@ -248,6 +249,32 @@ describe('workspace gating (P11)', () => {
       // but the workspace section with its tool catalog must be absent)
       expect(prompt).not.toContain('Working directory:')
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 2b. CURRENT DATE
+//
+// Why: The agent otherwise has no grounding for "today," "tomorrow," or
+// relative dates, and misjudges them. The prompt must always carry the
+// server's current date/time, since the server runs on the user's machine
+// and its local time is the user's local time.
+// ---------------------------------------------------------------------------
+
+describe('current date', () => {
+  it('includes the current year and an IANA-style timezone', () => {
+    const prompt = buildRegular()
+    const currentYear = String(new Date().getFullYear())
+    expect(prompt).toContain('<current_date>')
+    expect(prompt).toContain(currentYear)
+  })
+
+  it('appears before security (early in the prompt)', () => {
+    const prompt = buildRegular()
+    const datePos = prompt.indexOf('<current_date>')
+    const securityPos = prompt.indexOf('<security>')
+    expect(datePos).toBeGreaterThan(-1)
+    expect(datePos).toBeLessThan(securityPos)
   })
 })
 

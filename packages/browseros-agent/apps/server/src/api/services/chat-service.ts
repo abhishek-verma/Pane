@@ -45,6 +45,7 @@ import {
 import { projectMessagesForUi } from '../../agent/project-messages-for-ui'
 import { runTracker } from '../../agent/run-tracker'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
+import { clearSessionTabGroup } from '../../agent/session-tab-groups'
 import { applyToolApprovalDecisions } from '../../agent/tool-approval-resolve'
 import type { ResolvedAgentConfig } from '../../agent/types'
 import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpServers'
@@ -1047,6 +1048,7 @@ export class ChatService {
     conversationId: string,
   ): Promise<{ deleted: boolean; sessionCount: number }> {
     this.cancelTurn(conversationId, 'conversation-deleted')
+    clearSessionTabGroup(conversationId)
     const session = this.deps.sessionStore.get(conversationId)
     if (session?.hiddenPageId) {
       const pageId = session.hiddenPageId
