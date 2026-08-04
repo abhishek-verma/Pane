@@ -590,7 +590,7 @@ def find_components_to_sign(
 
 
 def get_identifier_for_component(
-    component_path: Path, base_identifier: str = "com.browseros"
+    component_path: Path, base_identifier: str = "com.panebrowser"
 ) -> str:
     """Generate identifier for a component based on its path and name"""
     name = component_path.stem
@@ -948,13 +948,13 @@ def sign_all_components(
         )
         return False
 
-    if not sign_component(main_exe, certificate_name, "com.browseros.BrowserOS"):
+    if not sign_component(main_exe, certificate_name, "com.panebrowser.app"):
         return False
 
     # 8. Finally sign the app bundle
     log_info("\n🔏 Signing application bundle...")
     requirements = (
-        '=designated => identifier "com.browseros.BrowserOS" and '
+        '=designated => identifier "com.panebrowser.app" and '
         "anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and "
         "certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */"
     )
@@ -995,7 +995,7 @@ def sign_all_components(
         "--force",
         "--timestamp",
         "--identifier",
-        "com.browseros.BrowserOS",
+        "com.panebrowser.app",
         "--options",
         "restrict,library,runtime,kill",
         "--requirements",
