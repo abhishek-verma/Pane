@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Personalised Internet — Pane turns an ongoing job search into a living private site">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-label="Personalised Internet — your work becomes a living web of private sites">
   <defs>
   <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
     <stop offset="0%" stop-color="#C8E832"/>
@@ -20,94 +20,31 @@
   }
 
 
-  .score-fill {
-    transform-box: fill-box;
-    transform-origin: left center;
-    animation: fillBar 7s ease-out infinite;
+  /* 9s loop — 3 full-screen phases with crossfade */
+  .ph1 { animation: ph1 9s ease-in-out infinite; }
+  .ph2 { animation: ph2 9s ease-in-out infinite; }
+  .ph3 { animation: ph3 9s ease-in-out infinite; }
+  @keyframes ph1 { 0%,28% { opacity:1 } 32%,100% { opacity:0 } }
+  @keyframes ph2 { 0%,30% { opacity:0 } 34%,62% { opacity:1 } 66%,100% { opacity:0 } }
+  @keyframes ph3 { 0%,64% { opacity:0 } 68%,94% { opacity:1 } 98%,100% { opacity:0 } }
+  .field-bg { animation: fBg 9s ease-in-out infinite; }
+  @keyframes fBg {
+    0%,28% { fill: #FFFFFF }
+    34%,62% { fill: #EFE3C8 }
+    68%,94% { fill: #E6DFF0 }
+    98%,100% { fill: #FFFFFF }
   }
-  @keyframes fillBar {
-    0%,5% { transform: scaleX(0.08); }
-    18%,90% { transform: scaleX(1); }
-    100% { transform: scaleX(0.08); }
+  /* Click-flash on the element being opened, just before each transition */
+  .click-doorway { animation: clickDoorway 9s ease-in-out infinite; }
+  @keyframes clickDoorway {
+    0%,24% { fill-opacity:0 } 25.5% { fill-opacity:0.07 } 27.5% { fill-opacity:0 } 100% { fill-opacity:0 }
   }
-  .fld-name, .fld-email, .fld-resume, .fld-cover {
-    opacity: 0;
-    animation: typeIn 7s ease-in-out infinite both;
+  .click-card { animation: clickCard 9s ease-in-out infinite; }
+  @keyframes clickCard {
+    0%,58.5% { fill-opacity:0 } 60% { fill-opacity:0.1 } 62% { fill-opacity:0 } 100% { fill-opacity:0 }
   }
-  .fld-email { animation-delay: 0.7s; }
-  .fld-resume { animation-delay: 1.4s; }
-  .fld-cover { animation-delay: 2.1s; }
-  @keyframes typeIn {
-    0%,8% { opacity: 0; }
-    18%,78% { opacity: 1; }
-    90%,100% { opacity: 0; }
-  }
-  .focus1, .focus2, .focus3, .focus4 {
-    animation: focusRing 7s ease-in-out infinite both;
-  }
-  .focus2 { animation-delay: 0.7s; }
-  .focus3 { animation-delay: 1.4s; }
-  .focus4 { animation-delay: 2.1s; }
-  @keyframes focusRing {
-    0%,6% { stroke-opacity: 0; }
-    10%,18% { stroke-opacity: 0.7; }
-    26%,100% { stroke-opacity: 0; }
-  }
-  .submit-btn { animation: submitPress 7s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-  @keyframes submitPress {
-    0%,48% { transform: scale(1); }
-    52% { transform: scale(0.96); }
-    58%,100% { transform: scale(1); }
-  }
-  .form-dim { animation: dimForm 7s ease-in-out infinite; }
-  @keyframes dimForm {
-    0%,58% { opacity: 1; }
-    68%,88% { opacity: 0.35; }
-    96%,100% { opacity: 1; }
-  }
-  .success-inner { animation: successIn 7s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-  @keyframes successIn {
-    0%,58% { opacity: 0; transform: scale(0.86); }
-    68%,88% { opacity: 1; transform: scale(1); }
-    96%,100% { opacity: 0; transform: scale(0.92); }
-  }
-  .tick-circle {
-    fill: none;
-    stroke: #94B316;
-    stroke-width: 3;
-    stroke-linecap: round;
-    stroke-dasharray: 180;
-    stroke-dashoffset: 180;
-    animation: drawCircle 7s ease-in-out infinite;
-  }
-  @keyframes drawCircle {
-    0%,60% { stroke-dashoffset: 180; }
-    70%,88% { stroke-dashoffset: 0; }
-    96%,100% { stroke-dashoffset: 180; }
-  }
-  .tick-mark {
-    fill: none;
-    stroke: #94B316;
-    stroke-width: 3.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-dasharray: 40;
-    stroke-dashoffset: 40;
-    animation: drawTick 7s ease-in-out infinite;
-  }
-  @keyframes drawTick {
-    0%,68% { stroke-dashoffset: 40; }
-    76%,88% { stroke-dashoffset: 0; }
-    96%,100% { stroke-dashoffset: 40; }
-  }
-  .agent-step1 { animation: stepOn 7s ease-in-out infinite; }
-  .agent-step2 { animation: stepOn 7s ease-in-out infinite; animation-delay: 1.2s; }
-  .agent-step3 { animation: stepOn 7s ease-in-out infinite; animation-delay: 2.8s; }
-  @keyframes stepOn {
-    0%,10% { opacity: 0.35; }
-    20%,78% { opacity: 1; }
-    90%,100% { opacity: 0.35; }
-  }
+  .pulse-dot { animation: pDot 2s ease-in-out infinite; }
+  @keyframes pDot { 0%,100% { opacity:.4 } 50% { opacity:1 } }
 
   ]]></style></defs>
   <rect width="960" height="540" fill="#FFFFFF"/>
@@ -118,57 +55,213 @@
     <rect x="40" y="36" width="880" height="468" fill="#FFFFFF" stroke="#E2E2E2" stroke-width="1"/>
     <rect x="40" y="36" width="880" height="32" fill="#FFFFFF"/>
     <line x1="40" y1="68" x2="920" y2="68" stroke="#E2E2E2"/>
-    <text class="mono" x="56" y="57" fill="#6B6B72" font-size="10">PANE / PERSONALISED INTERNET / JOB SEARCH</text>
+    <text class="mono" x="56" y="57" fill="#6B6B72" font-size="10"></text>
     <circle cx="830" cy="52" r="3.5" fill="#C8E832"/>
-    <text class="mono" x="902" y="57" text-anchor="end" fill="#6B6B72" font-size="10">SITE LIVE</text>
-    <rect x="40" y="68" width="880" height="436" fill="#8FCFC0"/>
+    <text class="mono" x="902" y="57" text-anchor="end" fill="#6B6B72" font-size="10"></text>
+    <rect x="40" y="68" width="880" height="436" fill="#FFFFFF"/>
 
-    <text x="64" y="100" fill="#10241F" font-size="25" font-weight="620" letter-spacing="-0.04em">Job Search</text>
-    <text class="mono" x="64" y="122" fill="#25584F" font-size="9">PRIVATE SITE · BUILT AROUND YOUR WORK</text>
+    <rect class="field-bg" x="40" y="68" width="880" height="436"/>
 
-    <g transform="translate(64 140)">
-      <rect width="196" height="5" fill="#94B316"/>
-      <rect x="204" width="196" height="5" fill="#94B316"/>
-      <rect x="408" width="196" height="5" fill="#4A8F82" fill-opacity=".45"/>
-      <rect x="612" width="196" height="5" fill="#4A8F82" fill-opacity=".35"/>
-      <g class="mono" fill="#25584F" font-size="8">
-        <text x="0" y="22">SAVED</text>
-        <text x="204" y="22">APPLIED</text>
-        <text x="408" y="22">INTERVIEWS</text>
-        <text x="612" y="22">FOLLOW-UP</text>
-      </g>
+    <!-- PHASE 1: Home — white shell, doorways, continuity -->
+    <g class="ph1">
+      <text class="mono" x="56" y="57" fill="#6B6B72" font-size="10">PANE / HOME</text>
+      <circle cx="830" cy="52" r="3.5" fill="#C8E832"/>
+      <text class="mono" x="902" y="57" text-anchor="end" fill="#6B6B72" font-size="10">PANE IDLE</text>
+
+
+    <rect x="64" y="88" width="832" height="64" rx="5" fill="#FAFAFA" stroke="#E2E2E2"/>
+    <text x="78" y="112" fill="#6B6B72" font-size="12">Ask Pane to start living work…</text>
+    <line x1="76" y1="124" x2="844" y2="124" stroke="#E2E2E2"/>
+    <text class="mono" x="78" y="140" fill="#6B6B72" font-size="9">PANE</text>
+    <text class="mono" x="160" y="140" fill="#6B6B72" font-size="9">WORKSPACE</text>
+    <circle cx="872" cy="120" r="12" fill="#C8E832"/>
+    <path d="M867 120h10M873 116l4 4-4 4" fill="none" stroke="#1A1F0A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+
+      <text class="mono" x="64" y="188" fill="#6B6B72" font-size="9">DOORWAYS</text>
+      <line x1="64" y1="198" x2="896" y2="198" stroke="#E5E5E5"/>
+
+      <!-- Job Search doorway row — 68px tall -->
+      <circle cx="78" cy="232" r="8" fill="#EFE3C8"/>
+      <text x="96" y="226" fill="#111113" font-size="13" font-weight="550">Job Search</text>
+      <text class="mono" x="96" y="244" fill="#6B6B72" font-size="9">3 ACTIVE · 1 OFFER · UPDATED 2H AGO</text>
+      <text x="882" y="235" text-anchor="end" fill="#6B6B72" font-size="14">→</text>
+      <!-- Click flash just before transition to board -->
+      <rect class="click-doorway" x="64" y="198" width="832" height="68" fill="#111113"/>
+      <line x1="64" y1="266" x2="896" y2="266" stroke="#E5E5E5"/>
+
+      <!-- Research Hub doorway row — 68px tall -->
+      <circle cx="78" cy="300" r="8" fill="#A8C0E8"/>
+      <text x="96" y="294" fill="#111113" font-size="13" font-weight="550">Research Hub</text>
+      <text class="mono" x="96" y="312" fill="#6B6B72" font-size="9">12 FINDINGS · 3 NEW SINCE MONDAY</text>
+      <text x="882" y="303" text-anchor="end" fill="#6B6B72" font-size="14">→</text>
+      <line x1="64" y1="334" x2="896" y2="334" stroke="#E5E5E5"/>
+
+      <text class="mono" x="64" y="366" fill="#6B6B72" font-size="9">CONTINUITY</text>
+      <line x1="64" y1="376" x2="896" y2="376" stroke="#E5E5E5"/>
+      <!-- Continuity item — citron left-rail trace (2px), 52px tall -->
+      <rect x="64" y="376" width="2" height="52" fill="#C8E832"/>
+      <text x="78" y="398" fill="#111113" font-size="12">Follow up with Meridian — applied 5 days ago</text>
+      <text class="mono" x="78" y="416" fill="#6B6B72" font-size="9">JOB SEARCH · SUGGESTED</text>
+      <line x1="64" y1="428" x2="896" y2="428" stroke="#E5E5E5"/>
     </g>
 
-    <line x1="64" y1="180" x2="896" y2="180" stroke="#4A8F82"/>
+    <!-- PHASE 2: Board — ember field, flat kanban, no card radii -->
+    <g class="ph2">
+      <text class="mono" x="56" y="57" fill="#7A5820" font-size="10">PANE / JOB SEARCH</text>
+      <circle cx="830" cy="52" r="3.5" fill="#C8E832"/>
+      <text class="mono" x="902" y="57" text-anchor="end" fill="#7A5820" font-size="10">SITE READY</text>
 
-    <g transform="translate(64 200)">
-      <text class="mono" x="0" y="0" fill="#25584F" font-size="9">TODAY</text>
-      <g transform="translate(0 16)">
-        <rect width="250" height="92" rx="5" fill="#A8DDD2" stroke="#4A8F82"/>
-        <text x="14" y="25" fill="#10241F" font-size="14" font-weight="600">Acme · Product Lead</text>
-        <text class="mono" x="14" y="46" fill="#25584F" font-size="8">SAVED · COMPANY PAGE READY</text>
-        <text x="14" y="70" fill="#25584F" font-size="11">Research thread · 8 sources</text>
-      </g>
-      <g transform="translate(266 16)">
-        <rect width="250" height="92" rx="5" fill="#A8DDD2" stroke="#4A8F82"/>
-        <text x="14" y="25" fill="#10241F" font-size="14" font-weight="600">Northstar · PM</text>
-        <text class="mono" x="14" y="46" fill="#25584F" font-size="8">APPLIED · FOLLOW UP FRIDAY</text>
-        <text x="14" y="70" fill="#25584F" font-size="11">Notes and next action attached</text>
-      </g>
-      <g class="success-inner" transform="translate(532 16)">
-        <rect width="276" height="92" rx="5" fill="#A8DDD2" stroke="#94B316" stroke-width="1.5"/>
-        <text x="14" y="25" fill="#10241F" font-size="14" font-weight="600">GreyOrange · Senior PM</text>
-        <text class="mono" x="14" y="46" fill="#25584F" font-size="8">INTERVIEW · PAGE MATERIALISED</text>
-        <text x="14" y="70" fill="#25584F" font-size="11">People · news · prep in one place</text>
-      </g>
+      <!-- Page title row -->
+      <text x="64" y="102" fill="#2A1E08" font-size="19" font-weight="580" letter-spacing="-0.025em">Job Search</text>
+      <text class="mono" x="896" y="102" text-anchor="end" fill="#7A5820" font-size="9">pi://job-search</text>
+
+      <!-- Pulse line (match real UI: "8 applied · 3 active · 1 offer") -->
+      <text class="mono" x="64" y="120" fill="#7A5820" font-size="9">8 applied · 3 interviewing · 5 ghosted · 1 offer</text>
+      <line x1="64" y1="130" x2="896" y2="130" stroke="#CBA85A" stroke-opacity=".4"/>
+
+      <!-- 4 columns — flat, border-l dividers, w-56 each -->
+
+      <line x1="64" y1="130" x2="64" y2="502" stroke="#CBA85A" stroke-opacity="0"/>
+      <text class="mono" x="76" y="148" fill="#7A5820" font-size="9">APPLIED</text>
+      <text class="mono" x="268" y="148" text-anchor="end" fill="#7A5820" font-size="9">3</text>
+      <line x1="64" y1="156" x2="280" y2="156" stroke="#CBA85A" stroke-opacity=".4"/>
+      <line x1="280" y1="130" x2="280" y2="502" stroke="#CBA85A" stroke-opacity="0.4"/>
+      <text class="mono" x="292" y="148" fill="#7A5820" font-size="9">ACTIVE</text>
+      <text class="mono" x="484" y="148" text-anchor="end" fill="#7A5820" font-size="9">2</text>
+      <line x1="280" y1="156" x2="496" y2="156" stroke="#CBA85A" stroke-opacity=".4"/>
+      <line x1="496" y1="130" x2="496" y2="502" stroke="#CBA85A" stroke-opacity="0.4"/>
+      <text class="mono" x="508" y="148" fill="#7A5820" font-size="9">OFFER</text>
+      <text class="mono" x="700" y="148" text-anchor="end" fill="#7A5820" font-size="9">1</text>
+      <line x1="496" y1="156" x2="712" y2="156" stroke="#CBA85A" stroke-opacity=".4"/>
+      <line x1="712" y1="130" x2="712" y2="502" stroke="#CBA85A" stroke-opacity="0.4"/>
+      <text class="mono" x="724" y="148" fill="#7A5820" font-size="9">GHOSTED</text>
+      <text class="mono" x="916" y="148" text-anchor="end" fill="#7A5820" font-size="9">2</text>
+      <line x1="712" y1="156" x2="928" y2="156" stroke="#CBA85A" stroke-opacity=".4"/>
+
+      <!-- Col 0: Applied cards — 64px rows, PREP + DETAILS on each -->
+
+      <line x1="64" y1="220" x2="280" y2="220" stroke="#CBA85A" stroke-opacity=".3"/>
+      <text x="76" y="176" fill="#2A1E08" font-size="11" font-weight="500">Meridian · PM</text>
+      <text x="76" y="191" fill="#7A5820" font-size="10">Applied 5 days ago</text>
+      <rect x="76" y="200" width="32" height="13" fill="none" stroke="#CBA85A"/>
+      <text class="mono" x="92" y="209" text-anchor="middle" fill="#7A5820" font-size="7">PREP</text>
+      <rect x="114" y="200" width="40" height="13" fill="none" stroke="#CBA85A"/>
+      <text class="mono" x="134" y="209" text-anchor="middle" fill="#7A5820" font-size="7">DETAILS</text>
+      <line x1="64" y1="284" x2="280" y2="284" stroke="#CBA85A" stroke-opacity=".3"/>
+      <text x="76" y="240" fill="#2A1E08" font-size="11" font-weight="500">Helix · Product</text>
+      <text x="76" y="255" fill="#7A5820" font-size="10">Applied 2 days ago</text>
+      <rect x="76" y="264" width="32" height="13" fill="none" stroke="#CBA85A"/>
+      <text class="mono" x="92" y="273" text-anchor="middle" fill="#7A5820" font-size="7">PREP</text>
+      <rect x="114" y="264" width="40" height="13" fill="none" stroke="#CBA85A"/>
+      <text class="mono" x="134" y="273" text-anchor="middle" fill="#7A5820" font-size="7">DETAILS</text>
+      <line x1="64" y1="348" x2="280" y2="348" stroke="#CBA85A" stroke-opacity=".3"/>
+      <text x="76" y="304" fill="#2A1E08" font-size="11" font-weight="500">Canopy · Sr PM</text>
+      <text x="76" y="319" fill="#7A5820" font-size="10">Applied today</text>
+      <rect x="76" y="328" width="32" height="13" fill="none" stroke="#CBA85A"/>
+      <text class="mono" x="92" y="337" text-anchor="middle" fill="#7A5820" font-size="7">PREP</text>
+      <rect x="114" y="328" width="40" height="13" fill="none" stroke="#CBA85A"/>
+      <text class="mono" x="134" y="337" text-anchor="middle" fill="#7A5820" font-size="7">DETAILS</text>
+
+      <!-- Col 1: Active — Wavefront (citron highlight) + Strata -->
+
+      <!-- Click flash on Wavefront before entity transition -->
+      <rect class="click-card" x="280" y="156" width="216" height="64" fill="#2A1E08"/>
+      <rect x="280" y="156" width="2" height="64" fill="#C8E832"/>
+      <line x1="280" y1="220" x2="496" y2="220" stroke="#94B316" stroke-opacity="1"/>
+      <text x="294" y="176" fill="#2A1E08" font-size="11" font-weight="600">Wavefront · PM</text>
+      <text x="294" y="191" fill="#7A5820" font-size="10">Round 2 · Thursday</text>
+      <rect x="294" y="200" width="32" height="13" fill="#C8E832" fill-opacity=".25" stroke="#94B316" stroke-opacity=".6"/>
+      <text class="mono" x="310" y="209" text-anchor="middle" fill="#2A1E08" font-size="7">PREP</text>
+      <rect x="332" y="200" width="40" height="13" fill="none" stroke="#CBA85A" stroke-opacity=".5"/>
+      <text class="mono" x="352" y="209" text-anchor="middle" fill="#7A5820" font-size="7">DETAILS</text>
+
+      <rect x="280" y="220" width="2" height="0" fill="none"/>
+      <line x1="280" y1="284" x2="496" y2="284" stroke="#CBA85A" stroke-opacity=".3"/>
+      <text x="294" y="240" fill="#2A1E08" font-size="11" font-weight="500">Strata · Sr Eng</text>
+      <text x="294" y="255" fill="#7A5820" font-size="10">Take home · Due Friday</text>
+      <rect x="294" y="264" width="32" height="13" fill="none" stroke="#CBA85A" stroke-opacity=".6"/>
+      <text class="mono" x="310" y="273" text-anchor="middle" fill="#7A5820" font-size="7">PREP</text>
+      <rect x="332" y="264" width="40" height="13" fill="none" stroke="#CBA85A" stroke-opacity=".5"/>
+      <text class="mono" x="352" y="273" text-anchor="middle" fill="#7A5820" font-size="7">DETAILS</text>
+
+      <!-- Col 2: Offer -->
+
+      <line x1="496" y1="220" x2="712" y2="220" stroke="#CBA85A" stroke-opacity=".3"/>
+      <text x="508" y="176" fill="#2A1E08" font-size="11" font-weight="500">Nimbus · PM Lead</text>
+      <text x="508" y="191" fill="#94B316" font-size="10">Offer received</text>
+      <rect x="508" y="200" width="32" height="13" fill="none" stroke="#CBA85A"/>
+      <text class="mono" x="524" y="209" text-anchor="middle" fill="#7A5820" font-size="7">PREP</text>
+      <rect x="546" y="200" width="40" height="13" fill="none" stroke="#CBA85A"/>
+      <text class="mono" x="566" y="209" text-anchor="middle" fill="#7A5820" font-size="7">DETAILS</text>
+
+      <!-- Col 3: Ghosted (muted, no buttons — ghosted = no action needed) -->
+
+      <line x1="712" y1="220" x2="928" y2="220" stroke="#CBA85A" stroke-opacity=".2"/>
+      <text x="724" y="176" fill="#7A5820" font-size="11">Prism · PM</text>
+      <text class="mono" x="724" y="191" fill="#7A5820" font-size="9">14D · NO REPLY</text>
+      <line x1="712" y1="284" x2="928" y2="284" stroke="#CBA85A" stroke-opacity=".2"/>
+      <text x="724" y="240" fill="#7A5820" font-size="11">Lattice · Product</text>
+      <text class="mono" x="724" y="255" fill="#7A5820" font-size="9">21D · NO REPLY</text>
     </g>
 
-    <g transform="translate(64 334)">
-      <rect width="808" height="74" rx="5" fill="#A8DDD2" stroke="#4A8F82"/>
-      <rect x="0" y="6" width="3" height="62" fill="#94B316"/>
-      <text class="mono" x="16" y="22" fill="#25584F" font-size="9">PULSE</text>
-      <text x="16" y="45" fill="#10241F" font-size="13" font-weight="500">One living site, not another folder of chats.</text>
-      <text x="16" y="63" fill="#25584F" font-size="11">Open a company, continue research, or hand the next action to Pane.</text>
+    <!-- PHASE 3: Entity — iris field, company name + badges + timeline -->
+    <g class="ph3">
+      <text class="mono" x="56" y="57" fill="#52407A" font-size="10">PANE / JOB SEARCH / WAVEFRONT</text>
+      <circle cx="830" cy="52" r="3.5" fill="#C8E832"/>
+      <text class="mono" x="902" y="57" text-anchor="end" fill="#52407A" font-size="10">READY</text>
+
+      <!-- Company header row -->
+      <text x="64" y="112" fill="#160F2E" font-size="22" font-weight="580" letter-spacing="-0.03em">Wavefront</text>
+      <rect x="218" y="95" width="82" height="20" fill="none" stroke="#A898D8"/>
+      <text class="mono" x="259" y="108" text-anchor="middle" fill="#160F2E" font-size="8">INTERVIEWING</text>
+      <rect x="308" y="95" width="130" height="20" fill="none" stroke="#A898D8"/>
+      <text class="mono" x="373" y="108" text-anchor="middle" fill="#160F2E" font-size="8">PRINCIPAL PM / DIRECTOR</text>
+      <rect x="806" y="95" width="90" height="20" fill="none" stroke="#A898D8"/>
+      <text class="mono" x="851" y="108" text-anchor="middle" fill="#52407A" font-size="8">← BACK TO SITE</text>
+
+      <line x1="64" y1="124" x2="896" y2="124" stroke="#A898D8" stroke-opacity=".4"/>
+
+      <!-- Next action + follow up -->
+      <text class="mono" x="64" y="146" fill="#52407A" font-size="9">NEXT</text>
+      <text x="104" y="146" fill="#160F2E" font-size="12">~3 more rounds, then joint Alex + Priya discussion</text>
+      <rect x="64" y="154" width="70" height="20" fill="#C8E832" fill-opacity=".25" stroke="#94B316" stroke-opacity=".6"/>
+      <text class="mono" x="99" y="167" text-anchor="middle" fill="#160F2E" font-size="8">FOLLOW UP</text>
+
+      <line x1="64" y1="188" x2="896" y2="188" stroke="#A898D8" stroke-opacity=".4"/>
+
+      <!-- Section: 01 Timeline — more vertical breathing room between items -->
+      <text class="mono" x="64" y="208" fill="#52407A" font-size="9">01</text>
+      <text x="84" y="208" fill="#160F2E" font-size="13" font-weight="550">Timeline</text>
+      <line x1="64" y1="218" x2="896" y2="218" stroke="#A898D8" stroke-opacity=".35"/>
+
+      <circle cx="70" cy="242" r="3.5" fill="#94B316"/>
+      <text class="mono" x="82" y="238" fill="#52407A" font-size="9">AUG 3</text>
+      <text x="82" y="253" fill="#160F2E" font-size="12" font-weight="500">Met Alex + Priya in person — short, positive ✔</text>
+
+      <circle cx="70" cy="281" r="3" fill="#A898D8"/>
+      <text class="mono" x="82" y="277" fill="#52407A" font-size="9">JUL 17</text>
+      <text x="82" y="292" fill="#160F2E" font-size="12">HR screen with Priya → moved to in-person with Alex</text>
+
+      <circle cx="70" cy="320" r="3" fill="#A898D8"/>
+      <text class="mono" x="82" y="316" fill="#52407A" font-size="9">JUL 10</text>
+      <text x="82" y="331" fill="#160F2E" font-size="12">Applied via referral — cover letter sent</text>
+
+      <line x1="64" y1="346" x2="896" y2="346" stroke="#A898D8" stroke-opacity=".35"/>
+
+      <!-- Section: 02 Company -->
+      <text class="mono" x="64" y="366" fill="#52407A" font-size="9">02</text>
+      <text x="84" y="366" fill="#160F2E" font-size="13" font-weight="550">Company</text>
+      <line x1="64" y1="376" x2="896" y2="376" stroke="#A898D8" stroke-opacity=".35"/>
+
+      <text x="64" y="400" fill="#160F2E" font-size="12">Series C · $80M raised · Remote-first · 200 eng · Product-led growth</text>
+      <text x="64" y="418" fill="#52407A" font-size="11">Hiring 3 PM roles · Glassdoor 4.2 · Founded 2018</text>
+
+      <line x1="64" y1="434" x2="896" y2="434" stroke="#A898D8" stroke-opacity=".35"/>
+
+      <!-- Section: 03 Interview outcome -->
+      <text class="mono" x="64" y="454" fill="#52407A" font-size="9">03</text>
+      <text x="84" y="454" fill="#160F2E" font-size="13" font-weight="550">Interview outcome — Aug 3</text>
     </g>
   </g>
 </svg>

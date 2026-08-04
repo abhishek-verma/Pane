@@ -295,152 +295,253 @@ ${closeChrome()}`;
   },
 
   "02-personalised-internet": {
-    aria: "Personalised Internet — Pane turns an ongoing job search into a living private site",
+    aria: "Personalised Internet — your work becomes a living web of private sites",
     css: `
-  .score-fill {
-    transform-box: fill-box;
-    transform-origin: left center;
-    animation: fillBar 7s ease-out infinite;
+  /* 9s loop — 3 full-screen phases with crossfade */
+  .ph1 { animation: ph1 9s ease-in-out infinite; }
+  .ph2 { animation: ph2 9s ease-in-out infinite; }
+  .ph3 { animation: ph3 9s ease-in-out infinite; }
+  @keyframes ph1 { 0%,28% { opacity:1 } 32%,100% { opacity:0 } }
+  @keyframes ph2 { 0%,30% { opacity:0 } 34%,62% { opacity:1 } 66%,100% { opacity:0 } }
+  @keyframes ph3 { 0%,64% { opacity:0 } 68%,94% { opacity:1 } 98%,100% { opacity:0 } }
+  .field-bg { animation: fBg 9s ease-in-out infinite; }
+  @keyframes fBg {
+    0%,28% { fill: #FFFFFF }
+    34%,62% { fill: #EFE3C8 }
+    68%,94% { fill: #E6DFF0 }
+    98%,100% { fill: #FFFFFF }
   }
-  @keyframes fillBar {
-    0%,5% { transform: scaleX(0.08); }
-    18%,90% { transform: scaleX(1); }
-    100% { transform: scaleX(0.08); }
+  /* Click-flash on the element being opened, just before each transition */
+  .click-doorway { animation: clickDoorway 9s ease-in-out infinite; }
+  @keyframes clickDoorway {
+    0%,24% { fill-opacity:0 } 25.5% { fill-opacity:0.07 } 27.5% { fill-opacity:0 } 100% { fill-opacity:0 }
   }
-  .fld-name, .fld-email, .fld-resume, .fld-cover {
-    opacity: 0;
-    animation: typeIn 7s ease-in-out infinite both;
+  .click-card { animation: clickCard 9s ease-in-out infinite; }
+  @keyframes clickCard {
+    0%,58.5% { fill-opacity:0 } 60% { fill-opacity:0.1 } 62% { fill-opacity:0 } 100% { fill-opacity:0 }
   }
-  .fld-email { animation-delay: 0.7s; }
-  .fld-resume { animation-delay: 1.4s; }
-  .fld-cover { animation-delay: 2.1s; }
-  @keyframes typeIn {
-    0%,8% { opacity: 0; }
-    18%,78% { opacity: 1; }
-    90%,100% { opacity: 0; }
-  }
-  .focus1, .focus2, .focus3, .focus4 {
-    animation: focusRing 7s ease-in-out infinite both;
-  }
-  .focus2 { animation-delay: 0.7s; }
-  .focus3 { animation-delay: 1.4s; }
-  .focus4 { animation-delay: 2.1s; }
-  @keyframes focusRing {
-    0%,6% { stroke-opacity: 0; }
-    10%,18% { stroke-opacity: 0.7; }
-    26%,100% { stroke-opacity: 0; }
-  }
-  .submit-btn { animation: submitPress 7s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-  @keyframes submitPress {
-    0%,48% { transform: scale(1); }
-    52% { transform: scale(0.96); }
-    58%,100% { transform: scale(1); }
-  }
-  .form-dim { animation: dimForm 7s ease-in-out infinite; }
-  @keyframes dimForm {
-    0%,58% { opacity: 1; }
-    68%,88% { opacity: 0.35; }
-    96%,100% { opacity: 1; }
-  }
-  .success-inner { animation: successIn 7s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-  @keyframes successIn {
-    0%,58% { opacity: 0; transform: scale(0.86); }
-    68%,88% { opacity: 1; transform: scale(1); }
-    96%,100% { opacity: 0; transform: scale(0.92); }
-  }
-  .tick-circle {
-    fill: none;
-    stroke: ${CITRON_DEEP};
-    stroke-width: 3;
-    stroke-linecap: round;
-    stroke-dasharray: 180;
-    stroke-dashoffset: 180;
-    animation: drawCircle 7s ease-in-out infinite;
-  }
-  @keyframes drawCircle {
-    0%,60% { stroke-dashoffset: 180; }
-    70%,88% { stroke-dashoffset: 0; }
-    96%,100% { stroke-dashoffset: 180; }
-  }
-  .tick-mark {
-    fill: none;
-    stroke: ${CITRON_DEEP};
-    stroke-width: 3.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-dasharray: 40;
-    stroke-dashoffset: 40;
-    animation: drawTick 7s ease-in-out infinite;
-  }
-  @keyframes drawTick {
-    0%,68% { stroke-dashoffset: 40; }
-    76%,88% { stroke-dashoffset: 0; }
-    96%,100% { stroke-dashoffset: 40; }
-  }
-  .agent-step1 { animation: stepOn 7s ease-in-out infinite; }
-  .agent-step2 { animation: stepOn 7s ease-in-out infinite; animation-delay: 1.2s; }
-  .agent-step3 { animation: stepOn 7s ease-in-out infinite; animation-delay: 2.8s; }
-  @keyframes stepOn {
-    0%,10% { opacity: 0.35; }
-    20%,78% { opacity: 1; }
-    90%,100% { opacity: 0.35; }
-  }
+  .pulse-dot { animation: pDot 2s ease-in-out infinite; }
+  @keyframes pDot { 0%,100% { opacity:.4 } 50% { opacity:1 } }
 `,
     body: (() => {
-      const x = WX + 24;
-      const y = BODY_Y + 20;
-      const field = FIELD.petrol;
-      const fieldInk = "#10241F";
-      const fieldMuted = "#25584F";
-      const fieldBorder = "#4A8F82";
+      const mx = WX + 24;
+      const my = BODY_Y + 20;
+      const bw = WW - 48;
+      const stateX = WX + WW - 18;
+
+      // Actual field tokens derived from OKLCH → hex approximations
+      // ember: oklch(0.93 0.06 58)
+      const eBg     = "#EFE3C8"; // field bg
+      const eCard   = "#F5EDDA"; // card (field +0.025 L)
+      const eBorder = "#CBA85A"; // border (field -0.1L, 2x chroma)
+      const eInk    = "#2A1E08"; // foreground (L=0.16)
+      const eMuted  = "#7A5820"; // muted-fg (L=0.47, 2.5x chroma)
+
+      // iris: oklch(0.92 0.065 295)
+      const iBg     = "#E6DFF0"; // field bg
+      const iCard   = "#EDE8F5"; // card
+      const iBorder = "#A898D8"; // border
+      const iInk    = "#160F2E"; // foreground
+      const iMuted  = "#52407A"; // muted-fg
+
+      // Shell (white): border = oklch(0.9 0 0) = #E5E5E5
+      const RAIL_BORDER = "#E5E5E5";
+
+      // Board: w-56 = 224px columns, px-3, border-b dividers, NO radius
+      const colW = 216;
+      const colGap = 0; // columns share borders
+
       return `
-${chromeFull("PANE / PERSONALISED INTERNET / JOB SEARCH", "SITE LIVE", { mainFill: field })}
-    <text x="${x}" y="${y + 12}" fill="${fieldInk}" font-size="25" font-weight="620" letter-spacing="-0.04em">Job Search</text>
-    <text class="mono" x="${x}" y="${y + 34}" fill="${fieldMuted}" font-size="9">PRIVATE SITE · BUILT AROUND YOUR WORK</text>
+${chromeFull("", "", { mainFill: WHITE })}
+    <rect class="field-bg" x="${WX}" y="${BODY_Y}" width="${WW}" height="${WH - BAR}"/>
 
-    <g transform="translate(${x} ${y + 52})">
-      <rect width="196" height="5" fill="${CITRON_DEEP}"/>
-      <rect x="204" width="196" height="5" fill="${CITRON_DEEP}"/>
-      <rect x="408" width="196" height="5" fill="${fieldBorder}" fill-opacity=".45"/>
-      <rect x="612" width="196" height="5" fill="${fieldBorder}" fill-opacity=".35"/>
-      <g class="mono" fill="${fieldMuted}" font-size="8">
-        <text x="0" y="22">SAVED</text>
-        <text x="204" y="22">APPLIED</text>
-        <text x="408" y="22">INTERVIEWS</text>
-        <text x="612" y="22">FOLLOW-UP</text>
-      </g>
+    <!-- PHASE 1: Home — white shell, doorways, continuity -->
+    <g class="ph1">
+      <text class="mono" x="${WX + 16}" y="${WY + 21}" fill="${MUTED}" font-size="10">PANE / HOME</text>
+      <circle cx="${stateX - 72}" cy="${WY + 16}" r="3.5" fill="${CITRON}"/>
+      <text class="mono" x="${stateX}" y="${WY + 21}" text-anchor="end" fill="${MUTED}" font-size="10">PANE IDLE</text>
+
+      ${homeComposer(mx, my, bw)}
+
+      <text class="mono" x="${mx}" y="${my + 100}" fill="${MUTED}" font-size="9">DOORWAYS</text>
+      <line x1="${mx}" y1="${my + 110}" x2="${mx + bw}" y2="${my + 110}" stroke="${RAIL_BORDER}"/>
+
+      <!-- Job Search doorway row — 68px tall -->
+      <circle cx="${mx + 14}" cy="${my + 144}" r="8" fill="${eBg}"/>
+      <text x="${mx + 32}" y="${my + 138}" fill="${INK}" font-size="13" font-weight="550">Job Search</text>
+      <text class="mono" x="${mx + 32}" y="${my + 156}" fill="${MUTED}" font-size="9">3 ACTIVE \xb7 1 OFFER \xb7 UPDATED 2H AGO</text>
+      <text x="${mx + bw - 14}" y="${my + 147}" text-anchor="end" fill="${MUTED}" font-size="14">\u2192</text>
+      <!-- Click flash just before transition to board -->
+      <rect class="click-doorway" x="${mx}" y="${my + 110}" width="${bw}" height="68" fill="${INK}"/>
+      <line x1="${mx}" y1="${my + 178}" x2="${mx + bw}" y2="${my + 178}" stroke="${RAIL_BORDER}"/>
+
+      <!-- Research Hub doorway row — 68px tall -->
+      <circle cx="${mx + 14}" cy="${my + 212}" r="8" fill="${FIELD.dust}"/>
+      <text x="${mx + 32}" y="${my + 206}" fill="${INK}" font-size="13" font-weight="550">Research Hub</text>
+      <text class="mono" x="${mx + 32}" y="${my + 224}" fill="${MUTED}" font-size="9">12 FINDINGS \xb7 3 NEW SINCE MONDAY</text>
+      <text x="${mx + bw - 14}" y="${my + 215}" text-anchor="end" fill="${MUTED}" font-size="14">\u2192</text>
+      <line x1="${mx}" y1="${my + 246}" x2="${mx + bw}" y2="${my + 246}" stroke="${RAIL_BORDER}"/>
+
+      <text class="mono" x="${mx}" y="${my + 278}" fill="${MUTED}" font-size="9">CONTINUITY</text>
+      <line x1="${mx}" y1="${my + 288}" x2="${mx + bw}" y2="${my + 288}" stroke="${RAIL_BORDER}"/>
+      <!-- Continuity item — citron left-rail trace (2px), 52px tall -->
+      <rect x="${mx}" y="${my + 288}" width="2" height="52" fill="${CITRON}"/>
+      <text x="${mx + 14}" y="${my + 310}" fill="${INK}" font-size="12">Follow up with Meridian \u2014 applied 5 days ago</text>
+      <text class="mono" x="${mx + 14}" y="${my + 328}" fill="${MUTED}" font-size="9">JOB SEARCH \xb7 SUGGESTED</text>
+      <line x1="${mx}" y1="${my + 340}" x2="${mx + bw}" y2="${my + 340}" stroke="${RAIL_BORDER}"/>
     </g>
 
-    <line x1="${x}" y1="${y + 92}" x2="${WX + WW - 24}" y2="${y + 92}" stroke="${fieldBorder}"/>
+    <!-- PHASE 2: Board — ember field, flat kanban, no card radii -->
+    <g class="ph2">
+      <text class="mono" x="${WX + 16}" y="${WY + 21}" fill="${eMuted}" font-size="10">PANE / JOB SEARCH</text>
+      <circle cx="${stateX - 72}" cy="${WY + 16}" r="3.5" fill="${CITRON}"/>
+      <text class="mono" x="${stateX}" y="${WY + 21}" text-anchor="end" fill="${eMuted}" font-size="10">SITE READY</text>
 
-    <g transform="translate(${x} ${y + 112})">
-      <text class="mono" x="0" y="0" fill="${fieldMuted}" font-size="9">TODAY</text>
-      <g transform="translate(0 16)">
-        <rect width="250" height="92" rx="${RX}" fill="#A8DDD2" stroke="${fieldBorder}"/>
-        <text x="14" y="25" fill="${fieldInk}" font-size="14" font-weight="600">Acme · Product Lead</text>
-        <text class="mono" x="14" y="46" fill="${fieldMuted}" font-size="8">SAVED · COMPANY PAGE READY</text>
-        <text x="14" y="70" fill="${fieldMuted}" font-size="11">Research thread · 8 sources</text>
-      </g>
-      <g transform="translate(266 16)">
-        <rect width="250" height="92" rx="${RX}" fill="#A8DDD2" stroke="${fieldBorder}"/>
-        <text x="14" y="25" fill="${fieldInk}" font-size="14" font-weight="600">Northstar · PM</text>
-        <text class="mono" x="14" y="46" fill="${fieldMuted}" font-size="8">APPLIED · FOLLOW UP FRIDAY</text>
-        <text x="14" y="70" fill="${fieldMuted}" font-size="11">Notes and next action attached</text>
-      </g>
-      <g class="success-inner" transform="translate(532 16)">
-        <rect width="276" height="92" rx="${RX}" fill="#A8DDD2" stroke="${CITRON_DEEP}" stroke-width="1.5"/>
-        <text x="14" y="25" fill="${fieldInk}" font-size="14" font-weight="600">GreyOrange · Senior PM</text>
-        <text class="mono" x="14" y="46" fill="${fieldMuted}" font-size="8">INTERVIEW · PAGE MATERIALISED</text>
-        <text x="14" y="70" fill="${fieldMuted}" font-size="11">People · news · prep in one place</text>
-      </g>
+      <!-- Page title row -->
+      <text x="${mx}" y="${my + 14}" fill="${eInk}" font-size="19" font-weight="580" letter-spacing="-0.025em">Job Search</text>
+      <text class="mono" x="${mx + bw}" y="${my + 14}" text-anchor="end" fill="${eMuted}" font-size="9">pi://job-search</text>
+
+      <!-- Pulse line (match real UI: "8 applied · 3 active · 1 offer") -->
+      <text class="mono" x="${mx}" y="${my + 32}" fill="${eMuted}" font-size="9">8 applied \xb7 3 interviewing \xb7 5 ghosted \xb7 1 offer</text>
+      <line x1="${mx}" y1="${my + 42}" x2="${mx + bw}" y2="${my + 42}" stroke="${eBorder}" stroke-opacity=".4"/>
+
+      <!-- 4 columns — flat, border-l dividers, w-56 each -->
+      ${["APPLIED", "ACTIVE", "OFFER", "GHOSTED"].map((col, i) => `
+      <line x1="${mx + i * colW}" y1="${my + 42}" x2="${mx + i * colW}" y2="${WY + WH - 2}" stroke="${eBorder}" stroke-opacity="${i === 0 ? 0 : 0.4}"/>
+      <text class="mono" x="${mx + i * colW + 12}" y="${my + 60}" fill="${eMuted}" font-size="9">${col}</text>
+      <text class="mono" x="${mx + i * colW + colW - 12}" y="${my + 60}" text-anchor="end" fill="${eMuted}" font-size="9">${[3, 2, 1, 2][i]}</text>
+      <line x1="${mx + i * colW}" y1="${my + 68}" x2="${mx + i * colW + colW}" y2="${my + 68}" stroke="${eBorder}" stroke-opacity=".4"/>`).join("")}
+
+      <!-- Col 0: Applied cards — 64px rows, PREP + DETAILS on each -->
+      ${[
+        { title: "Meridian \xb7 PM",   sub: "Applied 5 days ago" },
+        { title: "Helix \xb7 Product", sub: "Applied 2 days ago" },
+        { title: "Canopy \xb7 Sr PM",  sub: "Applied today" },
+      ].map((c, i) => {
+        const ry = my + 68 + i * 64;
+        return `
+      <line x1="${mx}" y1="${ry + 64}" x2="${mx + colW}" y2="${ry + 64}" stroke="${eBorder}" stroke-opacity=".3"/>
+      <text x="${mx + 12}" y="${ry + 20}" fill="${eInk}" font-size="11" font-weight="500">${c.title}</text>
+      <text x="${mx + 12}" y="${ry + 35}" fill="${eMuted}" font-size="10">${c.sub}</text>
+      <rect x="${mx + 12}" y="${ry + 44}" width="32" height="13" fill="none" stroke="${eBorder}"/>
+      <text class="mono" x="${mx + 28}" y="${ry + 53}" text-anchor="middle" fill="${eMuted}" font-size="7">PREP</text>
+      <rect x="${mx + 50}" y="${ry + 44}" width="40" height="13" fill="none" stroke="${eBorder}"/>
+      <text class="mono" x="${mx + 70}" y="${ry + 53}" text-anchor="middle" fill="${eMuted}" font-size="7">DETAILS</text>`;
+      }).join("")}
+
+      <!-- Col 1: Active — Wavefront (citron highlight) + Strata -->
+      ${(() => {
+        const cx = mx + colW;
+        const cards = [
+          { title: "Wavefront \xb7 PM", sub: "Round 2 \xb7 Thursday", highlight: true },
+          { title: "Strata \xb7 Sr Eng",  sub: "Take home \xb7 Due Friday", highlight: false },
+        ];
+        return cards.map((c, i) => {
+          const ry = my + 68 + i * 64;
+          const bord = c.highlight ? CITRON_DEEP : eBorder;
+          const bop = c.highlight ? "1" : ".3";
+          const prepFill = c.highlight ? `fill="${CITRON}" fill-opacity=".25"` : `fill="none"`;
+          const prepBord = c.highlight ? CITRON_DEEP : eBorder;
+          const prepText = c.highlight ? eInk : eMuted;
+          return `
+      ${c.highlight ? `<!-- Click flash on Wavefront before entity transition -->
+      <rect class="click-card" x="${cx}" y="${ry}" width="${colW}" height="64" fill="${eInk}"/>` : ""}
+      <rect x="${cx}" y="${ry}" width="2" height="${c.highlight ? 64 : 0}" fill="${c.highlight ? CITRON : "none"}"/>
+      <line x1="${cx}" y1="${ry + 64}" x2="${cx + colW}" y2="${ry + 64}" stroke="${bord}" stroke-opacity="${bop}"/>
+      <text x="${cx + 14}" y="${ry + 20}" fill="${eInk}" font-size="11" font-weight="${c.highlight ? "600" : "500"}">${c.title}</text>
+      <text x="${cx + 14}" y="${ry + 35}" fill="${eMuted}" font-size="10">${c.sub}</text>
+      <rect x="${cx + 14}" y="${ry + 44}" width="32" height="13" ${prepFill} stroke="${prepBord}" stroke-opacity=".6"/>
+      <text class="mono" x="${cx + 30}" y="${ry + 53}" text-anchor="middle" fill="${prepText}" font-size="7">PREP</text>
+      <rect x="${cx + 52}" y="${ry + 44}" width="40" height="13" fill="none" stroke="${eBorder}" stroke-opacity=".5"/>
+      <text class="mono" x="${cx + 72}" y="${ry + 53}" text-anchor="middle" fill="${eMuted}" font-size="7">DETAILS</text>`;
+        }).join("");
+      })()}
+
+      <!-- Col 2: Offer -->
+      ${(() => {
+        const cx = mx + colW * 2;
+        const ry = my + 68;
+        return `
+      <line x1="${cx}" y1="${ry + 64}" x2="${cx + colW}" y2="${ry + 64}" stroke="${eBorder}" stroke-opacity=".3"/>
+      <text x="${cx + 12}" y="${ry + 20}" fill="${eInk}" font-size="11" font-weight="500">Nimbus \xb7 PM Lead</text>
+      <text x="${cx + 12}" y="${ry + 35}" fill="${CITRON_DEEP}" font-size="10">Offer received</text>
+      <rect x="${cx + 12}" y="${ry + 44}" width="32" height="13" fill="none" stroke="${eBorder}"/>
+      <text class="mono" x="${cx + 28}" y="${ry + 53}" text-anchor="middle" fill="${eMuted}" font-size="7">PREP</text>
+      <rect x="${cx + 50}" y="${ry + 44}" width="40" height="13" fill="none" stroke="${eBorder}"/>
+      <text class="mono" x="${cx + 70}" y="${ry + 53}" text-anchor="middle" fill="${eMuted}" font-size="7">DETAILS</text>`;
+      })()}
+
+      <!-- Col 3: Ghosted (muted, no buttons — ghosted = no action needed) -->
+      ${[
+        { title: "Prism \xb7 PM",        sub: "14D \xb7 NO REPLY" },
+        { title: "Lattice \xb7 Product", sub: "21D \xb7 NO REPLY" },
+      ].map((c, i) => {
+        const cx = mx + colW * 3;
+        const ry = my + 68 + i * 64;
+        return `
+      <line x1="${cx}" y1="${ry + 64}" x2="${cx + colW}" y2="${ry + 64}" stroke="${eBorder}" stroke-opacity=".2"/>
+      <text x="${cx + 12}" y="${ry + 20}" fill="${eMuted}" font-size="11">${c.title}</text>
+      <text class="mono" x="${cx + 12}" y="${ry + 35}" fill="${eMuted}" font-size="9">${c.sub}</text>`;
+      }).join("")}
     </g>
 
-    <g transform="translate(${x} ${y + 246})">
-      <rect width="808" height="74" rx="${RX}" fill="#A8DDD2" stroke="${fieldBorder}"/>
-      <rect x="0" y="6" width="3" height="62" fill="${CITRON_DEEP}"/>
-      <text class="mono" x="16" y="22" fill="${fieldMuted}" font-size="9">PULSE</text>
-      <text x="16" y="45" fill="${fieldInk}" font-size="13" font-weight="500">One living site, not another folder of chats.</text>
-      <text x="16" y="63" fill="${fieldMuted}" font-size="11">Open a company, continue research, or hand the next action to Pane.</text>
+    <!-- PHASE 3: Entity — iris field, company name + badges + timeline -->
+    <g class="ph3">
+      <text class="mono" x="${WX + 16}" y="${WY + 21}" fill="${iMuted}" font-size="10">PANE / JOB SEARCH / WAVEFRONT</text>
+      <circle cx="${stateX - 72}" cy="${WY + 16}" r="3.5" fill="${CITRON}"/>
+      <text class="mono" x="${stateX}" y="${WY + 21}" text-anchor="end" fill="${iMuted}" font-size="10">READY</text>
+
+      <!-- Company header row -->
+      <text x="${mx}" y="${my + 24}" fill="${iInk}" font-size="22" font-weight="580" letter-spacing="-0.03em">Wavefront</text>
+      <rect x="${mx + 154}" y="${my + 7}" width="82" height="20" fill="none" stroke="${iBorder}"/>
+      <text class="mono" x="${mx + 195}" y="${my + 20}" text-anchor="middle" fill="${iInk}" font-size="8">INTERVIEWING</text>
+      <rect x="${mx + 244}" y="${my + 7}" width="130" height="20" fill="none" stroke="${iBorder}"/>
+      <text class="mono" x="${mx + 309}" y="${my + 20}" text-anchor="middle" fill="${iInk}" font-size="8">PRINCIPAL PM / DIRECTOR</text>
+      <rect x="${mx + bw - 90}" y="${my + 7}" width="90" height="20" fill="none" stroke="${iBorder}"/>
+      <text class="mono" x="${mx + bw - 45}" y="${my + 20}" text-anchor="middle" fill="${iMuted}" font-size="8">\u2190 BACK TO SITE</text>
+
+      <line x1="${mx}" y1="${my + 36}" x2="${mx + bw}" y2="${my + 36}" stroke="${iBorder}" stroke-opacity=".4"/>
+
+      <!-- Next action + follow up -->
+      <text class="mono" x="${mx}" y="${my + 58}" fill="${iMuted}" font-size="9">NEXT</text>
+      <text x="${mx + 40}" y="${my + 58}" fill="${iInk}" font-size="12">\u007e3 more rounds, then joint Alex + Priya discussion</text>
+      <rect x="${mx}" y="${my + 66}" width="70" height="20" fill="${CITRON}" fill-opacity=".25" stroke="${CITRON_DEEP}" stroke-opacity=".6"/>
+      <text class="mono" x="${mx + 35}" y="${my + 79}" text-anchor="middle" fill="${iInk}" font-size="8">FOLLOW UP</text>
+
+      <line x1="${mx}" y1="${my + 100}" x2="${mx + bw}" y2="${my + 100}" stroke="${iBorder}" stroke-opacity=".4"/>
+
+      <!-- Section: 01 Timeline — more vertical breathing room between items -->
+      <text class="mono" x="${mx}" y="${my + 120}" fill="${iMuted}" font-size="9">01</text>
+      <text x="${mx + 20}" y="${my + 120}" fill="${iInk}" font-size="13" font-weight="550">Timeline</text>
+      <line x1="${mx}" y1="${my + 130}" x2="${mx + bw}" y2="${my + 130}" stroke="${iBorder}" stroke-opacity=".35"/>
+
+      <circle cx="${mx + 6}" cy="${my + 154}" r="3.5" fill="${CITRON_DEEP}"/>
+      <text class="mono" x="${mx + 18}" y="${my + 150}" fill="${iMuted}" font-size="9">AUG 3</text>
+      <text x="${mx + 18}" y="${my + 165}" fill="${iInk}" font-size="12" font-weight="500">Met Alex + Priya in person \u2014 short, positive \u2714</text>
+
+      <circle cx="${mx + 6}" cy="${my + 193}" r="3" fill="${iBorder}"/>
+      <text class="mono" x="${mx + 18}" y="${my + 189}" fill="${iMuted}" font-size="9">JUL 17</text>
+      <text x="${mx + 18}" y="${my + 204}" fill="${iInk}" font-size="12">HR screen with Priya \u2192 moved to in-person with Alex</text>
+
+      <circle cx="${mx + 6}" cy="${my + 232}" r="3" fill="${iBorder}"/>
+      <text class="mono" x="${mx + 18}" y="${my + 228}" fill="${iMuted}" font-size="9">JUL 10</text>
+      <text x="${mx + 18}" y="${my + 243}" fill="${iInk}" font-size="12">Applied via referral \u2014 cover letter sent</text>
+
+      <line x1="${mx}" y1="${my + 258}" x2="${mx + bw}" y2="${my + 258}" stroke="${iBorder}" stroke-opacity=".35"/>
+
+      <!-- Section: 02 Company -->
+      <text class="mono" x="${mx}" y="${my + 278}" fill="${iMuted}" font-size="9">02</text>
+      <text x="${mx + 20}" y="${my + 278}" fill="${iInk}" font-size="13" font-weight="550">Company</text>
+      <line x1="${mx}" y1="${my + 288}" x2="${mx + bw}" y2="${my + 288}" stroke="${iBorder}" stroke-opacity=".35"/>
+
+      <text x="${mx}" y="${my + 312}" fill="${iInk}" font-size="12">Series C \xb7 $80M raised \xb7 Remote-first \xb7 200 eng \xb7 Product-led growth</text>
+      <text x="${mx}" y="${my + 330}" fill="${iMuted}" font-size="11">Hiring 3 PM roles \xb7 Glassdoor 4.2 \xb7 Founded 2018</text>
+
+      <line x1="${mx}" y1="${my + 346}" x2="${mx + bw}" y2="${my + 346}" stroke="${iBorder}" stroke-opacity=".35"/>
+
+      <!-- Section: 03 Interview outcome -->
+      <text class="mono" x="${mx}" y="${my + 366}" fill="${iMuted}" font-size="9">03</text>
+      <text x="${mx + 20}" y="${my + 366}" fill="${iInk}" font-size="13" font-weight="550">Interview outcome \u2014 Aug 3</text>
     </g>
 ${closeChrome()}`;
     })(),

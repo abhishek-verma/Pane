@@ -27,6 +27,7 @@ const WIDTH = 800;
 const HEIGHT = 450;
 const FPS = 12;
 const DURATION_MS = 7000;
+const DURATION_OVERRIDES = { "02-personalised-internet": 10000 };
 const MAX_BYTES = 1.5 * 1024 * 1024;
 
 const outGifDir = join(__dirname, "gif");
@@ -76,6 +77,7 @@ function pageHtml(svgMarkup) {
 
 async function captureSvg(browser, svgName) {
   const slug = svgName.replace(/\.svg$/, "");
+  const duration = DURATION_OVERRIDES[slug] || DURATION_MS;
   const frameDir = join(tmpRoot, slug);
   mkdirSync(frameDir, { recursive: true });
 
@@ -95,7 +97,7 @@ async function captureSvg(browser, svgName) {
   });
   await new Promise((r) => setTimeout(r, 200));
 
-  const frameCount = Math.round((DURATION_MS / 1000) * FPS);
+  const frameCount = Math.round((duration / 1000) * FPS);
   const interval = 1000 / FPS;
 
   for (let i = 0; i < frameCount; i++) {
