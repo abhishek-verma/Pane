@@ -139,9 +139,12 @@ class CompileModule(CommandModule):
         log_success("Build complete!")
 
     def _create_version_file(self, ctx: Context) -> None:
-        parts = ctx.browseros_chromium_version.split(".")
+        # Use semantic_version (e.g. "0.47.0.55") for CFBundleShortVersionString
+        # in the built app, not the Chromium upstream version.
+        version_str = ctx.semantic_version if ctx.semantic_version else ctx.browseros_chromium_version
+        parts = version_str.split(".")
         if len(parts) != 4:
-            log_warning(f"Invalid version format: {ctx.browseros_chromium_version}")
+            log_warning(f"Invalid version format: {version_str}")
             return
 
         version_content = f"MAJOR={parts[0]}\nMINOR={parts[1]}\nBUILD={parts[2]}\nPATCH={parts[3]}"
@@ -154,7 +157,7 @@ class CompileModule(CommandModule):
         shutil.copy2(temp_path, chrome_version_path)
         Path(temp_path).unlink()
 
-        log_info(f"Created VERSION file: {ctx.browseros_chromium_version}")
+        log_info(f"Created VERSION file: {version_str}")
 
 
 def build_target(ctx: Context, target: str) -> bool:

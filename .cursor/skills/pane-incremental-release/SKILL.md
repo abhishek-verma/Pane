@@ -32,8 +32,10 @@ proceed to the release when the user confirms the quick test passed. Chromium C+
 - Never reuse an existing `browser/v*` tag.
 
 ## Context
-- Chromium src: `/Users/abhishek/chromium/src` (base `148.0.7778.97`)
+- Chromium src: `/Users/abhishek/chromium/src` (base `148.0.7949.97`)
 - Warm app prerequisite for repackage/incremental: `out/Default_arm64/Pane.app`
+- **Bundle ID**: `com.panebrowser.app` (set via `chrome/app/theme/chromium/BRANDING`)
+- **App version**: `CFBundleShortVersionString` tracks `BROWSEROS_VERSION` (e.g. `0.47.0.55`), not the Chromium upstream version
 - Extension PEM: `secrets/pane-release/agent-extension.pem`
 - Extension app id: `biedncddmddkpapdplhcnkhhplnfgbif`
 - Sparkle key: `secrets/pane-release/sparkle-private.b64` (or `packages/browseros/.env`)
@@ -99,11 +101,9 @@ uv run browseros build --modules resources,bundled_extensions \
   --arch arm64 --build-type release --chromium-src /Users/abhishek/chromium/src
 
 APP="/Users/abhishek/chromium/src/out/Default_arm64/Pane.app"
-# Pin the versioned Resources path — do NOT glob (Current + versioned expands to two
-# destinations and rsync can create a corrupted nested path inside the bundle).
-FW_RES="$APP/Contents/Frameworks/Pane Framework.framework/Versions/148.0.7949.97/Resources/browseros_extensions"
-# If the version folder name drifts, resolve the non-Current Versions/* entry:
-# FW_RES="$(find "$APP/Contents/Frameworks/Pane Framework.framework/Versions" -maxdepth 1 -type d ! -name Current ! -name Versions | head -1)/Resources/browseros_extensions"
+# Resolve the versioned framework dir (never glob — Current + versioned = two paths → corrupted bundle)
+FW_VER="$(ls "$APP/Contents/Frameworks/Pane Framework.framework/Versions/" | grep -vx Current | head -1)"
+FW_RES="$APP/Contents/Frameworks/Pane Framework.framework/Versions/$FW_VER/Resources/browseros_extensions"
 rsync -a /Users/abhishek/chromium/src/chrome/browser/browseros/server/resources/ \
   "$APP/Contents/Resources/BrowserOSServer/default/resources/"
 rsync -a /Users/abhishek/chromium/src/chrome/browser/browseros/claw_server/resources/ \

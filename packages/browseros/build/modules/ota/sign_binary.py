@@ -33,7 +33,7 @@ def sign_macos_binary(
 ) -> bool:
     """Sign a macOS binary with codesign.
 
-    ``identifier`` defaults to ``com.browseros.<stem>`` to preserve the
+    ``identifier`` defaults to ``com.panebrowser.<stem>`` to preserve the
     previous single-binary signature shape. Callers that have a shared sign
     table (see ``common/server_binaries.py``) should pass identifier and
     options derived from that table so OTA-signed and Chromium-build-signed
@@ -53,7 +53,7 @@ def sign_macos_binary(
 
     log_info(f"Signing {binary_path.name}...")
 
-    resolved_identifier = identifier or f"com.browseros.{binary_path.stem}"
+    resolved_identifier = identifier or f"com.panebrowser.{binary_path.stem}"
     cmd = [
         "codesign",
         "--sign", certificate_name,
@@ -392,7 +392,7 @@ def sign_server_bundle_macos(
             path,
             env,
             entitlements_path,
-            identifier=f"com.browseros.{spec.identifier_suffix}",
+            identifier=f"com.panebrowser.{spec.identifier_suffix}",
             options=spec.options,
         ):
             return False
