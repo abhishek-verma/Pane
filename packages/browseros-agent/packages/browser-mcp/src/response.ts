@@ -25,7 +25,7 @@ export function buildPostActionScreenshotOptions(
   /**
    * CDP's `clip.scale` multiplies CSS pixels, but the captured raster still
    * comes out at the page's actual device pixel ratio on top of that (a
-   * "1024x768" clip on a 2x/3x HiDPI display raster gs at ~2048x1536 /
+   * "1024x768" clip on a 2x/3x HiDPI display rasterizes at ~2048x1536 /
    * ~3072x2304). Without accounting for it, that can exceed downstream
    * image-size limits (e.g. a 2000x2000px cap) even though the logical
    * clip size looks safely small. Divide the target size by DPR so the
