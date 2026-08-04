@@ -126,6 +126,21 @@ export interface TrustPin {
   expiresAt?: number
 }
 
+/** Outcome of a human resolving a `requestApproval` call. Never inferred from silence. */
+export type GateApprovalResolution = 'approved' | 'denied' | 'timeout'
+
+export interface GateApprovalRequest {
+  toolName: string
+  args: Record<string, unknown>
+  consequenceClass: ConsequenceClass
+  /** ctx-free human-readable description (see describeToolCall). */
+  preview: string
+}
+
+export type RequestApproval = (
+  request: GateApprovalRequest,
+) => Promise<GateApprovalResolution>
+
 export interface GateContext {
   pins: Partial<Record<ConsequenceClass, TrustPin>>
   browserContext?: Pick<BrowserContext, 'activeTab' | 'isPrivate'>
@@ -147,6 +162,15 @@ export interface GateContext {
    * Default false — browser input gestures auto-run (payment hosts still spend).
    */
   requireBrowserInputApproval?: boolean
+  /**
+   * MCP surface only: when set, a consequential dry-run blocks on this call
+   * instead of returning a static "re-call with __promoted:true" preview
+   * that an external MCP client has no way to act on. Resolves once a human
+   * approves/denies/times out through an external channel (push
+   * notification, approvals page). The model never supplies this — only the
+   * composition root wires it — so "model can never self-promote" holds.
+   */
+  requestApproval?: RequestApproval
 }
 
 export function isConsequentialClass(cls: ConsequenceClass): boolean {
@@ -189,7 +213,12 @@ function baseClassForTool(
 
   if (toolName === 'tabs') {
     const action = typeof args.action === 'string' ? args.action : 'list'
-    if (action === 'list' || action === 'active') return 'read'
+    // 'new' just loads a URL, like `navigate` (unconditionally 'read' below) —
+    // opening it in a fresh background tab instead of the current one isn't
+    // more consequential. Keep 'close' gated: it can drop the user's work.
+    if (action === 'list' || action === 'active' || action === 'new') {
+      return 'read'
+    }
     return 'write-external'
   }
 

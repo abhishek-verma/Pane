@@ -7,10 +7,15 @@
 import type { BrowserSession } from '@browseros/browser-core/core/session'
 import { createBrowserMcpServer } from '@browseros/browser-mcp/mcp-server'
 import { createDefaultMcpGateContext } from '@browseros/browser-mcp/trust/mcp-gate'
+import type { GateApprovalResolution } from '@browseros/shared/trust/consequence-class'
 import { ingestToolResult, summarizeToolResult } from '../../../context/ingest'
 import { registerContextMcpTools } from '../../../context/register-mcp'
 import { logger } from '../../../lib/logger'
 import { metrics } from '../../../lib/metrics'
+import {
+  MCP_APPROVAL_TIMEOUT_MS,
+  requestChannelApproval,
+} from '../../../scheduler/approvals'
 import { registerFilesystemMcpTools } from '../../../tools/filesystem/register-mcp'
 import { shouldLogToolRegistration } from '../../../tools/registration-log-sampling'
 import { MCP_INSTRUCTIONS } from './mcp-prompt'
@@ -24,17 +29,42 @@ export interface McpServiceDeps {
   executionDir: string
   remoteAgentHarness?: RemoteAgentHarnessTools
   bucketId?: string
+  /** X-BrowserOS-Scope-Id header value; groups approvals for this MCP client. */
+  scopeId?: string
 }
 
 /** Creates a per-request BrowserOS MCP server with tools for the requested surface. */
 export function createMcpServer(deps: McpServiceDeps) {
   const bucketId = deps.bucketId ?? 'default'
+  const runId = deps.scopeId ?? 'ephemeral'
   const gateContext = createDefaultMcpGateContext({
     workspaceRoot: deps.executionDir,
+    runId,
+    // For an ACP provider (e.g. Claude Code) pointed at our own /mcp,
+    // buildBrowserOsSelfMcpEntry forwards the real chat conversationId as
+    // X-BrowserOS-Scope-Id — the same id apps/app polls in
+    // useConversationPendingApprovals. Passing it through here is what lets
+    // a pending approval show up as a normal in-chat Approve/Deny card
+    // instead of only reaching the user via the (much slower, opt-in) reach
+    // channel. For a genuinely external MCP client with no open Pane
+    // conversation this just won't match anything — harmless.
+    conversationId: deps.scopeId,
+    requestApproval: async (request): Promise<GateApprovalResolution> => {
+      const { resolution } = await requestChannelApproval({
+        runId,
+        conversationId: deps.scopeId,
+        toolCallId: crypto.randomUUID(),
+        toolName: request.toolName,
+        consequenceClass: request.consequenceClass,
+        preview: request.preview,
+        timeoutMs: MCP_APPROVAL_TIMEOUT_MS,
+      })
+      return resolution
+    },
   })
 
   const server = createBrowserMcpServer({
-    name: 'browseros_mcp',
+    name: 'pane_mcp',
     title: 'Pane MCP server',
     version: deps.version,
     browserSession: deps.browserSession,

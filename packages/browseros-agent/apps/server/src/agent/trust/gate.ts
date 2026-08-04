@@ -8,6 +8,7 @@ import {
   isConsequentialClass,
   isPinActive,
   isPromoted,
+  PROMOTED_ARG,
   recordConsequentialExecution,
   stripPromotedArg,
 } from '@browseros/shared/trust/consequence-class'
@@ -168,6 +169,34 @@ export async function gateExecute<TResult extends GateToolResult>(
   }
 
   if (decision.action === 'dry-run') {
+    if (ctx.requestApproval) {
+      const preview = describeToolCall(toolName, args)
+      const resolution = await ctx.requestApproval({
+        toolName,
+        args,
+        consequenceClass: cls,
+        preview,
+      })
+      if (resolution === 'approved') {
+        logGateDecision(toolName, args, ctx, cls, 'approval-requested', preview)
+        // Server (not the model) sets __promoted after a human resolved it —
+        // re-run through the gate so execute/record/logging stay one path.
+        return gateExecute(
+          toolName,
+          { ...args, [PROMOTED_ARG]: true },
+          ctx,
+          underlyingExecute,
+          resultShapeKind,
+          hooks,
+        )
+      }
+      const message =
+        resolution === 'denied'
+          ? `Denied: ${preview}`
+          : `Approval timed out: ${preview}`
+      logGateDecision(toolName, args, ctx, cls, 'denied', message)
+      return formatGateResult(message, resultShapeKind, true) as TResult
+    }
     logGateDecision(toolName, args, ctx, cls, 'dry-run', decision.preview)
     return formatGateResult(decision.preview, resultShapeKind) as TResult
   }

@@ -106,6 +106,7 @@ export function createMcpRoutes(deps: McpRouteDeps) {
       defaultTabGroupId,
       executionDir: deps.executionDir,
       remoteAgentHarness: harness,
+      scopeId,
     })
     const transport = makeMcpTransport({
       sessionIdGenerator: undefined,
