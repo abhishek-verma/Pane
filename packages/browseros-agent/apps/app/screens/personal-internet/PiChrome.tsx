@@ -45,11 +45,17 @@ export const PiRailAction: FC<{
   disabled?: boolean
   to?: string
   className?: string
-}> = ({ children, onClick, disabled, to, className }) => {
-  const classes = cn(
-    'inline-flex h-7 items-center border border-border bg-transparent px-2.5 font-mono text-[10px] text-foreground uppercase tracking-[0.06em] transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50',
-    className,
-  )
+  variant?: 'default' | 'primary' | 'destructive'
+}> = ({ children, onClick, disabled, to, className, variant = 'default' }) => {
+  const base =
+    'inline-flex h-7 items-center px-2.5 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+  const variantClass =
+    variant === 'primary'
+      ? 'border border-foreground bg-foreground text-background hover:bg-foreground/85'
+      : variant === 'destructive'
+        ? 'border border-destructive/60 bg-transparent text-destructive hover:bg-destructive/10'
+        : 'border border-border bg-transparent text-foreground hover:bg-muted/60'
+  const classes = cn(base, variantClass, className)
   if (to) {
     // Cross-document hops hard-navigate so HashRouter alone cannot leave PI
     // stranded on the NTP shell (or Home stranded on pi.html).
