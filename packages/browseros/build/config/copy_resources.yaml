@@ -39,6 +39,44 @@ copy_operations:
     destination: "chrome/BROWSEROS_VERSION"
     type: "file"
 
+  # Version file alongside server resources so the server binary can read the
+  # correct browser version at runtime (repackage builds don't recompile Chromium,
+  # so version_info::GetBrowserOSVersionNumber() stays frozen at last compile).
+  - name: "BrowserOS Version File (server darwin-arm64)"
+    source: "resources/BROWSEROS_VERSION"
+    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
+    type: "file"
+    arch: ["arm64"]
+    os: ["macos"]
+
+  - name: "BrowserOS Version File (server darwin-x64)"
+    source: "resources/BROWSEROS_VERSION"
+    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
+    type: "file"
+    arch: ["x64"]
+    os: ["macos"]
+
+  - name: "BrowserOS Version File (server linux-arm64)"
+    source: "resources/BROWSEROS_VERSION"
+    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
+    type: "file"
+    arch: ["arm64"]
+    os: ["linux"]
+
+  - name: "BrowserOS Version File (server linux-x64)"
+    source: "resources/BROWSEROS_VERSION"
+    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
+    type: "file"
+    arch: ["x64"]
+    os: ["linux"]
+
+  - name: "BrowserOS Version File (server windows-x64)"
+    source: "resources/BROWSEROS_VERSION"
+    destination: "chrome/browser/browseros/server/resources/BROWSEROS_VERSION"
+    type: "file"
+    arch: ["x64"]
+    os: ["windows"]
+
   # Icons - General
   - name: "Product Logo Icons"
     source: "resources/icons/*.png"

@@ -69,6 +69,17 @@ export function loadServerConfig(
     cli.value.overrides,
   )
 
+  // The BROWSEROS_VERSION file alongside the server binary is updated on every
+  // repackage release. Prefer it over server_config.json's browseros_version,
+  // which is written once by the Chromium process at the version it was compiled
+  // at and never refreshed when the app is replaced without a full recompile.
+  const versionFromFile = readBrowserosVersionFile(
+    merged.resourcesDir ?? cli.value.cwd,
+  )
+  if (versionFromFile) {
+    merged.instanceBrowserosVersion = versionFromFile
+  }
+
   merged.agentPort = merged.serverPort
 
   const result = ServerConfigSchema.safeParse(merged)
@@ -345,4 +356,43 @@ function toAbsolutePath(target: string, baseDir: string): string {
 function parseAbsolutePath(val: unknown, baseDir: string): string | undefined {
   if (typeof val !== 'string') return undefined
   return toAbsolutePath(val, baseDir)
+}
+
+/**
+ * Reads the BROWSEROS_VERSION file from the server resources directory and
+ * returns the version string (e.g. "0.47.0.60"), or null if not present.
+ *
+ * Format: shell variable assignments, e.g.:
+ *   BROWSEROS_MAJOR=0
+ *   BROWSEROS_MINOR=47
+ *   BROWSEROS_BUILD=0
+ *   BROWSEROS_PATCH=60
+ */
+function readBrowserosVersionFile(resourcesDir: string): string | null {
+  try {
+    const filePath = path.join(resourcesDir, 'BROWSEROS_VERSION')
+    const content = require('node:fs').readFileSync(filePath, 'utf-8') as string
+    const vars: Record<string, string> = {}
+    for (const line of content.split('\n')) {
+      const m = line.match(/^(\w+)=(.+)$/)
+      if (m) vars[m[1]] = m[2].trim()
+    }
+    const {
+      BROWSEROS_MAJOR,
+      BROWSEROS_MINOR,
+      BROWSEROS_BUILD,
+      BROWSEROS_PATCH,
+    } = vars
+    if (
+      BROWSEROS_MAJOR &&
+      BROWSEROS_MINOR &&
+      BROWSEROS_BUILD &&
+      BROWSEROS_PATCH
+    ) {
+      return `${BROWSEROS_MAJOR}.${BROWSEROS_MINOR}.${BROWSEROS_BUILD}.${BROWSEROS_PATCH}`
+    }
+  } catch {
+    // File absent in dev or non-packaged builds — fall back to server_config.json value.
+  }
+  return null
 }
