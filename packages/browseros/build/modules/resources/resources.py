@@ -25,6 +25,9 @@ class ResourcesModule(CommandModule):
         log_info("\n📦 Copying resources...")
         if not copy_resources_impl(ctx, commit_each=False):
             raise RuntimeError("Failed to copy resources")
+        # After updating the chromium source tree, also sync server resources
+        # directly into the built app bundle so sign_macos sees consistent state.
+        _inject_server_resources_into_app_bundle(ctx)
 
 
 def copy_resources_impl(ctx: Context, commit_each: bool = False) -> bool:
@@ -143,6 +146,34 @@ def copy_resources_impl(ctx: Context, commit_each: bool = False) -> bool:
 
     log_success("Resources copied")
     return True
+
+
+def _inject_server_resources_into_app_bundle(ctx: Context) -> None:
+    """Mirror chromium-source server resources into the built app bundle.
+
+    copy_resources_impl() writes to chromium_src/chrome/browser/browseros/*/resources.
+    The sign guard checks that the app bundle matches those staged files — but the app
+    bundle (out/Default_arm64/Pane.app) is only updated by a full compile or the manual
+    rsync in the split build path.  This function bridges that gap for the one-shot
+    repackage config so sign_macos always sees a consistent bundle.
+    """
+    try:
+        app_path = ctx.get_app_path()
+    except Exception:
+        return
+    if not app_path.exists():
+        return
+
+    from ...common.server_binaries import SERVER_BUNDLES
+
+    for bundle in SERVER_BUNDLES:
+        source = ctx.chromium_src / bundle.chromium_resources_root
+        dest = app_path / bundle.macos_bundle_resources_root
+        if not source.is_dir():
+            continue
+        dest.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(source, dest, dirs_exist_ok=True)
+        log_info(f"  ✓ Synced {bundle.name} resources into app bundle")
 
 
 def commit_resource_copy(
