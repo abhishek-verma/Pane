@@ -194,7 +194,13 @@ class SparkleSetupModule(CommandModule):
         sparkle_archive = sparkle_dir / "sparkle.tar.xz"
 
         log_info(f"Downloading Sparkle from {sparkle_url}...")
-        urllib.request.urlretrieve(sparkle_url, sparkle_archive)
+        import subprocess
+        result = subprocess.run(
+            ["curl", "-L", "--max-time", "120", "-o", str(sparkle_archive), sparkle_url],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to download Sparkle: {result.stderr}")
 
         log_info("Extracting Sparkle...")
         with tarfile.open(sparkle_archive, "r:xz") as tar:
