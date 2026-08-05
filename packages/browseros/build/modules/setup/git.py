@@ -179,13 +179,18 @@ class SparkleSetupModule(CommandModule):
         log_info("\n✨ Setting up Sparkle framework...")
 
         sparkle_dir = ctx.get_sparkle_dir()
+        sparkle_url = ctx.get_sparkle_url()
+
+        # Skip download if the framework is already in place — the Sparkle
+        # version is pinned in context, so the existing dir is always correct.
+        if sparkle_dir.exists() and (sparkle_dir / "Sparkle.framework").exists():
+            log_info(f"  Sparkle already present at {sparkle_dir} — skipping download")
+            return
 
         if sparkle_dir.exists():
             safe_rmtree(sparkle_dir)
 
         sparkle_dir.mkdir(parents=True)
-
-        sparkle_url = ctx.get_sparkle_url()
         sparkle_archive = sparkle_dir / "sparkle.tar.xz"
 
         log_info(f"Downloading Sparkle from {sparkle_url}...")
