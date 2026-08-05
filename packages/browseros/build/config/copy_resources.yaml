@@ -34,8 +34,8 @@
 
 copy_operations:
   # Version file
-  - name: "BrowserOS Version File"
-    source: "resources/BROWSEROS_VERSION"
+  - name: "Pane Version File"
+    source: "resources/PANE_VERSION"
     destination: "chrome/BROWSEROS_VERSION"
     type: "file"
 

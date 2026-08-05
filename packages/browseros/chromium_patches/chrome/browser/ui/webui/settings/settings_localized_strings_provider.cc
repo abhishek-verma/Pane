@@ -15,9 +15,9 @@ index a0c5ecb645..96ac12ff84 100644
  
    html_source->AddString("aboutBrowserVersion", browser_version);
 +  html_source->AddString(
-+      "aboutBrowserOSVersion",
++      "aboutPaneVersion",
 +      base::UTF8ToUTF16(
-+          std::string(version_info::GetBrowserOSVersionNumber())));
++          version_info::GetRuntimePaneVersion()));
    html_source->AddString(
        "aboutProductCopyright",
        base::i18n::MessageFormatter::FormatWithNumberedArgs(

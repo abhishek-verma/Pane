@@ -45,7 +45,7 @@ function sanitizeToolName(name: string): string {
 interface MetricsConfig {
   client_id?: string
   install_id?: string
-  browseros_version?: string
+  pane_version?: string
   chromium_version?: string
   server_version?: string
   [key: string]: string | undefined
@@ -262,7 +262,7 @@ class MetricsService {
     const {
       client_id,
       install_id,
-      browseros_version,
+      pane_version,
       chromium_version,
       server_version,
       ...defaultProperties
@@ -284,7 +284,7 @@ class MetricsService {
         ...properties,
         ...(client_id && { client_id }),
         ...(install_id && { install_id }),
-        ...(browseros_version && { browseros_version }),
+        ...(pane_version && { pane_version }),
         ...(chromium_version && { chromium_version }),
         ...(server_version && { server_version }),
         $process_person_profile: false,

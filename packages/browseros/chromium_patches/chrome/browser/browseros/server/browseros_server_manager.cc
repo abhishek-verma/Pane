@@ -583,8 +583,8 @@ index 0000000000..069d1b79d6
 +
 +  config.ports = ports_;
 +
-+  config.identity.browseros_version =
-+      std::string(version_info::GetBrowserOSVersionNumber());
++  config.identity.pane_version =
++      version_info::GetRuntimePaneVersion();
 +  config.identity.chromium_version =
 +      std::string(version_info::GetVersionNumber());
 +

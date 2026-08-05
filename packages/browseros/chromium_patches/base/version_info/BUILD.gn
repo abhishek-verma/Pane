@@ -10,3 +10,14 @@ index 96937eddc0560..3e587782fc239 100644
      branding_file_path,
      lastchange_file,
    ]
+@@ -52,4 +53,21 @@ component("version_info") {
+   sources = [
+     "version_info.cc",
+     "version_info.h",
++    "version_info_pane.cc",
+   ]
+   public_deps = [ ":generate_version_info" ]
++  deps = [
++    "//base",
++  ]
+ }

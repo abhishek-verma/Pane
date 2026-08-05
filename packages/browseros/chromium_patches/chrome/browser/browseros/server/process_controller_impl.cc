@@ -64,7 +64,7 @@ index 0000000000..d1bb340ae3
 +  // instance
 +  base::DictValue instance;
 +  instance.Set("install_id", config.identity.install_id);
-+  instance.Set("browseros_version", config.identity.browseros_version);
++  instance.Set("pane_version", config.identity.pane_version);
 +  instance.Set("chromium_version", config.identity.chromium_version);
 +  root.Set("instance", std::move(instance));
 +

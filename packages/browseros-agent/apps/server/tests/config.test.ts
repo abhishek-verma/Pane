@@ -261,7 +261,7 @@ describe('loadServerConfig', () => {
           instance: {
             client_id: 'user-123',
             install_id: 'install-456',
-            browseros_version: '1.0.0',
+            pane_version: '1.0.0',
             chromium_version: '120.0.0',
           },
         }),
@@ -277,7 +277,7 @@ describe('loadServerConfig', () => {
       if (!result.ok) return
       assert.strictEqual(result.value.instanceClientId, 'user-123')
       assert.strictEqual(result.value.instanceInstallId, 'install-456')
-      assert.strictEqual(result.value.instanceBrowserosVersion, '1.0.0')
+      assert.strictEqual(result.value.instancePaneVersion, '1.0.0')
       assert.strictEqual(result.value.instanceChromiumVersion, '120.0.0')
     })
   })
@@ -350,7 +350,7 @@ describe('loadServerConfig', () => {
           ports: { http_mcp: 3000, extension: 3002 },
           instance: {
             client_id: 123, // should be string
-            browseros_version: true, // should be string
+            pane_version: true, // should be string
           },
         }),
       )
@@ -365,7 +365,7 @@ describe('loadServerConfig', () => {
       assert.strictEqual(result.ok, true)
       if (!result.ok) return
       assert.strictEqual(result.value.instanceClientId, undefined)
-      assert.strictEqual(result.value.instanceBrowserosVersion, undefined)
+      assert.strictEqual(result.value.instancePaneVersion, undefined)
     })
   })
 

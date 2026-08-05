@@ -161,7 +161,7 @@ export class Application {
         cdp_port: this.config.cdpPort ?? undefined,
         url: `http://127.0.0.1:${this.config.serverPort}`,
         server_version: VERSION,
-        browseros_version: this.config.instanceBrowserosVersion,
+        pane_version: this.config.instancePaneVersion,
         chromium_version: this.config.instanceChromiumVersion,
         browseros_id: identity.getBrowserOSId(),
         cdp_token: cdpToken,
@@ -320,7 +320,7 @@ export class Application {
     metrics.initialize({
       client_id: this.config.instanceClientId,
       install_id: this.config.instanceInstallId,
-      browseros_version: this.config.instanceBrowserosVersion,
+      pane_version: this.config.instancePaneVersion,
       chromium_version: this.config.instanceChromiumVersion,
       server_version: VERSION,
     })
@@ -350,7 +350,7 @@ export class Application {
     Sentry.setContext('browseros', {
       client_id: this.config.instanceClientId,
       install_id: this.config.instanceInstallId,
-      browseros_version: this.config.instanceBrowserosVersion,
+      pane_version: this.config.instancePaneVersion,
       chromium_version: this.config.instanceChromiumVersion,
       server_version: VERSION,
     })

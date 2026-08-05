@@ -33,7 +33,7 @@ export function track(
     .logMetric(eventName, {
       extension_version: versions.extension,
       ...(versions.chromium && { chromium_version: versions.chromium }),
-      ...(versions.browseros && { browseros_version: versions.browseros }),
+      ...(versions.browseros && { pane_version: versions.browseros }),
       ...properties,
     })
     .catch(() => {})

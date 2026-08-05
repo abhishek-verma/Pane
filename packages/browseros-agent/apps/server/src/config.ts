@@ -30,7 +30,7 @@ const ServerConfigSchema = z.object({
   serverOnly: z.boolean(),
   instanceClientId: z.string().optional(),
   instanceInstallId: z.string().optional(),
-  instanceBrowserosVersion: z.string().optional(),
+  instancePaneVersion: z.string().optional(),
   instanceChromiumVersion: z.string().optional(),
   aiSdkDevtoolsEnabled: z.boolean(),
 })
@@ -69,15 +69,15 @@ export function loadServerConfig(
     cli.value.overrides,
   )
 
-  // The BROWSEROS_VERSION file alongside the server binary is updated on every
-  // repackage release. Prefer it over server_config.json's browseros_version,
-  // which is written once by the Chromium process at the version it was compiled
-  // at and never refreshed when the app is replaced without a full recompile.
-  const versionFromFile = readBrowserosVersionFile(
+  // The PANE_VERSION file alongside the server binary is updated on every
+  // release including repackages. Prefer it over server_config.json's
+  // pane_version, which is written by the Chromium process at the version
+  // compiled into the binary and never updated on repackage builds.
+  const versionFromFile = readPaneVersionFile(
     merged.resourcesDir ?? cli.value.cwd,
   )
   if (versionFromFile) {
-    merged.instanceBrowserosVersion = versionFromFile
+    merged.instancePaneVersion = versionFromFile
   }
 
   merged.agentPort = merged.serverPort
@@ -246,9 +246,9 @@ function parseConfigFile(filePath?: string): ConfigResult<PartialConfig> {
           typeof cfg.instance?.install_id === 'string'
             ? cfg.instance.install_id
             : undefined,
-        instanceBrowserosVersion:
-          typeof cfg.instance?.browseros_version === 'string'
-            ? cfg.instance.browseros_version
+        instancePaneVersion:
+          typeof cfg.instance?.pane_version === 'string'
+            ? cfg.instance.pane_version
             : undefined,
         instanceChromiumVersion:
           typeof cfg.instance?.chromium_version === 'string'
@@ -359,18 +359,18 @@ function parseAbsolutePath(val: unknown, baseDir: string): string | undefined {
 }
 
 /**
- * Reads the BROWSEROS_VERSION file from the server resources directory and
- * returns the version string (e.g. "0.47.0.60"), or null if not present.
+ * Reads the PANE_VERSION file from the server resources directory and
+ * returns the version string (e.g. "0.47.0.62"), or null if not present.
  *
  * Format: shell variable assignments, e.g.:
  *   BROWSEROS_MAJOR=0
  *   BROWSEROS_MINOR=47
  *   BROWSEROS_BUILD=0
- *   BROWSEROS_PATCH=60
+ *   BROWSEROS_PATCH=62
  */
-function readBrowserosVersionFile(resourcesDir: string): string | null {
+function readPaneVersionFile(resourcesDir: string): string | null {
   try {
-    const filePath = path.join(resourcesDir, 'BROWSEROS_VERSION')
+    const filePath = path.join(resourcesDir, 'PANE_VERSION')
     const content = require('node:fs').readFileSync(filePath, 'utf-8') as string
     const vars: Record<string, string> = {}
     for (const line of content.split('\n')) {

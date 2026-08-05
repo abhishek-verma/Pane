@@ -249,7 +249,7 @@ describe('MetricsService — flush + shutdown', () => {
     metrics.initialize({
       client_id: 'client-a',
       install_id: 'install-a',
-      browseros_version: '0.46.0.0',
+      pane_version: '0.46.0.0',
       server_version: '0.0.99',
     })
 
@@ -290,7 +290,7 @@ describe('MetricsService — flush + shutdown', () => {
       navigate_page: 2,
       fill: 1,
     })
-    expect(call.properties.browseros_version).toBe('0.46.0.0')
+    expect(call.properties.pane_version).toBe('0.46.0.0')
     expect(call.properties.server_version).toBe('0.0.99')
   })
 

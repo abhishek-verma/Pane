@@ -48,16 +48,16 @@ for archive, destination in pairs:
     print(f"Staged {destination}")
 PY
 
-# Inject the current BROWSEROS_VERSION file into the staged server resources so
+# Inject the current PANE_VERSION file into the staged server resources so
 # the sign guard and the server runtime both see the correct installed version.
 # The server reads this file at startup to override the stale value that Chromium
 # bakes into the binary at compile time (which never changes on repackage builds).
-VERSION_FILE="$BROWSEROS/resources/BROWSEROS_VERSION"
+VERSION_FILE="$BROWSEROS/resources/PANE_VERSION"
 for target_dir in \
   "$BROWSEROS/resources/binaries/browseros_server/$TARGET/resources" \
   "$BROWSEROS/resources/binaries/browseros_claw_server/$TARGET/resources"; do
   if [ -d "$target_dir" ]; then
-    cp "$VERSION_FILE" "$target_dir/BROWSEROS_VERSION"
-    echo "Injected BROWSEROS_VERSION into $target_dir"
+    cp "$VERSION_FILE" "$target_dir/PANE_VERSION"
+    echo "Injected PANE_VERSION into $target_dir"
   fi
 done

@@ -69,7 +69,7 @@ index 0000000000..3b121ed6f6
 +// Identity and versioning info written to the server config JSON.
 +struct ServerIdentity {
 +  std::string install_id;
-+  std::string browseros_version;
++  std::string pane_version;
 +  std::string chromium_version;
 +
 +  // Returns a debug string for logging.
