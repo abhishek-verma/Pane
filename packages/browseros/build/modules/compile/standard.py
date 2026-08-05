@@ -139,25 +139,31 @@ class CompileModule(CommandModule):
         log_success("Build complete!")
 
     def _create_version_file(self, ctx: Context) -> None:
-        # Use semantic_version (e.g. "0.47.0.55") for CFBundleShortVersionString
-        # in the built app, not the Chromium upstream version.
+        # Write the Pane semantic version (e.g. "0.47.0.62") to
+        # chrome/BROWSEROS_VERSION so that PANE_VERSION macro in
+        # version_info_values.h.version picks it up at compile time.
+        #
+        # Do NOT overwrite chrome/VERSION — that file carries the real Chromium
+        # MAJOR version (e.g. 148) which policy generation and other build
+        # scripts require.  Clobbering it with MAJOR=0 breaks generate_policy_source.py.
         version_str = ctx.semantic_version if ctx.semantic_version else ctx.browseros_chromium_version
         parts = version_str.split(".")
         if len(parts) != 4:
             log_warning(f"Invalid version format: {version_str}")
             return
 
-        version_content = f"MAJOR={parts[0]}\nMINOR={parts[1]}\nBUILD={parts[2]}\nPATCH={parts[3]}"
+        # BROWSEROS_VERSION file format matches resources/BROWSEROS_VERSION
+        version_content = (
+            f"BROWSEROS_MAJOR={parts[0]}\n"
+            f"BROWSEROS_MINOR={parts[1]}\n"
+            f"BROWSEROS_BUILD={parts[2]}\n"
+            f"BROWSEROS_PATCH={parts[3]}\n"
+        )
 
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp_file:
-            temp_file.write(version_content)
-            temp_path = temp_file.name
+        browseros_version_path = join_paths(ctx.chromium_src, "chrome", "BROWSEROS_VERSION")
+        browseros_version_path.write_text(version_content)
 
-        chrome_version_path = join_paths(ctx.chromium_src, "chrome", "VERSION")
-        shutil.copy2(temp_path, chrome_version_path)
-        Path(temp_path).unlink()
-
-        log_info(f"Created VERSION file: {version_str}")
+        log_info(f"Created BROWSEROS_VERSION file: {version_str}")
 
 
 def build_target(ctx: Context, target: str) -> bool:
