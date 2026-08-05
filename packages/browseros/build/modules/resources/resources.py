@@ -172,6 +172,11 @@ def _inject_server_resources_into_app_bundle(ctx: Context) -> None:
         if not source.is_dir():
             continue
         dest.mkdir(parents=True, exist_ok=True)
+        # Strip read-only bits from existing files so shutil.copytree can overwrite them.
+        # The app bundle may have been signed (and thus locked) by a prior build run.
+        if dest.exists():
+            import subprocess
+            subprocess.run(["chmod", "-R", "u+w", str(dest)], check=False)
         shutil.copytree(source, dest, dirs_exist_ok=True)
         log_info(f"  ✓ Synced {bundle.name} resources into app bundle")
 
