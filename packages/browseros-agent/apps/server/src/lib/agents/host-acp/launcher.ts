@@ -11,7 +11,7 @@
  * outside darwin / linux / win32).
  */
 
-import { resolveHostBinary } from './binary-resolver'
+import { type ResolvedHostBinary, resolveHostBinary } from './binary-resolver'
 import { resolveBundledBun, withBundledBunAcpAdapterEnv } from './bundled-bun'
 import {
   HOST_ACP_ADAPTER_CONFIG,
@@ -35,7 +35,7 @@ export interface ResolveAcpSpawnCommandInput {
   /** Injected for tests; production callers leave it unset. */
   resolveBundledBun?: typeof resolveBundledBun
   /** Injected for tests; production callers leave it unset. */
-  resolveNpx?: (name: string) => Promise<{ path: string } | null>
+  resolveNpx?: (name: string) => Promise<ResolvedHostBinary | null>
 }
 
 /**
