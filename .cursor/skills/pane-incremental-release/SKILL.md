@@ -30,19 +30,20 @@ proceed to the release when the user confirms the quick test passed. Chromium C+
 - Do **not** bump `BROWSEROS_PATCH` until ready to build+ship a DMG in this session.
 - Ask before anything destructive or if the Chromium tree is in an unknown state.
 - Never reuse an existing `browser/v*` tag.
+- **Nothing is "unrelated"** — typecheck errors, appcast mismatches, stale symlinks all affect the user. Fix everything before calling a release done.
 
 ## Context
-- Chromium src: `/Users/abhishek/chromium/src` (base `148.0.7949.97`)
+- Chromium src: `/Users/abhishek/chromium/src` (base `148.0.7778.97`)
 - Warm app prerequisite for repackage/incremental: `out/Default_arm64/Pane.app`
 - **Bundle ID**: `com.panebrowser.app` (set via `chrome/app/theme/chromium/BRANDING`)
-- **App version**: `CFBundleShortVersionString` tracks `BROWSEROS_VERSION` (e.g. `0.47.0.55`), not the Chromium upstream version
+- **App version**: `CFBundleShortVersionString` tracks `PANE_VERSION` (e.g. `0.47.0.55`), not the Chromium upstream version
 - Extension PEM: `secrets/pane-release/agent-extension.pem`
 - Extension app id: `biedncddmddkpapdplhcnkhhplnfgbif`
 - Sparkle key: `secrets/pane-release/sparkle-private.b64` (or `packages/browseros/.env`)
 - Notary API key: `secrets/pane-release/AuthKey_LG3BDKV6WC.p8`, `NOTARY_KEY_ID.txt`, `NOTARY_ISSUER.txt`
 - Signing identity (already in login keychain locally): `Developer ID Application: Abhishek Verma (4Z2UAB6AWC)`
 - GitHub: `abhishek-verma/Pane`
-- Versions: `packages/browseros/resources/BROWSEROS_VERSION` → `0.47.0.N`; extension `packages/browseros-agent/apps/app/package.json` → `0.0.Y`
+- Versions: `packages/browseros/resources/PANE_VERSION` → `0.47.0.N`; extension `packages/browseros-agent/apps/app/package.json` → `0.0.Y`
 - Manifests: `updates/extensions/bundled-manifest.xml`, `updates/extensions/update-manifest.xml`
 - Appcast: `updates/browser/appcast.xml`
 - CRX URLs must use `%2F` in the tag path (`agent-extension%2Fv0.0.Y`)
@@ -84,9 +85,14 @@ Commit version bumps (+ manifests if any) on `main` and push before tagging the 
 ### 4. Local signed build (default production)
 Identity is already in the login keychain — **do not** import the P12 locally.
 
+For **incremental builds** (C++ recompile), depot_tools and build tools must be on PATH:
+```bash
+export PATH="$HOME/chromium/depot_tools:$HOME/chromium/src/buildtools/mac:$HOME/chromium/src/third_party/llvm-build/Release+Asserts/bin:$PATH"
+```
+For **repackage builds** only `gn` is needed (via `buildtools/mac`), but including the full PATH above is always safe.
+
 ```bash
 export MACOS_CERTIFICATE_NAME="Developer ID Application: Abhishek Verma (4Z2UAB6AWC)"
-# Prefer the .p8 path locally (PEM-in-env also works after resolve_notary_key_file).
 export NOTARY_KEY="/Users/abhishek/workspace/Pane/secrets/pane-release/AuthKey_LG3BDKV6WC.p8"
 export NOTARY_KEY_ID="$(tr -d '[:space:]' < secrets/pane-release/NOTARY_KEY_ID.txt)"
 export NOTARY_ISSUER="$(tr -d '[:space:]' < secrets/pane-release/NOTARY_ISSUER.txt)"
@@ -94,14 +100,15 @@ export SPARKLE_PRIVATE_KEY="$(cat secrets/pane-release/sparkle-private.b64)"
 export PANE_BUNDLED_MANIFEST_PATH="/Users/abhishek/workspace/Pane/updates/extensions/bundled-manifest.xml"
 ```
 
-Practical split that always passes the sign guard (`--config` and `--modules` are mutually exclusive — use modules mode for the split):
+**`--config` and `--modules` are mutually exclusive.** Never pass both. Use `--modules` for partial/resume runs; use `--config` only for a full pipeline run from scratch. Use `--sign --package` phase flags to resume from signing without `--config`.
+
+Practical split that always passes the sign guard (modules mode):
 ```bash
 cd packages/browseros
 uv run browseros build --modules resources,bundled_extensions \
   --arch arm64 --build-type release --chromium-src /Users/abhishek/chromium/src
 
 APP="/Users/abhishek/chromium/src/out/Default_arm64/Pane.app"
-# Resolve the versioned framework dir (never glob — Current + versioned = two paths → corrupted bundle)
 FW_VER="$(ls "$APP/Contents/Frameworks/Pane Framework.framework/Versions/" | grep -vx Current | head -1)"
 FW_RES="$APP/Contents/Frameworks/Pane Framework.framework/Versions/$FW_VER/Resources/browseros_extensions"
 rsync -a /Users/abhishek/chromium/src/chrome/browser/browseros/server/resources/ \
@@ -114,14 +121,14 @@ uv run browseros build --modules sign_macos,package_macos,sparkle_sign \
   --arch arm64 --build-type release --chromium-src /Users/abhishek/chromium/src
 ```
 
-One-shot config (only if the app bundle is already injected to match staged resources):
+One-shot config (only if app bundle is already injected to match staged resources):
 ```bash
 uv run browseros build \
   --config build/config/release.macos.arm64.signed.repackage.yaml \
   --chromium-src /Users/abhishek/chromium/src
 ```
 
-For **incremental**, use `release.macos.arm64.signed.incremental.yaml` (compile included; still set the same env).
+For **incremental**, use `release.macos.arm64.signed.incremental.yaml` (compile included).
 
 Output: `packages/browseros/releases/<version>/Pane_v<version>_arm64.dmg` + `pane-browser-release-metadata.json`.
 
@@ -131,59 +138,193 @@ APP="/Users/abhishek/chromium/src/out/Default_arm64/Pane.app"
 DMG="packages/browseros/releases/<version>/Pane_v<version>_arm64.dmg"
 codesign --verify --deep --strict "$APP"
 spctl -a -vv "$APP"
-xcrun stapler validate "$APP"    # ticket stapled to the app by notarization
-xcrun stapler validate "$DMG"    # Sparkle-served DMG must also be clean
+xcrun stapler validate "$APP"
+xcrun stapler validate "$DMG"
 ```
 
 ### 6. Tag → upload → appcast
 ```bash
 VERSION=0.47.0.N
-TAG=browser/v$VERSION
-git tag -a "$TAG" -m "browser v$VERSION"
-git push origin "$TAG"   # also push the bump commit on main
+TAG=v$VERSION      # plain v-tag (as of v0.47.0.62+)
+git tag -a "$TAG" -m "Pane v$VERSION"
+git push origin "$TAG"
 
-# Create release if the tag-push workflow did not (no self-hosted runner yet):
-gh release create "$TAG" --title "Pane Browser - v$VERSION" --notes "Signed release." || true
-gh release upload "$TAG" \
+gh release create "$TAG" \
   packages/browseros/releases/$VERSION/Pane_v${VERSION}_arm64.dmg \
   packages/browseros/releases/$VERSION/pane-browser-release-metadata.json \
-  --clobber
+  --title "Pane v$VERSION" --notes "..."
 
+# Generate appcast and commit directly on main:
 cd packages/browseros
-uv run browseros ota browser appcast --version "$VERSION" --tag "$TAG" \
-  --output-dir /Users/abhishek/workspace/Pane/updates/browser
-
-# From repo root — lands appcast via PR:
-packages/browseros-agent/scripts/release/commit-updates-via-pr.sh \
-  main "chore/browser-appcast-v${VERSION}" \
-  "chore: update browser appcasts for v${VERSION}" \
-  updates/browser/appcast.xml \
-  updates/browser/appcast-x86_64.xml \
-  updates/browser/appcast-win.xml \
-  updates/browser/appcast-win-arm64.xml
+export SPARKLE_PRIVATE_KEY="$(cat /Users/abhishek/workspace/Pane/secrets/pane-release/sparkle-private.b64)"
+uv run browseros ota browser appcast --version "$VERSION" --tag "$TAG"
+cd /Users/abhishek/workspace/Pane
+git add updates/browser/appcast.xml
+git commit -m "chore: update browser appcast for v${VERSION}"
+git push origin main
 ```
 
+**CRITICAL — verify sparkle:version matches CFBundleVersion after every build:**
+```bash
+# Read CFBundleVersion from the freshly built DMG:
+hdiutil attach "packages/browseros/releases/$VERSION/Pane_v${VERSION}_arm64.dmg" \
+  -mountpoint /tmp/pane-check -nobrowse -quiet
+/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" /tmp/pane-check/Pane.app/Contents/Info.plist
+hdiutil detach /tmp/pane-check -quiet
+
+# Compare with appcast:
+grep "sparkle:version" updates/browser/appcast.xml
+```
+They **must match exactly**. If they differ, edit `sparkle:version` in the appcast to match `CFBundleVersion` before pushing. A mismatch causes an infinite update-download loop in installed Pane.
+
 ### 7. Report
-DMG path + size, notarization acceptance / stapler result, `spctl` output, release URL, appcast PR URL, path used (signed.repackage vs signed.incremental).
+DMG path + size, notarization acceptance / stapler result, `spctl` output, release URL, appcast URL, path used.
 
 ---
 
 ## Resume after an interrupted release
 
-If notarization or the build terminal dies mid-release (the app is already signed,
-but the DMG/tag/upload never happened), do **not** restart from scratch. Run:
-
+If the build terminal dies mid-release (app already signed, DMG/tag/upload never happened):
 ```bash
 bash packages/browseros-agent/scripts/release/resume-signed-browser-release.sh <version>
-# e.g. bash .../resume-signed-browser-release.sh 0.47.0.54
 ```
 
-It re-runs only `package_macos,sparkle_sign` (the app is already signed, so it
-skips `sign_macos`) if the DMG isn't already at `releases/<version>/`, then verifies
-Gatekeeper cleanliness (§5), tags, uploads, and updates the appcast (§6) — the same
-steps below, scripted end to end. If notarytool timed out, re-submit with
-`uv run browseros build --modules notarize_macos,...` or `xcrun notarytool submit`
-against the zipped app, then staple, before running the script.
+**Resuming after a failed compile** — fix the error, then:
+```bash
+export PATH="$HOME/chromium/depot_tools:$HOME/chromium/src/buildtools/mac:$HOME/chromium/src/third_party/llvm-build/Release+Asserts/bin:$PATH"
+autoninja -C /Users/abhishek/chromium/src/out/Default_arm64 -j 12 chrome chromedriver
+
+# Resume sign+package:
+cd packages/browseros
+uv run browseros build --sign --package \
+  --arch arm64 --build-type release --chromium-src /Users/abhishek/chromium/src
+
+# Then Sparkle sign:
+uv run browseros build --modules sparkle_sign \
+  --arch arm64 --build-type release --chromium-src /Users/abhishek/chromium/src
+```
+
+---
+
+## Known pitfalls — incremental builds
+
+### 1. Detecting a "stuck" build vs a failed compile
+**A build that looks stuck is usually a completed-but-failed compile.** `autoninja` exits silently on error and the Python build script may appear to hang.
+
+How to diagnose:
+```bash
+# Is siso/autoninja still running?
+ps aux | grep -E "[s]iso|[a]utoninja"
+
+# When did compile finish?
+ls -lt /Users/abhishek/chromium/src/out/Default_arm64/siso_output
+
+# What was the error?
+grep "FAILED" /Users/abhishek/chromium/src/out/Default_arm64/siso_output | tail -5
+
+# Did it create a failed-commands script?
+ls /Users/abhishek/chromium/src/out/Default_arm64/siso_failed_commands.sh
+```
+If `siso_failed_commands.sh` exists, open `siso_output` to find the actual compiler error. If it doesn't exist (and grep finds 0 FAILED lines), compile succeeded.
+
+### 2. GRD patch not applied — missing string IDs
+**Symptom**: `error: use of undeclared identifier 'IDS_IMPORT_FROM_CHROME'` (or any `IDS_*` string).
+
+**Cause**: The incremental config does NOT run the `patches` module. `chromium_patches/*.grd` diffs must already be applied in the working tree. A partial prior patch run may have applied the `.cc` file but failed on the `.grd` file.
+
+**Fix**: manually add the missing string to the working tree GRD at the location indicated in the patch diff, then re-run `autoninja`.
+
+**Prevention**: before every incremental build, spot-check that key patch additions exist in the working tree:
+```bash
+grep -c "IDS_IMPORT_FROM_CHROME" /Users/abhishek/chromium/src/chrome/app/generated_resources.grd
+# must be > 0
+```
+
+### 3. Stale framework symlink — codesign fails
+**Symptom**: `codesign` fails on `Pane Framework.framework` with `bundle format unrecognized, invalid, or unsuitable`.
+
+**Cause**: `Pane.app/Contents/Frameworks/Pane Framework.framework/Versions/Current` is a broken symlink pointing to an old Chromium build version. This happens when `out/Default_arm64/Pane.app` is left over from a prior build on a different Chromium base version.
+
+**Check before signing**:
+```bash
+file "/Users/abhishek/chromium/src/out/Default_arm64/Pane.app/Contents/Frameworks/Pane Framework.framework/Versions/Current"
+# Must say "directory" — not "broken symbolic link"
+```
+
+**Fix**: rebuild the app bundle with ninja (takes ~5 min, no full recompile):
+```bash
+export PATH="$HOME/chromium/depot_tools:..."
+autoninja -C /Users/abhishek/chromium/src/out/Default_arm64 -j 12 "Pane.app"
+```
+
+### 4. sparkle:version mismatch → infinite update loop
+**Symptom**: installed Pane continuously downloads the latest version even after installing it (About page shows "Updating Pane (14%)" in a loop).
+
+**Cause**: `sparkle_sign` computes `sparkle_version = chromiumBuild + 171` (the build offset). But `autoninja` bakes `CFBundleVersion` from the raw `chrome/VERSION` BUILD field — without the offset. An incremental build on Chromium `148.0.7778.97` produces `CFBundleVersion = 7778.97`, but `sparkle_version = 7778 + 171 = 7949.97`. Since `7949 > 7778`, Sparkle permanently thinks an update is available.
+
+**Fix**: after `sparkle_sign` generates the metadata/appcast, always verify and correct if needed:
+```bash
+# Actual CFBundleVersion in the DMG:
+hdiutil attach "releases/$VERSION/Pane_v${VERSION}_arm64.dmg" -mountpoint /tmp/pane-check -nobrowse -quiet
+/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" /tmp/pane-check/Pane.app/Contents/Info.plist
+hdiutil detach /tmp/pane-check -quiet
+# Then compare with appcast and fix if different (see §6 above).
+```
+
+### 5. `--start-from` does not exist
+The `browseros build` CLI has no `--start-from` flag. To resume from a specific step:
+- `--modules sign_macos,package_macos,sparkle_sign` — but NOT with `--config`
+- `--sign --package` phase flags — without `--config`
+- `--config` and `--modules`/phase flags are **mutually exclusive**
+
+### 6. `chrome/VERSION` must not be overwritten
+The `compile` module's `_create_version_file` writes the Pane version to `chrome/BROWSEROS_VERSION`. It must **never** overwrite `chrome/VERSION` — that file contains `MAJOR=148` (the real Chromium major) required by policy generation. Overwriting it causes `Missing --chrome-version-major`.
+
+### 7. PATH requirements for incremental builds
+`gn` and `autoninja` must be on PATH or the build fails with `[Errno 2] No such file or directory: 'gn'`. Always set the full PATH before any incremental build command (see §4 above).
+
+### 8. Xcode must be full Xcode, not Command Line Tools
+```bash
+xcode-select -p   # must show /Applications/Xcode.app/...
+# If it shows /Library/Developer/CommandLineTools, fix it:
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+```
+
+---
+
+## Extension release
+
+### Pack and update manifests
+```bash
+cd packages/browseros-agent/apps/app
+bun run build
+bun run zip   # creates dist/browserosapp-0.0.Y-chrome.zip
+
+cd ../..
+AGENT_EXTENSION_PRIVATE_KEY="$(cat /Users/abhishek/workspace/Pane/secrets/pane-release/agent-extension.pem)" \
+bun scripts/release/pack-extension-crx.ts \
+  --zip apps/app/dist/browserosapp-0.0.Y-chrome.zip \
+  --output /tmp/pane-agent-0.0.Y.crx
+
+bun scripts/release/generate-extension-update-manifest.ts \
+  --app-id biedncddmddkpapdplhcnkhhplnfgbif \
+  --version 0.0.Y \
+  --codebase "https://cdn.browseros.com/extensions/pane-agent-0.0.Y.crx" \
+  --output /Users/abhishek/workspace/Pane/updates/extensions/bundled-manifest.xml \
+  --merge-from /Users/abhishek/workspace/Pane/updates/extensions/bundled-manifest.xml
+```
+
+### Trigger CI release workflow
+The `release-agent-extension.yml` workflow triggers on `agent-extension/v*` tag push AND `workflow_dispatch`. If a tag push doesn't appear in `gh run list` within 30 seconds, manually dispatch:
+```bash
+gh workflow run release-agent-extension.yml --field tag="agent-extension/v0.0.Y"
+```
+The workflow waits for approval in the `release-core` GitHub environment — approve at the Actions run URL in the GitHub UI.
+
+### Typecheck before shipping
+Run `bun run typecheck` from `packages/browseros-agent` before publishing. Errors in **any** package are release blockers — nothing is "unrelated" when shipping to users.
+
+---
 
 ## Signed CI path (when a self-hosted runner exists)
 
@@ -209,4 +350,3 @@ Gatekeeper will warn. Do not ship these as production.
 ## Notes
 - Prefer judgment when a release is partially done — fix forward.
 - Keep release commits focused; don't scoop unrelated dirty files.
-- Optional fill-in: release notes / why: <one sentence>
