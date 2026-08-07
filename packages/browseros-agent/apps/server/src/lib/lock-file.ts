@@ -10,7 +10,7 @@ export class LockFile {
     this.lockFilePath = path.join(getInstallBrowserosDir(), filename)
   }
 
-  public acquire(): boolean {
+  public async acquire(): Promise<boolean> {
     try {
       // Ensure directory exists
       const dir = path.dirname(this.lockFilePath)
@@ -23,31 +23,32 @@ export class LockFile {
         const pid = parseInt(pidStr, 10)
         if (!Number.isNaN(pid) && pid !== process.pid) {
           try {
-            process.kill(pid, 0) // check if alive
-            // Process is alive — this is a stale instance (e.g. after a Sparkle OTA
-            // update where the old server kept running). Terminate it gracefully so
-            // the new version can bind to the same port.
+            process.kill(pid, 0) // throws if not running
+            // Process is alive — stale instance (e.g. old server still running after
+            // a Sparkle OTA update). Terminate it so the new version can bind to the
+            // same port. Same-user processes can always signal each other on macOS
+            // (no App Sandbox on the server binary).
             try {
               process.kill(pid, 'SIGTERM')
             } catch {
-              process.kill(pid, 'SIGKILL')
+              try {
+                process.kill(pid, 'SIGKILL')
+              } catch {
+                // already gone
+              }
             }
-            // Wait up to 2 s for it to exit before taking over
-            const deadline = Date.now() + 2000
+            // Wait up to 3 s for it to exit before taking over
+            const deadline = Date.now() + 3000
             while (Date.now() < deadline) {
               try {
                 process.kill(pid, 0)
-                // still alive — spin
-                const end = Date.now() + 50
-                while (Date.now() < end) {
-                  /* busy-wait 50 ms */
-                }
+                await Bun.sleep(50)
               } catch {
-                break // gone
+                break // process exited
               }
             }
           } catch {
-            // Process not running — stale lock file, remove it
+            // Process not running — stale lock, fall through to remove
           }
           try {
             fs.unlinkSync(this.lockFilePath)

@@ -70,7 +70,7 @@ export class Application {
   }
 
   async start(): Promise<void> {
-    if (!serverLock.acquire()) {
+    if (!(await serverLock.acquire())) {
       logger.error(
         'Failed to acquire server lock. Is another instance running?',
       )
