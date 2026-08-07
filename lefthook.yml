@@ -39,6 +39,27 @@ pre-commit:
 
 pre-push:
   commands:
+    no-direct-push-to-main:
+      run: |
+        branch=$(git rev-parse --abbrev-ref HEAD)
+        if [[ "$branch" == "main" || "$branch" == "master" ]]; then
+          # Allow appcast/release metadata commits (auto-generated)
+          last_msg=$(git log -1 --format='%s')
+          if [[ "$last_msg" =~ ^chore:\ (update|appcast|sync) ]] || [[ "$last_msg" =~ ^chore\(release\) ]]; then
+            exit 0
+          fi
+          echo "❌ Direct pushes to main are not allowed."
+          echo "   Create a feature branch, raise a PR, review, then merge."
+          echo ""
+          echo "   git checkout -b fix/my-change"
+          echo "   git push -u origin fix/my-change"
+          echo "   gh pr create"
+          echo ""
+          echo "   To bypass for release metadata: use commit message starting with"
+          echo "   'chore: update', 'chore: appcast', or 'chore(release)'"
+          exit 1
+        fi
+
     branch-name:
       run: |
         branch=$(git rev-parse --abbrev-ref HEAD)
