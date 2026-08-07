@@ -35,7 +35,8 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
               Sign in to Pane
             </h2>
             <p className="text-base text-muted-foreground">
-              Sync your settings and unlock cloud features
+              Sync your settings and unlock cloud features. This step is
+              optional.
             </p>
           </div>
 
@@ -48,15 +49,9 @@ export const StepTwo = ({ direction, onContinue }: StepTwoProps) => {
             Continue with Google
           </Button>
 
-          <div className="text-center">
-            <Button
-              variant="ghost"
-              onClick={handleSkip}
-              className="text-muted-foreground"
-            >
-              Skip for now
-            </Button>
-          </div>
+          <Button variant="secondary" className="w-full" onClick={handleSkip}>
+            Skip — sign in anytime from Settings
+          </Button>
         </div>
       </div>
     </StepTransition>

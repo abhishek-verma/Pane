@@ -28,7 +28,7 @@ export interface StepOneProps {
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  description: z.string().min(1, 'Tell Pane a bit about you'),
+  description: z.string(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -51,16 +51,18 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
       description,
     })
 
-    await personalizationStorage.setValue(
-      [`Name: ${name}`, `About: ${description}`].join('\n'),
-    )
+    const personalizationLines = [`Name: ${name}`]
+    if (description) {
+      personalizationLines.push(`About: ${description}`)
+    }
+    await personalizationStorage.setValue(personalizationLines.join('\n'))
 
     track(ONBOARDING_ABOUT_SUBMITTED_EVENT, {
-      fields_filled: 2,
+      fields_filled: description ? 2 : 1,
       has_name: true,
       has_role: false,
       has_company: false,
-      has_description: true,
+      has_description: Boolean(description),
     })
 
     track(ONBOARDING_STEP_COMPLETED_EVENT, { step: 1, step_name: 'about' })
@@ -107,10 +109,10 @@ export const StepOne = ({ direction, onContinue }: StepOneProps) => {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>About you</FormLabel>
+                    <FormLabel>About you (optional)</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Engineer shipping a side project. Spend mornings in docs and evenings in PRs."
+                        placeholder="Optional: Engineer shipping a side project. Spend mornings in docs and evenings in PRs."
                         rows={3}
                         className="field-sizing-fixed"
                         {...field}

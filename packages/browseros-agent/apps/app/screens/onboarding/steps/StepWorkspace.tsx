@@ -66,11 +66,20 @@ export const StepWorkspace = ({
         </div>
 
         {selectedFolder ? (
-          <div className="rounded-lg border border-[var(--accent-orange)]/40 bg-[var(--accent-orange)]/5 px-4 py-3 text-sm">
-            <div className="font-medium">{selectedFolder.name}</div>
-            <div className="mt-1 break-all text-muted-foreground text-xs">
-              {selectedFolder.path}
+          <div className="space-y-2">
+            <div className="rounded-lg border border-[var(--accent-orange)]/40 bg-[var(--accent-orange)]/5 px-4 py-3 text-sm">
+              <div className="font-medium">{selectedFolder.name}</div>
+              <div className="mt-1 break-all text-muted-foreground text-xs">
+                {selectedFolder.path}
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => void handleChooseFolder()}
+              className="w-full text-center text-muted-foreground text-xs underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Choose a different folder
+            </button>
           </div>
         ) : (
           <button

@@ -24,6 +24,7 @@ import { onOpenSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepan
 import { setupScheduledJobsSyncToBackend } from '@/lib/schedules/syncSchedulesToBackend'
 import { searchActionsStorage } from '@/lib/search-actions/searchActionsStorage'
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
+import { initSentry, sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { captureBridge } from './captureBridge'
 import { drainOsPush } from './drainOsPush'
@@ -45,6 +46,11 @@ const cleanupLegacyToolApprovalStorage = async () => {
 }
 
 export default defineBackground(() => {
+  // The service worker is a separate JS realm from app/sidepanel pages — it
+  // needs its own Sentry.init() or `sentry.captureException` calls elsewhere
+  // in background-invoked code (e.g. syncSchedulesToBackend.ts) are no-ops.
+  initSentry({ enableDomBreadcrumbs: false }).catch(() => null)
+
   registerSidePanelOpenStateListeners()
   ensureSidePanelRuntimeStateLoaded().catch(() => null)
 
@@ -169,6 +175,12 @@ export default defineBackground(() => {
       }
 
       if (failures >= 3) {
+        sentry.addBreadcrumb({
+          category: 'server-health',
+          message:
+            'Requesting native server restart after 3 failed health checks',
+          level: 'warning',
+        })
         try {
           // Setting the restart requested pref triggers the native Chromium process to relaunch the server
           await getBrowserOSAdapter().setPref(
@@ -176,8 +188,11 @@ export default defineBackground(() => {
             true,
           )
           failures = 0 // Reset to avoid constant restart requests
-        } catch (_e) {
+        } catch (e) {
           // Native API may not be available
+          sentry.captureException(e, {
+            extra: { context: 'health-check-server-restart' },
+          })
         }
       }
     }

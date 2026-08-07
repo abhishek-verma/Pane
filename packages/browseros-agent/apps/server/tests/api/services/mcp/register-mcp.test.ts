@@ -97,6 +97,8 @@ describe('registerTools', () => {
     'memory_add',
     'memory_replace',
     'memory_remove',
+    'soul_edit',
+    'user_edit',
     'skills_list',
     'skills_load',
     'skills_install',

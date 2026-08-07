@@ -44,14 +44,49 @@ describe('deriveClass', () => {
     )
   })
 
-  it('classifies filesystem_write inside workspace as write-local', () => {
+  it('auto-allows filesystem_write inside workspace (read)', () => {
     expect(
       deriveClass(
         'filesystem_write',
         { path: 'src/foo.ts' },
         makeCtx({ workspaceRoot: '/workspace' }),
       ),
+    ).toBe('read')
+  })
+
+  it('keeps filesystem_write gated as write-local when no workspaceRoot is set', () => {
+    expect(
+      deriveClass('filesystem_write', { path: 'src/foo.ts' }, makeCtx()),
     ).toBe('write-local')
+  })
+
+  it('keeps filesystem_write gated as write-local when path is not a string', () => {
+    expect(
+      deriveClass(
+        'filesystem_write',
+        { path: undefined },
+        makeCtx({ workspaceRoot: '/workspace' }),
+      ),
+    ).toBe('write-local')
+  })
+
+  it('auto-allows filesystem_edit inside workspace (read)', () => {
+    expect(
+      deriveClass(
+        'filesystem_edit',
+        { path: 'src/foo.ts' },
+        makeCtx({ workspaceRoot: '/workspace' }),
+      ),
+    ).toBe('read')
+  })
+
+  it('classifies soul_edit and user_edit as write-local', () => {
+    expect(deriveClass('soul_edit', { content: 'x' }, makeCtx())).toBe(
+      'write-local',
+    )
+    expect(deriveClass('user_edit', { content: 'x' }, makeCtx())).toBe(
+      'write-local',
+    )
   })
 
   it('escalates outside-workspace writes to system', () => {
@@ -150,6 +185,17 @@ describe('decideGate', () => {
     expect(decision.action).toBe('needs-approval')
   })
 
+  it('requests approval for soul_edit / user_edit in loop surface', () => {
+    for (const toolName of ['soul_edit', 'user_edit']) {
+      const decision = decideGate(
+        toolName,
+        { content: '# Soul\n...' },
+        makeCtx({ surface: 'loop' }),
+      )
+      expect(decision.action).toBe('needs-approval')
+    }
+  })
+
   it('does not apply a blast-radius budget when a pin is active', () => {
     const ctx = makeCtx({
       surface: 'mcp',
@@ -196,14 +242,14 @@ describe('deriveClass path escalation fuzz', () => {
     })
   }
 
-  it('keeps in-workspace relative paths as write-local', () => {
+  it('auto-allows in-workspace relative paths (read)', () => {
     expect(
       deriveClass(
         'filesystem_write',
         { path: 'src/foo.ts', content: 'x' },
         ctx,
       ),
-    ).toBe('write-local')
+    ).toBe('read')
   })
 })
 

@@ -350,7 +350,12 @@ export const MessageResponse = memo(
   ({ className, linkSafety, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn(
-        'size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_[data-streamdown="code-block"]]:w-[calc(100vw-64px)]! [&_[data-streamdown="table-wrapper"]]:w-[calc(100vw-64px)]!',
+        // Constrain code blocks/tables to their own container instead of the
+        // viewport — a vw-based width ignored the message bubble's own
+        // indentation, so blocks overflowed past their clipped ancestor and
+        // the copy/download buttons became unclickable (painted outside the
+        // hit-testable area).
+        'size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_[data-streamdown="code-block"]]:w-full [&_[data-streamdown="code-block"]]:max-w-full [&_[data-streamdown="table-wrapper"]]:w-full [&_[data-streamdown="table-wrapper"]]:max-w-full',
         className,
       )}
       shikiTheme={themes}

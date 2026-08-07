@@ -5,8 +5,10 @@
 
 /* streamdown@2 ships its own component classes that Tailwind needs
    to scan for utilities. Without this, Tailwind purges classes that
-   streamdown emits at runtime (e.g. code-block layout). */
-@source "../../../node_modules/streamdown/dist/*.js";
+   streamdown emits at runtime (e.g. code-block layout). Path is relative
+   to this file (apps/app/styles/); streamdown resolves one level up via
+   apps/app/node_modules/streamdown, not the workspace root's node_modules. */
+@source "../node_modules/streamdown/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
 

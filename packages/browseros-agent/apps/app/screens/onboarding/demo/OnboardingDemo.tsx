@@ -13,6 +13,7 @@ import {
   onboardingProfileStorage,
 } from '@/lib/onboarding/onboardingStorage'
 import { seedMemoryFromOnboarding } from '@/lib/onboarding/seedMemoryFromOnboarding'
+import { sentry } from '@/lib/sentry/sentry'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 interface DemoSuggestion {
@@ -60,11 +61,62 @@ export const OnboardingDemo = () => {
   }, [])
 
   const completeOnboarding = async () => {
-    if (baseUrl) {
-      await seedMemoryFromOnboarding(baseUrl as string)
+    sentry.addBreadcrumb({
+      category: 'onboarding',
+      message: 'completeOnboarding: start',
+      level: 'info',
+    })
+    try {
+      if (baseUrl) {
+        await seedMemoryFromOnboarding(baseUrl as string)
+      }
+      await onboardingCompletedStorage.setValue(true)
+      track(ONBOARDING_COMPLETED_EVENT)
+    } catch (error) {
+      sentry.captureException(error, {
+        extra: { context: 'onboarding-complete' },
+      })
+      throw error
     }
-    await onboardingCompletedStorage.setValue(true)
-    track(ONBOARDING_COMPLETED_EVENT)
+    sentry.addBreadcrumb({
+      category: 'onboarding',
+      message: 'completeOnboarding: done',
+      level: 'info',
+    })
+  }
+
+  /**
+   * Immediately after onboarding: opens a new home tab and kicks off the
+   * first real agent turn via the side panel. This is the first CDP-driven
+   * navigation + first live model call after a fresh install — instrumented
+   * because a native "Pane has crashed" report was seen right after
+   * onboarding completion with no attached stack trace.
+   */
+  const openHomeAndSearch = async (query: string, mode: 'chat' | 'agent') => {
+    try {
+      sentry.addBreadcrumb({
+        category: 'onboarding',
+        message: 'tabs.create app.html#/home',
+        level: 'info',
+      })
+      await chrome.tabs.create({
+        active: true,
+        url: chrome.runtime.getURL('app.html#/home'),
+      })
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      sentry.addBreadcrumb({
+        category: 'onboarding',
+        message: 'openSidePanelWithSearch',
+        level: 'info',
+        data: { mode },
+      })
+      openSidePanelWithSearch('open', { query, mode })
+    } catch (error) {
+      sentry.captureException(error, {
+        extra: { context: 'onboarding-open-home-and-search', mode },
+      })
+      throw error
+    }
   }
 
   const handleDemoTask = async (
@@ -79,13 +131,7 @@ export const OnboardingDemo = () => {
       suggestion_index: index,
     })
     await completeOnboarding()
-
-    await chrome.tabs.create({
-      active: true,
-      url: chrome.runtime.getURL('app.html#/home'),
-    })
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    openSidePanelWithSearch('open', { query, mode })
+    await openHomeAndSearch(query, mode)
   }
 
   const handleCustomQuery = async (e: React.FormEvent) => {
@@ -98,16 +144,7 @@ export const OnboardingDemo = () => {
       source: 'custom',
     })
     await completeOnboarding()
-
-    await chrome.tabs.create({
-      active: true,
-      url: chrome.runtime.getURL('app.html#/home'),
-    })
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    openSidePanelWithSearch('open', {
-      query: customQuery.trim(),
-      mode: 'agent',
-    })
+    await openHomeAndSearch(customQuery.trim(), 'agent')
   }
 
   const handleSkip = async () => {
