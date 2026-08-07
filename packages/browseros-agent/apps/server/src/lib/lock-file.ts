@@ -18,21 +18,41 @@ export class LockFile {
         fs.mkdirSync(dir, { recursive: true })
       }
 
-      // Try to acquire the lock by opening with wx (write, fail if exists)
-      // This is a naive lock. But we actually just want a PID lock, so let's try
-      // writing our PID.
-      // A more robust PID lock:
       if (fs.existsSync(this.lockFilePath)) {
         const pidStr = fs.readFileSync(this.lockFilePath, 'utf-8')
         const pid = parseInt(pidStr, 10)
-        if (!Number.isNaN(pid)) {
+        if (!Number.isNaN(pid) && pid !== process.pid) {
           try {
-            // Check if process is still running
-            process.kill(pid, 0)
-            return false // Process is running
-          } catch (_e) {
-            // Process is not running, we can remove the stale lock
+            process.kill(pid, 0) // check if alive
+            // Process is alive — this is a stale instance (e.g. after a Sparkle OTA
+            // update where the old server kept running). Terminate it gracefully so
+            // the new version can bind to the same port.
+            try {
+              process.kill(pid, 'SIGTERM')
+            } catch {
+              process.kill(pid, 'SIGKILL')
+            }
+            // Wait up to 2 s for it to exit before taking over
+            const deadline = Date.now() + 2000
+            while (Date.now() < deadline) {
+              try {
+                process.kill(pid, 0)
+                // still alive — spin
+                const end = Date.now() + 50
+                while (Date.now() < end) {
+                  /* busy-wait 50 ms */
+                }
+              } catch {
+                break // gone
+              }
+            }
+          } catch {
+            // Process not running — stale lock file, remove it
+          }
+          try {
             fs.unlinkSync(this.lockFilePath)
+          } catch {
+            // ignore
           }
         }
       }
