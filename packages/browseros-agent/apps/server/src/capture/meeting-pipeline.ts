@@ -90,6 +90,8 @@ type RegisteredSession = {
 }
 
 const registeredSessions = new Map<string, RegisteredSession>()
+/** Guards against reconciler deleting sessions mid-initialization. */
+const sessionsInitializing = new Set<string>()
 const feedQueues = new Map<string, Promise<void>>()
 /** Per-session ASR task chain (ordering); jobs go to fair shared worker. */
 const asrQueues = new Map<string, Promise<void>>()
@@ -198,6 +200,7 @@ export async function startMeetingCapture(input: {
   assertCanStartNewCapture()
 
   const id = crypto.randomUUID()
+  sessionsInitializing.add(id)
   const providerId = input.provider ?? 'local-faster-whisper'
   const startedAt = Date.now()
   const sessionDir = join(getCaptureDir(), input.bucketId, 'meetings', id)
@@ -262,6 +265,7 @@ export async function startMeetingCapture(input: {
       })
     })
     .catch(() => undefined)
+  sessionsInitializing.delete(id)
   return getCaptureSession(id) as CaptureSessionSummary
 }
 
@@ -1100,7 +1104,7 @@ export function activeCaptureSessionCount(): number {
 }
 
 export function isSessionRecording(id: string): boolean {
-  return registeredSessions.has(id)
+  return registeredSessions.has(id) || sessionsInitializing.has(id)
 }
 
 async function appendTranscript(

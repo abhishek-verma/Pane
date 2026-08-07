@@ -43,7 +43,10 @@ async function collectTabDomProbe(
     // because it hangs indefinitely when blob:/about:blank frames exist.
     let merged = main.facts
     try {
-      const frames = await chrome.webNavigation.getAllFrames({ tabId })
+      const frames = await Promise.race([
+        chrome.webNavigation.getAllFrames({ tabId }),
+        new Promise<null>((r) => setTimeout(() => r(null), 3000)),
+      ])
       if (frames) {
         const childFrames = frames.filter(
           (f) =>

@@ -332,7 +332,9 @@ async function syncActiveSessions(): Promise<void> {
         sendRuntimeMessage(RuntimeMessageType.captureMicMute, {
           sessionId: session.id,
           muted: localMuted,
-        }).catch(() => null)
+        }).catch(() => {
+          lastMuteBySession.delete(session.id)
+        })
       }
 
       const decision = decideCaptureLifecycle({
