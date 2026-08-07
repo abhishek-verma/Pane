@@ -89,7 +89,10 @@ describe('testProvider — request body', () => {
 
 describe('testProvider — local server unreachable', () => {
   it('wraps a fetch failure with a clear local-server-unreachable message', async () => {
-    globalThis.fetch = (async () => {
+    globalThis.fetch = (async (
+      _input: RequestInfo | URL,
+      _init?: RequestInit,
+    ): Promise<Response> => {
       throw new Error('Failed to fetch')
     }) as typeof globalThis.fetch
 
