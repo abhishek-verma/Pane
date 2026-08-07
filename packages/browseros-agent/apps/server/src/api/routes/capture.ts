@@ -343,9 +343,9 @@ export function createCaptureRoutes() {
       )
     })
     .post('/asr/transcribe', async (c) => {
-      // One-shot dictation: accepts a multipart audio blob (webm/opus from
-      // MediaRecorder), feeds it to the shared Whisper sidecar as a single
-      // large chunk, and returns the full transcript once done.
+      // One-shot dictation: accepts webm/opus audio, splits into sequential
+      // 24-second feeds to the ASR sidecar (matching its MAX_WINDOW_SAMPLES),
+      // and returns the concatenated transcript.
       const formData = await c.req.formData()
       const file = formData.get('file')
       if (!(file instanceof File)) {
@@ -365,55 +365,36 @@ export function createCaptureRoutes() {
         await writeFile(tmpPath, buf)
 
         const segments: string[] = []
-        let lastSegmentAt = 0
 
         await registerAsrSession(sessionId, {
           onPartial: () => {},
           onFinal: (seg) => {
             if (seg.text?.trim()) segments.push(seg.text.trim())
-            lastSegmentAt = Date.now()
           },
         })
 
-        await enqueueAsrJob({
-          sessionId,
-          sequence: 0,
-          mimeType: file.type || 'audio/webm',
-          capturedAt: Date.now(),
-          audioPath: tmpPath,
-          force: true,
-        })
+        // The sidecar processes max 24s per feed (MAX_WINDOW_SAMPLES).
+        // For longer audio, send multiple sequential feeds of the same file.
+        // Each feed advances the internal lastEndSample window by 24s.
+        // Estimate duration from file size (~32kbps for webm/opus).
+        const estimatedDurationSec = Math.max(5, (buf.length * 8) / 32000)
+        const numFeeds = Math.ceil(estimatedDurationSec / 24)
 
-        // drainAsrSession resolves when the job is acked (sent to sidecar),
-        // but transcript segments arrive AFTER the ack. Wait for segments to
-        // stop arriving — the sidecar processes audio in internal chunks and
-        // emits segments with gaps of up to 10s between them for large files.
-        await drainAsrSession(sessionId)
-
-        // Minimum wait: proportional to file size (~1s processing per 100KB).
-        // This prevents premature return for large files where the first segment
-        // arrives quickly but subsequent ones take time.
-        const minWaitMs = Math.min(30_000, Math.max(5000, buf.length / 100))
-        const startedAt = Date.now()
-        const deadline = startedAt + 60_000
-
-        while (Date.now() < deadline) {
-          await new Promise((r) => setTimeout(r, 500))
-          const elapsed = Date.now() - startedAt
-          const sinceLastSeg =
-            lastSegmentAt > 0 ? Date.now() - lastSegmentAt : 0
-          // Only return when:
-          // 1. We've waited at least the minimum time (proportional to file size)
-          // 2. AND no new segments for 5 seconds (sidecar is done)
-          if (
-            elapsed >= minWaitMs &&
-            sinceLastSeg > 5000 &&
-            segments.length > 0
-          )
-            break
-          // Safety: if we've received segments and nothing for 10s, assume done
-          if (segments.length > 0 && sinceLastSeg > 10_000) break
+        for (let seq = 0; seq < numFeeds; seq++) {
+          await enqueueAsrJob({
+            sessionId,
+            sequence: seq,
+            mimeType: file.type || 'audio/webm',
+            capturedAt: Date.now(),
+            audioPath: tmpPath,
+            force: true,
+          })
         }
+
+        // All feeds enqueued sequentially. drainAsrSession waits for all to ack.
+        // The sidecar emits the final segment BEFORE ack (ack is in finally{}),
+        // so by the time drain resolves, all segments are already collected.
+        await drainAsrSession(sessionId)
 
         return c.json({ text: segments.join(' ') })
       } catch (err) {
