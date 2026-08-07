@@ -1,5 +1,17 @@
 # BrowserOS Agent Extension
 
+## v0.0.158 (2026-08-07)
+
+## What's Changed
+
+- chore(release): bump versions for v0.47.0.63
+- fix: improve Voice onboarding step UX
+- feat: add Voice onboarding step for Whisper model download
+- feat: voice dictation via local Whisper ASR
+- refactor: remove PANE_BUILD flag and BrowserOS-specific code
+- docs: clarify server workflow is not used; fix PANE_BUILD comment in wxt.config
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
