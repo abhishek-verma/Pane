@@ -110,5 +110,12 @@ packages/browseros-agent/scripts/release/commit-updates-via-pr.sh \
   updates/browser/appcast-win.xml \
   updates/browser/appcast-win-arm64.xml
 
+# ------------------------------------------------------------------
+# STEP E: Homebrew cask
+# ------------------------------------------------------------------
+echo ""
+echo "=== Updating Homebrew tap ==="
+"$REPO_ROOT/packages/browseros-agent/scripts/release/update-brew-cask.sh" "$VERSION"
+
 echo ""
 echo "✅ Release v$VERSION complete."

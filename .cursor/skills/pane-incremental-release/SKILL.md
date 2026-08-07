@@ -209,6 +209,13 @@ git add updates/browser/appcast.xml packages/browseros/updates/browser/appcast.x
 git commit -m "chore: update browser appcast for v$VERSION" && git push origin main
 ```
 
+**Update Homebrew tap** (run after the release is published and DMG is uploaded):
+```bash
+packages/browseros-agent/scripts/release/update-brew-cask.sh $VERSION
+```
+
+This reads the SHA256 from the GitHub release asset, updates `Casks/pane.rb` in the `abhishek-verma/homebrew-pane` tap repo, and commits the change. The CI `update-brew-cask.yml` workflow also fires automatically on `release published` events as a backstop — running the script locally is belt-and-suspenders.
+
 ### 7. Report
 DMG path + size, CFBundleVersion, sparkle:version, notarization status, release URL.
 
