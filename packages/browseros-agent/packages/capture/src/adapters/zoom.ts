@@ -48,11 +48,6 @@ function evaluateCallState(probe: MeetingDomProbe): MeetingCallState {
   // on the in-call page (SPA route change) doesn't falsely stop capture.
   if (probe.facts.hasVisibleJoinControl) return 'prejoin'
 
-  // Body text pre-join phrases: waiting room, passcode prompt, etc.
-  const text = probe.bodyText.toLowerCase()
-  if (ZOOM_PRE_JOIN_TEXT.some((phrase) => text.includes(phrase)))
-    return 'prejoin'
-
   // Layer 2: visible leave/end control.
   // Works for both host ("End") and participant ("Leave") on the PWA and
   // any future Zoom client. Covers Leave, End, End meeting, Hang up, etc.
@@ -60,14 +55,19 @@ function evaluateCallState(probe: MeetingDomProbe): MeetingCallState {
 
   // Layer 3: visible mute/unmute control.
   // Present in every call UI on every platform; never on pre-join screens.
-  // Accessibility-critical — Zoom must label it for screen readers, so it
-  // survives icon redesigns, localization, and future client versions.
-  // TODO: replace the OR logic here (and in all mature adapters) with a
-  // scoring model so mute alone (weak signal) requires corroboration from a
-  // second signal (e.g. call timer, participant tiles) before returning in-call.
   if (probe.facts.hasVisibleMuteControl) return 'in-call'
 
-  return 'prejoin'
+  // Body text pre-join phrases: waiting room, passcode prompt, etc.
+  // Checked AFTER positive controls so modal dialogs that inject pre-join
+  // keywords ("passcode", "meeting id") don't override a detected in-call.
+  // When neither meeting DOM nor controls are found (e.g. meeting in child
+  // frame + dialog overlay), the lifecycle layer's prejoin grace period
+  // prevents a single false tick from stopping capture.
+  const text = probe.bodyText.toLowerCase()
+  if (ZOOM_PRE_JOIN_TEXT.some((phrase) => text.includes(phrase)))
+    return 'prejoin'
+
+  return 'unknown'
 }
 
 function resolveName(

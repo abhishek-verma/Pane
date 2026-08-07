@@ -551,6 +551,17 @@ async function handleNavigation(tabId: number, url: string): Promise<void> {
   notifyPiHostOpened(url)
 
   if (await isCapturableMeetingUrl(url)) {
+    // Navigation (including refresh) kills the tab's MediaStream. If we were
+    // recording on this tab, stop the dead audio capture so it can be restarted
+    // with a fresh stream once the page renders its in-call DOM.
+    const staleIds = sessionIdsForTab(tabId)
+    for (const sessionId of staleIds) {
+      stopSpeakerPoll(sessionId)
+      deactivateCaptureGlow(tabId, sessionId)
+      await stopTabAudioCapture(sessionId).catch(() => null)
+    }
+    captureWasInCallTabs.delete(tabId)
+    unknownStreakByTab.delete(tabId)
     pendingMeetingTabs.set(tabId, url)
     ensurePendingMeetingPoll()
     await maybeStartMeetingCapture(tabId, url)

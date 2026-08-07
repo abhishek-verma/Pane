@@ -275,10 +275,13 @@ function stampSpeaker(
 ): TranscriptSegment {
   if (segment.speaker || segment.kind === 'gap') return segment
   const hit = resolveSpeakerAt(sessionId, segment.capturedAt)
-  if (!hit) return segment
+  if (!hit) {
+    // Tab-track segments with no speaker timeline: these are remote participants.
+    return { ...segment, speaker: 'other' }
+  }
   return {
     ...segment,
-    speaker: hit.isLocalSelf ? hit.displayName || 'You' : hit.displayName,
+    speaker: hit.isLocalSelf ? hit.displayName || 'self' : hit.displayName,
     confidence: segment.confidence ?? hit.confidence,
   }
 }

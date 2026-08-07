@@ -20,6 +20,34 @@ const BRACKET_TAG = /^\[[A-Z0-9 _-]+\]$/i
 const HALLUCINATION_ONLY =
   /^(?:\[(?:BLANK_AUDIO|MUSIC(?: PLAYING)?|SOUND(?: EFFECT)?|NOISE|SILENCE|APPLAUSE|LAUGHTER)\]|[.…]|-)$/i
 
+/**
+ * Short phrases Whisper hallucinates on silence / low-energy audio.
+ * Normalized to lowercase, punctuation-stripped for comparison.
+ */
+const WHISPER_HALLUCINATION_PHRASES = new Set([
+  'you',
+  'thank you',
+  'thanks',
+  'thanks for watching',
+  'thanks for listening',
+  'bye',
+  'goodbye',
+  'bye bye',
+  'see you next time',
+  'see you',
+  'please subscribe',
+  'subscribe',
+  'like and subscribe',
+  'subtitles by',
+  'the end',
+  'oh',
+  'hmm',
+  'uh',
+  'um',
+  'so',
+  'okay',
+])
+
 export function peakNormalize(
   samples: Float32Array,
   targetPeak = 0.9,
@@ -53,6 +81,12 @@ export function cleanTranscriptText(raw: string): string {
   text = text.replace(TIMESTAMP_PREFIX, '').trim()
   if (!text || HALLUCINATION_ONLY.test(text)) return ''
   if (BRACKET_TAG.test(text)) return ''
+  // Short phrases that Whisper hallucinates on silence.
+  const normalized = text
+    .toLowerCase()
+    .replace(/[.,!?;:'"]/g, '')
+    .trim()
+  if (WHISPER_HALLUCINATION_PHRASES.has(normalized)) return ''
   return text
 }
 

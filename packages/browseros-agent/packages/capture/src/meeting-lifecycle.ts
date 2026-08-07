@@ -18,6 +18,13 @@ import type { MeetingCallState } from './types'
 export const UNKNOWN_STOP_STREAK = 2
 export const UNKNOWN_STOP_STREAK_MATURE = 5
 
+/**
+ * Consecutive `prejoin` probes while recording (mature only) before stop.
+ * Modal overlays (invite dialog, settings) can momentarily inject pre-join
+ * keywords into bodyText. At ~4s poll this gives ~8s tolerance.
+ */
+export const PREJOIN_STOP_STREAK_MATURE = 2
+
 export type CaptureLifecycleAction = 'start' | 'keep' | 'stop' | 'wait'
 
 export interface CaptureLifecycleInput {
@@ -91,7 +98,21 @@ export function decideCaptureLifecycle(
   // Lobby after a confirmed in-call — hangup without a `left` phrase.
   // Require wasInCall so a prejoin flicker before the first in-call mark
   // does not kill a brand-new recorder.
+  // Mature adapters tolerate brief prejoin (modal dialogs can inject pre-join
+  // keywords) — stop only after PREJOIN_STOP_STREAK_MATURE consecutive ticks.
   if (input.callState === 'prejoin' && input.wasInCall) {
+    if (input.maturity === 'mature' && input.isRecording) {
+      const next = input.unknownStreak + 1
+      if (next < PREJOIN_STOP_STREAK_MATURE) {
+        return {
+          action: 'keep',
+          reason: 'prejoin_grace',
+          nextUnknownStreak: next,
+          markInCall: false,
+          clearInCall: false,
+        }
+      }
+    }
     return {
       action: 'stop',
       reason: 'left_to_lobby',
