@@ -346,7 +346,6 @@ export function createCaptureRoutes() {
       // One-shot dictation: accepts a multipart audio blob (webm/opus from
       // MediaRecorder), feeds it to the shared Whisper sidecar as a single
       // large chunk, and returns the full transcript once done.
-      // Uses the same ASR worker as meeting transcription — no extra processes.
       const formData = await c.req.formData()
       const file = formData.get('file')
       if (!(file instanceof File)) {
@@ -362,16 +361,17 @@ export function createCaptureRoutes() {
       const tmpPath = join(tmpdir(), `pane-dictation-${randomUUID()}.webm`)
 
       try {
-        // Write audio to a temp file for the sidecar to consume
         const buf = Buffer.from(await file.arrayBuffer())
         await writeFile(tmpPath, buf)
 
         const segments: string[] = []
+        let lastSegmentAt = 0
 
         await registerAsrSession(sessionId, {
-          onPartial: () => {}, // ignore partials — wait for finals
+          onPartial: () => {},
           onFinal: (seg) => {
             if (seg.text?.trim()) segments.push(seg.text.trim())
+            lastSegmentAt = Date.now()
           },
         })
 
@@ -384,7 +384,18 @@ export function createCaptureRoutes() {
           force: true,
         })
 
+        // drainAsrSession resolves when the job is acked (sent to sidecar),
+        // but transcript segments arrive AFTER the ack. Wait for segments to
+        // stop arriving — the sidecar emits them in rapid succession, so a
+        // 3 second quiet period means it's done.
         await drainAsrSession(sessionId)
+
+        const deadline = Date.now() + 30_000
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 500))
+          if (lastSegmentAt > 0 && Date.now() - lastSegmentAt > 3000) break
+          if (segments.length > 0 && Date.now() - lastSegmentAt > 2000) break
+        }
 
         return c.json({ text: segments.join(' ') })
       } catch (err) {
