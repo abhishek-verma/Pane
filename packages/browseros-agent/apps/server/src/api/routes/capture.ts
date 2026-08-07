@@ -34,6 +34,12 @@ import {
   pruneCaptureRetention,
 } from '../../capture/performance'
 import {
+  drainAsrSession,
+  enqueueAsrJob,
+  registerAsrSession,
+  unregisterAsrSession,
+} from '../../capture/shared-asr-worker'
+import {
   recordSpeakerObservation,
   setSessionParticipants,
 } from '../../capture/speaker-timeline'
@@ -335,6 +341,59 @@ export function createCaptureRoutes() {
           },
         },
       )
+    })
+    .post('/asr/transcribe', async (c) => {
+      // One-shot dictation: accepts a multipart audio blob (webm/opus from
+      // MediaRecorder), feeds it to the shared Whisper sidecar as a single
+      // large chunk, and returns the full transcript once done.
+      // Uses the same ASR worker as meeting transcription — no extra processes.
+      const formData = await c.req.formData()
+      const file = formData.get('file')
+      if (!(file instanceof File)) {
+        return c.json({ error: 'Missing audio file in form field "file"' }, 400)
+      }
+
+      const { writeFile, unlink } = await import('node:fs/promises')
+      const { tmpdir } = await import('node:os')
+      const { join } = await import('node:path')
+      const { randomUUID } = await import('node:crypto')
+
+      const sessionId = `dictation:${randomUUID()}`
+      const tmpPath = join(tmpdir(), `pane-dictation-${randomUUID()}.webm`)
+
+      try {
+        // Write audio to a temp file for the sidecar to consume
+        const buf = Buffer.from(await file.arrayBuffer())
+        await writeFile(tmpPath, buf)
+
+        const segments: string[] = []
+
+        await registerAsrSession(sessionId, {
+          onPartial: () => {}, // ignore partials — wait for finals
+          onFinal: (seg) => {
+            if (seg.text?.trim()) segments.push(seg.text.trim())
+          },
+        })
+
+        await enqueueAsrJob({
+          sessionId,
+          sequence: 0,
+          mimeType: file.type || 'audio/webm',
+          capturedAt: Date.now(),
+          audioPath: tmpPath,
+          force: true,
+        })
+
+        await drainAsrSession(sessionId)
+
+        return c.json({ text: segments.join(' ') })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return c.json({ error: message }, 500)
+      } finally {
+        await unregisterAsrSession(sessionId)
+        unlink(tmpPath).catch(() => {})
+      }
     })
     .post('/chunk', async (c) => {
       const body = ChunkSchema.parse(await c.req.json())

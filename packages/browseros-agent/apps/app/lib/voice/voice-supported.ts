@@ -1,8 +1,8 @@
 /**
  * Whether voice input (dictation + voice mode) is available in this build.
  *
- * Voice transcription is not yet available — local TranscriptionProvider
- * is tracked in Phase 6 M6.2.
+ * Transcription is handled locally via the Pane server's Whisper ASR —
+ * the same engine used for meeting transcription.
  * @public
  */
-export const VOICE_SUPPORTED: boolean = false
+export const VOICE_SUPPORTED: boolean = true
