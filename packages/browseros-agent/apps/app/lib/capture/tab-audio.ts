@@ -6,6 +6,7 @@
 
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { getBrowserProfileKey } from '@/lib/browseros/profile-key'
 import {
   RuntimeMessageType,
   sendRuntimeMessage,
@@ -61,6 +62,7 @@ export async function startTabAudioCapture(input: {
   // not strand chunk uploads on a different process than session create.
   // Uploads also refresh this URL live via getCaptureServerUrl.
   const serverUrl = await getAgentServerUrl()
+  const profileKey = await getBrowserProfileKey()
   const streamId = await resolveStreamId(input.tabId)
   await ensureCaptureOffscreenDocument()
 
@@ -71,7 +73,7 @@ export async function startTabAudioCapture(input: {
       tabId: input.tabId,
       streamId,
       serverUrl,
-      // Mix mic into the offscreen AudioContext (TabScribe / Recall pattern).
+      profileKey,
       includeMic: true,
     },
   )

@@ -7,12 +7,13 @@
  * Durable pending-upload buffer survives transient server failures.
  */
 
-import { agentFetch } from '@/lib/browseros/agent-fetch'
 import {
   onRuntimeMessage,
   RuntimeMessageType,
   sendRuntimeMessage,
 } from '@/lib/messaging/runtime/runtimeMessages'
+
+const BROWSEROS_PROFILE_ID_HEADER = 'X-BrowserOS-Profile-Id'
 
 const CHUNK_MS = 2_000
 const UPLOAD_TIMEOUT_MS = 30_000
@@ -43,6 +44,7 @@ interface RecorderState {
   cleanup: () => void
   includeMic: boolean
   serverUrl: string
+  profileKey: string
   uploadErrors: number
   uploadChain: Promise<void>
   failingOut: boolean
@@ -116,12 +118,16 @@ async function uploadCaptureChunk(input: {
   dataBase64: string
   capturedAt?: number
   track: TrackName
+  profileKey: string
 }): Promise<string> {
   const serverUrl = await resolveLiveServerUrl(input.serverUrl)
   const base = serverUrl.replace(/\/$/, '')
-  const res = await agentFetch(`${base}/capture/chunk`, {
+  const res = await fetch(`${base}/capture/chunk`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      [BROWSEROS_PROFILE_ID_HEADER]: input.profileKey,
+    },
     body: JSON.stringify({
       sessionId: input.sessionId,
       sequence: input.sequence,
@@ -303,6 +309,7 @@ async function flushChunk(
         dataBase64: chunk.dataBase64,
         capturedAt: chunk.capturedAt,
         track: chunk.track,
+        profileKey: state.profileKey,
       })
       state.serverUrl = serverUrl
       state.uploadErrors = 0
@@ -339,6 +346,7 @@ async function startRecording(input: {
   streamId: string
   serverUrl: string
   includeMic?: boolean
+  profileKey: string
 }): Promise<{ includeMic: boolean; chunksUploaded: number }> {
   if (recorders.has(input.sessionId)) {
     const existing = recorders.get(input.sessionId)
@@ -380,6 +388,7 @@ async function startRecording(input: {
     cleanup: opened.cleanup,
     includeMic: opened.includeMic,
     serverUrl: input.serverUrl,
+    profileKey: input.profileKey,
     uploadErrors: 0,
     uploadChain: Promise.resolve(),
     failingOut: false,
@@ -429,6 +438,7 @@ onRuntimeMessage(RuntimeMessageType.captureAudioStart, async ({ data }) => {
       streamId: data.streamId,
       serverUrl: data.serverUrl,
       includeMic: data.includeMic,
+      profileKey: data.profileKey,
     })
     return { ok: true as const, ...result }
   } catch (error) {

@@ -49,6 +49,7 @@ export interface RuntimeCaptureAudioStartData {
   streamId: string
   serverUrl: string
   includeMic?: boolean
+  profileKey: string
 }
 
 export interface RuntimeCaptureAudioStartResponse {
