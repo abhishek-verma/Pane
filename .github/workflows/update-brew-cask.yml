@@ -1,0 +1,104 @@
+name: Update Homebrew Cask
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-cask:
+    # Only run for browser releases (v* tags, not agent-extension/* or cli/*)
+    if: |
+      !startsWith(github.event.release.tag_name, 'agent-extension/') &&
+      !startsWith(github.event.release.tag_name, 'agent-server/') &&
+      !startsWith(github.event.release.tag_name, 'claw-extension/') &&
+      !startsWith(github.event.release.tag_name, 'browser/') &&
+      startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Get release assets
+        id: assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+
+          # Get SHA256 for arm64 DMG from release assets
+          SHA256=$(gh release view "$TAG" \
+            --repo "${{ github.repository }}" \
+            --json assets \
+            --jq '.assets[] | select(.name | endswith("arm64.dmg")) | .digest' \
+            | sed 's/sha256://')
+
+          if [ -z "$SHA256" ]; then
+            echo "::error::Could not find arm64 DMG asset or its SHA256 digest for $TAG"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "Found version=$VERSION sha256=$SHA256"
+
+      - name: Update homebrew-pane cask
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN || secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.assets.outputs.version }}
+          SHA256: ${{ steps.assets.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+
+          CASK_CONTENT="cask \"pane\" do
+            version \"${VERSION}\"
+
+            on_arm do
+              url \"https://github.com/abhishek-verma/Pane/releases/download/v\#{version}/Pane_v\#{version}_arm64.dmg\"
+              sha256 \"${SHA256}\"
+            end
+
+            name \"Pane\"
+            desc \"Browser with a built-in personal agent\"
+            homepage \"https://github.com/abhishek-verma/Pane\"
+
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
+
+            app \"Pane.app\"
+
+            zap trash: [
+              \"~/Library/Application Support/Pane\",
+              \"~/.browseros\",
+              \"~/.browseros-dev\",
+            ]
+          end
+          "
+
+          # Use GitHub API to update the file in homebrew-pane tap repo
+          REPO="abhishek-verma/homebrew-pane"
+          FILE_PATH="Casks/pane.rb"
+
+          # Get current file SHA (needed for update)
+          FILE_SHA=$(gh api "repos/$REPO/contents/$FILE_PATH" --jq '.sha' 2>/dev/null || echo "")
+
+          ENCODED=$(echo "$CASK_CONTENT" | base64 -w 0)
+
+          if [ -z "$FILE_SHA" ]; then
+            # Create new file
+            gh api "repos/$REPO/contents/$FILE_PATH" \
+              --method PUT \
+              --field message="chore: update pane cask to v${VERSION}" \
+              --field content="$ENCODED"
+          else
+            # Update existing file
+            gh api "repos/$REPO/contents/$FILE_PATH" \
+              --method PUT \
+              --field message="chore: update pane cask to v${VERSION}" \
+              --field content="$ENCODED" \
+              --field sha="$FILE_SHA"
+          fi
+
+          echo "Updated homebrew-pane cask to v${VERSION}"
