@@ -1,4 +1,5 @@
 import { agentFetch } from '@/lib/browseros/agent-fetch'
+import { PRODUCT_NAME } from '@/lib/constants/product'
 import type { LlmProviderConfig } from './types'
 
 /**
@@ -53,18 +54,11 @@ export async function testProvider(
     return result
   } catch (error) {
     const responseTime = Math.round(performance.now() - startTime)
-
-    if (error instanceof Error) {
-      return {
-        success: false,
-        message: error.message,
-        responseTime,
-      }
-    }
+    const underlying = error instanceof Error ? error.message : String(error)
 
     return {
       success: false,
-      message: 'An unexpected error occurred',
+      message: `Could not reach the local ${PRODUCT_NAME} server at ${agentServerUrl}. Make sure ${PRODUCT_NAME} is running and try again. (${underlying})`,
       responseTime,
     }
   }

@@ -51,6 +51,8 @@ export async function refinePrompt(
       messages: [{ role: 'user', content: request.prompt }],
       abortSignal: AbortSignal.timeout(TIMEOUTS.REFINE_PROMPT),
     })
+    // See test-provider.ts: await stream.text rejects on provider errors
+    // on our installed ai@6.0.209, so this already propagates failures.
     const refined = (await stream.text)?.trim()
 
     if (!refined) {
