@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.157 (2026-08-06)
+
+## What's Changed
+
+- fix: Zoom recording and type error
+- feat(version): runtime Pane version — fixes About page showing stale compile-time version
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
