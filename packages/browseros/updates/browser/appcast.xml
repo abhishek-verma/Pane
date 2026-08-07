@@ -12,12 +12,12 @@
   </description>
   <sparkle:version>7955.97</sparkle:version>
   <sparkle:shortVersionString>0.47.0.69</sparkle:shortVersionString>
-  <pubDate>Thu, 07 Aug 2026 08:28:00 +0000</pubDate>
+  <pubDate>Thu, 07 Aug 2026 08:55:00 +0000</pubDate>
   <link>https://github.com/abhishek-verma/Pane/releases</link>
   <enclosure
     url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.69/Pane_v0.47.0.69_arm64.dmg"
-    sparkle:edSignature="U34hHAQ55m50Cr0O/FyA/WZqNfu+ffvXkvh1VStVo9A/NLEQKJqHqjaEadk2Dbaw/wc8RrdDdS+gMlP+FE14CA=="
-    length="215449328"
+    sparkle:edSignature="AnU74cjB+54MYseQXe9xLct2fn7GSt9/PjwADrsiKq1VlVb5WKPr7xyMl85SumneUgzrVwWeKO3MtiNzQJVfAw=="
+    length="215200585"
     type="application/octet-stream" />
   <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
 </item>
