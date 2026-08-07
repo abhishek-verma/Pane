@@ -257,19 +257,19 @@ export PATH="$HOME/chromium/depot_tools:..."
 autoninja -C /Users/abhishek/chromium/src/out/Default_arm64 -j 12 "Pane.app"
 ```
 
-### 4. sparkle:version mismatch → infinite update loop
-**Symptom**: installed Pane continuously downloads the latest version even after installing it (About page shows "Updating Pane (14%)" in a loop).
+### 4. sparkle:version mismatch → infinite update loop OR no update shown
+**Symptom A (loop)**: installed Pane continuously downloads the latest version even after installing it.
+**Symptom B (no update)**: About Pane shows "Pane is up to date" even though a newer version exists.
 
-**Cause**: `sparkle_sign` computes `sparkle_version = chromiumBuild + 171` (the build offset). But `autoninja` bakes `CFBundleVersion` from the raw `chrome/VERSION` BUILD field — without the offset. An incremental build on Chromium `148.0.7778.97` produces `CFBundleVersion = 7778.97`, but `sparkle_version = 7778 + 171 = 7949.97`. Since `7949 > 7778`, Sparkle permanently thinks an update is available.
+**Cause**: `sparkle:version` in the appcast must be **strictly greater than** the installed app's `CFBundleVersion`. Both come from the same formula: `chromiumBuild + BROWSEROS_BUILD_OFFSET`.
 
-**Fix**: after `sparkle_sign` generates the metadata/appcast, always verify and correct if needed:
-```bash
-# Actual CFBundleVersion in the DMG:
-hdiutil attach "releases/$VERSION/Pane_v${VERSION}_arm64.dmg" -mountpoint /tmp/pane-check -nobrowse -quiet
-/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" /tmp/pane-check/Pane.app/Contents/Info.plist
-hdiutil detach /tmp/pane-check -quiet
-# Then compare with appcast and fix if different (see §6 above).
-```
+**Rule: increment `BROWSEROS_BUILD_OFFSET` by 1 for every repackage release.**
+- `build/config/BROWSEROS_BUILD_OFFSET` starts at 171 for the first repackage after a full build
+- Each subsequent repackage increments it by 1 (171 → 172 → 173 → ...)
+- This ensures `CFBundleVersion` and `sparkle:version` both advance monotonically
+- On the next full Chromium recompile, reset the offset reasoning from scratch
+
+Current offset: see `packages/browseros/build/config/BROWSEROS_BUILD_OFFSET`.
 
 ### 5. `--start-from` does not exist
 The `browseros build` CLI has no `--start-from` flag. To resume from a specific step:
