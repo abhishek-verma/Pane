@@ -80,7 +80,7 @@ const ChunkSchema = z.object({
   mimeType: z.string().min(1),
   dataBase64: z.string().min(1),
   capturedAt: z.number().optional(),
-  track: z.enum(['mixed', 'mic']).optional(),
+  track: z.enum(['mixed', 'tab', 'mic']).optional(),
 })
 
 const PageSnapshotSchema = z.object({

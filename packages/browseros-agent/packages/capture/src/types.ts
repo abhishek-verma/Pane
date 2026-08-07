@@ -22,7 +22,7 @@ export type MeetingSite =
   | 'slack'
   | 'webex'
   | 'generic'
-export type CaptureAudioTrack = 'mixed' | 'mic'
+export type CaptureAudioTrack = 'mixed' | 'tab' | 'mic'
 export type MeetingCallState = 'prejoin' | 'in-call' | 'left' | 'unknown'
 
 export interface AudioChunk {
