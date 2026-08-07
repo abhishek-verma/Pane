@@ -13,6 +13,11 @@ import { useForm } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -1155,75 +1160,85 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
               />
             )}
 
-            <div className="space-y-4 border-border border-t pt-4">
-              <h4 className="font-medium text-sm">Model Configuration</h4>
-              <FormField
-                control={form.control}
-                name="supportsImages"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-2 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className="font-normal">
-                      Supports Images
-                    </FormLabel>
-                  </FormItem>
-                )}
-              />
-              <div className="grid gap-4 sm:grid-cols-2">
+            <Collapsible className="space-y-4 border-border border-t pt-4">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="group flex w-full items-center justify-between text-left"
+                >
+                  <h4 className="font-medium text-sm">Advanced settings</h4>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-4 overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
                 <FormField
                   control={form.control}
-                  name="contextWindow"
+                  name="supportsImages"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Context Window Size</FormLabel>
+                    <FormItem className="flex items-center gap-2 space-y-0">
                       <FormControl>
-                        <Input
-                          type="number"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(Number(e.target.value))
-                          }
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormDescription>
-                        Auto-filled based on model
-                      </FormDescription>
-                      <FormMessage />
+                      <FormLabel className="font-normal">
+                        Supports Images
+                      </FormLabel>
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="temperature"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Temperature (0-2)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="2"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(Number(e.target.value))
-                          }
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Controls response randomness
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="contextWindow"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Context Window Size</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(Number(e.target.value))
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Auto-filled based on model
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="temperature"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Temperature (0-2)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="2"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(Number(e.target.value))
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Controls response randomness
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {testResult && (
               <div
