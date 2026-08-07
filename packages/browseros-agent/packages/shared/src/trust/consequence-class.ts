@@ -78,6 +78,8 @@ const WRITE_LOCAL_TASK_TOOLS = new Set([
   'memory_add',
   'memory_replace',
   'memory_remove',
+  'soul_edit',
+  'user_edit',
   'skills_install',
   'skills_archive',
   'capture_start',
@@ -295,11 +297,15 @@ export function deriveClass(
 ): ConsequenceClass {
   let cls = baseClassForTool(toolName, args)
 
-  if (
-    (toolName === 'filesystem_write' || toolName === 'filesystem_edit') &&
-    isPathOutsideWorkspace(args.path, ctx.workspaceRoot)
-  ) {
-    cls = 'system'
+  if (toolName === 'filesystem_write' || toolName === 'filesystem_edit') {
+    if (isPathOutsideWorkspace(args.path, ctx.workspaceRoot)) {
+      cls = 'system'
+    } else if (ctx.workspaceRoot && typeof args.path === 'string') {
+      // Writing inside the workspace the user explicitly opted the agent
+      // into is the common case — auto-allow it. No workspaceRoot configured
+      // (or an unresolvable path) keeps the conservative write-local gate.
+      cls = 'read'
+    }
   }
 
   if (toolName === 'filesystem_bash') {

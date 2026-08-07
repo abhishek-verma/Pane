@@ -7,6 +7,7 @@
 import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
+import { writePromptFileAndReindex } from './files'
 import { PromptBudgetExceededError } from './prompt-budget'
 import { noteSkillLoaded } from './skill-outcomes'
 import {
@@ -110,6 +111,30 @@ export function buildMemoryToolSet(
         return {
           text: `Forgot ${result.entryIds.length || 1} entr(y/ies) matching "${match}".`,
         }
+      },
+    }),
+    soul_edit: tool({
+      description:
+        'Replace SOUL.md (persona/voice/boundaries) with new full content. Requires user confirmation before saving.',
+      inputSchema: z.object({
+        content: z.string().min(1),
+        ...promotedField,
+      }),
+      execute: async ({ content }) => {
+        await writePromptFileAndReindex('soul', content)
+        return { text: 'Updated SOUL.md.' }
+      },
+    }),
+    user_edit: tool({
+      description:
+        'Replace USER.md (durable user profile/preferences) with new full content. Requires user confirmation before saving.',
+      inputSchema: z.object({
+        content: z.string().min(1),
+        ...promotedField,
+      }),
+      execute: async ({ content }) => {
+        await writePromptFileAndReindex('user', content)
+        return { text: 'Updated USER.md.' }
       },
     }),
     skills_list: tool({
