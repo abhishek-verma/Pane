@@ -1725,4 +1725,96 @@ describe('ChatService chat/agent mode toggle', () => {
     expect(live?.chatMode).toBe(false)
     expect(live?.mcpServerKey).toBe('gmail')
   })
+
+  it('pins chatMode to false for ACP providers regardless of request.mode', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'claude-code',
+      model: 'opus',
+      apiKey: 'unused',
+    }))
+
+    const agent = createFakeAgent()
+    agentToReturn = agent
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({ messages: uiMessages ?? [] })
+      return new Response('ok')
+    }
+
+    const service = new ChatService(createChatServiceDeps())
+    await service.processMessage(
+      {
+        conversationId: 'conv-acp-mode-pin',
+        message: 'hello',
+        mode: 'chat',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+        browserContext: {
+          activeTab: { id: 1, url: 'https://example.com', title: 'Example' },
+        },
+      } as never,
+      new AbortController().signal,
+    )
+
+    const createArgs = createAgentSpy.mock.calls.at(-1)?.[0] as {
+      resolvedConfig?: { chatMode?: boolean }
+    }
+    expect(createArgs.resolvedConfig?.chatMode).toBe(false)
+
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+  })
+
+  it('does not rebuild an ACP session when request.mode toggles mid-conversation', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'claude-code',
+      model: 'opus',
+      apiKey: 'unused',
+    }))
+
+    const conversationId = 'conv-acp-mode-toggle'
+    const firstAgent = createFakeAgent()
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent: firstAgent,
+      mcpServerKey: '',
+      llmKey: 'claude-code||opus||',
+      chatMode: false,
+    } as never)
+
+    let disposeCalled = false
+    firstAgent.dispose = async () => {
+      disposeCalled = true
+    }
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({ messages: uiMessages ?? firstAgent.messages })
+      return new Response('ok')
+    }
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'hello again',
+        mode: 'chat',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+        browserContext: {
+          activeTab: { id: 1, url: 'https://example.com', title: 'Example' },
+        },
+      } as never,
+      new AbortController().signal,
+    )
+
+    expect(disposeCalled).toBe(false)
+    expect(sessionStore.get(conversationId)?.agent).toBe(firstAgent)
+
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+  })
 })

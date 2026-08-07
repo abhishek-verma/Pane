@@ -21,9 +21,10 @@ export async function testProvider(
   agentServerUrl: string,
 ): Promise<TestResult> {
   const startTime = performance.now()
+  let response: Response
 
   try {
-    const response = await agentFetch(`${agentServerUrl}/test-provider`, {
+    response = await agentFetch(`${agentServerUrl}/test-provider`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -44,7 +45,21 @@ export async function testProvider(
         acpFixedWorkspacePath: provider.acpFixedWorkspacePath,
       }),
     })
+  } catch (error) {
+    // The request never reached the server (not running, wrong port, CORS).
+    // Distinct from a parse failure below: that means the server WAS
+    // reached and responded, just not with valid JSON.
+    const responseTime = Math.round(performance.now() - startTime)
+    const underlying = error instanceof Error ? error.message : String(error)
 
+    return {
+      success: false,
+      message: `Could not reach the local ${PRODUCT_NAME} server at ${agentServerUrl}. Make sure ${PRODUCT_NAME} is running and try again. (${underlying})`,
+      responseTime,
+    }
+  }
+
+  try {
     const result = (await response.json()) as TestResult
 
     if (!result.responseTime) {
@@ -58,7 +73,7 @@ export async function testProvider(
 
     return {
       success: false,
-      message: `Could not reach the local ${PRODUCT_NAME} server at ${agentServerUrl}. Make sure ${PRODUCT_NAME} is running and try again. (${underlying})`,
+      message: `Received an unexpected response from the local ${PRODUCT_NAME} server. (${underlying})`,
       responseTime,
     }
   }
