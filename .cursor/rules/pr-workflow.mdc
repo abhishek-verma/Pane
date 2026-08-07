@@ -1,0 +1,33 @@
+---
+description: Never push directly to main — always use a PR with review
+alwaysApply: true
+---
+
+# Git Workflow: PR-Only
+
+Never push commits directly to `main`. All changes must go through a pull request.
+
+## Workflow
+
+1. Create a feature branch: `git checkout -b <type>/<short-description>`
+2. Make changes, commit on the branch
+3. Push the branch: `git push -u origin <branch>`
+4. Create a PR: `gh pr create --title "..." --body "..."`
+5. Review the PR (run Bugbot or manual review)
+6. Merge only after review passes: `gh pr merge <number> --squash --delete-branch`
+7. Pull main: `git checkout main && git pull`
+
+## Hard Rules
+
+- Do NOT run `git push origin main` with uncommitted or new changes
+- Do NOT commit directly to main — always branch first
+- The only commits that land on main are via merged PRs (squash merge)
+- Appcast updates and release tags happen AFTER the PR is merged
+- If you accidentally push to main, acknowledge the mistake immediately
+
+## Release Flow
+
+1. All code changes go through a PR on a feature branch
+2. Once merged, build from main
+3. Tag and release only after the build succeeds
+4. Appcast update is the final step (commit directly to main is acceptable for appcast-only changes since they're auto-generated metadata)
