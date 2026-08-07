@@ -442,6 +442,8 @@ async function stopRecording(sessionId: string): Promise<void> {
 
   await stopOne(state.mixed.recorder)
   if (state.mic) await stopOne(state.mic.recorder)
+  // Drain any in-flight uploads before cleanup
+  await state.uploadChain.catch(() => undefined)
   state.cleanup()
   recorders.delete(sessionId)
   await clearPending(sessionId)
@@ -496,10 +498,14 @@ onRuntimeMessage(RuntimeMessageType.captureMicSpeaking, async ({ data }) => {
 onRuntimeMessage(RuntimeMessageType.captureMicMute, async ({ data }) => {
   const state = recorders.get(data.sessionId)
   if (!state?.mic) return { ok: false }
-  if (data.muted && state.mic.recorder.state === 'recording') {
-    state.mic.recorder.pause()
-  } else if (!data.muted && state.mic.recorder.state === 'paused') {
-    state.mic.recorder.resume()
+  try {
+    if (data.muted && state.mic.recorder.state === 'recording') {
+      state.mic.recorder.pause()
+    } else if (!data.muted && state.mic.recorder.state === 'paused') {
+      state.mic.recorder.resume()
+    }
+  } catch {
+    // MediaRecorder state transition may throw on rapid toggles
   }
   return { ok: true }
 })

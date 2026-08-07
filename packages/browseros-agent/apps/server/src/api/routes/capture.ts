@@ -362,6 +362,9 @@ export function createCaptureRoutes() {
 
       try {
         const buf = Buffer.from(await file.arrayBuffer())
+        if (buf.length < 100) {
+          return c.json({ text: '' })
+        }
         await writeFile(tmpPath, buf)
 
         const segments: string[] = []

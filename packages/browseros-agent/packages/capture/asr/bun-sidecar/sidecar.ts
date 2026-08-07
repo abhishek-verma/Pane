@@ -413,8 +413,13 @@ async function handleFeed(
     const utterances = extractWhisperUtterances(result.transcription)
 
     if (utterances.length > 0) {
-      for (const utterance of utterances) {
-        const text = stripOverlapDuplicate(utterance, state.lastEmittedText)
+      for (let i = 0; i < utterances.length; i++) {
+        // Only apply overlap dedup to the first utterance (cross-window boundary).
+        // Subsequent utterances within the same window can't overlap with prior text.
+        const text =
+          i === 0
+            ? stripOverlapDuplicate(utterances[i]!, state.lastEmittedText)
+            : utterances[i]!
         if (text) {
           emit({
             kind: 'final',
