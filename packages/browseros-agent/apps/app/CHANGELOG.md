@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.163 (2026-08-07)
+
+## What's Changed
+
+- chore(release): bump versions for v0.47.0.70
+- fix: address first-run user-testing feedback (onboarding, voice, chat, memory tools) (#148)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
