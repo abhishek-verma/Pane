@@ -371,6 +371,7 @@ class MacOSSignModule(CommandModule):
 
         self._verify_server_resources(app_path, ctx)
         self._clear_extended_attributes(app_path)
+        self._patch_bundle_version(app_path, ctx)
         self._sign_all_components(app_path, env_vars["certificate_name"], ctx)
         self._verify_signature(app_path, ctx)
         self._notarize(app_path, env_vars, ctx)
@@ -385,6 +386,39 @@ class MacOSSignModule(CommandModule):
                 "App bundle does not match staged server resources "
                 "(signing a stale build?):\n  " + "\n  ".join(problems)
             )
+
+    def _patch_bundle_version(self, app_path: Path, ctx: Context) -> None:
+        """Patch CFBundleVersion in Info.plist to the Sparkle-compatible version.
+
+        The raw Chromium build bakes CFBundleVersion from chrome/VERSION (e.g.
+        7778.97). The Sparkle appcast uses browseros_chromium_version BUILD.PATCH
+        (e.g. 7949.97 = 7778+171). For Sparkle OTA to work correctly on repackage
+        builds, the installed CFBundleVersion must equal the appcast sparkle:version.
+        Without this patch repackage releases are invisible to Sparkle because
+        sparkle:version == CFBundleVersion and Sparkle reports "up to date".
+        """
+        if not ctx.browseros_chromium_version:
+            log_info("  ℹ️  No browseros_chromium_version — skipping CFBundleVersion patch")
+            return
+
+        parts = ctx.browseros_chromium_version.split(".")
+        if len(parts) != 4:
+            log_info(f"  ℹ️  Unexpected version format {ctx.browseros_chromium_version} — skipping patch")
+            return
+
+        sparkle_version = f"{parts[2]}.{parts[3]}"  # e.g. "7949.97"
+
+        info_plist = app_path / "Contents" / "Info.plist"
+        if not info_plist.exists():
+            log_info(f"  ⚠️  Info.plist not found at {info_plist} — skipping CFBundleVersion patch")
+            return
+
+        run_command([
+            "/usr/libexec/PlistBuddy",
+            "-c", f"Set :CFBundleVersion {sparkle_version}",
+            str(info_plist),
+        ])
+        log_info(f"  ✓ CFBundleVersion → {sparkle_version} (was raw Chromium build)")
 
     def _clear_extended_attributes(self, app_path: Path) -> None:
         log_info("🧹 Clearing extended attributes...")
