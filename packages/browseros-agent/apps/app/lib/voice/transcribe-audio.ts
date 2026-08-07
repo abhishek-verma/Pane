@@ -1,3 +1,4 @@
+import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
 const BIAS_PROMPT =
@@ -30,7 +31,7 @@ export async function transcribeAudio(
   // Include the bias prompt as a hint (server may or may not use it)
   formData.append('prompt', BIAS_PROMPT)
 
-  const response = await fetch(`${serverUrl}/capture/asr/transcribe`, {
+  const response = await agentFetch(`${serverUrl}/capture/asr/transcribe`, {
     method: 'POST',
     body: formData,
     signal: AbortSignal.timeout(60_000),
