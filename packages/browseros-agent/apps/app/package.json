@@ -2,7 +2,7 @@
   "name": "@browseros/app",
   "description": "Pane extension app — side panel, settings, new tab, and onboarding UI",
   "private": true,
-  "version": "0.0.159",
+  "version": "0.0.160",
   "type": "module",
   "scripts": {
     "dev": "test -d generated/graphql || bun run codegen; bun --env-file=.env.development wxt",
