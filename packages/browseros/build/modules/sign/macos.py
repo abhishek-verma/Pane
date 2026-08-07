@@ -422,7 +422,8 @@ class MacOSSignModule(CommandModule):
 
     def _clear_extended_attributes(self, app_path: Path) -> None:
         log_info("🧹 Clearing extended attributes...")
-        run_command(["xattr", "-cs", str(app_path)])
+        run_command(["chmod", "-R", "u+w", str(app_path)])
+        run_command(["xattr", "-crs", str(app_path)])
 
     def _sign_all_components(self, app_path: Path, certificate_name: str, ctx: Context) -> None:
         if not sign_all_components(app_path, certificate_name, ctx.root_dir, ctx):
@@ -1271,7 +1272,8 @@ def sign_app(ctx: Context, create_dmg: bool = True) -> bool:
     try:
         # Clear extended attributes
         log_info("🧹 Clearing extended attributes...")
-        run_command(["xattr", "-cs", str(app_path)])
+        run_command(["chmod", "-R", "u+w", str(app_path)])
+        run_command(["xattr", "-crs", str(app_path)])
 
         # Sign all components
         if not sign_all_components(
