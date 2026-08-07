@@ -15,9 +15,10 @@ const repoRoot = path.resolve(appDir, '../../../..')
 // biome-ignore lint/style/noProcessEnv: build config file needs env access
 const env = process.env
 
-// True when building the pure-OSS pane profile (PANE_BUILD=true).
-// In pane builds: cdn.browseros.com update_url and api.pane.com
-// externally_connectable are omitted; cloud features are compile-time false.
+// True when building the Pane production profile (PANE_BUILD=true).
+// PANE_BUILD=true  → update_url points to Pane's own GitHub-hosted manifest (PANE_EXTENSION_UPDATE_MANIFEST_URL)
+// PANE_BUILD=false → update_url points to cdn.browseros.com (upstream dev/OSS path — intentional,
+//                    so developer builds don't accidentally use Pane's production update channel)
 const isPaneBuild = env.PANE_BUILD === 'true'
 
 const apiUrl = new URL(parseBrowserOSApiUrl(env.VITE_PUBLIC_BROWSEROS_API))

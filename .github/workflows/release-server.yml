@@ -1,5 +1,10 @@
 name: Release Pane Server
-
+# NOTE: This workflow is not used in normal Pane releases.
+# The server binary is bundled directly into the Pane browser DMG — users receive
+# server updates when they install a new browser release (via Sparkle OTA).
+# This workflow exists for potential future use (e.g. standalone server distribution)
+# and is triggered only by agent-server/v* tag pushes, which are never created in
+# the current release process.
 on:
   push:
     tags:
