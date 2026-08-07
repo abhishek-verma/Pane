@@ -86,3 +86,41 @@ describe('testProvider — request body', () => {
     })
   })
 })
+
+describe('testProvider — local server unreachable', () => {
+  it('wraps a fetch failure with a clear local-server-unreachable message', async () => {
+    globalThis.fetch = (async (
+      _input: RequestInfo | URL,
+      _init?: RequestInit,
+    ): Promise<Response> => {
+      throw new Error('Failed to fetch')
+    }) as typeof globalThis.fetch
+
+    const result = await testProvider(baseProvider(), 'http://127.0.0.1:9200')
+
+    expect(result.success).toBe(false)
+    expect(result.message).toContain(
+      'Could not reach the local Pane server at http://127.0.0.1:9200',
+    )
+    expect(result.message).toContain('Failed to fetch')
+  })
+
+  it('reports an unexpected-response message (not unreachable) when the server responds with a non-JSON body', async () => {
+    globalThis.fetch = (async (
+      _input: RequestInfo | URL,
+      _init?: RequestInit,
+    ): Promise<Response> =>
+      ({
+        ok: false,
+        json: async () => {
+          throw new SyntaxError('Unexpected token < in JSON at position 0')
+        },
+      }) as unknown as Response) as typeof globalThis.fetch
+
+    const result = await testProvider(baseProvider(), 'http://127.0.0.1:9200')
+
+    expect(result.success).toBe(false)
+    expect(result.message).toContain('unexpected response')
+    expect(result.message).not.toContain('Could not reach')
+  })
+})

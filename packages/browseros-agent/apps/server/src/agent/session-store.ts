@@ -211,6 +211,8 @@ export interface AgentSession {
   llmKey?: string
   /** Workspace directory when the session was created, for change detection. */
   workingDir?: string
+  /** Chat/agent mode stamp when the session was built, for change detection. */
+  chatMode?: boolean
   /** Browser-generated output paths returned during this conversation. */
   outputFileAccess?: BrowserOutputFileAccess
   /** Mutable per-run trust gate state; shared with wrapped tools. */

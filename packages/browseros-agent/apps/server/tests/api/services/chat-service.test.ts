@@ -711,6 +711,7 @@ describe('ChatService tool approval resume', () => {
       agent,
       mcpServerKey: '',
       llmKey: 'openai||gpt-5||',
+      chatMode: false,
     } as never)
 
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
@@ -801,6 +802,7 @@ describe('ChatService tool approval resume', () => {
       agent,
       mcpServerKey: '',
       llmKey: 'openai||gpt-5||',
+      chatMode: false,
     } as never)
 
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
@@ -948,6 +950,7 @@ describe('ChatService message repair on hydrate and new turns', () => {
       agent,
       mcpServerKey: '',
       llmKey: 'openai||gpt-5||',
+      chatMode: false,
     } as never)
 
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
@@ -1079,6 +1082,7 @@ describe('ChatService conversation mutex', () => {
       agent,
       mcpServerKey: '',
       llmKey: 'openai||gpt-5||',
+      chatMode: false,
     } as never)
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
 
@@ -1188,6 +1192,7 @@ describe('ChatService conversation mutex', () => {
       agent,
       mcpServerKey: '',
       llmKey: 'openai||gpt-5||',
+      chatMode: false,
     } as never)
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
 
@@ -1260,6 +1265,7 @@ describe('ChatService conversation mutex', () => {
       agent,
       mcpServerKey: '',
       llmKey: 'openai||gpt-5||',
+      chatMode: false,
     } as never)
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
 
@@ -1315,6 +1321,7 @@ describe('ChatService conversation mutex', () => {
       agent,
       mcpServerKey: '',
       llmKey: 'openai||gpt-5||',
+      chatMode: false,
     } as never)
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
 
@@ -1352,6 +1359,7 @@ describe('ChatService conversation mutex', () => {
       agent,
       mcpServerKey: '',
       llmKey: 'openai||gpt-5||',
+      chatMode: false,
     } as never)
     const service = new ChatService(createChatServiceDeps({ sessionStore }))
 
@@ -1414,6 +1422,7 @@ describe('ChatService session rebuild settles pending tool state', () => {
       agent: firstAgent,
       mcpServerKey: '',
       llmKey: 'openai||gpt-5||',
+      chatMode: false,
       workingDir: undefined,
     } as never)
 
@@ -1474,6 +1483,7 @@ describe('ChatService LLM hot-switch', () => {
       agent: firstAgent,
       mcpServerKey: '',
       llmKey: 'deepseek||deepseek-v4-flash||',
+      chatMode: false,
     } as never)
 
     agentToReturn = secondAgent
@@ -1508,5 +1518,303 @@ describe('ChatService LLM hot-switch', () => {
     expect(live?.llmKey).toBe('openai||gpt-5||')
     // Transcript carried over onto the new agent
     expect(secondAgent.messages.some((m) => m.id === 'user-1')).toBe(true)
+  })
+})
+
+describe('ChatService chat/agent mode toggle', () => {
+  function lastMessageText(messages: MockMessage[] | undefined): string {
+    const last = messages?.[messages.length - 1]
+    return (
+      last?.parts
+        .filter((p) => p.type === 'text')
+        .map((p) => p.text)
+        .join('\n') ?? ''
+    )
+  }
+
+  it('rebuilds the session and tells the model when chat mode switches to agent mode', async () => {
+    const conversationId = 'conv-mode-toggle-to-agent'
+    const firstAgent = createFakeAgent()
+    const secondAgent = createFakeAgent()
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent: firstAgent,
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+      chatMode: true,
+    } as never)
+
+    agentToReturn = secondAgent
+    let disposeCalled = false
+    firstAgent.dispose = async () => {
+      disposeCalled = true
+    }
+    let capturedUiMessages: MockMessage[] | undefined
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      capturedUiMessages = uiMessages
+      await onFinish({
+        messages: (uiMessages ?? secondAgent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'go click the button',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+
+    expect(disposeCalled).toBe(true)
+    const live = sessionStore.get(conversationId)
+    expect(live?.agent).toBe(secondAgent)
+    expect(live?.chatMode).toBe(false)
+    expect(lastMessageText(capturedUiMessages)).toContain(
+      '[Context: The user switched from Chat mode to Agent mode',
+    )
+  })
+
+  it('rebuilds the session when agent mode switches to chat mode', async () => {
+    const conversationId = 'conv-mode-toggle-to-chat'
+    const firstAgent = createFakeAgent()
+    const secondAgent = createFakeAgent()
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent: firstAgent,
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+      chatMode: false,
+    } as never)
+
+    agentToReturn = secondAgent
+    let disposeCalled = false
+    firstAgent.dispose = async () => {
+      disposeCalled = true
+    }
+    let capturedUiMessages: MockMessage[] | undefined
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      capturedUiMessages = uiMessages
+      await onFinish({
+        messages: (uiMessages ?? secondAgent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'just tell me about this page',
+        mode: 'chat',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+
+    expect(disposeCalled).toBe(true)
+    const live = sessionStore.get(conversationId)
+    expect(live?.chatMode).toBe(true)
+    expect(lastMessageText(capturedUiMessages)).toContain(
+      '[Context: The user switched from Agent mode to Chat mode',
+    )
+  })
+
+  it('does not rebuild or notify when the mode is unchanged', async () => {
+    const conversationId = 'conv-mode-unchanged'
+    const firstAgent = createFakeAgent()
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent: firstAgent,
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+      chatMode: false,
+    } as never)
+
+    agentToReturn = createFakeAgent()
+    let disposeCalled = false
+    firstAgent.dispose = async () => {
+      disposeCalled = true
+    }
+    let capturedUiMessages: MockMessage[] | undefined
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      capturedUiMessages = uiMessages
+      await onFinish({
+        messages: (uiMessages ?? firstAgent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'continue',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+
+    expect(disposeCalled).toBe(false)
+    expect(sessionStore.get(conversationId)?.agent).toBe(firstAgent)
+    expect(lastMessageText(capturedUiMessages)).not.toContain('[Context:')
+  })
+
+  it('rebuilds once and emits both notices when MCP servers and mode change together', async () => {
+    const conversationId = 'conv-mode-and-mcp-together'
+    const firstAgent = createFakeAgent()
+    const secondAgent = createFakeAgent()
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent: firstAgent,
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+      chatMode: true,
+      workingDir: undefined,
+    } as never)
+
+    agentToReturn = secondAgent
+    let disposeCallCount = 0
+    firstAgent.dispose = async () => {
+      disposeCallCount += 1
+    }
+    let capturedUiMessages: MockMessage[] | undefined
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      capturedUiMessages = uiMessages
+      await onFinish({
+        messages: (uiMessages ?? secondAgent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'check integrations and go do it',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+        browserContext: {
+          activeTab: { id: 3, url: 'https://example.com', title: 'Example' },
+          enabledMcpServers: ['gmail'],
+        },
+      } as never,
+      new AbortController().signal,
+    )
+
+    // Exactly one rebuild for two simultaneous changes, not two.
+    expect(disposeCallCount).toBe(1)
+    const text = lastMessageText(capturedUiMessages)
+    expect(text).toContain('gmail')
+    expect(text).toContain(
+      '[Context: The user switched from Chat mode to Agent mode',
+    )
+    const live = sessionStore.get(conversationId)
+    expect(live?.chatMode).toBe(false)
+    expect(live?.mcpServerKey).toBe('gmail')
+  })
+
+  it('pins chatMode to false for ACP providers regardless of request.mode', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'claude-code',
+      model: 'opus',
+      apiKey: 'unused',
+    }))
+
+    const agent = createFakeAgent()
+    agentToReturn = agent
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({ messages: uiMessages ?? [] })
+      return new Response('ok')
+    }
+
+    const service = new ChatService(createChatServiceDeps())
+    await service.processMessage(
+      {
+        conversationId: 'conv-acp-mode-pin',
+        message: 'hello',
+        mode: 'chat',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+        browserContext: {
+          activeTab: { id: 1, url: 'https://example.com', title: 'Example' },
+        },
+      } as never,
+      new AbortController().signal,
+    )
+
+    const createArgs = createAgentSpy.mock.calls.at(-1)?.[0] as {
+      resolvedConfig?: { chatMode?: boolean }
+    }
+    expect(createArgs.resolvedConfig?.chatMode).toBe(false)
+
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+  })
+
+  it('does not rebuild an ACP session when request.mode toggles mid-conversation', async () => {
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'claude-code',
+      model: 'opus',
+      apiKey: 'unused',
+    }))
+
+    const conversationId = 'conv-acp-mode-toggle'
+    const firstAgent = createFakeAgent()
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent: firstAgent,
+      mcpServerKey: '',
+      llmKey: 'claude-code||opus||',
+      chatMode: false,
+    } as never)
+
+    let disposeCalled = false
+    firstAgent.dispose = async () => {
+      disposeCalled = true
+    }
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({ messages: uiMessages ?? firstAgent.messages })
+      return new Response('ok')
+    }
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'hello again',
+        mode: 'chat',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+        browserContext: {
+          activeTab: { id: 1, url: 'https://example.com', title: 'Example' },
+        },
+      } as never,
+      new AbortController().signal,
+    )
+
+    expect(disposeCalled).toBe(false)
+    expect(sessionStore.get(conversationId)?.agent).toBe(firstAgent)
+
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
   })
 })

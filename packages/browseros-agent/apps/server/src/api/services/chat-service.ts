@@ -346,7 +346,15 @@ export class ChatService {
         : undefined,
       workingDir: request.userWorkingDir,
       supportsImages: request.supportsImages,
-      chatMode: request.mode === 'chat',
+      // ACP-backed providers (Claude Code, Codex) never run in read-only
+      // chat mode: their mode lives in the workspace instruction file, not
+      // an in-band system prompt, so pinning this to false stops a
+      // mid-conversation rebuild (triggered by an unrelated MCP/workspace
+      // change) from adopting a stale chat-mode toggle and handing them a
+      // prompt that contradicts the on-disk instructions.
+      chatMode: isAcpProvider(llmConfig.provider)
+        ? false
+        : request.mode === 'chat',
       isScheduledTask: request.isScheduledTask,
       origin: request.origin,
       declinedApps: request.declinedApps,
@@ -371,132 +379,81 @@ export class ChatService {
     }
 
     let isNewSession = false
-    const contextChanges: string[] = []
 
     // Build stable keys for change detection
     const mcpServerKey = this.buildMcpServerKey(request.browserContext)
     const llmKey = this.buildLlmKey(agentConfig)
 
-    // Mid-chat LLM hot-switch: UI can change provider/model without losing
-    // transcript. The ToolLoopAgent is bound to a concrete model at create
-    // time, so we rebuild the agent (same conversation, same messages).
-    // Missing llmKey (pre-hotswitch sessions) also mismatches and rebuilds once.
-    if (session && session.llmKey !== llmKey) {
-      logger.info('LLM target changed mid-conversation, hot-switching agent', {
+    // Snapshot every mid-conversation change detector against the
+    // pre-rebuild session before rebuilding anything. rebuildSession()
+    // re-stamps mcpServerKey/workingDir/llmKey/chatMode to the fresh
+    // values, so checking a later detector against an already-rebuilt
+    // session would see "no change" even when that detector's own input
+    // changed in the same turn — e.g. an MCP change and a workspace change
+    // arriving together would silently drop the workspace notice, since
+    // the MCP-triggered rebuild already stamped the new workingDir before
+    // the workspace check ran. Snapshotting first and rebuilding at most
+    // once keeps every detector's notice independent of check order.
+    const previousSession = session
+    const llmChanged = !!previousSession && previousSession.llmKey !== llmKey
+    const mcpChanged =
+      !!previousSession && previousSession.mcpServerKey !== mcpServerKey
+    const workspaceChanged =
+      !!previousSession && previousSession.workingDir !== request.userWorkingDir
+    const modeChanged =
+      !!previousSession && previousSession.chatMode !== agentConfig.chatMode
+
+    const contextChanges: string[] = []
+
+    if (
+      previousSession &&
+      (llmChanged || mcpChanged || workspaceChanged || modeChanged)
+    ) {
+      logger.info('Session inputs changed mid-conversation, rebuilding agent', {
         conversationId: request.conversationId,
-        previous: session.llmKey ?? '(unset)',
-        current: llmKey,
+        llmChanged,
+        mcpChanged,
+        workspaceChanged,
+        modeChanged,
       })
-      const previousLlmKey = session.llmKey
+
       session = await this.rebuildSession(
-        session,
+        previousSession,
         request,
         agentConfig,
         mcpServerKey,
         llmKey,
       )
-      if (previousLlmKey != null) {
+
+      // Mid-chat LLM hot-switch: UI can change provider/model without
+      // losing transcript. Missing llmKey (pre-hotswitch sessions) also
+      // mismatches and rebuilds once, but shouldn't get a spurious notice.
+      if (llmChanged && previousSession.llmKey != null) {
         contextChanges.push(
           `The user switched the chat model to ${agentConfig.provider}/${agentConfig.model} during this conversation. Continue with the new model; prior turns remain in context.`,
         )
       }
-    }
 
-    // Detect MCP config change mid-conversation → rebuild session
-    if (session && session.mcpServerKey !== mcpServerKey) {
-      logger.info('MCP servers changed mid-conversation, rebuilding session', {
-        conversationId: request.conversationId,
-        previous: session.mcpServerKey,
-        current: mcpServerKey,
-      })
-
-      const previousMcpKey = session.mcpServerKey ?? ''
-      session = await this.rebuildSession(
-        session,
-        request,
-        agentConfig,
-        mcpServerKey,
-        llmKey,
-      )
-
-      const oldParts = previousMcpKey.split(',').filter(Boolean)
-      const newParts = mcpServerKey.split(',').filter(Boolean)
-      const oldServers = new Set(oldParts)
-      const newServers = new Set(newParts)
-      const added = [...newServers].filter((s) => !oldServers.has(s))
-      const removed = [...oldServers].filter((s) => !newServers.has(s))
-
-      const parts: string[] = []
-      if (removed.length > 0) {
-        parts.push(
-          `The following app integrations were disconnected: ${removed.join(', ')}. Their tools are no longer available.`,
-        )
-      }
-      if (added.length > 0) {
-        parts.push(
-          `The following app integrations were connected: ${added.join(', ')}. Their tools are now available.`,
-        )
-      }
-      if (parts.length === 0) {
-        parts.push(
-          'Connected app integrations changed during this conversation. Use only tools that are currently registered.',
-        )
-      }
-      contextChanges.push(parts.join(' '))
-    }
-
-    // Detect workspace change mid-conversation → rebuild session
-    if (session && session.workingDir !== request.userWorkingDir) {
-      logger.info('Workspace changed mid-conversation, rebuilding session', {
-        conversationId: request.conversationId,
-        previous: session.workingDir ?? '(none)',
-        current: request.userWorkingDir ?? '(none)',
-      })
-      const previousWorkingDir = session.workingDir
-      session = await this.rebuildSession(
-        session,
-        request,
-        agentConfig,
-        mcpServerKey,
-        llmKey,
-      )
-
-      if (!request.userWorkingDir) {
+      if (mcpChanged) {
         contextChanges.push(
-          [
-            'The user disconnected the workspace during this conversation.',
-            'Workspace filesystem tools (filesystem_write, filesystem_edit, filesystem_bash, filesystem_grep, filesystem_find, filesystem_ls, and workspace file reads) are no longer available.',
-            'filesystem_read can only read BrowserOS-generated output files returned in this session.',
-            'Return other output directly in chat.',
-            'If the user asks for file operations, suggest they select a working directory from the chat toolbar.',
-          ].join(' '),
+          this.describeMcpChange(previousSession.mcpServerKey, mcpServerKey),
         )
-      } else if (!previousWorkingDir) {
-        if (agentConfig.chatMode) {
-          contextChanges.push(
-            [
-              'The user connected a workspace during this conversation, but read-only chat mode cannot use workspace filesystem tools.',
-              'filesystem_read can only read BrowserOS-generated output files returned in this session.',
-            ].join(' '),
-          )
-        } else {
-          contextChanges.push(
-            `The user connected a workspace during this conversation. Filesystem tools are now available. Working directory: ${request.userWorkingDir}`,
-          )
-        }
-      } else {
-        if (agentConfig.chatMode) {
-          contextChanges.push(
-            [
-              'The user switched workspace during this conversation, but read-only chat mode cannot use workspace filesystem tools.',
-              'filesystem_read can only read BrowserOS-generated output files returned in this session.',
-            ].join(' '),
-          )
-        } else {
-          contextChanges.push(
-            `The user switched workspace during this conversation. Filesystem tools now use the new working directory: ${request.userWorkingDir}`,
-          )
-        }
+      }
+
+      if (workspaceChanged) {
+        contextChanges.push(
+          this.describeWorkspaceChange(
+            previousSession.workingDir,
+            request.userWorkingDir,
+            agentConfig.chatMode ?? false,
+          ),
+        )
+      }
+
+      if (modeChanged) {
+        contextChanges.push(
+          this.describeModeChange(agentConfig.chatMode ?? false),
+        )
       }
     }
 
@@ -570,6 +527,7 @@ export class ChatService {
         mcpServerKey,
         llmKey,
         workingDir: request.userWorkingDir,
+        chatMode: agentConfig.chatMode,
         outputFileAccess,
         gateContext,
       }
@@ -1360,6 +1318,7 @@ export class ChatService {
       mcpServerKey,
       llmKey,
       workingDir: request.userWorkingDir,
+      chatMode: agentConfig.chatMode,
       outputFileAccess,
       gateContext: session.gateContext,
     }
@@ -1406,6 +1365,80 @@ export class ChatService {
       config.baseUrl ?? '',
       config.upstreamProvider ?? '',
     ].join('|')
+  }
+
+  private describeMcpChange(
+    previousMcpKey: string | undefined,
+    mcpServerKey: string,
+  ): string {
+    const oldParts = (previousMcpKey ?? '').split(',').filter(Boolean)
+    const newParts = mcpServerKey.split(',').filter(Boolean)
+    const oldServers = new Set(oldParts)
+    const newServers = new Set(newParts)
+    const added = [...newServers].filter((s) => !oldServers.has(s))
+    const removed = [...oldServers].filter((s) => !newServers.has(s))
+
+    const parts: string[] = []
+    if (removed.length > 0) {
+      parts.push(
+        `The following app integrations were disconnected: ${removed.join(', ')}. Their tools are no longer available.`,
+      )
+    }
+    if (added.length > 0) {
+      parts.push(
+        `The following app integrations were connected: ${added.join(', ')}. Their tools are now available.`,
+      )
+    }
+    if (parts.length === 0) {
+      parts.push(
+        'Connected app integrations changed during this conversation. Use only tools that are currently registered.',
+      )
+    }
+    return parts.join(' ')
+  }
+
+  private describeWorkspaceChange(
+    previousWorkingDir: string | undefined,
+    workingDir: string | undefined,
+    chatMode: boolean,
+  ): string {
+    if (!workingDir) {
+      return [
+        'The user disconnected the workspace during this conversation.',
+        'Workspace filesystem tools (filesystem_write, filesystem_edit, filesystem_bash, filesystem_grep, filesystem_find, filesystem_ls, and workspace file reads) are no longer available.',
+        'filesystem_read can only read BrowserOS-generated output files returned in this session.',
+        'Return other output directly in chat.',
+        'If the user asks for file operations, suggest they select a working directory from the chat toolbar.',
+      ].join(' ')
+    }
+
+    if (!previousWorkingDir) {
+      return chatMode
+        ? [
+            'The user connected a workspace during this conversation, but read-only chat mode cannot use workspace filesystem tools.',
+            'filesystem_read can only read BrowserOS-generated output files returned in this session.',
+          ].join(' ')
+        : `The user connected a workspace during this conversation. Filesystem tools are now available. Working directory: ${workingDir}`
+    }
+
+    return chatMode
+      ? [
+          'The user switched workspace during this conversation, but read-only chat mode cannot use workspace filesystem tools.',
+          'filesystem_read can only read BrowserOS-generated output files returned in this session.',
+        ].join(' ')
+      : `The user switched workspace during this conversation. Filesystem tools now use the new working directory: ${workingDir}`
+  }
+
+  private describeModeChange(chatMode: boolean): string {
+    return chatMode
+      ? [
+          'The user switched from Agent mode to Chat mode during this conversation.',
+          'Browser automation and workspace write tools are no longer available; only read-only chat tools remain.',
+        ].join(' ')
+      : [
+          'The user switched from Chat mode to Agent mode during this conversation.',
+          'Browser automation and workspace tools are now available.',
+        ].join(' ')
   }
 }
 
