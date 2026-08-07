@@ -20,8 +20,7 @@ function getExtensionPage(): string {
 import { telemetryStorage } from '../analytics/telemetryStorage'
 
 export const initSentry = async () => {
-  const isOptedIn =
-    env.PANE_BUILD !== 'true' || (await telemetryStorage.getValue())
+  const isOptedIn = await telemetryStorage.getValue()
 
   if (isOptedIn && env.VITE_PUBLIC_SENTRY_DSN) {
     Sentry.init({

@@ -16,9 +16,6 @@ export const PANE_GITHUB_RELEASES_BASE = `${PANE_GITHUB_URL}/releases`
 /** Latest-release asset prefix (`…/latest/download/<asset>`). */
 export const PANE_GITHUB_RELEASES_LATEST = `${PANE_GITHUB_RELEASES_BASE}/latest/download`
 
-/** Chrome extension auto-update manifest (repo-tracked, updated each extension release). */
-export const PANE_EXTENSION_UPDATE_MANIFEST_URL = `${PANE_GITHUB_RAW_BASE}/updates/extensions/update-manifest.xml`
-
 /** Bundled extension versions used when building the Chromium browser. */
 export const PANE_EXTENSION_BUNDLED_MANIFEST_URL = `${PANE_GITHUB_RAW_BASE}/updates/extensions/bundled-manifest.xml`
 

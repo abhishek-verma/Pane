@@ -3,10 +3,8 @@ import { fileURLToPath } from 'node:url'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'wxt'
-import { parseBrowserOSApiUrl } from './lib/browseros-api-url'
 import { LEGACY_AGENT_EXTENSION_ID } from './lib/constants/legacyAgentExtensionId'
 import { PRODUCT_TAGLINE } from './lib/constants/product'
-import { PANE_EXTENSION_UPDATE_MANIFEST_URL } from './lib/constants/productUrls'
 import { PRODUCT_WEB_HOST } from './lib/constants/productWebHost'
 
 const appDir = path.dirname(fileURLToPath(import.meta.url))
@@ -14,17 +12,6 @@ const repoRoot = path.resolve(appDir, '../../../..')
 
 // biome-ignore lint/style/noProcessEnv: build config file needs env access
 const env = process.env
-
-// True when building the Pane production profile (PANE_BUILD=true).
-// PANE_BUILD=true  → update_url points to Pane's own GitHub-hosted manifest (PANE_EXTENSION_UPDATE_MANIFEST_URL)
-// PANE_BUILD=false → update_url points to cdn.browseros.com (upstream dev/OSS path — intentional,
-//                    so developer builds don't accidentally use Pane's production update channel)
-const isPaneBuild = env.PANE_BUILD === 'true'
-
-const apiUrl = new URL(parseBrowserOSApiUrl(env.VITE_PUBLIC_BROWSEROS_API))
-const apiPattern = apiUrl.port
-  ? `${apiUrl.hostname}:${apiUrl.port}`
-  : apiUrl.hostname
 
 // See https://wxt.dev/api/config.html
 // Extension ID will be biedncddmddkpapdplhcnkhhplnfgbif
@@ -36,18 +23,10 @@ export default defineConfig({
     short_name: 'Pane',
     description: PRODUCT_TAGLINE,
     key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlY1Gvw+23owlqrSryUIiEChBhPpL4tZW8H4wYfu1PSQ8m8gR7ufXropxqGmR4EzSIlOI7ojivzeapdB2GoHyx5sfZgd23pecLdddPqKVMONGU2cx3ZgCu4jujcT43DNuGJRg026qIaPo4nbRpO8JAAyJKApCtrXUpr+1SzPFHQYdWhACSadWF/jc2JVjfgXY75izBwe/cJ6PRXS6IUOqwk99wQY9pJtXLp0yX7xU/Y03aByrnIJrz3T5BnQsA/1JMvWOYBtqJzVD6F3TBE8xEqGBGB+AGKHBrP65BpaM16A3wm3t8X76P1hkYiD2ZywuPD+n1ZfFvUVyTA3AjQjjMwIDAQAB',
-    // Pane builds use a repo-tracked update manifest on GitHub (updated each release).
-    ...(isPaneBuild
-      ? {
-          update_url: PANE_EXTENSION_UPDATE_MANIFEST_URL,
-        }
-      : {
-          update_url:
-            'https://cdn.browseros.com/extensions/update-manifest.xml',
-          externally_connectable: {
-            matches: [`https://${apiPattern}/*`, `https://*.${apiPattern}/*`],
-          },
-        }),
+    // No update_url: the extension only updates when the browser DMG is updated
+    // (via Sparkle OTA). Independent extension OTA is intentionally disabled to
+    // keep the extension and server versions in sync — they are always released
+    // together as part of a browser release.
     web_accessible_resources: [
       {
         resources: ['app.html', 'pi.html'],
@@ -104,11 +83,6 @@ export default defineConfig({
   vite: () => ({
     build: {
       sourcemap: 'hidden',
-    },
-    define: {
-      // Inlined at build time so Vite's tree-shaker eliminates pane-build dead
-      // branches (e.g. `if (!PANE_BUILD) { /* cloud code */ }`).
-      'import.meta.env.PANE_BUILD': JSON.stringify(env.PANE_BUILD ?? 'false'),
     },
     resolve: {
       alias: {

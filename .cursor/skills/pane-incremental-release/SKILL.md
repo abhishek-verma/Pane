@@ -295,12 +295,12 @@ sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 ## Extension release
 
 ### Pack and update manifests
-**Always build with `PANE_BUILD=true`** — without it, the extension's `update_url` bakes in `cdn.browseros.com` (the upstream's CDN) instead of Pane's own GitHub-hosted manifest. Users' browsers will then check the wrong endpoint for OTA updates.
+**Always build without any special flags** — `PANE_BUILD` has been removed; a plain `bun run build` is all that's needed.
 
 ```bash
 cd packages/browseros-agent/apps/app
-PANE_BUILD=true bun run build
-PANE_BUILD=true bun run zip   # creates dist/browserosapp-0.0.Y-chrome.zip
+bun run build
+bun run zip   # creates dist/browserosapp-0.0.Y-chrome.zip
 
 cd ../..
 AGENT_EXTENSION_PRIVATE_KEY="$(cat /Users/abhishek/workspace/Pane/secrets/pane-release/agent-extension.pem)" \
@@ -316,9 +316,7 @@ bun scripts/release/generate-extension-update-manifest.ts \
   --merge-from /Users/abhishek/workspace/Pane/updates/extensions/bundled-manifest.xml
 ```
 
-After packing, update **both** manifest files and verify the `codebase` URL ends in `.crx` (not `.zip`):
-- `updates/extensions/bundled-manifest.xml` — used by Chromium on first launch to install the bundled extension
-- `updates/extensions/update-manifest.xml` — served from GitHub raw; used by running browsers for OTA updates
+After packing, update **only `bundled-manifest.xml`** — `update-manifest.xml` is deprecated (independent extension OTA is disabled; extension only updates with the browser). Verify the `codebase` URL ends in `.crx`:
 
 ### Trigger CI release workflow
 The `release-agent-extension.yml` workflow triggers on `agent-extension/v*` tag push AND `workflow_dispatch`. If a tag push doesn't appear in `gh run list` within 30 seconds, manually dispatch:

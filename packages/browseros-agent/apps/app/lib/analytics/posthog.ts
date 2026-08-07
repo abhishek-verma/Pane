@@ -4,8 +4,7 @@ import { env } from '../env'
 import { telemetryStorage } from './telemetryStorage'
 
 export const initPostHog = async () => {
-  const isOptedIn =
-    env.PANE_BUILD !== 'true' || (await telemetryStorage.getValue())
+  const isOptedIn = await telemetryStorage.getValue()
   if (
     isOptedIn &&
     env.VITE_PUBLIC_POSTHOG_KEY &&
