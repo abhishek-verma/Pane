@@ -386,15 +386,33 @@ export function createCaptureRoutes() {
 
         // drainAsrSession resolves when the job is acked (sent to sidecar),
         // but transcript segments arrive AFTER the ack. Wait for segments to
-        // stop arriving — the sidecar emits them in rapid succession, so a
-        // 3 second quiet period means it's done.
+        // stop arriving — the sidecar processes audio in internal chunks and
+        // emits segments with gaps of up to 10s between them for large files.
         await drainAsrSession(sessionId)
 
-        const deadline = Date.now() + 30_000
+        // Minimum wait: proportional to file size (~1s processing per 100KB).
+        // This prevents premature return for large files where the first segment
+        // arrives quickly but subsequent ones take time.
+        const minWaitMs = Math.min(30_000, Math.max(5000, buf.length / 100))
+        const startedAt = Date.now()
+        const deadline = startedAt + 60_000
+
         while (Date.now() < deadline) {
           await new Promise((r) => setTimeout(r, 500))
-          if (lastSegmentAt > 0 && Date.now() - lastSegmentAt > 3000) break
-          if (segments.length > 0 && Date.now() - lastSegmentAt > 2000) break
+          const elapsed = Date.now() - startedAt
+          const sinceLastSeg =
+            lastSegmentAt > 0 ? Date.now() - lastSegmentAt : 0
+          // Only return when:
+          // 1. We've waited at least the minimum time (proportional to file size)
+          // 2. AND no new segments for 5 seconds (sidecar is done)
+          if (
+            elapsed >= minWaitMs &&
+            sinceLastSeg > 5000 &&
+            segments.length > 0
+          )
+            break
+          // Safety: if we've received segments and nothing for 10s, assume done
+          if (segments.length > 0 && sinceLastSeg > 10_000) break
         }
 
         return c.json({ text: segments.join(' ') })
