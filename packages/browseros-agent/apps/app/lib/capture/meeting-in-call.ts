@@ -19,55 +19,93 @@ async function collectTabDomProbe(
   tabId: number,
 ): Promise<MeetingDomProbe | null> {
   try {
-    // Run in all frames so we capture controls inside meeting iframes
-    // (e.g. Zoom PWA renders its WebRTC UI in a child frame on app.zoom.us).
-    const results = await chrome.scripting.executeScript({
-      target: { tabId, allFrames: true },
+    // Start with the main frame (always works, never hangs).
+    const [mainResult] = await chrome.scripting.executeScript({
+      target: { tabId },
       func: collectMeetingDomFactsPage,
     })
-    if (!results?.length) return null
-
-    // Use the main-frame result as the base for hostname / bodyText / href.
-    const main = results[0]?.result
+    const main = mainResult?.result
     if (!main?.hostname || !main.facts) return null
 
-    // Merge facts from all frames: OR the boolean signals, union the arrays.
-    // Child frames that fail to execute return null — skip them gracefully.
-    let merged = main.facts
-    for (let i = 1; i < results.length; i++) {
-      const frame = results[i]?.result
-      if (!frame?.facts) continue
-      merged = {
-        matchedSelectors: [
-          ...new Set([
-            ...merged.matchedSelectors,
-            ...frame.facts.matchedSelectors,
-          ]),
-        ],
-        ariaLabels: [...merged.ariaLabels, ...frame.facts.ariaLabels].slice(
-          0,
-          120,
-        ),
-        speakingCandidates: [
-          ...merged.speakingCandidates,
-          ...frame.facts.speakingCandidates,
-        ].slice(0, 30),
-        captionRows: [
-          ...(merged.captionRows ?? []),
-          ...(frame.facts.captionRows ?? []),
-        ].slice(-8),
-        attendees: [
-          ...(merged.attendees ?? []),
-          ...(frame.facts.attendees ?? []),
-        ].slice(0, 40),
-        selfName: merged.selfName ?? frame.facts.selfName,
-        hasVisibleLeaveControl:
-          merged.hasVisibleLeaveControl || frame.facts.hasVisibleLeaveControl,
-        hasVisibleJoinControl:
-          merged.hasVisibleJoinControl || frame.facts.hasVisibleJoinControl,
-        hasVisibleMuteControl:
-          merged.hasVisibleMuteControl || frame.facts.hasVisibleMuteControl,
+    // If the main frame already has call controls, use it directly.
+    if (main.facts.hasVisibleMuteControl || main.facts.hasVisibleLeaveControl) {
+      return {
+        hostname: main.hostname,
+        href: main.href ?? '',
+        bodyText: main.bodyText ?? '',
+        pageTitle: main.pageTitle ?? '',
+        facts: main.facts,
       }
+    }
+
+    // Main frame doesn't have controls (e.g. Zoom PWA wraps meeting in a child
+    // frame). Probe same-origin child frames individually. We avoid allFrames:true
+    // because it hangs indefinitely when blob:/about:blank frames exist.
+    let merged = main.facts
+    try {
+      const frames = await chrome.webNavigation.getAllFrames({ tabId })
+      if (frames) {
+        const childFrames = frames.filter(
+          (f) =>
+            f.frameId !== 0 &&
+            f.url.startsWith('http') &&
+            !f.url.startsWith('about:'),
+        )
+        for (const frame of childFrames.slice(0, 6)) {
+          try {
+            const [result] = await Promise.race([
+              chrome.scripting.executeScript({
+                target: { tabId, frameIds: [frame.frameId] },
+                func: collectMeetingDomFactsPage,
+              }),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('frame timeout')), 2000),
+              ),
+            ])
+            const frameFacts = result?.result?.facts
+            if (!frameFacts) continue
+            merged = {
+              matchedSelectors: [
+                ...new Set([
+                  ...merged.matchedSelectors,
+                  ...frameFacts.matchedSelectors,
+                ]),
+              ],
+              ariaLabels: [
+                ...merged.ariaLabels,
+                ...frameFacts.ariaLabels,
+              ].slice(0, 120),
+              speakingCandidates: [
+                ...merged.speakingCandidates,
+                ...frameFacts.speakingCandidates,
+              ].slice(0, 30),
+              captionRows: [
+                ...(merged.captionRows ?? []),
+                ...(frameFacts.captionRows ?? []),
+              ].slice(-8),
+              attendees: [
+                ...(merged.attendees ?? []),
+                ...(frameFacts.attendees ?? []),
+              ].slice(0, 40),
+              selfName: merged.selfName ?? frameFacts.selfName,
+              hasVisibleLeaveControl:
+                merged.hasVisibleLeaveControl ||
+                frameFacts.hasVisibleLeaveControl,
+              hasVisibleJoinControl:
+                merged.hasVisibleJoinControl ||
+                frameFacts.hasVisibleJoinControl,
+              hasVisibleMuteControl:
+                merged.hasVisibleMuteControl ||
+                frameFacts.hasVisibleMuteControl,
+            }
+            if (merged.hasVisibleMuteControl || merged.hasVisibleLeaveControl) {
+              break
+            }
+          } catch {}
+        }
+      }
+    } catch {
+      // webNavigation.getAllFrames failed — proceed with main frame only
     }
 
     return {
