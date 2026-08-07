@@ -53,13 +53,40 @@ describe('decideCaptureLifecycle', () => {
   })
 
   it('stops on prejoin after was in-call (Meet post-hangup lobby)', () => {
-    const d = decideCaptureLifecycle({
+    // First prejoin tick gets grace for mature adapters (modal dialogs)
+    const d1 = decideCaptureLifecycle({
       callState: 'prejoin',
       isRecording: true,
       wasInCall: true,
       tabOpen: true,
       unknownStreak: 0,
       maturity: 'mature',
+    })
+    expect(d1.action).toBe('keep')
+    expect(d1.reason).toBe('prejoin_grace')
+    expect(d1.nextUnknownStreak).toBe(1)
+
+    // Second consecutive prejoin tick → stop
+    const d2 = decideCaptureLifecycle({
+      callState: 'prejoin',
+      isRecording: true,
+      wasInCall: true,
+      tabOpen: true,
+      unknownStreak: d1.nextUnknownStreak,
+      maturity: 'mature',
+    })
+    expect(d2.action).toBe('stop')
+    expect(d2.reason).toBe('left_to_lobby')
+  })
+
+  it('stops immediately on prejoin after was in-call for generic adapters', () => {
+    const d = decideCaptureLifecycle({
+      callState: 'prejoin',
+      isRecording: true,
+      wasInCall: true,
+      tabOpen: true,
+      unknownStreak: 0,
+      maturity: 'generic',
     })
     expect(d.action).toBe('stop')
     expect(d.reason).toBe('left_to_lobby')

@@ -353,7 +353,7 @@ describe('meeting capture pipeline', () => {
     expect(transcript).toContain('"speaker":"Ada"')
   })
 
-  it('leaves speaker undefined when no observation (B-T6)', async () => {
+  it('labels tab-track segments as "other" when no observation (B-T6)', async () => {
     const session = await startMeetingCapture({
       tabId: 42,
       bucketId: 'default',
@@ -375,7 +375,7 @@ describe('meeting capture pipeline', () => {
       'utf8',
     )
     expect(transcript).toContain('chunk 0')
-    expect(transcript).not.toContain('"speaker"')
+    expect(transcript).toContain('"speaker":"other"')
   })
 
   it('accepts generic site when domain is allowlisted (A-T6)', async () => {
