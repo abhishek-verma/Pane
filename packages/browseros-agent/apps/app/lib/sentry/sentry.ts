@@ -19,8 +19,18 @@ function getExtensionPage(): string {
 
 import { telemetryStorage } from '../analytics/telemetryStorage'
 
-export const initSentry = async () => {
+/**
+ * The MV3 background service worker is a separate JS realm with no `window`/
+ * `document` — each realm needs its own `Sentry.init()` call, and the DOM
+ * breadcrumbs integration doesn't apply there. Without this, `sentry.*` calls
+ * made from background-invoked code (e.g. lib/schedules/syncSchedulesToBackend.ts)
+ * are silent no-ops: Sentry was never initialized in that realm.
+ */
+export const initSentry = async (options?: {
+  enableDomBreadcrumbs?: boolean
+}) => {
   const isOptedIn = await telemetryStorage.getValue()
+  const enableDomBreadcrumbs = options?.enableDomBreadcrumbs ?? true
 
   if (isOptedIn && env.VITE_PUBLIC_SENTRY_DSN) {
     Sentry.init({
@@ -48,7 +58,7 @@ export const initSentry = async () => {
       integrations: [
         Sentry.breadcrumbsIntegration({
           console: true,
-          dom: true,
+          dom: enableDomBreadcrumbs,
           fetch: true,
           xhr: true,
         }),
