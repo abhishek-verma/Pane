@@ -19,7 +19,7 @@ if (is_chrome_branded) {
   mac_enterprise_companion_bundle_identifier =
       "com.google.ChromeEnterpriseCompanion"
 } else {
-  enterprise_companion_crash_product_name = "BrowserOS_Enterprise_Companion"
+  enterprise_companion_crash_product_name = "Pane_Enterprise_Companion"
   enterprise_companion_crash_upload_url =
       "https://clients2.google.com/cr/staging_report"
   enterprise_companion_appid = "{d6acc642-8982-441d-949b-312d5ccb559f}"
@@ -29,9 +29,9 @@ if (is_chrome_branded) {
   enterprise_companion_product_full_name = "PaneEnterpriseCompanion"
   enterprise_companion_product_full_name_dashed_lowercase =
       "pane-enterprise-companion"
-  enterprise_companion_keystone_app_name = "BrowserOSSoftwareUpdate"
+  enterprise_companion_keystone_app_name = "PaneSoftwareUpdate"
   mac_enterprise_companion_bundle_identifier =
-      "com.browseros.BrowserOSEnterpriseCompanion"
+      "com.panebrowser.PaneEnterpriseCompanion"
 }
 
 enterprise_companion_device_management_server_url =

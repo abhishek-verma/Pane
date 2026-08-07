@@ -538,11 +538,24 @@ export function reconcileStaleActiveCaptureSessions(now = Date.now()): number {
     const resumeExpired =
       row.status === 'interrupted' && now - last >= ROOM_RESUME_TTL_MS
     if (!abandonedEmpty && !abandonedOld && !resumeExpired) continue
-    sqlite()
-      .prepare(
-        `UPDATE capture_sessions SET status = 'stopped', ended_at = ? WHERE id = ?`,
-      )
-      .run(now, row.id)
+
+    if (abandonedEmpty && sessionDir) {
+      // Empty sessions (no audio after 60s) — delete entirely.
+      sqlite().prepare(`DELETE FROM capture_sessions WHERE id = ?`).run(row.id)
+      try {
+        const { rmSync } = require('node:fs') as typeof import('node:fs')
+        rmSync(sessionDir, { recursive: true, force: true })
+      } catch {
+        // ignore
+      }
+    } else {
+      // Old or resume-expired sessions — stop but keep data
+      sqlite()
+        .prepare(
+          `UPDATE capture_sessions SET status = 'stopped', ended_at = ? WHERE id = ?`,
+        )
+        .run(now, row.id)
+    }
     void unregisterAsrSession(row.id)
     registeredSessions.delete(row.id)
     stopped++

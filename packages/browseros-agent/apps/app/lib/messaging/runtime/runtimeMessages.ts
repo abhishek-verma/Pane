@@ -16,6 +16,8 @@ export const RuntimeMessageType = {
   captureAudioStatus: 'runtime.captureAudioStatus',
   /** Background → offscreen: mic RMS speaking hint for speaker labels. */
   captureMicSpeaking: 'runtime.captureMicSpeaking',
+  /** Background → offscreen: pause/resume mic recorder based on meeting mute state. */
+  captureMicMute: 'runtime.captureMicMute',
 } as const
 
 export interface RuntimeTabIdResponse {
@@ -85,6 +87,15 @@ export interface RuntimeCaptureMicSpeakingResponse {
   localSpeaking: boolean
 }
 
+export interface RuntimeCaptureMicMuteData {
+  sessionId: string
+  muted: boolean
+}
+
+export interface RuntimeCaptureMicMuteResponse {
+  ok: boolean
+}
+
 type RuntimeMessagesProtocol = {
   [RuntimeMessageType.getTabId](): RuntimeTabIdResponse
   [RuntimeMessageType.authSuccess](): void
@@ -107,6 +118,9 @@ type RuntimeMessagesProtocol = {
   [RuntimeMessageType.captureMicSpeaking](
     data: RuntimeCaptureMicSpeakingData,
   ): RuntimeCaptureMicSpeakingResponse
+  [RuntimeMessageType.captureMicMute](
+    data: RuntimeCaptureMicMuteData,
+  ): RuntimeCaptureMicMuteResponse
 }
 
 const { sendMessage, onMessage } =

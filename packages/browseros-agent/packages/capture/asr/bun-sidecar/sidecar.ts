@@ -24,6 +24,7 @@ import { createInterface } from 'node:readline'
 import {
   decideAsrWindow,
   extractWhisperText,
+  extractWhisperUtterances,
   peakNormalize,
   stripOverlapDuplicate,
 } from './transcript-quality'
@@ -409,20 +410,41 @@ async function handleFeed(
       prompt,
     })
 
-    const rawText = extractWhisperText(result.transcription)
-    const text = stripOverlapDuplicate(rawText, state.lastEmittedText)
+    const utterances = extractWhisperUtterances(result.transcription)
 
-    if (text) {
-      emit({
-        kind: 'final',
-        id: randomUUID(),
-        sessionId,
-        text,
-        capturedAt,
-      })
-      state.lastEmittedText = `${state.lastEmittedText} ${text}`.trim()
-      if (state.lastEmittedText.length > 2_000) {
-        state.lastEmittedText = state.lastEmittedText.slice(-1_200)
+    if (utterances.length > 0) {
+      for (const utterance of utterances) {
+        const text = stripOverlapDuplicate(utterance, state.lastEmittedText)
+        if (text) {
+          emit({
+            kind: 'final',
+            id: randomUUID(),
+            sessionId,
+            text,
+            capturedAt,
+          })
+          state.lastEmittedText = `${state.lastEmittedText} ${text}`.trim()
+          if (state.lastEmittedText.length > 2_000) {
+            state.lastEmittedText = state.lastEmittedText.slice(-1_200)
+          }
+        }
+      }
+    } else {
+      // Fallback: no timestamped segments available, use single-text extraction
+      const rawText = extractWhisperText(result.transcription)
+      const text = stripOverlapDuplicate(rawText, state.lastEmittedText)
+      if (text) {
+        emit({
+          kind: 'final',
+          id: randomUUID(),
+          sessionId,
+          text,
+          capturedAt,
+        })
+        state.lastEmittedText = `${state.lastEmittedText} ${text}`.trim()
+        if (state.lastEmittedText.length > 2_000) {
+          state.lastEmittedText = state.lastEmittedText.slice(-1_200)
+        }
       }
     }
     state.lastEndSample = window.clipEnd

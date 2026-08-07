@@ -123,3 +123,68 @@ export function extractWhisperText(transcription: unknown): string {
   }
   return cleanTranscriptText(pieces.join(' '))
 }
+
+/**
+ * Extract transcript as separate utterances split by silence gaps.
+ * Whisper returns timestamped segments — when two consecutive segments have a
+ * gap > SILENCE_GAP_SECONDS, we treat them as separate utterances.
+ */
+const SILENCE_GAP_SECONDS = 1.5
+
+interface WhisperSegment {
+  start?: number
+  end?: number
+  text?: string
+}
+
+export function extractWhisperUtterances(transcription: unknown): string[] {
+  if (!Array.isArray(transcription)) return []
+
+  // Parse segments with timestamps
+  const segments: WhisperSegment[] = []
+  for (const row of transcription) {
+    if (!row || typeof row !== 'object') continue
+    if (Array.isArray(row)) {
+      for (const cell of row) {
+        if (cell && typeof cell === 'object' && 'text' in cell) {
+          segments.push(cell as WhisperSegment)
+        }
+      }
+    } else if ('text' in row) {
+      segments.push(row as WhisperSegment)
+    }
+  }
+
+  if (segments.length === 0) {
+    // Fallback: no timestamped segments, return as single utterance
+    const text = extractWhisperText(transcription)
+    return text ? [text] : []
+  }
+
+  // Group segments by silence gaps
+  const utterances: string[] = []
+  let current: string[] = []
+  let lastEnd = 0
+
+  for (const seg of segments) {
+    const text = cleanTranscriptText(seg.text ?? '')
+    if (!text) continue
+
+    const start = seg.start ?? lastEnd
+    const gap = start - lastEnd
+
+    if (gap >= SILENCE_GAP_SECONDS && current.length > 0) {
+      utterances.push(current.join(' ').trim())
+      current = []
+    }
+
+    current.push(text)
+    lastEnd = seg.end ?? start
+  }
+
+  if (current.length > 0) {
+    utterances.push(current.join(' ').trim())
+  }
+
+  return utterances.filter(Boolean)
+}

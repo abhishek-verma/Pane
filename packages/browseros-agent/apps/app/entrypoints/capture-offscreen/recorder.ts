@@ -23,7 +23,7 @@ const MAX_BUFFERED_CHUNKS = 120
 const MIC_SPEAKING_RMS = 0.02
 const MIC_LEVEL_POLL_MS = 200
 
-type TrackName = 'mixed' | 'mic'
+type TrackName = 'tab' | 'mic'
 
 interface PendingChunk {
   sequence: number
@@ -184,7 +184,8 @@ async function openCaptureStreams(input: {
   includeMic: boolean
   sessionId: string
 }): Promise<{
-  mixed: MediaStream
+  tab: MediaStream
+  mic: MediaStream | null
   cleanup: () => void
   includeMic: boolean
 }> {
@@ -207,16 +208,20 @@ async function openCaptureStreams(input: {
   // user still hears remote participants through the offscreen context.
   tabSource.connect(audioContext.destination)
 
-  const mixedDest = audioContext.createMediaStreamDestination()
-  tabSource.connect(mixedDest)
+  // Tab recording destination (guests only — no mic mixed in)
+  const tabDest = audioContext.createMediaStreamDestination()
+  tabSource.connect(tabDest)
 
+  // Mic recording destination (user only — separate channel)
+  let micStream: MediaStream | null = null
   let includeMic = false
   if (input.includeMic) {
-    const micStream = await openMicStream()
-    if (micStream) {
-      const micSource = audioContext.createMediaStreamSource(micStream)
-      // Mic into the mix only — never to destination (feedback / howl).
-      micSource.connect(mixedDest)
+    const rawMic = await openMicStream()
+    if (rawMic) {
+      const micSource = audioContext.createMediaStreamSource(rawMic)
+      const micDest = audioContext.createMediaStreamDestination()
+      micSource.connect(micDest)
+      micStream = micDest.stream
 
       const analyser = audioContext.createAnalyser()
       analyser.fftSize = 256
@@ -245,7 +250,7 @@ async function openCaptureStreams(input: {
       })
 
       cleanups.push(() => {
-        for (const track of micStream.getTracks()) track.stop()
+        for (const track of rawMic.getTracks()) track.stop()
       })
       includeMic = true
     }
@@ -256,7 +261,8 @@ async function openCaptureStreams(input: {
   }
 
   return {
-    mixed: mixedDest.stream,
+    tab: tabDest.stream,
+    mic: micStream,
     cleanup: () => {
       for (const fn of cleanups) fn()
     },
@@ -273,7 +279,7 @@ function wireTrack(
   recorder.addEventListener('dataavailable', (event) => {
     if (!event.data || event.data.size === 0) return
     if (state.failingOut) return
-    const tr = track === 'mixed' ? state.mixed : state.mic
+    const tr = track === 'tab' ? state.mixed : state.mic
     if (!tr) return
     const sequence = tr.sequence
     tr.sequence++
@@ -362,12 +368,11 @@ async function startRecording(input: {
 
   const opened = await openCaptureStreams({
     streamId: input.streamId,
-    // Default on: industry pattern mixes tab + mic into one recorder.
     includeMic: input.includeMic !== false,
     sessionId: input.sessionId,
   })
 
-  const liveTracks = opened.mixed
+  const liveTracks = opened.tab
     .getAudioTracks()
     .filter((track) => track.readyState === 'live')
   if (liveTracks.length === 0) {
@@ -379,9 +384,9 @@ async function startRecording(input: {
     ? 'audio/webm;codecs=opus'
     : 'audio/webm'
 
-  // One MediaRecorder on the mixed stream (tab + mic). Avoid a second
-  // recorder on the raw mic — that doubled device contention on macOS.
-  const mixedRecorder = new MediaRecorder(opened.mixed, { mimeType })
+  // Dual-channel: separate MediaRecorders for tab (guests) and mic (user).
+  // Tab always records. Mic can be paused/resumed based on meeting mute state.
+  const tabRecorder = new MediaRecorder(opened.tab, { mimeType })
   const state: RecorderState = {
     sessionId: input.sessionId,
     tabId: input.tabId,
@@ -392,12 +397,24 @@ async function startRecording(input: {
     uploadErrors: 0,
     uploadChain: Promise.resolve(),
     failingOut: false,
-    mixed: { recorder: mixedRecorder, sequence: 0 },
+    mixed: { recorder: tabRecorder, sequence: 0 },
     pending: await loadPending(input.sessionId),
     localSpeaking: false,
   }
 
-  wireTrack(state, 'mixed', mixedRecorder, mimeType)
+  wireTrack(state, 'tab', tabRecorder, mimeType)
+
+  // Separate mic recorder if mic is available
+  if (opened.mic && opened.includeMic) {
+    const micLiveTracks = opened.mic
+      .getAudioTracks()
+      .filter((t) => t.readyState === 'live')
+    if (micLiveTracks.length > 0) {
+      const micRecorder = new MediaRecorder(opened.mic, { mimeType })
+      state.mic = { recorder: micRecorder, sequence: 0 }
+      wireTrack(state, 'mic', micRecorder, mimeType)
+    }
+  }
 
   recorders.set(input.sessionId, state)
   // Retry any durable buffered chunks from a prior offscreen death.
@@ -474,4 +491,15 @@ onRuntimeMessage(RuntimeMessageType.captureMicSpeaking, async ({ data }) => {
     localSpeaking:
       state?.localSpeaking ?? micSpeakingBySession.get(data.sessionId) ?? false,
   }
+})
+
+onRuntimeMessage(RuntimeMessageType.captureMicMute, async ({ data }) => {
+  const state = recorders.get(data.sessionId)
+  if (!state?.mic) return { ok: false }
+  if (data.muted && state.mic.recorder.state === 'recording') {
+    state.mic.recorder.pause()
+  } else if (!data.muted && state.mic.recorder.state === 'paused') {
+    state.mic.recorder.resume()
+  }
+  return { ok: true }
 })

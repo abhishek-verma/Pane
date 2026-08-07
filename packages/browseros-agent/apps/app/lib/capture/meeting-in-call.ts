@@ -130,6 +130,19 @@ export async function getMeetingTabCallState(
   return adapter.evaluateCallState(probe)
 }
 
+/** Returns both call state and local mute state from a single probe. */
+export async function getMeetingTabState(tabId: number): Promise<{
+  callState: MeetingCallState
+  localMuted: boolean | null
+}> {
+  const probe = await collectTabDomProbe(tabId)
+  if (!probe) return { callState: 'unknown', localMuted: null }
+  const adapter = getAdapterForHost(probe.hostname) ?? genericAdapter
+  const callState = adapter.evaluateCallState(probe)
+  const localMuted = adapter.probeLocalMute?.(probe) ?? null
+  return { callState, localMuted }
+}
+
 export async function isMeetingTabInCall(tabId: number): Promise<boolean> {
   return (await getMeetingTabCallState(tabId)) === 'in-call'
 }

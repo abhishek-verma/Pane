@@ -26,7 +26,10 @@ import {
   stopMeetingSession,
 } from '@/lib/capture/capture-api'
 import { activateCaptureGlow, deactivateCaptureGlow } from '@/lib/capture/glow'
-import { getMeetingTabCallState } from '@/lib/capture/meeting-in-call'
+import {
+  getMeetingTabCallState,
+  getMeetingTabState,
+} from '@/lib/capture/meeting-in-call'
 import {
   isMeetingRoomUrl,
   meetingHostname,
@@ -65,6 +68,8 @@ const genericUnknownSince = new Map<number, number>()
 const captureWasInCallTabs = new Set<number>()
 /** Consecutive `unknown` call-state ticks per tab while recording. */
 const unknownStreakByTab = new Map<number, number>()
+/** Last known mute state per session (to avoid redundant messages). */
+const lastMuteBySession = new Map<string, boolean>()
 let syncing = false
 let pendingPollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -195,6 +200,7 @@ async function stopCaptureForSession(
   stopSpeakerPoll(sessionId)
   captureWasInCallTabs.delete(tabId)
   unknownStreakByTab.delete(tabId)
+  lastMuteBySession.delete(sessionId)
   deactivateCaptureGlow(tabId, sessionId)
   await stopTabAudioCapture(sessionId).catch(() => null)
   await stopMeetingSession(sessionId).catch(() => null)
@@ -309,9 +315,25 @@ async function syncActiveSessions(): Promise<void> {
       }
 
       const tabOpen = await tabStillOpen(tabId)
-      const callState = tabOpen
-        ? await getMeetingTabCallState(tabId).catch(() => 'unknown' as const)
-        : ('unknown' as const)
+      const { callState, localMuted } = tabOpen
+        ? await getMeetingTabState(tabId).catch(() => ({
+            callState: 'unknown' as const,
+            localMuted: null as boolean | null,
+          }))
+        : { callState: 'unknown' as const, localMuted: null as boolean | null }
+
+      // Forward mute state to offscreen recorder (pause/resume mic)
+      if (
+        isRecording(session.id) &&
+        localMuted !== null &&
+        localMuted !== lastMuteBySession.get(session.id)
+      ) {
+        lastMuteBySession.set(session.id, localMuted)
+        sendRuntimeMessage(RuntimeMessageType.captureMicMute, {
+          sessionId: session.id,
+          muted: localMuted,
+        }).catch(() => null)
+      }
 
       const decision = decideCaptureLifecycle({
         callState,
