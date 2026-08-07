@@ -32,17 +32,26 @@ type ProviderFactory = (config: ResolvedLLMConfig) => LanguageModel
 
 function createAnthropicModel(config: ResolvedLLMConfig): LanguageModel {
   if (!config.apiKey) throw new Error('Anthropic provider requires apiKey')
-  return createAnthropic({ apiKey: config.apiKey })(config.model)
+  return createAnthropic({
+    apiKey: config.apiKey,
+    ...(config.baseUrl && { baseURL: config.baseUrl }),
+  })(config.model)
 }
 
 function createOpenAIModel(config: ResolvedLLMConfig): LanguageModel {
   if (!config.apiKey) throw new Error('OpenAI provider requires apiKey')
-  return createOpenAI({ apiKey: config.apiKey })(config.model)
+  return createOpenAI({
+    apiKey: config.apiKey,
+    ...(config.baseUrl && { baseURL: config.baseUrl }),
+  })(config.model)
 }
 
 function createGoogleModel(config: ResolvedLLMConfig): LanguageModel {
   if (!config.apiKey) throw new Error('Google provider requires apiKey')
-  return createGoogleGenerativeAI({ apiKey: config.apiKey })(config.model)
+  return createGoogleGenerativeAI({
+    apiKey: config.apiKey,
+    ...(config.baseUrl && { baseURL: config.baseUrl }),
+  })(config.model)
 }
 
 function createOpenRouterModel(config: ResolvedLLMConfig): LanguageModel {
@@ -51,16 +60,21 @@ function createOpenRouterModel(config: ResolvedLLMConfig): LanguageModel {
     apiKey: config.apiKey,
     extraBody: { reasoning: {} },
     fetch: createOpenRouterCompatibleFetch(),
+    ...(config.baseUrl && { baseURL: config.baseUrl }),
   })(config.model)
 }
 
 function createAzureModel(config: ResolvedLLMConfig): LanguageModel {
-  if (!config.apiKey || !config.resourceName) {
-    throw new Error('Azure provider requires apiKey and resourceName')
+  if (!config.apiKey || (!config.resourceName && !config.baseUrl)) {
+    throw new Error(
+      'Azure provider requires apiKey and either resourceName or baseUrl',
+    )
   }
   return createAzure({
-    resourceName: config.resourceName,
     apiKey: config.apiKey,
+    ...(config.baseUrl
+      ? { baseURL: config.baseUrl }
+      : { resourceName: config.resourceName }),
   })(config.model)
 }
 
