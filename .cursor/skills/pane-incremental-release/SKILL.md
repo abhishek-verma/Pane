@@ -140,6 +140,15 @@ hdiutil attach "packages/browseros/releases/*/Pane_v*_arm64.dmg" \
   -mountpoint /tmp/pane-check -nobrowse -quiet
 /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" /tmp/pane-check/Pane.app/Contents/Info.plist
 # Should be: chromiumBuild + BROWSEROS_BUILD_OFFSET (e.g. 7778+172 = 7950.97)
+
+# CRITICAL: Verify designated requirement matches v0.47.0.62 format
+codesign -d --requirements - /tmp/pane-check/Pane.app 2>&1 | grep "field.1.2.840.113635.100.6.2.6"
+# MUST match — if empty, OTA is broken for ALL existing users. Do not ship.
+
+# Verify compiled version matches PANE_VERSION
+strings "/tmp/pane-check/Pane.app/Contents/Frameworks/Pane Framework.framework/Versions/Current/Pane Framework" | grep "^0\.47\.0\."
+# Should show the current patch level. If stale, need an incremental recompile.
+
 hdiutil detach /tmp/pane-check -quiet
 
 # Also verify Gatekeeper
@@ -296,6 +305,40 @@ Always set the full PATH or `gn`/`autoninja` won't be found (see §4 above).
 xcode-select -p   # must show /Applications/Xcode.app/...
 sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 ```
+
+### 12. Designated requirement must NEVER change format
+**Symptom**: OTA update shows "com.panebrowser is damaged" on user machines.
+**Cause**: Sparkle validates the downloaded update's code identity against the **installed** app's designated requirement. If the requirement format changes between releases, the identity check fails and macOS shows "damaged."
+
+**Rule: the designated requirement in `sign_all_components()` must always be:**
+```
+=designated => identifier "com.panebrowser.app" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */
+```
+Never simplify this to `subject.OU` or any other format, even if it seems equivalent. The binary check is literal string matching against the installed app's seal.
+
+**Verification after every build:**
+```bash
+codesign -d --requirements - /path/to/Pane.app 2>&1 | grep "field.1.2.840.113635.100.6.2.6"
+# must match — if it doesn't, the build will break OTA for all existing users
+```
+
+### 13. Repackage builds freeze the About page version
+**Symptom**: About page shows old version even after installing a newer repackage.
+**Cause**: `BROWSEROS_VERSION` is a compile-time constant in the Chromium framework binary. Repackage builds don't recompile, so the version string stays at whatever patch level the binary was last compiled with.
+
+**Rule: if more than 3-4 repackages accumulate since the last compile, do an incremental build** (just `autoninja -C out/Default_arm64 chrome` — takes ~8 min for a version-only change) to keep the displayed version current.
+
+**Quick check before shipping:**
+```bash
+strings "out/Default_arm64/Pane.app/Contents/Frameworks/Pane Framework.framework/Versions/Current/Pane Framework" | grep "^0\.47\.0\."
+# must show the CURRENT PANE_VERSION patch level
+```
+
+### 14. pkg-dmg adds FinderInfo xattrs — use hdiutil/ditto instead
+**Symptom**: `codesign --verify --deep --strict` fails with "resource fork, Finder information, or similar detritus" on Sparkle's Autoupdate binary inside the DMG.
+**Cause**: Chromium's `pkg-dmg` calls `rsync --archive` (preserves xattrs) and `SetFile -a C` which injects `com.apple.FinderInfo` into DMG contents. On macOS 16+, this blocks Sparkle's XPC helpers from launching.
+**Fix**: `create_dmg()` now uses `ditto --noextattr --norsrc` + `hdiutil create -srcfolder` which never adds metadata.
+**Prevention**: do not revert `create_dmg` to use `pkg-dmg`. If you see the detritus error in a build, verify that the ditto+hdiutil path is active.
 
 ---
 
