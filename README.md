@@ -31,7 +31,7 @@ Pane is an open-source Chromium browser with a personal agent built into the ses
 
 > macOS arm64 (Apple Silicon). Click the badge, then download `Pane_v*_arm64.dmg`. [All releases →](https://github.com/abhishek-verma/Pane/releases)
 
-**Homebrew (recommended):**
+**Homebrew:**
 
 ```sh
 brew install --cask abhishek-verma/pane/pane
