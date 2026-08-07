@@ -991,7 +991,8 @@ def sign_all_components(
     requirements = (
         '=designated => identifier "com.panebrowser.app" and '
         "anchor apple generic and "
-        'certificate leaf[subject.OU] = "4Z2UAB6AWC"'
+        "certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and "
+        "certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */"
     )
 
     # Try multiple locations for app entitlements
