@@ -1,14 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!--
-  Independent extension OTA is disabled. The extension only updates when the
-  user installs a new Pane browser release (via Sparkle). Extension and server
-  versions are always kept in sync through browser releases.
-
-  This file is retained for reference but is no longer checked by installed
-  Pane browsers (update_url has been removed from the extension manifest).
--->
 <gupdate xmlns="http://www.google.com/update2/response" protocol="2.0">
   <app appid="biedncddmddkpapdplhcnkhhplnfgbif">
-    <updatecheck codebase="https://github.com/abhishek-verma/Pane/releases/download/agent-extension%2Fv0.0.157/pane-agent-0.0.157.crx" version="0.0.157"/>
+    <updatecheck codebase="https://github.com/abhishek-verma/Pane/releases/download/agent-extension/v0.0.162/pane-agent-0.0.162.crx" version="0.0.162"/>
   </app>
 </gupdate>
