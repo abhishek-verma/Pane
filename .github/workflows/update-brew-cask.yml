@@ -33,8 +33,10 @@ jobs:
             --jq '.assets[] | select(.name | endswith("arm64.dmg")) | .digest' \
             | sed 's/sha256://')
 
-          if [ -z "$SHA256" ]; then
-            echo "::error::Could not find arm64 DMG asset or its SHA256 digest for $TAG"
+          # Reject empty, the literal "null" (jq output when field is absent),
+          # and anything that isn't a 64-char lowercase hex string.
+          if [ -z "$SHA256" ] || [ "$SHA256" = "null" ] || ! echo "$SHA256" | grep -qE '^[0-9a-f]{64}$'; then
+            echo "::error::Could not read a valid SHA256 digest for arm64 DMG in release $TAG (got: '${SHA256:-<empty>}')"
             exit 1
           fi
 
@@ -51,31 +53,31 @@ jobs:
           set -euo pipefail
 
           CASK_CONTENT="cask \"pane\" do
-            version \"${VERSION}\"
+  version \"${VERSION}\"
 
-            on_arm do
-              url \"https://github.com/abhishek-verma/Pane/releases/download/v\#{version}/Pane_v\#{version}_arm64.dmg\"
-              sha256 \"${SHA256}\"
-            end
+  on_arm do
+    url \"https://github.com/abhishek-verma/Pane/releases/download/v\#{version}/Pane_v\#{version}_arm64.dmg\"
+    sha256 \"${SHA256}\"
+  end
 
-            name \"Pane\"
-            desc \"Browser with a built-in personal agent\"
-            homepage \"https://github.com/abhishek-verma/Pane\"
+  name \"Pane\"
+  desc \"Browser with a built-in personal agent\"
+  homepage \"https://github.com/abhishek-verma/Pane\"
 
-            livecheck do
-              url :url
-              strategy :github_latest
-            end
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
 
-            app \"Pane.app\"
+  app \"Pane.app\"
 
-            zap trash: [
-              \"~/Library/Application Support/Pane\",
-              \"~/.browseros\",
-              \"~/.browseros-dev\",
-            ]
-          end
-          "
+  zap trash: [
+    \"~/Library/Application Support/Pane\",
+    \"~/.browseros\",
+    \"~/.browseros-dev\",
+  ]
+end
+"
 
           # Use GitHub API to update the file in homebrew-pane tap repo
           REPO="abhishek-verma/homebrew-pane"
@@ -84,16 +86,14 @@ jobs:
           # Get current file SHA (needed for update)
           FILE_SHA=$(gh api "repos/$REPO/contents/$FILE_PATH" --jq '.sha' 2>/dev/null || echo "")
 
-          ENCODED=$(echo "$CASK_CONTENT" | base64 -w 0)
+          ENCODED=$(printf '%s' "$CASK_CONTENT" | base64 -w 0)
 
           if [ -z "$FILE_SHA" ]; then
-            # Create new file
             gh api "repos/$REPO/contents/$FILE_PATH" \
               --method PUT \
               --field message="chore: update pane cask to v${VERSION}" \
               --field content="$ENCODED"
           else
-            # Update existing file
             gh api "repos/$REPO/contents/$FILE_PATH" \
               --method PUT \
               --field message="chore: update pane cask to v${VERSION}" \

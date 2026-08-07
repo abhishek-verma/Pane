@@ -37,9 +37,12 @@ SHA256=$(gh release view "$TAG" \
   --jq '.assets[] | select(.name | endswith("arm64.dmg")) | .digest' \
   | sed 's/sha256://')
 
-if [ -z "$SHA256" ]; then
-  echo "::error::Could not find arm64 DMG asset or its SHA256 digest for release $TAG on $PANE_REPO" >&2
-  echo "Make sure the DMG has been uploaded before running this script." >&2
+# Reject empty, the literal string "null" (jq output when field is absent),
+# and anything that isn't a 64-char lowercase hex string.
+if [ -z "$SHA256" ] || [ "$SHA256" = "null" ] || ! echo "$SHA256" | grep -qE '^[0-9a-f]{64}$'; then
+  echo "::error::Could not read a valid SHA256 digest for the arm64 DMG in release $TAG on $PANE_REPO" >&2
+  echo "  Got: '${SHA256:-<empty>}'" >&2
+  echo "  Make sure the DMG has been uploaded and the release asset has a sha256 digest." >&2
   exit 1
 fi
 
