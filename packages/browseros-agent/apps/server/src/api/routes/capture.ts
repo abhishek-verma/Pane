@@ -117,6 +117,26 @@ const ResearchPageSchema = BrowsingObservationSchema.extend({
   quote: z.string().optional(),
 })
 
+/**
+ * Turns an ASR model download failure into a message worth showing a user.
+ * `String(err)` on a fetch TypeError collapses to "TypeError: fetch failed"
+ * and drops the underlying cause (e.g. DNS/connection failure), so surface
+ * `cause` explicitly when present.
+ */
+function describeAsrDownloadError(err: unknown): string {
+  if (err instanceof Error) {
+    const cause = err.cause
+    const causeMessage =
+      cause instanceof Error
+        ? cause.message
+        : typeof cause === 'string'
+          ? cause
+          : undefined
+    return causeMessage ? `${err.message}: ${causeMessage}` : err.message
+  }
+  return String(err)
+}
+
 export function createCaptureRoutes() {
   return new Hono<Env>()
     .get('/status', async (c) => c.json(await getCaptureStatus()))
@@ -327,7 +347,7 @@ export function createCaptureRoutes() {
               await ensureAsrModel((progress) => send(progress), modelName)
               send({ done: true, percent: 100 })
             } catch (err) {
-              send({ error: String(err) })
+              send({ error: describeAsrDownloadError(err) })
             } finally {
               controller.close()
             }

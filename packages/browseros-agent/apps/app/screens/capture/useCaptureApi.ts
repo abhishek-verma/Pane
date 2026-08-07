@@ -286,6 +286,65 @@ export interface AsrDownloadState {
 
 const ASR_MODEL_KEY = [CAPTURE_QUERY_KEY, 'asr-model-status']
 
+interface AsrProgressEvent {
+  percent?: number
+  done?: boolean
+  error?: string
+}
+
+/** Opens the model-download stream, throwing a descriptive error on non-2xx. */
+async function fetchAsrDownloadStream(
+  baseUrl: string,
+  signal: AbortSignal,
+): Promise<Response> {
+  const res = await agentFetch(`${base(baseUrl)}/capture/asr/ensure-model`, {
+    signal,
+  })
+  if (!res.ok || !res.body) {
+    const body = await res
+      .clone()
+      .json()
+      .catch(() => null)
+    const message =
+      (body as { error?: string } | null)?.error ??
+      (await res.text().catch(() => ''))
+    throw new Error(message || `Failed to start model download (${res.status})`)
+  }
+  return res
+}
+
+/** Parses a `text/event-stream` body into individual JSON payloads. */
+async function* readSseEvents(
+  body: ReadableStream<Uint8Array>,
+): AsyncGenerator<AsrProgressEvent> {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) return
+    buffer += decoder.decode(value, { stream: true })
+
+    let sepIndex = buffer.indexOf('\n\n')
+    while (sepIndex !== -1) {
+      const rawEvent = buffer.slice(0, sepIndex)
+      buffer = buffer.slice(sepIndex + 2)
+      sepIndex = buffer.indexOf('\n\n')
+
+      const dataLine = rawEvent
+        .split('\n')
+        .find((line) => line.startsWith('data:'))
+      if (!dataLine) continue
+      try {
+        yield JSON.parse(dataLine.slice(5).trim()) as AsrProgressEvent
+      } catch {
+        // ignore malformed event
+      }
+    }
+  }
+}
+
 /**
  * Checks whether the local Whisper model is already downloaded.
  * Polls every 30 s so the UI reflects a completed download even if triggered
@@ -319,6 +378,12 @@ export function useAsrModelStatus() {
 /**
  * Streams the ASR model download via SSE, updating local state with progress.
  * Call `start()` to begin; `state.percent` updates as bytes arrive.
+ *
+ * Uses `agentFetch` + manual SSE parsing rather than `EventSource`: this
+ * route is behind the `X-BrowserOS-Profile-Id` profile-required middleware,
+ * and `EventSource` cannot attach custom headers, so it always got a 400
+ * before the handler ever ran. `captureFetch` isn't used here either — its
+ * 8s timeout is meant for quick requests, not a multi-hundred-MB download.
  */
 export function useEnsureAsrModel() {
   const { baseUrl } = useAgentServerUrl()
@@ -328,52 +393,61 @@ export function useEnsureAsrModel() {
     percent: 0,
     error: null,
   })
-  const esRef = useRef<EventSource | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const start = useCallback(() => {
     if (!baseUrl || state.inProgress) return
     setState({ inProgress: true, percent: 0, error: null })
 
-    const es = new EventSource(`${base(baseUrl)}/capture/asr/ensure-model`)
-    esRef.current = es
+    const controller = new AbortController()
+    abortRef.current = controller
 
-    es.onmessage = (event) => {
+    void (async () => {
       try {
-        const data = JSON.parse(event.data as string) as {
-          percent?: number
-          done?: boolean
-          error?: string
-        }
-        if (data.error) {
-          setState({ inProgress: false, percent: 0, error: data.error })
-          es.close()
-          return
-        }
-        const pct = data.percent ?? 0
-        if (data.done === true || pct >= 100) {
-          setState({ inProgress: false, percent: 100, error: null })
-          es.close()
-          void queryClient.invalidateQueries({ queryKey: ASR_MODEL_KEY })
-        } else {
+        const res = await fetchAsrDownloadStream(baseUrl, controller.signal)
+        let settled = false
+
+        for await (const data of readSseEvents(
+          res.body as ReadableStream<Uint8Array>,
+        )) {
+          if (data.error) {
+            setState({ inProgress: false, percent: 0, error: data.error })
+            settled = true
+            break
+          }
+          const pct = data.percent ?? 0
+          if (data.done === true || pct >= 100) {
+            setState({ inProgress: false, percent: 100, error: null })
+            settled = true
+            void queryClient.invalidateQueries({ queryKey: ASR_MODEL_KEY })
+            break
+          }
           setState({ inProgress: true, percent: pct, error: null })
         }
-      } catch {
-        // ignore malformed event
-      }
-    }
 
-    es.onerror = () => {
-      setState((s) =>
-        s.percent >= 100
-          ? s
-          : {
-              inProgress: false,
-              percent: s.percent,
-              error: 'Download interrupted. Please try again.',
-            },
-      )
-      es.close()
-    }
+        if (!settled) {
+          setState((s) =>
+            s.percent >= 100
+              ? s
+              : {
+                  inProgress: false,
+                  percent: s.percent,
+                  error: 'Download interrupted. Please try again.',
+                },
+          )
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return
+        setState((s) => ({
+          inProgress: false,
+          percent: s.percent,
+          error:
+            err instanceof Error
+              ? err.message
+              : 'Download interrupted. Please try again.',
+        }))
+      }
+    })()
   }, [baseUrl, state.inProgress, queryClient])
 
   return { start, state }

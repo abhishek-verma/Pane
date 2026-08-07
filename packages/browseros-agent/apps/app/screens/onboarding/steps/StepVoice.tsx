@@ -24,12 +24,26 @@ export const StepVoice = ({ direction, onContinue }: StepVoiceProps) => {
   const { isReady, loading: statusLoading } = useAsrModelStatus()
   const { state: downloadState, start: startDownload } = useEnsureAsrModel()
 
-  // Auto-start download when the step mounts and the model isn't ready
+  // Auto-start download when the step mounts and the model isn't ready.
+  // Do NOT auto-retry after a failed download — once `error` is set, only
+  // the explicit "Retry download" button should call startDownload again,
+  // otherwise this effect and the SSE onerror handler loop forever.
   useEffect(() => {
-    if (!statusLoading && !isReady && !downloadState.inProgress) {
+    if (
+      !statusLoading &&
+      !isReady &&
+      !downloadState.inProgress &&
+      !downloadState.error
+    ) {
       startDownload()
     }
-  }, [statusLoading, isReady, downloadState.inProgress, startDownload])
+  }, [
+    statusLoading,
+    isReady,
+    downloadState.inProgress,
+    downloadState.error,
+    startDownload,
+  ])
 
   const finish = (downloaded: boolean) => {
     track(ONBOARDING_STEP_COMPLETED_EVENT, {
