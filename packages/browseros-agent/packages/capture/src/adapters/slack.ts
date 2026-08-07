@@ -29,13 +29,26 @@ function evaluateCallState(probe: MeetingDomProbe): MeetingCallState {
     return 'prejoin'
   }
   if (
-    text.includes('leave huddle') ||
     ariaIncludes(probe, 'leave huddle') ||
     hasSelector(probe, '[data-qa="huddle_leave_button"]')
   ) {
     return 'in-call'
   }
+  if (probe.facts.hasVisibleMuteControl) return 'in-call'
   return 'unknown'
+}
+
+function probeLocalMute(probe: MeetingDomProbe): boolean | null {
+  const labels = probe.facts.ariaLabels.map((l) => l.toLowerCase())
+  // Slack: "Mute" / "Unmute" buttons in the huddle bar
+  if (labels.some((l) => l === 'unmute' || l.startsWith('unmute '))) return true
+  if (
+    labels.some(
+      (l) => (l === 'mute' || l.startsWith('mute ')) && !l.includes('unmute'),
+    )
+  )
+    return false
+  return null
 }
 
 export const slackAdapter: MeetingSiteAdapter = {
@@ -43,7 +56,7 @@ export const slackAdapter: MeetingSiteAdapter = {
   displayName: 'Slack Huddles',
   maturity: 'mature',
   defaultHosts: ['app.slack.com'],
-  capabilities: ['roomDetection', 'callState'],
+  capabilities: ['roomDetection', 'callState', 'muteProbe'],
 
   matchesHost(hostname: string): boolean {
     return hostname.toLowerCase() === 'app.slack.com'
@@ -64,4 +77,5 @@ export const slackAdapter: MeetingSiteAdapter = {
   },
 
   evaluateCallState,
+  probeLocalMute,
 }

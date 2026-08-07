@@ -26,14 +26,22 @@ function ariaIncludes(probe: MeetingDomProbe, needle: string): boolean {
 function evaluateCallState(probe: MeetingDomProbe): MeetingCallState {
   const text = probe.bodyText.toLowerCase()
   if (text.includes('join now') || text.includes('lobby')) return 'prejoin'
-  if (
-    ariaIncludes(probe, 'leave') ||
-    ariaIncludes(probe, 'hang up') ||
-    hasSelector(probe, '[data-tid="call-hangup"]')
-  ) {
-    return 'in-call'
-  }
+  if (hasSelector(probe, '[data-tid="call-hangup"]')) return 'in-call'
+  // Require "hang up" or the specific hangup button — plain "leave" matches
+  // too broadly (channel sidebar, file pickers, etc.)
+  if (ariaIncludes(probe, 'hang up')) return 'in-call'
+  if (probe.facts.hasVisibleLeaveControl) return 'in-call'
+  if (probe.facts.hasVisibleMuteControl) return 'in-call'
   return 'prejoin'
+}
+
+function probeLocalMute(probe: MeetingDomProbe): boolean | null {
+  const labels = probe.facts.ariaLabels.map((l) => l.toLowerCase())
+  // Teams: "Unmute (Ctrl+Shift+M)" or "Mute (Ctrl+Shift+M)"
+  if (labels.some((l) => l.startsWith('unmute'))) return true
+  if (labels.some((l) => l.startsWith('mute') && !l.includes('unmute')))
+    return false
+  return null
 }
 
 function probeActiveSpeaker(
@@ -101,13 +109,7 @@ export const teamsAdapter: MeetingSiteAdapter = {
   displayName: 'Microsoft Teams',
   maturity: 'mature',
   defaultHosts: ['teams.microsoft.com', 'teams.live.com'],
-  capabilities: [
-    'roomDetection',
-    'callState',
-    // speakerLabels disabled for now
-
-    'participantList',
-  ],
+  capabilities: ['roomDetection', 'callState', 'muteProbe', 'participantList'],
 
   matchesHost(hostname: string): boolean {
     return /^teams\.(microsoft|live)\.com$/i.test(hostname)
@@ -144,4 +146,5 @@ export const teamsAdapter: MeetingSiteAdapter = {
   evaluateCallState,
   probeActiveSpeaker,
   probeParticipants,
+  probeLocalMute,
 }
