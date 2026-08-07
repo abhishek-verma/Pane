@@ -174,6 +174,45 @@ export interface TranscriptSegment {
   reason?: string
 }
 
+interface SseFrame {
+  event: string
+  data: string
+}
+
+/**
+ * Parses a `text/event-stream` body into `{event, data}` frames (ignores
+ * `id:` — callers here don't need Last-Event-ID resume semantics).
+ */
+async function* readSseFrames(
+  body: ReadableStream<Uint8Array>,
+): AsyncGenerator<SseFrame> {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) return
+    buffer += decoder.decode(value, { stream: true })
+
+    let sepIndex = buffer.indexOf('\n\n')
+    while (sepIndex !== -1) {
+      const rawEvent = buffer.slice(0, sepIndex)
+      buffer = buffer.slice(sepIndex + 2)
+      sepIndex = buffer.indexOf('\n\n')
+
+      let event = 'message'
+      const dataLines: string[] = []
+      for (const line of rawEvent.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim())
+      }
+      if (dataLines.length === 0) continue
+      yield { event, data: dataLines.join('\n') }
+    }
+  }
+}
+
 export function useCaptureTranscript(
   sessionId: string | null,
   isActive = false,
@@ -199,7 +238,7 @@ export function useCaptureTranscript(
   useEffect(() => {
     if (!baseUrl || !sessionId || !isActive) return
     const url = `${base(baseUrl)}/capture/meetings/${encodeURIComponent(sessionId)}/events`
-    const es = new EventSource(url)
+    const controller = new AbortController()
     let lastMsg = Date.now()
     const onAny = () => {
       lastMsg = Date.now()
@@ -210,31 +249,43 @@ export function useCaptureTranscript(
         queryKey: [CAPTURE_QUERY_KEY, 'transcript', baseUrl, sessionId],
       })
     }
-    es.addEventListener('segment', () => {
-      onAny()
-      invalidate()
-    })
-    es.addEventListener('gap', () => {
-      onAny()
-      invalidate()
-    })
-    es.addEventListener('status', () => {
-      onAny()
-      void queryClient.invalidateQueries({
-        queryKey: [CAPTURE_QUERY_KEY, 'meetings'],
-      })
-    })
-    es.addEventListener('heartbeat', onAny)
-    es.onerror = () => {
-      setSseAlive(false)
-      es.close()
-    }
+
+    // agentFetch, not EventSource: this route requires
+    // X-BrowserOS-Profile-Id, and EventSource cannot attach custom headers
+    // (same bug class as the ASR model download above).
+    void (async () => {
+      try {
+        const res = await agentFetch(url, { signal: controller.signal })
+        if (!res.ok || !res.body) return
+        for await (const frame of readSseFrames(res.body)) {
+          switch (frame.event) {
+            case 'segment':
+            case 'gap':
+              onAny()
+              invalidate()
+              break
+            case 'status':
+              onAny()
+              void queryClient.invalidateQueries({
+                queryKey: [CAPTURE_QUERY_KEY, 'meetings'],
+              })
+              break
+            case 'heartbeat':
+              onAny()
+              break
+          }
+        }
+      } catch {
+        if (!controller.signal.aborted) setSseAlive(false)
+      }
+    })()
+
     const watchdog = setInterval(() => {
       if (Date.now() - lastMsg > 8_000) setSseAlive(false)
     }, 2_000)
     return () => {
       clearInterval(watchdog)
-      es.close()
+      controller.abort()
       setSseAlive(false)
     }
   }, [baseUrl, sessionId, isActive, queryClient])
