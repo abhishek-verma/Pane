@@ -12,7 +12,7 @@ import {
 } from '@browseros/shared/schemas/browser-context'
 import { type Context, Hono } from 'hono'
 import { stream } from 'hono/streaming'
-import { setConversationPins } from '../../agent/conversation-pins-store'
+import { setConversationPins } from '../../agent/conversation-context-store'
 import { formatUserMessage } from '../../agent/format-message'
 import { createAcpUIMessageStreamResponse } from '../../lib/agents/acp/ui-message-stream'
 import {

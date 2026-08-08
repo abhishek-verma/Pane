@@ -7,7 +7,7 @@
 import type { ConsequenceClass } from '@browseros/shared/trust/consequence-class'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { addConversationPin } from '../../agent/conversation-pins-store'
+import { addConversationPin } from '../../agent/conversation-context-store'
 import {
   handleApprovalInboundText,
   listPendingApprovals,

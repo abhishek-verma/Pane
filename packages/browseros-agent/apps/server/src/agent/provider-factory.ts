@@ -90,6 +90,21 @@ function expandHomeToken(path: string): string {
   return path.replace(/^\$HOME(?=\/|$)/, homedir())
 }
 
+/**
+ * Resolve the effective workspace path for an ACP provider. Shared by
+ * the model factory (for subprocess cwd) and the MCP server builder
+ * (for the `X-BrowserOS-Working-Dir` header).
+ */
+export function resolveAcpWorkspacePath(
+  providerType: string,
+  providerId: string | undefined,
+  fixedPath: string | undefined,
+): string {
+  return expandHomeToken(
+    fixedPath ?? defaultAcpWorkspacePath(providerType, providerId),
+  )
+}
+
 function resolveAcpAgentId(config: ResolvedAgentConfig): string {
   if (config.provider === LLM_PROVIDERS.ACP_CUSTOM) {
     if (!config.acpAgentId) {
@@ -192,9 +207,10 @@ async function createAcpLanguageModel(
   config: ResolvedAgentConfig,
 ): Promise<LanguageModelWithCleanup> {
   const agentId = resolveAcpAgentId(config)
-  const workspacePath = expandHomeToken(
-    config.acpFixedWorkspacePath ??
-      defaultAcpWorkspacePath(config.provider, config.providerId),
+  const workspacePath = resolveAcpWorkspacePath(
+    config.provider,
+    config.providerId,
+    config.acpFixedWorkspacePath,
   )
   await mkdir(workspacePath, { recursive: true }).catch((err: unknown) => {
     logger.warn('Failed to ensure ACP workspace exists; spawn may fail', {

@@ -8,10 +8,11 @@ import type { BrowserSession } from '@browseros/browser-core/core/session'
 import { createBrowserOutputFileAccess } from '@browseros/browser-mcp/output-file'
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { Hono } from 'hono'
-import { getConversationPins } from '../../agent/conversation-pins-store'
+import { getConversationPins } from '../../agent/conversation-context-store'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
+import { defaultWorkspace } from '../../tools/filesystem/workspace'
 import { createMcpServer } from '../services/mcp/mcp-server'
 import type { Env } from '../types'
 
@@ -97,6 +98,9 @@ export function createMcpRoutes(deps: McpRouteDeps) {
         ? remoteAgentHarness
         : undefined
 
+    const workingDir =
+      c.req.header('X-BrowserOS-Working-Dir')?.trim() || undefined
+
     // Per-request server + transport: no shared state, no race conditions,
     // no ID collisions. Required by MCP SDK 1.26.0+ security fix (GHSA-345p-7cg4-v4c7).
     const mcpServer = makeMcpServer({
@@ -107,6 +111,7 @@ export function createMcpRoutes(deps: McpRouteDeps) {
       defaultTabGroupId,
       executionDir: deps.executionDir,
       remoteAgentHarness: harness,
+      workspace: workingDir ? defaultWorkspace(workingDir) : undefined,
       scopeId,
       trustPins: getConversationPins(scopeId),
     })
