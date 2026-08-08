@@ -75,9 +75,13 @@ describe('probeAcpAgent — input shape', () => {
   })
 
   it('forwards agentId to the underlying probe', async () => {
+    // Use a non-built-in agentId: 'claude'/'codex' always get rewritten to
+    // a launcher command (see the "bundled-Bun launcher swap" describe
+    // block below), so this generic-passthrough test needs an id outside
+    // HOST_ACP_ADAPTER_CONFIG to actually exercise passthrough.
     nextResult = baseProbeResult()
-    await probeAcpAgent({ agentId: 'claude' })
-    expect(lastCall?.agent).toBe('claude')
+    await probeAcpAgent({ agentId: 'some-custom-agent' })
+    expect(lastCall?.agent).toBe('some-custom-agent')
     expect(lastCall?.authPolicy).toBe('skip')
   })
 
@@ -152,21 +156,27 @@ describe('probeAcpAgent — bundled-Bun launcher swap', () => {
     fs.rmSync(tmpRoot, { recursive: true, force: true })
   })
 
-  it('leaves agentId in place when no resourcesDir is supplied so acpx resolves the npx command', async () => {
+  it('rewrites agentId to the resolved npx command when no resourcesDir is supplied', async () => {
+    // No resourcesDir -> resolveBundledBun() returns null -> the launcher
+    // falls back to a host-npx command, which is always truthy (defaults
+    // to the literal 'npx' even when the binary can't be resolved), so
+    // probeAcpAgent always swaps agentId for that command.
     nextResult = baseProbeResult()
     await probeAcpAgent({ agentId: 'claude' })
-    expect(lastCall?.agent).toBe('claude')
-    expect(lastCall?.command).toBeUndefined()
+    expect(lastCall?.agent).toBeUndefined()
+    expect(lastCall?.command).toContain('npx')
+    expect(lastCall?.command).toContain('@agentclientprotocol/claude-agent-acp')
   })
 
-  it('leaves agentId in place when the bundled bun binary is missing under resourcesDir', async () => {
+  it('rewrites agentId to the resolved npx command when the bundled bun binary is missing under resourcesDir', async () => {
     nextResult = baseProbeResult()
     await probeAcpAgent({
       agentId: 'codex',
       resourcesDir: '/nonexistent/path/that/has/no/bundled/bun',
     })
-    expect(lastCall?.agent).toBe('codex')
-    expect(lastCall?.command).toBeUndefined()
+    expect(lastCall?.agent).toBeUndefined()
+    expect(lastCall?.command).toContain('npx')
+    expect(lastCall?.command).toContain('@zed-industries/codex-acp')
   })
 
   it('passes through an explicit command unchanged regardless of resourcesDir', async () => {

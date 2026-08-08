@@ -4,8 +4,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import type { ConsequenceClass } from '@browseros/shared/trust/consequence-class'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { addConversationPin } from '../../agent/conversation-pins-store'
 import {
   handleApprovalInboundText,
   listPendingApprovals,
@@ -180,11 +182,21 @@ export function createSchedulerRoutes() {
     .get('/approvals', (c) => c.json({ approvals: listPendingApprovals() }))
     .post('/approvals/resolve', async (c) => {
       const body = z
-        .object({ token: z.string().min(1) })
+        .object({ token: z.string().min(1), pin: z.boolean().optional() })
         .parse(await c.req.json())
       const result = resolveByToken(body.token)
       if (!result) return c.json({ error: 'unknown token' }, 404)
       signalApprovalResolved(result.approval.id, result.resolution)
+      if (
+        body.pin &&
+        result.resolution === 'approved' &&
+        result.approval.conversationId
+      ) {
+        addConversationPin(
+          result.approval.conversationId,
+          result.approval.consequenceClass as ConsequenceClass,
+        )
+      }
       return c.json({
         ...result,
         resumed: result.resumed,

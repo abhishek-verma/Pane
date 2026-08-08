@@ -20,8 +20,9 @@ export const ChannelApprovalCard: FC<{
   busy?: boolean
   note?: string | null
   onApprove: () => void
+  onAllowForChat: () => void
   onDeny: () => void
-}> = ({ approval, busy, note, onApprove, onDeny }) => {
+}> = ({ approval, busy, note, onApprove, onAllowForChat, onDeny }) => {
   const action = stripPreviewPrefix(approval.preview) || approval.toolName
   return (
     <div className="mx-4 mb-3 rounded-md border border-[var(--signal)]/40 bg-card p-3">
@@ -39,6 +40,14 @@ export const ChannelApprovalCard: FC<{
       <div className="mt-3 flex flex-wrap gap-2">
         <Button size="sm" disabled={busy} onClick={onApprove} variant="default">
           Approve
+        </Button>
+        <Button
+          size="sm"
+          disabled={busy}
+          onClick={onAllowForChat}
+          variant="default"
+        >
+          Allow for this chat
         </Button>
         <Button size="sm" disabled={busy} onClick={onDeny} variant="outline">
           Deny

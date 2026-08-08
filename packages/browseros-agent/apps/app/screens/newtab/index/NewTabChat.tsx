@@ -246,6 +246,9 @@ export const NewTabChat: FC = () => {
             onApprove={() => {
               void channelApprovals.resolve(approval, 'approve')
             }}
+            onAllowForChat={() => {
+              void channelApprovals.resolve(approval, 'allowForChat')
+            }}
             onDeny={() => {
               void channelApprovals.resolve(approval, 'deny')
             }}

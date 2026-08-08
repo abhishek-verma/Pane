@@ -8,6 +8,7 @@ import type { BrowserSession } from '@browseros/browser-core/core/session'
 import { createBrowserOutputFileAccess } from '@browseros/browser-mcp/output-file'
 import { StreamableHTTPTransport } from '@hono/mcp'
 import { Hono } from 'hono'
+import { getConversationPins } from '../../agent/conversation-pins-store'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
 import { Sentry } from '../../lib/sentry'
@@ -107,6 +108,7 @@ export function createMcpRoutes(deps: McpRouteDeps) {
       executionDir: deps.executionDir,
       remoteAgentHarness: harness,
       scopeId,
+      trustPins: getConversationPins(scopeId),
     })
     const transport = makeMcpTransport({
       sessionIdGenerator: undefined,

@@ -1,14 +1,24 @@
 name: Release Pane Browser
 
-# Tag browser/v* → signed+notarized macOS DMGs on GitHub Releases + Sparkle appcast.
+# DORMANT: manual dispatch only. This pipeline needs a self-hosted macOS
+# runner with an already-synced Chromium checkout (see "Resolve Chromium
+# source" in build-macos below) — GitHub-hosted macos-14/macos-13 runners
+# are ephemeral and never have one, and this repo has no self-hosted
+# runners registered. Until one exists, browser/v* releases are built and
+# published locally via packages/browseros-agent/scripts/release/
+# (build-unsigned-browser.sh, resume-signed-browser-release.sh,
+# wait-and-publish-browser.sh, upload-browser-release.sh). This workflow
+# used to also trigger on browser/v* tag pushes; that trigger was removed
+# because it could never succeed and was generating a failed run on every
+# push to every branch in the repo. Re-add a `push: tags: ["browser/v*"]`
+# block under `on:` once a self-hosted runner is wired up.
+#
+# Signed+notarized macOS DMGs on GitHub Releases + Sparkle appcast.
 # Secrets (repository): DEVELOPER_ID_P12, P12_PASSWORD, NOTARY_KEY, NOTARY_KEY_ID,
 #   NOTARY_ISSUER, SPARKLE_PRIVATE_KEY.
 # Runner variable (recommended for Chromium): CHROMIUM_SRC → absolute path to src/.
 
 on:
-  push:
-    tags:
-      - "browser/v*"
   workflow_dispatch:
     inputs:
       tag:

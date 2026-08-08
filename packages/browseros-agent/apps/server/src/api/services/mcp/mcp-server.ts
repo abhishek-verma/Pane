@@ -7,7 +7,11 @@
 import type { BrowserSession } from '@browseros/browser-core/core/session'
 import { createBrowserMcpServer } from '@browseros/browser-mcp/mcp-server'
 import { createDefaultMcpGateContext } from '@browseros/browser-mcp/trust/mcp-gate'
-import type { GateApprovalResolution } from '@browseros/shared/trust/consequence-class'
+import type {
+  ConsequenceClass,
+  GateApprovalResolution,
+  TrustPin,
+} from '@browseros/shared/trust/consequence-class'
 import { ingestToolResult, summarizeToolResult } from '../../../context/ingest'
 import { registerContextMcpTools } from '../../../context/register-mcp'
 import { logger } from '../../../lib/logger'
@@ -31,6 +35,8 @@ export interface McpServiceDeps {
   bucketId?: string
   /** X-BrowserOS-Scope-Id header value; groups approvals for this MCP client. */
   scopeId?: string
+  /** Trust pins for the associated conversation (if any). */
+  trustPins?: Partial<Record<ConsequenceClass, TrustPin>>
 }
 
 /** Creates a per-request BrowserOS MCP server with tools for the requested surface. */
@@ -40,6 +46,7 @@ export function createMcpServer(deps: McpServiceDeps) {
   const gateContext = createDefaultMcpGateContext({
     workspaceRoot: deps.executionDir,
     runId,
+    pins: deps.trustPins ?? {},
     // For an ACP provider (e.g. Claude Code) pointed at our own /mcp,
     // buildBrowserOsSelfMcpEntry forwards the real chat conversationId as
     // X-BrowserOS-Scope-Id — the same id apps/app polls in
