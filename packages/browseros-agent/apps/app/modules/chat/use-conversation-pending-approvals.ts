@@ -179,8 +179,9 @@ export function useConversationPendingApprovals(
         result = await resolveChannelApproval(approval.approveToken, {
           pin: true,
         })
-        // Persist client-side so it survives server restart
-        if (conversationId) {
+        // Persist client-side only when the server successfully resolved the approval,
+        // so a failed/expired token never grants permanent trust.
+        if (result.ok && conversationId) {
           const current = await conversationTrustStorage.getValue()
           const cls = approval.consequenceClass as ConsequenceClass
           await conversationTrustStorage.setValue({
