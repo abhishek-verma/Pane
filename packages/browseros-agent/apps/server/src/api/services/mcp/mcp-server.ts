@@ -21,6 +21,7 @@ import {
   requestChannelApproval,
 } from '../../../scheduler/approvals'
 import { registerFilesystemMcpTools } from '../../../tools/filesystem/register-mcp'
+import type { Workspace } from '../../../tools/filesystem/workspace'
 import { shouldLogToolRegistration } from '../../../tools/registration-log-sampling'
 import { MCP_INSTRUCTIONS } from './mcp-prompt'
 import type { RemoteAgentHarnessTools } from './register-mcp'
@@ -32,6 +33,8 @@ export interface McpServiceDeps {
   defaultTabGroupId?: string
   executionDir: string
   remoteAgentHarness?: RemoteAgentHarnessTools
+  /** Workspace for filesystem tools (from X-BrowserOS-Working-Dir header). */
+  workspace?: Workspace
   bucketId?: string
   /** X-BrowserOS-Scope-Id header value; groups approvals for this MCP client. */
   scopeId?: string
@@ -44,7 +47,7 @@ export function createMcpServer(deps: McpServiceDeps) {
   const bucketId = deps.bucketId ?? 'default'
   const runId = deps.scopeId ?? 'ephemeral'
   const gateContext = createDefaultMcpGateContext({
-    workspaceRoot: deps.executionDir,
+    workspaceRoot: deps.workspace?.root ?? deps.executionDir,
     runId,
     pins: deps.trustPins ?? {},
     // For an ACP provider (e.g. Claude Code) pointed at our own /mcp,
@@ -117,6 +120,8 @@ export function createMcpServer(deps: McpServiceDeps) {
       outputFileAccess: deps.remoteAgentHarness.outputFileAccess,
       gateContext,
     })
+  } else if (deps.workspace) {
+    registerFilesystemMcpTools(server, deps.workspace, { gateContext })
   }
 
   // Always expose context/tasks on /mcp so CLI + external MCP clients can use them.

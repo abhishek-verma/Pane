@@ -42,6 +42,8 @@ export interface BuildBrowserOsSelfMcpOptions {
   defaultTabGroupId?: string
   /** Managed Klavis connector names selected for this chat/session. */
   enabledMcpServers?: readonly string[]
+  /** Resolved ACP workspace path to expose filesystem tools on `/mcp`. */
+  workspacePath?: string
 }
 
 /**
@@ -79,6 +81,12 @@ export function buildBrowserOsSelfMcpEntry(
     headers.push({
       name: MANAGED_MCP_SERVERS_HEADER,
       value: opts.enabledMcpServers.map(encodeURIComponent).join(','),
+    })
+  }
+  if (opts.workspacePath) {
+    headers.push({
+      name: 'X-BrowserOS-Working-Dir',
+      value: opts.workspacePath,
     })
   }
   return {

@@ -43,6 +43,7 @@ import {
   stripUIImageOutputs,
 } from '../../agent/message-validation'
 import { projectMessagesForUi } from '../../agent/project-messages-for-ui'
+import { resolveAcpWorkspacePath } from '../../agent/provider-factory'
 import { runTracker } from '../../agent/run-tracker'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
 import { clearSessionTabGroup } from '../../agent/session-tab-groups'
@@ -371,6 +372,11 @@ export class ChatService {
             defaultWindowId: request.browserContext?.windowId,
             enabledMcpServers: request.browserContext?.enabledMcpServers,
             customMcpServers: request.browserContext?.customMcpServers,
+            workspacePath: resolveAcpWorkspacePath(
+              llmConfig.provider,
+              llmConfig.providerId,
+              request.acpFixedWorkspacePath,
+            ),
           })
         : undefined,
       isNewConversation: isFirstTurn,
