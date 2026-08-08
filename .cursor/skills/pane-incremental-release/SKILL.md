@@ -347,6 +347,19 @@ strings "out/Default_arm64/Pane.app/Contents/Frameworks/Pane Framework.framework
 **Fix**: `create_dmg()` now uses `ditto --noextattr --norsrc` + `hdiutil create -srcfolder` which never adds metadata.
 **Prevention**: do not revert `create_dmg` to use `pkg-dmg`. If you see the detritus error in a build, verify that the ditto+hdiutil path is active.
 
+### 15. Sparkle must be >= 2.9.x for macOS 16 OTA updates
+**Symptom**: OTA updates fail with "com.panebrowser is damaged" on macOS 16.
+**Cause**: Sparkle < 2.9 runs its Autoupdate/Installer helpers directly from inside the app bundle. When a user installs from a browser-downloaded DMG, quarantine propagates to these helpers. macOS 16 blocks quarantined XPC helpers from launching. The result: OTA updates permanently fail.
+**Fix**: Sparkle 2.9+ introduces a Launcher cache mechanism. On first app launch, it copies `Updater.app` to `~/Library/Caches/<bundle-id>/org.sparkle-project.Sparkle/Launcher/`. This cached copy is outside the app bundle, never quarantined, and handles all future updates.
+**Current version**: Sparkle 2.9.5 at `/Users/abhishek/chromium/src/third_party/sparkle/Sparkle.framework`.
+**Rule: NEVER downgrade Sparkle below 2.9.x.** If upgrading, download from https://github.com/sparkle-project/Sparkle/releases and replace the framework in `third_party/sparkle/`.
+**Verification after build:**
+```bash
+/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
+  "out/Default_arm64/Pane.app/Contents/Frameworks/Pane Framework.framework/Versions/Current/Frameworks/Sparkle.framework/Versions/B/Resources/Info.plist"
+# Must be >= 2.9.0
+```
+
 ---
 
 ## Extension release
