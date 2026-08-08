@@ -203,17 +203,30 @@ describe('createLanguageModel — ACP providers', () => {
       acpCommand: 'my-bin acp',
     } as never)
     expect(lastBuildArgs?.agentId).toBe('my-agent')
-    expect(lastBuildArgs?.agentRegistryOverrides).toEqual({
-      'my-agent': 'my-bin acp',
-    })
+    const overrides = lastBuildArgs?.agentRegistryOverrides as
+      | Record<string, string>
+      | undefined
+    // claude/codex are always pre-seeded too (host-npx-fallback source,
+    // since baseConfig() has no resourcesDir) alongside the acp-custom entry.
+    expect(overrides?.['my-agent']).toBe('my-bin acp')
+    expect(overrides?.claude).toContain('npx')
+    expect(overrides?.codex).toContain('npx')
   })
 
-  it('leaves agentRegistryOverrides empty for built-in agents without a bundled bun', async () => {
-    // baseConfig() has no resourcesDir so the launcher cannot resolve
-    // the bundled Bun and falls back to acpx's own npx command, which
-    // means we deliberately do NOT pre-seed the registry override.
+  it('pre-seeds the host-npx-fallback launcher for built-in agents without a bundled bun', async () => {
+    // baseConfig() has no resourcesDir so the launcher cannot resolve the
+    // bundled Bun and falls back to acpx's own npx command instead — but
+    // per provider-factory.ts's "Both bundled-bun and host-npx-fallback
+    // sources override acpx's registry" comment, that fallback command is
+    // still pre-seeded so the enriched env prefix is always applied.
     await createLanguageModel(baseConfig() as never)
-    expect(lastBuildArgs?.agentRegistryOverrides).toEqual({})
+    const overrides = lastBuildArgs?.agentRegistryOverrides as
+      | Record<string, string>
+      | undefined
+    expect(overrides?.claude).toContain('npx')
+    expect(overrides?.claude).toContain('@agentclientprotocol/claude-agent-acp')
+    expect(overrides?.codex).toContain('npx')
+    expect(overrides?.codex).toContain('@zed-industries/codex-acp')
   })
 
   it('pre-seeds the bundled-Bun launcher for claude and codex when resourcesDir points at a real bundled bun', async () => {

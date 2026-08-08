@@ -53,31 +53,37 @@ jobs:
           set -euo pipefail
 
           CASK_CONTENT="cask \"pane\" do
-  version \"${VERSION}\"
+            version \"${VERSION}\"
 
-  on_arm do
-    url \"https://github.com/abhishek-verma/Pane/releases/download/v\#{version}/Pane_v\#{version}_arm64.dmg\"
-    sha256 \"${SHA256}\"
-  end
+            on_arm do
+              url \"https://github.com/abhishek-verma/Pane/releases/download/v\#{version}/Pane_v\#{version}_arm64.dmg\"
+              sha256 \"${SHA256}\"
+            end
 
-  name \"Pane\"
-  desc \"Browser with a built-in personal agent\"
-  homepage \"https://github.com/abhishek-verma/Pane\"
+            name \"Pane\"
+            desc \"Browser with a built-in personal agent\"
+            homepage \"https://github.com/abhishek-verma/Pane\"
 
-  livecheck do
-    url :url
-    strategy :github_latest
-  end
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
 
-  app \"Pane.app\"
+            app \"Pane.app\"
 
-  zap trash: [
-    \"~/Library/Application Support/Pane\",
-    \"~/.browseros\",
-    \"~/.browseros-dev\",
-  ]
-end
-"
+            zap trash: [
+              \"~/Library/Application Support/Pane\",
+              \"~/.browseros\",
+              \"~/.browseros-dev\",
+            ]
+          end
+          "
+          # The multi-line string above is indented to stay inside this
+          # run: block's YAML literal scalar (every line must be indented
+          # >= the block's level); strip that fixed indentation back out
+          # so the file we publish to the tap repo keeps normal 2-space
+          # Ruby formatting.
+          CASK_CONTENT="$(printf '%s\n' "$CASK_CONTENT" | sed -E 's/^ {10}//')"
 
           # Use GitHub API to update the file in homebrew-pane tap repo
           REPO="abhishek-verma/homebrew-pane"

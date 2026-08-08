@@ -41,8 +41,8 @@ describe('LockFile Contention', () => {
     } catch {}
   })
 
-  it('acquires lock successfully when no lock exists', () => {
-    const success = testLock.acquire()
+  it('acquires lock successfully when no lock exists', async () => {
+    const success = await testLock.acquire()
     expect(success).toBe(true)
     expect(fs.existsSync(lockFilePath)).toBe(true)
 
@@ -51,7 +51,7 @@ describe('LockFile Contention', () => {
     expect(parseInt(pidStr, 10)).toBe(process.pid)
   })
 
-  it('fails to acquire lock when lock is held by another process', () => {
+  it('fails to acquire lock when lock is held by another process', async () => {
     // Simulate another process holding the lock by writing a dummy PID that exists (our own PID for testing,
     // but in reality we pretend it is another process that is running).
     // Actually, if we write our own PID, the LockFile checks if it's running using process.kill, which returns true.
@@ -61,11 +61,11 @@ describe('LockFile Contention', () => {
     fs.writeFileSync(lockFilePath, String(process.pid))
 
     const lock = new LockFile(testLockName)
-    const success = lock.acquire()
+    const success = await lock.acquire()
     expect(success).toBe(false)
   })
 
-  it('steals lock if held by a dead process', () => {
+  it('steals lock if held by a dead process', async () => {
     // Write a PID of a process that is definitely dead (e.g. 9999999)
     const deadPid = 9999999
     const dir = path.dirname(lockFilePath)
@@ -73,7 +73,7 @@ describe('LockFile Contention', () => {
     fs.writeFileSync(lockFilePath, String(deadPid))
 
     const lock = new LockFile(testLockName)
-    const success = lock.acquire()
+    const success = await lock.acquire()
 
     expect(success).toBe(true)
     // The lock file should now have our PID
@@ -82,9 +82,9 @@ describe('LockFile Contention', () => {
     lock.release()
   })
 
-  it('releases lock correctly', () => {
+  it('releases lock correctly', async () => {
     const lock = new LockFile(testLockName)
-    expect(lock.acquire()).toBe(true)
+    expect(await lock.acquire()).toBe(true)
     expect(fs.existsSync(lockFilePath)).toBe(true)
 
     lock.release()

@@ -264,7 +264,7 @@ describe('meeting capture pipeline', () => {
     expect(transcript).toContain('chunk 1')
   })
 
-  it('reconciles empty active zombies after the empty-session grace period', async () => {
+  it('deletes empty active zombies after the empty-session grace period', async () => {
     const session = await startMeetingCapture({
       tabId: 42,
       bucketId: 'default',
@@ -283,7 +283,10 @@ describe('meeting capture pipeline', () => {
 
     const stopped = reconcileStaleActiveCaptureSessions()
     expect(stopped).toBeGreaterThanOrEqual(1)
-    expect(getCaptureSession(session.id)?.status).toBe('stopped')
+    // Sessions with no recorded audio are deleted entirely (not just
+    // marked stopped) — see the "delete entirely" branch in
+    // reconcileStaleActiveCaptureSessions.
+    expect(getCaptureSession(session.id)).toBeNull()
   })
 
   it('auto-rehydrates on chunk feed when the in-memory session was lost', async () => {
