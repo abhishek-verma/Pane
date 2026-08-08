@@ -12,6 +12,7 @@ import {
 } from '@browseros/shared/schemas/browser-context'
 import { type Context, Hono } from 'hono'
 import { stream } from 'hono/streaming'
+import { setConversationPins } from '../../agent/conversation-pins-store'
 import { formatUserMessage } from '../../agent/format-message'
 import { createAcpUIMessageStreamResponse } from '../../lib/agents/acp/ui-message-stream'
 import {
@@ -177,6 +178,10 @@ export function createAgentRoutes(deps: AgentRouteDeps = {}) {
       try {
         const agent = await service.getAgent(agentId)
         if (!agent) return c.json({ error: 'Unknown agent' }, 404)
+
+        if (parsed.trustPins && parsed.conversationId) {
+          setConversationPins(parsed.conversationId, parsed.trustPins)
+        }
 
         let browserContext = parsed.browserContext
         if (deps.browser) {

@@ -8,16 +8,19 @@
  * poll /scheduler/approvals or the user only sees Home Today cards.
  */
 
+import type { ConsequenceClass } from '@browseros/shared/trust/consequence-class'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { conversationTrustStorage } from '@/lib/trust/trust-pins-storage'
 import { matchPendingForConversation } from '@/modules/chat/match-pending-for-conversation'
 import { HOME_QUERY_KEY } from '@/screens/newtab/home/home-data'
 
 export type ConversationPendingApproval = {
   id: string
   toolName: string
+  consequenceClass: string
   preview: string
   approveToken: string
   denyToken: string
@@ -40,6 +43,7 @@ async function fetchPendingForConversation(
       id: string
       conversationId?: string | null
       toolName: string
+      consequenceClass: string
       preview: string
       approveToken: string
       denyToken: string
@@ -51,13 +55,14 @@ async function fetchPendingForConversation(
 
 export async function resolveChannelApproval(
   token: string,
+  options?: { pin?: boolean },
 ): Promise<ResolveChannelApprovalResult> {
   try {
     const base = await getAgentServerUrl()
     const res = await agentFetch(`${base}/scheduler/approvals/resolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, pin: options?.pin }),
     })
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as {
@@ -165,20 +170,39 @@ export function useConversationPendingApprovals(
   const resolve = useCallback(
     async (
       approval: ConversationPendingApproval,
-      resolution: 'approve' | 'deny',
+      resolution: 'approve' | 'deny' | 'allowForChat',
     ) => {
       setResolvingId(approval.id)
       setNote(null)
-      const token =
-        resolution === 'approve' ? approval.approveToken : approval.denyToken
-      const result = await resolveChannelApproval(token)
+      let result: ResolveChannelApprovalResult
+      if (resolution === 'allowForChat') {
+        result = await resolveChannelApproval(approval.approveToken, {
+          pin: true,
+        })
+        // Persist client-side so it survives server restart
+        if (conversationId) {
+          const current = await conversationTrustStorage.getValue()
+          const cls = approval.consequenceClass as ConsequenceClass
+          await conversationTrustStorage.setValue({
+            ...current,
+            [conversationId]: {
+              ...(current[conversationId] ?? {}),
+              [cls]: true,
+            },
+          })
+        }
+      } else {
+        const token =
+          resolution === 'approve' ? approval.approveToken : approval.denyToken
+        result = await resolveChannelApproval(token)
+      }
       setNote(result.detail)
       setResolvingId(null)
       await refresh()
       void queryClient.invalidateQueries({ queryKey: [...HOME_QUERY_KEY] })
       return result
     },
-    [refresh, queryClient],
+    [conversationId, refresh, queryClient],
   )
 
   return {

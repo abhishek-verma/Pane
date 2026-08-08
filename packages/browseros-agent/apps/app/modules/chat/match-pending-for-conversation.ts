@@ -10,6 +10,7 @@ export type PendingApprovalRow = {
   id: string
   conversationId?: string | null
   toolName: string
+  consequenceClass: string
   preview: string
   approveToken: string
   denyToken: string
@@ -19,6 +20,7 @@ export type PendingApprovalRow = {
 export type MatchedPendingApproval = {
   id: string
   toolName: string
+  consequenceClass: string
   preview: string
   approveToken: string
   denyToken: string
@@ -35,6 +37,7 @@ export function matchPendingForConversation(
     .map((a) => ({
       id: a.id,
       toolName: a.toolName,
+      consequenceClass: a.consequenceClass,
       preview: a.preview,
       approveToken: a.approveToken,
       denyToken: a.denyToken,
