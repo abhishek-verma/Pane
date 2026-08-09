@@ -48,11 +48,12 @@ export type PiLabeledAction = {
 export type PiCardAction = PiAction | PiLabeledAction
 
 export type PiNode =
-  | { type: 'title'; text: string }
-  | { type: 'text'; text: string }
-  | { type: 'note'; text: string }
+  | { type: 'title'; id?: string; text: string }
+  | { type: 'text'; id?: string; text: string }
+  | { type: 'note'; id?: string; text: string }
   | {
       type: 'badge'
+      id?: string
       text: string
       tone?: 'neutral' | 'good' | 'warn' | 'bad'
     }
@@ -165,6 +166,7 @@ export type TableRow = {
 
 export type PiPatchOp =
   | { op: 'setTitle'; title: string }
+  | { op: 'setNodeText'; id: string; text: string }
   | { op: 'replaceNodes'; nodes: PiNode[] }
   /** Append nodes after existing body (preferred for BTF section fills). */
   | { op: 'appendNodes'; nodes: PiNode[] }

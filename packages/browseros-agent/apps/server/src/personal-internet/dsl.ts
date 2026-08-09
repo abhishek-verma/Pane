@@ -121,7 +121,16 @@ function defaultActionLabel(action: PiAction): string {
 }
 
 const MAX_DOC_BYTES = 512 * 1024
-const DANGEROUS_RE = /<script|javascript:|on\w+\s*=/i
+// Word boundary before "on" + a quote after "=" so this only matches a real
+// HTML event-handler attribute (onerror="...", onclick='...'), not English
+// prose where a word simply ends in "-on"/"-ons"/"-tion" before an unrelated
+// "=" (e.g. "Sections = ...", "SUBMISSION_ID=<id>") — both are unquoted and
+// mid-word, and both false-positived under the old unanchored regex. None of
+// the fields this guards (text/note/title/badge/action strings) render raw
+// HTML — see PiMarkdown/PiPageRenderer — so this is defense-in-depth, not
+// the primary guard; svg markup has its own dedicated sanitizer/regexes in
+// sanitize-svg.ts and is unaffected by this.
+const DANGEROUS_RE = /<script|javascript:|\bon\w+\s*=\s*["']/i
 
 export class PiDslError extends Error {
   constructor(message: string) {
@@ -335,9 +344,21 @@ function validateNode(
     case 'title':
     case 'text':
     case 'note':
+      if (node.id != null) {
+        if (typeof node.id !== 'string' || !node.id.trim()) {
+          throw new PiDslError(`${path}: id must be a non-empty string`)
+        }
+        assertSafeText(node.id, `${path}.id`)
+      }
       assertSafeText(node.text, path)
       return
     case 'badge':
+      if (node.id != null) {
+        if (typeof node.id !== 'string' || !node.id.trim()) {
+          throw new PiDslError(`${path}: id must be a non-empty string`)
+        }
+        assertSafeText(node.id, `${path}.id`)
+      }
       assertSafeText(node.text, path)
       return
     case 'stat':
@@ -726,6 +747,31 @@ function findFirstBoard(
   return null
 }
 
+type TextBearingNode = Extract<
+  PiNode,
+  { type: 'title' | 'text' | 'note' | 'badge' }
+>
+
+function isTextBearingNode(node: PiNode): node is TextBearingNode {
+  return (
+    node.type === 'title' ||
+    node.type === 'text' ||
+    node.type === 'note' ||
+    node.type === 'badge'
+  )
+}
+
+function findNodeById(nodes: PiNode[], id: string): TextBearingNode | null {
+  for (const n of nodes) {
+    if (isTextBearingNode(n) && n.id === id) return n
+    if (n.type === 'stack') {
+      const inner = findNodeById(n.children, id)
+      if (inner) return inner
+    }
+  }
+  return null
+}
+
 export function applyPatchOps(doc: PiPageDoc, ops: PiPatchOp[]): PiPageDoc {
   let next: PiPageDoc = {
     version: 1,
@@ -740,6 +786,15 @@ export function applyPatchOps(doc: PiPageDoc, ops: PiPatchOp[]): PiPageDoc {
         assertSafeText(op.title, 'setTitle')
         next = { ...next, title: op.title }
         break
+      case 'setNodeText': {
+        const found = findNodeById(next.nodes, op.id)
+        if (!found) {
+          throw new PiDslError(`setNodeText: node "${op.id}" not found`)
+        }
+        assertSafeText(op.text, 'setNodeText')
+        found.text = op.text
+        break
+      }
       case 'replaceNodes':
         for (const [i, node] of op.nodes.entries()) {
           validateNode(node, `replaceNodes[${i}]`)

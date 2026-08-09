@@ -226,7 +226,7 @@ Private **sites** hold multi-day operable work. Pages live under sites (or as te
    - \`harvestFromMeetings\` — update from meeting-ended + transcript
    - \`harvestOnHostOpened\` — sync when a source tab opens
    - \`harvestAllowNavigate\` — scheduled sync may open sources even if the user did not visit them today
-   User may accept, change any field, or decline. **Never** set \`harvestEnabled: true\` (or write harvest fields) until they agree. Later edits: propose a diff, then upsert only confirmed fields.
+   User may accept, change any field, or decline. **Never** set \`harvestEnabled: true\` (or write harvest fields) until they agree — harvest is unattended and ongoing (scheduled, cross-site access that keeps running without the user watching each time), a materially different trust level than a one-shot read. The same confirmation bar applies to a new source mentioned casually later in an already-confirmed site's lifetime, not only at initial setup. Later edits: propose a diff, then upsert only confirmed fields.
 4. Share the \`pi://sites/...\` href from the tool result. Call \`pi_open\` when this site is the turn’s deliverable the user should see now.
 5. **Records SoT:** update with \`pi_record_upsert\` using types that fit the JTBD (e.g. \`job-application\` for Job Search). Board + chart sync from records — do **not** only dump markdown into board cards.
 6. **Company/entity details:** use \`pi://sites/<siteId>/entities/<entityKey>\` when relevant. **Never** one mega details page for all entities.
@@ -293,10 +293,10 @@ After create, share the \`pi://\` href from the tool result. Call \`pi_open\` wh
 
 | type | Fields | Renders as |
 | --- | --- | --- |
-| \`title\` | \`text\` | Large heading |
-| \`text\` | \`text\` | Muted paragraph — **renders Markdown** (bold, lists, links, inline code, headings). Prefer Markdown formatting over flat prose. |
-| \`note\` | \`text\` | Callout box — same Markdown support as \`text\` |
-| \`badge\` | \`text\`, \`tone?\`: neutral\\|good\\|warn\\|bad | Pill |
+| \`title\` | \`id?\`, \`text\` | Large heading |
+| \`text\` | \`id?\`, \`text\` | Muted paragraph — **renders Markdown** (bold, lists, links, inline code, headings). Prefer Markdown formatting over flat prose. |
+| \`note\` | \`id?\`, \`text\` | Callout box — same Markdown support as \`text\` |
+| \`badge\` | \`id?\`, \`text\`, \`tone?\`: neutral\\|good\\|warn\\|bad | Pill |
 | \`stat\` | \`label\`, \`value\`, \`tone?\`: neutral\\|good\\|warn\\|bad | KPI tile — big value + label. Put 2-4 side by side in a \`stack\` with \`direction:"row"\` for a stats strip |
 | \`divider\` | — | Rule |
 | \`stack\` | \`direction?\`: row\\|col, \`columns?\`: 2-4, \`children\` | \`columns\` set → top-aligned equal-width column grid (side-by-side sections, e.g. a paragraph next to a table); otherwise a flex row (wraps) or col group |
@@ -305,6 +305,8 @@ After create, share the \`pi://\` href from the tool result. Call \`pi_open\` wh
 | \`table\` | \`columns\`, \`rows\` (cells = string or nested node) | Table |
 | \`board\` | \`columns\` (\`id\`, \`title\`, \`cardIds: string[]\`) + \`cards\` (\`id\`, \`title\`, \`subtitle?\`) — membership is via \`column.cardIds\`, not \`card.columnId\` | Responsive kanban |
 | \`chart\` / \`mermaid\` / \`svg\` | see \`pi-page-viz\` | Structured or custom visuals |
+
+**Set \`id\` on any \`title\`/\`text\`/\`note\`/\`badge\` node you may need to update later** (e.g. a summary line with a count that will change) — \`pi-page-patch\`'s \`setNodeText\` op can only target nodes that already have one. Nodes without an \`id\` can only be changed via \`replaceNodes\`/\`appendNodes\`.
 
 ### Board shape (easy to get wrong)
 
@@ -372,6 +374,7 @@ Prefer small ops over rewriting the whole page. Load \`pi-page-dsl\` only if you
 
 ## Ops (\`pi_page_patch\`)
 
+- \`setNodeText\` — \`{ "op": "setNodeText", "id": "...", "text": "..." }\` — **preferred** for editing one \`title\`/\`text\`/\`note\`/\`badge\` node's text in place. Only works if that node was given an \`id\` when created (see \`pi-page-dsl\`); if it wasn't, you cannot retrofit an id via patch — fall back to \`replaceNodes\` for that node's containing section instead.
 - \`setTitle\` — \`{ "op": "setTitle", "title": "..." }\`
 - \`appendNodes\` — \`{ "op": "appendNodes", "nodes": [ ... ] }\` — add after existing body (use for BTF section fills)
 - \`replaceNodes\` — \`{ "op": "replaceNodes", "nodes": [ ... ] }\` — full body replace; during materialize, a replace that does **not** start with the page title is coerced to append so ATF is not wiped
@@ -389,7 +392,7 @@ When authoring a new board in \`replaceNodes\` / \`appendNodes\` / \`pi_page_cre
 
 To fill a board: empty shell first, then one \`upsertBoardCard\` per card.
 
-For Job Search stage/company changes prefer \`pi_record_upsert\` (board syncs) over only patching cards.
+For Job Search stage/company changes prefer \`pi_record_upsert\` (board syncs) over only patching cards. Adding **more than one** record in the same turn (e.g. importing a list of companies) → use \`pi_record_upsert_many\` instead of calling \`pi_record_upsert\` in a loop — one call, one board/chart resync, instead of N of each.
 Entity BTF protocol → load \`pi-entity-materialize\`.
 
 ## Critical caveat
@@ -622,7 +625,7 @@ description: Progressive BTF fill for a Personalised Internet company entity pag
 
 # Entity materialize (BTF)
 
-ATF (title, stage, role, next action, notes) is **already on the page**. Never call \`replaceNodes\` with only a BTF section — that wipes ATF. Use \`appendNodes\` for each section (or \`replaceNodes\` only with the **full** page starting with the page title).
+ATF (title, stage, role, next action, notes) is **already on the page**. Never call \`replaceNodes\` with only a BTF section — that wipes ATF. Why: there is no structural ATF/BTF split in the stored doc — \`replaceNodes\` replaces the whole \`nodes\` array — and the "replace that doesn't start with the page title gets coerced to append" safety net (see \`pi-page-patch\`) only applies while \`materialize.phase !== "done"\`. It is not a general guarantee: the same mistake after materialize is marked done will actually wipe ATF. Use \`appendNodes\` for each section (or \`replaceNodes\` only with the **full** page starting with the page title).
 
 ## Workflow
 
@@ -636,7 +639,7 @@ ATF (title, stage, role, next action, notes) is **already on the page**. Never c
    Mark each \`status: "shell"\`. Set \`materialize.phase\` to \`btf-structure\` then \`btf-filling\`. Do **not** \`replaceNodes\` here.
 4. **Fill pass:** for each shell **in array order**, research using context/vault (do not invent), then \`appendNodes\` with that section's title + body (divider optional), then \`setMaterializeSection\` with \`status: "filled"\` (or \`"skipped"\` if nothing known).
 5. Remove the "More sections loading…" note (appendNodes strips it). Set \`materialize.phase\` to \`done\` via \`setMeta\`.
-6. Only \`pi_page_patch\` the given \`pageId\`. Never \`pi_page_create\` / \`pi_entity_ensure\` for other companies.
+6. Only \`pi_page_patch\` the given \`pageId\`. Never \`pi_page_create\` / \`pi_entity_ensure\` for other companies — this is enforced server-side (the call is rejected), not just a style preference, so treat a rejection as expected rather than something to retry differently.
 
 ## Resume
 

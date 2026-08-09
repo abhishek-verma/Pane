@@ -185,12 +185,13 @@ function findingForCode(
         severity: 'needs_agent',
         summary: `UI crashed while rendering: ${detail}`,
         suggestedApproach:
-          'Usually a board/chart/mermaid shape bug — read diagnosis, then replaceNodes or upsertBoardCard.',
+          'Usually a board/chart/mermaid shape bug, or stale text in a specific node — read diagnosis, then patch the smallest thing that is wrong.',
         agentSteps: [
           `pi_read({ pageId: "${pageId}" }) and follow diagnosis.agentBrief.`,
           'If a board is mentioned, fix with cardIds/upsertBoardCard.',
+          'If only one text/note/title/badge node is wrong, use setNodeText { id, text } — cheaper and safer than rewriting the page.',
           'If a viz node is mentioned, remove or repair that node.',
-          'pi_page_patch replaceNodes when the page will not load.',
+          'pi_page_patch replaceNodes only when the page will not load at all and no targeted op can fix it.',
         ],
       }
     default:
@@ -199,11 +200,11 @@ function findingForCode(
         severity: 'needs_agent',
         summary: detail || 'Page failed validation.',
         suggestedApproach:
-          'Read diagnosis via pi_read, then pi_page_patch with the smallest fix.',
+          'Read diagnosis via pi_read, then apply the smallest targeted fix — setNodeText for a single node, upsertBoardCard/setCell for board or table content, replaceNodes only as a last resort.',
         agentSteps: [
           `pi_read({ pageId: "${pageId}" }).`,
           'Load pi-page-dsl / pi-page-patch.',
-          'Apply the suggestedApproach from each finding, then verify with pi_read again.',
+          'Apply the suggestedApproach from each finding, preferring setNodeText/upsertBoardCard/setCell over replaceNodes, then verify with pi_read again.',
         ],
       }
   }

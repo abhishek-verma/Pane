@@ -113,6 +113,7 @@ describe('registerTools', () => {
     'pi_pulse_get',
     'pi_record_list',
     'pi_record_upsert',
+    'pi_record_upsert_many',
     'pi_entity_ensure',
     'pi_site_upsert',
     'pi_page_create',

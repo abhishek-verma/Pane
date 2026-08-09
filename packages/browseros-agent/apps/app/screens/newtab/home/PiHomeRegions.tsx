@@ -159,6 +159,7 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
     setOpeningId(blockId)
     try {
       await openSidePanelWithSearch('open', {
+        requestId: crypto.randomUUID(),
         query: '',
         mode: 'agent',
         conversationId,

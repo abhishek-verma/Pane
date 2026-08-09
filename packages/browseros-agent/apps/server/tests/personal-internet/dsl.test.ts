@@ -44,6 +44,38 @@ describe('pi dsl', () => {
     ).toThrow(PiDslError)
   })
 
+  it('rejects a genuine inline event handler attribute', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'x',
+        nodes: [
+          {
+            type: 'text',
+            text: '<img src=x onerror="alert(1)">',
+          },
+        ],
+      }),
+    ).toThrow(PiDslError)
+  })
+
+  it('does not false-positive on ordinary prose containing "on...=" substrings', () => {
+    // Real production failures: a word ending in "-on"/"-ons" immediately
+    // followed by "=" (no HTML attribute, no quote) used to trip the old
+    // unanchored on\w+\s*= regex.
+    const doc = validatePageDoc({
+      version: 1,
+      title: 'x',
+      nodes: [
+        {
+          type: 'note',
+          text: 'NOTARY_SUBMISSION_ID=<winning-id>. Sections = where each part of your draft goes.',
+        },
+      ],
+    })
+    expect(doc.nodes[0]).toMatchObject({ type: 'note' })
+  })
+
   it('validates a stat node', () => {
     const doc = validatePageDoc({
       version: 1,
@@ -554,5 +586,91 @@ describe('pi dsl', () => {
         nodes: [{ type: 'mermaid', source: `flowchart LR\n${edges}` }],
       }),
     ).toThrow(/edges/)
+  })
+
+  it('accepts an optional id on text/note/title/badge nodes', () => {
+    const doc = validatePageDoc({
+      version: 1,
+      title: 'x',
+      nodes: [
+        { type: 'note', id: 'summary-note', text: '22 applications so far.' },
+      ],
+    })
+    expect(doc.nodes[0]).toEqual({
+      type: 'note',
+      id: 'summary-note',
+      text: '22 applications so far.',
+    })
+  })
+
+  it('rejects an empty id on a leaf content node', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'x',
+        nodes: [{ type: 'note', id: '', text: 'x' }],
+      }),
+    ).toThrow(PiDslError)
+  })
+
+  it('setNodeText patches a note by id without touching the rest of the doc', () => {
+    const doc: PiPageDoc = {
+      version: 1,
+      title: 'Job Search',
+      nodes: [
+        { type: 'title', text: 'Job Search' },
+        { type: 'note', id: 'summary-note', text: '22 applications so far.' },
+        {
+          type: 'stack',
+          id: 'btf-root',
+          children: [{ type: 'text', id: 'body-text', text: 'unchanged' }],
+        },
+      ],
+    }
+    const patched = applyPatchOps(doc, [
+      {
+        op: 'setNodeText',
+        id: 'summary-note',
+        text: '23 applications so far.',
+      },
+    ])
+    expect(patched.nodes[1]).toEqual({
+      type: 'note',
+      id: 'summary-note',
+      text: '23 applications so far.',
+    })
+    // Everything else, including nested nodes, is untouched.
+    expect(patched.nodes[0]).toEqual({ type: 'title', text: 'Job Search' })
+    expect(patched.nodes[2]).toMatchObject({ type: 'stack', id: 'btf-root' })
+  })
+
+  it('setNodeText finds a node nested inside a stack', () => {
+    const doc: PiPageDoc = {
+      version: 1,
+      title: 'X',
+      nodes: [
+        {
+          type: 'stack',
+          children: [{ type: 'text', id: 'nested', text: 'old' }],
+        },
+      ],
+    }
+    const patched = applyPatchOps(doc, [
+      { op: 'setNodeText', id: 'nested', text: 'new' },
+    ])
+    const stack = patched.nodes[0]
+    if (stack?.type !== 'stack') throw new Error('expected stack')
+    expect(stack.children[0]).toEqual({
+      type: 'text',
+      id: 'nested',
+      text: 'new',
+    })
+  })
+
+  it('setNodeText throws a clear error when the id is not found', () => {
+    const doc: PiPageDoc = { version: 1, title: 'X', nodes: [] }
+    expect(() =>
+      applyPatchOps(doc, [{ op: 'setNodeText', id: 'missing', text: 'x' }]),
+    ).toThrow(/setNodeText: node "missing" not found/)
   })
 })

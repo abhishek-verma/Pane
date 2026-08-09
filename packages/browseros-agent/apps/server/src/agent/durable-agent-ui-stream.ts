@@ -37,6 +37,11 @@ export function formatAgentStreamError(error: unknown): string {
   if (isNoSuchToolError(error)) {
     return 'The agent called a tool the chat runtime did not recognize. Send your message again to continue.'
   }
+  const invalidInput = isInvalidToolInputError(error)
+  if (invalidInput.match) {
+    const tool = invalidInput.toolName ? ` (${invalidInput.toolName})` : ''
+    return `The agent's last tool call${tool} had malformed input and could not be repaired automatically. Send your message again to continue.`
+  }
   if (isBedrockExpiredCredentials(error)) {
     return 'AWS credentials have expired. Re-enter your Bedrock access key, secret, and session token in Settings → Providers.'
   }
@@ -207,6 +212,22 @@ function isNoSuchToolError(error: unknown): boolean {
     name === 'NoSuchToolError' ||
     message.startsWith('Model tried to call unavailable tool')
   )
+}
+
+function isInvalidToolInputError(error: unknown): {
+  match: boolean
+  toolName?: string
+} {
+  if (!error || typeof error !== 'object') return { match: false }
+  const name = (error as { name?: string }).name
+  if (name !== 'AI_InvalidToolInputError' && name !== 'InvalidToolInputError') {
+    return { match: false }
+  }
+  const toolName = (error as { toolName?: unknown }).toolName
+  return {
+    match: true,
+    toolName: typeof toolName === 'string' ? toolName : undefined,
+  }
 }
 
 function isAcpxRuntimeError(error: unknown): boolean {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { MissingToolResultsError } from 'ai'
+import { InvalidToolInputError, MissingToolResultsError } from 'ai'
 import { formatAgentStreamError } from '../../src/agent/durable-agent-ui-stream'
 
 describe('formatAgentStreamError', () => {
@@ -102,5 +102,18 @@ describe('formatAgentStreamError', () => {
       responseBody: '{}',
     })
     expect(result).not.toContain('credentials have expired')
+  })
+})
+
+describe('formatAgentStreamError — invalid tool input', () => {
+  it('gives an actionable message instead of "An error occurred."', () => {
+    const error = new InvalidToolInputError({
+      toolName: 'pi_page_patch',
+      toolInput: '{"broken',
+      cause: new Error("JSON Parse error: Expected ']'"),
+    })
+    const message = formatAgentStreamError(error)
+    expect(message).not.toBe('An error occurred.')
+    expect(message).toContain('pi_page_patch')
   })
 })
