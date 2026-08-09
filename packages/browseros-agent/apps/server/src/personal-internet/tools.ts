@@ -427,6 +427,54 @@ export function buildPersonalInternetToolSet(
       },
     }),
 
+    pi_record_upsert_many: tool({
+      description:
+        'Create or update multiple site records in one call (Job Search SoT). Prefer this over calling pi_record_upsert once per record — each individual call re-syncs the board/chart, so N separate calls costs N resyncs and N tool-call round-trips; this tool resyncs once after all records are written. Use recordType job-application with {company, role?, stage, url?, nextAction?, notes?} per record. Do NOT invent companies. Load skill "pi-sites".',
+      inputSchema: z.object({
+        siteId: z.string().min(1),
+        records: z
+          .array(
+            z.object({
+              recordId: z.string().optional(),
+              recordType: z.string().min(1).default('job-application'),
+              data: z.record(z.unknown()),
+            }),
+          )
+          .min(1)
+          .max(50),
+        syncBoard: z.boolean().optional().default(true),
+      }),
+      execute: async ({ siteId, records, syncBoard }) => {
+        const results: Array<
+          { ok: true; recordId: string } | { ok: false; error: string }
+        > = []
+        for (const [i, r] of records.entries()) {
+          const isLast = i === records.length - 1
+          try {
+            const result = await applyPiMutation({
+              type: 'upsert-record',
+              siteId,
+              recordId: r.recordId,
+              recordType: r.recordType,
+              data: r.data as Record<string, unknown>,
+              syncBoard: syncBoard && isLast,
+            })
+            results.push({ ok: true, recordId: result.recordId! })
+          } catch (e) {
+            results.push({ ok: false, error: String(e) })
+          }
+        }
+        const succeeded = results.filter((r) => r.ok).length
+        return ok({
+          siteId,
+          count: records.length,
+          succeeded,
+          results,
+          message: `${succeeded}/${records.length} records saved.`,
+        })
+      },
+    }),
+
     pi_entity_ensure: tool({
       description:
         'Ensure a per-company (entity) ATF page exists at pi://sites/<siteId>/entities/<entityKey>. Default materialize=false (cheap ATF only). Set materialize=true only when the user asked to deepen that one company. Never create one mega details page for all companies. During a pi-materialize run, do not call this for other entities. Share the pi:// href; call pi_open when the user should see it now.',
