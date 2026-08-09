@@ -48,11 +48,12 @@ export type PiLabeledAction = {
 export type PiCardAction = PiAction | PiLabeledAction
 
 export type PiNode =
-  | { type: 'title'; text: string }
-  | { type: 'text'; text: string }
-  | { type: 'note'; text: string }
+  | { type: 'title'; id?: string; text: string }
+  | { type: 'text'; id?: string; text: string }
+  | { type: 'note'; id?: string; text: string }
   | {
       type: 'badge'
+      id?: string
       text: string
       tone?: 'neutral' | 'good' | 'warn' | 'bad'
     }

@@ -335,9 +335,21 @@ function validateNode(
     case 'title':
     case 'text':
     case 'note':
+      if (node.id != null) {
+        if (typeof node.id !== 'string' || !node.id.trim()) {
+          throw new PiDslError(`${path}: id must be a non-empty string`)
+        }
+        assertSafeText(node.id, `${path}.id`)
+      }
       assertSafeText(node.text, path)
       return
     case 'badge':
+      if (node.id != null) {
+        if (typeof node.id !== 'string' || !node.id.trim()) {
+          throw new PiDslError(`${path}: id must be a non-empty string`)
+        }
+        assertSafeText(node.id, `${path}.id`)
+      }
       assertSafeText(node.text, path)
       return
     case 'stat':

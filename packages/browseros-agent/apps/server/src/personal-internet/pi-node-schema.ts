@@ -100,9 +100,20 @@ const svgNodeSchema = z.object({
 
 export const piNodeSchema: z.ZodType<unknown> = z.lazy(() =>
   z.discriminatedUnion('type', [
-    z.object({ type: z.literal('title'), text: z.string() }),
+    z.object({
+      type: z.literal('title'),
+      id: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          'Stable id — set this to make the node addressable by setNodeText later.',
+        ),
+      text: z.string(),
+    }),
     z.object({
       type: z.literal('text'),
+      id: z.string().min(1).optional(),
       text: z
         .string()
         .describe(
@@ -111,12 +122,20 @@ export const piNodeSchema: z.ZodType<unknown> = z.lazy(() =>
     }),
     z.object({
       type: z.literal('note'),
+      id: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          'Stable id — set this to make the node addressable by setNodeText later.',
+        ),
       text: z
         .string()
         .describe('Callout box. Renders the same Markdown as `text`.'),
     }),
     z.object({
       type: z.literal('badge'),
+      id: z.string().min(1).optional(),
       text: z.string(),
       tone: z.enum(['neutral', 'good', 'warn', 'bad']).optional(),
     }),

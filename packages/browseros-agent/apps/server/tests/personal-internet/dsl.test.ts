@@ -555,4 +555,29 @@ describe('pi dsl', () => {
       }),
     ).toThrow(/edges/)
   })
+
+  it('accepts an optional id on text/note/title/badge nodes', () => {
+    const doc = validatePageDoc({
+      version: 1,
+      title: 'x',
+      nodes: [
+        { type: 'note', id: 'summary-note', text: '22 applications so far.' },
+      ],
+    })
+    expect(doc.nodes[0]).toEqual({
+      type: 'note',
+      id: 'summary-note',
+      text: '22 applications so far.',
+    })
+  })
+
+  it('rejects an empty id on a leaf content node', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'x',
+        nodes: [{ type: 'note', id: '', text: 'x' }],
+      }),
+    ).toThrow(PiDslError)
+  })
 })
