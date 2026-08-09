@@ -580,4 +580,65 @@ describe('pi dsl', () => {
       }),
     ).toThrow(PiDslError)
   })
+
+  it('setNodeText patches a note by id without touching the rest of the doc', () => {
+    const doc: PiPageDoc = {
+      version: 1,
+      title: 'Job Search',
+      nodes: [
+        { type: 'title', text: 'Job Search' },
+        { type: 'note', id: 'summary-note', text: '22 applications so far.' },
+        {
+          type: 'stack',
+          id: 'btf-root',
+          children: [{ type: 'text', id: 'body-text', text: 'unchanged' }],
+        },
+      ],
+    }
+    const patched = applyPatchOps(doc, [
+      {
+        op: 'setNodeText',
+        id: 'summary-note',
+        text: '23 applications so far.',
+      },
+    ])
+    expect(patched.nodes[1]).toEqual({
+      type: 'note',
+      id: 'summary-note',
+      text: '23 applications so far.',
+    })
+    // Everything else, including nested nodes, is untouched.
+    expect(patched.nodes[0]).toEqual({ type: 'title', text: 'Job Search' })
+    expect(patched.nodes[2]).toMatchObject({ type: 'stack', id: 'btf-root' })
+  })
+
+  it('setNodeText finds a node nested inside a stack', () => {
+    const doc: PiPageDoc = {
+      version: 1,
+      title: 'X',
+      nodes: [
+        {
+          type: 'stack',
+          children: [{ type: 'text', id: 'nested', text: 'old' }],
+        },
+      ],
+    }
+    const patched = applyPatchOps(doc, [
+      { op: 'setNodeText', id: 'nested', text: 'new' },
+    ])
+    const stack = patched.nodes[0]
+    if (stack?.type !== 'stack') throw new Error('expected stack')
+    expect(stack.children[0]).toEqual({
+      type: 'text',
+      id: 'nested',
+      text: 'new',
+    })
+  })
+
+  it('setNodeText throws a clear error when the id is not found', () => {
+    const doc: PiPageDoc = { version: 1, title: 'X', nodes: [] }
+    expect(() =>
+      applyPatchOps(doc, [{ op: 'setNodeText', id: 'missing', text: 'x' }]),
+    ).toThrow(/setNodeText: node "missing" not found/)
+  })
 })

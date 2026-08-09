@@ -238,6 +238,16 @@ export const upsertBoardCardOpSchema = z.object({
 export const patchOpSchema = z.union([
   z.object({ op: z.literal('setTitle'), title: z.string().min(1) }),
   z.object({
+    op: z.literal('setNodeText'),
+    id: z
+      .string()
+      .min(1)
+      .describe(
+        'id of a title/text/note/badge node (set when the node was created). Patches its text in place — no need to touch anything else on the page.',
+      ),
+    text: z.string().min(1),
+  }),
+  z.object({
     op: z.literal('replaceNodes'),
     nodes: z.array(piNodeSchema),
   }),

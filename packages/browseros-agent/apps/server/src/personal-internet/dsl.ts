@@ -738,6 +738,31 @@ function findFirstBoard(
   return null
 }
 
+type TextBearingNode = Extract<
+  PiNode,
+  { type: 'title' | 'text' | 'note' | 'badge' }
+>
+
+function isTextBearingNode(node: PiNode): node is TextBearingNode {
+  return (
+    node.type === 'title' ||
+    node.type === 'text' ||
+    node.type === 'note' ||
+    node.type === 'badge'
+  )
+}
+
+function findNodeById(nodes: PiNode[], id: string): TextBearingNode | null {
+  for (const n of nodes) {
+    if (isTextBearingNode(n) && n.id === id) return n
+    if (n.type === 'stack') {
+      const inner = findNodeById(n.children, id)
+      if (inner) return inner
+    }
+  }
+  return null
+}
+
 export function applyPatchOps(doc: PiPageDoc, ops: PiPatchOp[]): PiPageDoc {
   let next: PiPageDoc = {
     version: 1,
@@ -752,6 +777,15 @@ export function applyPatchOps(doc: PiPageDoc, ops: PiPatchOp[]): PiPageDoc {
         assertSafeText(op.title, 'setTitle')
         next = { ...next, title: op.title }
         break
+      case 'setNodeText': {
+        const found = findNodeById(next.nodes, op.id)
+        if (!found) {
+          throw new PiDslError(`setNodeText: node "${op.id}" not found`)
+        }
+        assertSafeText(op.text, 'setNodeText')
+        found.text = op.text
+        break
+      }
       case 'replaceNodes':
         for (const [i, node] of op.nodes.entries()) {
           validateNode(node, `replaceNodes[${i}]`)

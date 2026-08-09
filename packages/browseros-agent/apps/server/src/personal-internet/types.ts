@@ -166,6 +166,7 @@ export type TableRow = {
 
 export type PiPatchOp =
   | { op: 'setTitle'; title: string }
+  | { op: 'setNodeText'; id: string; text: string }
   | { op: 'replaceNodes'; nodes: PiNode[] }
   /** Append nodes after existing body (preferred for BTF section fills). */
   | { op: 'appendNodes'; nodes: PiNode[] }
