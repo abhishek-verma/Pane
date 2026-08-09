@@ -90,4 +90,38 @@ describe('slimMessagesForClientUi', () => {
     expect(content[1]?.stripped).toBe(true)
     expect(content[1]?.data).toBeUndefined()
   })
+
+  test('truncates an oversized reasoning part', () => {
+    const fatReasoning = 'thinking '.repeat(2_000) // ~18,000 chars
+    const messages: UIMessage[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          { type: 'reasoning', text: fatReasoning, state: 'done' } as never,
+        ],
+      },
+    ]
+    const next = slimMessagesForClientUi(messages, 100)
+    expect(next).not.toBe(messages)
+    const out = next[0].parts[0] as { text: string }
+    expect(out.text.length).toBeLessThan(200)
+    // Original reference is never mutated.
+    const orig = messages[0].parts[0] as { text: string }
+    expect(orig.text.length).toBe(fatReasoning.length)
+  })
+
+  test('leaves a short reasoning part untouched', () => {
+    const messages: UIMessage[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          { type: 'reasoning', text: 'short thought', state: 'done' } as never,
+        ],
+      },
+    ]
+    const next = slimMessagesForClientUi(messages, 100)
+    expect(next).toBe(messages)
+  })
 })

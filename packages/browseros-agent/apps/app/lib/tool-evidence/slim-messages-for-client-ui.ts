@@ -77,6 +77,16 @@ export function slimMessagesForClientUi(
   const next = messages.map((msg) => {
     let partsChanged = false
     const parts = msg.parts.map((part) => {
+      if (part.type === 'reasoning') {
+        const reasoningPart = part as { text?: unknown }
+        const text = reasoningPart.text
+        if (typeof text !== 'string' || text.length <= previewMaxChars) {
+          return part
+        }
+        anyChanged = true
+        partsChanged = true
+        return { ...part, text: truncateText(text, previewMaxChars) }
+      }
       if (typeof part.type !== 'string' || !part.type.startsWith('tool-')) {
         return part
       }
