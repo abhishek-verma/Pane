@@ -4,35 +4,44 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  spyOn,
+} from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { conversationTurnRegistry } from '../../src/agent/conversation-turn-registry'
 import { closeDb, getDb, initializeDb } from '../../src/lib/db'
 import { scheduledRuns } from '../../src/lib/db/schema/scheduled-runs'
-
-const cancelActiveFor = mock(
-  (_conversationId: string, _reason?: string) => false,
-)
-mock.module('../../src/agent/conversation-turn-registry', () => ({
-  conversationTurnRegistry: { cancelActiveFor },
-}))
-
-const { reclaimStaleRunningRuns } = await import(
-  '../../src/scheduler/run-executor'
-)
+import { reclaimStaleRunningRuns } from '../../src/scheduler/run-executor'
 
 describe('reclaimStaleRunningRuns', () => {
   const tempDirs: string[] = []
+  let cancelActiveFor: Mock<typeof conversationTurnRegistry.cancelActiveFor>
 
   beforeEach(() => {
-    cancelActiveFor.mockClear()
+    // spyOn the real singleton instead of mock.module — mock.module mutates
+    // a process-wide registry that isn't reset between test files, and a
+    // partial replacement here (an object with only cancelActiveFor) leaked
+    // into other suites that import the real conversationTurnRegistry for
+    // its other methods (getActiveFor, cancel, ...), breaking them.
+    cancelActiveFor = spyOn(
+      conversationTurnRegistry,
+      'cancelActiveFor',
+    ).mockReturnValue(false)
     const dir = mkdtempSync(join(tmpdir(), 'browseros-run-executor-'))
     tempDirs.push(dir)
     initializeDb({ dbPath: join(dir, 'browseros.sqlite') })
   })
 
   afterEach(() => {
+    cancelActiveFor.mockRestore()
     closeDb()
     for (const dir of tempDirs) {
       rmSync(dir, { recursive: true, force: true })
