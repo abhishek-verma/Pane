@@ -69,6 +69,23 @@ describe('diagnose / auto-repair', () => {
     expect(finding?.agentSteps.join(' ')).toContain('replaceNodes')
     expect(diagnosis.needsRaw).toBe(true)
   })
+
+  it('render_crash repair guidance mentions setNodeText before replaceNodes', () => {
+    const diagnosis = buildPageDiagnosis({
+      pageId: 'page_1',
+      issues: [],
+      renderError: 'Cannot read properties of undefined (reading "cardIds")',
+      raw: null,
+    })
+    const finding = diagnosis.findings.find((f) => f.code === 'render_crash')
+    expect(finding).toBeDefined()
+    const steps = finding?.agentSteps.join(' ') ?? ''
+    expect(steps).toContain('setNodeText')
+    const setNodeTextIdx = steps.indexOf('setNodeText')
+    const replaceNodesIdx = steps.indexOf('replaceNodes')
+    expect(setNodeTextIdx).toBeGreaterThanOrEqual(0)
+    expect(replaceNodesIdx).toBeGreaterThan(setNodeTextIdx)
+  })
 })
 
 describe('describePageRender', () => {
