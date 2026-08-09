@@ -641,7 +641,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         if (!stillSameConversation()) return
         if (!stillActive) {
           turnControllerRef.current.markInactive()
-          void clearLastActiveConversation()
+          // lastActiveConversationStorage is a single global key shared by
+          // every window/panel — only clear it if it still points at this
+          // conversation. A different window may have started a newer turn
+          // and overwritten it since; clearing unconditionally would wipe
+          // that still-running turn's resume tracking.
+          void getLastActiveConversation().then((stored) => {
+            if (stored === finishedConversationId) {
+              void clearLastActiveConversation()
+            }
+          })
           return
         }
         turnControllerRef.current.attachToCurrent((next) => {
