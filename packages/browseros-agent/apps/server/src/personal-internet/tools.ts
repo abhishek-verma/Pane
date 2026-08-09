@@ -359,7 +359,7 @@ export function buildPersonalInternetToolSet(
 
     pi_record_list: tool({
       description:
-        'List Personalised Internet records for a site (source of truth for Job Search applications). Read-only. Prefer this over scraping board JSON when answering pipeline questions.',
+        'List Personalised Internet records for a site (source of truth for Job Search applications). Read-only. Prefer this over scraping board JSON when answering pipeline questions. If the workspace also has memory/vault markdown files (e.g. Interviews/Pipeline-*.md) mentioning the same entities, those are a separate, potentially-stale tracker — records here are authoritative for board/chart state; do not spend tool calls reconciling every discrepancy against vault files unless the user specifically asks you to import/audit them.',
       inputSchema: z.object({
         siteId: z.string().min(1),
         type: z.string().optional(),
@@ -591,7 +591,7 @@ export function buildPersonalInternetToolSet(
 
     pi_page_patch: tool({
       description:
-        'Patch a page. Prefer upsertBoardCard { id, title, columnId, subtitle? } to add/move cards — do not rewrite boards with card.columnId. Prefer appendNodes for BTF fills; replaceNodes with a single section can wipe ATF (server may coerce to append during materialize). Table row/cell ops hit the first table only. During pi-materialize, only the run\'s pageId is allowed. MUST call skills_load("pi-page-patch") first (also "pi-entity-materialize" during a materialize run) unless you already have the op shapes in context this turn. Returns renderPreview — a plain-English outline of the patched page as the user will see it; check it before telling the user it\'s done.',
+        'Patch a page. For a single text/note/title/badge node, prefer setNodeText { id, text } over replaceNodes — the node needs an id (set one when creating it). Prefer upsertBoardCard { id, title, columnId, subtitle? } to add/move cards — do not rewrite boards with card.columnId. Prefer appendNodes for BTF fills, in batches under ~40 nodes per call — split a large addition across multiple appendNodes calls rather than one giant call, which is the most common cause of a broken tool-call JSON payload. replaceNodes with a single section can wipe ATF (server may coerce to append during materialize); only use it as a last resort when no targeted op fits. Table row/cell ops hit the first table only. During pi-materialize, only the run\'s pageId is allowed. MUST call skills_load("pi-page-patch") first (also "pi-entity-materialize" during a materialize run) unless you already have the op shapes in context this turn. Returns renderPreview — a plain-English outline of the patched page as the user will see it; check it before telling the user it\'s done.',
       inputSchema: z.object({
         pageId: z.string().min(1),
         ops: z.array(patchOpSchema).min(1),
