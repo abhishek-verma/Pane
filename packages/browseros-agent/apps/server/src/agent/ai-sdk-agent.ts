@@ -42,6 +42,7 @@ import {
 import { buildNudgeToolSet } from './nudge-tools'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
+import { createRepairToolCall } from './repair-tool-call'
 import { resolveContextWindowSize } from './resolve-context-window'
 import type { ToolImageStore } from './session-store'
 import { buildBrowserToolSet } from './tool-adapter'
@@ -394,6 +395,17 @@ export class AiSdkAgent {
       tools,
       stopWhen: [stepCountIs(AGENT_LIMITS.MAX_TURNS)],
       prepareStep,
+      experimental_repairToolCall: createRepairToolCall({
+        generateText: async ({ system, prompt }) => {
+          const { generateText } = await import('ai')
+          const result = await generateText({
+            model,
+            system: system as never,
+            prompt,
+          })
+          return { text: result.text }
+        },
+      }),
       ...(isChatGPTPro && {
         providerOptions: {
           openai: {
