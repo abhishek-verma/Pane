@@ -5,6 +5,7 @@
  */
 
 import { eq, inArray } from 'drizzle-orm'
+import { conversationTurnRegistry } from '../agent/conversation-turn-registry'
 import { getDb, getDbHandle } from '../lib/db'
 import {
   type ScheduledRunRow,
@@ -140,12 +141,35 @@ export function claimScheduledRun(id: string): ScheduledRunRecord | null {
 
 /**
  * Reclaim stale `running` rows back to `pending` so a killed drain can retry.
- * Preserves `completedSteps` for gate idempotency on resume.
+ * Preserves `completedSteps` for gate idempotency on resume. Cancels each
+ * row's chat turn first — otherwise the abandoned turn keeps running under
+ * the old conversationId while the redrain starts an identical-prompt turn
+ * under a new one (the exact split-brain pattern split-brain detection in
+ * chat-turns-store.ts cannot see, since it only looks within one turn's own
+ * conversationId).
  */
 export function reclaimStaleRunningRuns(
   olderThanMs: number = STALE_RUNNING_MS,
 ): number {
   const cutoff = Date.now() - olderThanMs
+  const staleRows = getDbHandle()
+    .sqlite.prepare(
+      `SELECT id, conversation_id FROM scheduled_runs
+       WHERE status = ? AND started_at IS NOT NULL AND started_at < ?`,
+    )
+    .all('running', cutoff) as Array<{
+    id: string
+    conversation_id: string | null
+  }>
+
+  for (const row of staleRows) {
+    if (!row.conversation_id) continue
+    conversationTurnRegistry.cancelActiveFor(
+      row.conversation_id,
+      'scheduled-run-reclaimed',
+    )
+  }
+
   const result = getDbHandle()
     .sqlite.prepare(
       `UPDATE scheduled_runs SET status = ?, started_at = NULL
@@ -156,6 +180,7 @@ export function reclaimStaleRunningRuns(
     logger.info('reclaimed stale running scheduled_runs', {
       count: result.changes,
       olderThanMs,
+      cancelledTurns: staleRows.filter((r) => r.conversation_id).length,
     })
   }
   return result.changes
