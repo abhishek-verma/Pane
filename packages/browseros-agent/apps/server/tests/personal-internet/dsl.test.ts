@@ -44,6 +44,38 @@ describe('pi dsl', () => {
     ).toThrow(PiDslError)
   })
 
+  it('rejects a genuine inline event handler attribute', () => {
+    expect(() =>
+      validatePageDoc({
+        version: 1,
+        title: 'x',
+        nodes: [
+          {
+            type: 'text',
+            text: '<img src=x onerror="alert(1)">',
+          },
+        ],
+      }),
+    ).toThrow(PiDslError)
+  })
+
+  it('does not false-positive on ordinary prose containing "on...=" substrings', () => {
+    // Real production failures: a word ending in "-on"/"-ons" immediately
+    // followed by "=" (no HTML attribute, no quote) used to trip the old
+    // unanchored on\w+\s*= regex.
+    const doc = validatePageDoc({
+      version: 1,
+      title: 'x',
+      nodes: [
+        {
+          type: 'note',
+          text: 'NOTARY_SUBMISSION_ID=<winning-id>. Sections = where each part of your draft goes.',
+        },
+      ],
+    })
+    expect(doc.nodes[0]).toMatchObject({ type: 'note' })
+  })
+
   it('validates a stat node', () => {
     const doc = validatePageDoc({
       version: 1,

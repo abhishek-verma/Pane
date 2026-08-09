@@ -121,7 +121,16 @@ function defaultActionLabel(action: PiAction): string {
 }
 
 const MAX_DOC_BYTES = 512 * 1024
-const DANGEROUS_RE = /<script|javascript:|on\w+\s*=/i
+// Word boundary before "on" + a quote after "=" so this only matches a real
+// HTML event-handler attribute (onerror="...", onclick='...'), not English
+// prose where a word simply ends in "-on"/"-ons"/"-tion" before an unrelated
+// "=" (e.g. "Sections = ...", "SUBMISSION_ID=<id>") — both are unquoted and
+// mid-word, and both false-positived under the old unanchored regex. None of
+// the fields this guards (text/note/title/badge/action strings) render raw
+// HTML — see PiMarkdown/PiPageRenderer — so this is defense-in-depth, not
+// the primary guard; svg markup has its own dedicated sanitizer/regexes in
+// sanitize-svg.ts and is unaffected by this.
+const DANGEROUS_RE = /<script|javascript:|\bon\w+\s*=\s*["']/i
 
 export class PiDslError extends Error {
   constructor(message: string) {
