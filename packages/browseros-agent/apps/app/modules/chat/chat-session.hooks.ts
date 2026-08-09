@@ -9,6 +9,11 @@ import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import {
+  clearLastActiveConversation,
+  getLastActiveConversation,
+  setLastActiveConversation,
+} from '@/lib/browseros/lastActiveConversationStorage'
+import {
   getWindowConversation,
   setWindowConversation,
 } from '@/lib/browseros/perWindowConversationStorage'
@@ -92,6 +97,7 @@ import {
   hydrateClientMessagesFromServer,
 } from './reconcile-tool-states'
 import { useRemoteConversationSave } from './remote-conversation-save.hooks'
+import { shouldResumeLastActiveConversation } from './shouldResumeLastActiveConversation'
 import { toLlmProviderConfig } from './sidepanel-chat-targets'
 
 /** How long status may stay submitted/streaming with no message growth
@@ -441,6 +447,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             turnId,
             conversationIdRef.current,
           )
+          void setLastActiveConversation(conversationIdRef.current)
         }
         return response
       }) as typeof fetch,
@@ -633,6 +640,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         if (!stillSameConversation()) return
         if (!stillActive) {
           turnControllerRef.current.markInactive()
+          void clearLastActiveConversation()
           return
         }
         turnControllerRef.current.attachToCurrent((next) => {
@@ -1190,6 +1198,30 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       } else if (!stored) {
         await setWindowConversation(windowId, conversationIdRef.current)
       }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Cold mount (panel crashed/closed while a turn was running, or Chrome
+  // discarded/reloaded the extension page): resume that turn by default,
+  // not just in per-window scope. Only ever resumes a turn confirmed still
+  // running server-side — a finished/stale stored id is a silent no-op and
+  // the panel opens blank exactly as it does today.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only; reads refs
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const stored = await getLastActiveConversation()
+      const resume = shouldResumeLastActiveConversation({
+        origin: options?.origin,
+        conversationIdParam,
+        qParam: searchParams.get('q'),
+        storedConversationId: stored,
+      })
+      if (!resume || !stored || cancelled) return
+      setSearchParams({ conversationId: stored })
     })()
     return () => {
       cancelled = true
