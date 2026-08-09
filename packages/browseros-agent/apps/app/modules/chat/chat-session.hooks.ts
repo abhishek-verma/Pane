@@ -1447,13 +1447,14 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     return () => unwatch()
   }, [])
 
-  const resetConversationState = () => {
+  const resetConversationState = (nextConvoIdOverride?: string) => {
     // New chat detaches only — prior conversation turns keep running.
     turnControllerRef.current.detachAttachOnly()
     turnControllerRef.current.markInactive()
     stop()
     void finishExecutionTask({ isAbort: true })
-    const nextConvoId = crypto.randomUUID()
+    const nextConvoId = (nextConvoIdOverride ??
+      crypto.randomUUID()) as ReturnType<typeof crypto.randomUUID>
     setConversationId(nextConvoId)
     conversationIdRef.current = nextConvoId
     // Clear before the next send — prepareSendMessagesRequest reads this ref
