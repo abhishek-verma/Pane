@@ -97,6 +97,7 @@ import {
   hydrateClientMessagesFromServer,
 } from './reconcile-tool-states'
 import { useRemoteConversationSave } from './remote-conversation-save.hooks'
+import { shouldApplySearchAction } from './searchActionDedup'
 import { shouldResumeLastActiveConversation } from './shouldResumeLastActiveConversation'
 import { toLlmProviderConfig } from './sidepanel-chat-targets'
 
@@ -1386,16 +1387,22 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
   useEffect(() => {
-    const appliedRef = { id: '' }
+    let lastAppliedRequestId: string | null = null
 
     const applySearchAction = (storageAction: SearchActionStorage) => {
-      // Dedup: getValue() and watch() can both fire for the same write within
-      // the same micro-task batch, launching two agents. Guard by fingerprinting
-      // the payload; reset after consuming so the next identical button click
-      // (a new write) still fires correctly.
-      const id = JSON.stringify(storageAction)
-      if (appliedRef.id === id) return
-      appliedRef.id = id
+      if (
+        !shouldApplySearchAction({
+          requestId: storageAction.requestId,
+          lastAppliedRequestId,
+        })
+      ) {
+        return
+      }
+      // Never reset this — a delayed duplicate delivery of the same
+      // requestId (getValue()/watch() race, or the background script's
+      // deliberate double-write) must stay suppressed for this mount's
+      // lifetime. A genuinely new dispatch always carries a fresh requestId.
+      lastAppliedRequestId = storageAction.requestId
 
       if (storageAction.conversationId) {
         setMode(storageAction.mode)
@@ -1404,10 +1411,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           { replace: true },
         )
         void searchActionsStorage.setValue(null)
-        appliedRef.id = ''
         return
       }
-      resetConversationState()
+      resetConversationState(storageAction.newConversationId)
       setMode(storageAction.mode)
       setTimeout(() => {
         sendMessage({
@@ -1416,7 +1422,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         })
       }, 0)
       void searchActionsStorage.setValue(null)
-      appliedRef.id = ''
     }
 
     // Cold mount: background may have written handoff before this watch attaches.

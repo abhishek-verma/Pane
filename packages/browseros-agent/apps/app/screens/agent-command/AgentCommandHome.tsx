@@ -210,6 +210,7 @@ export const AgentCommandHome: FC = () => {
         tabs: input.selectedTabs,
       })
       await openSidePanelWithSearch('open', {
+        requestId: crypto.randomUUID(),
         query: input.text,
         mode: 'agent',
         action,

@@ -110,7 +110,11 @@ export const OnboardingDemo = () => {
         level: 'info',
         data: { mode },
       })
-      openSidePanelWithSearch('open', { query, mode })
+      openSidePanelWithSearch('open', {
+        requestId: crypto.randomUUID(),
+        query,
+        mode,
+      })
     } catch (error) {
       sentry.captureException(error, {
         extra: { context: 'onboarding-open-home-and-search', mode },
