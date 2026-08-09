@@ -9,6 +9,11 @@ import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import {
+  clearLastActiveConversation,
+  getLastActiveConversation,
+  setLastActiveConversation,
+} from '@/lib/browseros/lastActiveConversationStorage'
+import {
   getWindowConversation,
   setWindowConversation,
 } from '@/lib/browseros/perWindowConversationStorage'
@@ -92,6 +97,8 @@ import {
   hydrateClientMessagesFromServer,
 } from './reconcile-tool-states'
 import { useRemoteConversationSave } from './remote-conversation-save.hooks'
+import { shouldApplySearchAction } from './searchActionDedup'
+import { shouldResumeLastActiveConversation } from './shouldResumeLastActiveConversation'
 import { toLlmProviderConfig } from './sidepanel-chat-targets'
 
 /** How long status may stay submitted/streaming with no message growth
@@ -441,6 +448,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             turnId,
             conversationIdRef.current,
           )
+          void setLastActiveConversation(conversationIdRef.current)
         }
         return response
       }) as typeof fetch,
@@ -633,6 +641,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         if (!stillSameConversation()) return
         if (!stillActive) {
           turnControllerRef.current.markInactive()
+          void clearLastActiveConversation()
           return
         }
         turnControllerRef.current.attachToCurrent((next) => {
@@ -1196,6 +1205,30 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     }
   }, [])
 
+  // Cold mount (panel crashed/closed while a turn was running, or Chrome
+  // discarded/reloaded the extension page): resume that turn by default,
+  // not just in per-window scope. Only ever resumes a turn confirmed still
+  // running server-side — a finished/stale stored id is a silent no-op and
+  // the panel opens blank exactly as it does today.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only; reads refs
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const stored = await getLastActiveConversation()
+      const resume = shouldResumeLastActiveConversation({
+        origin: options?.origin,
+        conversationIdParam,
+        qParam: searchParams.get('q'),
+        storedConversationId: stored,
+      })
+      if (!resume || !stored || cancelled) return
+      setSearchParams({ conversationId: stored })
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // Remember the conversation this window is on so a remount can resume it.
   useEffect(() => {
     if (options?.origin === 'newtab') return
@@ -1354,16 +1387,22 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
   useEffect(() => {
-    const appliedRef = { id: '' }
+    let lastAppliedRequestId: string | null = null
 
     const applySearchAction = (storageAction: SearchActionStorage) => {
-      // Dedup: getValue() and watch() can both fire for the same write within
-      // the same micro-task batch, launching two agents. Guard by fingerprinting
-      // the payload; reset after consuming so the next identical button click
-      // (a new write) still fires correctly.
-      const id = JSON.stringify(storageAction)
-      if (appliedRef.id === id) return
-      appliedRef.id = id
+      if (
+        !shouldApplySearchAction({
+          requestId: storageAction.requestId,
+          lastAppliedRequestId,
+        })
+      ) {
+        return
+      }
+      // Never reset this — a delayed duplicate delivery of the same
+      // requestId (getValue()/watch() race, or the background script's
+      // deliberate double-write) must stay suppressed for this mount's
+      // lifetime. A genuinely new dispatch always carries a fresh requestId.
+      lastAppliedRequestId = storageAction.requestId
 
       if (storageAction.conversationId) {
         setMode(storageAction.mode)
@@ -1372,10 +1411,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           { replace: true },
         )
         void searchActionsStorage.setValue(null)
-        appliedRef.id = ''
         return
       }
-      resetConversationState()
+      resetConversationState(storageAction.newConversationId)
       setMode(storageAction.mode)
       setTimeout(() => {
         sendMessage({
@@ -1384,7 +1422,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         })
       }, 0)
       void searchActionsStorage.setValue(null)
-      appliedRef.id = ''
     }
 
     // Cold mount: background may have written handoff before this watch attaches.
@@ -1410,13 +1447,14 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     return () => unwatch()
   }, [])
 
-  const resetConversationState = () => {
+  const resetConversationState = (nextConvoIdOverride?: string) => {
     // New chat detaches only — prior conversation turns keep running.
     turnControllerRef.current.detachAttachOnly()
     turnControllerRef.current.markInactive()
     stop()
     void finishExecutionTask({ isAbort: true })
-    const nextConvoId = crypto.randomUUID()
+    const nextConvoId = (nextConvoIdOverride ??
+      crypto.randomUUID()) as ReturnType<typeof crypto.randomUUID>
     setConversationId(nextConvoId)
     conversationIdRef.current = nextConvoId
     // Clear before the next send — prepareSendMessagesRequest reads this ref

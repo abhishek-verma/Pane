@@ -441,6 +441,7 @@ export const EntityPage: FC = () => {
       }
       if (conv) {
         await openSidePanelWithSearch('open', {
+          requestId: crypto.randomUUID(),
           query: '',
           mode: 'agent',
           conversationId: conv,
