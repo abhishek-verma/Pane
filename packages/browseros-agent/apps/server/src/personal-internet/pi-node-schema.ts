@@ -100,9 +100,20 @@ const svgNodeSchema = z.object({
 
 export const piNodeSchema: z.ZodType<unknown> = z.lazy(() =>
   z.discriminatedUnion('type', [
-    z.object({ type: z.literal('title'), text: z.string() }),
+    z.object({
+      type: z.literal('title'),
+      id: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          'Stable id — set this to make the node addressable by setNodeText later.',
+        ),
+      text: z.string(),
+    }),
     z.object({
       type: z.literal('text'),
+      id: z.string().min(1).optional(),
       text: z
         .string()
         .describe(
@@ -111,12 +122,20 @@ export const piNodeSchema: z.ZodType<unknown> = z.lazy(() =>
     }),
     z.object({
       type: z.literal('note'),
+      id: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          'Stable id — set this to make the node addressable by setNodeText later.',
+        ),
       text: z
         .string()
         .describe('Callout box. Renders the same Markdown as `text`.'),
     }),
     z.object({
       type: z.literal('badge'),
+      id: z.string().min(1).optional(),
       text: z.string(),
       tone: z.enum(['neutral', 'good', 'warn', 'bad']).optional(),
     }),
@@ -218,6 +237,16 @@ export const upsertBoardCardOpSchema = z.object({
 
 export const patchOpSchema = z.union([
   z.object({ op: z.literal('setTitle'), title: z.string().min(1) }),
+  z.object({
+    op: z.literal('setNodeText'),
+    id: z
+      .string()
+      .min(1)
+      .describe(
+        'id of a title/text/note/badge node (set when the node was created). Patches its text in place — no need to touch anything else on the page.',
+      ),
+    text: z.string().min(1),
+  }),
   z.object({
     op: z.literal('replaceNodes'),
     nodes: z.array(piNodeSchema),
