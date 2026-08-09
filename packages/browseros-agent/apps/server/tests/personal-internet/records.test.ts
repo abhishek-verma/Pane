@@ -153,4 +153,54 @@ describe('pi records', () => {
     }
     expect(listBody.count).toBe(1)
   })
+
+  it('pi_record_upsert_many upserts N records and syncs once', async () => {
+    setup()
+    const tools = buildPersonalInternetToolSet()
+    const created = await tools.pi_site_upsert!.execute!(
+      { templateId: 'job-search' },
+      { toolCallId: 't', messages: [] },
+    )
+    const siteBody = JSON.parse((created as { text: string }).text) as {
+      siteId: string
+    }
+    const result = await tools.pi_record_upsert_many!.execute!(
+      {
+        siteId: siteBody.siteId,
+        records: [
+          {
+            recordType: 'job-application',
+            data: { company: 'Alpha', stage: 'applied' },
+          },
+          {
+            recordType: 'job-application',
+            data: { company: 'Beta', stage: 'applied' },
+          },
+          {
+            recordType: 'job-application',
+            data: { company: 'Gamma', stage: 'interviewing' },
+          },
+        ],
+      },
+      { toolCallId: 't', messages: [] },
+    )
+    expect((result as { isError?: boolean }).isError).toBeFalsy()
+    const body = JSON.parse((result as { text: string }).text) as {
+      count: number
+      succeeded: number
+      results: Array<{ ok: boolean; recordId?: string }>
+    }
+    expect(body.count).toBe(3)
+    expect(body.succeeded).toBe(3)
+    expect(body.results.every((r) => r.ok)).toBe(true)
+
+    const list = await tools.pi_record_list!.execute!(
+      { siteId: siteBody.siteId },
+      { toolCallId: 't', messages: [] },
+    )
+    const listBody = JSON.parse((list as { text: string }).text) as {
+      records: unknown[]
+    }
+    expect(listBody.records).toHaveLength(3)
+  })
 })
