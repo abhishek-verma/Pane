@@ -124,4 +124,61 @@ describe('slimMessagesForClientUi', () => {
     const next = slimMessagesForClientUi(messages, 100)
     expect(next).toBe(messages)
   })
+
+  // Regression: an earlier reasoning-truncation implementation produced a
+  // result whose length was always > previewMaxChars (a growing "[truncated
+  // N chars]" suffix on top of a full-length slice), so re-running the slim
+  // pass on its own output kept treating it as "changed" forever. Callers
+  // call this from a useEffect that setMessages()s whenever the result
+  // differs by reference from the input — a non-convergent transform there
+  // is an infinite render loop in production (React error #185, shipped in
+  // v0.47.0.74). Any transform this function applies must be idempotent:
+  // running it twice must equal running it once, for every previewMaxChars,
+  // including ones smaller than a truncation marker/suffix.
+  test('is idempotent for reasoning parts across a range of previewMaxChars', () => {
+    for (const previewMaxChars of [0, 1, 5, 13, 14, 100, 2000]) {
+      const messages: UIMessage[] = [
+        {
+          id: 'a1',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'reasoning',
+              text: 'x'.repeat(5_000),
+              state: 'done',
+            } as never,
+          ],
+        },
+      ]
+      const once = slimMessagesForClientUi(messages, previewMaxChars)
+      const twice = slimMessagesForClientUi(once, previewMaxChars)
+      expect(twice).toBe(once)
+      const text = (once[0]?.parts[0] as { text: string }).text
+      expect(text.length).toBeLessThanOrEqual(previewMaxChars)
+    }
+  })
+
+  // Same idempotency property for the tool-output truncation path — no
+  // known bug here, but this is exactly the check that would have caught
+  // the reasoning regression, so cover the sibling path too.
+  test('is idempotent for oversized tool outputs', () => {
+    const messages: UIMessage[] = [
+      {
+        id: 'a1',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-navigate',
+            toolCallId: 'c1',
+            state: 'output-available',
+            input: {},
+            output: { content: [{ type: 'text', text: 'z'.repeat(50_000) }] },
+          } as never,
+        ],
+      },
+    ]
+    const once = slimMessagesForClientUi(messages, 100)
+    const twice = slimMessagesForClientUi(once, 100)
+    expect(twice).toBe(once)
+  })
 })

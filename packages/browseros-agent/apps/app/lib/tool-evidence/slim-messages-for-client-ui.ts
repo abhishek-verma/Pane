@@ -16,6 +16,9 @@ function truncateText(text: string, maxChars: number): string {
   return `${text.slice(0, maxChars)}\n…[truncated ${text.length - maxChars} chars]`
 }
 
+/** Fixed-length (unlike truncateText's suffix) so truncation is idempotent. */
+const REASONING_TRUNCATION_SUFFIX = '\n…[truncated]'
+
 /** Size estimate that never JSON.stringify's image `data` fields. */
 export function estimateToolOutputBytes(value: unknown): number {
   if (value == null) return 0
@@ -85,7 +88,24 @@ export function slimMessagesForClientUi(
         }
         anyChanged = true
         partsChanged = true
-        return { ...part, text: truncateText(text, previewMaxChars) }
+        // Unconditionally cap the suffixed result at previewMaxChars — for
+        // ANY previewMaxChars, including one smaller than the suffix — so
+        // the gate above (text.length <= previewMaxChars) is guaranteed to
+        // pass on the very next call. truncateText's own "[truncated N
+        // chars]" suffix always pushes its result *past* maxChars, which
+        // never re-satisfies that gate: this effect runs inside a useEffect
+        // keyed on `messages` that calls setMessages whenever the slimmed
+        // output differs by reference, so a non-convergent truncation here
+        // reruns forever (setMessages -> messages changes -> effect reruns
+        // -> still "changed" -> setMessages again), which is exactly what
+        // tripped React error #185 (Maximum update depth exceeded) in
+        // production — this must never regress back to that shape.
+        const truncated =
+          `${text.slice(0, previewMaxChars)}${REASONING_TRUNCATION_SUFFIX}`.slice(
+            0,
+            previewMaxChars,
+          )
+        return { ...part, text: truncated }
       }
       if (typeof part.type !== 'string' || !part.type.startsWith('tool-')) {
         return part
@@ -130,7 +150,25 @@ export function slimMessagesForClientUi(
         sc &&
         typeof sc.snapshot === 'string' &&
         sc.snapshot.length > previewMaxChars
-      if (bytes <= previewMaxChars * 2 && !fatSnapshot && !hasInlineImage) {
+      // Pre-existing bug, fixed alongside the reasoning-part regression
+      // above: `contentLength` is set (below) after this branch truncates
+      // an output once. On a second pass, `bytes` re-counts the already-
+      // shrunk `content` *and* the `preview` field together (preview is
+      // itself a truncated near-duplicate of content) — their combined
+      // size can sit above previewMaxChars*2 forever even though neither
+      // field would actually change if reprocessed, so without this OR
+      // clause the gate below never passes and this function never
+      // returns the same reference for a large enough tool output. Called
+      // from a useEffect that setMessages()s whenever the result differs
+      // by reference, that non-convergence is an infinite render loop in
+      // production (React error #185) — the same failure class as the
+      // reasoning-part bug, just pre-existing rather than newly introduced.
+      const alreadySlimmed = typeof rec.contentLength === 'number'
+      if (
+        (bytes <= previewMaxChars * 2 || alreadySlimmed) &&
+        !fatSnapshot &&
+        !hasInlineImage
+      ) {
         return part
       }
 
