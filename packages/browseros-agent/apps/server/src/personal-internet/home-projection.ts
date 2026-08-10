@@ -25,6 +25,8 @@ function withoutDismissed(
 
 const DORMANT_DEMOTE = true
 const STALE_DEMOTE_MS = 14 * 24 * 60 * 60 * 1000
+const URGENCIES_PER_SITE = 2
+const TODAY_LIMIT = 8
 
 export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
   const prefs = await readHomePrefs()
@@ -36,6 +38,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
   const sites = listSites({ status: ['active', 'dormant'] })
   const doorways: PiDoorway[] = []
   const propose: Array<{ siteId: string; name: string; route: string }> = []
+  const pulsesById = new Map<string, ReturnType<typeof recomputePulse>>()
 
   for (const site of sites) {
     if (hidden.has(site.id)) continue
@@ -56,6 +59,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
     let pulse = getPulse(site.id)
     if (!pulse) pulse = recomputePulse(site.id)
     if (!pulse) continue
+    pulsesById.set(site.id, pulse)
 
     // Demote very stale unpinned doorways to library-only (Ship Bar / B16).
     if (!pinned.has(site.id) && pulse.lastUpdatedAt) {
@@ -83,7 +87,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
     return a.name.localeCompare(b.name)
   })
 
-  const continuity = await loadContinuity(doorways)
+  const continuity = await loadContinuity(doorways, pulsesById)
 
   const libraryCount = listSites({
     status: ['active', 'dormant', 'drafting', 'archived'],
@@ -100,6 +104,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
 
 async function loadContinuity(
   doorways: PiDoorway[],
+  pulsesById: Map<string, ReturnType<typeof recomputePulse>>,
 ): Promise<PiContinuityBlock[]> {
   const prefs = await readHomePrefs()
   const dismissed = new Set(prefs.dismissedContinuityIds)
@@ -110,21 +115,23 @@ async function loadContinuity(
   // not read the legacy home-regions JSON here: treating it as an input made a
   // refresh read yesterday's cards and write them straight back forever.
   for (const d of doorways) {
-    if (!d.secondary) continue
-    const urgencyId = `urgency-${d.siteId}`
-    if (dismissed.has(urgencyId)) continue
-    blocks.push({
-      id: urgencyId,
-      title: d.name,
-      body: d.secondary.label,
-      route: d.secondary.deepLink,
-      agentQuery: d.secondary.agentQuery,
-      metadata: d.secondary.metadata,
+    const pulse = pulsesById.get(d.siteId)
+    const urgencies = pulse?.topUrgencies.slice(0, URGENCIES_PER_SITE) ?? []
+    urgencies.forEach((urgency, index) => {
+      const urgencyId = `urgency-${d.siteId}-${index}`
+      if (dismissed.has(urgencyId)) return
+      blocks.push({
+        id: urgencyId,
+        title: d.name,
+        body: urgency.label,
+        route: urgency.deepLink,
+        agentQuery: urgency.agentQuery,
+        metadata: urgency.metadata,
+      })
     })
-    if (blocks.length >= 3) break
   }
 
-  return mergeContinuityBlocks(liveApprovals, blocks, 5)
+  return mergeContinuityBlocks(liveApprovals, blocks, TODAY_LIMIT)
 }
 
 /** Empty projection for error fallback — keeps /scheduler/home stable. */

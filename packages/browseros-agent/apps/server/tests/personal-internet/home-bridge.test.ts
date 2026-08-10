@@ -183,4 +183,50 @@ describe('pi home bridge', () => {
       false,
     )
   })
+
+  it('surfaces up to 2 urgencies per site in Today, across all doorways', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    const siteId = created.siteId!
+    // Three job-application records, each with its own nextAction — the
+    // template requires `company` and stores stage on `data.stage`, so give
+    // each a distinct company and stage.
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: {
+        company: 'Acme',
+        stage: 'applied',
+        nextAction: 'Follow up with Acme recruiter',
+      },
+    })
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: {
+        company: 'Beta',
+        stage: 'interviewing',
+        nextAction: 'Prep for Beta onsite',
+      },
+    })
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: {
+        company: 'Gamma',
+        stage: 'applied',
+        nextAction: 'Send Gamma portfolio',
+      },
+    })
+
+    const pi = await buildPiHomeProjection()
+    const siteUrgencies = pi.continuity.filter((c) => c.title === 'Job Search')
+    expect(siteUrgencies.length).toBe(2)
+  })
 })
