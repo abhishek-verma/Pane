@@ -225,6 +225,7 @@ export type PiDoorway = {
   pulseLine: string
   primaryRoute: string
   templateId: PiTemplateId
+  pinned: boolean
   secondary?: PiUrgency
   lastUpdatedAt?: string
 }

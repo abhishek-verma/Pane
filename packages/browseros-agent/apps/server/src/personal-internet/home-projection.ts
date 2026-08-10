@@ -81,6 +81,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
       pulseLine: pulse.pulseLine,
       primaryRoute: siteRoute(site.id),
       templateId: (site.templateId ?? 'blank') as PiTemplateId,
+      pinned: pinned.has(site.id),
       secondary: pulse.topUrgencies[0],
       lastUpdatedAt: pulse.lastUpdatedAt,
     })

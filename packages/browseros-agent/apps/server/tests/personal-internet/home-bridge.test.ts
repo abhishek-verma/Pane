@@ -262,4 +262,19 @@ describe('pi home bridge', () => {
     const restored = await buildPiHomeProjection()
     expect(restored.doorways.find((d) => d.siteId === siteId)).toBeTruthy()
   })
+
+  it('doorway payload marks pinned sites', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    const siteId = created.siteId!
+    const { updateDoorwayVisibility } = await import(
+      '../../src/personal-internet/store'
+    )
+    await updateDoorwayVisibility({ pinSiteId: siteId })
+    const pi = await buildPiHomeProjection()
+    expect(pi.doorways.find((d) => d.siteId === siteId)?.pinned).toBe(true)
+  })
 })
