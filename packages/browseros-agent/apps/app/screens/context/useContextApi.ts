@@ -4,7 +4,12 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
@@ -16,6 +21,30 @@ export interface ContextNode {
   title: string | null
   uri: string | null
   summary: string | null
+}
+
+export interface SearchSnippet {
+  nodeId: string
+  bucketId: string
+  kind: string
+  title: string | null
+  uri: string | null
+  snippet: string
+  sourceKind: string
+  score: number
+}
+
+export interface SearchResponse {
+  bucketId: string
+  query: string
+  mode: string
+  suggestions: string[]
+  snippets: SearchSnippet[]
+}
+
+export interface NodeListPage {
+  nodes: ContextNode[]
+  hasMore: boolean
 }
 
 export interface CurrentWorkResponse {
@@ -90,6 +119,94 @@ export function useContextCurrent(bucketId: string) {
     error: query.error,
     refetch: query.refetch,
   }
+}
+
+export function useContextSearch(bucketId: string, query: string) {
+  const { baseUrl, isLoading: urlLoading } = useAgentServerUrl()
+  const trimmed = query.trim()
+  const searchQuery = useQuery({
+    queryKey: [CONTEXT_QUERY_KEY, 'search', baseUrl, bucketId, trimmed],
+    queryFn: async () => {
+      const params = new URLSearchParams({ bucketId, q: trimmed, limit: '20' })
+      const res = await agentFetch(
+        `${base(baseUrl as string)}/context/search?${params}`,
+      )
+      if (!res.ok) throw new Error(`Failed to search context (${res.status})`)
+      return (await res.json()) as SearchResponse
+    },
+    enabled: Boolean(baseUrl) && !urlLoading && trimmed.length > 0,
+  })
+  return {
+    data: searchQuery.data,
+    loading: searchQuery.isLoading,
+    error: searchQuery.error,
+  }
+}
+
+export function useContextNodes(
+  bucketId: string,
+  kind: string,
+  enabled: boolean,
+) {
+  const { baseUrl, isLoading: urlLoading } = useAgentServerUrl()
+  const PAGE_SIZE = 20
+  const query = useInfiniteQuery({
+    queryKey: [CONTEXT_QUERY_KEY, 'nodes', baseUrl, bucketId, kind],
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({
+        bucketId,
+        kind,
+        limit: String(PAGE_SIZE),
+        offset: String(pageParam),
+      })
+      const res = await agentFetch(
+        `${base(baseUrl as string)}/context/nodes?${params}`,
+      )
+      if (!res.ok) throw new Error(`Failed to load context (${res.status})`)
+      return (await res.json()) as NodeListPage
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.hasMore ? allPages.length * PAGE_SIZE : undefined,
+    enabled: Boolean(baseUrl) && !urlLoading && enabled,
+  })
+  const nodes = query.data?.pages.flatMap((p) => p.nodes) ?? []
+  return {
+    nodes,
+    hasMore: Boolean(query.hasNextPage),
+    loadingMore: query.isFetchingNextPage,
+    fetchMore: query.fetchNextPage,
+    loading: query.isLoading,
+  }
+}
+
+export function useDeleteContextNodes(bucketId: string) {
+  const { baseUrl } = useAgentServerUrl()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (nodeIds: string[]) => {
+      const res = await agentFetch(`${base(baseUrl as string)}/context/nodes`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeIds }),
+      })
+      if (!res.ok)
+        throw new Error(`Failed to delete context items (${res.status})`)
+      return (await res.json()) as { deleted: number }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [CONTEXT_QUERY_KEY, 'current', baseUrl, bucketId],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: [CONTEXT_QUERY_KEY, 'nodes', baseUrl, bucketId],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: [CONTEXT_QUERY_KEY, 'search', baseUrl, bucketId],
+      })
+    },
+  })
 }
 
 export function useContextGrants(
