@@ -17,6 +17,15 @@ export type SiteTemplate = {
   policy: PiRefreshPolicy
 }
 
+export const ALL_TEMPLATE_IDS: PiTemplateId[] = [
+  'job-search',
+  'research-hub',
+  'sales-leads',
+  'reading-list',
+  'habit-tracker',
+  'project-tracker',
+]
+
 function jobSearchBoard(): PiPageDoc {
   return {
     version: 1,

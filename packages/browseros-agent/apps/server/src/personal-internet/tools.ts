@@ -39,11 +39,10 @@ import {
   listRecords,
   listSites,
   listTemps,
-  readHomePrefs,
   readHomeRegions,
   readPageDoc,
+  updateDoorwayVisibility,
   writeHomeContinuity,
-  writeHomePrefs,
 } from './store'
 import type {
   PiContinuityBlock,
@@ -776,20 +775,12 @@ export function buildPersonalInternetToolSet(
       }),
       execute: async (input) => {
         try {
-          const prefs = await readHomePrefs()
-          const hidden = new Set(prefs.hiddenSiteIds)
-          const pinned = new Set(prefs.pinnedSiteIds)
-          if (input.hideSiteId) hidden.add(input.hideSiteId)
-          if (input.unhideSiteId) hidden.delete(input.unhideSiteId)
-          if (input.pinSiteId) pinned.add(input.pinSiteId)
-          if (input.unpinSiteId) pinned.delete(input.unpinSiteId)
-          const nextPrefs = {
-            hiddenSiteIds: [...hidden],
-            pinnedSiteIds: [...pinned],
-            dismissedContinuityIds: prefs.dismissedContinuityIds,
-            dismissedProposeIds: prefs.dismissedProposeIds,
-          }
-          await writeHomePrefs(nextPrefs)
+          const nextPrefs = await updateDoorwayVisibility({
+            hideSiteId: input.hideSiteId,
+            unhideSiteId: input.unhideSiteId,
+            pinSiteId: input.pinSiteId,
+            unpinSiteId: input.unpinSiteId,
+          })
 
           let continuity: PiContinuityBlock[] | undefined
           if (input.continuity !== undefined) {
