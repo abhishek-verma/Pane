@@ -229,4 +229,11 @@ describe('pi home bridge', () => {
     const siteUrgencies = pi.continuity.filter((c) => c.title === 'Job Search')
     expect(siteUrgencies.length).toBe(2)
   })
+
+  it('doorway payload includes the site template id', async () => {
+    setup()
+    await applyPiMutation({ type: 'upsert-site', templateId: 'job-search' })
+    const pi = await buildPiHomeProjection()
+    expect(pi.doorways[0]?.templateId).toBe('job-search')
+  })
 })

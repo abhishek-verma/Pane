@@ -128,6 +128,7 @@ export type PiDoorway = {
   address: string
   pulseLine: string
   primaryRoute: string
+  templateId: string
   secondary?: {
     label: string
     deepLink: string

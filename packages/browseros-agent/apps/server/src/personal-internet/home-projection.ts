@@ -13,7 +13,12 @@ import {
 import { siteRoute } from './paths'
 import { recomputePulse } from './pulse'
 import { getPulse, listSites, readHomePrefs } from './store'
-import type { PiContinuityBlock, PiDoorway, PiHomeProjection } from './types'
+import type {
+  PiContinuityBlock,
+  PiDoorway,
+  PiHomeProjection,
+  PiTemplateId,
+} from './types'
 
 function withoutDismissed(
   blocks: PiContinuityBlock[],
@@ -75,6 +80,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
       address: pulse.address,
       pulseLine: pulse.pulseLine,
       primaryRoute: siteRoute(site.id),
+      templateId: (site.templateId ?? 'blank') as PiTemplateId,
       secondary: pulse.topUrgencies[0],
       lastUpdatedAt: pulse.lastUpdatedAt,
     })
