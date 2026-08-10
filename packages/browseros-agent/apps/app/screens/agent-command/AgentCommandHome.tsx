@@ -31,7 +31,9 @@ import {
   HOME_QUERY_KEY,
   type HomeData,
 } from '@/screens/newtab/home/home-data'
+import { MilestoneCard } from '@/screens/newtab/home/MilestoneCard'
 import { PiHomeRegions } from '@/screens/newtab/home/PiHomeRegions'
+import { useFirstSkillMilestone } from '@/screens/newtab/home/use-first-skill-milestone'
 import { useActiveHint } from '@/screens/newtab/index/active-hint.hooks'
 import { SignInHint } from '@/screens/newtab/index/SignInHint'
 import {
@@ -122,6 +124,9 @@ export const AgentCommandHome: FC = () => {
     hasMarkedVisitRef.current = true
     void piPost('/pi/home/mark-visited', {})
   }, [homeLoading])
+
+  const { show: showMilestone, dismiss: dismissMilestone } =
+    useFirstSkillMilestone(homeData?.growth?.skillsLearned)
 
   useEffect(() => {
     const HOME_FOCUSED_DEBOUNCE_MS = 60_000
@@ -253,6 +258,7 @@ export const AgentCommandHome: FC = () => {
       </div>
 
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-5 py-8 pb-16">
+        {showMilestone ? <MilestoneCard onDismiss={dismissMilestone} /> : null}
         <div className="space-y-4">
           <h1 className="font-semibold text-2xl leading-tight tracking-[-0.02em]">
             {homeGreeting(homeData?.firstName ?? null)}
