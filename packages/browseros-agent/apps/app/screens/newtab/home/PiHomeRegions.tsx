@@ -9,6 +9,7 @@ import { type FC, useEffect, useState } from 'react'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { navigatePiDocument } from '@/lib/personal-internet/pi-document'
 import { executePiAction } from '@/lib/pi-actions'
+import { cn } from '@/lib/utils'
 import { executeWidgetAction } from '@/lib/widget-actions'
 import { BentoTile } from '@/screens/newtab/home/BentoTile'
 import { HOME_QUERY_KEY } from '@/screens/newtab/home/home-data'
@@ -381,14 +382,23 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
               My sites ({libraryCount})
             </PiRailAction>
           </div>
-          <div className="grid grid-cols-4 gap-2 pb-3">
+          <div
+            className={cn(
+              'grid gap-2 pb-3',
+              doorways.length === 1
+                ? 'grid-cols-1'
+                : doorways.length === 2
+                  ? 'grid-cols-2'
+                  : 'grid-cols-4',
+            )}
+          >
             {doorways.map((d, index) => (
               <BentoTile
                 key={d.siteId}
                 icon={templateIcon(d.templateId)}
                 title={d.name}
                 subtitle={d.pulseLine}
-                size={index === 0 ? 'lg' : 'sm'}
+                size={doorways.length >= 3 && index === 0 ? 'lg' : 'sm'}
                 pinned={d.pinned}
                 updated={d.updatedSinceLastVisit}
                 onClick={() => navigatePiDocument(routePath(d.primaryRoute))}

@@ -63,20 +63,24 @@ export const TrustPinsSettings: FC = () => {
       <div className="flex flex-col gap-3 border-t pt-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <Label htmlFor="require-browser-input">
-              Require approval for clicks and typing
-            </Label>
+            <Label htmlFor="require-browser-input">Clicks and typing</Label>
             <p className="mt-1 text-muted-foreground text-xs">
-              Off by default — the browser agent can click and type without
+              On by default — the browser agent can click and type without
               asking. Payment pages still always require approval.
             </p>
           </div>
           <Switch
             id="require-browser-input"
-            checked={requireBrowserInput}
+            // Displayed inverted from storage: this switch reads as a
+            // permission ("clicks and typing allowed") like the pin
+            // switches below it, but requireBrowserInputApprovalStorage
+            // stores the opposite ("approval required"). Keep the negation
+            // on both sides in sync if this toggle is ever touched.
+            checked={!requireBrowserInput}
             onCheckedChange={(checked) => {
-              setRequireBrowserInput(checked)
-              void requireBrowserInputApprovalStorage.setValue(checked)
+              const requireApproval = !checked
+              setRequireBrowserInput(requireApproval)
+              void requireBrowserInputApprovalStorage.setValue(requireApproval)
             }}
           />
         </div>
