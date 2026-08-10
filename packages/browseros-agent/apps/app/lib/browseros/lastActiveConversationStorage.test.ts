@@ -26,13 +26,24 @@ describe('lastActiveConversationStorage', () => {
     expect(await getLastActiveConversation()).toBeNull()
   })
 
-  it('round-trips a stored conversationId', async () => {
-    await setLastActiveConversation('conv-123')
-    expect(await getLastActiveConversation()).toBe('conv-123')
+  it('round-trips a stored conversationId with its tab', async () => {
+    await setLastActiveConversation('conv-123', 7)
+    expect(await getLastActiveConversation()).toEqual({
+      conversationId: 'conv-123',
+      tabId: 7,
+    })
+  })
+
+  it('round-trips a null tabId for per-window panels', async () => {
+    await setLastActiveConversation('conv-123', null)
+    expect(await getLastActiveConversation()).toEqual({
+      conversationId: 'conv-123',
+      tabId: null,
+    })
   })
 
   it('clears the stored conversationId', async () => {
-    await setLastActiveConversation('conv-123')
+    await setLastActiveConversation('conv-123', 7)
     await clearLastActiveConversation()
     expect(await getLastActiveConversation()).toBeNull()
   })

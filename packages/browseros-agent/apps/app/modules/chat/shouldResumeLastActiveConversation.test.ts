@@ -56,4 +56,44 @@ describe('shouldResumeLastActiveConversation', () => {
       }),
     ).toBe(false)
   })
+
+  it('does not resume a different tab’s stored conversation in tab scope', () => {
+    expect(
+      shouldResumeLastActiveConversation({
+        origin: 'sidepanel',
+        conversationIdParam: null,
+        qParam: null,
+        storedConversationId: 'conv-1',
+        currentTabId: 7,
+        storedTabId: 9,
+      }),
+    ).toBe(false)
+  })
+
+  it('resumes when the stored conversation belongs to this tab', () => {
+    expect(
+      shouldResumeLastActiveConversation({
+        origin: 'sidepanel',
+        conversationIdParam: null,
+        qParam: null,
+        storedConversationId: 'conv-1',
+        currentTabId: 7,
+        storedTabId: 7,
+      }),
+    ).toBe(true)
+  })
+
+  it('resumes regardless of tab id in per-window scope', () => {
+    expect(
+      shouldResumeLastActiveConversation({
+        origin: 'sidepanel',
+        conversationIdParam: null,
+        qParam: null,
+        storedConversationId: 'conv-1',
+        perWindow: true,
+        currentTabId: 7,
+        storedTabId: 9,
+      }),
+    ).toBe(true)
+  })
 })

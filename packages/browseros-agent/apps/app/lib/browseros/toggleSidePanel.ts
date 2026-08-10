@@ -159,11 +159,23 @@ export function registerSidePanelOpenStateListeners(): void {
   })
 }
 
-/** Opens from non-toolbar flows that may not carry Chrome's user gesture. */
+/**
+ * Opens from non-toolbar flows (agent/PI/search "show me this" triggers).
+ * Must route through the same scope as the toolbar toggle: BrowserOS's
+ * `sidePanel.open()` user-gesture check is disabled in this fork (see
+ * packages/browseros/chromium_patches/.../side_panel_api.cc), so there is
+ * no longer a reason for programmatic opens to bypass window scope — doing
+ * so opened a second, tab-contextual panel instance underneath/instead of
+ * the user's shared per-window panel, which looked like a random different
+ * chat or the panel reopening on its own right after being closed.
+ */
 export async function openSidePanel(
   target: SidePanelTarget,
 ): Promise<SidePanelToggleResult> {
   await ensureSidePanelRuntimeStateLoaded()
+  if (sidePanelPerWindow) {
+    return await openWindowSidePanel(target)
+  }
   return await openTabSidePanel(target)
 }
 

@@ -4,6 +4,10 @@ import type { ToolInvocationInfo } from './getMessageSegments'
 
 export interface ChatMessageRowProps {
   message: UIMessage
+  /** The conversation this message belongs to — passed to PiPageCard so its
+   *  agent-driven auto-open can follow the panel to the specific triggering
+   *  conversation, never an ambient/global one. */
+  conversationId: string
   isLastMessage: boolean
   isStreaming: boolean
   action?: ChatAction
@@ -35,6 +39,7 @@ export function chatMessageRowPropsEqual(
 ): boolean {
   return (
     prev.message === next.message &&
+    prev.conversationId === next.conversationId &&
     prev.isLastMessage === next.isLastMessage &&
     prev.isStreaming === next.isStreaming &&
     prev.action === next.action &&

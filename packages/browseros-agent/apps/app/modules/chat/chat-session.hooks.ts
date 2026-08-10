@@ -14,6 +14,10 @@ import {
   setLastActiveConversation,
 } from '@/lib/browseros/lastActiveConversationStorage'
 import {
+  getTabConversation,
+  setTabConversation,
+} from '@/lib/browseros/perTabConversationStorage'
+import {
   getWindowConversation,
   setWindowConversation,
 } from '@/lib/browseros/perWindowConversationStorage'
@@ -278,6 +282,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const conversationIdRef = useRef(conversationId)
   // The window this panel belongs to, resolved on mount in per-window scope.
   const windowIdRef = useRef<number | null>(null)
+  // The tab this panel belongs to, resolved on mount in per-tab scope.
+  const tabIdRef = useRef<number | null>(null)
   const turnControllerRef = useRef(new ChatTurnController())
   const [isTurnActive, setIsTurnActive] = useState(false)
 
@@ -448,7 +454,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             turnId,
             conversationIdRef.current,
           )
-          void setLastActiveConversation(conversationIdRef.current)
+          void setLastActiveConversation(
+            conversationIdRef.current,
+            tabIdRef.current,
+          )
         }
         return response
       }) as typeof fetch,
@@ -647,7 +656,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           // and overwritten it since; clearing unconditionally would wipe
           // that still-running turn's resume tracking.
           void getLastActiveConversation().then((stored) => {
-            if (stored === finishedConversationId) {
+            if (stored?.conversationId === finishedConversationId) {
               void clearLastActiveConversation()
             }
           })
@@ -1214,38 +1223,96 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     }
   }, [])
 
-  // Cold mount (panel crashed/closed while a turn was running, or Chrome
-  // discarded/reloaded the extension page): resume that turn by default,
-  // not just in per-window scope. Only ever resumes a turn confirmed still
-  // running server-side — a finished/stale stored id is a silent no-op and
-  // the panel opens blank exactly as it does today.
+  // Per-tab scope: resume THIS tab's own conversation on a fresh mount
+  // (closed + reopened panel) instead of starting blank — mirrors the
+  // per-window effect above, keyed by tabId instead of windowId.
+  //
+  // Then, cold mount (panel crashed/closed while a turn was running, or
+  // Chrome discarded/reloaded the extension page): resume that turn by
+  // default. Only ever resumes a turn confirmed still running server-side —
+  // a finished/stale stored id is a silent no-op and the panel opens blank
+  // exactly as it does today. lastActiveConversationStorage is a single
+  // global key shared by every window/panel, so in per-tab scope this only
+  // applies when it was last written from THIS tab — otherwise a turn
+  // running in a different tab would hijack this fresh mount (a fresh tab's
+  // panel silently showing a chat the user never started there).
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only; reads refs
   useEffect(() => {
     let cancelled = false
     ;(async () => {
+      const perWindow = await sidePanelPerWindowStorage.getValue()
+      let currentTabId: number | null = null
+      if (!perWindow && options?.origin !== 'newtab') {
+        const [tab] = await chrome.tabs.query({
+          active: true,
+          currentWindow: true,
+        })
+        currentTabId = tab?.id ?? null
+        if (cancelled) return
+        tabIdRef.current = currentTabId
+
+        if (currentTabId != null) {
+          const storedTabConversation = await getTabConversation(currentTabId)
+          if (cancelled) return
+          if (
+            storedTabConversation &&
+            shouldResumeLastActiveConversation({
+              origin: options?.origin,
+              conversationIdParam,
+              qParam: searchParams.get('q'),
+              storedConversationId: storedTabConversation,
+            })
+          ) {
+            setSearchParams({ conversationId: storedTabConversation })
+            return
+          }
+          if (!storedTabConversation) {
+            // Persist inline, now that tabIdRef is guaranteed populated —
+            // the separate "remember on conversationId change" effect below
+            // has one fewer async hop before it reads tabIdRef and can win
+            // the race against this effect on a fresh tab whose
+            // conversationId never changes again, silently never persisting
+            // it (mirrors the per-window effect's own inline persist above).
+            await setTabConversation(currentTabId, conversationIdRef.current)
+          }
+        }
+      }
+
       const stored = await getLastActiveConversation()
+      if (cancelled) return
       const resume = shouldResumeLastActiveConversation({
         origin: options?.origin,
         conversationIdParam,
         qParam: searchParams.get('q'),
-        storedConversationId: stored,
+        storedConversationId: stored?.conversationId ?? null,
+        perWindow,
+        currentTabId,
+        storedTabId: stored?.tabId ?? null,
       })
-      if (!resume || !stored || cancelled) return
-      setSearchParams({ conversationId: stored })
+      if (!resume || !stored) return
+      setSearchParams({ conversationId: stored.conversationId })
     })()
     return () => {
       cancelled = true
     }
   }, [])
 
-  // Remember the conversation this window is on so a remount can resume it.
+  // Remember the conversation this window/tab is on so a remount can resume
+  // it — whichever scope is active for this mount's own resolved id.
   useEffect(() => {
     if (options?.origin === 'newtab') return
-    const windowId = windowIdRef.current
-    if (windowId == null) return
     ;(async () => {
-      if (!(await sidePanelPerWindowStorage.getValue())) return
-      await setWindowConversation(windowId, conversationId)
+      if (await sidePanelPerWindowStorage.getValue()) {
+        const windowId = windowIdRef.current
+        if (windowId != null) {
+          await setWindowConversation(windowId, conversationId)
+        }
+        return
+      }
+      const tabId = tabIdRef.current
+      if (tabId != null) {
+        await setTabConversation(tabId, conversationId)
+      }
     })()
   }, [conversationId, options?.origin])
 

@@ -28,6 +28,20 @@ describe('media architecture ship gates', () => {
     expect(src).not.toMatch(/from ['"]mermaid['"]/)
   })
 
+  test('ChatMarkdown never reconstructs a mermaid fence for MessageResponse', () => {
+    // A completed mermaid part must render inert placeholder text (or the
+    // sandboxed ChatMermaidBlock) while streaming — never re-wrap the source
+    // back into a fenced-code string and pass it through MessageResponse.
+    // plugins={{}} does not stop streamdown from parsing/rendering fenced
+    // code blocks it is handed as literal text; only never receiving the
+    // fence does. Regression: React error #185 on almost every turn.
+    const src = readFileSync(
+      join(appRoot, 'components/tool-evidence/ChatMarkdown.tsx'),
+      'utf8',
+    )
+    expect(src).not.toMatch(/`{3}mermaid/)
+  })
+
   test('BrowserActionCard loads stripped stills via resolveToolImageBlobUrl', () => {
     const src = readFileSync(
       join(appRoot, 'components/tool-evidence/BrowserActionCard.tsx'),
