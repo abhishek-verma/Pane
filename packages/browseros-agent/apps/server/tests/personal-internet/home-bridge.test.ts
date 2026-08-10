@@ -64,7 +64,7 @@ describe('pi home bridge', () => {
     })
     const siteId = created.siteId!
     const tools = buildPersonalInternetToolSet()
-    const hide = await tools.pi_home_regions_patch.execute!(
+    const hide = await tools.pi_home_regions_patch.execute?.(
       {
         hideSiteId: siteId,
         continuity: [
@@ -135,5 +135,98 @@ describe('pi home bridge', () => {
     expect(afterRefresh.continuity.some((c) => c.id === 'today-stale')).toBe(
       false,
     )
+  })
+
+  it('dismissing a proposed doorway removes it and survives a rebuild', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'reading-list',
+    })
+    const siteId = created.siteId!
+
+    const before = await buildPiHomeProjection()
+    expect(before.proposeDoorways?.some((p) => p.siteId === siteId)).toBe(true)
+
+    const { dismissProposedDoorway, readHomePrefs } = await import(
+      '../../src/personal-internet/store'
+    )
+    await dismissProposedDoorway(siteId)
+
+    const after = await buildPiHomeProjection()
+    expect((after.proposeDoorways ?? []).some((p) => p.siteId === siteId)).toBe(
+      false,
+    )
+    expect((await readHomePrefs()).dismissedProposeIds).toContain(siteId)
+  })
+
+  it('POST /pi/home/propose/dismiss removes the site from future propose lists', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'reading-list',
+    })
+    const siteId = created.siteId!
+    const { Hono } = await import('hono')
+    const { createPersonalInternetRoutes } = await import(
+      '../../src/api/routes/personal-internet'
+    )
+    const app = new Hono().route('/pi', createPersonalInternetRoutes())
+    const res = await app.request('/pi/home/propose/dismiss', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ siteId }),
+    })
+    expect(res.status).toBe(200)
+    const pi = await buildPiHomeProjection()
+    expect((pi.proposeDoorways ?? []).some((p) => p.siteId === siteId)).toBe(
+      false,
+    )
+  })
+
+  it('surfaces up to 2 urgencies per site in Today, across all doorways', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    const siteId = created.siteId!
+    // Three job-application records, each with its own nextAction — the
+    // template requires `company` and stores stage on `data.stage`, so give
+    // each a distinct company and stage.
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: {
+        company: 'Acme',
+        stage: 'applied',
+        nextAction: 'Follow up with Acme recruiter',
+      },
+    })
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: {
+        company: 'Beta',
+        stage: 'interviewing',
+        nextAction: 'Prep for Beta onsite',
+      },
+    })
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: {
+        company: 'Gamma',
+        stage: 'applied',
+        nextAction: 'Send Gamma portfolio',
+      },
+    })
+
+    const pi = await buildPiHomeProjection()
+    const siteUrgencies = pi.continuity.filter((c) => c.title === 'Job Search')
+    expect(siteUrgencies.length).toBe(2)
   })
 })

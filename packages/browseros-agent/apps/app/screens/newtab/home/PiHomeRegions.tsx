@@ -179,6 +179,16 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
     }
   }
 
+  const dismissPropose = async (siteId: string) => {
+    setDismissBusyId(siteId)
+    try {
+      const res = await piPost('/pi/home/propose/dismiss', { siteId })
+      if (res.ok) invalidateHome()
+    } finally {
+      setDismissBusyId(null)
+    }
+  }
+
   const refreshToday = async () => {
     setRefreshingToday(true)
     setRefreshNote(null)
@@ -436,6 +446,12 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                     Add to home
                   </PiRailAction>
                   <PiRailAction to={routePath(p.route)}>Open</PiRailAction>
+                  <PiRailAction
+                    disabled={dismissBusyId === p.siteId}
+                    onClick={() => void dismissPropose(p.siteId)}
+                  >
+                    {dismissBusyId === p.siteId ? 'Removing…' : 'Not now'}
+                  </PiRailAction>
                 </div>
               </div>
             ))}

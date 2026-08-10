@@ -19,6 +19,7 @@ import { drainRefreshJobs } from '../../personal-internet/refresh/runner'
 import {
   deleteTemp,
   dismissContinuityBlock,
+  dismissProposedDoorway,
   getPage,
   getPulse,
   getSite,
@@ -424,6 +425,13 @@ export function createPersonalInternetRoutes() {
       const body = z.object({ id: z.string().min(1) }).parse(await c.req.json())
       const prefs = await dismissContinuityBlock(body.id)
       return c.json({ ok: true, dismissedId: body.id, prefs })
+    })
+    .post('/home/propose/dismiss', async (c) => {
+      const body = z
+        .object({ siteId: z.string().min(1) })
+        .parse(await c.req.json())
+      const prefs = await dismissProposedDoorway(body.siteId)
+      return c.json({ ok: true, dismissedSiteId: body.siteId, prefs })
     })
     .post('/home/refresh', async (c) => {
       // A manual Home refresh participates in the same durable queue as every

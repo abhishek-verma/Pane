@@ -787,6 +787,7 @@ export function buildPersonalInternetToolSet(
             hiddenSiteIds: [...hidden],
             pinnedSiteIds: [...pinned],
             dismissedContinuityIds: prefs.dismissedContinuityIds,
+            dismissedProposeIds: prefs.dismissedProposeIds,
           }
           await writeHomePrefs(nextPrefs)
 
