@@ -71,6 +71,11 @@ export const TrustPinsSettings: FC = () => {
           </div>
           <Switch
             id="require-browser-input"
+            // Displayed inverted from storage: this switch reads as a
+            // permission ("clicks and typing allowed") like the pin
+            // switches below it, but requireBrowserInputApprovalStorage
+            // stores the opposite ("approval required"). Keep the negation
+            // on both sides in sync if this toggle is ever touched.
             checked={!requireBrowserInput}
             onCheckedChange={(checked) => {
               const requireApproval = !checked
