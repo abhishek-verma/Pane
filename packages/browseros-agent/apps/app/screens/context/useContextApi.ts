@@ -23,7 +23,7 @@ export interface ContextNode {
   summary: string | null
 }
 
-export interface SearchSnippet {
+interface SearchSnippet {
   nodeId: string
   bucketId: string
   kind: string
@@ -34,7 +34,7 @@ export interface SearchSnippet {
   score: number
 }
 
-export interface SearchResponse {
+interface SearchResponse {
   bucketId: string
   query: string
   mode: string
@@ -42,7 +42,7 @@ export interface SearchResponse {
   snippets: SearchSnippet[]
 }
 
-export interface NodeListPage {
+interface NodeListPage {
   nodes: ContextNode[]
   hasMore: boolean
 }

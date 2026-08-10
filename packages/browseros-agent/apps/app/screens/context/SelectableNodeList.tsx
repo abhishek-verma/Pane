@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { ContextNode } from './useContextApi'
 
-interface SelectableNodeListProps {
+export interface SelectableNodeListProps {
   title: string
   nodes: ContextNode[]
   selected: Set<string>

@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 
-interface ContextSelectionToolbarProps {
+export interface ContextSelectionToolbarProps {
   count: number
   onClear: () => void
   onDelete: () => void
