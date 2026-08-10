@@ -60,6 +60,82 @@ describe('context + tasks API', () => {
     expect(body.snippets.every((s) => !s.uri?.includes('evil.com'))).toBe(true)
   })
 
+  it('lists nodes by kind with pagination', async () => {
+    for (let i = 0; i < 3; i++) {
+      graphUpsertNode({
+        bucketId: 'default',
+        kind: 'file',
+        title: `note-${i}.txt`,
+        uri: `/tmp/note-${i}.txt`,
+        provenance: 'tool:filesystem_write',
+        matchByUri: true,
+      })
+    }
+
+    const page1 = await app.request(
+      '/context/nodes?bucketId=default&kind=file&limit=2&offset=0',
+    )
+    expect(page1.status).toBe(200)
+    const body1 = (await page1.json()) as {
+      nodes: Array<{ id: string }>
+      hasMore: boolean
+    }
+    expect(body1.nodes.length).toBe(2)
+    expect(body1.hasMore).toBe(true)
+
+    const page2 = await app.request(
+      '/context/nodes?bucketId=default&kind=file&limit=2&offset=2',
+    )
+    const body2 = (await page2.json()) as {
+      nodes: Array<{ id: string }>
+      hasMore: boolean
+    }
+    expect(body2.nodes.length).toBe(1)
+    expect(body2.hasMore).toBe(false)
+  })
+
+  it('rejects an invalid kind for node listing', async () => {
+    const res = await app.request(
+      '/context/nodes?bucketId=default&kind=not-a-real-kind',
+    )
+    expect(res.status).toBe(400)
+  })
+
+  it('bulk deletes nodes', async () => {
+    const a = graphUpsertNode({
+      bucketId: 'default',
+      kind: 'page',
+      title: 'To delete A',
+      uri: 'https://del-a.example/',
+      provenance: 'tool:navigate',
+      matchByUri: true,
+    })
+    const b = graphUpsertNode({
+      bucketId: 'default',
+      kind: 'page',
+      title: 'To delete B',
+      uri: 'https://del-b.example/',
+      provenance: 'tool:navigate',
+      matchByUri: true,
+    })
+
+    const del = await app.request('/context/nodes', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nodeIds: [a.id, b.id] }),
+    })
+    expect(del.status).toBe(200)
+    const delBody = (await del.json()) as { deleted: number }
+    expect(delBody.deleted).toBe(2)
+
+    const after = await app.request(
+      '/context/nodes?bucketId=default&kind=page&limit=10&offset=0',
+    )
+    const afterBody = (await after.json()) as { nodes: Array<{ id: string }> }
+    expect(afterBody.nodes.some((n) => n.id === a.id)).toBe(false)
+    expect(afterBody.nodes.some((n) => n.id === b.id)).toBe(false)
+  })
+
   it('task CRUD works', async () => {
     const create = await app.request('/tasks', {
       method: 'POST',
