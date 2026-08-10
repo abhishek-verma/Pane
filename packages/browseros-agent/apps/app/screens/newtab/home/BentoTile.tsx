@@ -19,6 +19,7 @@ export const BentoTile: FC<{
   subtitle: string
   size?: 'lg' | 'sm'
   pinned?: boolean
+  updated?: boolean
   badge?: ReactNode
   onClick: () => void
   actions?: ReactNode
@@ -28,6 +29,7 @@ export const BentoTile: FC<{
   subtitle,
   size = 'sm',
   pinned = false,
+  updated = false,
   badge,
   onClick,
   actions,
@@ -51,6 +53,15 @@ export const BentoTile: FC<{
             size === 'lg' ? 'h-5 w-5' : 'h-4 w-4',
           )}
         />
+        {updated ? (
+          <span
+            className="inline-flex items-center gap-1 font-mono text-[10px] text-[var(--signal)] uppercase tracking-[0.06em]"
+            title="Pane updated this while you were away"
+          >
+            <span className="size-1.5 rounded-full bg-[var(--signal)]" />
+            Updated
+          </span>
+        ) : null}
         <div className="min-w-0">
           <div
             className={cn(

@@ -575,6 +575,7 @@ export type HomePrefs = {
   dismissedContinuityIds: string[]
   /** Site ids removed from "Suggest for home" until the site changes again. */
   dismissedProposeIds: string[]
+  lastViewedAt: number | null
 }
 
 const MAX_DISMISSED_CONTINUITY = 50
@@ -593,6 +594,8 @@ export async function readHomePrefs(): Promise<HomePrefs> {
       dismissedProposeIds: Array.isArray(parsed.dismissedProposeIds)
         ? parsed.dismissedProposeIds.filter((id) => typeof id === 'string')
         : [],
+      lastViewedAt:
+        typeof parsed.lastViewedAt === 'number' ? parsed.lastViewedAt : null,
     }
   } catch {
     return {
@@ -600,6 +603,7 @@ export async function readHomePrefs(): Promise<HomePrefs> {
       pinnedSiteIds: [],
       dismissedContinuityIds: [],
       dismissedProposeIds: [],
+      lastViewedAt: null,
     }
   }
 }
@@ -619,6 +623,7 @@ export async function writeHomePrefs(prefs: HomePrefs): Promise<void> {
         dismissedProposeIds: prefs.dismissedProposeIds.slice(
           -MAX_DISMISSED_PROPOSE,
         ),
+        lastViewedAt: prefs.lastViewedAt,
       },
       null,
       2,
@@ -688,6 +693,11 @@ export async function updateDoorwayVisibility(input: {
   }
   await writeHomePrefs(next)
   return next
+}
+
+export async function markHomeVisited(): Promise<void> {
+  const prefs = await readHomePrefs()
+  await writeHomePrefs({ ...prefs, lastViewedAt: Date.now() })
 }
 
 export async function clearDismissedContinuity(): Promise<void> {

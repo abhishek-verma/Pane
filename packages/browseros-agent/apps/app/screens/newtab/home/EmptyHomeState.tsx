@@ -27,9 +27,13 @@ export const EmptyHomeState: FC = () => {
           Empty
         </span>
       </div>
-      <p className="pb-3 text-muted-foreground text-sm leading-6">
+      <p className="pb-1 text-muted-foreground text-sm leading-6">
         Your private web starts empty. Ask Pane to set up living work — a job
         search pipeline, research hub, or whatever you need to keep running.
+      </p>
+      <p className="pb-3 text-muted-foreground text-xs leading-6">
+        The more you use Pane for real work, the more it remembers and starts
+        doing without being asked.
       </p>
       <div className="divide-y divide-border border-border border-y">
         {templates.map((t) => (

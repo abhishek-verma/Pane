@@ -381,6 +381,7 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                 subtitle={d.pulseLine}
                 size={index === 0 ? 'lg' : 'sm'}
                 pinned={d.pinned}
+                updated={d.updatedSinceLastVisit}
                 onClick={() => navigatePiDocument(routePath(d.primaryRoute))}
                 actions={
                   <>

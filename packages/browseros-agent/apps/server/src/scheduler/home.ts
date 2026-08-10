@@ -8,17 +8,33 @@
  */
 
 import { readPromptFiles } from '../memory/files'
+import { listEntries, listSkills } from '../memory/store'
 import type { PiHomeProjection } from '../personal-internet/types'
+
+export type HomeGrowth = {
+  skillsLearned: number
+  memoriesCount: number
+  sitesActive: number
+}
 
 export type HomePayload = {
   firstName: string | null
   pi: PiHomeProjection
+  growth: HomeGrowth
 }
 
 function extractFirstName(userMd: string): string | null {
   const m = userMd.match(/name:\s*([^\n,]+)/i)
   if (!m) return null
   return m[1].trim().split(/\s+/)[0] ?? null
+}
+
+function computeGrowth(pi: PiHomeProjection): HomeGrowth {
+  return {
+    skillsLearned: listSkills({ status: 'active' }).length,
+    memoriesCount: listEntries({ status: 'active' }).length,
+    sitesActive: pi.doorways.length,
+  }
 }
 
 export async function loadHome(): Promise<HomePayload> {
@@ -39,5 +55,5 @@ export async function loadHome(): Promise<HomePayload> {
     pi = emptyPiHomeProjection()
   }
 
-  return { firstName, pi }
+  return { firstName, pi, growth: computeGrowth(pi) }
 }

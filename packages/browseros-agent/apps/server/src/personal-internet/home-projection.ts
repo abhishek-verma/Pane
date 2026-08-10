@@ -38,6 +38,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
   const hidden = new Set(prefs.hiddenSiteIds)
   const pinned = new Set(prefs.pinnedSiteIds)
   const dismissedPropose = new Set(prefs.dismissedProposeIds)
+  const lastViewedAt = prefs.lastViewedAt
   const now = Date.now()
 
   const sites = listSites({ status: ['active', 'dormant'] })
@@ -82,6 +83,11 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
       primaryRoute: siteRoute(site.id),
       templateId: (site.templateId ?? 'blank') as PiTemplateId,
       pinned: pinned.has(site.id),
+      updatedSinceLastVisit: Boolean(
+        lastViewedAt &&
+          pulse.lastUpdatedAt &&
+          Date.parse(pulse.lastUpdatedAt) > lastViewedAt,
+      ),
       secondary: pulse.topUrgencies[0],
       lastUpdatedAt: pulse.lastUpdatedAt,
     })

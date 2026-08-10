@@ -277,4 +277,39 @@ describe('pi home bridge', () => {
     const pi = await buildPiHomeProjection()
     expect(pi.doorways.find((d) => d.siteId === siteId)?.pinned).toBe(true)
   })
+
+  it('marks a doorway updated-since-last-visit only after a prior visit was recorded', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    const siteId = created.siteId!
+
+    // No prior visit recorded yet — nothing should be marked "new" on a
+    // first-ever open, even though the site was just created.
+    const firstLoad = await buildPiHomeProjection()
+    expect(
+      firstLoad.doorways.find((d) => d.siteId === siteId)
+        ?.updatedSinceLastVisit,
+    ).toBeFalsy()
+
+    const { markHomeVisited } = await import(
+      '../../src/personal-internet/store'
+    )
+    await markHomeVisited()
+
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: { company: 'Acme', stage: 'applied' },
+    })
+
+    const afterUpdate = await buildPiHomeProjection()
+    expect(
+      afterUpdate.doorways.find((d) => d.siteId === siteId)
+        ?.updatedSinceLastVisit,
+    ).toBe(true)
+  })
 })
