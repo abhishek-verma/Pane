@@ -37,6 +37,10 @@ import {
   upsertSite,
   writeHomePrefs,
 } from '../../personal-internet/store'
+import {
+  ALL_TEMPLATE_IDS,
+  getSiteTemplate,
+} from '../../personal-internet/templates'
 import type {
   PiPageDoc,
   PiPatchOp,
@@ -111,6 +115,13 @@ export function createPersonalInternetRoutes() {
         pulse: getPulse(s.id),
       }))
       return c.json({ sites })
+    })
+    .get('/templates', (c) => {
+      const templates = ALL_TEMPLATE_IDS.map((id) => {
+        const t = getSiteTemplate(id)
+        return { id: t.id, name: t.name, jtbd: t.jtbd }
+      })
+      return c.json({ templates })
     })
     .post('/sites', async (c) => {
       const body = UpsertSiteSchema.parse(await c.req.json())
