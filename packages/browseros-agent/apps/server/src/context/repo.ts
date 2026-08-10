@@ -12,7 +12,9 @@ import {
   addEdge,
   addEvent,
   currentWork,
+  deleteNodes,
   ensureDefaultBucket,
+  listNodesByKind,
   search,
   upsertNode,
 } from '@browseros/context-graph/repo'
@@ -23,7 +25,9 @@ import type {
   GraphEdge,
   GraphEvent,
   GraphNode,
+  GraphNodeKind,
   GraphSqlDatabase,
+  NodeListPage,
   SearchSnippet,
   UpsertNodeInput,
 } from '@browseros/context-graph/types'
@@ -65,4 +69,30 @@ export function graphCurrentWork(
   return currentWork(sqlite(), bucketId, options)
 }
 
-export type { CurrentWork, GraphNode, SearchSnippet }
+export function graphListNodes(
+  bucketId: string,
+  kind: GraphNodeKind,
+  options?: {
+    deniedHosts?: Set<string> | string[]
+    limit?: number
+    offset?: number
+  },
+): NodeListPage {
+  return listNodesByKind(sqlite(), bucketId, kind, options)
+}
+
+export async function graphDeleteNodes(nodeIds: string[]): Promise<void> {
+  deleteNodes(sqlite(), nodeIds)
+  try {
+    // Graph nodes are chunked/embedded under sourceKind 'graph' (see context/ingest.ts);
+    // clean those up too or deleted nodes keep surfacing as embedding search hits.
+    const { deleteChunksForSource } = await import('../retrieval/chunks')
+    for (const id of nodeIds) {
+      deleteChunksForSource('graph', id)
+    }
+  } catch {
+    /* embedding_chunks may be missing in older test DBs */
+  }
+}
+
+export type { CurrentWork, GraphNode, NodeListPage, SearchSnippet }

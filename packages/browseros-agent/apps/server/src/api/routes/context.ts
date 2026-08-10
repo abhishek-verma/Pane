@@ -20,7 +20,11 @@ import {
   setGrant,
 } from '../../context/grants'
 import { getIngestPauseReason, isIngestPaused } from '../../context/ingest'
-import { graphCurrentWork } from '../../context/repo'
+import {
+  graphCurrentWork,
+  graphDeleteNodes,
+  graphListNodes,
+} from '../../context/repo'
 import { getDbHandle } from '../../lib/db'
 import { hybridSearch } from '../../retrieval/hybrid'
 import type { Env } from '../types'
@@ -37,6 +41,23 @@ const CreateBucketSchema = z.object({
     .enum(['general', 'work', 'personal', 'project', 'research', 'meeting'])
     .optional(),
   id: z.string().optional(),
+})
+
+const GraphNodeKindSchema = z.enum([
+  'tab',
+  'page',
+  'workspace',
+  'file',
+  'terminal_session',
+  'agent_run',
+  'task',
+  'meeting',
+  'research_page',
+  'research_thread',
+])
+
+const DeleteNodesSchema = z.object({
+  nodeIds: z.array(z.string().min(1)).min(1).max(200),
 })
 
 export function createContextRoutes() {
@@ -75,6 +96,28 @@ export function createContextRoutes() {
           score: h.score,
         })),
       })
+    })
+    .get('/nodes', (c) => {
+      const bucketId = c.req.query('bucketId') || DEFAULT_BUCKET_ID
+      const kindResult = GraphNodeKindSchema.safeParse(c.req.query('kind'))
+      if (!kindResult.success) {
+        return c.json({ error: 'invalid kind' }, 400)
+      }
+      const limit = Number(c.req.query('limit') || '20')
+      const offset = Number(c.req.query('offset') || '0')
+      ensureDefaultBucket(getDbHandle().sqlite as never)
+      const denied = getDeniedHosts(bucketId)
+      const page = graphListNodes(bucketId, kindResult.data, {
+        deniedHosts: denied,
+        limit,
+        offset,
+      })
+      return c.json(page)
+    })
+    .delete('/nodes', async (c) => {
+      const body = DeleteNodesSchema.parse(await c.req.json())
+      await graphDeleteNodes(body.nodeIds)
+      return c.json({ deleted: body.nodeIds.length })
     })
     .get('/grants', (c) => {
       const bucketId = c.req.query('bucketId') || DEFAULT_BUCKET_ID

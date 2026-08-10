@@ -5,9 +5,10 @@
  */
 
 import type { FC } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -15,33 +16,95 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ContextSelectionToolbar } from './ContextSelectionToolbar'
+import { SelectableNodeList } from './SelectableNodeList'
 import {
   type ContextNode,
+  type CurrentWorkResponse,
   useContextBuckets,
   useContextCurrent,
+  useContextNodes,
+  useContextSearch,
+  useDeleteContextNodes,
 } from './useContextApi'
+import { useNodeSelection } from './useNodeSelection'
 
-function NodeList({ title, nodes }: { title: string; nodes: ContextNode[] }) {
-  if (nodes.length === 0) return null
+const CATEGORY_KINDS: Array<{
+  title: string
+  kind: string
+  workKey: keyof CurrentWorkResponse['work']
+}> = [
+  { title: 'Pages', kind: 'page', workKey: 'pages' },
+  { title: 'Previously Opened Pages', kind: 'tab', workKey: 'tabs' },
+  { title: 'Files', kind: 'file', workKey: 'files' },
+  { title: 'Terminal', kind: 'terminal_session', workKey: 'terminal' },
+  { title: 'Agent runs', kind: 'agent_run', workKey: 'runs' },
+  { title: 'Research Pages', kind: 'research_page', workKey: 'research' },
+  { title: 'Meetings', kind: 'meeting', workKey: 'meetings' },
+]
+
+// Mirrors GraphNodeKind (packages/context-graph/src/types.ts). Search hits are
+// only deletable through /context/nodes when they're backed by a graph_nodes
+// row — `kind` identifies that reliably; `sourceKind` does not, since the
+// vector/embedding retrieval arm reports sourceKind "embedding" even for
+// graph-node hits, and the path-search arm reports "file_path".
+const GRAPH_NODE_KINDS = new Set([
+  'tab',
+  'page',
+  'workspace',
+  'file',
+  'terminal_session',
+  'agent_run',
+  'task',
+  'meeting',
+  'research_page',
+  'research_thread',
+])
+
+function useDebounced(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs)
+    return () => clearTimeout(timer)
+  }, [value, delayMs])
+  return debounced
+}
+
+function CategorySection({
+  title,
+  kind,
+  fallbackNodes,
+  bucketId,
+  selection,
+}: {
+  title: string
+  kind: string
+  fallbackNodes: ContextNode[]
+  bucketId: string
+  selection: ReturnType<typeof useNodeSelection>
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const paged = useContextNodes(bucketId, kind, expanded)
+  const nodes = expanded ? paged.nodes : fallbackNodes
+  const showShowAll = !expanded && fallbackNodes.length >= 8
+
   return (
-    <section className="space-y-2">
-      <h2 className="font-medium text-sm">{title}</h2>
-      <ul className="space-y-2">
-        {nodes.map((n) => (
-          <li
-            key={n.id}
-            className="rounded-lg border bg-card px-3 py-2 text-sm"
-          >
-            <div className="font-medium">{n.title ?? '(untitled)'}</div>
-            {n.uri && (
-              <div className="truncate text-muted-foreground text-xs">
-                {n.uri}
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
+    <div className="space-y-2">
+      <SelectableNodeList
+        title={title}
+        nodes={nodes}
+        selected={selection.selected}
+        onClick={selection.click}
+        hasMore={expanded ? paged.hasMore : false}
+        loadingMore={paged.loadingMore}
+        onLoadMore={paged.fetchMore}
+      />
+      {showShowAll && (
+        <Button variant="ghost" size="sm" onClick={() => setExpanded(true)}>
+          Show all {title.toLowerCase()}
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -50,6 +113,15 @@ export const ContextPage: FC = () => {
   const [bucketId, setBucketId] = useState('default')
   const { data, loading, error, refetch } = useContextCurrent(bucketId)
   const work = data?.work
+
+  const [searchInput, setSearchInput] = useState('')
+  const debouncedSearch = useDebounced(searchInput, 300)
+  const searching = debouncedSearch.trim().length > 0
+  const search = useContextSearch(bucketId, debouncedSearch)
+
+  const selection = useNodeSelection()
+  const deleteMutation = useDeleteContextNodes(bucketId)
+
   const empty =
     work &&
     work.tabs.length === 0 &&
@@ -59,6 +131,22 @@ export const ContextPage: FC = () => {
     work.runs.length === 0 &&
     (!work.research || work.research.length === 0) &&
     (!work.meetings || work.meetings.length === 0)
+
+  const searchSnippets = search.data?.snippets ?? []
+  const graphSearchHits = searchSnippets.filter((s) =>
+    GRAPH_NODE_KINDS.has(s.kind),
+  )
+  const nonGraphSearchHits = searchSnippets.filter(
+    (s) => !GRAPH_NODE_KINDS.has(s.kind),
+  )
+  const searchNodes: ContextNode[] = searchSnippets.map((s) => ({
+    id: s.nodeId,
+    kind: s.kind,
+    title: s.title,
+    uri: s.uri,
+    summary: s.snippet,
+  }))
+  const nonSelectableIds = new Set(nonGraphSearchHits.map((s) => s.nodeId))
 
   return (
     <div className="fade-in slide-in-from-bottom-5 animate-in space-y-6 duration-500">
@@ -99,32 +187,83 @@ export const ContextPage: FC = () => {
         )}
       </div>
 
-      {(loading || bucketsLoading) && (
+      <Input
+        placeholder="Search your context (natural language — same search the agent uses)"
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
+      />
+
+      <ContextSelectionToolbar
+        count={selection.selected.size}
+        onClear={selection.clear}
+        deleting={deleteMutation.isPending}
+        onDelete={() => {
+          deleteMutation.mutate(Array.from(selection.selected), {
+            onSuccess: () => selection.clear(),
+          })
+        }}
+      />
+
+      {(loading || bucketsLoading) && !searching && (
         <p className="text-muted-foreground text-sm">Loading context…</p>
       )}
-      {error && (
+      {error && !searching && (
         <p className="text-destructive text-sm">
           {error instanceof Error ? error.message : 'Failed to load context'}
         </p>
       )}
 
-      {!loading && !error && empty && (
-        <p className="text-muted-foreground text-sm">
-          Nothing indexed yet. Browse with the agent, write a file, or run a
-          terminal command to fill this view.
-        </p>
-      )}
-
-      {work && !empty && (
-        <div className="grid gap-6 md:grid-cols-2">
-          <NodeList title="Pages" nodes={work.pages} />
-          <NodeList title="Previously Opened Pages" nodes={work.tabs} />
-          <NodeList title="Files" nodes={work.files} />
-          <NodeList title="Terminal" nodes={work.terminal} />
-          <NodeList title="Agent runs" nodes={work.runs} />
-          <NodeList title="Research Pages" nodes={work.research || []} />
-          <NodeList title="Meetings" nodes={work.meetings || []} />
+      {searching ? (
+        <div className="space-y-3">
+          {search.loading && (
+            <p className="text-muted-foreground text-sm">Searching…</p>
+          )}
+          {!search.loading &&
+            graphSearchHits.length === 0 &&
+            nonGraphSearchHits.length === 0 && (
+              <p className="text-muted-foreground text-sm">
+                No context matches for "{debouncedSearch}".
+              </p>
+            )}
+          <SelectableNodeList
+            title="Search results"
+            nodes={searchNodes}
+            selected={selection.selected}
+            onClick={selection.click}
+            nonSelectableIds={nonSelectableIds}
+          />
+          {nonGraphSearchHits.length > 0 && (
+            <p className="text-muted-foreground text-xs">
+              {nonGraphSearchHits.length} additional result
+              {nonGraphSearchHits.length === 1 ? '' : 's'} from
+              memory/chat/other sources aren't manageable from this page yet.
+            </p>
+          )}
         </div>
+      ) : (
+        <>
+          {!loading && !error && empty && (
+            <p className="text-muted-foreground text-sm">
+              Nothing indexed yet. Browse with the agent, write a file, or run a
+              terminal command to fill this view.
+            </p>
+          )}
+
+          {work && !empty && (
+            <div className="grid gap-6 md:grid-cols-2">
+              {CATEGORY_KINDS.map(({ title, kind, workKey }) => (
+                <CategorySection
+                  key={kind}
+                  title={title}
+                  kind={kind}
+                  fallbackNodes={work[workKey] ?? []}
+                  bucketId={bucketId}
+                  selection={selection}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <section className="space-y-3 border-t pt-4">

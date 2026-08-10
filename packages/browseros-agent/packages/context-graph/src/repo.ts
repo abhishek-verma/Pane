@@ -13,6 +13,8 @@ import {
   DEFAULT_BUCKET_KIND,
   DEFAULT_BUCKET_NAME,
   EVENT_PAYLOAD_MAX_CHARS,
+  NODES_LIST_DEFAULT_LIMIT,
+  NODES_LIST_MAX_LIMIT,
   SEARCH_DEFAULT_LIMIT,
   SEARCH_MAX_LIMIT,
   SNIPPET_MAX_CHARS,
@@ -28,6 +30,7 @@ import type {
   GraphNode,
   GraphNodeKind,
   GraphSqlDatabase,
+  NodeListPage,
   SearchSnippet,
   UpsertNodeInput,
 } from './types'
@@ -384,6 +387,44 @@ function isInternalOrAppUri(
   }
 }
 
+function queryNodesByKind(
+  db: GraphSqlDatabase,
+  bucketId: string,
+  kind: GraphNodeKind,
+  denied: Set<string>,
+  limit: number,
+  offset: number,
+): NodeListPage {
+  const rows = db
+    .prepare<Record<string, unknown>>(
+      `SELECT * FROM graph_nodes
+       WHERE bucket_id = ? AND kind = ?
+       ORDER BY updated_at DESC
+       LIMIT ? OFFSET ?`,
+    )
+    .all(bucketId, kind, (limit + 1) * 2, offset)
+
+  const nodes: GraphNode[] = []
+  let hasMore = false
+  for (const row of rows) {
+    const node = rowToNode(row)
+    if (kind === 'page' || kind === 'tab') {
+      if (isInternalOrAppUri(node.uri, node.title)) {
+        continue
+      }
+      if (denied.size > 0 && isDeniedUri(node.uri, denied)) {
+        continue
+      }
+    }
+    if (nodes.length >= limit) {
+      hasMore = true
+      break
+    }
+    nodes.push(node)
+  }
+  return { nodes, hasMore }
+}
+
 export function currentWork(
   db: GraphSqlDatabase,
   bucketId: string,
@@ -391,33 +432,8 @@ export function currentWork(
 ): CurrentWork {
   const limit = options?.limitPerKind ?? 8
   const denied = normalizeDeniedHosts(options?.deniedHosts)
-
-  const pick = (kind: GraphNodeKind): GraphNode[] => {
-    const rows = db
-      .prepare<Record<string, unknown>>(
-        `SELECT * FROM graph_nodes
-         WHERE bucket_id = ? AND kind = ?
-         ORDER BY updated_at DESC
-         LIMIT ?`,
-      )
-      .all(bucketId, kind, limit * 2)
-
-    const nodes: GraphNode[] = []
-    for (const row of rows) {
-      const node = rowToNode(row)
-      if (kind === 'page' || kind === 'tab') {
-        if (isInternalOrAppUri(node.uri, node.title)) {
-          continue
-        }
-        if (denied.size > 0 && isDeniedUri(node.uri, denied)) {
-          continue
-        }
-      }
-      nodes.push(node)
-      if (nodes.length >= limit) break
-    }
-    return nodes
-  }
+  const pick = (kind: GraphNodeKind): GraphNode[] =>
+    queryNodesByKind(db, bucketId, kind, denied, limit, 0).nodes
 
   return {
     tabs: pick('tab'),
@@ -428,6 +444,26 @@ export function currentWork(
     research: pick('research_page'),
     meetings: pick('meeting'),
   }
+}
+
+/** Paginated listing for a single kind — used by the context settings "show more" view. */
+export function listNodesByKind(
+  db: GraphSqlDatabase,
+  bucketId: string,
+  kind: GraphNodeKind,
+  options?: {
+    deniedHosts?: Set<string> | string[]
+    limit?: number
+    offset?: number
+  },
+): NodeListPage {
+  const denied = normalizeDeniedHosts(options?.deniedHosts)
+  const limit = Math.min(
+    Math.max(1, options?.limit ?? NODES_LIST_DEFAULT_LIMIT),
+    NODES_LIST_MAX_LIMIT,
+  )
+  const offset = Math.max(0, options?.offset ?? 0)
+  return queryNodesByKind(db, bucketId, kind, denied, limit, offset)
 }
 
 export function getNode(
@@ -450,6 +486,13 @@ export function deleteNode(db: GraphSqlDatabase, nodeId: string): void {
     nodeId,
   )
   db.prepare('DELETE FROM graph_nodes WHERE id = ?').run(nodeId)
+}
+
+/** Bulk delete — loops the single-node delete; each call already removes fts/edges/events. */
+export function deleteNodes(db: GraphSqlDatabase, nodeIds: string[]): void {
+  for (const id of nodeIds) {
+    deleteNode(db, id)
+  }
 }
 
 /** Build a safe FTS5 MATCH query from free text (no raw SQL concat of user input). */
@@ -492,5 +535,6 @@ export type {
   GraphEdge,
   GraphEvent,
   GraphNode,
+  NodeListPage,
   SearchSnippet,
 }
