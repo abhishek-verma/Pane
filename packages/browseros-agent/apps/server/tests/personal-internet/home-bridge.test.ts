@@ -64,7 +64,7 @@ describe('pi home bridge', () => {
     })
     const siteId = created.siteId!
     const tools = buildPersonalInternetToolSet()
-    const hide = await tools.pi_home_regions_patch.execute!(
+    const hide = await tools.pi_home_regions_patch.execute?.(
       {
         hideSiteId: siteId,
         continuity: [
@@ -133,6 +133,53 @@ describe('pi home bridge', () => {
     )
     // Refresh rebuilds from current canonical inputs only.
     expect(afterRefresh.continuity.some((c) => c.id === 'today-stale')).toBe(
+      false,
+    )
+  })
+
+  it('dismissing a proposed doorway removes it and survives a rebuild', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'reading-list',
+    })
+    const siteId = created.siteId!
+
+    const before = await buildPiHomeProjection()
+    expect(before.proposeDoorways?.some((p) => p.siteId === siteId)).toBe(true)
+
+    const { dismissProposedDoorway, readHomePrefs } = await import(
+      '../../src/personal-internet/store'
+    )
+    await dismissProposedDoorway(siteId)
+
+    const after = await buildPiHomeProjection()
+    expect((after.proposeDoorways ?? []).some((p) => p.siteId === siteId)).toBe(
+      false,
+    )
+    expect((await readHomePrefs()).dismissedProposeIds).toContain(siteId)
+  })
+
+  it('POST /pi/home/propose/dismiss removes the site from future propose lists', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'reading-list',
+    })
+    const siteId = created.siteId!
+    const { Hono } = await import('hono')
+    const { createPersonalInternetRoutes } = await import(
+      '../../src/api/routes/personal-internet'
+    )
+    const app = new Hono().route('/pi', createPersonalInternetRoutes())
+    const res = await app.request('/pi/home/propose/dismiss', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ siteId }),
+    })
+    expect(res.status).toBe(200)
+    const pi = await buildPiHomeProjection()
+    expect((pi.proposeDoorways ?? []).some((p) => p.siteId === siteId)).toBe(
       false,
     )
   })

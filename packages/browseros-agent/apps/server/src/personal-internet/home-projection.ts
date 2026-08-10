@@ -30,6 +30,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
   const prefs = await readHomePrefs()
   const hidden = new Set(prefs.hiddenSiteIds)
   const pinned = new Set(prefs.pinnedSiteIds)
+  const dismissedPropose = new Set(prefs.dismissedProposeIds)
   const now = Date.now()
 
   const sites = listSites({ status: ['active', 'dormant'] })
@@ -42,7 +43,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
       continue
     }
     if (!site.doorwayEligible && !pinned.has(site.id)) {
-      if (site.status === 'active') {
+      if (site.status === 'active' && !dismissedPropose.has(site.id)) {
         propose.push({
           siteId: site.id,
           name: site.name,

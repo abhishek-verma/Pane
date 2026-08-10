@@ -573,9 +573,12 @@ export type HomePrefs = {
   pinnedSiteIds: string[]
   /** Continuity block ids removed from Today until the next Today refresh. */
   dismissedContinuityIds: string[]
+  /** Site ids removed from "Suggest for home" until the site changes again. */
+  dismissedProposeIds: string[]
 }
 
 const MAX_DISMISSED_CONTINUITY = 50
+const MAX_DISMISSED_PROPOSE = 50
 
 export async function readHomePrefs(): Promise<HomePrefs> {
   try {
@@ -587,12 +590,16 @@ export async function readHomePrefs(): Promise<HomePrefs> {
       dismissedContinuityIds: Array.isArray(parsed.dismissedContinuityIds)
         ? parsed.dismissedContinuityIds.filter((id) => typeof id === 'string')
         : [],
+      dismissedProposeIds: Array.isArray(parsed.dismissedProposeIds)
+        ? parsed.dismissedProposeIds.filter((id) => typeof id === 'string')
+        : [],
     }
   } catch {
     return {
       hiddenSiteIds: [],
       pinnedSiteIds: [],
       dismissedContinuityIds: [],
+      dismissedProposeIds: [],
     }
   }
 }
@@ -608,6 +615,9 @@ export async function writeHomePrefs(prefs: HomePrefs): Promise<void> {
         pinnedSiteIds: prefs.pinnedSiteIds,
         dismissedContinuityIds: prefs.dismissedContinuityIds.slice(
           -MAX_DISMISSED_CONTINUITY,
+        ),
+        dismissedProposeIds: prefs.dismissedProposeIds.slice(
+          -MAX_DISMISSED_PROPOSE,
         ),
       },
       null,
@@ -636,6 +646,23 @@ export async function dismissContinuityBlock(id: string): Promise<HomePrefs> {
       regions.continuity.filter((c) => c.id !== trimmed),
     )
   }
+  return next
+}
+
+/** Hide a proposed doorway from "Suggest for home" until the site changes. */
+export async function dismissProposedDoorway(
+  siteId: string,
+): Promise<HomePrefs> {
+  const trimmed = siteId.trim()
+  if (!trimmed) return readHomePrefs()
+  const prefs = await readHomePrefs()
+  const dismissed = new Set(prefs.dismissedProposeIds)
+  dismissed.add(trimmed)
+  const next: HomePrefs = {
+    ...prefs,
+    dismissedProposeIds: [...dismissed].slice(-MAX_DISMISSED_PROPOSE),
+  }
+  await writeHomePrefs(next)
   return next
 }
 
