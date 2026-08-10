@@ -16,9 +16,16 @@ export {
   resetHomeLoaderChatFlag,
 } from './home-loader-guard'
 
+export interface HomeGrowth {
+  skillsLearned: number
+  memoriesCount: number
+  sitesActive: number
+}
+
 export interface HomeData {
   firstName?: string | null
   pi?: PiHomeProjection | null
+  growth?: HomeGrowth
 }
 
 export const HOME_QUERY_KEY = ['scheduler', 'home'] as const
