@@ -43,6 +43,24 @@ const CATEGORY_KINDS: Array<{
   { title: 'Meetings', kind: 'meeting', workKey: 'meetings' },
 ]
 
+// Mirrors GraphNodeKind (packages/context-graph/src/types.ts). Search hits are
+// only deletable through /context/nodes when they're backed by a graph_nodes
+// row — `kind` identifies that reliably; `sourceKind` does not, since the
+// vector/embedding retrieval arm reports sourceKind "embedding" even for
+// graph-node hits, and the path-search arm reports "file_path".
+const GRAPH_NODE_KINDS = new Set([
+  'tab',
+  'page',
+  'workspace',
+  'file',
+  'terminal_session',
+  'agent_run',
+  'task',
+  'meeting',
+  'research_page',
+  'research_thread',
+])
+
 function useDebounced(value: string, delayMs: number): string {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -115,9 +133,11 @@ export const ContextPage: FC = () => {
     (!work.meetings || work.meetings.length === 0)
 
   const searchSnippets = search.data?.snippets ?? []
-  const graphSearchHits = searchSnippets.filter((s) => s.sourceKind === 'graph')
+  const graphSearchHits = searchSnippets.filter((s) =>
+    GRAPH_NODE_KINDS.has(s.kind),
+  )
   const nonGraphSearchHits = searchSnippets.filter(
-    (s) => s.sourceKind !== 'graph',
+    (s) => !GRAPH_NODE_KINDS.has(s.kind),
   )
   const searchNodes: ContextNode[] = searchSnippets.map((s) => ({
     id: s.nodeId,
