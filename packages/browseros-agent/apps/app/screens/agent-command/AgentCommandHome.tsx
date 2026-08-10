@@ -5,7 +5,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { type FC, useEffect, useMemo, useState } from 'react'
+import { type FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { Feature } from '@/lib/browseros/capabilities'
@@ -114,6 +114,13 @@ export const AgentCommandHome: FC = () => {
     staleTime: 5_000,
     refetchInterval: 30_000,
   })
+
+  const hasMarkedVisitRef = useRef(false)
+  useEffect(() => {
+    if (homeLoading || hasMarkedVisitRef.current) return
+    hasMarkedVisitRef.current = true
+    void piPost('/pi/home/mark-visited', {})
+  }, [homeLoading])
 
   useEffect(() => {
     const HOME_FOCUSED_DEBOUNCE_MS = 60_000

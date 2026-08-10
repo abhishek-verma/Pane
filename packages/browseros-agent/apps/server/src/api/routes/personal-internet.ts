@@ -30,6 +30,7 @@ import {
   listRecords,
   listSites,
   listTemps,
+  markHomeVisited,
   readHomePrefs,
   readPageDoc,
   touchSite,
@@ -456,6 +457,10 @@ export function createPersonalInternetRoutes() {
         .parse(await c.req.json())
       const prefs = await dismissProposedDoorway(body.siteId)
       return c.json({ ok: true, dismissedSiteId: body.siteId, prefs })
+    })
+    .post('/home/mark-visited', async (c) => {
+      await markHomeVisited()
+      return c.json({ ok: true })
     })
     .post('/home/refresh', async (c) => {
       // A manual Home refresh participates in the same durable queue as every

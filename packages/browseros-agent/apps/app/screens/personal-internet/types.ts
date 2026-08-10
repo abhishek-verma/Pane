@@ -130,6 +130,7 @@ export type PiDoorway = {
   primaryRoute: string
   templateId: string
   pinned: boolean
+  updatedSinceLastVisit: boolean
   secondary?: {
     label: string
     deepLink: string
