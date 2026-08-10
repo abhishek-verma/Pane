@@ -25,6 +25,7 @@ import {
 import { useLlmProviders } from '@/modules/llm-providers/llm-providers.hooks'
 import { ContinueSites } from '@/screens/newtab/home/ContinueSites'
 import { EmptyHomeState } from '@/screens/newtab/home/EmptyHomeState'
+import { GrowthSignal } from '@/screens/newtab/home/GrowthSignal'
 import {
   fetchHome,
   HOME_QUERY_KEY,
@@ -293,6 +294,8 @@ export const AgentCommandHome: FC = () => {
             <EmptyHomeState />
           )}
         </div>
+
+        <GrowthSignal growth={homeData?.growth} />
       </div>
 
       {activeHint === 'signin' ? <SignInHint /> : null}
