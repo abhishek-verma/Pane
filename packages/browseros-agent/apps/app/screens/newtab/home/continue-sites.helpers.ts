@@ -1,4 +1,4 @@
-export interface RecentSite {
+export interface ContinueSite {
   name: string
   url: string
   host?: string
@@ -7,10 +7,10 @@ export interface RecentSite {
 /** Trim raw `chrome.topSites` entries into the shape the row renders: keep the
  * title and url, extract the host for favicon lookup (left undefined when the
  * url can't be parsed), and cap the list at `max`. */
-export function mapTopSitesToRecentSites(
+export function mapTopSitesToContinueSites(
   sites: readonly { url: string; title: string }[],
   max: number,
-): RecentSite[] {
+): ContinueSite[] {
   return sites.slice(0, max).map((site) => {
     let host: string | undefined
     try {

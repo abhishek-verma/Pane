@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
-import { mapTopSitesToRecentSites } from './recent-sites.helpers'
+import { mapTopSitesToContinueSites } from './continue-sites.helpers'
 
-describe('mapTopSitesToRecentSites', () => {
+describe('mapTopSitesToContinueSites', () => {
   it('maps a top site to name, url, and the parsed host', () => {
-    const [site] = mapTopSitesToRecentSites(
+    const [site] = mapTopSitesToContinueSites(
       [{ url: 'https://example.com/path', title: 'Example' }],
       5,
     )
@@ -15,7 +15,7 @@ describe('mapTopSitesToRecentSites', () => {
   })
 
   it('leaves host undefined when the url cannot be parsed', () => {
-    const [site] = mapTopSitesToRecentSites(
+    const [site] = mapTopSitesToContinueSites(
       [{ url: 'not-a-valid-url', title: 'Bad' }],
       5,
     )
@@ -28,6 +28,6 @@ describe('mapTopSitesToRecentSites', () => {
       url: `https://site${i}.com`,
       title: `Site ${i}`,
     }))
-    expect(mapTopSitesToRecentSites(sites, 5)).toHaveLength(5)
+    expect(mapTopSitesToContinueSites(sites, 5)).toHaveLength(5)
   })
 })
