@@ -33,7 +33,7 @@ function computeGrowth(pi: PiHomeProjection): HomeGrowth {
   return {
     skillsLearned: listSkills({ status: 'active' }).length,
     memoriesCount: listEntries({ status: 'active' }).length,
-    sitesActive: pi.doorways.length,
+    sitesActive: pi.doorwayCount,
   }
 }
 

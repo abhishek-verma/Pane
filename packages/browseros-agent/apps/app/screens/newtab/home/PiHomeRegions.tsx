@@ -187,6 +187,9 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
     try {
       const res = await piPost('/pi/home/propose/dismiss', { siteId })
       if (res.ok) invalidateHome()
+    } catch {
+      // Network/parse failure — busy state still clears below; the item
+      // simply stays in the list and the user can retry.
     } finally {
       setDismissBusyId(null)
     }
@@ -199,6 +202,9 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
         hideSiteId: siteId,
       })
       if (res.ok) invalidateHome()
+    } catch {
+      // Network/parse failure — busy state still clears below; the tile
+      // simply stays visible and the user can retry.
     } finally {
       setVisibilityBusyId(null)
     }
@@ -212,6 +218,9 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
         : { pinSiteId: siteId }
       const res = await piPost('/pi/home/doorway/visibility', body)
       if (res.ok) invalidateHome()
+    } catch {
+      // Network/parse failure — busy state still clears below; the pin
+      // state simply stays unchanged and the user can retry.
     } finally {
       setVisibilityBusyId(null)
     }

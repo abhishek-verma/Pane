@@ -151,6 +151,7 @@ export type PiContinuityBlock = {
 
 export type PiHomeProjection = {
   doorways: PiDoorway[]
+  doorwayCount: number
   continuity: PiContinuityBlock[]
   libraryCount: number
   generatedAt: string

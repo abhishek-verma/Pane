@@ -108,6 +108,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
 
   return {
     doorways: doorways.slice(0, 8),
+    doorwayCount: doorways.length,
     continuity,
     libraryCount,
     generatedAt: new Date().toISOString(),
@@ -131,7 +132,14 @@ async function loadContinuity(
     const pulse = pulsesById.get(d.siteId)
     const urgencies = pulse?.topUrgencies.slice(0, URGENCIES_PER_SITE) ?? []
     urgencies.forEach((urgency, index) => {
-      const urgencyId = `urgency-${d.siteId}-${index}`
+      // Keyed by the record the urgency came from (falling back to position
+      // only if a record id is somehow missing) so a dismissal survives
+      // unrelated edits to the site reordering topUrgencies by recency.
+      const recordId =
+        typeof urgency.metadata?.recordId === 'string'
+          ? urgency.metadata.recordId
+          : index
+      const urgencyId = `urgency-${d.siteId}-${recordId}`
       if (dismissed.has(urgencyId)) return
       blocks.push({
         id: urgencyId,
@@ -151,6 +159,7 @@ async function loadContinuity(
 export function emptyPiHomeProjection(): PiHomeProjection {
   return {
     doorways: [],
+    doorwayCount: 0,
     continuity: [],
     libraryCount: 0,
     generatedAt: new Date().toISOString(),

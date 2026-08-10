@@ -119,11 +119,18 @@ export const AgentCommandHome: FC = () => {
   })
 
   const hasMarkedVisitRef = useRef(false)
+  // generatedAt isn't read in the body — it's a retry trigger. It changes on
+  // every /scheduler/home fetch, so a transient piPost failure below (which
+  // resets the ref) gets retried on the next poll instead of permanently
+  // freezing the "updated while you were away" markers for the session.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
   useEffect(() => {
     if (homeLoading || hasMarkedVisitRef.current) return
     hasMarkedVisitRef.current = true
-    void piPost('/pi/home/mark-visited', {})
-  }, [homeLoading])
+    void piPost('/pi/home/mark-visited', {}).catch(() => {
+      hasMarkedVisitRef.current = false
+    })
+  }, [homeLoading, homeData?.pi?.generatedAt])
 
   const { show: showMilestone, dismiss: dismissMilestone } =
     useFirstSkillMilestone(homeData?.growth?.skillsLearned)

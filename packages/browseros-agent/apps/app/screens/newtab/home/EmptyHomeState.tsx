@@ -16,7 +16,7 @@ import { usePiTemplates } from '@/screens/personal-internet/usePiApi'
 
 export const EmptyHomeState: FC = () => {
   const navigate = useNavigate()
-  const { data } = usePiTemplates()
+  const { data, isLoading, isError, refetch } = usePiTemplates()
   const templates = data?.templates ?? []
 
   return (
@@ -35,6 +35,19 @@ export const EmptyHomeState: FC = () => {
         The more you use Pane for real work, the more it remembers and starts
         doing without being asked.
       </p>
+      {isLoading ? (
+        <p className="pb-3 font-mono text-[11px] text-muted-foreground tracking-wide">
+          Loading starters…
+        </p>
+      ) : null}
+      {isError ? (
+        <div className="flex items-center justify-between gap-3 pb-3">
+          <p className="font-mono text-[11px] text-muted-foreground tracking-wide">
+            Couldn't load starters.
+          </p>
+          <PiRailAction onClick={() => void refetch()}>Retry</PiRailAction>
+        </div>
+      ) : null}
       <div className="divide-y divide-border border-border border-y">
         {templates.map((t) => (
           <div

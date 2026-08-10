@@ -230,6 +230,81 @@ describe('pi home bridge', () => {
     expect(siteUrgencies.length).toBe(2)
   })
 
+  it('a dismissed urgency stays dismissed after an unrelated record edit reorders topUrgencies', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    const siteId = created.siteId!
+    const recA = await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: { company: 'Acme', stage: 'applied', nextAction: 'Follow up A' },
+    })
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: { company: 'Beta', stage: 'applied', nextAction: 'Follow up B' },
+    })
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: { company: 'Gamma', stage: 'applied', nextAction: 'Follow up C' },
+    })
+
+    // C is most recently updated, so it's in the initial top-2 — dismiss it.
+    const before = await buildPiHomeProjection()
+    const cBlock = before.continuity.find((c) => c.body === 'Follow up C')
+    expect(cBlock).toBeTruthy()
+    const { dismissContinuityBlock } = await import(
+      '../../src/personal-internet/store'
+    )
+    await dismissContinuityBlock(cBlock!.id)
+
+    // Editing A (unrelated to the dismissal) bumps its updated_at, pushing it
+    // ahead of C in topUrgencies — with position-keyed ids this would have
+    // un-dismissed C and incorrectly suppressed A instead.
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordId: recA.recordId,
+      recordType: 'job-application',
+      data: { company: 'Acme', stage: 'applied', nextAction: 'Follow up A' },
+    })
+
+    const after = await buildPiHomeProjection()
+    const bodies = after.continuity.map((c) => c.body)
+    expect(bodies).toContain('Follow up A')
+    expect(bodies).not.toContain('Follow up C')
+  })
+
+  it('doorwayCount reports the true total even when doorways is capped at 8', async () => {
+    setup()
+    const { updateDoorwayVisibility } = await import(
+      '../../src/personal-internet/store'
+    )
+    for (let i = 0; i < 9; i++) {
+      const created = await applyPiMutation({
+        type: 'upsert-site',
+        templateId: 'reading-list',
+        // upsert-site collapses onto the same site by slug when omitted
+        // (templates default to a singleton slug) — give each its own.
+        slug: `reading-list-${i}`,
+        name: `Reading List ${i}`,
+      })
+      // Pin so each site becomes a doorway regardless of P0 auto-eligibility.
+      await updateDoorwayVisibility({ pinSiteId: created.siteId! })
+    }
+
+    const pi = await buildPiHomeProjection()
+    expect(pi.doorways.length).toBe(8)
+    expect(pi.doorwayCount).toBe(9)
+  })
+
   it('doorway payload includes the site template id', async () => {
     setup()
     await applyPiMutation({ type: 'upsert-site', templateId: 'job-search' })

@@ -242,6 +242,8 @@ export type PiContinuityBlock = {
 
 export type PiHomeProjection = {
   doorways: PiDoorway[]
+  /** Total eligible doorways before the home-grid cap (`doorways` is capped at 8). */
+  doorwayCount: number
   continuity: PiContinuityBlock[]
   libraryCount: number
   generatedAt: string

@@ -14,7 +14,10 @@ function plural(count: number, noun: string): string {
 
 export const GrowthSignal: FC<{ growth?: HomeGrowth }> = ({ growth }) => {
   if (!growth) return null
-  const hasGrowth = growth.skillsLearned > 0 || growth.memoriesCount > 0
+  const hasGrowth =
+    growth.skillsLearned > 0 ||
+    growth.memoriesCount > 0 ||
+    growth.sitesActive > 0
 
   return (
     <section className="border-border border-t py-3">

@@ -654,7 +654,9 @@ export async function dismissContinuityBlock(id: string): Promise<HomePrefs> {
   return next
 }
 
-/** Hide a proposed doorway from "Suggest for home" until the site changes. */
+/** Permanently hide a proposed doorway from "Suggest for home" — there is no
+ * automatic re-eligibility; the user (or an agent) has to explicitly add it
+ * as a doorway again for it to reappear. */
 export async function dismissProposedDoorway(
   siteId: string,
 ): Promise<HomePrefs> {
