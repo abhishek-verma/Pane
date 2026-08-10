@@ -62,7 +62,7 @@ export const BentoTile: FC<{
             Updated
           </span>
         ) : null}
-        <div className="min-w-0">
+        <div className="w-full min-w-0">
           <div
             className={cn(
               'truncate font-medium',
@@ -71,7 +71,7 @@ export const BentoTile: FC<{
           >
             {title}
           </div>
-          <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground tracking-wide">
+          <div className="mt-0.5 line-clamp-2 font-mono text-[11px] text-muted-foreground leading-4 tracking-wide">
             {subtitle}
           </div>
         </div>
