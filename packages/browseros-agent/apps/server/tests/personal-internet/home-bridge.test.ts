@@ -236,4 +236,30 @@ describe('pi home bridge', () => {
     const pi = await buildPiHomeProjection()
     expect(pi.doorways[0]?.templateId).toBe('job-search')
   })
+
+  it('updateDoorwayVisibility hides a doorway and unhide restores it', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    const siteId = created.siteId!
+    await applyPiMutation({
+      type: 'upsert-record',
+      siteId,
+      recordType: 'job-application',
+      data: { company: 'Acme', stage: 'applied' },
+    })
+    const { updateDoorwayVisibility } = await import(
+      '../../src/personal-internet/store'
+    )
+
+    await updateDoorwayVisibility({ hideSiteId: siteId })
+    const hidden = await buildPiHomeProjection()
+    expect(hidden.doorways.find((d) => d.siteId === siteId)).toBeUndefined()
+
+    await updateDoorwayVisibility({ unhideSiteId: siteId })
+    const restored = await buildPiHomeProjection()
+    expect(restored.doorways.find((d) => d.siteId === siteId)).toBeTruthy()
+  })
 })

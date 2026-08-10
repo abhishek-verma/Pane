@@ -33,6 +33,7 @@ import {
   readHomePrefs,
   readPageDoc,
   touchSite,
+  updateDoorwayVisibility,
   upsertSite,
   writeHomePrefs,
 } from '../../personal-internet/store'
@@ -232,6 +233,18 @@ export function createPersonalInternetRoutes() {
         pinned: !!body.pin,
         route: `#/pi/sites/${siteId}`,
       })
+    })
+    .post('/home/doorway/visibility', async (c) => {
+      const body = z
+        .object({
+          hideSiteId: z.string().optional(),
+          unhideSiteId: z.string().optional(),
+          pinSiteId: z.string().optional(),
+          unpinSiteId: z.string().optional(),
+        })
+        .parse(await c.req.json())
+      const prefs = await updateDoorwayVisibility(body)
+      return c.json({ ok: true, prefs })
     })
     .get('/mutation-cursor', (c) => {
       return c.json({ lastMutationAt: getLastPiMutationAt() })

@@ -666,6 +666,30 @@ export async function dismissProposedDoorway(
   return next
 }
 
+/** Hide/unhide/pin/unpin a doorway — shared by the pi_home_regions_patch
+ * tool and the /pi/home/doorway/visibility HTTP route so both paths agree. */
+export async function updateDoorwayVisibility(input: {
+  hideSiteId?: string
+  unhideSiteId?: string
+  pinSiteId?: string
+  unpinSiteId?: string
+}): Promise<HomePrefs> {
+  const prefs = await readHomePrefs()
+  const hidden = new Set(prefs.hiddenSiteIds)
+  const pinned = new Set(prefs.pinnedSiteIds)
+  if (input.hideSiteId) hidden.add(input.hideSiteId)
+  if (input.unhideSiteId) hidden.delete(input.unhideSiteId)
+  if (input.pinSiteId) pinned.add(input.pinSiteId)
+  if (input.unpinSiteId) pinned.delete(input.unpinSiteId)
+  const next: HomePrefs = {
+    ...prefs,
+    hiddenSiteIds: [...hidden],
+    pinnedSiteIds: [...pinned],
+  }
+  await writeHomePrefs(next)
+  return next
+}
+
 export async function clearDismissedContinuity(): Promise<void> {
   const prefs = await readHomePrefs()
   if (prefs.dismissedContinuityIds.length === 0) return
