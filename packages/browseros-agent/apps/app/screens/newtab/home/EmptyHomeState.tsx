@@ -12,26 +12,12 @@ import {
   PiRailAction,
   PiSectionLabel,
 } from '@/screens/personal-internet/PiChrome'
-
-const PI_STARTERS = [
-  {
-    id: 'job-search',
-    title: 'Start a job search pipeline',
-    description: 'Living board of roles, stages, and follow-ups',
-    prompt:
-      'Set up my Job Search site using the job-search template. Create the pipeline board and show me the doorway on home.',
-  },
-  {
-    id: 'research-hub',
-    title: 'Start a research hub',
-    description: 'Track threads, sources, and open questions',
-    prompt:
-      'Create a Research Hub site with the research-hub template and open it so I can add my first thread.',
-  },
-] as const
+import { usePiTemplates } from '@/screens/personal-internet/usePiApi'
 
 export const EmptyHomeState: FC = () => {
   const navigate = useNavigate()
+  const { data, isLoading, isError, refetch } = usePiTemplates()
+  const templates = data?.templates ?? []
 
   return (
     <section className="border-border border-t">
@@ -41,26 +27,44 @@ export const EmptyHomeState: FC = () => {
           Empty
         </span>
       </div>
-      <p className="pb-3 text-muted-foreground text-sm leading-6">
+      <p className="pb-1 text-muted-foreground text-sm leading-6">
         Your private web starts empty. Ask Pane to set up living work — a job
         search pipeline, research hub, or whatever you need to keep running.
       </p>
+      <p className="pb-3 text-muted-foreground text-xs leading-6">
+        The more you use Pane for real work, the more it remembers and starts
+        doing without being asked.
+      </p>
+      {isLoading ? (
+        <p className="pb-3 font-mono text-[11px] text-muted-foreground tracking-wide">
+          Loading starters…
+        </p>
+      ) : null}
+      {isError ? (
+        <div className="flex items-center justify-between gap-3 pb-3">
+          <p className="font-mono text-[11px] text-muted-foreground tracking-wide">
+            Couldn't load starters.
+          </p>
+          <PiRailAction onClick={() => void refetch()}>Retry</PiRailAction>
+        </div>
+      ) : null}
       <div className="divide-y divide-border border-border border-y">
-        {PI_STARTERS.map((t) => (
+        {templates.map((t) => (
           <div
             key={t.id}
             className="flex items-center justify-between gap-4 py-3"
           >
             <div className="min-w-0">
-              <div className="font-medium text-sm">{t.title}</div>
+              <div className="font-medium text-sm">{t.name}</div>
               <div className="mt-0.5 font-mono text-[11px] text-muted-foreground tracking-wide">
-                {t.description}
+                {t.jtbd}
               </div>
             </div>
             <PiRailAction
               onClick={() => {
+                const prompt = `Set up my ${t.name} site using the ${t.id} template. Show me the doorway on home.`
                 navigate(
-                  `/home/chat?q=${encodeURIComponent(t.prompt)}&mode=agent`,
+                  `/home/chat?q=${encodeURIComponent(prompt)}&mode=agent`,
                 )
               }}
             >

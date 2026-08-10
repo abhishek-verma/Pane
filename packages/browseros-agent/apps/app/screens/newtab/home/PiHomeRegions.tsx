@@ -10,7 +10,9 @@ import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanel
 import { navigatePiDocument } from '@/lib/personal-internet/pi-document'
 import { executePiAction } from '@/lib/pi-actions'
 import { executeWidgetAction } from '@/lib/widget-actions'
+import { BentoTile } from '@/screens/newtab/home/BentoTile'
 import { HOME_QUERY_KEY } from '@/screens/newtab/home/home-data'
+import { templateIcon } from '@/screens/newtab/home/template-visuals'
 import {
   PiRailAction,
   PiSectionLabel,
@@ -68,6 +70,7 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
   const [dismissBusyId, setDismissBusyId] = useState<string | null>(null)
   const [refreshingToday, setRefreshingToday] = useState(false)
   const [refreshNote, setRefreshNote] = useState<string | null>(null)
+  const [visibilityBusyId, setVisibilityBusyId] = useState<string | null>(null)
   const [, setExpiryTick] = useState(0)
 
   // Drop expired approval cards locally and refetch home so server expiry sticks.
@@ -176,6 +179,50 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
       if (res.ok) invalidateHome()
     } finally {
       setDismissBusyId(null)
+    }
+  }
+
+  const dismissPropose = async (siteId: string) => {
+    setDismissBusyId(siteId)
+    try {
+      const res = await piPost('/pi/home/propose/dismiss', { siteId })
+      if (res.ok) invalidateHome()
+    } catch {
+      // Network/parse failure — busy state still clears below; the item
+      // simply stays in the list and the user can retry.
+    } finally {
+      setDismissBusyId(null)
+    }
+  }
+
+  const toggleHidden = async (siteId: string) => {
+    setVisibilityBusyId(siteId)
+    try {
+      const res = await piPost('/pi/home/doorway/visibility', {
+        hideSiteId: siteId,
+      })
+      if (res.ok) invalidateHome()
+    } catch {
+      // Network/parse failure — busy state still clears below; the tile
+      // simply stays visible and the user can retry.
+    } finally {
+      setVisibilityBusyId(null)
+    }
+  }
+
+  const togglePinned = async (siteId: string, currentlyPinned: boolean) => {
+    setVisibilityBusyId(siteId)
+    try {
+      const body = currentlyPinned
+        ? { unpinSiteId: siteId }
+        : { pinSiteId: siteId }
+      const res = await piPost('/pi/home/doorway/visibility', body)
+      if (res.ok) invalidateHome()
+    } catch {
+      // Network/parse failure — busy state still clears below; the pin
+      // state simply stays unchanged and the user can retry.
+    } finally {
+      setVisibilityBusyId(null)
     }
   }
 
@@ -334,52 +381,44 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
               My sites ({libraryCount})
             </PiRailAction>
           </div>
-          <div className="divide-y divide-border border-border border-t">
-            {doorways.map((d) => (
-              <div
+          <div className="grid grid-cols-4 gap-2 pb-3">
+            {doorways.map((d, index) => (
+              <BentoTile
                 key={d.siteId}
-                className="flex items-center justify-between gap-4 py-3"
-              >
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 text-left transition-opacity hover:opacity-80"
-                  onClick={() => navigatePiDocument(routePath(d.primaryRoute))}
-                >
-                  <div className="truncate font-medium text-sm">{d.name}</div>
-                  <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground tracking-wide">
-                    {d.pulseLine}
-                    {d.lastUpdatedAt
-                      ? ` · ${new Date(d.lastUpdatedAt).toLocaleString()}`
-                      : ''}
-                  </div>
-                </button>
-                <div className="flex shrink-0 items-center gap-2">
-                  {d.secondary ? (
-                    d.secondary.deepLink ? (
-                      <PiRailAction to={routePath(d.secondary.deepLink)}>
-                        {d.secondary.label.slice(0, 24)}
-                      </PiRailAction>
-                    ) : d.secondary.agentQuery ? (
-                      <PiRailAction
-                        onClick={() => {
-                          const q = d.secondary?.agentQuery
-                          if (!q) return
-                          void executePiAction({
-                            kind: 'agent',
-                            query: q,
-                            metadata: d.secondary?.metadata ?? {},
-                          })
-                        }}
-                      >
-                        {d.secondary.label.slice(0, 24)}
-                      </PiRailAction>
-                    ) : null
-                  ) : null}
-                  <PiRailAction to={routePath(d.primaryRoute)}>
-                    Open
-                  </PiRailAction>
-                </div>
-              </div>
+                icon={templateIcon(d.templateId)}
+                title={d.name}
+                subtitle={d.pulseLine}
+                size={index === 0 ? 'lg' : 'sm'}
+                pinned={d.pinned}
+                updated={d.updatedSinceLastVisit}
+                onClick={() => navigatePiDocument(routePath(d.primaryRoute))}
+                actions={
+                  <>
+                    <button
+                      type="button"
+                      disabled={visibilityBusyId === d.siteId}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        void toggleHidden(d.siteId)
+                      }}
+                      className="inline-flex h-7 items-center border border-border bg-transparent px-2.5 font-mono text-[10px] text-foreground uppercase tracking-[0.06em] transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Hide
+                    </button>
+                    <button
+                      type="button"
+                      disabled={visibilityBusyId === d.siteId}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        void togglePinned(d.siteId, d.pinned)
+                      }}
+                      className="inline-flex h-7 items-center border border-border bg-transparent px-2.5 font-mono text-[10px] text-foreground uppercase tracking-[0.06em] transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {d.pinned ? 'Unpin' : 'Pin'}
+                    </button>
+                  </>
+                }
+              />
             ))}
           </div>
         </section>
@@ -436,6 +475,12 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                     Add to home
                   </PiRailAction>
                   <PiRailAction to={routePath(p.route)}>Open</PiRailAction>
+                  <PiRailAction
+                    disabled={dismissBusyId === p.siteId}
+                    onClick={() => void dismissPropose(p.siteId)}
+                  >
+                    {dismissBusyId === p.siteId ? 'Removing…' : 'Not now'}
+                  </PiRailAction>
                 </div>
               </div>
             ))}

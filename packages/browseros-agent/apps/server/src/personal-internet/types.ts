@@ -224,6 +224,9 @@ export type PiDoorway = {
   address: string
   pulseLine: string
   primaryRoute: string
+  templateId: PiTemplateId
+  pinned: boolean
+  updatedSinceLastVisit: boolean
   secondary?: PiUrgency
   lastUpdatedAt?: string
 }
@@ -239,6 +242,8 @@ export type PiContinuityBlock = {
 
 export type PiHomeProjection = {
   doorways: PiDoorway[]
+  /** Total eligible doorways before the home-grid cap (`doorways` is capped at 8). */
+  doorwayCount: number
   continuity: PiContinuityBlock[]
   libraryCount: number
   generatedAt: string

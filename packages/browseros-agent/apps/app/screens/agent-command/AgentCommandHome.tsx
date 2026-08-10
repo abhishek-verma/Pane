@@ -5,7 +5,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { type FC, useEffect, useMemo, useState } from 'react'
+import { type FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { Feature } from '@/lib/browseros/capabilities'
@@ -23,13 +23,17 @@ import {
   resolveSidepanelChatTarget,
 } from '@/modules/chat/sidepanel-chat-targets'
 import { useLlmProviders } from '@/modules/llm-providers/llm-providers.hooks'
+import { ContinueSites } from '@/screens/newtab/home/ContinueSites'
 import { EmptyHomeState } from '@/screens/newtab/home/EmptyHomeState'
+import { GrowthSignal } from '@/screens/newtab/home/GrowthSignal'
 import {
   fetchHome,
   HOME_QUERY_KEY,
   type HomeData,
 } from '@/screens/newtab/home/home-data'
+import { MilestoneCard } from '@/screens/newtab/home/MilestoneCard'
 import { PiHomeRegions } from '@/screens/newtab/home/PiHomeRegions'
+import { useFirstSkillMilestone } from '@/screens/newtab/home/use-first-skill-milestone'
 import { useActiveHint } from '@/screens/newtab/index/active-hint.hooks'
 import { SignInHint } from '@/screens/newtab/index/SignInHint'
 import {
@@ -37,7 +41,10 @@ import {
   PiStatusDot,
   PiTopRail,
 } from '@/screens/personal-internet/PiChrome'
-import { piPost } from '@/screens/personal-internet/usePiApi'
+import {
+  piPost,
+  usePiInvalidateListener,
+} from '@/screens/personal-internet/usePiApi'
 import {
   ConversationInput,
   type ConversationInputSendInput,
@@ -80,6 +87,7 @@ export const AgentCommandHome: FC = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const activeHint = useActiveHint()
+  usePiInvalidateListener()
   const {
     providers: llmProviders,
     defaultProviderId,
@@ -107,15 +115,25 @@ export const AgentCommandHome: FC = () => {
     queryKey: HOME_QUERY_KEY,
     queryFn: fetchHome,
     staleTime: 5_000,
-    refetchInterval: (query) => {
-      const continuity = query.state.data?.pi?.continuity ?? []
-      const hasApproval = continuity.some(
-        (b) => b.metadata?.kind === 'approval',
-      )
-      // Pending approvals expire in ~2m — poll faster so cards clear promptly.
-      return hasApproval ? 5_000 : 20_000
-    },
+    refetchInterval: 30_000,
   })
+
+  const hasMarkedVisitRef = useRef(false)
+  // generatedAt isn't read in the body — it's a retry trigger. It changes on
+  // every /scheduler/home fetch, so a transient piPost failure below (which
+  // resets the ref) gets retried on the next poll instead of permanently
+  // freezing the "updated while you were away" markers for the session.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
+  useEffect(() => {
+    if (homeLoading || hasMarkedVisitRef.current) return
+    hasMarkedVisitRef.current = true
+    void piPost('/pi/home/mark-visited', {}).catch(() => {
+      hasMarkedVisitRef.current = false
+    })
+  }, [homeLoading, homeData?.pi?.generatedAt])
+
+  const { show: showMilestone, dismiss: dismissMilestone } =
+    useFirstSkillMilestone(homeData?.growth?.skillsLearned)
 
   useEffect(() => {
     const HOME_FOCUSED_DEBOUNCE_MS = 60_000
@@ -247,6 +265,7 @@ export const AgentCommandHome: FC = () => {
       </div>
 
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-5 py-8 pb-16">
+        {showMilestone ? <MilestoneCard onDismiss={dismissMilestone} /> : null}
         <div className="space-y-4">
           <h1 className="font-semibold text-2xl leading-tight tracking-[-0.02em]">
             {homeGreeting(homeData?.firstName ?? null)}
@@ -271,6 +290,8 @@ export const AgentCommandHome: FC = () => {
           />
         </div>
 
+        <ContinueSites />
+
         <div className="flex flex-col gap-0">
           {homeLoading ? (
             <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
@@ -286,6 +307,8 @@ export const AgentCommandHome: FC = () => {
             <EmptyHomeState />
           )}
         </div>
+
+        <GrowthSignal growth={homeData?.growth} />
       </div>
 
       {activeHint === 'signin' ? <SignInHint /> : null}

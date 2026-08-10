@@ -573,9 +573,13 @@ export type HomePrefs = {
   pinnedSiteIds: string[]
   /** Continuity block ids removed from Today until the next Today refresh. */
   dismissedContinuityIds: string[]
+  /** Site ids removed from "Suggest for home" until the site changes again. */
+  dismissedProposeIds: string[]
+  lastViewedAt: number | null
 }
 
 const MAX_DISMISSED_CONTINUITY = 50
+const MAX_DISMISSED_PROPOSE = 50
 
 export async function readHomePrefs(): Promise<HomePrefs> {
   try {
@@ -587,12 +591,19 @@ export async function readHomePrefs(): Promise<HomePrefs> {
       dismissedContinuityIds: Array.isArray(parsed.dismissedContinuityIds)
         ? parsed.dismissedContinuityIds.filter((id) => typeof id === 'string')
         : [],
+      dismissedProposeIds: Array.isArray(parsed.dismissedProposeIds)
+        ? parsed.dismissedProposeIds.filter((id) => typeof id === 'string')
+        : [],
+      lastViewedAt:
+        typeof parsed.lastViewedAt === 'number' ? parsed.lastViewedAt : null,
     }
   } catch {
     return {
       hiddenSiteIds: [],
       pinnedSiteIds: [],
       dismissedContinuityIds: [],
+      dismissedProposeIds: [],
+      lastViewedAt: null,
     }
   }
 }
@@ -609,6 +620,10 @@ export async function writeHomePrefs(prefs: HomePrefs): Promise<void> {
         dismissedContinuityIds: prefs.dismissedContinuityIds.slice(
           -MAX_DISMISSED_CONTINUITY,
         ),
+        dismissedProposeIds: prefs.dismissedProposeIds.slice(
+          -MAX_DISMISSED_PROPOSE,
+        ),
+        lastViewedAt: prefs.lastViewedAt,
       },
       null,
       2,
@@ -637,6 +652,54 @@ export async function dismissContinuityBlock(id: string): Promise<HomePrefs> {
     )
   }
   return next
+}
+
+/** Permanently hide a proposed doorway from "Suggest for home" — there is no
+ * automatic re-eligibility; the user (or an agent) has to explicitly add it
+ * as a doorway again for it to reappear. */
+export async function dismissProposedDoorway(
+  siteId: string,
+): Promise<HomePrefs> {
+  const trimmed = siteId.trim()
+  if (!trimmed) return readHomePrefs()
+  const prefs = await readHomePrefs()
+  const dismissed = new Set(prefs.dismissedProposeIds)
+  dismissed.add(trimmed)
+  const next: HomePrefs = {
+    ...prefs,
+    dismissedProposeIds: [...dismissed].slice(-MAX_DISMISSED_PROPOSE),
+  }
+  await writeHomePrefs(next)
+  return next
+}
+
+/** Hide/unhide/pin/unpin a doorway — shared by the pi_home_regions_patch
+ * tool and the /pi/home/doorway/visibility HTTP route so both paths agree. */
+export async function updateDoorwayVisibility(input: {
+  hideSiteId?: string
+  unhideSiteId?: string
+  pinSiteId?: string
+  unpinSiteId?: string
+}): Promise<HomePrefs> {
+  const prefs = await readHomePrefs()
+  const hidden = new Set(prefs.hiddenSiteIds)
+  const pinned = new Set(prefs.pinnedSiteIds)
+  if (input.hideSiteId) hidden.add(input.hideSiteId)
+  if (input.unhideSiteId) hidden.delete(input.unhideSiteId)
+  if (input.pinSiteId) pinned.add(input.pinSiteId)
+  if (input.unpinSiteId) pinned.delete(input.unpinSiteId)
+  const next: HomePrefs = {
+    ...prefs,
+    hiddenSiteIds: [...hidden],
+    pinnedSiteIds: [...pinned],
+  }
+  await writeHomePrefs(next)
+  return next
+}
+
+export async function markHomeVisited(): Promise<void> {
+  const prefs = await readHomePrefs()
+  await writeHomePrefs({ ...prefs, lastViewedAt: Date.now() })
 }
 
 export async function clearDismissedContinuity(): Promise<void> {

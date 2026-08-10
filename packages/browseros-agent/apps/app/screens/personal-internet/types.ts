@@ -128,6 +128,9 @@ export type PiDoorway = {
   address: string
   pulseLine: string
   primaryRoute: string
+  templateId: string
+  pinned: boolean
+  updatedSinceLastVisit: boolean
   secondary?: {
     label: string
     deepLink: string
@@ -148,6 +151,7 @@ export type PiContinuityBlock = {
 
 export type PiHomeProjection = {
   doorways: PiDoorway[]
+  doorwayCount: number
   continuity: PiContinuityBlock[]
   libraryCount: number
   generatedAt: string
