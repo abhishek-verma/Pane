@@ -41,6 +41,7 @@ describe('openPiHref', () => {
         },
         create: async (properties: unknown) => {
           created.push(properties)
+          return { id: 42, windowId: 5 }
         },
         update: async (tabId: unknown, properties: unknown) => {
           updated.push([tabId, properties])
@@ -48,15 +49,18 @@ describe('openPiHref', () => {
       },
     }
 
-    await openPiHref('#/pi/sites/site_1')
+    const target = await openPiHref('#/pi/sites/site_1')
 
     // Falls through to create when no active tab is available
     expect(created).toEqual([{ url: 'pi://sites/site_1', active: true }])
     expect(updated).toHaveLength(0)
+    expect(target).toEqual({ tabId: 42, windowId: 5 })
   })
 
-  test('navigates current active tab when no existing PI tab matches', async () => {
-    const updated: unknown[] = []
+  test('opens a new tab instead of repurposing the current active tab', async () => {
+    // An agent-initiated PI reveal must never replace a page the user is
+    // reading — always a new tab, even when an unrelated tab is active.
+    const created: unknown[] = []
     globals.window = {}
     globals.chrome = {
       tabs: {
@@ -68,18 +72,20 @@ describe('openPiHref', () => {
             return [{ id: 3, windowId: 1, url: 'https://example.com' }]
           return [{ id: 3, windowId: 1, url: 'https://example.com' }]
         },
-        create: async () => {
-          throw new Error('must not create a new tab when active tab available')
+        create: async (properties: unknown) => {
+          created.push(properties)
+          return { id: 42, windowId: 5 }
         },
-        update: async (tabId: unknown, properties: unknown) => {
-          updated.push([tabId, properties])
+        update: async () => {
+          throw new Error('must not repurpose the active tab')
         },
       },
     }
 
-    await openPiHref('pi://sites/site_1')
+    const target = await openPiHref('pi://sites/site_1')
 
-    expect(updated).toEqual([[3, { url: 'pi://sites/site_1' }]])
+    expect(created).toEqual([{ url: 'pi://sites/site_1', active: true }])
+    expect(target).toEqual({ tabId: 42, windowId: 5 })
   })
 
   test('canonicalizes and focuses an existing internal PI tab', async () => {
@@ -108,10 +114,11 @@ describe('openPiHref', () => {
       },
     }
 
-    await openPiHref('pi://sites/site_1')
+    const target = await openPiHref('pi://sites/site_1')
 
     expect(updates).toEqual([[7, { active: true }]])
     expect(focused).toEqual([[9, { focused: true }]])
+    expect(target).toEqual({ tabId: 7, windowId: 9 })
   })
 
   test('migrates a matching legacy NTP PI tab instead of duplicating it', async () => {
@@ -136,8 +143,33 @@ describe('openPiHref', () => {
       },
     }
 
-    await openPiHref('pi://sites/site_1')
+    const target = await openPiHref('pi://sites/site_1')
 
     expect(updates).toEqual([[8, { url: 'pi://sites/site_1', active: true }]])
+    // No windowId on the matched tab — nothing to focus, nothing to follow.
+    expect(target).toBeNull()
+  })
+
+  test('returns null for an in-place hash navigation (no tab switch happened)', async () => {
+    globals.window = {
+      location: { pathname: '/pi.html', hash: '#/pi/sites/site_1' },
+    }
+    globals.chrome = {
+      tabs: {
+        create: async () => {
+          throw new Error('must not create a tab for in-place navigation')
+        },
+        update: async () => {
+          throw new Error('must not update a tab for in-place navigation')
+        },
+      },
+    }
+
+    const target = await openPiHref('pi://sites/site_2')
+
+    expect(target).toBeNull()
+    expect(
+      (globals.window as { location: { hash: string } }).location.hash,
+    ).toBe('/pi/sites/site_2')
   })
 })

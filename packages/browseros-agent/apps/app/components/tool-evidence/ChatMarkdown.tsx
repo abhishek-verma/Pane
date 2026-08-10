@@ -1,6 +1,9 @@
 /**
  * Side-panel chat markdown with Mermaid fences routed to the sandbox broker.
- * Streamdown stays plugins={{}} so Mermaid never loads in the privileged bundle.
+ * A completed mermaid fence must never be handed to MessageResponse/streamdown
+ * as literal text (plugins={{}} does not stop it from parsing/rendering a
+ * fenced code block) — it must always go to the sandboxed ChatMermaidBlock,
+ * even mid-stream.
  */
 
 import { type FC, useMemo } from 'react'
@@ -32,15 +35,22 @@ export const ChatMarkdown: FC<{
         const key = `${segmentKey}-${part.type}-${index}`
         if (part.type === 'mermaid') {
           if (isStreaming) {
+            // Never hand a fenced mermaid source string to MessageResponse:
+            // even with plugins={{}}, that is markdown text streamdown
+            // parses — this is the only place that used to happen, and it
+            // loaded streamdown's own privileged-bundle Mermaid renderer
+            // instead of the sandboxed one below, crashing with React error
+            // #185 almost every turn. Stay off Streamdown entirely until the
+            // sandboxed ChatMermaidBlock takes over once streaming ends.
             return (
-              <MessageResponse
+              <div
                 key={key}
-                mode="streaming"
-                parseIncompleteMarkdown
-                plugins={{}}
+                className="my-2 rounded-md border border-border/60 bg-muted/20 p-3"
               >
-                {`\`\`\`mermaid\n${part.source}\n\`\`\``}
-              </MessageResponse>
+                <p className="text-muted-foreground text-xs">
+                  Rendering diagram…
+                </p>
+              </div>
             )
           }
           return <ChatMermaidBlock key={key} source={part.source} />

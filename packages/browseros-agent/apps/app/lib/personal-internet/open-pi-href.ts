@@ -31,15 +31,26 @@ export function canNavigatePiInPlace(pathname: string, hash: string): boolean {
   )
 }
 
+export type OpenPiHrefTarget = { tabId: number; windowId: number }
+
 /**
- * Open a PI page without stealing Home / chat.
- * - Already on the dedicated PI document → in-place hash navigate
- * - Otherwise → update the current active tab to this href, or focus a tab
- *   already showing it (avoids duplicate PI tabs)
+ * Open a PI page without stealing whatever the user is looking at.
+ * - Already on the dedicated PI document → in-place hash navigate (routing
+ *   within the PI app itself, not replacing an unrelated page) — returns
+ *   null since no tab switch happened, nothing for a caller to follow.
+ * - A tab already shows this exact href → focus it (avoids duplicate tabs)
+ * - Otherwise → always open a new tab. Never repurpose the user's current
+ *   active tab — an agent-initiated PI reveal must not replace a page the
+ *   user is reading.
+ *
+ * Returns the tab/window it made active, so callers (e.g. the side-panel
+ * "follow the agent" handoff) know exactly where the user landed.
  */
-export async function openPiHref(hrefOrRoute: string): Promise<void> {
+export async function openPiHref(
+  hrefOrRoute: string,
+): Promise<OpenPiHrefTarget | null> {
   const href = normalizePiHref(hrefOrRoute)
-  if (!href) return
+  if (!href) return null
 
   const route = hrefToRoute(href)
   // Some test/runtime shells define `window` without `location`.
@@ -51,12 +62,12 @@ export async function openPiHref(hrefOrRoute: string): Promise<void> {
     if (canNavigatePiInPlace(path, hash)) {
       const next = route.startsWith('#') ? route.slice(1) : route
       location.hash = next.startsWith('/') ? next : `/${next}`
-      return
+      return null
     }
   }
 
   if (typeof chrome === 'undefined' || !chrome.tabs?.query) {
-    return
+    return null
   }
 
   const tabs = await chrome.tabs.query({})
@@ -73,20 +84,12 @@ export async function openPiHref(hrefOrRoute: string): Promise<void> {
     await chrome.tabs.update(match.id, updateProps)
     if (match.windowId != null) {
       await chrome.windows.update(match.windowId, { focused: true })
+      return { tabId: match.id, windowId: match.windowId }
     }
-    return
+    return null
   }
 
-  // Navigate the current active tab — agent-initiated open should feel like
-  // navigation, not a new background tab appearing.
-  const [activeTab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  })
-  if (activeTab?.id != null) {
-    await chrome.tabs.update(activeTab.id, { url: href })
-    return
-  }
-
-  await chrome.tabs.create({ url: href, active: true })
+  const created = await chrome.tabs.create({ url: href, active: true })
+  if (created?.id == null || created.windowId == null) return null
+  return { tabId: created.id, windowId: created.windowId }
 }

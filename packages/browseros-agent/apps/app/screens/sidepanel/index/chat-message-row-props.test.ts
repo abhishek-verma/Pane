@@ -16,6 +16,7 @@ function baseProps(
 ): ChatMessageRowProps {
   return {
     message,
+    conversationId: 'conv-1',
     isLastMessage: true,
     isStreaming: false,
     liked: false,
@@ -62,6 +63,12 @@ describe('chatMessageRowPropsEqual', () => {
   test('unequal when onDeny identity changes', () => {
     const prev = baseProps({ onDeny: () => {} })
     const next = baseProps({ onDeny: () => {} })
+    expect(chatMessageRowPropsEqual(prev, next)).toBe(false)
+  })
+
+  test('unequal when conversationId changes', () => {
+    const prev = baseProps({ conversationId: 'conv-1' })
+    const next = baseProps({ conversationId: 'conv-2' })
     expect(chatMessageRowPropsEqual(prev, next)).toBe(false)
   })
 })

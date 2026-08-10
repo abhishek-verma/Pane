@@ -4,12 +4,14 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { storage } from '@wxt-dev/storage'
 import { Check, Copy, ExternalLink } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { openPiHref } from '@/lib/personal-internet/open-pi-href'
 import { parsePiHref } from '@/lib/personal-internet/pi-href'
 import { cn } from '@/lib/utils'
+import { autoOpenPiPageAndFollowPanel } from './pi-page-card-auto-open'
 
 export type PiPagePreview = {
   title?: string
@@ -24,11 +26,20 @@ export type PiPageCardProps = {
   className?: string
   /**
    * Navigate once when pi_open delivers its result.
-   * Idempotent across remounts via sessionStorage — history revisits never
-   * re-navigate even though the isStreaming guard was removed.
+   * Idempotent across side-panel remounts via extension session storage —
+   * history revisits never re-navigate even though the isStreaming guard
+   * was removed.
    */
   autoOpen?: boolean
   autoOpenKey?: string
+  /**
+   * The conversation this card belongs to — passed explicitly (not read
+   * from context) so agent-driven auto-open follows the panel to the
+   * specific triggering conversation, never an ambient/global one, and
+   * so this component stays free of the chat-session hook's heavy
+   * dependency graph.
+   */
+  conversationId?: string
   /** @deprecated no longer used for navigation gating; kept for call-site compat */
   isStreaming?: boolean
 }
@@ -48,19 +59,34 @@ function kindLabel(kind?: PiPagePreview['kind']): string {
   }
 }
 
-const openedKeys = new Set<string>()
+let openedKeys = new Set<string>()
 
-/** Tool-event idempotency: one auto-open per toolCall key per session. */
-function markOpened(key: string): boolean {
+/** Test seam: reset the in-memory guard between unit tests. */
+export function __resetPiPageCardAutoOpenForTests(): void {
+  openedKeys = new Set<string>()
+}
+
+/**
+ * Tool-event idempotency: one auto-open per toolCall key per browser
+ * session. Each side-panel open/close creates a fresh document (a fresh JS
+ * realm and a fresh page-scoped window.sessionStorage) — using
+ * window.sessionStorage here let the auto-navigate re-fire every single
+ * time the panel reopened on a conversation whose last message happened to
+ * be a pi_open call. chrome.storage.session (via the WXT `session:` prefix,
+ * same pattern as perWindowConversationStorage) is scoped to the extension,
+ * not the document, and survives that remount.
+ */
+export async function markOpened(key: string): Promise<boolean> {
   if (openedKeys.has(key)) return false
-  try {
-    const storageKey = `pane.pi.autoOpen.${key}`
-    if (sessionStorage.getItem(storageKey)) return false
-    sessionStorage.setItem(storageKey, '1')
-  } catch {
-    // sessionStorage unavailable — fall through to in-memory only
-  }
   openedKeys.add(key)
+  try {
+    const storageKey = `session:browseros.pi.auto_open.${key}` as const
+    if (await storage.getItem<boolean>(storageKey)) return false
+    await storage.setItem(storageKey, true)
+  } catch {
+    // Storage unavailable — the in-memory guard above still applies for
+    // this mount's lifetime.
+  }
   return true
 }
 
@@ -70,6 +96,7 @@ export const PiPageCard: FC<PiPageCardProps> = ({
   className,
   autoOpen = false,
   autoOpenKey,
+  conversationId,
 }) => {
   const [copied, setCopied] = useState(false)
 
@@ -94,9 +121,15 @@ export const PiPageCard: FC<PiPageCardProps> = ({
     // turn — the markOpened idempotency guard prevents re-navigation on
     // history revisit, so the live-stream guard is not needed here.
     if (!autoOpen || !autoOpenKey) return
-    if (!markOpened(autoOpenKey)) return
-    void openPiHref(href)
-  }, [autoOpen, autoOpenKey, href])
+    let cancelled = false
+    void markOpened(autoOpenKey).then((shouldOpen) => {
+      if (cancelled || !shouldOpen) return
+      void autoOpenPiPageAndFollowPanel(href, conversationId ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [autoOpen, autoOpenKey, href, conversationId])
 
   const handleOpen = () => {
     void openPiHref(href)

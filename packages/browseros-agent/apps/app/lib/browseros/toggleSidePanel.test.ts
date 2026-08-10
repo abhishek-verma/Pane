@@ -169,9 +169,37 @@ describe('side panel scope routing', () => {
     expect(closeCalls).toEqual([{ windowId: 3 }])
   })
 
-  it('keeps programmatic opens on the BrowserOS API in window mode', async () => {
+  it('routes programmatic opens through the window API in window mode', async () => {
+    // Programmatic opens (agent/PI/search "show me this" triggers) must use
+    // the same shared panel the toolbar toggle uses in window mode — using
+    // the tab-contextual BrowserOS API here instead opened a second panel
+    // instance underneath the user's shared one.
     await setSidePanelPerWindowPreference(true)
 
+    const result = await openSidePanel({ tabId: 7, windowId: 3 })
+
+    expect(result).toEqual({ opened: true })
+    expect(openCalls).toEqual([{ windowId: 3 }])
+    expect(browserosIsOpenCalls).toEqual([])
+    expect(browserosToggleCalls).toEqual([])
+    expect(closeCalls).toEqual([])
+  })
+
+  it('does not reopen a programmatic call when the window panel is already open', async () => {
+    await setSidePanelPerWindowPreference(true)
+    registerSidePanelOpenStateListeners()
+    fireWindowOpened(3)
+
+    const result = await openSidePanel({ tabId: 7, windowId: 3 })
+
+    expect(result).toEqual({ opened: true })
+    expect(openCalls).toEqual([])
+    expect(browserosIsOpenCalls).toEqual([])
+    expect(browserosToggleCalls).toEqual([])
+    expect(closeCalls).toEqual([])
+  })
+
+  it('keeps programmatic opens on the BrowserOS tab-specific API in tab mode', async () => {
     const result = await openSidePanel({ tabId: 7, windowId: 3 })
 
     expect(result).toEqual({ opened: true })
@@ -181,8 +209,7 @@ describe('side panel scope routing', () => {
     expect(closeCalls).toEqual([])
   })
 
-  it('opens without closing when programmatic opens target an already-open tab panel', async () => {
-    await setSidePanelPerWindowPreference(true)
+  it('opens without re-toggling when a programmatic tab-mode open targets an already-open tab panel', async () => {
     browserosIsOpenResult = true
 
     const result = await openSidePanel({ tabId: 7, windowId: 3 })

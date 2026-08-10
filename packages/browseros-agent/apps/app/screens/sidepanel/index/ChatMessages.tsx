@@ -21,6 +21,7 @@ import {
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning'
 import { ChatMarkdown } from '@/components/tool-evidence/ChatMarkdown'
+import { ChatMessageErrorBoundary } from '@/components/tool-evidence/ChatMessageErrorBoundary'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import { ChatMessageActions } from './ChatMessageActions'
@@ -77,6 +78,7 @@ function findScrollParent(el: HTMLElement | null): HTMLElement | null {
 
 const ChatMessageRow = memo(function ChatMessageRow({
   message,
+  conversationId,
   isLastMessage,
   isStreaming,
   action,
@@ -118,12 +120,16 @@ const ChatMessageRow = memo(function ChatMessageRow({
               switch (segment.type) {
                 case 'text':
                   return (
-                    <ChatMarkdown
+                    <ChatMessageErrorBoundary
                       key={segment.key}
-                      segmentKey={segment.key}
-                      text={segment.text}
-                      isStreaming={segment.isStreaming}
-                    />
+                      resetKey={segment.text}
+                    >
+                      <ChatMarkdown
+                        segmentKey={segment.key}
+                        text={segment.text}
+                        isStreaming={segment.isStreaming}
+                      />
+                    </ChatMessageErrorBoundary>
                   )
                 case 'reasoning':
                   return (
@@ -172,6 +178,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                       autoOpen={segment.autoOpen && isLastMessage}
                       autoOpenKey={segment.key}
                       isStreaming={isStreaming}
+                      conversationId={conversationId}
                     />
                   )
                 default:
@@ -211,7 +218,8 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   hasMoreAbove = false,
   onLoadOlder,
 }) => {
-  const { isStreaming: sessionStreaming } = useChatSessionContext()
+  const { isStreaming: sessionStreaming, conversationId } =
+    useChatSessionContext()
   const isStreaming =
     sessionStreaming || status === 'streaming' || status === 'submitted'
   const serverPaging = typeof onLoadOlder === 'function'
@@ -314,6 +322,7 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
               <ChatMessageRow
                 key={message.id}
                 message={message}
+                conversationId={conversationId}
                 isLastMessage={isLastMessage}
                 isStreaming={isStreaming}
                 action={getActionForMessage?.(message)}
