@@ -12,7 +12,9 @@ import {
   addEdge,
   addEvent,
   currentWork,
+  deleteNodes,
   ensureDefaultBucket,
+  listNodesByKind,
   search,
   upsertNode,
 } from '@browseros/context-graph/repo'
@@ -23,7 +25,9 @@ import type {
   GraphEdge,
   GraphEvent,
   GraphNode,
+  GraphNodeKind,
   GraphSqlDatabase,
+  NodeListPage,
   SearchSnippet,
   UpsertNodeInput,
 } from '@browseros/context-graph/types'
@@ -65,4 +69,20 @@ export function graphCurrentWork(
   return currentWork(sqlite(), bucketId, options)
 }
 
-export type { CurrentWork, GraphNode, SearchSnippet }
+export function graphListNodes(
+  bucketId: string,
+  kind: GraphNodeKind,
+  options?: {
+    deniedHosts?: Set<string> | string[]
+    limit?: number
+    offset?: number
+  },
+): NodeListPage {
+  return listNodesByKind(sqlite(), bucketId, kind, options)
+}
+
+export function graphDeleteNodes(nodeIds: string[]): void {
+  deleteNodes(sqlite(), nodeIds)
+}
+
+export type { CurrentWork, GraphNode, NodeListPage, SearchSnippet }
