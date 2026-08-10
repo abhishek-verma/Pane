@@ -14,6 +14,7 @@ import { createTasksRoutes } from '../../../src/api/routes/tasks'
 import { setGrant } from '../../../src/context/grants'
 import { graphUpsertNode } from '../../../src/context/repo'
 import { closeDb, initializeDb } from '../../../src/lib/db'
+import { chunkCount, upsertChunk } from '../../../src/retrieval/chunks'
 
 describe('context + tasks API', () => {
   let app: Hono
@@ -134,6 +135,36 @@ describe('context + tasks API', () => {
     const afterBody = (await after.json()) as { nodes: Array<{ id: string }> }
     expect(afterBody.nodes.some((n) => n.id === a.id)).toBe(false)
     expect(afterBody.nodes.some((n) => n.id === b.id)).toBe(false)
+  })
+
+  it("bulk delete also purges the node's embedding chunks", async () => {
+    const node = graphUpsertNode({
+      bucketId: 'default',
+      kind: 'page',
+      title: 'Chunked page',
+      uri: 'https://chunked.example/',
+      provenance: 'tool:navigate',
+      matchByUri: true,
+    })
+    upsertChunk({
+      bucketId: 'default',
+      sourceKind: 'graph',
+      sourceId: node.id,
+      kind: 'page',
+      title: node.title,
+      uri: node.uri,
+      text: 'chunked page content',
+      embedding: new Float32Array([0.1, 0.2, 0.3]),
+    })
+    expect(chunkCount('default')).toBe(1)
+
+    const del = await app.request('/context/nodes', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nodeIds: [node.id] }),
+    })
+    expect(del.status).toBe(200)
+    expect(chunkCount('default')).toBe(0)
   })
 
   it('task CRUD works', async () => {

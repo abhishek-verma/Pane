@@ -116,7 +116,7 @@ export function createContextRoutes() {
     })
     .delete('/nodes', async (c) => {
       const body = DeleteNodesSchema.parse(await c.req.json())
-      graphDeleteNodes(body.nodeIds)
+      await graphDeleteNodes(body.nodeIds)
       return c.json({ deleted: body.nodeIds.length })
     })
     .get('/grants', (c) => {

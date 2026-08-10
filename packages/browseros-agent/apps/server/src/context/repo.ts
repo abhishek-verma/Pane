@@ -81,8 +81,18 @@ export function graphListNodes(
   return listNodesByKind(sqlite(), bucketId, kind, options)
 }
 
-export function graphDeleteNodes(nodeIds: string[]): void {
+export async function graphDeleteNodes(nodeIds: string[]): Promise<void> {
   deleteNodes(sqlite(), nodeIds)
+  try {
+    // Graph nodes are chunked/embedded under sourceKind 'graph' (see context/ingest.ts);
+    // clean those up too or deleted nodes keep surfacing as embedding search hits.
+    const { deleteChunksForSource } = await import('../retrieval/chunks')
+    for (const id of nodeIds) {
+      deleteChunksForSource('graph', id)
+    }
+  } catch {
+    /* embedding_chunks may be missing in older test DBs */
+  }
 }
 
 export type { CurrentWork, GraphNode, NodeListPage, SearchSnippet }
