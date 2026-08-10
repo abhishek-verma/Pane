@@ -18,5 +18,9 @@ export const SNIPPET_MAX_CHARS = 500
 export const SEARCH_DEFAULT_LIMIT = 8
 export const SEARCH_MAX_LIMIT = 15
 
+/** Default / max page size for paginated node listing (context settings "show more"). */
+export const NODES_LIST_DEFAULT_LIMIT = 20
+export const NODES_LIST_MAX_LIMIT = 50
+
 /** Cap compact event payload JSON. */
 export const EVENT_PAYLOAD_MAX_CHARS = 2000

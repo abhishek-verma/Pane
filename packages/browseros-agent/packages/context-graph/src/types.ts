@@ -90,6 +90,11 @@ export interface CurrentWork {
   meetings: GraphNode[]
 }
 
+export interface NodeListPage {
+  nodes: GraphNode[]
+  hasMore: boolean
+}
+
 export interface UpsertNodeInput {
   id?: string
   bucketId: string

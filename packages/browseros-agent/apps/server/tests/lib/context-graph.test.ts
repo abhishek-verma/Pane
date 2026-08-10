@@ -10,7 +10,10 @@ import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import {
   addEvent,
   currentWork,
+  deleteNodes,
   ensureDefaultBucket,
+  getNode,
+  listNodesByKind,
   search,
   toFtsMatchQuery,
   upsertNode,
@@ -179,6 +182,73 @@ describe('context graph store', () => {
     const work = currentWork(db, DEFAULT_BUCKET_ID)
     expect(work.files.length).toBe(1)
     expect(work.terminal.length).toBe(1)
+  })
+
+  it('listNodesByKind paginates beyond the currentWork cap', () => {
+    const db = openMemoryGraphDb()
+    for (let i = 0; i < 12; i++) {
+      upsertNode(db, {
+        bucketId: DEFAULT_BUCKET_ID,
+        kind: 'file',
+        title: `file-${i}.txt`,
+        uri: `/tmp/ws/file-${i}.txt`,
+        provenance: 'tool:filesystem_write',
+        matchByUri: true,
+      })
+    }
+    const first = listNodesByKind(db, DEFAULT_BUCKET_ID, 'file', {
+      limit: 5,
+      offset: 0,
+    })
+    expect(first.nodes.length).toBe(5)
+    expect(first.hasMore).toBe(true)
+
+    const second = listNodesByKind(db, DEFAULT_BUCKET_ID, 'file', {
+      limit: 5,
+      offset: 5,
+    })
+    expect(second.nodes.length).toBe(5)
+    expect(second.hasMore).toBe(true)
+
+    const third = listNodesByKind(db, DEFAULT_BUCKET_ID, 'file', {
+      limit: 5,
+      offset: 10,
+    })
+    expect(third.nodes.length).toBe(2)
+    expect(third.hasMore).toBe(false)
+
+    const firstIds = new Set(first.nodes.map((n) => n.id))
+    const secondIds = new Set(second.nodes.map((n) => n.id))
+    expect([...firstIds].some((id) => secondIds.has(id))).toBe(false)
+  })
+
+  it('deleteNodes removes multiple nodes and their fts entries', () => {
+    const db = openMemoryGraphDb()
+    const a = upsertNode(db, {
+      bucketId: DEFAULT_BUCKET_ID,
+      kind: 'page',
+      title: 'Alpha',
+      uri: 'https://alpha.example/',
+      summary: 'alpha summary',
+      provenance: 'tool:navigate',
+      matchByUri: true,
+    })
+    const b = upsertNode(db, {
+      bucketId: DEFAULT_BUCKET_ID,
+      kind: 'page',
+      title: 'Beta',
+      uri: 'https://beta.example/',
+      summary: 'beta summary',
+      provenance: 'tool:navigate',
+      matchByUri: true,
+    })
+
+    deleteNodes(db, [a.id, b.id])
+
+    expect(getNode(db, a.id)).toBeNull()
+    expect(getNode(db, b.id)).toBeNull()
+    expect(search(db, DEFAULT_BUCKET_ID, 'alpha summary').length).toBe(0)
+    expect(search(db, DEFAULT_BUCKET_ID, 'beta summary').length).toBe(0)
   })
 
   it('sanitizes FTS match queries', () => {
