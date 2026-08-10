@@ -23,6 +23,7 @@ import {
   resolveSidepanelChatTarget,
 } from '@/modules/chat/sidepanel-chat-targets'
 import { useLlmProviders } from '@/modules/llm-providers/llm-providers.hooks'
+import { ContinueSites } from '@/screens/newtab/home/ContinueSites'
 import { EmptyHomeState } from '@/screens/newtab/home/EmptyHomeState'
 import {
   fetchHome,
@@ -270,6 +271,8 @@ export const AgentCommandHome: FC = () => {
             }}
           />
         </div>
+
+        <ContinueSites />
 
         <div className="flex flex-col gap-0">
           {homeLoading ? (
