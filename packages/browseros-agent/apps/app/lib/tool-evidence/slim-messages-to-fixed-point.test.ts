@@ -47,7 +47,7 @@ describe('slimMessagesToFixedPoint', () => {
     expect(captureException).not.toHaveBeenCalled()
   })
 
-  test('caps a non-convergent transform and reports instead of looping forever', () => {
+  test('caps a non-convergent transform, reports it, and freezes at the original reference', () => {
     let calls = 0
     // Never returns the same reference twice — the failure mode this guards.
     const applyOnce = (msgs: UIMessage[]) => {
@@ -56,7 +56,11 @@ describe('slimMessagesToFixedPoint', () => {
     }
     const result = slimMessagesToFixedPoint(messages, applyOnce)
     expect(calls).toBe(8)
-    expect(result).not.toBe(messages)
+    // Returning the original reference (not the still-diverging best-effort
+    // result) is what actually stops the caller's setMessages loop — a
+    // changed-but-not-converged result would still differ from `messages`
+    // and still trigger another setMessages call next render.
+    expect(result).toBe(messages)
     expect(captureException).toHaveBeenCalledTimes(1)
   })
 })

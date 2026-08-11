@@ -22,12 +22,19 @@ const MAX_CONVERGENCE_ITERATIONS = 8
  * "changed" result forever — non-convergence across renders is exactly
  * what caused React error #185 (Maximum update depth exceeded) in
  * production once already (see slim-messages-for-client-ui.ts history).
- * Looping to convergence *before* ever calling setState replaces "every
+ * Looping to convergence *before* ever calling setState turns "every
  * transform composed here must be provably idempotent in one application,
- * forever, by inspection" with a structural guarantee: at most one
- * setMessages call per real upstream `messages` change, ever — even a
- * future transform that regresses to non-convergent can only cost a
- * bounded, synchronous retry loop, never an unbounded cross-render one.
+ * forever, by inspection" into "gets a few free retries automatically."
+ *
+ * On hitting the cap without converging, this returns the *original*
+ * `messages` reference unchanged (not the still-diverging best-effort
+ * result) — so the caller's reference check sees "no change" and skips
+ * setMessages for this render. Returning the best-effort result instead
+ * would still differ from the input, still trigger a setMessages call, and
+ * still reproduce the cross-render loop this exists to prevent, just at
+ * 1/8th the frequency; giving up and freezing at the last known-good value
+ * is what actually makes non-convergence cost at most one Sentry report
+ * instead of an unbounded render loop.
  */
 export function slimMessagesToFixedPoint(
   messages: UIMessage[],
@@ -46,5 +53,5 @@ export function slimMessagesToFixedPoint(
     new Error('slimMessagesToFixedPoint: pipeline did not converge'),
     { extra: { iterations: MAX_CONVERGENCE_ITERATIONS } },
   )
-  return current
+  return messages
 }

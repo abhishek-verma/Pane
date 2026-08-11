@@ -18,7 +18,7 @@ describe('media architecture ship gates', () => {
     expect(src).not.toMatch(/MessageResponse[\s\S]*plugins=\{\{\}\}/)
   })
 
-  test('ChatMarkdown routes mermaid through a Streamdown custom renderer', () => {
+  test('ChatMermaidBlock defines one shared mermaid renderer plugin config', () => {
     // plugins={{}} does NOT disable Streamdown's own built-in Mermaid
     // renderer (that's gated by a separate top-level `mermaid` prop) — a
     // custom `plugins.renderers` entry for language "mermaid" is the one
@@ -27,38 +27,35 @@ describe('media architecture ship gates', () => {
     // (the previous approach) can only approximate CommonMark fence rules
     // and will eventually disagree with Streamdown's real parser, letting a
     // fence slip through uncaught — this crashed the whole panel with React
-    // error #185 in production twice.
-    const src = readFileSync(
-      join(appRoot, 'components/tool-evidence/ChatMarkdown.tsx'),
-      'utf8',
-    )
-    expect(src).toContain("language: 'mermaid'")
-    expect(src).toContain('ChatMermaidStreamdownRenderer')
-    expect(src).not.toMatch(/from ['"]mermaid['"]/)
-  })
-
-  test('ChatMermaidStreamdownRenderer defers to the sandboxed broker, not raw mermaid', () => {
+    // error #185 in production twice. Defined once here (not per call site)
+    // so ChatMarkdown/PiMarkdown/reasoning.tsx can't drift out of sync.
     const src = readFileSync(
       join(appRoot, 'components/tool-evidence/ChatMermaidBlock.tsx'),
       'utf8',
     )
+    expect(src).toContain("language: 'mermaid'")
     expect(src).toContain('ChatMermaidStreamdownRenderer')
     expect(src).toContain('renderMermaidInSandbox')
+    expect(src).toContain('MERMAID_RENDERER_PLUGINS')
+    expect(src).toContain('normalizeMermaidFenceCase')
     expect(src).not.toMatch(/from ['"]mermaid['"]/)
   })
 
-  test('PiMarkdown and reasoning also route mermaid through the sandboxed renderer', () => {
+  test('ChatMarkdown, PiMarkdown, and reasoning all route mermaid through the shared sandboxed renderer', () => {
     // Same Streamdown-built-in-Mermaid crash class, different call sites —
-    // PiMarkdown page prose and reasoning blocks render arbitrary model
-    // text through Streamdown too and had no guard at all (reasoning.tsx
-    // did not even pass plugins={{}}).
+    // chat text, PI page prose, and reasoning blocks all render arbitrary
+    // model text through Streamdown (reasoning.tsx previously had no guard
+    // at all). Each must both register the shared renderer plugin and
+    // case-normalize fence language tags before Streamdown ever sees the
+    // text — Streamdown's own renderer lookup is a case-sensitive `===`.
     for (const path of [
+      'components/tool-evidence/ChatMarkdown.tsx',
       'screens/personal-internet/PiMarkdown.tsx',
       'components/ai-elements/reasoning.tsx',
     ]) {
       const src = readFileSync(join(appRoot, path), 'utf8')
-      expect(src).toContain("language: 'mermaid'")
-      expect(src).toContain('ChatMermaidStreamdownRenderer')
+      expect(src).toContain('MERMAID_RENDERER_PLUGINS')
+      expect(src).toContain('normalizeMermaidFenceCase')
     }
   })
 

@@ -5,9 +5,23 @@
  */
 
 import { type FC, useEffect, useState } from 'react'
-import type { CustomRendererProps } from 'streamdown'
+import type { CustomRenderer, CustomRendererProps } from 'streamdown'
 import { PI_MERMAID_RENDER_ENABLED } from '@/lib/personal-internet/mermaid-render-enabled'
 import { renderMermaidInSandbox } from '@/lib/personal-internet/mermaid-sandbox-broker'
+
+const MermaidRenderingPlaceholder: FC<{ sandboxed?: boolean }> = ({
+  sandboxed,
+}) => (
+  <div
+    className={
+      sandboxed
+        ? 'my-2 overflow-x-auto rounded-md border border-border/60 bg-muted/20 p-3'
+        : 'my-2 rounded-md border border-border/60 bg-muted/20 p-3'
+    }
+  >
+    <p className="text-muted-foreground text-xs">Rendering diagram…</p>
+  </div>
+)
 
 export const ChatMermaidBlock: FC<{ source: string }> = ({ source }) => {
   const [svg, setSvg] = useState<string | null>(null)
@@ -62,7 +76,7 @@ export const ChatMermaidBlock: FC<{ source: string }> = ({ source }) => {
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       ) : (
-        <p className="text-muted-foreground text-xs">Rendering diagram…</p>
+        <MermaidRenderingPlaceholder sandboxed />
       )}
     </div>
   )
@@ -70,23 +84,49 @@ export const ChatMermaidBlock: FC<{ source: string }> = ({ source }) => {
 
 /**
  * Registered as Streamdown's `plugins.renderers` entry for `language:
- * "mermaid"` — see ChatMarkdown.tsx. Streamdown checks a matching custom
- * renderer before it ever reaches its own built-in Mermaid diagram plugin,
- * so this is the one place in the render path that determines whether a
- * mermaid fence goes to the sandbox or to Streamdown's own renderer, keyed
- * off Streamdown's real (CommonMark-compliant) fence parsing rather than a
- * hand-rolled regex trying to approximate it.
+ * "mermaid"` — see MERMAID_RENDERER_PLUGINS below. Streamdown checks a
+ * matching custom renderer before it ever reaches its own built-in Mermaid
+ * diagram plugin, so this is the one place in the render path that
+ * determines whether a mermaid fence goes to the sandbox or to Streamdown's
+ * own renderer, keyed off Streamdown's real (CommonMark-compliant) fence
+ * parsing rather than a hand-rolled regex trying to approximate it.
  */
 export const ChatMermaidStreamdownRenderer: FC<CustomRendererProps> = ({
   code,
   isIncomplete,
 }) => {
-  if (isIncomplete) {
-    return (
-      <div className="my-2 rounded-md border border-border/60 bg-muted/20 p-3">
-        <p className="text-muted-foreground text-xs">Rendering diagram…</p>
-      </div>
-    )
-  }
+  if (isIncomplete) return <MermaidRenderingPlaceholder />
   return <ChatMermaidBlock source={code} />
+}
+
+/**
+ * Shared by every Streamdown instance that can render arbitrary model text
+ * (ChatMarkdown, PiMarkdown, reasoning.tsx) — one definition so they can't
+ * drift out of sync with each other.
+ */
+export const MERMAID_RENDERER_PLUGINS: {
+  renderers: CustomRenderer[]
+} = {
+  renderers: [
+    { language: 'mermaid', component: ChatMermaidStreamdownRenderer },
+  ],
+}
+
+/**
+ * Streamdown's own custom-renderer lookup matches `language` with a plain
+ * `===` (verified against its bundled source — no case-folding anywhere in
+ * that path), and the language token comes from the fence's info string
+ * verbatim. A ```Mermaid or ```MERMAID fence would silently fall through
+ * to a plain code block instead of the sandboxed diagram. Streamdown's own
+ * parser still decides where the fence begins/ends (that's the point of
+ * this whole approach) — this only canonicalizes the language token's case
+ * beforehand, it does not re-detect fence boundaries.
+ */
+const MERMAID_FENCE_LANGUAGE_RE = /^([ \t]*(?:`{3,}|~{3,})[ \t]*)mermaid\b/gim
+
+export function normalizeMermaidFenceCase(text: string): string {
+  return text.replace(
+    MERMAID_FENCE_LANGUAGE_RE,
+    (_match, prefix: string) => `${prefix}mermaid`,
+  )
 }

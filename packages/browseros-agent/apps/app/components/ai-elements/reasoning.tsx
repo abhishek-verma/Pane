@@ -5,7 +5,10 @@ import { BrainIcon, ChevronDownIcon } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import { createContext, memo, useContext, useEffect, useState } from 'react'
 import { Streamdown } from 'streamdown'
-import { ChatMermaidStreamdownRenderer } from '@/components/tool-evidence/ChatMermaidBlock'
+import {
+  MERMAID_RENDERER_PLUGINS,
+  normalizeMermaidFenceCase,
+} from '@/components/tool-evidence/ChatMermaidBlock'
 import {
   Collapsible,
   CollapsibleContent,
@@ -20,11 +23,6 @@ import { streamdownLinkSafety } from './streamdown-external-link-modal'
 // to its own built-in Mermaid renderer here with no guard at all (this file
 // did not even pass plugins={{}}) — see ChatMarkdown.tsx for why that
 // renderer has crashed the whole panel with React error #185 before.
-const MERMAID_RENDERER_PLUGINS = {
-  renderers: [
-    { language: 'mermaid', component: ChatMermaidStreamdownRenderer },
-  ],
-}
 
 type ReasoningContextValue = {
   isStreaming: boolean
@@ -191,7 +189,7 @@ export const ReasoningContent = memo(
         linkSafety={streamdownLinkSafety}
         plugins={MERMAID_RENDERER_PLUGINS}
       >
-        {children}
+        {normalizeMermaidFenceCase(children)}
       </Streamdown>
     </CollapsibleContent>
   ),

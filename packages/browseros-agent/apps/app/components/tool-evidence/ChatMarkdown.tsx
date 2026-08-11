@@ -18,15 +18,11 @@
  */
 
 import type { FC } from 'react'
-import type { PluginConfig } from 'streamdown'
 import { MessageResponse } from '@/components/ai-elements/message'
-import { ChatMermaidStreamdownRenderer } from '@/components/tool-evidence/ChatMermaidBlock'
-
-const MERMAID_RENDERER_PLUGINS: PluginConfig = {
-  renderers: [
-    { language: 'mermaid', component: ChatMermaidStreamdownRenderer },
-  ],
-}
+import {
+  MERMAID_RENDERER_PLUGINS,
+  normalizeMermaidFenceCase,
+} from '@/components/tool-evidence/ChatMermaidBlock'
 
 export const ChatMarkdown: FC<{
   text: string
@@ -40,7 +36,7 @@ export const ChatMarkdown: FC<{
       parseIncompleteMarkdown={isStreaming}
       plugins={MERMAID_RENDERER_PLUGINS}
     >
-      {text}
+      {normalizeMermaidFenceCase(text)}
     </MessageResponse>
   )
 }
