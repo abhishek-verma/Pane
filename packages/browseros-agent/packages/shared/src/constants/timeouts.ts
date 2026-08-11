@@ -49,6 +49,23 @@ export const TIMEOUTS = {
   OAUTH_POLL_INTERVAL: 2_000,
   OAUTH_POLL_TIMEOUT: 300_000,
   DEVICE_CODE_POLL_SAFETY_MARGIN: 3_000,
+
+  /**
+   * `useChat({ experimental_throttle })` — coalesces streamed-token state
+   * updates so the chat message tree (markdown parse, syntax highlight,
+   * diagram dispatch) re-renders on a fixed cadence instead of once per SSE
+   * token. Without this, a response with heavy content (large code blocks,
+   * several diagrams) re-runs the full render pipeline hundreds of times
+   * during a single stream.
+   */
+  CHAT_STREAM_RENDER_THROTTLE: 66,
+
+  // Server session store — idle in-memory session eviction. Transcripts are
+  // already durable in SQLite; this only bounds how long a live AiSdkAgent
+  // (MCP clients, model connection) stays resident in the server process
+  // for a conversation nobody is actively using. See session-store.ts.
+  SESSION_IDLE_EVICT: 30 * 60_000,
+  SESSION_SWEEP_INTERVAL: 5 * 60_000,
 } as const
 
 export type TimeoutKey = keyof typeof TIMEOUTS

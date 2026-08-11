@@ -10,8 +10,9 @@ import {
   useRef,
   useState,
 } from 'react'
-import { type BundledLanguage, codeToHtml, type ShikiTransformer } from 'shiki'
+import type { BundledLanguage } from 'shiki'
 import { Button } from '@/components/ui/button'
+import { highlightHtmlInSandbox } from '@/lib/code-highlight/shiki-sandbox-broker'
 import { cn } from '@/lib/utils'
 
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
@@ -28,49 +29,23 @@ const CodeBlockContext = createContext<CodeBlockContextType>({
   code: '',
 })
 
-const lineNumberTransformer: ShikiTransformer = {
-  name: 'line-numbers',
-  line(node, line) {
-    node.children.unshift({
-      type: 'element',
-      tagName: 'span',
-      properties: {
-        className: [
-          'inline-block',
-          'min-w-10',
-          'mr-4',
-          'text-right',
-          'select-none',
-          'text-muted-foreground',
-        ],
-      },
-      children: [{ type: 'text', value: String(line) }],
-    })
-  },
-}
-
-/** @public */
+/**
+ * @public
+ * Runs in the Shiki sandbox (shiki-sandbox-broker.ts), not inline — tool
+ * call input/output can be arbitrarily large, and this used to call Shiki's
+ * codeToHtml() directly on the main thread for every render. See the
+ * renderer OOM/hang investigation this was moved for.
+ */
 export async function highlightCode(
   code: string,
   language: BundledLanguage,
   showLineNumbers = false,
 ) {
-  const transformers: ShikiTransformer[] = showLineNumbers
-    ? [lineNumberTransformer]
-    : []
-
-  return await Promise.all([
-    codeToHtml(code, {
-      lang: language,
-      theme: 'one-light',
-      transformers,
-    }),
-    codeToHtml(code, {
-      lang: language,
-      theme: 'one-dark-pro',
-      transformers,
-    }),
+  const [light, dark] = await Promise.all([
+    highlightHtmlInSandbox(code, language, 'one-light', showLineNumbers),
+    highlightHtmlInSandbox(code, language, 'one-dark-pro', showLineNumbers),
   ])
+  return [light.ok ? light.value : '', dark.ok ? dark.value : ''] as const
 }
 
 /** @public */

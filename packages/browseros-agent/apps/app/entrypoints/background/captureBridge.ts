@@ -221,6 +221,7 @@ async function failCaptureForSession(
   stopSpeakerPoll(sessionId)
   captureWasInCallTabs.delete(tabId)
   unknownStreakByTab.delete(tabId)
+  lastMuteBySession.delete(sessionId)
   deactivateCaptureGlow(tabId, sessionId)
   await stopTabAudioCapture(sessionId).catch(() => null)
   await failMeetingSession(sessionId, message).catch(() => null)
@@ -398,6 +399,7 @@ async function syncActiveSessions(): Promise<void> {
       const session = sessions.find((item) => item.id === sessionId)
       const tabId = session?.tabId
       await stopTabAudioCapture(sessionId)
+      lastMuteBySession.delete(sessionId)
       if (typeof tabId === 'number') {
         deactivateCaptureGlow(tabId, sessionId)
         captureWasInCallTabs.delete(tabId)

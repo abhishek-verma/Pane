@@ -1,4 +1,5 @@
 import type { BrowserOutputFileAccess } from '@browseros/browser-mcp/output-file'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { UIMessage } from 'ai'
@@ -8,6 +9,7 @@ import { chatMessages, chatSessions } from '../lib/db/schema/chat-sessions'
 import { logger } from '../lib/logger'
 import { tryGetProfileKey } from '../lib/profile-context'
 import type { AiSdkAgent } from './ai-sdk-agent'
+import { conversationTurnRegistry } from './conversation-turn-registry'
 
 function liveSessionKey(conversationId: string): string {
   const profile = tryGetProfileKey() ?? ''
@@ -227,25 +229,38 @@ export interface PersistMessagesOptions {
   syncIndexes?: boolean
 }
 
+interface SessionMeta {
+  conversationId: string
+  touchedAt: number
+}
+
 export class SessionStore {
   private sessions = new Map<string, AgentSession>()
+  /** Last-access time + original conversationId, keyed the same as `sessions`. */
+  private meta = new Map<string, SessionMeta>()
   /** Process-lifetime tombstones so late persist after delete cannot resurrect. */
   private deletedSessions = new Set<string>()
   /** Per-session write serialization (promise chain). */
   private persistLocks = new Map<string, Promise<void>>()
+  private sweepTimer: ReturnType<typeof setInterval> | null = null
   /** Shared image store for all sessions managed by this store. */
   readonly imageStore = new ToolImageStore()
   /** Full tool-output spill for UI projection (agent transcript stays fat). */
   readonly outputStore = new ToolOutputStore()
 
   get(conversationId: string): AgentSession | undefined {
-    return this.sessions.get(liveSessionKey(conversationId))
+    const key = liveSessionKey(conversationId)
+    const session = this.sessions.get(key)
+    if (session) this.touch(key, conversationId)
+    return session
   }
 
   set(conversationId: string, session: AgentSession): void {
     const key = liveSessionKey(conversationId)
     this.deletedSessions.delete(key)
     this.sessions.set(key, session)
+    this.touch(key, conversationId)
+    this.ensureSweeper()
     logger.info('Session added to store', {
       conversationId,
       profileKey: tryGetProfileKey(),
@@ -260,6 +275,7 @@ export class SessionStore {
   remove(conversationId: string): boolean {
     const key = liveSessionKey(conversationId)
     const existed = this.sessions.delete(key)
+    this.meta.delete(key)
     if (existed) {
       logger.info('Session removed from store (without dispose)', {
         conversationId,
@@ -267,6 +283,73 @@ export class SessionStore {
       })
     }
     return existed
+  }
+
+  private touch(key: string, conversationId: string): void {
+    this.meta.set(key, { conversationId, touchedAt: Date.now() })
+  }
+
+  private ensureSweeper(): void {
+    if (this.sweepTimer) return
+    this.sweepTimer = setInterval(() => {
+      this.evictIdleSessions()
+    }, TIMEOUTS.SESSION_SWEEP_INTERVAL)
+    this.sweepTimer.unref?.()
+  }
+
+  /** Test/shutdown seam — stop the sweep timer so it can't keep a process alive. */
+  stopSweeper(): void {
+    if (this.sweepTimer) {
+      clearInterval(this.sweepTimer)
+      this.sweepTimer = null
+    }
+  }
+
+  /**
+   * Drops idle in-memory agent sessions (MCP clients, model connection,
+   * transcript object graph) from RAM. Safe by construction: the transcript
+   * is already durable in SQLite (every turn writes through via
+   * `persistMessages`), and `ChatService` already rebuilds a fresh
+   * `AiSdkAgent` + hydrates it from `loadMessages()` whenever `get()` misses
+   * — the exact same path it uses to recover from a server restart. Eviction
+   * just makes that path fire for "idle" the same way it already fires for
+   * "process restarted", instead of pinning every conversation ever touched
+   * in memory for the life of the server process.
+   *
+   * Skips any conversation with an actively running turn
+   * (`conversationTurnRegistry.getActiveFor`) — a long tool loop must not
+   * have its live agent (and in-flight abort/stream state) yanked out from
+   * under it just because it's been running a while without a new user
+   * message.
+   */
+  evictIdleSessions(maxIdleMs: number = TIMEOUTS.SESSION_IDLE_EVICT): number {
+    const now = Date.now()
+    let evicted = 0
+    for (const [key, session] of this.sessions) {
+      const meta = this.meta.get(key)
+      if (!meta) continue
+      if (now - meta.touchedAt < maxIdleMs) continue
+      if (conversationTurnRegistry.getActiveFor(meta.conversationId)) continue
+
+      this.sessions.delete(key)
+      this.meta.delete(key)
+      this.persistLocks.delete(key)
+      evicted++
+      void session.agent.dispose().catch((err: unknown) => {
+        logger.warn('Failed to dispose idle session', {
+          conversationId: meta.conversationId,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      })
+    }
+    if (evicted > 0) {
+      logger.info('Evicted idle sessions', {
+        evicted,
+        remainingSessions: this.sessions.size,
+      })
+    }
+    if (this.sessions.size === 0) this.stopSweeper()
+    return evicted
   }
 
   async delete(conversationId: string): Promise<boolean> {
@@ -286,6 +369,7 @@ export class SessionStore {
     if (session) {
       await session.agent.dispose()
       this.sessions.delete(key)
+      this.meta.delete(key)
     }
 
     const deleted = Boolean(existing || session)

@@ -73,6 +73,13 @@ export function drainOsPush(): void {
     if (alarm.name === ALARM_NAME) void tick()
   })
 
+  // A notification is either clicked or dismissed, never both — without
+  // this, a dismissed-not-clicked notification's entry (the common case)
+  // never leaves the map for as long as the service worker stays resident.
+  chrome.notifications.onClosed.addListener((notificationId) => {
+    deepLinkById.delete(notificationId)
+  })
+
   chrome.notifications.onClicked.addListener((notificationId) => {
     const deepLink = deepLinkById.get(notificationId)
     deepLinkById.delete(notificationId)

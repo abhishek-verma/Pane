@@ -36,7 +36,8 @@ describe('media architecture ship gates', () => {
     expect(src).toContain("language: 'mermaid'")
     expect(src).toContain('ChatMermaidStreamdownRenderer')
     expect(src).toContain('useMermaidRender')
-    expect(src).toContain('MERMAID_RENDERER_PLUGINS')
+    expect(src).toContain('STREAMDOWN_PLUGINS')
+    expect(src).toContain('shikiWorkerPlugin')
     expect(src).toContain('normalizeMermaidFenceCase')
     expect(src).not.toMatch(/from ['"]mermaid['"]/)
 
@@ -62,7 +63,7 @@ describe('media architecture ship gates', () => {
       'components/ai-elements/reasoning.tsx',
     ]) {
       const src = readFileSync(join(appRoot, path), 'utf8')
-      expect(src).toContain('MERMAID_RENDERER_PLUGINS')
+      expect(src).toContain('STREAMDOWN_PLUGINS')
       expect(src).toContain('normalizeMermaidFenceCase')
     }
   })
