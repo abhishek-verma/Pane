@@ -35,10 +35,18 @@ describe('media architecture ship gates', () => {
     )
     expect(src).toContain("language: 'mermaid'")
     expect(src).toContain('ChatMermaidStreamdownRenderer')
-    expect(src).toContain('renderMermaidInSandbox')
+    expect(src).toContain('useMermaidRender')
     expect(src).toContain('MERMAID_RENDERER_PLUGINS')
     expect(src).toContain('normalizeMermaidFenceCase')
     expect(src).not.toMatch(/from ['"]mermaid['"]/)
+
+    // useMermaidRender.ts is the one place that actually calls the broker
+    // — shared with PiMermaidView so the two can't drift out of sync.
+    const hookSrc = readFileSync(
+      join(appRoot, 'lib/personal-internet/useMermaidRender.ts'),
+      'utf8',
+    )
+    expect(hookSrc).toContain('renderMermaidInSandbox')
   })
 
   test('ChatMarkdown, PiMarkdown, and reasoning all route mermaid through the shared sandboxed renderer', () => {
