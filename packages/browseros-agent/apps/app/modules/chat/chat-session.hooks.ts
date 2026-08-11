@@ -757,7 +757,19 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     // Once the SDK actually starts the resume, `status` takes over as the
     // busy signal.
     if (status !== 'ready') {
-      setApprovalResumeInFlight(false)
+      // Guarded like the branch below: `messages` is also a dependency, and
+      // it changes on every streamed chunk of every turn — not just
+      // approval-resume ones. `status` stays non-'ready' for the whole
+      // duration of that streaming, so without this guard this branch
+      // called setApprovalResumeInFlight(false) on every single chunk of
+      // every turn, whether or not the flag needed clearing. React error
+      // #185 (Maximum update depth exceeded) traced directly to this call
+      // via a production crash's source-mapped stack trace — confirmed,
+      // not inferred: dispatchSetStateInternal <- this effect's create
+      // callback <- commitPassiveMountOnFiber, firing once per messages
+      // update during ordinary streaming (no mermaid, no approval flow
+      // involved at all).
+      if (approvalResumeInFlight) setApprovalResumeInFlight(false)
       return
     }
     // sendAutomaticallyWhen withholds the resume while any sibling tool is
