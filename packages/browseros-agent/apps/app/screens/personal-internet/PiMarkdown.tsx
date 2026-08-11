@@ -10,6 +10,10 @@
 import type { FC } from 'react'
 import { Streamdown } from 'streamdown'
 import { streamdownLinkSafety } from '@/components/ai-elements/streamdown-external-link-modal'
+import {
+  MERMAID_RENDERER_PLUGINS,
+  normalizeMermaidFenceCase,
+} from '@/components/tool-evidence/ChatMermaidBlock'
 import { cn } from '@/lib/utils'
 
 export const PiMarkdown: FC<{
@@ -20,14 +24,12 @@ export const PiMarkdown: FC<{
     mode="static"
     parseIncompleteMarkdown={false}
     linkSafety={streamdownLinkSafety}
-    // Mermaid stays off privileged Streamdown paths; PI diagrams use the
-    // disposable mermaid-sandbox iframe broker instead.
-    plugins={{}}
+    plugins={MERMAID_RENDERER_PLUGINS}
     className={cn(
       '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-0 [&_strong]:font-semibold',
       className,
     )}
   >
-    {children}
+    {normalizeMermaidFenceCase(children)}
   </Streamdown>
 )

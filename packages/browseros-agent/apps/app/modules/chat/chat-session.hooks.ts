@@ -51,6 +51,7 @@ import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { slimMessagesForClientUi } from '@/lib/tool-evidence/slim-messages-for-client-ui'
+import { slimMessagesToFixedPoint } from '@/lib/tool-evidence/slim-messages-to-fixed-point'
 import {
   isPoisonSessionPayload,
   stripFatInlineImagesFromMessages,
@@ -680,11 +681,18 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   // Bound live useChat heap: truncate fat tool bodies as they stream in.
   // Server still holds full fidelity; spilled expand uses /tool-outputs.
+  //
+  // This effect writes its own trigger back into state (setMessages inside
+  // an effect keyed on `messages`), which only terminates if the transform
+  // is a perfect one-shot fixed point. slimMessagesToFixedPoint loops the
+  // transform to convergence *inside this one call* (capped, synchronous)
+  // instead of relying on that across renders — a transform that needs a
+  // few extra passes settles here for free instead of re-triggering this
+  // effect indefinitely, which is what tripped React error #185 (Maximum
+  // update depth exceeded) in production before.
   const livePoisonInFlightRef = useRef(false)
   useEffect(() => {
-    const slimmed = slimMessagesForClientUi(
-      stripFatInlineImagesFromMessages(messages),
-    )
+    const slimmed = slimMessagesToFixedPoint(messages)
     if (slimmed !== messages) {
       setMessages(slimmed)
       return
@@ -749,7 +757,19 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     // Once the SDK actually starts the resume, `status` takes over as the
     // busy signal.
     if (status !== 'ready') {
-      setApprovalResumeInFlight(false)
+      // Guarded like the branch below: `messages` is also a dependency, and
+      // it changes on every streamed chunk of every turn — not just
+      // approval-resume ones. `status` stays non-'ready' for the whole
+      // duration of that streaming, so without this guard this branch
+      // called setApprovalResumeInFlight(false) on every single chunk of
+      // every turn, whether or not the flag needed clearing. React error
+      // #185 (Maximum update depth exceeded) traced directly to this call
+      // via a production crash's source-mapped stack trace — confirmed,
+      // not inferred: dispatchSetStateInternal <- this effect's create
+      // callback <- commitPassiveMountOnFiber, firing once per messages
+      // update during ordinary streaming (no mermaid, no approval flow
+      // involved at all).
+      if (approvalResumeInFlight) setApprovalResumeInFlight(false)
       return
     }
     // sendAutomaticallyWhen withholds the resume while any sibling tool is

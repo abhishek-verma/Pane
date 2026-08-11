@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { Outlet } from 'react-router'
+import { ChatSessionCrashBoundary } from '@/components/chat/ChatSessionCrashBoundary'
 import { NoProviderConfigured } from '@/components/chat/NoProviderConfigured'
 import {
   ChatSessionProvider,
@@ -47,8 +48,10 @@ const ChatLayoutContent: FC = () => {
 
 export const ChatLayout: FC = () => {
   return (
-    <ChatSessionProvider>
-      <ChatLayoutContent />
-    </ChatSessionProvider>
+    <ChatSessionCrashBoundary>
+      <ChatSessionProvider>
+        <ChatLayoutContent />
+      </ChatSessionProvider>
+    </ChatSessionCrashBoundary>
   )
 }

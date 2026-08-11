@@ -151,6 +151,11 @@ export const PI_LIMITS = {
   MAX_NESTING_DEPTH: 12,
   /** Max mermaid nodes anywhere in one page doc. */
   MAX_MERMAID_NODES_PER_PAGE: 4,
-  /** Sandbox render wall-clock timeout. */
-  MERMAID_RENDER_TIMEOUT_MS: 5_000,
+  /**
+   * Sandbox render wall-clock timeout, per attempt. A boot-phase timeout
+   * (iframe never sent its 'ready' handshake) gets one retry with a fresh
+   * iframe on top of this — see mermaid-sandbox-broker.ts — so worst case
+   * is roughly double this before a render is reported as failed.
+   */
+  MERMAID_RENDER_TIMEOUT_MS: 7_000,
 } as const

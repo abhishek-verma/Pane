@@ -158,4 +158,135 @@ describe('mermaid-sandbox-broker', () => {
     if (!result.ok) expect(result.error).toMatch(/init directives/)
     expect(appended).toHaveLength(0)
   })
+
+  it('retries once with a fresh iframe when the sandbox never finishes booting', async () => {
+    // First iframe never sends its 'ready' handshake (simulates a cold
+    // boot that got starved of CPU); the retry's iframe behaves normally.
+    let appendCount = 0
+    const doc = (globalThis as { document: typeof globalThis.document })
+      .document as unknown as {
+      documentElement: { appendChild: (node: HTMLElement) => HTMLElement }
+    }
+    doc.documentElement.appendChild = (node: HTMLElement) => {
+      appendCount++
+      appended.push(node)
+      if (appendCount === 1) return node
+      queueMicrotask(() => {
+        const iframe = node as HTMLIFrameElement & { contentWindow: Window }
+        for (const l of listeners) {
+          l({
+            data: {
+              type: 'pane-mermaid-ready',
+              version: MERMAID_PROTOCOL_VERSION,
+            },
+            source: iframe.contentWindow,
+          })
+        }
+      })
+      return node
+    }
+
+    const result = await renderMermaidInSandbox('flowchart LR\nA-->B', {
+      timeoutMs: 20,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(appendCount).toBe(2)
+  })
+
+  it('does not retry a timeout that happens after boot (render itself hangs)', async () => {
+    // The sandbox sends 'ready' and receives the request, but never
+    // replies — a stuck render, not a boot problem. Retrying the same
+    // source would very likely hang identically, so only one iframe
+    // should ever be created.
+    let createCount = 0
+    const doc = (globalThis as { document: typeof globalThis.document })
+      .document as unknown as {
+      createElement: (tag: string) => HTMLIFrameElement
+    }
+    const originalCreateElement = doc.createElement.bind(doc)
+    doc.createElement = (tag: string) => {
+      createCount++
+      const el = originalCreateElement(tag) as HTMLIFrameElement & {
+        contentWindow: { postMessage: (data: unknown) => void }
+      }
+      el.contentWindow.postMessage = () => {
+        // Swallow the render request — simulates mermaid.render() hanging.
+      }
+      return el
+    }
+
+    const result = await renderMermaidInSandbox('flowchart LR\nA-->B', {
+      timeoutMs: 20,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error).toBe('mermaid render timed out')
+      expect(result.retryable).toBe(false)
+    }
+    expect(createCount).toBe(1)
+  })
+
+  it('retries once when the iframe itself fails to load (same boot-phase class as a boot timeout)', async () => {
+    // First iframe fires its 'error' event instead of ever loading; the
+    // retry's iframe behaves normally.
+    let createCount = 0
+    const doc = (globalThis as { document: typeof globalThis.document })
+      .document as unknown as {
+      createElement: (tag: string) => HTMLIFrameElement
+    }
+    const originalCreateElement = doc.createElement.bind(doc)
+    doc.createElement = (tag: string) => {
+      createCount++
+      const attempt = createCount
+      const el = originalCreateElement(tag) as unknown as {
+        addEventListener: (type: string, fn: () => void) => void
+      }
+      el.addEventListener = (type: string, fn: () => void) => {
+        if (type === 'error' && attempt === 1) queueMicrotask(fn)
+      }
+      return el as unknown as HTMLIFrameElement
+    }
+
+    const result = await renderMermaidInSandbox('flowchart LR\nA-->B', {
+      timeoutMs: 50,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(createCount).toBe(2)
+  })
+
+  it('skips the retry when other renders are already queued behind this one', async () => {
+    // Neither iframe ever sends 'ready'. p1 and p2 are queued back to back
+    // synchronously (mirroring several mermaid diagrams mounting in the
+    // same render batch) — by the time p1's boot timeout actually fires,
+    // p2 has already been pushed onto the queue, so p1 must fail fast
+    // instead of retrying and making p2 wait through a second full
+    // timeout it gets no benefit from. p2 is dequeued only once p1 is
+    // fully settled, at which point nothing is queued behind IT, so it's
+    // free to use its own one-shot retry.
+    let appendCount = 0
+    const doc = (globalThis as { document: typeof globalThis.document })
+      .document as unknown as {
+      documentElement: { appendChild: (node: HTMLElement) => HTMLElement }
+    }
+    doc.documentElement.appendChild = (node: HTMLElement) => {
+      appendCount++
+      appended.push(node)
+      return node
+    }
+
+    const p1 = renderMermaidInSandbox('flowchart LR\nA-->B', { timeoutMs: 20 })
+    const p2 = renderMermaidInSandbox('flowchart LR\nC-->D', { timeoutMs: 20 })
+    const [r1, r2] = await Promise.all([p1, p2])
+
+    expect(r1.ok).toBe(false)
+    if (!r1.ok) expect(r1.error).toBe('mermaid sandbox boot timed out')
+    expect(r2.ok).toBe(false)
+    // p1: one attempt, no retry (p2 was already queued behind it).
+    // p2: first attempt + its own retry (queue was empty by the time p2's
+    // first attempt resolved) = two appends.
+    expect(appendCount).toBe(3)
+  })
 })

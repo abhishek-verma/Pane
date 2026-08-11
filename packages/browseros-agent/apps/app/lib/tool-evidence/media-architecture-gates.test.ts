@@ -18,28 +18,53 @@ describe('media architecture ship gates', () => {
     expect(src).not.toMatch(/MessageResponse[\s\S]*plugins=\{\{\}\}/)
   })
 
-  test('ChatMarkdown keeps Streamdown plugins empty', () => {
+  test('ChatMermaidBlock defines one shared mermaid renderer plugin config', () => {
+    // plugins={{}} does NOT disable Streamdown's own built-in Mermaid
+    // renderer (that's gated by a separate top-level `mermaid` prop) — a
+    // custom `plugins.renderers` entry for language "mermaid" is the one
+    // hook Streamdown checks before ever reaching its own Mermaid renderer.
+    // A hand-rolled regex pre-splitting ```mermaid fences out of the text
+    // (the previous approach) can only approximate CommonMark fence rules
+    // and will eventually disagree with Streamdown's real parser, letting a
+    // fence slip through uncaught — this crashed the whole panel with React
+    // error #185 in production twice. Defined once here (not per call site)
+    // so ChatMarkdown/PiMarkdown/reasoning.tsx can't drift out of sync.
     const src = readFileSync(
-      join(appRoot, 'components/tool-evidence/ChatMarkdown.tsx'),
+      join(appRoot, 'components/tool-evidence/ChatMermaidBlock.tsx'),
       'utf8',
     )
-    expect(src).toContain('plugins={{}}')
-    expect(src).toContain('ChatMermaidBlock')
+    expect(src).toContain("language: 'mermaid'")
+    expect(src).toContain('ChatMermaidStreamdownRenderer')
+    expect(src).toContain('useMermaidRender')
+    expect(src).toContain('MERMAID_RENDERER_PLUGINS')
+    expect(src).toContain('normalizeMermaidFenceCase')
     expect(src).not.toMatch(/from ['"]mermaid['"]/)
+
+    // useMermaidRender.ts is the one place that actually calls the broker
+    // — shared with PiMermaidView so the two can't drift out of sync.
+    const hookSrc = readFileSync(
+      join(appRoot, 'lib/personal-internet/useMermaidRender.ts'),
+      'utf8',
+    )
+    expect(hookSrc).toContain('renderMermaidInSandbox')
   })
 
-  test('ChatMarkdown never reconstructs a mermaid fence for MessageResponse', () => {
-    // A completed mermaid part must render inert placeholder text (or the
-    // sandboxed ChatMermaidBlock) while streaming — never re-wrap the source
-    // back into a fenced-code string and pass it through MessageResponse.
-    // plugins={{}} does not stop streamdown from parsing/rendering fenced
-    // code blocks it is handed as literal text; only never receiving the
-    // fence does. Regression: React error #185 on almost every turn.
-    const src = readFileSync(
-      join(appRoot, 'components/tool-evidence/ChatMarkdown.tsx'),
-      'utf8',
-    )
-    expect(src).not.toMatch(/`{3}mermaid/)
+  test('ChatMarkdown, PiMarkdown, and reasoning all route mermaid through the shared sandboxed renderer', () => {
+    // Same Streamdown-built-in-Mermaid crash class, different call sites —
+    // chat text, PI page prose, and reasoning blocks all render arbitrary
+    // model text through Streamdown (reasoning.tsx previously had no guard
+    // at all). Each must both register the shared renderer plugin and
+    // case-normalize fence language tags before Streamdown ever sees the
+    // text — Streamdown's own renderer lookup is a case-sensitive `===`.
+    for (const path of [
+      'components/tool-evidence/ChatMarkdown.tsx',
+      'screens/personal-internet/PiMarkdown.tsx',
+      'components/ai-elements/reasoning.tsx',
+    ]) {
+      const src = readFileSync(join(appRoot, path), 'utf8')
+      expect(src).toContain('MERMAID_RENDERER_PLUGINS')
+      expect(src).toContain('normalizeMermaidFenceCase')
+    }
   })
 
   test('BrowserActionCard loads stripped stills via resolveToolImageBlobUrl', () => {
@@ -49,14 +74,6 @@ describe('media architecture ship gates', () => {
     )
     expect(src).toContain('resolveToolImageBlobUrl')
     expect(src).not.toMatch(/tool-images\/\$\{/)
-  })
-
-  test('PiMarkdown keeps Streamdown plugins empty', () => {
-    const src = readFileSync(
-      join(appRoot, 'screens/personal-internet/PiMarkdown.tsx'),
-      'utf8',
-    )
-    expect(src).toContain('plugins={{}}')
   })
 
   test('CORS allows the profile isolation header for agentFetch', () => {

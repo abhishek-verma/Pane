@@ -232,6 +232,31 @@ describe('side panel scope routing', () => {
     expect(browserosToggleCalls).toEqual([])
   })
 
+  it('returns a pending promise from onOpened/onClosed so MV3 extends worker lifetime for the persisted write', async () => {
+    // A synchronous listener that kicks off a fire-and-forget storage write
+    // can let the service worker die before that write lands — the next
+    // cold start then reloads a stale (missing) window ID and a toolbar
+    // close click takes the "open" branch instead of "close" (see
+    // rememberWindowSidePanelOpen's docstring). MV3 only waits for a
+    // listener if the listener itself returns a pending promise.
+    registerSidePanelOpenStateListeners()
+    expect(onOpenedListeners.length).toBeGreaterThan(0)
+    expect(onClosedListeners.length).toBeGreaterThan(0)
+
+    const openedResult = onOpenedListeners.at(-1)?.({
+      windowId: 3,
+      path: 'sidepanel.html',
+    })
+    const closedResult = onClosedListeners.at(-1)?.({
+      windowId: 3,
+      path: 'sidepanel.html',
+    })
+
+    expect(openedResult).toBeInstanceOf(Promise)
+    expect(closedResult).toBeInstanceOf(Promise)
+    await Promise.all([openedResult, closedResult])
+  })
+
   it('keeps a newer explicit setting change over a stale refresh result', async () => {
     let resolveStoredValue: (perWindow: boolean) => void = () => {}
     getSidePanelPerWindowOverride = async () =>

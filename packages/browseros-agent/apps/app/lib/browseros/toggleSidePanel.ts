@@ -62,23 +62,36 @@ async function loadWindowSidePanelOpenState(): Promise<void> {
   }
 }
 
-function queuePersistWindowSidePanelOpenState(): void {
+function queuePersistWindowSidePanelOpenState(): Promise<void> {
   const windowIds = [...openWindowSidePanelIds]
   persistWindowSidePanelOpenStatePromise =
     persistWindowSidePanelOpenStatePromise
       .catch(() => undefined)
       .then(() => openWindowSidePanelIdsStorage.setValue(windowIds))
+  return persistWindowSidePanelOpenStatePromise
 }
 
-function rememberWindowSidePanelOpen(windowId: number): void {
-  if (openWindowSidePanelIds.has(windowId)) return
+/**
+ * Callers must await this. MV3 service workers can be killed within
+ * ~30s of going idle, and Chrome only extends a listener's lifetime while
+ * it has a pending promise outstanding — a fire-and-forget write here can
+ * lose the race and never reach storage. If that happens, the next cold
+ * worker reloads a stale (missing) window ID from storage and believes
+ * this window's panel is closed when it is actually open: a toolbar click
+ * meant to close it then takes the "open" branch instead (chrome.sidePanel
+ * .open() again, no close() ever sent) — which looks exactly like clicking
+ * close reopening the panel.
+ */
+function rememberWindowSidePanelOpen(windowId: number): Promise<void> {
+  if (openWindowSidePanelIds.has(windowId)) return Promise.resolve()
   openWindowSidePanelIds.add(windowId)
-  queuePersistWindowSidePanelOpenState()
+  return queuePersistWindowSidePanelOpenState()
 }
 
-function rememberWindowSidePanelClosed(windowId: number): void {
-  if (!openWindowSidePanelIds.delete(windowId)) return
-  queuePersistWindowSidePanelOpenState()
+/** See rememberWindowSidePanelOpen — same must-await requirement. */
+function rememberWindowSidePanelClosed(windowId: number): Promise<void> {
+  if (!openWindowSidePanelIds.delete(windowId)) return Promise.resolve()
+  return queuePersistWindowSidePanelOpenState()
 }
 
 /** Refreshes the cached side panel scope and open-window state from storage. */
@@ -125,7 +138,7 @@ async function openWindowSidePanel({
 }: SidePanelTarget): Promise<SidePanelToggleResult> {
   if (!openWindowSidePanelIds.has(windowId)) {
     await chrome.sidePanel.open({ windowId })
-    rememberWindowSidePanelOpen(windowId)
+    await rememberWindowSidePanelOpen(windowId)
   }
   return { opened: true }
 }
@@ -135,7 +148,7 @@ async function toggleWindowSidePanel(
 ): Promise<SidePanelToggleResult> {
   if (openWindowSidePanelIds.has(target.windowId)) {
     await chrome.sidePanel.close({ windowId: target.windowId })
-    rememberWindowSidePanelClosed(target.windowId)
+    await rememberWindowSidePanelClosed(target.windowId)
     return { opened: false }
   }
   return await openWindowSidePanel(target)
@@ -146,15 +159,15 @@ export function registerSidePanelOpenStateListeners(): void {
   if (sidePanelOpenStateListenersRegistered) return
   sidePanelOpenStateListenersRegistered = true
 
-  chrome.sidePanel.onOpened.addListener((info) => {
+  chrome.sidePanel.onOpened.addListener(async (info) => {
     if (info.tabId === undefined) {
-      rememberWindowSidePanelOpen(info.windowId)
+      await rememberWindowSidePanelOpen(info.windowId)
     }
   })
 
-  chrome.sidePanel.onClosed.addListener((info) => {
+  chrome.sidePanel.onClosed.addListener(async (info) => {
     if (info.tabId === undefined) {
-      rememberWindowSidePanelClosed(info.windowId)
+      await rememberWindowSidePanelClosed(info.windowId)
     }
   })
 }
