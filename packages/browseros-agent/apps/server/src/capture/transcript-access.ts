@@ -45,7 +45,14 @@ export async function readTranscriptSegments(
 export function formatTranscriptPlainText(
   segments: TranscriptSegment[],
   maxChars = CAPTURE_TRANSCRIPT_MAX_CHARS,
-): { text: string; segmentCount: number; truncated: boolean } {
+  offset = 0,
+): {
+  text: string
+  segmentCount: number
+  truncated: boolean
+  totalChars: number
+  nextOffset: number | null
+} {
   const lines: string[] = []
   for (const segment of segments) {
     if (segment.kind === 'partial') continue
@@ -58,13 +65,16 @@ export function formatTranscriptPlainText(
   }
   const joined = lines.join('\n').trim()
   const segmentCount = segments.filter((s) => s.kind !== 'partial').length
-  if (joined.length <= maxChars) {
-    return { text: joined, segmentCount, truncated: false }
-  }
+  const totalChars = joined.length
+  const start = Math.min(Math.max(0, offset), totalChars)
+  const window = joined.slice(start, start + maxChars)
+  const truncated = start + window.length < totalChars
   return {
-    text: `${joined.slice(0, maxChars)}\n\n…(truncated)`,
+    text: truncated ? `${window}\n\n…(truncated)` : window,
     segmentCount,
-    truncated: true,
+    truncated,
+    totalChars,
+    nextOffset: truncated ? start + window.length : null,
   }
 }
 
@@ -185,14 +195,17 @@ export async function writeMeetingSummaryFile(
 export async function loadFormattedTranscript(
   session: CaptureSessionSummary,
   maxChars = CAPTURE_TRANSCRIPT_MAX_CHARS,
+  offset = 0,
 ): Promise<{
   segments: TranscriptSegment[]
   text: string
   segmentCount: number
   truncated: boolean
+  totalChars: number
+  nextOffset: number | null
 }> {
   const segments = await readTranscriptSegments(session.transcriptPath)
-  const formatted = formatTranscriptPlainText(segments, maxChars)
+  const formatted = formatTranscriptPlainText(segments, maxChars, offset)
   return { segments, ...formatted }
 }
 

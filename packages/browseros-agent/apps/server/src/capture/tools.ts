@@ -89,7 +89,7 @@ function formatTranscriptToolText(
   }
   return {
     text: formatted.truncated
-      ? `${formatted.text}\n\n(truncated at ${maxChars} chars; ${formatted.segmentCount} segments total)`
+      ? `${formatted.text}\n\n(showed ${maxChars} chars of ${formatted.totalChars} total; ${formatted.segmentCount} segments total. Call capture_read again with offset=${formatted.nextOffset} to continue reading.)`
       : formatted.text,
   }
 }
@@ -115,8 +115,11 @@ function formatFullCaptureRead(input: {
   const summarySection = summaryBody.trim()
     ? `## Local excerpt / metadata\n\n${summaryBody.trim()}\n\n_(Not AI meeting notes — use the transcript below for content.)_\n\n`
     : '## Local excerpt / metadata\n\n_(none yet — transcript below)_\n\n'
+  const transcriptNote = formatted.truncated
+    ? `\n\n(showed ${formatted.text.length} chars of ${formatted.totalChars} total; call capture_read with include="transcript" and offset=${formatted.nextOffset} to continue reading.)`
+    : ''
   const transcriptSection = formatted.text
-    ? `## Transcript\n\n${formatted.text}`
+    ? `## Transcript\n\n${formatted.text}${transcriptNote}`
     : '## Transcript\n\n_(empty)_'
   return { text: `${header}${summarySection}${transcriptSection}` }
 }
@@ -154,10 +157,26 @@ export function buildCaptureToolSet(
         limit: z.number().int().min(1).max(50).optional(),
       }),
       execute: async ({ bucketId, limit }) => {
-        const sessions = listCaptureSessions({
+        const allSessions = listCaptureSessions({
           bucketId: bucketId || getBucketId(),
         })
-        if (sessions.length === 0) return { text: 'No capture sessions.' }
+        if (allSessions.length === 0) return { text: 'No capture sessions.' }
+
+        // Drop content-less error sessions when a better session exists for
+        // the same room — these are failed-start duplicates, not real
+        // recordings, and only confuse sessionId selection.
+        const roomsWithContent = new Set(
+          allSessions
+            .filter((s) => s.status !== 'error' && s.roomKey)
+            .map((s) => s.roomKey),
+        )
+        const sessions = allSessions.filter((s) => {
+          if (s.status !== 'error') return true
+          if (!s.roomKey) return true
+          return !roomsWithContent.has(s.roomKey)
+        })
+        const hiddenCount = allSessions.length - sessions.length
+
         const capped = sessions.slice(0, limit ?? 20)
         const lines = await Promise.all(
           capped.map(async (s) =>
@@ -170,8 +189,12 @@ export function buildCaptureToolSet(
           sessions.length > capped.length
             ? `\n…and ${sessions.length - capped.length} older session(s). Pass a higher limit or filter by reading a specific sessionId.`
             : ''
+        const hiddenNote =
+          hiddenCount > 0
+            ? `\n(hid ${hiddenCount} failed-start session(s) with no content, superseded by another session in the same room)`
+            : ''
         return {
-          text: `Local meeting captures (newest first). Use capture_read with a sessionId to get the transcript.\n${lines.join('\n')}${more}`,
+          text: `Local meeting captures (newest first). Use capture_read with a sessionId to get the transcript.\n${lines.join('\n')}${more}${hiddenNote}`,
         }
       },
     }),
@@ -193,8 +216,16 @@ export function buildCaptureToolSet(
           .max(CAPTURE_TRANSCRIPT_MAX_CHARS)
           .optional()
           .describe('Max transcript characters to return (default 15000).'),
+        offset: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe(
+            'Character offset into the transcript to start reading from (default 0). Use the nextOffset hint from a truncated response to page through long transcripts.',
+          ),
       }),
-      execute: async ({ sessionId, include, maxChars }) => {
+      execute: async ({ sessionId, include, maxChars, offset }) => {
         const session = getCaptureSession(sessionId)
         if (!session)
           return { text: `Capture not found: ${sessionId}`, isError: true }
@@ -211,7 +242,11 @@ export function buildCaptureToolSet(
         }
 
         const limit = maxChars ?? CAPTURE_TRANSCRIPT_MAX_CHARS
-        const formatted = await loadFormattedTranscript(session, limit)
+        const formatted = await loadFormattedTranscript(
+          session,
+          limit,
+          offset ?? 0,
+        )
         if (mode === 'transcript') {
           return formatTranscriptToolText(
             sessionId,
