@@ -1,8 +1,11 @@
 /**
- * Chat Mermaid diagram via disposable sandbox iframe (not Streamdown plugin).
+ * Chat Mermaid diagram via disposable sandbox iframe (not Streamdown's own
+ * bundled Mermaid renderer, which has crashed the whole panel with React
+ * error #185 from inside its own rendering code before).
  */
 
 import { type FC, useEffect, useState } from 'react'
+import type { CustomRendererProps } from 'streamdown'
 import { PI_MERMAID_RENDER_ENABLED } from '@/lib/personal-internet/mermaid-render-enabled'
 import { renderMermaidInSandbox } from '@/lib/personal-internet/mermaid-sandbox-broker'
 
@@ -63,4 +66,27 @@ export const ChatMermaidBlock: FC<{ source: string }> = ({ source }) => {
       )}
     </div>
   )
+}
+
+/**
+ * Registered as Streamdown's `plugins.renderers` entry for `language:
+ * "mermaid"` — see ChatMarkdown.tsx. Streamdown checks a matching custom
+ * renderer before it ever reaches its own built-in Mermaid diagram plugin,
+ * so this is the one place in the render path that determines whether a
+ * mermaid fence goes to the sandbox or to Streamdown's own renderer, keyed
+ * off Streamdown's real (CommonMark-compliant) fence parsing rather than a
+ * hand-rolled regex trying to approximate it.
+ */
+export const ChatMermaidStreamdownRenderer: FC<CustomRendererProps> = ({
+  code,
+  isIncomplete,
+}) => {
+  if (isIncomplete) {
+    return (
+      <div className="my-2 rounded-md border border-border/60 bg-muted/20 p-3">
+        <p className="text-muted-foreground text-xs">Rendering diagram…</p>
+      </div>
+    )
+  }
+  return <ChatMermaidBlock source={code} />
 }

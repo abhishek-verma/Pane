@@ -5,6 +5,7 @@ import { BrainIcon, ChevronDownIcon } from 'lucide-react'
 import type { ComponentProps } from 'react'
 import { createContext, memo, useContext, useEffect, useState } from 'react'
 import { Streamdown } from 'streamdown'
+import { ChatMermaidStreamdownRenderer } from '@/components/tool-evidence/ChatMermaidBlock'
 import {
   Collapsible,
   CollapsibleContent,
@@ -13,6 +14,17 @@ import {
 import { cn } from '@/lib/utils'
 import { Shimmer } from './shimmer'
 import { streamdownLinkSafety } from './streamdown-external-link-modal'
+
+// Raw model reasoning text can contain a stray ```mermaid fence same as any
+// other assistant text. Without a custom renderer, Streamdown falls through
+// to its own built-in Mermaid renderer here with no guard at all (this file
+// did not even pass plugins={{}}) — see ChatMarkdown.tsx for why that
+// renderer has crashed the whole panel with React error #185 before.
+const MERMAID_RENDERER_PLUGINS = {
+  renderers: [
+    { language: 'mermaid', component: ChatMermaidStreamdownRenderer },
+  ],
+}
 
 type ReasoningContextValue = {
   isStreaming: boolean
@@ -175,7 +187,12 @@ export const ReasoningContent = memo(
       {/* Don't forward Collapsible's HTMLAttributes into Streamdown —
           streamdown@2 narrowed `dir` from `string` to a literal union
           and the spread leaks Radix's incompatible type. */}
-      <Streamdown linkSafety={streamdownLinkSafety}>{children}</Streamdown>
+      <Streamdown
+        linkSafety={streamdownLinkSafety}
+        plugins={MERMAID_RENDERER_PLUGINS}
+      >
+        {children}
+      </Streamdown>
     </CollapsibleContent>
   ),
 )

@@ -1,5 +1,6 @@
 import type { FC } from 'react'
 import { Outlet, useLocation } from 'react-router'
+import { ChatSessionCrashBoundary } from '@/components/chat/ChatSessionCrashBoundary'
 import { ChatSessionProvider } from '@/modules/chat/chat-session-context'
 import { NewTabFocusGrid } from './NewTabFocusGrid'
 import { shouldHideFocusGrid, shouldUseChatSession } from './route-utils'
@@ -17,5 +18,9 @@ export const NewTabLayout: FC = () => {
 
   if (!useChatSession) return content
 
-  return <ChatSessionProvider origin="newtab">{content}</ChatSessionProvider>
+  return (
+    <ChatSessionCrashBoundary>
+      <ChatSessionProvider origin="newtab">{content}</ChatSessionProvider>
+    </ChatSessionCrashBoundary>
+  )
 }

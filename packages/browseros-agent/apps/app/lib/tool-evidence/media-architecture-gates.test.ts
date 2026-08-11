@@ -18,28 +18,48 @@ describe('media architecture ship gates', () => {
     expect(src).not.toMatch(/MessageResponse[\s\S]*plugins=\{\{\}\}/)
   })
 
-  test('ChatMarkdown keeps Streamdown plugins empty', () => {
+  test('ChatMarkdown routes mermaid through a Streamdown custom renderer', () => {
+    // plugins={{}} does NOT disable Streamdown's own built-in Mermaid
+    // renderer (that's gated by a separate top-level `mermaid` prop) — a
+    // custom `plugins.renderers` entry for language "mermaid" is the one
+    // hook Streamdown checks before ever reaching its own Mermaid renderer.
+    // A hand-rolled regex pre-splitting ```mermaid fences out of the text
+    // (the previous approach) can only approximate CommonMark fence rules
+    // and will eventually disagree with Streamdown's real parser, letting a
+    // fence slip through uncaught — this crashed the whole panel with React
+    // error #185 in production twice.
     const src = readFileSync(
       join(appRoot, 'components/tool-evidence/ChatMarkdown.tsx'),
       'utf8',
     )
-    expect(src).toContain('plugins={{}}')
-    expect(src).toContain('ChatMermaidBlock')
+    expect(src).toContain("language: 'mermaid'")
+    expect(src).toContain('ChatMermaidStreamdownRenderer')
     expect(src).not.toMatch(/from ['"]mermaid['"]/)
   })
 
-  test('ChatMarkdown never reconstructs a mermaid fence for MessageResponse', () => {
-    // A completed mermaid part must render inert placeholder text (or the
-    // sandboxed ChatMermaidBlock) while streaming — never re-wrap the source
-    // back into a fenced-code string and pass it through MessageResponse.
-    // plugins={{}} does not stop streamdown from parsing/rendering fenced
-    // code blocks it is handed as literal text; only never receiving the
-    // fence does. Regression: React error #185 on almost every turn.
+  test('ChatMermaidStreamdownRenderer defers to the sandboxed broker, not raw mermaid', () => {
     const src = readFileSync(
-      join(appRoot, 'components/tool-evidence/ChatMarkdown.tsx'),
+      join(appRoot, 'components/tool-evidence/ChatMermaidBlock.tsx'),
       'utf8',
     )
-    expect(src).not.toMatch(/`{3}mermaid/)
+    expect(src).toContain('ChatMermaidStreamdownRenderer')
+    expect(src).toContain('renderMermaidInSandbox')
+    expect(src).not.toMatch(/from ['"]mermaid['"]/)
+  })
+
+  test('PiMarkdown and reasoning also route mermaid through the sandboxed renderer', () => {
+    // Same Streamdown-built-in-Mermaid crash class, different call sites —
+    // PiMarkdown page prose and reasoning blocks render arbitrary model
+    // text through Streamdown too and had no guard at all (reasoning.tsx
+    // did not even pass plugins={{}}).
+    for (const path of [
+      'screens/personal-internet/PiMarkdown.tsx',
+      'components/ai-elements/reasoning.tsx',
+    ]) {
+      const src = readFileSync(join(appRoot, path), 'utf8')
+      expect(src).toContain("language: 'mermaid'")
+      expect(src).toContain('ChatMermaidStreamdownRenderer')
+    }
   })
 
   test('BrowserActionCard loads stripped stills via resolveToolImageBlobUrl', () => {
@@ -49,14 +69,6 @@ describe('media architecture ship gates', () => {
     )
     expect(src).toContain('resolveToolImageBlobUrl')
     expect(src).not.toMatch(/tool-images\/\$\{/)
-  })
-
-  test('PiMarkdown keeps Streamdown plugins empty', () => {
-    const src = readFileSync(
-      join(appRoot, 'screens/personal-internet/PiMarkdown.tsx'),
-      'utf8',
-    )
-    expect(src).toContain('plugins={{}}')
   })
 
   test('CORS allows the profile isolation header for agentFetch', () => {

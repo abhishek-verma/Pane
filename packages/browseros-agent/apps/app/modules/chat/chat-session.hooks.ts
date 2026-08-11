@@ -51,6 +51,7 @@ import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { slimMessagesForClientUi } from '@/lib/tool-evidence/slim-messages-for-client-ui'
+import { slimMessagesToFixedPoint } from '@/lib/tool-evidence/slim-messages-to-fixed-point'
 import {
   isPoisonSessionPayload,
   stripFatInlineImagesFromMessages,
@@ -680,11 +681,18 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   // Bound live useChat heap: truncate fat tool bodies as they stream in.
   // Server still holds full fidelity; spilled expand uses /tool-outputs.
+  //
+  // This effect writes its own trigger back into state (setMessages inside
+  // an effect keyed on `messages`), which only terminates if the transform
+  // is a perfect one-shot fixed point. slimMessagesToFixedPoint loops the
+  // transform to convergence *inside this one call* (capped, synchronous)
+  // instead of relying on that across renders — a transform that needs a
+  // few extra passes settles here for free instead of re-triggering this
+  // effect indefinitely, which is what tripped React error #185 (Maximum
+  // update depth exceeded) in production before.
   const livePoisonInFlightRef = useRef(false)
   useEffect(() => {
-    const slimmed = slimMessagesForClientUi(
-      stripFatInlineImagesFromMessages(messages),
-    )
+    const slimmed = slimMessagesToFixedPoint(messages)
     if (slimmed !== messages) {
       setMessages(slimmed)
       return
