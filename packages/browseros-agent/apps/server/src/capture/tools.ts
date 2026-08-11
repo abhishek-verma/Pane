@@ -80,16 +80,21 @@ function formatTranscriptToolText(
   sessionId: string,
   status: string,
   formatted: Awaited<ReturnType<typeof loadFormattedTranscript>>,
-  maxChars: number,
+  offset: number,
 ): { text: string } {
   if (!formatted.text) {
+    if (offset > 0 && offset >= formatted.totalChars) {
+      return {
+        text: `No more transcript content for ${sessionId} — offset ${offset} is at or past the end (${formatted.totalChars} chars total).`,
+      }
+    }
     return {
       text: `No transcript text for ${sessionId} yet (status=${status}, segments=${formatted.segmentCount}).`,
     }
   }
   return {
     text: formatted.truncated
-      ? `${formatted.text}\n\n(showed ${maxChars} chars of ${formatted.totalChars} total; ${formatted.segmentCount} segments total. Call capture_read again with offset=${formatted.nextOffset} to continue reading.)`
+      ? `${formatted.text}\n\n(showed ${formatted.text.length} chars of ${formatted.totalChars} total; ${formatted.segmentCount} segments total. Call capture_read again with offset=${formatted.nextOffset} to continue reading.)`
       : formatted.text,
   }
 }
@@ -98,8 +103,9 @@ function formatFullCaptureRead(input: {
   session: NonNullable<ReturnType<typeof getCaptureSession>>
   formatted: Awaited<ReturnType<typeof loadFormattedTranscript>>
   summaryBody: string
+  offset: number
 }): { text: string } {
-  const { session, formatted, summaryBody } = input
+  const { session, formatted, summaryBody, offset } = input
   const header = [
     `# Meeting capture ${session.id}`,
     `status: ${session.status}`,
@@ -120,7 +126,9 @@ function formatFullCaptureRead(input: {
     : ''
   const transcriptSection = formatted.text
     ? `## Transcript\n\n${formatted.text}${transcriptNote}`
-    : '## Transcript\n\n_(empty)_'
+    : offset > 0 && offset >= formatted.totalChars
+      ? `## Transcript\n\n_(no more content — offset ${offset} is at or past the end, ${formatted.totalChars} chars total)_`
+      : '## Transcript\n\n_(empty)_'
   return { text: `${header}${summarySection}${transcriptSection}` }
 }
 
@@ -252,7 +260,7 @@ export function buildCaptureToolSet(
             sessionId,
             session.status,
             formatted,
-            limit,
+            offset ?? 0,
           )
         }
 
@@ -265,7 +273,12 @@ export function buildCaptureToolSet(
           }
         }
 
-        return formatFullCaptureRead({ session, formatted, summaryBody })
+        return formatFullCaptureRead({
+          session,
+          formatted,
+          summaryBody,
+          offset: offset ?? 0,
+        })
       },
     }),
   }

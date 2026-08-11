@@ -66,6 +66,8 @@ export function formatTranscriptPlainText(
   const joined = lines.join('\n').trim()
   const segmentCount = segments.filter((s) => s.kind !== 'partial').length
   const totalChars = joined.length
+  // Clamp offset to totalChars (not totalChars - 1) so an offset exactly at
+  // or past the end yields an empty window rather than re-reading the tail.
   const start = Math.min(Math.max(0, offset), totalChars)
   const window = joined.slice(start, start + maxChars)
   const truncated = start + window.length < totalChars
