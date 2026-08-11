@@ -158,4 +158,70 @@ describe('mermaid-sandbox-broker', () => {
     if (!result.ok) expect(result.error).toMatch(/init directives/)
     expect(appended).toHaveLength(0)
   })
+
+  it('retries once with a fresh iframe when the sandbox never finishes booting', async () => {
+    // First iframe never sends its 'ready' handshake (simulates a cold
+    // boot that got starved of CPU); the retry's iframe behaves normally.
+    let appendCount = 0
+    const doc = (globalThis as { document: typeof globalThis.document })
+      .document as unknown as {
+      documentElement: { appendChild: (node: HTMLElement) => HTMLElement }
+    }
+    doc.documentElement.appendChild = (node: HTMLElement) => {
+      appendCount++
+      appended.push(node)
+      if (appendCount === 1) return node
+      queueMicrotask(() => {
+        const iframe = node as HTMLIFrameElement & { contentWindow: Window }
+        for (const l of listeners) {
+          l({
+            data: {
+              type: 'pane-mermaid-ready',
+              version: MERMAID_PROTOCOL_VERSION,
+            },
+            source: iframe.contentWindow,
+          })
+        }
+      })
+      return node
+    }
+
+    const result = await renderMermaidInSandbox('flowchart LR\nA-->B', {
+      timeoutMs: 20,
+    })
+
+    expect(result.ok).toBe(true)
+    expect(appendCount).toBe(2)
+  })
+
+  it('does not retry a timeout that happens after boot (render itself hangs)', async () => {
+    // The sandbox sends 'ready' and receives the request, but never
+    // replies — a stuck render, not a boot problem. Retrying the same
+    // source would very likely hang identically, so only one iframe
+    // should ever be created.
+    let createCount = 0
+    const doc = (globalThis as { document: typeof globalThis.document })
+      .document as unknown as {
+      createElement: (tag: string) => HTMLIFrameElement
+    }
+    const originalCreateElement = doc.createElement.bind(doc)
+    doc.createElement = (tag: string) => {
+      createCount++
+      const el = originalCreateElement(tag) as HTMLIFrameElement & {
+        contentWindow: { postMessage: (data: unknown) => void }
+      }
+      el.contentWindow.postMessage = () => {
+        // Swallow the render request — simulates mermaid.render() hanging.
+      }
+      return el
+    }
+
+    const result = await renderMermaidInSandbox('flowchart LR\nA-->B', {
+      timeoutMs: 20,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toBe('mermaid render timed out')
+    expect(createCount).toBe(1)
+  })
 })

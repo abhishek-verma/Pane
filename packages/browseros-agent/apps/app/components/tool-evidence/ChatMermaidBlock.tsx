@@ -6,6 +6,7 @@
 
 import { type FC, useEffect, useState } from 'react'
 import type { CustomRenderer, CustomRendererProps } from 'streamdown'
+import { Button } from '@/components/ui/button'
 import { PI_MERMAID_RENDER_ENABLED } from '@/lib/personal-internet/mermaid-render-enabled'
 import { renderMermaidInSandbox } from '@/lib/personal-internet/mermaid-sandbox-broker'
 
@@ -26,7 +27,14 @@ const MermaidRenderingPlaceholder: FC<{ sandboxed?: boolean }> = ({
 export const ChatMermaidBlock: FC<{ source: string }> = ({ source }) => {
   const [svg, setSvg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Bumped by the Retry button to re-run the effect below without the
+  // `source` itself changing. The broker already retries once internally
+  // on a boot-phase timeout (see mermaid-sandbox-broker.ts); this is the
+  // user-facing escape hatch for when both of those attempts still fail
+  // (e.g. sustained CPU contention that outlasts both attempts).
+  const [retryToken, setRetryToken] = useState(0)
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryToken forces a re-run without source changing
   useEffect(() => {
     const controller = new AbortController()
     setSvg(null)
@@ -54,15 +62,24 @@ export const ChatMermaidBlock: FC<{ source: string }> = ({ source }) => {
     return () => {
       controller.abort()
     }
-  }, [source])
+  }, [source, retryToken])
 
   return (
     <div className="my-2 overflow-x-auto rounded-md border border-border/60 bg-muted/20 p-3">
       {error ? (
         <div className="space-y-2">
-          <pre className="whitespace-pre-wrap text-destructive text-xs">
-            {error}
-          </pre>
+          <div className="flex items-center justify-between gap-2">
+            <pre className="whitespace-pre-wrap text-destructive text-xs">
+              {error}
+            </pre>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setRetryToken((t) => t + 1)}
+            >
+              Retry
+            </Button>
+          </div>
           <pre className="max-h-48 overflow-auto whitespace-pre-wrap font-mono text-[11px] text-muted-foreground">
             {source}
           </pre>

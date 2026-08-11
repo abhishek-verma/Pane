@@ -5,7 +5,10 @@
  *
  * Queued Mermaid renders via a disposable Manifest V3 sandbox iframe.
  * One render at a time; iframe is destroyed after each result or timeout so a
- * sandbox OOM cannot kill the privileged extension renderer.
+ * sandbox OOM cannot kill the privileged extension renderer. A timeout
+ * during iframe boot (before the sandbox's 'ready' handshake) gets one
+ * retry with a fresh iframe — see drainQueue — since that phase is prone to
+ * transient CPU contention rather than a defect in a specific diagram.
  */
 
 import { PI_LIMITS } from '@browseros/shared/constants/limits'
@@ -26,6 +29,7 @@ type QueueItem = {
   source: string
   resolve: (result: MermaidBrokerResult) => void
   signal?: AbortSignal
+  timeoutMs: number
 }
 
 let queue: QueueItem[] = []
@@ -39,7 +43,7 @@ export function __resetMermaidBrokerForTests(): void {
 
 export function renderMermaidInSandbox(
   source: string,
-  opts: { signal?: AbortSignal } = {},
+  opts: { signal?: AbortSignal; timeoutMs?: number } = {},
 ): Promise<MermaidBrokerResult> {
   return new Promise((resolve) => {
     if (opts.signal?.aborted) {
@@ -55,7 +59,12 @@ export function renderMermaidInSandbox(
       })
       return
     }
-    queue.push({ source, resolve, signal: opts.signal })
+    queue.push({
+      source,
+      resolve,
+      signal: opts.signal,
+      timeoutMs: opts.timeoutMs ?? PI_LIMITS.MERMAID_RENDER_TIMEOUT_MS,
+    })
     void drainQueue()
   })
 }
@@ -73,7 +82,24 @@ async function drainQueue(): Promise<void> {
       }
       // Drop superseded requests when many are queued for the same UI slot:
       // callers abort via signal; we still process FIFO for distinct requests.
-      const result = await runOneRender(item.source, item.signal)
+      let result = await runOneRender(item.source, item.timeoutMs, item.signal)
+      // A timeout that fires before the sandbox iframe ever finished
+      // booting (no 'ready' handshake received) is most likely transient —
+      // a cold iframe paying full JS parse/init cost under momentary CPU
+      // contention, not a problem with this specific diagram. A fresh
+      // iframe costs nothing beyond the retry itself, so it's worth one
+      // more try. A timeout AFTER boot (the render request was actually
+      // sent and mermaid itself is what's hanging) is NOT retried — the
+      // identical source would very likely hang identically again, so a
+      // retry there would just double the wait for no real chance of
+      // success.
+      if (
+        !item.signal?.aborted &&
+        !result.ok &&
+        result.error === 'mermaid sandbox boot timed out'
+      ) {
+        result = await runOneRender(item.source, item.timeoutMs, item.signal)
+      }
       if (item.signal?.aborted) {
         item.resolve({ ok: false, error: 'cancelled' })
       } else {
@@ -88,6 +114,7 @@ async function drainQueue(): Promise<void> {
 
 function runOneRender(
   source: string,
+  timeoutMs: number,
   signal?: AbortSignal,
 ): Promise<MermaidBrokerResult> {
   return new Promise((resolve) => {
@@ -123,8 +150,13 @@ function runOneRender(
     const onAbort = () => finish({ ok: false, error: 'cancelled' })
 
     const timer = setTimeout(() => {
-      finish({ ok: false, error: 'mermaid render timed out' })
-    }, PI_LIMITS.MERMAID_RENDER_TIMEOUT_MS)
+      finish({
+        ok: false,
+        error: ready
+          ? 'mermaid render timed out'
+          : 'mermaid sandbox boot timed out',
+      })
+    }, timeoutMs)
 
     const onMessage = (event: MessageEvent) => {
       if (event.source !== iframe.contentWindow) return
