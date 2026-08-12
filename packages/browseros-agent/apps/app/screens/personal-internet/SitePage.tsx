@@ -39,13 +39,13 @@ function formatAsOf(iso?: string | null): string | null {
 }
 
 async function archiveCurrentPage(
-  _siteId: string,
   pageId: string,
   pageTitle: string,
   onDone: () => void,
 ): Promise<void> {
   if (!window.confirm(`Archive "${pageTitle}"?`)) return
-  await piPost(`/pi/pages/${pageId}/archive`)
+  const res = await piPost(`/pi/pages/${pageId}/archive`)
+  if (!res.ok) return
   onDone()
 }
 
@@ -60,7 +60,7 @@ const PageArchiveAction: FC<{
     <PiRailAction
       variant="destructive"
       onClick={() =>
-        void archiveCurrentPage(siteId, pageId, pageTitle, () =>
+        void archiveCurrentPage(pageId, pageTitle, () =>
           navigate(siteHref(siteId)),
         )
       }
