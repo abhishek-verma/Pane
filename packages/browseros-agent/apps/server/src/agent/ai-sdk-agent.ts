@@ -44,6 +44,7 @@ import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
 import { createRepairToolCall } from './repair-tool-call'
 import { resolveContextWindowSize } from './resolve-context-window'
+import { buildSchedulerToolSet } from './scheduler-tools'
 import type { ToolImageStore } from './session-store'
 import { buildBrowserToolSet } from './tool-adapter'
 import { wrapToolSetWithGate } from './trust/gate'
@@ -236,6 +237,7 @@ export class AiSdkAgent {
       ...externalMcpTools,
       ...filesystemTools,
       ...buildNudgeToolSet(),
+      ...buildSchedulerToolSet(),
       ...buildContextToolSet(
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
         () => config.resolvedConfig.workingDir ?? workspace?.root ?? null,
