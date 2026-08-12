@@ -71,6 +71,37 @@ Extension bump needed only when `packages/browseros-agent/apps/app/**` (shipped 
 - Bump extension `package.json` version **only** if extension app code changed.
 - **Bump `BROWSEROS_BUILD_OFFSET` by 1** for every repackage release (see §4 pitfall below).
 
+### 2a. MANDATORY — Check compiled version string (do this before every build)
+
+The About page version is a compile-time constant baked into the Chromium framework binary. After 3+ repackages without a recompile it will lag behind `PANE_VERSION`, confusing users.
+
+```bash
+# Read compiled version from the warm build bundle
+strings "/Users/abhishek/chromium/src/out/Default_arm64/Pane.app/Contents/Frameworks/Pane Framework.framework/Versions/Current/Pane Framework" 2>/dev/null | grep "^0\.47\.0\." | head -1
+```
+
+**If the result does NOT match the new `PANE_VERSION` you are about to ship**, you must recompile before the repackage:
+
+```bash
+# 1. Write the new version into the Chromium source tree
+cat > /Users/abhishek/chromium/src/chrome/BROWSEROS_VERSION << EOF
+BROWSEROS_MAJOR=0
+BROWSEROS_MINOR=47
+BROWSEROS_BUILD=0
+BROWSEROS_PATCH=N
+EOF
+
+# 2. Incremental compile (version-only change, ~8 min)
+export PATH="$HOME/chromium/depot_tools:$HOME/chromium/src/buildtools/mac:$HOME/chromium/src/third_party/llvm-build/Release+Asserts/bin:$PATH"
+autoninja -C /Users/abhishek/chromium/src/out/Default_arm64 -j 12 chrome
+
+# 3. Verify the binary now embeds the new version
+strings "/Users/abhishek/chromium/src/out/Default_arm64/Pane.app/Contents/Frameworks/Pane Framework.framework/Versions/Current/Pane Framework" | grep "^0\.47\.0\."
+# Must show 0.47.0.N before proceeding
+```
+
+Only proceed to §3 once the version string in the binary matches.
+
 ### 3. Prep artifacts
 If server rebuild needed:
 ```bash
@@ -136,24 +167,25 @@ Note: the build writes to the directory named after the PREVIOUS version (from t
 VERSION=0.47.0.N
 
 # Check CFBundleVersion in the DMG
-hdiutil attach "packages/browseros/releases/*/Pane_v*_arm64.dmg" \
+hdiutil attach "packages/browseros/releases/$VERSION/Pane_v${VERSION}_arm64.dmg" \
   -mountpoint /tmp/pane-check -nobrowse -quiet
 /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" /tmp/pane-check/Pane.app/Contents/Info.plist
-# Should be: chromiumBuild + BROWSEROS_BUILD_OFFSET (e.g. 7778+172 = 7950.97)
+# Should be: chromiumBuild + BROWSEROS_BUILD_OFFSET (e.g. 7778+187 = 7965.97)
 
-# CRITICAL: Verify designated requirement matches v0.47.0.62 format
+# CRITICAL: Verify designated requirement matches canonical format
 codesign -d --requirements - /tmp/pane-check/Pane.app 2>&1 | grep "field.1.2.840.113635.100.6.2.6"
 # MUST match — if empty, OTA is broken for ALL existing users. Do not ship.
 
-# Verify compiled version matches PANE_VERSION
+# CRITICAL: Verify compiled version string matches PANE_VERSION (About page check)
 strings "/tmp/pane-check/Pane.app/Contents/Frameworks/Pane Framework.framework/Versions/Current/Pane Framework" | grep "^0\.47\.0\."
-# Should show the current patch level. If stale, need an incremental recompile.
+# MUST show 0.47.0.N (the version being shipped). If stale, the About page will show the wrong version.
+# Fix: recompile per §2a, then rebuild the DMG.
 
 hdiutil detach /tmp/pane-check -quiet
 
 # Also verify Gatekeeper
 spctl -a -vvv -t open --context context:primary-signature \
-  packages/browseros/releases/*/Pane_v*_arm64.dmg
+  "packages/browseros/releases/$VERSION/Pane_v${VERSION}_arm64.dmg"
 ```
 
 ### 6. Tag → upload → appcast
