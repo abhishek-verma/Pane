@@ -26,10 +26,15 @@ function ariaIncludes(probe: MeetingDomProbe, needle: string): boolean {
 function evaluateCallState(probe: MeetingDomProbe): MeetingCallState {
   const text = probe.bodyText.toLowerCase()
   if (text.includes('join now') || text.includes('lobby')) return 'prejoin'
+  // Teams Enterprise hangup button
   if (hasSelector(probe, '[data-tid="call-hangup"]')) return 'in-call'
+  // Teams Free (teams.live.com) hangup button uses data-inp instead of data-tid
+  if (hasSelector(probe, '[data-inp="hangup-button"]')) return 'in-call'
   // Require "hang up" or the specific hangup button — plain "leave" matches
   // too broadly (channel sidebar, file pickers, etc.)
   if (ariaIncludes(probe, 'hang up')) return 'in-call'
+  // Teams Free: toggle-mute is only present during an active call
+  if (hasSelector(probe, '[data-tid="toggle-mute"]')) return 'in-call'
   if (probe.facts.hasVisibleLeaveControl) return 'in-call'
   if (probe.facts.hasVisibleMuteControl) return 'in-call'
   return 'prejoin'
@@ -120,6 +125,28 @@ export const teamsAdapter: MeetingSiteAdapter = {
       const parsed = new URL(url)
       if (!this.matchesHost(parsed.hostname)) return null
       const path = parsed.pathname
+      // New short URL format: teams.microsoft.com/meet/<id> or teams.live.com/meet/<id>
+      // Rolled out to all users by Feb 2026 (MC772556).
+      if (path.startsWith('/meet/')) {
+        const id = path.slice('/meet/'.length).split('/')[0]?.toLowerCase()
+        if (id && id.length > 0) return { roomKey: `teams:meet/${id}` }
+        return null
+      }
+      // Teams Free (teams.live.com) also navigates to /v2/ during an active call —
+      // use the meeting ID from the URL fragment or search params when present,
+      // otherwise derive a stable key from the origin so the call-state probe
+      // can still detect an active call even without a room ID in the path.
+      if (parsed.hostname === 'teams.live.com') {
+        const hash = parsed.hash
+        const meetMatch = hash.match(/\/meet(?:ing)?\/([^/?\s]+)/)
+        if (meetMatch?.[1]) {
+          return { roomKey: `teams:live/${meetMatch[1].toLowerCase()}` }
+        }
+        // /v2/ base path during an active call — detectable via call-state probe
+        if (path === '/v2/' || path === '/v2') {
+          return { roomKey: 'teams:live/active' }
+        }
+      }
       if (
         !(
           path.includes('/meetup-join/') ||

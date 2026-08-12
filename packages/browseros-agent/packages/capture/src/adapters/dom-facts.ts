@@ -20,7 +20,15 @@ export const MEETING_SELECTOR_ALLOWLIST = [
   '#wc-container',
   '#join-btn',
   '.join-meeting',
+  // Teams Enterprise hangup
   '[data-tid="call-hangup"]',
+  // Teams Free (teams.live.com) hangup and mute — data-inp pattern
+  '[data-inp="hangup-button"]',
+  '#hangup-button',
+  // Teams Free in-call toggle controls (only present once in a call)
+  '[data-tid="toggle-mute"]',
+  '[data-tid="toggle-video"]',
+  '[data-tid="prejoin-join-button"]',
   '[data-qa="huddle_start_button"]',
   '[data-qa="huddle_leave_button"]',
   '[aria-label*="Leave"]',
@@ -60,6 +68,11 @@ export function collectMeetingDomFactsPage(): {
     '#join-btn',
     '.join-meeting',
     '[data-tid="call-hangup"]',
+    '[data-inp="hangup-button"]',
+    '#hangup-button',
+    '[data-tid="toggle-mute"]',
+    '[data-tid="toggle-video"]',
+    '[data-tid="prejoin-join-button"]',
     '[data-qa="huddle_start_button"]',
     '[data-qa="huddle_leave_button"]',
     '[aria-label*="Leave"]',

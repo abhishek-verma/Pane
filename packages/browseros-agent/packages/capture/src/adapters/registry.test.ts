@@ -55,6 +55,40 @@ describe('adapters registry (A-T1, A-T4, A-T5)', () => {
     )
   })
 
+  it('detects Teams Enterprise short meeting URL (/meet/<id>)', () => {
+    expect(
+      detectMeetingRoom(
+        'https://teams.microsoft.com/meet/abc123xyz?p=somepasscode',
+      ),
+    ).toEqual({ site: 'teams', roomKey: 'teams:meet/abc123xyz' })
+  })
+
+  it('detects Teams Free meeting URL (/meet/<id> on teams.live.com)', () => {
+    expect(
+      detectMeetingRoom('https://teams.live.com/meet/9499119001756'),
+    ).toEqual({ site: 'teams', roomKey: 'teams:meet/9499119001756' })
+  })
+
+  it('detects Teams Free active call at /v2/', () => {
+    expect(detectMeetingRoom('https://teams.live.com/v2/')).toEqual({
+      site: 'teams',
+      roomKey: 'teams:live/active',
+    })
+  })
+
+  it('still detects Teams Enterprise legacy meetup-join URL', () => {
+    expect(
+      detectMeetingRoom(
+        'https://teams.microsoft.com/l/meetup-join/19%3Ameeting_x%40thread.v2/0',
+      ),
+    ).toMatchObject({ site: 'teams' })
+  })
+
+  it('does NOT detect Teams chat-only pages as meeting rooms', () => {
+    expect(isMeetingRoomUrl('https://teams.live.com/v2/chat')).toBe(false)
+    expect(isMeetingRoomUrl('https://teams.microsoft.com/')).toBe(false)
+  })
+
   it('detects Slack huddle room keys', () => {
     expect(
       detectMeetingRoom('https://app.slack.com/huddle/T026CMCFV4H/D026SCN0LAU'),
@@ -388,5 +422,80 @@ describe('Zoom PWA call-state resilience', () => {
         }),
       ),
     ).toBe('in-call')
+  })
+})
+
+describe('Teams Free (teams.live.com) call-state (A-T3)', () => {
+  // Real aria-labels observed from a live Teams Free call at /v2/
+  it('in-call via "Mute mic" aria-label (Teams Free)', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'teams.live.com',
+          href: 'https://teams.live.com/v2/',
+          facts: {
+            matchedSelectors: [],
+            ariaLabels: [
+              'Mute mic',
+              'Turn camera off',
+              'Leave',
+              'Share content',
+            ],
+            speakingCandidates: [],
+            hasVisibleMuteControl: true,
+            hasVisibleLeaveControl: true,
+          },
+        }),
+      ),
+    ).toBe('in-call')
+  })
+
+  it('in-call via data-tid="toggle-mute" selector (Teams Free)', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'teams.live.com',
+          href: 'https://teams.live.com/v2/',
+          facts: {
+            matchedSelectors: ['[data-tid="toggle-mute"]'],
+            ariaLabels: [],
+            speakingCandidates: [],
+          },
+        }),
+      ),
+    ).toBe('in-call')
+  })
+
+  it('in-call via data-inp="hangup-button" selector (Teams Free)', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'teams.live.com',
+          href: 'https://teams.live.com/v2/',
+          facts: {
+            matchedSelectors: ['[data-inp="hangup-button"]'],
+            ariaLabels: [],
+            speakingCandidates: [],
+          },
+        }),
+      ),
+    ).toBe('in-call')
+  })
+
+  it('prejoin on Teams Free lobby text', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'teams.live.com',
+          href: 'https://teams.live.com/meet/9499119001756',
+          bodyText: 'Join now\nMeeting with Abhishek Verma',
+          facts: {
+            matchedSelectors: [],
+            ariaLabels: [],
+            speakingCandidates: [],
+          },
+        }),
+      ),
+    ).toBe('prejoin')
   })
 })
