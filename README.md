@@ -25,8 +25,18 @@ Pane is an open-source Chromium browser with a personal agent built into the ses
 
 <p align="center">
   <a href="https://github.com/abhishek-verma/Pane/releases/latest">
-    <img src="https://img.shields.io/github/v/release/abhishek-verma/Pane?filter=v*&label=Download%20for%20macOS&logo=apple&logoColor=%231a2a06&style=for-the-badge&color=8eac29&labelColor=6b8a1a" alt="Download for macOS" />
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/github/v/release/abhishek-verma/Pane?filter=v*&label=Download%20for%20macOS&logo=apple&logoColor=%231a2a06&style=for-the-badge&color=8eac29&labelColor=6b8a1a" />
+      <source media="(prefers-color-scheme: light)" srcset="https://img.shields.io/github/v/release/abhishek-verma/Pane?filter=v*&label=Download%20for%20macOS&logo=apple&logoColor=white&style=for-the-badge&color=3d6010&labelColor=2a4209" />
+      <img src="https://img.shields.io/github/v/release/abhishek-verma/Pane?filter=v*&label=Download%20for%20macOS&logo=apple&logoColor=%231a2a06&style=for-the-badge&color=8eac29&labelColor=6b8a1a" alt="Download for macOS" />
+    </picture>
   </a>
+  &nbsp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/github/downloads/abhishek-verma/Pane/total?label=downloads&style=for-the-badge&color=2d4a0a&labelColor=1e3205" />
+    <source media="(prefers-color-scheme: light)" srcset="https://img.shields.io/github/downloads/abhishek-verma/Pane/total?label=downloads&style=for-the-badge&color=2d4a0a&labelColor=1e3205" />
+    <img src="https://img.shields.io/github/downloads/abhishek-verma/Pane/total?label=downloads&style=for-the-badge&color=2d4a0a&labelColor=1e3205" alt="Total downloads" />
+  </picture>
 </p>
 
 > macOS arm64 (Apple Silicon). Click the badge, then download `Pane_v*_arm64.dmg`. [All releases →](https://github.com/abhishek-verma/Pane/releases)
