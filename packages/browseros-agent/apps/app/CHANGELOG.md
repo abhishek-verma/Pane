@@ -1,5 +1,14 @@
 # BrowserOS Agent Extension
 
+## v0.0.169 (2026-08-12)
+
+## What's Changed
+
+- chore(release): bump versions for v0.47.0.78 (#186)
+- chore(server,capture): fix regressions from unsafe lint autofix (#185)
+- fix(app,server): stop renderer OOM/hang from heavy chat content, add server session eviction (#184)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
