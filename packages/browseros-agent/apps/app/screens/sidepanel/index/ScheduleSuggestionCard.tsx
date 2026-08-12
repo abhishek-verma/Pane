@@ -1,4 +1,4 @@
-import { Clock, X } from 'lucide-react'
+import { Check, Clock, X } from 'lucide-react'
 import { type FC, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -6,6 +6,8 @@ import {
   BREADCRUMB_SCHEDULE_DISMISSED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import { useScheduledJobs } from '@/lib/schedules/scheduleStorage'
+import type { ScheduledJob } from '@/lib/schedules/scheduleTypes'
 import type { NudgeData } from './getMessageSegments'
 
 export interface ScheduleSuggestionCardProps {
@@ -17,10 +19,13 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
   data,
   isLastMessage,
 }) => {
+  const { addJob } = useScheduledJobs()
   const [dismissed, setDismissed] = useState(!isLastMessage)
+  const [createdJob, setCreatedJob] = useState<ScheduledJob | null>(null)
 
   const suggestedName = (data.suggestedName as string) ?? 'Scheduled Task'
-  const scheduleType = (data.scheduleType as string) ?? 'daily'
+  const scheduleType =
+    (data.scheduleType as ScheduledJob['scheduleType']) ?? 'daily'
   const scheduleTime = (data.scheduleTime as string) ?? '09:00'
   const query = (data.query as string) ?? ''
 
@@ -42,24 +47,37 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
   const scheduleLabel =
     scheduleType === 'daily' ? `daily at ${scheduleTime}` : 'every hour'
 
-  const handleSchedule = () => {
-    track(BREADCRUMB_SCHEDULE_CLICKED_EVENT, {
-      suggested_name: suggestedName,
-      schedule_type: scheduleType,
-    })
-    setDismissed(true)
-
+  const handleEdit = () => {
+    if (!createdJob) return
     const params = new URLSearchParams({
       tab: 'scheduled',
-      name: suggestedName,
-      query,
-      scheduleType,
-      scheduleTime,
+      jobId: createdJob.id,
+      name: createdJob.name,
+      query: createdJob.query,
+      scheduleType: createdJob.scheduleType,
+      scheduleTime: createdJob.scheduleTime ?? '09:00',
       openDialog: 'true',
     })
 
     const url = chrome.runtime.getURL(`app.html#/tasks?${params.toString()}`)
     chrome.tabs.create({ url })
+  }
+
+  const handleSchedule = async () => {
+    track(BREADCRUMB_SCHEDULE_CLICKED_EVENT, {
+      suggested_name: suggestedName,
+      schedule_type: scheduleType,
+    })
+
+    const job = await addJob({
+      name: suggestedName,
+      query,
+      scheduleType,
+      scheduleTime,
+      scheduleInterval: scheduleType === 'hourly' ? 1 : undefined,
+      enabled: true,
+    })
+    setCreatedJob(job)
   }
 
   return (
@@ -73,22 +91,42 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
       </button>
 
       <div className="flex items-start gap-3 pr-6">
-        <Clock className="h-4 w-4 shrink-0 text-[var(--accent-orange)]" />
+        {createdJob ? (
+          <Check className="h-4 w-4 shrink-0 text-green-500" />
+        ) : (
+          <Clock className="h-4 w-4 shrink-0 text-[var(--accent-orange)]" />
+        )}
         <div>
-          <p className="font-medium text-sm">Run this automatically?</p>
+          <p className="font-medium text-sm">
+            {createdJob ? 'Scheduled' : 'Run this automatically?'}
+          </p>
           <p className="mt-1 text-muted-foreground text-xs">
-            &ldquo;{suggestedName}&rdquo; &mdash; I can run this {scheduleLabel}
+            &ldquo;{suggestedName}&rdquo; &mdash;{' '}
+            {createdJob ? 'runs' : 'I can run this'} {scheduleLabel}
           </p>
         </div>
       </div>
 
       <div className="mt-3 flex gap-2">
-        <Button size="sm" onClick={handleSchedule}>
-          Schedule this task
-        </Button>
-        <Button size="sm" variant="ghost" onClick={handleDismiss}>
-          Maybe later
-        </Button>
+        {createdJob ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-auto p-0 text-muted-foreground text-xs underline"
+            onClick={handleEdit}
+          >
+            Edit
+          </Button>
+        ) : (
+          <>
+            <Button size="sm" onClick={() => void handleSchedule()}>
+              Schedule this task
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleDismiss}>
+              Maybe later
+            </Button>
+          </>
+        )}
       </div>
     </div>
   )

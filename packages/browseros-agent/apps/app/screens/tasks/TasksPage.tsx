@@ -33,6 +33,7 @@ import type {
   ScheduledJob,
   ScheduledJobRun,
 } from '@/lib/schedules/scheduleTypes'
+import { AutomationsPanel } from '@/screens/scheduled-tasks/AutomationsPanel'
 import { NewScheduledTaskDialog } from '@/screens/scheduled-tasks/NewScheduledTaskDialog'
 import { ScheduledTaskResults } from '@/screens/scheduled-tasks/ScheduledTaskResults'
 import { ScheduledTasksList } from '@/screens/scheduled-tasks/ScheduledTasksList'
@@ -96,8 +97,9 @@ export const TasksPage: FC = () => {
     if (searchParams.get('openDialog') !== 'true') return
     prefillHandled.current = true
 
+    const jobId = searchParams.get('jobId')
     const prefill: ScheduledJob = {
-      id: '',
+      id: jobId ?? '',
       name: searchParams.get('name') ?? '',
       query: searchParams.get('query') ?? '',
       scheduleType:
@@ -109,8 +111,16 @@ export const TasksPage: FC = () => {
       createdAt: '',
       updatedAt: '',
     }
-    setPrefillValues(prefill)
-    setEditingJob(null)
+    // jobId means this deep link points at a job that already exists (e.g.
+    // the chat card's "Edit" link after auto-creating it) — open in edit
+    // mode so saving updates it instead of creating a duplicate.
+    if (jobId) {
+      setEditingJob(prefill)
+      setPrefillValues(null)
+    } else {
+      setPrefillValues(prefill)
+      setEditingJob(null)
+    }
     setIsScheduledDialogOpen(true)
     setSearchParams({ tab: 'scheduled' }, { replace: true })
   }, [searchParams, setSearchParams])
@@ -129,13 +139,18 @@ export const TasksPage: FC = () => {
       }
     : (editingJob ?? prefillValues)
 
-  useEffect(() => {
-    if (!isScheduledDialogOpen) {
+  // Reset dialog prefill state on close, driven directly by the dialog's
+  // onOpenChange rather than an effect keyed on isScheduledDialogOpen —
+  // that effect also fires on mount (state starts false) and can race
+  // with the openDialog prefill effect above, clobbering it.
+  const handleScheduledDialogOpenChange = (open: boolean) => {
+    setIsScheduledDialogOpen(open)
+    if (!open) {
       setPromoteTask(null)
       setEditingJob(null)
       setPrefillValues(null)
     }
-  }, [isScheduledDialogOpen])
+  }
 
   const handleAddScheduled = () => {
     setEditingJob(null)
@@ -186,7 +201,7 @@ export const TasksPage: FC = () => {
         time: data.scheduleTime,
       })
     }
-    setIsScheduledDialogOpen(false)
+    handleScheduledDialogOpenChange(false)
   }
 
   const handleToggleScheduled = async (jobId: string, enabled: boolean) => {
@@ -248,6 +263,7 @@ export const TasksPage: FC = () => {
           <TabsTrigger value="scheduled">Scheduled Tasks</TabsTrigger>
           <TabsTrigger value="results">History</TabsTrigger>
           <TabsTrigger value="triggers">Triggers</TabsTrigger>
+          <TabsTrigger value="automations">Automations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="inbox" className="space-y-4">
@@ -380,11 +396,15 @@ export const TasksPage: FC = () => {
         <TabsContent value="triggers">
           <TriggersPanel />
         </TabsContent>
+
+        <TabsContent value="automations">
+          <AutomationsPanel />
+        </TabsContent>
       </Tabs>
 
       <NewScheduledTaskDialog
         open={isScheduledDialogOpen}
-        onOpenChange={setIsScheduledDialogOpen}
+        onOpenChange={handleScheduledDialogOpenChange}
         initialValues={initialValues}
         onSave={handleSaveScheduled}
       />
