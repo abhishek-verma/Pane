@@ -83,12 +83,12 @@ describe('chat HTTP e2e (paging + tool-outputs)', () => {
     // Projection happens on getConversation inside list — spilled stubs
     const asst = page.messages.find((m) => m.role === 'assistant')
     expect(asst).toBeTruthy()
-    const toolCallId = (asst!.parts[0] as { toolCallId: string }).toolCallId
-    const out = (asst!.parts[0] as { output: { spilled?: boolean } }).output
+    const toolCallId = (asst?.parts[0] as { toolCallId: string }).toolCallId
+    const out = (asst?.parts[0] as { output: { spilled?: boolean } }).output
     expect(out.spilled).toBe(true)
 
     const olderRes = await app.request(
-      `/chat/${conversationId}/messages?limit=10&beforeId=${page.messages[0]!.id}`,
+      `/chat/${conversationId}/messages?limit=10&beforeId=${page.messages[0]?.id}`,
     )
     expect(olderRes.status).toBe(200)
     const older = (await olderRes.json()) as { messages: UIMessage[] }

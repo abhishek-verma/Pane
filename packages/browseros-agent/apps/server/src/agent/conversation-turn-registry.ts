@@ -147,7 +147,7 @@ export class ConversationTurnRegistry {
     const turnId = this.byConversation.get(conversationId)
     if (!turnId) return undefined
     const turn = this.turns.get(turnId)
-    if (!turn || turn.status !== 'running') return undefined
+    if (turn?.status !== 'running') return undefined
     return turn
   }
 
@@ -168,7 +168,7 @@ export class ConversationTurnRegistry {
 
   pushSnapshot(turnId: string, messages: UIMessage[]): ChatTurnFrame | null {
     const turn = this.turns.get(turnId)
-    if (!turn || turn.status !== 'running') return null
+    if (turn?.status !== 'running') return null
     const frame = turn.buffer.push({ type: 'snapshot', messages })
     logger.debug('Chat turn snapshot pushed', {
       turnId,
@@ -186,7 +186,7 @@ export class ConversationTurnRegistry {
     status: Exclude<ChatTurnRunStatus, 'running'>,
   ): void {
     const turn = this.turns.get(turnId)
-    if (!turn || turn.status !== 'running') return
+    if (turn?.status !== 'running') return
     const frame = turn.buffer.push({ type: 'done', status })
     this.markTerminal(turn, status)
     this.fanout(turn, frame)
@@ -202,7 +202,7 @@ export class ConversationTurnRegistry {
 
   cancel(turnId: string, reason?: string): boolean {
     const turn = this.turns.get(turnId)
-    if (!turn || turn.status !== 'running') return false
+    if (turn?.status !== 'running') return false
     try {
       turn.abortController.abort(reason ?? 'cancelled')
     } catch {

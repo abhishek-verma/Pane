@@ -220,7 +220,7 @@ function shouldSkipKind(
   if (!policy.guards?.requireHarvestEnabled) return false
   if (!siteId) return true
   const site = getSite(siteId)
-  return !site || !site.harvestEnabled
+  return !site?.harvestEnabled
 }
 
 /** Keep stored policy aligned with harvest flags (covers migrated sites). */

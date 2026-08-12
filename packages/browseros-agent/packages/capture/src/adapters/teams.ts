@@ -50,7 +50,7 @@ function probeActiveSpeaker(
   const rows = probe.facts.captionRows
   if (rows?.length) {
     for (let i = rows.length - 1; i >= 0; i--) {
-      const name = rows[i]!.speaker.trim()
+      const name = rows[i]?.speaker.trim()
       if (!name) continue
       return {
         displayName: name,

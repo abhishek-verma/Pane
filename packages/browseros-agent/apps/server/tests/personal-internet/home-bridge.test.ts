@@ -263,7 +263,7 @@ describe('pi home bridge', () => {
     const { dismissContinuityBlock } = await import(
       '../../src/personal-internet/store'
     )
-    await dismissContinuityBlock(cBlock!.id)
+    await dismissContinuityBlock(cBlock?.id)
 
     // Editing A (unrelated to the dismissal) bumps its updated_at, pushing it
     // ahead of C in topUrgencies — with position-keyed ids this would have

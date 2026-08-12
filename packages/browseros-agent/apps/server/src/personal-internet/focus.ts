@@ -116,8 +116,8 @@ export function acquirePiFocus(input: {
 
   const samePage =
     Boolean(prev) &&
-    prev!.pageId === input.pageId &&
-    prev!.siteId === input.siteId
+    prev?.pageId === input.pageId &&
+    prev?.siteId === input.siteId
   current = {
     siteId: input.siteId,
     pageId: input.pageId,

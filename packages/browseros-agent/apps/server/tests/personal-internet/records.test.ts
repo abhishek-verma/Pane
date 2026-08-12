@@ -115,7 +115,7 @@ describe('pi records', () => {
       ops: [{ op: 'moveBoardCard', cardId, toColumnId: 'offer' }],
     })
     const tools = buildPersonalInternetToolSet()
-    const listed = await tools.pi_record_list!.execute!(
+    const listed = await tools.pi_record_list?.execute?.(
       { siteId: site.siteId! },
       { toolCallId: 't', messages: [] },
     )
@@ -128,14 +128,14 @@ describe('pi records', () => {
   it('pi_record_upsert tool roundtrip', async () => {
     setup()
     const tools = buildPersonalInternetToolSet()
-    const created = await tools.pi_site_upsert!.execute!(
+    const created = await tools.pi_site_upsert?.execute?.(
       { templateId: 'job-search' },
       { toolCallId: 't', messages: [] },
     )
     const siteBody = JSON.parse((created as { text: string }).text) as {
       siteId: string
     }
-    const up = await tools.pi_record_upsert!.execute!(
+    const up = await tools.pi_record_upsert?.execute?.(
       {
         siteId: siteBody.siteId,
         recordType: 'job-application',
@@ -144,7 +144,7 @@ describe('pi records', () => {
       { toolCallId: 't', messages: [] },
     )
     expect((up as { isError?: boolean }).isError).toBeFalsy()
-    const list = await tools.pi_record_list!.execute!(
+    const list = await tools.pi_record_list?.execute?.(
       { siteId: siteBody.siteId },
       { toolCallId: 't', messages: [] },
     )
@@ -157,14 +157,14 @@ describe('pi records', () => {
   it('pi_record_upsert_many upserts N records and syncs once', async () => {
     setup()
     const tools = buildPersonalInternetToolSet()
-    const created = await tools.pi_site_upsert!.execute!(
+    const created = await tools.pi_site_upsert?.execute?.(
       { templateId: 'job-search' },
       { toolCallId: 't', messages: [] },
     )
     const siteBody = JSON.parse((created as { text: string }).text) as {
       siteId: string
     }
-    const result = await tools.pi_record_upsert_many!.execute!(
+    const result = await tools.pi_record_upsert_many?.execute?.(
       {
         siteId: siteBody.siteId,
         records: [
@@ -194,7 +194,7 @@ describe('pi records', () => {
     expect(body.succeeded).toBe(3)
     expect(body.results.every((r) => r.ok)).toBe(true)
 
-    const list = await tools.pi_record_list!.execute!(
+    const list = await tools.pi_record_list?.execute?.(
       { siteId: siteBody.siteId },
       { toolCallId: 't', messages: [] },
     )

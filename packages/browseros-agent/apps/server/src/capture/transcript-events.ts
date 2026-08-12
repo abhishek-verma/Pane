@@ -59,8 +59,8 @@ export function subscribeCaptureEvents(
   }
   set.add(listener)
   return () => {
-    set!.delete(listener)
-    if (set!.size === 0) listeners.delete(sessionId)
+    set?.delete(listener)
+    if (set?.size === 0) listeners.delete(sessionId)
   }
 }
 

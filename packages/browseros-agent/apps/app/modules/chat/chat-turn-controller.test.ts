@@ -124,7 +124,12 @@ describe('ChatTurnController', () => {
   })
 
   it('refreshActive ignores a late probe after conversation switch', async () => {
-    let resolveProbe: (value: ChatActiveTurnInfo) => void
+    // Definite-assignment assertion, not a nullability workaround: the
+    // mock's Promise executor runs synchronously inside
+    // controller.refreshActive() below, so resolveProbe is always assigned
+    // before it's called a few lines down — TS just can't see across the
+    // mockImplementation closure to prove it.
+    let resolveProbe!: (value: ChatActiveTurnInfo) => void
     fetchActiveChatTurn.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -135,7 +140,7 @@ describe('ChatTurnController', () => {
     controller.noteStartedTurn('turn-a', 'conv-a')
     const probe = controller.refreshActive()
     controller.setConversationId('conv-b')
-    resolveProbe!({
+    resolveProbe({
       turnId: 'turn-a',
       conversationId: 'conv-a',
       status: 'running',
@@ -149,7 +154,7 @@ describe('ChatTurnController', () => {
   })
 
   it('cancel does not clear a newer turn started while cancel was in flight', async () => {
-    let resolveCancel: (value: { cancelled: boolean }) => void
+    let resolveCancel!: (value: { cancelled: boolean }) => void
     cancelChatTurn.mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -160,7 +165,7 @@ describe('ChatTurnController', () => {
     controller.noteStartedTurn('turn-old', 'conv-1')
     const cancelPromise = controller.cancel('superseded-by-new-message')
     controller.noteStartedTurn('turn-new', 'conv-1')
-    resolveCancel!({ cancelled: true })
+    resolveCancel({ cancelled: true })
     await cancelPromise
     expect(controller.isTurnActive).toBe(true)
     expect(controller.turn?.turnId).toBe('turn-new')

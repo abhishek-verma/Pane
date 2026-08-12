@@ -51,7 +51,7 @@ describe('ConversationTurnRegistry', () => {
     const turn = registry.register('conv-4')
     registry.pushSnapshot(turn.turnId, [msg('a', 'one')])
     const stream = registry.subscribe(turn.turnId, { fromSeq: -1 })
-    const reader = stream!.getReader()
+    const reader = stream?.getReader()
     const first = await reader.read()
     expect(first.value?.event.type).toBe('snapshot')
     registry.complete(turn.turnId, 'done')
@@ -79,7 +79,7 @@ describe('ConversationTurnRegistry', () => {
     a.abort()
     expect(registry.getActiveFor('conv-5')?.status).toBe('running')
     registry.pushSnapshot(turn.turnId, [msg('a', 'shared')])
-    const reader = streamB!.getReader()
+    const reader = streamB?.getReader()
     const frame = await reader.read()
     expect(frame.value?.event.type).toBe('snapshot')
     registry.cancel(turn.turnId, 'cleanup')
@@ -92,7 +92,7 @@ describe('ConversationTurnRegistry', () => {
       fromSeq: -1,
       fallbackMessages: [msg('u', 'prompt')],
     })
-    const reader = stream!.getReader()
+    const reader = stream?.getReader()
     const cold = await reader.read()
     expect(cold.value?.seq).toBe(-1)
     expect(cold.value?.event.type).toBe('snapshot')
