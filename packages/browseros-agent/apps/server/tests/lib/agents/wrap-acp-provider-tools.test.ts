@@ -317,4 +317,141 @@ describe('wrapAcpProviderExecutedTools', () => {
       expect(parts[0]?.result).toEqual({ description: trace })
     })
   })
+
+  describe('stream-level error suppression after a finalized failed tool-result', () => {
+    function streamOf(chunks: Array<Record<string, unknown>>): LanguageModel {
+      const base = {
+        specificationVersion: 'v2' as const,
+        provider: 'acpx',
+        modelId: 'codex',
+        supportedUrls: {},
+        async doStream() {
+          return {
+            stream: new ReadableStream({
+              start(controller) {
+                for (const chunk of chunks) controller.enqueue(chunk)
+                controller.close()
+              },
+            }),
+          }
+        },
+      }
+      return base as unknown as LanguageModel
+    }
+
+    async function collect(model: LanguageModel) {
+      const wrapped = wrapAcpProviderExecutedTools(model) as {
+        doStream: () => Promise<{ stream: ReadableStream<unknown> }>
+      }
+      const { stream } = await wrapped.doStream()
+      const parts: Array<Record<string, unknown>> = []
+      for await (const part of stream as ReadableStream<
+        Record<string, unknown>
+      >) {
+        parts.push(part)
+      }
+      return parts
+    }
+
+    it('drops a stream error chunk that immediately follows a failed tool-result (Claude Code Skill tool_use_error)', async () => {
+      // Reproduces: Claude Code's native `Skill` tool fails ("Unknown skill:
+      // pi-page-dsl"). acpx-ai-provider finalizes it as a normal
+      // tool-result{isError:true}, but ALSO sets the whole turn's
+      // result.status to "failed" and emits a redundant stream-level
+      // `error` chunk for it — which the AI SDK treats as fatal and would
+      // otherwise kill the entire turn instead of letting the model see
+      // the tool error and continue.
+      const parts = await collect(
+        streamOf([
+          {
+            type: 'tool-call',
+            toolCallId: 'c1',
+            toolName: 'Skill',
+            input: '{"skill":"pi-page-dsl"}',
+            providerExecuted: true,
+          },
+          {
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'Skill',
+            result: 'Unknown skill: pi-page-dsl',
+            isError: true,
+            providerExecuted: true,
+          },
+          {
+            type: 'error',
+            error: new Error('Unknown skill: pi-page-dsl'),
+          },
+          {
+            type: 'finish',
+            finishReason: 'tool-calls',
+            usage: {},
+          },
+        ]),
+      )
+
+      expect(parts.map((p) => p.type)).toEqual([
+        'tool-call',
+        'tool-result',
+        'finish',
+      ])
+      expect(parts[1]).toMatchObject({ type: 'tool-result', isError: true })
+    })
+
+    it('passes through a stream error chunk not preceded by a failed tool-result (genuine fatal error)', async () => {
+      const parts = await collect(
+        streamOf([
+          {
+            type: 'tool-call',
+            toolCallId: 'c1',
+            toolName: 'navigate',
+            input: '{}',
+            providerExecuted: true,
+          },
+          {
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'navigate',
+            result: { ok: true },
+            providerExecuted: true,
+          },
+          {
+            type: 'error',
+            error: new Error('connection dropped'),
+          },
+        ]),
+      )
+
+      expect(parts.map((p) => p.type)).toEqual([
+        'tool-call',
+        'tool-result',
+        'error',
+      ])
+    })
+
+    it('only suppresses one error per failed tool-result, not a second unrelated one', async () => {
+      const parts = await collect(
+        streamOf([
+          {
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'Skill',
+            result: 'Unknown skill: pi-page-dsl',
+            isError: true,
+            providerExecuted: true,
+          },
+          {
+            type: 'error',
+            error: new Error('Unknown skill: pi-page-dsl'),
+          },
+          {
+            type: 'error',
+            error: new Error('connection dropped'),
+          },
+        ]),
+      )
+
+      expect(parts.map((p) => p.type)).toEqual(['tool-result', 'error'])
+    })
+  })
 })

@@ -132,6 +132,47 @@ function rewriteStreamPart(part: unknown): unknown {
 }
 
 /**
+ * acpx-ai-provider sets the whole ACP turn's `result.status` to "failed"
+ * whenever any provider-native tool call inside it fails (e.g. Claude
+ * Code's `Skill` tool erroring on an unregistered skill id), even though
+ * that tool call already finalized normally as `tool-result { isError:
+ * true }`. It then also enqueues a stream-level `{ type: "error" }` chunk
+ * for the same turn, which the AI SDK treats as fatal and throws — killing
+ * the whole turn instead of letting the model see the tool error and
+ * recover, which is how every other tool failure behaves. Since the
+ * fatal chunk is enqueued right after the tool-result in the same stream
+ * (not via a real ReadableStream error), we can drop it here and let the
+ * turn's trailing `finish` chunk (also always emitted) complete normally.
+ * A genuine provider/runtime error that isn't preceded by a failed tool
+ * result (e.g. a dropped connection) is left untouched.
+ */
+function createErrorSuppressionState() {
+  return { lastToolResultWasError: false }
+}
+
+function shouldSuppressStreamError(
+  chunk: unknown,
+  state: { lastToolResultWasError: boolean },
+): boolean {
+  if (!chunk || typeof chunk !== 'object') return false
+  const part = chunk as ToolishPart
+  if (part.type === 'tool-result') {
+    state.lastToolResultWasError = Boolean(
+      (part as { isError?: boolean }).isError,
+    )
+    return false
+  }
+  if (part.type === 'error') {
+    const suppress = state.lastToolResultWasError
+    // Only the first error chunk after a failed tool-result is redundant;
+    // reset so a second, unrelated error isn't also swallowed.
+    state.lastToolResultWasError = false
+    return suppress
+  }
+  return false
+}
+
+/**
  * Wrap an ACP LanguageModel so provider-executed MCP tool parts survive AI
  * SDK tool validation. Safe no-op for models without doStream/doGenerate.
  */
@@ -163,11 +204,15 @@ export function wrapAcpProviderExecutedTools(
       if (prop === 'doStream') {
         return async (...args: unknown[]) => {
           const result = await target.doStream(...args)
+          const errorSuppression = createErrorSuppressionState()
           return {
             ...result,
             stream: result.stream.pipeThrough(
               new TransformStream({
                 transform(chunk, controller) {
+                  if (shouldSuppressStreamError(chunk, errorSuppression)) {
+                    return
+                  }
                   controller.enqueue(rewriteStreamPart(chunk))
                 },
               }),
