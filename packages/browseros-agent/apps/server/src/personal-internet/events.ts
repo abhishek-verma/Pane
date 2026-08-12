@@ -9,6 +9,7 @@ export type PiEventName =
   | 'site-updated'
   | 'entity-mutated'
   | 'site-archived'
+  | 'page-archived'
 
 export type PiEvent = {
   name: PiEventName

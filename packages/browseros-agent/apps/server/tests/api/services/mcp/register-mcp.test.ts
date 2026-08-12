@@ -121,6 +121,7 @@ describe('registerTools', () => {
     'pi_open',
     'pi_page_delete',
     'pi_site_archive',
+    'pi_page_archive',
     'pi_preserve_temp',
     'pi_home_regions_patch',
   ]

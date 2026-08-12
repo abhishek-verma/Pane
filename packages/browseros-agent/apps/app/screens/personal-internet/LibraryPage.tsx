@@ -8,7 +8,7 @@ import type { FC } from 'react'
 import { Link } from 'react-router'
 import { libraryHref } from '@/lib/personal-internet/pi-href'
 import { PiAddressChip, PiLinkActions, PiRailAction } from './PiChrome'
-import { usePiLibrary } from './usePiApi'
+import { piPost, usePiLibrary } from './usePiApi'
 
 export const LibraryPage: FC = () => {
   const query = usePiLibrary()
@@ -54,7 +54,18 @@ export const LibraryPage: FC = () => {
                   {s.pulseLine ? ` · ${s.pulseLine}` : ''}
                 </div>
               </div>
-              <PiRailAction to={`/pi/sites/${s.id}`}>Open</PiRailAction>
+              <div className="flex items-center gap-2">
+                <PiRailAction to={`/pi/sites/${s.id}`}>Open</PiRailAction>
+                <PiRailAction
+                  variant="destructive"
+                  onClick={() => {
+                    if (!window.confirm(`Archive "${s.name}"?`)) return
+                    void piPost(`/pi/sites/${s.id}/archive`)
+                  }}
+                >
+                  Archive
+                </PiRailAction>
+              </div>
             </li>
           ))}
         </ul>

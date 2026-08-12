@@ -322,6 +322,12 @@ export function createPersonalInternetRoutes() {
       })
       return c.json(result, 201)
     })
+    .post('/pages/:pageId/archive', async (c) => {
+      const pageId = c.req.param('pageId')
+      if (!getPage(pageId)) return c.json({ error: 'not found' }, 404)
+      const result = await applyPiMutation({ type: 'archive-page', pageId })
+      return c.json(result)
+    })
     .patch('/pages/:pageId', async (c) => {
       const pageId = c.req.param('pageId')
       const body = PatchPageSchema.parse(await c.req.json())
