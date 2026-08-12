@@ -6,7 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { execFile } from 'node:child_process'
-import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -16,6 +16,7 @@ import {
   ensurePrewarmDir,
   prewarmEnvOverrides,
   prewarmProviderNativeModules,
+  registerBinaryWithGatekeeper,
   signUnsignedNodeFiles,
 } from '../../../../src/lib/agents/host-acp/macos-native-prewarm'
 
@@ -147,5 +148,44 @@ describe('prewarmProviderNativeModules', () => {
     await expect(
       prewarmProviderNativeModules('', 'darwin'),
     ).resolves.toBeUndefined()
+  })
+})
+
+describe('registerBinaryWithGatekeeper', () => {
+  let base: string
+
+  beforeEach(async () => {
+    base = await mkdtemp(join(tmpdir(), 'pane-gk-test-'))
+  })
+
+  afterEach(async () => {
+    await rm(base, { recursive: true, force: true })
+  })
+
+  it('no-ops on non-darwin platforms', async () => {
+    await expect(
+      registerBinaryWithGatekeeper('/usr/bin/env', base, 'linux'),
+    ).resolves.toBeUndefined()
+  })
+
+  it('no-ops on darwin with a non-existent binary', async () => {
+    await expect(
+      registerBinaryWithGatekeeper('/nonexistent/binary', base, 'darwin'),
+    ).resolves.toBeUndefined()
+  })
+
+  it('skips registration if identity already recorded in registry', async () => {
+    const registryPath = join(base, 'gatekeeper-registered.json')
+    await writeFile(
+      registryPath,
+      JSON.stringify({ 'TEAMID/com.example': true }),
+    )
+    // Provide a non-existent binary — should still short-circuit without error
+    await expect(
+      registerBinaryWithGatekeeper('/nonexistent', base, 'darwin'),
+    ).resolves.toBeUndefined()
+    // Registry file unchanged
+    const raw = await readFile(registryPath, 'utf8')
+    expect(JSON.parse(raw)).toEqual({ 'TEAMID/com.example': true })
   })
 })

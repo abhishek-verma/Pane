@@ -5,23 +5,31 @@
  *
  * On macOS 16+, Bun-compiled ACP provider binaries (Claude Code, Codex)
  * extract embedded native .node modules to the system temp directory at
- * runtime. macOS Gatekeeper then shows "Apple could not verify … is free
- * of malware" dialogs for each unsigned file — once per file per reboot.
+ * runtime. macOS Gatekeeper shows "Apple could not verify … is free of
+ * malware" dialogs for each unsigned file every time the provider auto-updates.
  *
- * Fix: redirect Bun's extraction to a persistent directory under the
- * BrowserOS state folder, then ad-hoc sign any unsigned .node files found
- * there. Ad-hoc signing gives each file a verifiable (if self-issued)
- * signature, which is sufficient for macOS to skip the malware-scan dialog
- * for locally-extracted code that carries no quarantine attribute.
+ * Two-layer fix:
  *
- * The signed files survive reboots, so the one-time signing cost is paid
- * during the first provider health-check — never during an active chat turn.
- * When a provider binary updates, its embedded modules change content → new
- * hash → new filenames → re-signed on the next probe.
+ * Layer 1 — ad-hoc signing (handles the current session and reboots):
+ *   Redirect Bun's extraction to ~/.browseros/bun-tmp/ and ad-hoc sign any
+ *   unsigned .node files there. Signed files persist across reboots. Both the
+ *   health-check probe and the live ACP subprocess use this directory (via
+ *   TMPDIR override in withBundledBunAcpAdapterEnv), so signed files are found
+ *   on all subsequent loads.
+ *
+ * Layer 2 — spctl registration (permanent, survives all future auto-updates):
+ *   Register the provider binary with Gatekeeper via `spctl --add`. The
+ *   exception is tied to the Developer ID signing identity (e.g. Anthropic's
+ *   Q6L2SF6YDW / com.anthropic.claude-code), NOT the binary path, so it
+ *   persists through every future Claude Code auto-update without re-prompting.
+ *   We first try without elevated privileges; if that fails, we prompt once via
+ *   osascript's "with administrator privileges" — the same native macOS pattern
+ *   used by Homebrew, Docker, etc. After a successful registration the flag is
+ *   cached in ~/.browseros/ so we never prompt again.
  */
 
 import { execFile } from 'node:child_process'
-import { mkdir, readdir, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -160,10 +168,16 @@ async function runCodesignDisplay(
  * Convenience: ensure the prewarm dir exists and sign any unsigned .node
  * files already present. Called after a successful provider version probe
  * (which triggers Bun's extraction) so that subsequent runs are silent.
+ *
+ * Also attempts a one-time `spctl --add` registration for the provider binary
+ * so Gatekeeper never scans its dynamically-loaded code again — including
+ * after future auto-updates (the exception is tied to the signing identity,
+ * not the binary path).
  */
 export async function prewarmProviderNativeModules(
   browserosDir: string,
   platform: NodeJS.Platform = process.platform,
+  binaryPath?: string,
 ): Promise<void> {
   if (platform !== 'darwin') return
   try {
@@ -178,6 +192,144 @@ export async function prewarmProviderNativeModules(
     logger.warn(
       `ACP provider native-module pre-warm failed (non-fatal): ${String(err)}`,
     )
+  }
+
+  // Layer 2: permanent spctl registration so future auto-updates never trigger
+  // Gatekeeper dialogs. Fire-and-forget; failures are non-fatal.
+  if (binaryPath) {
+    void registerBinaryWithGatekeeper(binaryPath, browserosDir, platform)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// spctl registration — permanent Gatekeeper exception
+// ---------------------------------------------------------------------------
+
+const GATEKEEPER_REGISTRY_FILE = 'gatekeeper-registered.json'
+
+/**
+ * Registers the given binary with macOS Gatekeeper via `spctl --add`.
+ *
+ * The exception is indexed by the binary's code-signing identity, so it
+ * survives binary path changes (auto-updates). We record a flag in
+ * `browserosDir` so the prompt never fires more than once per identity.
+ *
+ * Attempt order:
+ *   1. `spctl --add <path>` without privileges (works on some configurations)
+ *   2. `osascript` "with administrator privileges" (one-time native macOS prompt)
+ *
+ * Both attempts are silently swallowed on failure — the ad-hoc signing in
+ * layer 1 still prevents dialogs for the current Claude Code version.
+ */
+export async function registerBinaryWithGatekeeper(
+  binaryPath: string,
+  browserosDir: string,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
+  if (platform !== 'darwin') return
+
+  // Read the signing identity to use as the registry key.
+  const identity = await readCodeSigningIdentity(binaryPath)
+  if (!identity) return
+
+  // Check if we already registered this identity.
+  const registryPath = browserosDir
+    ? join(browserosDir, GATEKEEPER_REGISTRY_FILE)
+    : null
+  if (registryPath && (await isIdentityRegistered(registryPath, identity))) {
+    return
+  }
+
+  logger.info(
+    `Registering ACP provider binary with Gatekeeper (identity: ${identity})`,
+  )
+
+  const registered = await trySpctlAdd(binaryPath)
+  if (registered) {
+    logger.info(`Registered ${binaryPath} with Gatekeeper (no prompt needed)`)
+    if (registryPath) await markIdentityRegistered(registryPath, identity)
+    return
+  }
+
+  // Fallback: ask once via osascript admin prompt.
+  const adminRegistered = await trySpctlAddViaOsascript(binaryPath)
+  if (adminRegistered) {
+    logger.info(`Registered ${binaryPath} with Gatekeeper via admin prompt`)
+    if (registryPath) await markIdentityRegistered(registryPath, identity)
+  }
+}
+
+async function trySpctlAdd(binaryPath: string): Promise<boolean> {
+  try {
+    await execFileAsync('spctl', ['--add', binaryPath], { timeout: 10_000 })
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function trySpctlAddViaOsascript(binaryPath: string): Promise<boolean> {
+  // Escape single quotes in the path for the shell string inside AppleScript.
+  const escapedPath = binaryPath.replace(/'/g, "'\\''")
+  const script = `do shell script "spctl --add '${escapedPath}'" with administrator privileges`
+  try {
+    await execFileAsync('osascript', ['-e', script], { timeout: 60_000 })
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function readCodeSigningIdentity(
+  binaryPath: string,
+): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync(
+      'codesign',
+      ['-dv', '--verbose=4', binaryPath],
+      { timeout: 5_000 },
+    )
+    // Extract TeamIdentifier + Identifier as a stable key.
+    const teamMatch = (stdout || '').match(/TeamIdentifier=(\S+)/)
+    const identifierMatch = (stdout || '').match(/^Identifier=(\S+)/m)
+    if (teamMatch?.[1] && identifierMatch?.[1]) {
+      return `${teamMatch[1]}/${identifierMatch[1]}`
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function isIdentityRegistered(
+  registryPath: string,
+  identity: string,
+): Promise<boolean> {
+  try {
+    const raw = await readFile(registryPath, 'utf8')
+    const registry: Record<string, boolean> = JSON.parse(raw)
+    return registry[identity] === true
+  } catch {
+    return false
+  }
+}
+
+async function markIdentityRegistered(
+  registryPath: string,
+  identity: string,
+): Promise<void> {
+  let registry: Record<string, boolean> = {}
+  try {
+    const raw = await readFile(registryPath, 'utf8')
+    registry = JSON.parse(raw)
+  } catch {
+    // file doesn't exist yet — start fresh
+  }
+  registry[identity] = true
+  try {
+    await writeFile(registryPath, JSON.stringify(registry, null, 2))
+  } catch (err) {
+    logger.warn(`Failed to write Gatekeeper registry: ${String(err)}`)
   }
 }
 
