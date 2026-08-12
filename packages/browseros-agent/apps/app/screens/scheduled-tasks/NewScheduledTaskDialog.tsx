@@ -99,7 +99,9 @@ export const NewScheduledTaskDialog: FC<NewScheduledTaskDialogProps> = ({
   initialValues,
   onSave,
 }) => {
-  const isEditing = !!initialValues
+  // A prefilled create (agent suggestion, promoted inbox task) sets
+  // initialValues with an empty id — only a real existing job has one.
+  const isEditing = !!initialValues?.id
   const [providers, setProviders] = useState<LlmProviderConfig[]>([])
   const [defaultProviderId, setDefaultProviderId] = useState<string>('')
 

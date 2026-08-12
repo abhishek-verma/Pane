@@ -48,12 +48,14 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
     scheduleType === 'daily' ? `daily at ${scheduleTime}` : 'every hour'
 
   const handleEdit = () => {
+    if (!createdJob) return
     const params = new URLSearchParams({
       tab: 'scheduled',
-      name: createdJob?.name ?? suggestedName,
-      query: createdJob?.query ?? query,
-      scheduleType: createdJob?.scheduleType ?? scheduleType,
-      scheduleTime: createdJob?.scheduleTime ?? scheduleTime,
+      jobId: createdJob.id,
+      name: createdJob.name,
+      query: createdJob.query,
+      scheduleType: createdJob.scheduleType,
+      scheduleTime: createdJob.scheduleTime ?? '09:00',
       openDialog: 'true',
     })
 

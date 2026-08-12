@@ -70,6 +70,7 @@ const READ_CONTEXT_TOOLS = new Set([
   'pi_page_create',
   'pi_page_patch',
   'pi_entity_ensure',
+  'trigger_list',
 ])
 
 const WRITE_LOCAL_TASK_TOOLS = new Set([

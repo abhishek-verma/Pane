@@ -97,8 +97,9 @@ export const TasksPage: FC = () => {
     if (searchParams.get('openDialog') !== 'true') return
     prefillHandled.current = true
 
+    const jobId = searchParams.get('jobId')
     const prefill: ScheduledJob = {
-      id: '',
+      id: jobId ?? '',
       name: searchParams.get('name') ?? '',
       query: searchParams.get('query') ?? '',
       scheduleType:
@@ -110,8 +111,16 @@ export const TasksPage: FC = () => {
       createdAt: '',
       updatedAt: '',
     }
-    setPrefillValues(prefill)
-    setEditingJob(null)
+    // jobId means this deep link points at a job that already exists (e.g.
+    // the chat card's "Edit" link after auto-creating it) — open in edit
+    // mode so saving updates it instead of creating a duplicate.
+    if (jobId) {
+      setEditingJob(prefill)
+      setPrefillValues(null)
+    } else {
+      setPrefillValues(prefill)
+      setEditingJob(null)
+    }
     setIsScheduledDialogOpen(true)
     setSearchParams({ tab: 'scheduled' }, { replace: true })
   }, [searchParams, setSearchParams])
