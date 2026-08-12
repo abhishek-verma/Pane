@@ -65,11 +65,23 @@ function supportsToolResultMediaTransport(
   }
 }
 
+// The client-supplied `config.supportsImages` flag is per-provider, not
+// per-model, and defaults to true when unset — a stale/wrong client value
+// reaches the model API as-is otherwise. No Deepseek model supports vision
+// today, so force it off server-side regardless of what the client sends;
+// this is what actually prevented the "unknown variant `image_url`" 400s
+// from Deepseek after a provider switch carried image content forward.
+function supportsImagesOverride(config: ResolvedAgentConfig): boolean | null {
+  if (config.provider === LLM_PROVIDERS.DEEPSEEK) return false
+  return null
+}
+
 export function getMessageNormalizationOptions(
   config: ResolvedAgentConfig,
 ): MessageNormalizationOptions {
   return {
-    supportsImages: config.supportsImages !== false,
+    supportsImages:
+      supportsImagesOverride(config) ?? config.supportsImages !== false,
     supportsMediaInToolResults: supportsToolResultMediaTransport(config),
     ...(config.provider === LLM_PROVIDERS.BEDROCK && {
       maxImages: AGENT_LIMITS.BEDROCK_MAX_IMAGES,

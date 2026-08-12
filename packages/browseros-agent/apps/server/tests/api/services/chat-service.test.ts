@@ -1519,6 +1519,91 @@ describe('ChatService LLM hot-switch', () => {
     // Transcript carried over onto the new agent
     expect(secondAgent.messages.some((m) => m.id === 'user-1')).toBe(true)
   })
+
+  it('preserves tool-call history when switching mid-conversation into an ACP provider', async () => {
+    // ACP providers (Claude Code, etc.) never build an ai-sdk `tools` object,
+    // so the freshly-rebuilt agent's `toolNames` is empty. Sanitizing the
+    // carried-over transcript against that empty set alone would strip every
+    // tool-call/tool-result part from a tool-heavy pre-switch session
+    // (PI/page-interaction, navigation, etc.), corrupting history right at
+    // the switch boundary.
+    const conversationId = 'conv-acp-hotswitch'
+    const firstAgent = createFakeAgent()
+    firstAgent.toolNames = new Set(['navigate', 'screenshot', 'pi_page_create'])
+    firstAgent.messages.push(
+      {
+        id: 'user-1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'navigate and take a screenshot' }],
+      },
+      {
+        id: 'asst-1',
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: 'On it' },
+          {
+            type: 'tool-navigate',
+            toolCallId: 'call-1',
+            toolName: 'navigate',
+            state: 'output-available',
+            input: { url: 'https://example.com' },
+            output: { ok: true },
+          },
+        ] as never,
+      },
+    )
+    const secondAgent = createFakeAgent()
+    secondAgent.toolNames = new Set() // ACP agents register no ai-sdk tools
+
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent: firstAgent,
+      mcpServerKey: '',
+      llmKey: 'deepseek||deepseek-v4-flash||',
+      chatMode: false,
+    } as never)
+
+    agentToReturn = secondAgent
+    firstAgent.dispose = async () => {}
+    streamResponseHandler = async ({ onFinish, uiMessages }) => {
+      await onFinish({
+        messages: (uiMessages ?? secondAgent.messages) as MockMessage[],
+      })
+      return new Response('ok')
+    }
+
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'claude-code',
+      model: 'opus',
+      apiKey: 'unused',
+    }))
+
+    const service = new ChatService(createChatServiceDeps({ sessionStore }))
+    await service.processMessage(
+      {
+        conversationId,
+        message: 'continue',
+        mode: 'agent',
+        origin: 'sidepanel',
+        isScheduledTask: false,
+      } as never,
+      new AbortController().signal,
+    )
+
+    const live = sessionStore.get(conversationId)
+    const carriedAssistant = live?.agent.messages.find((m) => m.id === 'asst-1')
+    expect(carriedAssistant).toBeDefined()
+    const toolPart = carriedAssistant?.parts.find(
+      (p) => (p as { type?: string }).type === 'tool-navigate',
+    )
+    expect(toolPart).toBeDefined()
+
+    resolveLLMConfigSpy.mockImplementation(async () => ({
+      provider: 'openai',
+      model: 'gpt-5',
+      apiKey: 'test-key',
+    }))
+  })
 })
 
 describe('ChatService chat/agent mode toggle', () => {

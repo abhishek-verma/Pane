@@ -1347,9 +1347,17 @@ export class ChatService {
         settledIncomplete: rebuildPrepared.settledIncomplete,
       })
     }
+    // ACP-backed providers (Claude Code, etc.) don't build an ai-sdk tools
+    // object, so `agent.toolNames` is empty right after rebuild. Sanitizing
+    // against it alone would strip every tool-call part carried over from a
+    // tool-heavy pre-switch session. Union with the previous agent's
+    // toolNames so history-only parts survive a switch into ACP.
+    const toolNamesForSanitize = isAcpProvider(agentConfig.provider)
+      ? new Set([...agent.toolNames, ...session.agent.toolNames])
+      : agent.toolNames
     newSession.agent.messages = sanitizeMessagesForToolset(
       rebuildPrepared.messages,
-      agent.toolNames,
+      toolNamesForSanitize,
     )
     this.deps.sessionStore.set(request.conversationId, newSession)
     return newSession
