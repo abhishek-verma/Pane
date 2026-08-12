@@ -318,7 +318,7 @@ describe('wrapAcpProviderExecutedTools', () => {
     })
   })
 
-  describe('stream-level error suppression after a finalized failed tool-result', () => {
+  describe('stream-level error suppression (redundant turn-failure error before finish)', () => {
     function streamOf(chunks: Array<Record<string, unknown>>): LanguageModel {
       const base = {
         specificationVersion: 'v2' as const,
@@ -334,6 +334,9 @@ describe('wrapAcpProviderExecutedTools', () => {
               },
             }),
           }
+        },
+        async doGenerate() {
+          throw new Error('doGenerate should not be called directly')
         },
       }
       return base as unknown as LanguageModel
@@ -353,14 +356,14 @@ describe('wrapAcpProviderExecutedTools', () => {
       return parts
     }
 
-    it('drops a stream error chunk that immediately follows a failed tool-result (Claude Code Skill tool_use_error)', async () => {
+    it('drops a stream error chunk that immediately precedes finish (Claude Code Skill tool_use_error)', async () => {
       // Reproduces: Claude Code's native `Skill` tool fails ("Unknown skill:
       // pi-page-dsl"). acpx-ai-provider finalizes it as a normal
       // tool-result{isError:true}, but ALSO sets the whole turn's
       // result.status to "failed" and emits a redundant stream-level
-      // `error` chunk for it — which the AI SDK treats as fatal and would
-      // otherwise kill the entire turn instead of letting the model see
-      // the tool error and continue.
+      // `error` chunk immediately before `finish` — which the AI SDK
+      // treats as fatal and would otherwise kill the entire turn instead
+      // of letting the model see the tool error and continue.
       const parts = await collect(
         streamOf([
           {
@@ -398,7 +401,65 @@ describe('wrapAcpProviderExecutedTools', () => {
       expect(parts[1]).toMatchObject({ type: 'tool-result', isError: true })
     })
 
-    it('passes through a stream error chunk not preceded by a failed tool-result (genuine fatal error)', async () => {
+    it('still suppresses the redundant error when the failing tool call is not the last one in the turn', async () => {
+      // acpx-ai-provider emits errorPartIfFailed()+finish() once at the very
+      // end of the stream based only on the turn's overall result.status —
+      // decoupled from which specific tool call failed. A later, unrelated
+      // successful tool call must not defeat suppression of the turn-level
+      // error that traces back to an earlier failed one.
+      const parts = await collect(
+        streamOf([
+          {
+            type: 'tool-call',
+            toolCallId: 'c1',
+            toolName: 'Skill',
+            input: '{"skill":"pi-page-dsl"}',
+            providerExecuted: true,
+          },
+          {
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'Skill',
+            result: 'Unknown skill: pi-page-dsl',
+            isError: true,
+            providerExecuted: true,
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'c2',
+            toolName: 'navigate',
+            input: '{}',
+            providerExecuted: true,
+          },
+          {
+            type: 'tool-result',
+            toolCallId: 'c2',
+            toolName: 'navigate',
+            result: { ok: true },
+            providerExecuted: true,
+          },
+          {
+            type: 'error',
+            error: new Error('Unknown skill: pi-page-dsl'),
+          },
+          {
+            type: 'finish',
+            finishReason: 'tool-calls',
+            usage: {},
+          },
+        ]),
+      )
+
+      expect(parts.map((p) => p.type)).toEqual([
+        'tool-call',
+        'tool-result',
+        'tool-call',
+        'tool-result',
+        'finish',
+      ])
+    })
+
+    it('passes through a stream error chunk not followed by finish (genuine fatal error, e.g. dropped connection)', async () => {
       const parts = await collect(
         streamOf([
           {
@@ -429,7 +490,7 @@ describe('wrapAcpProviderExecutedTools', () => {
       ])
     })
 
-    it('only suppresses one error per failed tool-result, not a second unrelated one', async () => {
+    it('forwards both errors when a second, unrelated error follows the first (neither precedes finish)', async () => {
       const parts = await collect(
         streamOf([
           {
@@ -451,7 +512,51 @@ describe('wrapAcpProviderExecutedTools', () => {
         ]),
       )
 
-      expect(parts.map((p) => p.type)).toEqual(['tool-result', 'error'])
+      expect(parts.map((p) => p.type)).toEqual([
+        'tool-result',
+        'error',
+        'error',
+      ])
+    })
+
+    it('doGenerate routes through the same suppression instead of throwing on the redundant error', async () => {
+      const model = streamOf([
+        {
+          type: 'tool-call',
+          toolCallId: 'c1',
+          toolName: 'Skill',
+          input: '{"skill":"pi-page-dsl"}',
+          providerExecuted: true,
+        },
+        {
+          type: 'tool-result',
+          toolCallId: 'c1',
+          toolName: 'Skill',
+          result: 'Unknown skill: pi-page-dsl',
+          isError: true,
+          providerExecuted: true,
+        },
+        {
+          type: 'error',
+          error: new Error('Unknown skill: pi-page-dsl'),
+        },
+        {
+          type: 'finish',
+          finishReason: 'tool-calls',
+          usage: {},
+        },
+      ])
+
+      const wrapped = wrapAcpProviderExecutedTools(model) as {
+        doGenerate: () => Promise<{ content: Array<Record<string, unknown>> }>
+      }
+      const result = await wrapped.doGenerate()
+
+      expect(
+        result.content.some(
+          (part) => part.type === 'tool-result' && part.isError === true,
+        ),
+      ).toBe(true)
     })
   })
 })

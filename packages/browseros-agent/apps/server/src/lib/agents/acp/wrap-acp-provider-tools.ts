@@ -118,58 +118,191 @@ function rewriteToolishPart<T extends ToolishPart>(part: T): T {
   return next
 }
 
-function rewriteContentParts(content: unknown): unknown {
-  if (!Array.isArray(content)) return content
-  return content.map((part) => {
-    if (!part || typeof part !== 'object') return part
-    return rewriteToolishPart(part as ToolishPart)
-  })
-}
-
 function rewriteStreamPart(part: unknown): unknown {
   if (!part || typeof part !== 'object') return part
   return rewriteToolishPart(part as ToolishPart)
 }
 
 /**
- * acpx-ai-provider sets the whole ACP turn's `result.status` to "failed"
- * whenever any provider-native tool call inside it fails (e.g. Claude
- * Code's `Skill` tool erroring on an unregistered skill id), even though
- * that tool call already finalized normally as `tool-result { isError:
- * true }`. It then also enqueues a stream-level `{ type: "error" }` chunk
- * for the same turn, which the AI SDK treats as fatal and throws — killing
- * the whole turn instead of letting the model see the tool error and
- * recover, which is how every other tool failure behaves. Since the
- * fatal chunk is enqueued right after the tool-result in the same stream
- * (not via a real ReadableStream error), we can drop it here and let the
- * turn's trailing `finish` chunk (also always emitted) complete normally.
- * A genuine provider/runtime error that isn't preceded by a failed tool
- * result (e.g. a dropped connection) is left untouched.
+ * Mirrors acpx-ai-provider's own `accumulateStream` (dist/index.js) so
+ * `doGenerate` can be served from our error-suppressing, tool-rewriting
+ * `doStream` instead of acpx's raw one. acpx's `doGenerate` is defined as
+ * `async doGenerate(o) { const { stream } = await this.doStream(o); return
+ * accumulateStream(stream, ...) }` — called as `this.doStream`, which
+ * resolves to acpx's own unwrapped method (not this module's Proxy trap),
+ * so routing through `target.doGenerate` directly would bypass the error
+ * fix above entirely for any caller using `generateText`/`doGenerate`
+ * against this model (e.g. `experimental_repairToolCall`).
  */
-function createErrorSuppressionState() {
-  return { lastToolResultWasError: false }
+async function accumulateRewrittenStream(
+  stream: ReadableStream<unknown>,
+  request: unknown,
+  response: unknown,
+): Promise<{
+  content: unknown[]
+  finishReason: unknown
+  usage: unknown
+  providerMetadata?: unknown
+  request: unknown
+  response: unknown
+  warnings: unknown[]
+}> {
+  const content: unknown[] = []
+  const textBuffers = new Map<string, string>()
+  const reasoningBuffers = new Map<string, string>()
+  let finishReason: unknown = 'unknown'
+  let usage: unknown = {
+    inputTokens: undefined,
+    outputTokens: undefined,
+    totalTokens: undefined,
+  }
+  let providerMetadata: unknown
+
+  const flushBuffer = (
+    map: Map<string, string>,
+    id: string,
+    type: 'text' | 'reasoning',
+  ) => {
+    const value = map.get(id) ?? ''
+    if (value) content.push({ type, text: value })
+    map.delete(id)
+  }
+
+  const reader = stream.getReader()
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    const part = value as ToolishPart
+    switch (part.type) {
+      case 'text-start':
+        textBuffers.set(part.id as string, '')
+        break
+      case 'text-delta':
+        textBuffers.set(
+          part.id as string,
+          (textBuffers.get(part.id as string) ?? '') + (part.delta as string),
+        )
+        break
+      case 'text-end':
+        flushBuffer(textBuffers, part.id as string, 'text')
+        break
+      case 'reasoning-start':
+        reasoningBuffers.set(part.id as string, '')
+        break
+      case 'reasoning-delta':
+        reasoningBuffers.set(
+          part.id as string,
+          (reasoningBuffers.get(part.id as string) ?? '') +
+            (part.delta as string),
+        )
+        break
+      case 'reasoning-end':
+        flushBuffer(reasoningBuffers, part.id as string, 'reasoning')
+        break
+      case 'tool-call':
+        content.push({
+          type: 'tool-call',
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
+          input: part.input,
+          providerExecuted: part.providerExecuted,
+          dynamic: part.dynamic,
+        })
+        break
+      case 'tool-result':
+        content.push({
+          type: 'tool-result',
+          toolCallId: part.toolCallId,
+          toolName: part.toolName,
+          result: part.result,
+          providerExecuted: part.providerExecuted,
+          dynamic: part.dynamic,
+          ...((part as { isError?: boolean }).isError ? { isError: true } : {}),
+        })
+        break
+      case 'finish':
+        finishReason = (part as { finishReason?: unknown }).finishReason
+        usage = (part as { usage?: unknown }).usage
+        if ((part as { providerMetadata?: unknown }).providerMetadata) {
+          providerMetadata = (part as { providerMetadata?: unknown })
+            .providerMetadata
+        }
+        break
+      case 'error':
+        throw part.error instanceof Error
+          ? part.error
+          : new Error(String((part as { error?: unknown }).error))
+      default:
+        break
+    }
+  }
+
+  return {
+    content,
+    finishReason,
+    usage,
+    providerMetadata,
+    request,
+    response,
+    warnings: [],
+  }
 }
 
-function shouldSuppressStreamError(
-  chunk: unknown,
-  state: { lastToolResultWasError: boolean },
-): boolean {
-  if (!chunk || typeof chunk !== 'object') return false
-  const part = chunk as ToolishPart
-  if (part.type === 'tool-result') {
-    state.lastToolResultWasError = Boolean(
-      (part as { isError?: boolean }).isError,
-    )
-    return false
+/**
+ * acpx-ai-provider (0.0.6) sets the whole ACP turn's `result.status` to
+ * "failed" whenever any provider-native tool call inside it fails (e.g.
+ * Claude Code's `Skill` tool erroring on an unregistered skill id), even
+ * though that tool call already finalized normally as `tool-result {
+ * isError: true }`. `createTranslatingStream` then *always* emits the
+ * sequence `errorPartIfFailed(result)` (a stream-level `{ type: "error" }`
+ * chunk) immediately followed by `finish({ result })` — see
+ * acpx-ai-provider/dist/index.js's `createTranslatingStream` — regardless
+ * of which tool call failed or how many other tool calls ran after it in
+ * the same turn. The AI SDK treats any `error` chunk as fatal and throws,
+ * killing the whole turn instead of letting the model see the tool error
+ * and recover, which is how every other tool failure behaves.
+ *
+ * A genuine fatal error (dropped connection, etc.) is raised from the
+ * `catch` block in the same function instead: it enqueues only the
+ * `error` chunk and closes the stream with no `finish` behind it. So an
+ * `error` chunk immediately followed by a `finish` chunk is always the
+ * redundant, already-reported turn-failure case; an `error` chunk with no
+ * `finish` behind it (stream just ends) is always the genuine case. This
+ * buffers one `error` chunk at a time to make that lookahead decision
+ * without depending on which specific tool-result preceded it.
+ */
+function createErrorGate(
+  controller: TransformStreamDefaultController<unknown>,
+) {
+  let pendingError: unknown = null
+  return {
+    transform(chunk: unknown) {
+      const part =
+        chunk && typeof chunk === 'object' ? (chunk as ToolishPart) : null
+      if (pendingError !== null) {
+        const buffered = pendingError
+        pendingError = null
+        if (part?.type === 'finish') {
+          // Redundant turn-level error immediately before finish — drop it,
+          // let finish complete the turn normally.
+          controller.enqueue(rewriteStreamPart(chunk))
+          return
+        }
+        // Not immediately followed by finish — genuine error, forward it.
+        controller.enqueue(buffered)
+      }
+      if (part?.type === 'error') {
+        pendingError = chunk
+        return
+      }
+      controller.enqueue(rewriteStreamPart(chunk))
+    },
+    flush() {
+      // Stream ended right after the error with no finish behind it —
+      // the genuine, non-tool-related fatal case. Forward it.
+      if (pendingError !== null) controller.enqueue(pendingError)
+    },
   }
-  if (part.type === 'error') {
-    const suppress = state.lastToolResultWasError
-    // Only the first error chunk after a failed tool-result is redundant;
-    // reset so a second, unrelated error isn't also swallowed.
-    state.lastToolResultWasError = false
-    return suppress
-  }
-  return false
 }
 
 /**
@@ -199,35 +332,38 @@ export function wrapAcpProviderExecutedTools(
     }>
   }
 
+  const wrappedDoStream: typeof base.doStream = async (...args: unknown[]) => {
+    const result = await base.doStream(...args)
+    let gate: ReturnType<typeof createErrorGate>
+    return {
+      ...result,
+      stream: result.stream.pipeThrough(
+        new TransformStream({
+          start(controller) {
+            gate = createErrorGate(controller)
+          },
+          transform(chunk) {
+            gate.transform(chunk)
+          },
+          flush() {
+            gate.flush()
+          },
+        }),
+      ),
+    }
+  }
+
   return new Proxy(base, {
     get(target, prop, receiver) {
-      if (prop === 'doStream') {
-        return async (...args: unknown[]) => {
-          const result = await target.doStream(...args)
-          const errorSuppression = createErrorSuppressionState()
-          return {
-            ...result,
-            stream: result.stream.pipeThrough(
-              new TransformStream({
-                transform(chunk, controller) {
-                  if (shouldSuppressStreamError(chunk, errorSuppression)) {
-                    return
-                  }
-                  controller.enqueue(rewriteStreamPart(chunk))
-                },
-              }),
-            ),
-          }
-        }
-      }
+      if (prop === 'doStream') return wrappedDoStream
       if (prop === 'doGenerate' && typeof target.doGenerate === 'function') {
-        const doGenerate = target.doGenerate.bind(target)
+        // Route through our own error-suppressing, tool-rewriting doStream
+        // rather than target.doGenerate — see accumulateRewrittenStream's
+        // doc comment for why calling target.doGenerate directly would
+        // bypass the fix.
         return async (...args: unknown[]) => {
-          const result = await doGenerate(...args)
-          return {
-            ...result,
-            content: rewriteContentParts(result.content),
-          }
+          const { stream, request, response } = await wrappedDoStream(...args)
+          return accumulateRewrittenStream(stream, request, response)
         }
       }
       return Reflect.get(target, prop, receiver)
