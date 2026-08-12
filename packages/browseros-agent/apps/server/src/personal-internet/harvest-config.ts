@@ -242,7 +242,7 @@ export function formatHarvestPrompt(input: {
   const hostAlreadyOpen =
     Array.isArray(input.openHosts) &&
     config.sources.some((src) =>
-      input.openHosts!.some(
+      input.openHosts?.some(
         (h) => h === src || h.endsWith(`.${src}`) || normalizeHost(h) === src,
       ),
     )
@@ -303,7 +303,7 @@ export function formatHarvestPrompt(input: {
     '## Data model for this site',
     `existingRecordTypes=${recordTypes.length ? JSON.stringify(recordTypes) : 'none yet — infer types from JTBD and custom instructions; do not assume job-application'}`,
     `exampleFieldKeys=${JSON.stringify(fieldExamples)}`,
-    'Load skill pi-harvest (generic). Optional domain skill: ' + domainSkill,
+    `Load skill pi-harvest (generic). Optional domain skill: ${domainSkill}`,
     'Write path: pi_record_list → pi_record_upsert (or delete). Board/chart/pulse sync from records — do not hand-edit board JSON as source of truth.',
     '',
     '## Current records snapshot (use pi_record_list for more)',

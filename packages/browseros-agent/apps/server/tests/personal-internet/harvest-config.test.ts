@@ -165,11 +165,11 @@ describe('pi harvest config', () => {
       )
       .all(site.id) as Array<{ idempotency_key: string; prompt: string }>
     expect(runs).toHaveLength(1)
-    expect(runs[0]!.prompt).toContain('trigger=harvest-due')
-    expect(runs[0]!.prompt).toContain('mayOpenOrNavigateSources=yes')
-    expect(runs[0]!.prompt).toContain('news.ycombinator.com')
-    expect(runs[0]!.prompt).toContain('do not assume job-application')
-    expect(runs[0]!.prompt).toContain('Optional domain skill: none')
+    expect(runs[0]?.prompt).toContain('trigger=harvest-due')
+    expect(runs[0]?.prompt).toContain('mayOpenOrNavigateSources=yes')
+    expect(runs[0]?.prompt).toContain('news.ycombinator.com')
+    expect(runs[0]?.prompt).toContain('do not assume job-application')
+    expect(runs[0]?.prompt).toContain('Optional domain skill: none')
   })
 
   it('cadence skips second browser harvest in the same window', async () => {
@@ -329,7 +329,7 @@ describe('pi harvest config', () => {
       buildHarvestPolicy(harvestConfigFromSite(site)),
     )
     expect(
-      getPolicy('site', site.id)!.triggers.some(
+      getPolicy('site', site.id)?.triggers.some(
         (t) => t.name === 'harvest-due',
       ),
     ).toBe(true)

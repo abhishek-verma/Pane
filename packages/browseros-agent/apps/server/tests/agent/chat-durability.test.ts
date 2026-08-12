@@ -229,7 +229,7 @@ describe('Chat durability checkpoints', () => {
             ...prior[1]!,
             parts: [
               {
-                ...prior[1]!.parts[0],
+                ...prior[1]?.parts[0],
                 state: 'output-available',
                 output: [{ type: 'text', text: 'done' }],
               },
@@ -327,7 +327,7 @@ describe('Chat durability checkpoints', () => {
         id: 'a1',
         role: 'assistant',
         parts: [
-          ...(step1[1]!.parts as Array<Record<string, unknown>>),
+          ...(step1[1]?.parts as Array<Record<string, unknown>>),
           {
             type: 'text',
             text: 'done with tools',

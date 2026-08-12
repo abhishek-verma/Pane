@@ -72,9 +72,9 @@ describe('ChatService listConversationMessages + projection', () => {
 
     const detail = await service.getConversation(conversationId)
     expect(detail).not.toBeNull()
-    expect(detail!.messages.length).toBe(40)
+    expect(detail?.messages.length).toBe(40)
     // UI projection should shrink assistant tool bodies
-    const firstAssistant = detail!.messages.find((m) => m.role === 'assistant')
+    const firstAssistant = detail?.messages.find((m) => m.role === 'assistant')
     const part = firstAssistant?.parts[0] as {
       output?: { spilled?: boolean; content?: Array<{ text?: string }> }
     }
@@ -94,20 +94,20 @@ describe('ChatService listConversationMessages + projection', () => {
       limit: 10,
     })
     expect(page).not.toBeNull()
-    expect(page!.messages).toHaveLength(10)
-    expect(page!.hasMore).toBe(true)
-    expect(page!.messages[0]?.id).toBe('u30')
+    expect(page?.messages).toHaveLength(10)
+    expect(page?.hasMore).toBe(true)
+    expect(page?.messages[0]?.id).toBe('u30')
 
     const older = await service.listConversationMessages(conversationId, {
-      beforeId: page!.messages[0]!.id,
+      beforeId: page?.messages[0]?.id,
       limit: 10,
     })
-    expect(older!.messages).toHaveLength(10)
-    expect(older!.hasMore).toBe(true)
-    expect(older!.messages.at(-1)?.id).toBe('a29')
+    expect(older?.messages).toHaveLength(10)
+    expect(older?.hasMore).toBe(true)
+    expect(older?.messages.at(-1)?.id).toBe('a29')
 
     // Spilled output available for expand
-    const toolCallId = (firstAssistant!.parts[0] as { toolCallId: string })
+    const toolCallId = (firstAssistant?.parts[0] as { toolCallId: string })
       .toolCallId
     const spilled = sessionStore.outputStore.get(toolCallId)
     expect(spilled?.data).toContain(fat)

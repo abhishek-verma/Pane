@@ -40,24 +40,24 @@ describe('SessionStore.loadMessagesPage', () => {
     const newest = await store.loadMessagesPage(sessionId, { limit: 10 })
     expect(newest.messages).toHaveLength(10)
     expect(newest.hasMore).toBe(true)
-    expect(newest.messages[0]!.id).toBe('m15')
-    expect(newest.messages.at(-1)!.id).toBe('m24')
+    expect(newest.messages[0]?.id).toBe('m15')
+    expect(newest.messages.at(-1)?.id).toBe('m24')
 
     const older = await store.loadMessagesPage(sessionId, {
-      beforeId: newest.messages[0]!.id,
+      beforeId: newest.messages[0]?.id,
       limit: 10,
     })
     expect(older.messages).toHaveLength(10)
     expect(older.hasMore).toBe(true)
-    expect(older.messages[0]!.id).toBe('m5')
-    expect(older.messages.at(-1)!.id).toBe('m14')
+    expect(older.messages[0]?.id).toBe('m5')
+    expect(older.messages.at(-1)?.id).toBe('m14')
 
     const oldest = await store.loadMessagesPage(sessionId, {
-      beforeId: older.messages[0]!.id,
+      beforeId: older.messages[0]?.id,
       limit: 10,
     })
     expect(oldest.messages).toHaveLength(5)
     expect(oldest.hasMore).toBe(false)
-    expect(oldest.messages[0]!.id).toBe('m0')
+    expect(oldest.messages[0]?.id).toBe('m0')
   })
 })

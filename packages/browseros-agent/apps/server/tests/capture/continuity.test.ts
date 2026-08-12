@@ -75,7 +75,7 @@ describe('capture continuity contracts', () => {
       data: new TextEncoder().encode('audio-under-load'),
     })
     const stream = join(
-      a.transcriptPath!.replace(/\/transcript\.jsonl$/, ''),
+      a.transcriptPath?.replace(/\/transcript\.jsonl$/, ''),
       'audio-chunks',
       'stream.webm',
     )
@@ -106,7 +106,7 @@ describe('capture continuity contracts', () => {
       data: new TextEncoder().encode('mic-0'),
     })
     const dir = join(
-      session.transcriptPath!.replace(/\/transcript\.jsonl$/, ''),
+      session.transcriptPath?.replace(/\/transcript\.jsonl$/, ''),
       'audio-chunks',
     )
     expect(existsSync(join(dir, 'stream.webm'))).toBe(true)
@@ -179,7 +179,7 @@ describe('capture continuity contracts', () => {
     })
     await stopMeetingCapture(session.id)
     const statePath = join(
-      session.transcriptPath!.replace(/\/transcript\.jsonl$/, ''),
+      session.transcriptPath?.replace(/\/transcript\.jsonl$/, ''),
       'asr-state.json',
     )
     expect(existsSync(statePath)).toBe(true)

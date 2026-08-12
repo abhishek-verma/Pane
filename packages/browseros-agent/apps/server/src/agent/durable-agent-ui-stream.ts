@@ -279,8 +279,7 @@ export function ensureNonEmptyAssistantFinish(input: {
     }
   }
 
-  const text =
-    (input.errorText && input.errorText.trim()) || EMPTY_AGENT_FINISH_MESSAGE
+  const text = input.errorText?.trim() || EMPTY_AGENT_FINISH_MESSAGE
   const filledMessage: UIMessage = {
     ...input.responseMessage,
     parts: [{ type: 'text', text }],

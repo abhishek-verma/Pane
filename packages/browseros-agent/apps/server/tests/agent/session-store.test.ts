@@ -255,7 +255,7 @@ describe('ToolImageStore', () => {
     expect(result).not.toBeNull()
     expect(result?.mimeType).toBe('image/jpeg')
     // Round-trip: stored as Buffer, retrieved as Buffer
-    expect(Buffer.from(result!.data).toString('base64')).toBe(data)
+    expect(Buffer.from(result?.data).toString('base64')).toBe(data)
   })
 
   it('returns a real Buffer whose .toString("base64") round-trips directly', () => {
@@ -274,11 +274,11 @@ describe('ToolImageStore', () => {
 
     const result = store.get('call-1')
     expect(result).not.toBeNull()
-    expect(Buffer.isBuffer(result!.data)).toBe(true)
-    expect(result!.data.toString('base64')).toBe(data)
+    expect(Buffer.isBuffer(result?.data)).toBe(true)
+    expect(result?.data.toString('base64')).toBe(data)
     // A comma-joined Uint8Array#toString() would be many times longer than
     // the correct base64 string — pin the exact expected length too.
-    expect(result!.data.toString('base64').length).toBe(data.length)
+    expect(result?.data.toString('base64').length).toBe(data.length)
   })
 
   it('returns null for an unknown toolCallId', () => {
@@ -295,7 +295,7 @@ describe('ToolImageStore', () => {
 
     const result = store.get('call-1')
     expect(result?.mimeType).toBe('image/jpeg')
-    expect(Buffer.from(result!.data).toString('base64')).toBe(data2)
+    expect(Buffer.from(result?.data).toString('base64')).toBe(data2)
   })
 
   it('stores multiple images for the same session', () => {

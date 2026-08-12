@@ -100,7 +100,7 @@ function observationFromCaption(
     if (!cleaned) continue
     const isLocalSelf =
       (Boolean(selfName) &&
-        cleaned.toLowerCase() === selfName!.toLowerCase()) ||
+        cleaned.toLowerCase() === selfName?.toLowerCase()) ||
       /^you$/i.test(cleaned) ||
       /^you$/i.test(row.speaker.trim())
     return {
@@ -154,7 +154,7 @@ function probeActiveSpeaker(
     if (confidence < SPEAKER_CONFIDENCE_MIN) continue
     const isLocalSelf =
       signals.has('self') ||
-      (Boolean(selfName) && name.toLowerCase() === selfName!.toLowerCase()) ||
+      (Boolean(selfName) && name.toLowerCase() === selfName?.toLowerCase()) ||
       /^you$/i.test(name)
     if (!best || confidence > best.confidence) {
       best = { name, confidence, source, isLocalSelf }
@@ -184,7 +184,7 @@ function probeParticipants(probe: MeetingDomProbe): ParticipantInfo[] {
       displayName: name,
       isLocalSelf:
         a.isLocalSelf ||
-        (Boolean(selfName) && name.toLowerCase() === selfName!.toLowerCase()),
+        (Boolean(selfName) && name.toLowerCase() === selfName?.toLowerCase()),
     })
   }
 
@@ -195,7 +195,7 @@ function probeParticipants(probe: MeetingDomProbe): ParticipantInfo[] {
     out.push({
       displayName: name,
       isLocalSelf:
-        Boolean(selfName) && name.toLowerCase() === selfName!.toLowerCase(),
+        Boolean(selfName) && name.toLowerCase() === selfName?.toLowerCase(),
     })
   }
 
@@ -206,7 +206,7 @@ function probeParticipants(probe: MeetingDomProbe): ParticipantInfo[] {
     out.push({
       displayName: name,
       isLocalSelf:
-        Boolean(selfName) && name.toLowerCase() === selfName!.toLowerCase(),
+        Boolean(selfName) && name.toLowerCase() === selfName?.toLowerCase(),
     })
   }
   if (selfName && !seen.has(selfName.toLowerCase())) {

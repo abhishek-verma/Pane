@@ -20,7 +20,7 @@ async function callTool(
   tool: { execute?: (...args: unknown[]) => Promise<unknown> },
   args: Record<string, unknown>,
 ) {
-  const result = await tool.execute!(args, { toolCallId: 't', messages: [] })
+  const result = await tool.execute?.(args, { toolCallId: 't', messages: [] })
   return result as { text: string; isError?: boolean }
 }
 

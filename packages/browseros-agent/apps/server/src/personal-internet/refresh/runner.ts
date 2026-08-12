@@ -356,7 +356,7 @@ export async function executeRefreshJob(
   options: RunRefreshOptions = {},
 ): Promise<RefreshOutcome> {
   const current = getJob(job.id)
-  if (!current || current.status !== 'pending') {
+  if (current?.status !== 'pending') {
     return 'skipped'
   }
   markJobStatus(job.id, 'running')
