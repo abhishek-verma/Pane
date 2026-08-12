@@ -226,6 +226,7 @@ export const meetAdapter: MeetingSiteAdapter = {
   id: 'meet',
   displayName: 'Google Meet',
   maturity: 'mature',
+  status: 'stable',
   defaultHosts: ['meet.google.com'],
   capabilities: [
     'roomDetection',

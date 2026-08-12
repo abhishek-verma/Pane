@@ -174,6 +174,7 @@ export const zoomAdapter: MeetingSiteAdapter = {
   id: 'zoom',
   displayName: 'Zoom',
   maturity: 'mature',
+  status: 'stable',
   defaultHosts: ['zoom.us'],
   capabilities: [
     'roomDetection',

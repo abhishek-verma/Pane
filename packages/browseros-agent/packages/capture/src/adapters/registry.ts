@@ -33,6 +33,7 @@ export function listMatureAdapterMeta(): MatureAdapterMeta[] {
   return MATURE_ADAPTERS.map((a) => ({
     id: a.id,
     displayName: a.displayName,
+    status: a.status,
     defaultHosts: [...a.defaultHosts],
     capabilities: [...a.capabilities],
   }))

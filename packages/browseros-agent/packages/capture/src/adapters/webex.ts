@@ -42,6 +42,7 @@ export const webexAdapter: MeetingSiteAdapter = {
   id: 'webex',
   displayName: 'Webex',
   maturity: 'mature',
+  status: 'wip',
   defaultHosts: ['webex.com'],
   capabilities: ['roomDetection', 'callState', 'muteProbe'],
 

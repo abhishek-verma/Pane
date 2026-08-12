@@ -71,6 +71,7 @@ export const genericAdapter: MeetingSiteAdapter = {
   id: 'generic',
   displayName: 'Other site',
   maturity: 'generic',
+  status: 'stable',
   defaultHosts: [],
   capabilities: ['roomDetection', 'callState'],
 
