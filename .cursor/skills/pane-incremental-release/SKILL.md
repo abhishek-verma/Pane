@@ -422,6 +422,14 @@ bun scripts/release/generate-extension-update-manifest.ts \
 
 Update only `bundled-manifest.xml` — `update-manifest.xml` is deprecated. Verify the `codebase` URL ends in `.crx` not `.zip`.
 
+**CRITICAL: always use `--prerelease` when creating extension releases** so GitHub's `releases/latest` always resolves to the browser DMG, never a CRX:
+
+```bash
+git tag -a "agent-extension/v0.0.Y" -m "Extension v0.0.Y" && git push origin "agent-extension/v0.0.Y"
+gh release create "agent-extension/v0.0.Y" /tmp/pane-agent-0.0.Y.crx \
+  --title "Extension v0.0.Y" --notes "..." --prerelease
+```
+
 ### Typecheck before shipping
 ```bash
 cd packages/browseros-agent && bun run typecheck
