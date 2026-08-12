@@ -385,9 +385,10 @@ export function createPersonalInternetRoutes() {
       }
     })
     .get('/library', (c) => {
-      const sites = listSites({
-        status: ['active', 'dormant', 'drafting', 'archived'],
-      }).map((s) => ({
+      const status = c.req.query('status')
+      const sites = listSites(
+        status ? { status: status.split(',') as never } : undefined,
+      ).map((s) => ({
         id: s.id,
         name: s.name,
         slug: s.slug,
