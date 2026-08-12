@@ -39,6 +39,21 @@ describe('pi home bridge', () => {
     expect(pi.generatedAt).toBeTruthy()
   })
 
+  it('libraryCount excludes archived sites', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    const siteId = created.siteId!
+    const before = await buildPiHomeProjection()
+    expect(before.libraryCount).toBe(1)
+
+    await applyPiMutation({ type: 'archive-site', siteId })
+    const after = await buildPiHomeProjection()
+    expect(after.libraryCount).toBe(0)
+  })
+
   it('doorway appears after P0 site create; home payload includes pi', async () => {
     setup()
     await applyPiMutation({ type: 'upsert-site', templateId: 'job-search' })

@@ -102,9 +102,7 @@ export async function buildPiHomeProjection(): Promise<PiHomeProjection> {
 
   const continuity = await loadContinuity(doorways, pulsesById)
 
-  const libraryCount = listSites({
-    status: ['active', 'dormant', 'drafting', 'archived'],
-  }).length
+  const libraryCount = listSites().length
 
   return {
     doorways: doorways.slice(0, 8),
