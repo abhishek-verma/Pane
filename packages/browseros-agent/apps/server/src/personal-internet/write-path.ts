@@ -22,6 +22,7 @@ import {
   updateRecordStageFromCardMove,
 } from './records'
 import {
+  archivePage,
   archiveSite,
   createTemp,
   deletePage,
@@ -88,6 +89,10 @@ export type ApplyPiMutationInput =
     }
   | {
       type: 'delete-page'
+      pageId: string
+    }
+  | {
+      type: 'archive-page'
       pageId: string
     }
 
@@ -427,6 +432,20 @@ export async function applyPiMutation(
       emitPiEvent('site-archived', { siteId: input.siteId })
       afterMutationHook?.(input.siteId)
       return { siteId: input.siteId }
+    }
+
+    case 'archive-page': {
+      const page = getPage(input.pageId)
+      if (!page) throw new Error(`page not found: ${input.pageId}`)
+      const siteId = page.siteId ?? undefined
+      archivePage(input.pageId)
+      emitPiEvent('page-archived', { pageId: input.pageId, siteId })
+      if (siteId) {
+        recomputePulse(siteId)
+        emitPiEvent('site-updated', { siteId })
+        afterMutationHook?.(siteId)
+      }
+      return { siteId, pageId: input.pageId }
     }
 
     case 'delete-page': {

@@ -5,7 +5,7 @@
  */
 
 import { type FC, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { pageHref, siteHref } from '@/lib/personal-internet/pi-href'
 import { executePiAction, refreshPiPageWithAgent } from '@/lib/pi-actions'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,7 @@ import { PiPageRenderer } from './PiPageRenderer'
 import { RecordsPanel } from './RecordsPanel'
 import {
   piPatch,
+  piPost,
   usePiInvalidateListener,
   usePiPage,
   usePiSite,
@@ -35,6 +36,38 @@ function formatAsOf(iso?: string | null): string | null {
   } catch {
     return iso
   }
+}
+
+async function archiveCurrentPage(
+  _siteId: string,
+  pageId: string,
+  pageTitle: string,
+  onDone: () => void,
+): Promise<void> {
+  if (!window.confirm(`Archive "${pageTitle}"?`)) return
+  await piPost(`/pi/pages/${pageId}/archive`)
+  onDone()
+}
+
+const PageArchiveAction: FC<{
+  siteId?: string
+  pageId?: string
+  pageTitle: string
+}> = ({ siteId, pageId, pageTitle }) => {
+  const navigate = useNavigate()
+  if (!siteId || !pageId) return null
+  return (
+    <PiRailAction
+      variant="destructive"
+      onClick={() =>
+        void archiveCurrentPage(siteId, pageId, pageTitle, () =>
+          navigate(siteHref(siteId)),
+        )
+      }
+    >
+      Archive
+    </PiRailAction>
+  )
 }
 
 export const SitePage: FC = () => {
@@ -120,6 +153,11 @@ export const SitePage: FC = () => {
             >
               {refreshing ? 'Refreshing…' : 'Refresh'}
             </PiRailAction>
+            <PageArchiveAction
+              siteId={siteId}
+              pageId={resolvedPageId}
+              pageTitle={doc?.title || site.name}
+            />
             <PiRailAction to="/pi/library">Library</PiRailAction>
             <PiRailAction to="/home">Home</PiRailAction>
           </>

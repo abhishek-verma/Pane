@@ -721,6 +721,25 @@ export function buildPersonalInternetToolSet(
       },
     }),
 
+    pi_page_archive: tool({
+      description:
+        'Archive a page (removes it from the site view; keeps data until hard delete).',
+      inputSchema: z.object({
+        pageId: z.string().min(1),
+      }),
+      execute: async ({ pageId }) => {
+        try {
+          const result = await applyPiMutation({
+            type: 'archive-page',
+            pageId,
+          })
+          return ok({ ...result, archived: true })
+        } catch (e) {
+          return err(String(e))
+        }
+      },
+    }),
+
     pi_preserve_temp: tool({
       description:
         'Preserve a temp page into the private web. mode=attach (needs siteId), new_site, or standalone.',

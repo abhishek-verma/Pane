@@ -273,6 +273,15 @@ export function archiveSite(id: string): void {
     .run(ts, ts, id)
 }
 
+export function archivePage(id: string): void {
+  const ts = now()
+  sqlite()
+    .prepare(
+      `UPDATE pi_pages SET status = 'archived', updated_at = ? WHERE id = ?`,
+    )
+    .run(ts, id)
+}
+
 export async function writePageDoc(
   siteId: string | null,
   pageId: string,
