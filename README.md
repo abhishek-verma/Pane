@@ -25,7 +25,7 @@ Pane is an open-source Chromium browser with a personal agent built into the ses
 
 <p align="center">
   <a href="https://github.com/abhishek-verma/Pane/releases/latest">
-    <img src="https://img.shields.io/github/v/release/abhishek-verma/Pane?label=Download%20for%20macOS&logo=apple&logoColor=%231a2a06&style=for-the-badge&color=8eac29&labelColor=6b8a1a" alt="Download for macOS" />
+    <img src="https://img.shields.io/github/v/release/abhishek-verma/Pane?filter=v*&label=Download%20for%20macOS&logo=apple&logoColor=%231a2a06&style=for-the-badge&color=8eac29&labelColor=6b8a1a" alt="Download for macOS" />
   </a>
 </p>
 
