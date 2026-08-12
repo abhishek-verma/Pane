@@ -169,8 +169,14 @@ export async function detectHostAdapter(
     // After a successful version probe on macOS, Bun has extracted its native
     // modules into prewarmDir. Ad-hoc sign any unsigned ones now so Gatekeeper
     // never shows "could not verify is free of malware" dialogs to users.
+    // Also attempt a one-time spctl registration so the exception persists
+    // through all future auto-updates of the provider binary.
     if (versionProbeOk && platform === 'darwin') {
-      void prewarmProviderNativeModules(options.browserosDir ?? '', platform)
+      void prewarmProviderNativeModules(
+        options.browserosDir ?? '',
+        platform,
+        nativeCli.path,
+      )
     }
   }
   const launchKind = hasAcpPackageConfig(config) ? 'package' : 'host-cli'
