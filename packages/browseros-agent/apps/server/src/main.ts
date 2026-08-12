@@ -147,6 +147,7 @@ export class Application {
         browserosId: identity.getBrowserOSId(),
         executionDir: this.config.executionDir,
         resourcesDir: this.config.resourcesDir,
+        browserosDir: getBrowserosDir(),
         aiSdkDevtoolsEnabled: this.config.aiSdkDevtoolsEnabled,
 
         onShutdown: () => this.stop('shutdown-endpoint'),

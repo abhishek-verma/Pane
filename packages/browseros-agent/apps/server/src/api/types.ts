@@ -112,6 +112,10 @@ export interface HttpServerConfig {
   browserosId?: string
   executionDir: string
   resourcesDir: string
+  /** BrowserOS state directory. Used to redirect Bun's native-module extraction
+   *  to a persistent location and ad-hoc sign the files — eliminating macOS 16+
+   *  Gatekeeper dialogs for ACP provider native addons. */
+  browserosDir?: string
   aiSdkDevtoolsEnabled?: boolean
 
   onShutdown?: () => void

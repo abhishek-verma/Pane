@@ -188,6 +188,7 @@ function protectedAgentRoutes(
       createAgentRoutes({
         browserosServerPort: config.port,
         resourcesDir: config.resourcesDir,
+        browserosDir: config.browserosDir,
         browser: config.browser,
         turnRegistry,
       }),

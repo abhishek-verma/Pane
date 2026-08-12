@@ -296,6 +296,8 @@ function getAcpToolNamespace(
   if (!options?.acpMode) return ''
   return `<acp_tool_namespace>
 You are running through BrowserOS as an ACP-powered agent. The browser tools listed in capabilities reach you over MCP as \`mcp.browseros.<name>\`, so \`navigate\` is \`mcp.browseros.navigate\`, \`act\` is \`mcp.browseros.act\`, \`snapshot\` is \`mcp.browseros.snapshot\`, and so on. Your workspace filesystem is a separate surface from the browser tabs; editing files in the workspace does not change web page content, and reading pages over the browser tools does not touch your workspace. Prefer the BrowserOS MCP tools over your own built-in file, shell, or fetch tools for any browser or web task.
+
+\`skills_load\` (below, e.g. "\`skills_load\` pi-page-dsl") is the MCP tool \`mcp.browseros.skills_load\` — call it as an MCP tool with the skill id as its string argument. It is unrelated to your own built-in Skill tool, and none of these skill ids (\`pi-page-dsl\`, \`pi-sites\`, \`browser-automate\`, etc.) are registered in your own Skill tool's manifest — invoking them there will fail with "Unknown skill". Always resolve \`skills_load <id>\` to \`mcp.browseros.skills_load\`.
 </acp_tool_namespace>`
 }
 

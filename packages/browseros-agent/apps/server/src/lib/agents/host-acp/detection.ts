@@ -17,6 +17,11 @@ import {
   type HostAcpAdapter,
   hasAcpPackageConfig,
 } from './config'
+import {
+  defaultPrewarmDir,
+  prewarmEnvOverrides,
+  prewarmProviderNativeModules,
+} from './macos-native-prewarm'
 import { probeNpxPackageCache } from './npx-package-cache'
 
 export { probeNpxPackageCache } from './npx-package-cache'
@@ -66,6 +71,14 @@ export interface DetectHostAdapterOptions {
   env?: NodeJS.ProcessEnv
   platform?: NodeJS.Platform
   resourcesDir?: string | null
+  /**
+   * BrowserOS state directory. When provided on macOS, Bun's native-module
+   * extraction is redirected here (persistent across reboots) and extracted
+   * `.node` files are ad-hoc signed after a successful version probe —
+   * preventing macOS Gatekeeper "could not verify is free of malware" dialogs
+   * for all users, not just the first-run case.
+   */
+  browserosDir?: string | null
   timeoutMs?: number
   now?: () => number
   resolveBinary?: (name: string) => Promise<ResolvedHostBinary | null>
@@ -102,11 +115,24 @@ export async function detectHostAdapter(
   const resolveBundledNative =
     options.resolveBundledNativeBinary ?? resolveBundledNativeBinary
 
+  // On macOS, redirect Bun's native-module extraction to a persistent directory
+  // so we can ad-hoc sign the files after probing and prevent Gatekeeper
+  // "could not verify is free of malware" dialogs for all users.
+  const prewarmOverrides =
+    platform === 'darwin'
+      ? prewarmEnvOverrides(
+          options.browserosDir
+            ? `${options.browserosDir}/bun-tmp`
+            : defaultPrewarmDir(),
+        )
+      : {}
+  const probeEnv = { ...(env as Record<string, string>), ...prewarmOverrides }
+
   const nativeCli = await resolveNativeCli({
     adapter,
     nativeBinary: config.nativeBinary,
     resourcesDir: options.resourcesDir,
-    env,
+    env: probeEnv,
     platform,
     resolveBinary,
     resolveBundledNativeBinary: resolveBundledNative,
@@ -126,13 +152,26 @@ export async function detectHostAdapter(
   let versionProbeOk = false
   let authState: AdapterAuthState = 'unknown'
   if (nativeCli) {
+    // Merge prewarm env overrides so Bun uses our persistent extraction dir
+    // during the version probe (which triggers native-module extraction).
+    const nativeCliWithPrewarmEnv: ResolvedHostBinary = {
+      path: nativeCli.path,
+      env: { ...nativeCli.env, ...prewarmOverrides },
+    }
     const probes = await Promise.all([
-      probeVersion(nativeCli, runCommand, timeoutMs),
+      probeVersion(nativeCliWithPrewarmEnv, runCommand, timeoutMs),
       probeAuth(adapter, nativeCli, runCommand, timeoutMs),
     ])
     versionProbeOk = probes[0].ok
     version = probes[0].version
     authState = probes[1]
+
+    // After a successful version probe on macOS, Bun has extracted its native
+    // modules into prewarmDir. Ad-hoc sign any unsigned ones now so Gatekeeper
+    // never shows "could not verify is free of malware" dialogs to users.
+    if (versionProbeOk && platform === 'darwin') {
+      void prewarmProviderNativeModules(options.browserosDir ?? '', platform)
+    }
   }
   const launchKind = hasAcpPackageConfig(config) ? 'package' : 'host-cli'
   const installState = determineInstallState({

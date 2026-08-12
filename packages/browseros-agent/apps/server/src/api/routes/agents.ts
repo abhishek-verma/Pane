@@ -103,6 +103,7 @@ type AgentRouteDeps = {
   browser?: Pick<Browser, 'resolveTabIds'>
   browserosServerPort?: number
   resourcesDir?: string
+  browserosDir?: string
   /** Optional override; defaults to a fresh in-memory checker. */
   adapterHealth?: Pick<AdapterHealthChecker, 'getHealth'>
   onTurnLifecycle?: import('../services/agents/agent-harness-service').TurnLifecycleListener
@@ -144,7 +145,10 @@ export function createAgentRoutes(deps: AgentRouteDeps = {}) {
   const adapterHealth =
     deps.adapterHealth ??
     new AdapterHealthChecker({
-      hostDetectionOptions: { resourcesDir: deps.resourcesDir },
+      hostDetectionOptions: {
+        resourcesDir: deps.resourcesDir,
+        browserosDir: deps.browserosDir,
+      },
     })
 
   return new Hono<Env>()
