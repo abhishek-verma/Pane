@@ -22,11 +22,15 @@ export const MEETING_SELECTOR_ALLOWLIST = [
   '.join-meeting',
   // Teams Enterprise hangup
   '[data-tid="call-hangup"]',
-  // Teams Free (teams.live.com) hangup and mute — data-inp pattern
+  // Teams Free (teams.live.com) — real button attributes from live DOM
+  '[data-tid="hangup-main-btn"]',
   '[data-inp="hangup-button"]',
   '#hangup-button',
-  // Teams Free in-call toggle controls (only present once in a call)
-  '[data-tid="toggle-mute"]',
+  '[data-inp="microphone-button"]',
+  '#microphone-button',
+  // Teams Free call-duration timer — only rendered inside an active call
+  '[data-tid="call-duration"]',
+  // Teams Free toggle controls (older Enterprise pattern — kept for compat)
   '[data-tid="toggle-video"]',
   '[data-tid="prejoin-join-button"]',
   '[data-qa="huddle_start_button"]',
@@ -68,9 +72,12 @@ export function collectMeetingDomFactsPage(): {
     '#join-btn',
     '.join-meeting',
     '[data-tid="call-hangup"]',
+    '[data-tid="hangup-main-btn"]',
     '[data-inp="hangup-button"]',
     '#hangup-button',
-    '[data-tid="toggle-mute"]',
+    '[data-inp="microphone-button"]',
+    '#microphone-button',
+    '[data-tid="call-duration"]',
     '[data-tid="toggle-video"]',
     '[data-tid="prejoin-join-button"]',
     '[data-qa="huddle_start_button"]',

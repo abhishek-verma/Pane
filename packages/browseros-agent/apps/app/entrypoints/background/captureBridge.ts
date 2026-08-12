@@ -31,6 +31,7 @@ import {
   getMeetingTabState,
 } from '@/lib/capture/meeting-in-call'
 import {
+  isMeetingHost,
   isMeetingRoomUrl,
   meetingHostname,
   meetingRoomLabel,
@@ -416,7 +417,13 @@ async function syncActiveSessions(): Promise<void> {
 async function pollPendingMeetingTabs(): Promise<void> {
   for (const [tabId, url] of pendingMeetingTabs.entries()) {
     const adapter = await resolveMeetingAdapter(url)
-    if (!adapter || !adapter.detectRoom(url)) {
+    // A consented mature adapter with no room key (e.g. Teams Free at /v2/)
+    // is still capturable — skip the detectRoom gate and rely on call-state.
+    if (!adapter) {
+      pendingMeetingTabs.delete(tabId)
+      continue
+    }
+    if (!adapter.detectRoom(url) && adapter.maturity !== 'mature') {
       pendingMeetingTabs.delete(tabId)
       continue
     }
@@ -437,7 +444,10 @@ async function maybeStartMeetingCapture(
 ): Promise<void> {
   if (isSkippableUrl(url)) return
   const adapter = await resolveMeetingAdapter(url)
-  if (!adapter || !adapter.detectRoom(url)) return
+  // Allow mature adapters through even without a room key (e.g. Teams Free
+  // at /v2/ where the SPA never surfaces a room ID in the URL).
+  if (!adapter || (!adapter.detectRoom(url) && adapter.maturity !== 'mature'))
+    return
 
   const host = meetingHostname(url)
   if (!host) return
@@ -577,6 +587,19 @@ async function handleNavigation(tabId: number, url: string): Promise<void> {
     await maybeStartMeetingCapture(tabId, url)
     return
   }
+  // Consented mature meeting host with no room ID in the URL (e.g. Teams Free
+  // at /v2/ where the active-call SPA never surfaces the room in the path).
+  // Track the tab so the pending poll can detect in-call DOM signals.
+  if (isMeetingHost(url)) {
+    const host = meetingHostname(url)
+    const allowedHosts = await meetingAllowedHosts()
+    if (host && isMeetingConsentAllowed(host, allowedHosts)) {
+      pendingMeetingTabs.set(tabId, url)
+      ensurePendingMeetingPoll()
+      await maybeStartMeetingCapture(tabId, url)
+      return
+    }
+  }
   pendingMeetingTabs.delete(tabId)
   genericUnknownSince.delete(tabId)
   stopPendingMeetingPollIfIdle()
@@ -652,7 +675,21 @@ export function captureBridge(): void {
     const url = changeInfo.url ?? tab.url
     if (!url) return
     void (async () => {
-      if (!(await isCapturableMeetingUrl(url)) && !isMeetingRoomUrl(url)) {
+      const isCapturableRoom = await isCapturableMeetingUrl(url)
+      const isKnownRoom = isMeetingRoomUrl(url)
+      // Also handle consented mature-adapter hosts with no room ID in the URL
+      // (e.g. Teams Free at /v2/). Reuse the same consent check as handleNavigation.
+      const isConsentedMatureHost = async () => {
+        if (!isMeetingHost(url)) return false
+        const host = meetingHostname(url)
+        const allowedHosts = await meetingAllowedHosts()
+        return !!(host && isMeetingConsentAllowed(host, allowedHosts))
+      }
+      if (
+        !isCapturableRoom &&
+        !isKnownRoom &&
+        !(await isConsentedMatureHost())
+      ) {
         return
       }
       pendingMeetingTabs.set(tabId, url)

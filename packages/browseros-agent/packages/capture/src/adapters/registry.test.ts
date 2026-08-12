@@ -69,11 +69,8 @@ describe('adapters registry (A-T1, A-T4, A-T5)', () => {
     ).toEqual({ site: 'teams', roomKey: 'teams:meet/9499119001756' })
   })
 
-  it('detects Teams Free active call at /v2/', () => {
-    expect(detectMeetingRoom('https://teams.live.com/v2/')).toEqual({
-      site: 'teams',
-      roomKey: 'teams:live/active',
-    })
+  it('detects Teams Free active call at /v2/ returns null (no stable room ID)', () => {
+    expect(detectMeetingRoom('https://teams.live.com/v2/')).toBeNull()
   })
 
   it('still detects Teams Enterprise legacy meetup-join URL', () => {
@@ -450,14 +447,14 @@ describe('Teams Free (teams.live.com) call-state (A-T3)', () => {
     ).toBe('in-call')
   })
 
-  it('in-call via data-tid="toggle-mute" selector (Teams Free)', () => {
+  it('in-call via data-tid="hangup-main-btn" selector (Teams Free, real DOM)', () => {
     expect(
       evaluateMeetingCallStateFromProbe(
         factsProbe({
           hostname: 'teams.live.com',
           href: 'https://teams.live.com/v2/',
           facts: {
-            matchedSelectors: ['[data-tid="toggle-mute"]'],
+            matchedSelectors: ['[data-tid="hangup-main-btn"]'],
             ariaLabels: [],
             speakingCandidates: [],
           },
@@ -474,6 +471,54 @@ describe('Teams Free (teams.live.com) call-state (A-T3)', () => {
           href: 'https://teams.live.com/v2/',
           facts: {
             matchedSelectors: ['[data-inp="hangup-button"]'],
+            ariaLabels: [],
+            speakingCandidates: [],
+          },
+        }),
+      ),
+    ).toBe('in-call')
+  })
+
+  it('in-call via #hangup-button id selector (Teams Free)', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'teams.live.com',
+          href: 'https://teams.live.com/v2/',
+          facts: {
+            matchedSelectors: ['#hangup-button'],
+            ariaLabels: [],
+            speakingCandidates: [],
+          },
+        }),
+      ),
+    ).toBe('in-call')
+  })
+
+  it('in-call via data-inp="microphone-button" selector (Teams Free, real DOM)', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'teams.live.com',
+          href: 'https://teams.live.com/v2/',
+          facts: {
+            matchedSelectors: ['[data-inp="microphone-button"]'],
+            ariaLabels: [],
+            speakingCandidates: [],
+          },
+        }),
+      ),
+    ).toBe('in-call')
+  })
+
+  it('in-call via data-tid="call-duration" timer (Teams Free, real DOM)', () => {
+    expect(
+      evaluateMeetingCallStateFromProbe(
+        factsProbe({
+          hostname: 'teams.live.com',
+          href: 'https://teams.live.com/v2/',
+          facts: {
+            matchedSelectors: ['[data-tid="call-duration"]'],
             ariaLabels: [],
             speakingCandidates: [],
           },

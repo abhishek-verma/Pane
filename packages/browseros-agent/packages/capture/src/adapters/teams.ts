@@ -28,13 +28,19 @@ function evaluateCallState(probe: MeetingDomProbe): MeetingCallState {
   if (text.includes('join now') || text.includes('lobby')) return 'prejoin'
   // Teams Enterprise hangup button
   if (hasSelector(probe, '[data-tid="call-hangup"]')) return 'in-call'
-  // Teams Free (teams.live.com) hangup button uses data-inp instead of data-tid
+  // Teams Free (teams.live.com) hangup — has both data-tid and data-inp
+  if (hasSelector(probe, '[data-tid="hangup-main-btn"]')) return 'in-call'
   if (hasSelector(probe, '[data-inp="hangup-button"]')) return 'in-call'
+  // Teams Free also renders the hangup button with id="hangup-button"
+  if (hasSelector(probe, '#hangup-button')) return 'in-call'
   // Require "hang up" or the specific hangup button — plain "leave" matches
   // too broadly (channel sidebar, file pickers, etc.)
   if (ariaIncludes(probe, 'hang up')) return 'in-call'
-  // Teams Free: toggle-mute is only present during an active call
-  if (hasSelector(probe, '[data-tid="toggle-mute"]')) return 'in-call'
+  // Teams Free: call-duration timer is only rendered inside an active call
+  if (hasSelector(probe, '[data-tid="call-duration"]')) return 'in-call'
+  // Teams Free: microphone-button is only present during an active call
+  // (not on pre-join or lobby screens)
+  if (hasSelector(probe, '[data-inp="microphone-button"]')) return 'in-call'
   if (probe.facts.hasVisibleLeaveControl) return 'in-call'
   if (probe.facts.hasVisibleMuteControl) return 'in-call'
   return 'prejoin'
@@ -133,19 +139,21 @@ export const teamsAdapter: MeetingSiteAdapter = {
         return null
       }
       // Teams Free (teams.live.com) also navigates to /v2/ during an active call —
-      // use the meeting ID from the URL fragment or search params when present,
-      // otherwise derive a stable key from the origin so the call-state probe
-      // can still detect an active call even without a room ID in the path.
+      // use the meeting ID from the URL fragment or search params when present.
+      // Do NOT return a static room key for /v2/ alone — it would merge all
+      // back-to-back Teams Free calls into one session (findResumableSession
+      // matches by room_key within the resume TTL). Return null so captureBridge
+      // starts a fresh session; the sticky captureSession:<tabId> in
+      // chrome.storage.session handles same-tab refresh resumes.
       if (parsed.hostname === 'teams.live.com') {
         const hash = parsed.hash
         const meetMatch = hash.match(/\/meet(?:ing)?\/([^/?\s]+)/)
         if (meetMatch?.[1]) {
           return { roomKey: `teams:live/${meetMatch[1].toLowerCase()}` }
         }
-        // /v2/ base path during an active call — detectable via call-state probe
-        if (path === '/v2/' || path === '/v2') {
-          return { roomKey: 'teams:live/active' }
-        }
+        // /v2/ base path — active call is detectable via call-state probe,
+        // but no stable room identity is available from the URL alone.
+        return null
       }
       if (
         !(
