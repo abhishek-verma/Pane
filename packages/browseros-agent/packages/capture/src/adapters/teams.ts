@@ -119,6 +119,7 @@ export const teamsAdapter: MeetingSiteAdapter = {
   id: 'teams',
   displayName: 'Microsoft Teams',
   maturity: 'mature',
+  status: 'wip',
   defaultHosts: ['teams.microsoft.com', 'teams.live.com'],
   capabilities: ['roomDetection', 'callState', 'muteProbe', 'participantList'],
 

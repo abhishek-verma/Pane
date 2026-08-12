@@ -55,6 +55,7 @@ export const slackAdapter: MeetingSiteAdapter = {
   id: 'slack',
   displayName: 'Slack Huddles',
   maturity: 'mature',
+  status: 'wip',
   defaultHosts: ['app.slack.com'],
   capabilities: ['roomDetection', 'callState', 'muteProbe'],
 

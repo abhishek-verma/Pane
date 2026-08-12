@@ -78,6 +78,8 @@ export interface MeetingSiteAdapter {
   id: MeetingSiteId
   displayName: string
   maturity: 'mature' | 'generic'
+  /** Detection reliability as tested in dogfood. 'wip' sites are shown but disabled in Settings. */
+  status: 'stable' | 'wip'
   defaultHosts: string[]
   capabilities: AdapterCapability[]
 
@@ -93,6 +95,7 @@ export interface MeetingSiteAdapter {
 export interface MatureAdapterMeta {
   id: MeetingSiteId
   displayName: string
+  status: 'stable' | 'wip'
   defaultHosts: string[]
   capabilities: AdapterCapability[]
 }

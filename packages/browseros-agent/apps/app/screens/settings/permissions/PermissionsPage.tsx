@@ -375,7 +375,8 @@ export const PermissionsPage: FC = () => {
           </p>
           <ul className="space-y-2">
             {MATURE_META.map((meta) => {
-              const enabled = isAdapterEnabled(meta, meetingConsents)
+              const isWip = meta.status === 'wip'
+              const enabled = !isWip && isAdapterEnabled(meta, meetingConsents)
               const hostHint = meta.defaultHosts.join(', ')
               const hasSpeakers = meta.capabilities.includes('speakerLabels')
               return (
@@ -385,33 +386,50 @@ export const PermissionsPage: FC = () => {
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-xs">
-                        {meta.displayName}
-                      </span>
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                        Recording
-                      </span>
                       <span
                         className={
-                          hasSpeakers
-                            ? 'rounded bg-muted px-1.5 py-0.5 text-[10px] text-foreground'
-                            : 'rounded bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground/70'
+                          isWip
+                            ? 'font-medium text-muted-foreground text-xs'
+                            : 'font-medium text-xs'
                         }
                       >
-                        {hasSpeakers
-                          ? meta.id === 'generic'
-                            ? 'Best-effort speakers'
-                            : 'Speaker names'
-                          : 'Speaker names'}
+                        {meta.displayName}
                       </span>
+                      {isWip ? (
+                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-400">
+                          Work in progress
+                        </span>
+                      ) : (
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          Recording
+                        </span>
+                      )}
+                      {!isWip && (
+                        <span
+                          className={
+                            hasSpeakers
+                              ? 'rounded bg-muted px-1.5 py-0.5 text-[10px] text-foreground'
+                              : 'rounded bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground/70'
+                          }
+                        >
+                          {hasSpeakers
+                            ? meta.id === 'generic'
+                              ? 'Best-effort speakers'
+                              : 'Speaker names'
+                            : 'Speaker names'}
+                        </span>
+                      )}
                     </div>
                     <p className="truncate text-[10px] text-muted-foreground">
-                      {hostHint || adapterPrimaryHost(meta)}
+                      {isWip
+                        ? 'Detection is still being verified — not available yet.'
+                        : hostHint || adapterPrimaryHost(meta)}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1.5">
                     <Switch
                       checked={enabled}
+                      disabled={isWip}
                       onCheckedChange={(checked) =>
                         handleToggleMatureAdapter(meta, checked)
                       }
