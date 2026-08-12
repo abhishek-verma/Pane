@@ -24,6 +24,7 @@ import {
 import {
   archivePage,
   archiveSite,
+  cancelPendingJobsForTarget,
   createTemp,
   deletePage,
   getPage,
@@ -429,6 +430,7 @@ export async function applyPiMutation(
     case 'archive-site': {
       removePiSiteIndex(input.siteId)
       archiveSite(input.siteId)
+      cancelPendingJobsForTarget('site', input.siteId)
       emitPiEvent('site-archived', { siteId: input.siteId })
       afterMutationHook?.(input.siteId)
       return { siteId: input.siteId }

@@ -158,4 +158,35 @@ describe('pi write-path and templates', () => {
     expect(preserved.siteId).toBe(site.siteId)
     expect(preserved.pageId).toBeTruthy()
   })
+
+  it('archiving a site cancels its pending refresh jobs', async () => {
+    setup()
+    const { enqueueRefresh } = await import(
+      '../../src/personal-internet/refresh/bus'
+    )
+    const { listPendingRefreshJobs } = await import(
+      '../../src/personal-internet/store'
+    )
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+    })
+    const siteId = created.siteId!
+
+    enqueueRefresh({
+      targetType: 'site',
+      targetId: siteId,
+      kind: 'C',
+      trigger: 'harvest-due',
+    })
+    expect(listPendingRefreshJobs().some((j) => j.targetId === siteId)).toBe(
+      true,
+    )
+
+    await applyPiMutation({ type: 'archive-site', siteId })
+
+    expect(listPendingRefreshJobs().some((j) => j.targetId === siteId)).toBe(
+      false,
+    )
+  })
 })

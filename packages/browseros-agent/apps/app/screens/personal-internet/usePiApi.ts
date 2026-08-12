@@ -135,18 +135,28 @@ export function usePiTemp(tempId: string | undefined) {
   })
 }
 
+export type PiLibrarySite = {
+  id: string
+  name: string
+  status: string
+  pulseLine?: string
+}
+
 export function usePiLibrary() {
   return useQuery({
     queryKey: ['pi', 'library'],
+    queryFn: () => piGet<{ sites: PiLibrarySite[] }>('/pi/library'),
+  })
+}
+
+/** Archived sites only — fetched separately so the default My Sites view
+ * never pays for or renders them until the user asks to see history. */
+export function usePiArchivedSites(enabled: boolean) {
+  return useQuery({
+    queryKey: ['pi', 'library', 'archived'],
+    enabled,
     queryFn: () =>
-      piGet<{
-        sites: Array<{
-          id: string
-          name: string
-          status: string
-          pulseLine?: string
-        }>
-      }>('/pi/library'),
+      piGet<{ sites: PiLibrarySite[] }>('/pi/library?status=archived'),
   })
 }
 

@@ -115,4 +115,35 @@ describe('pi HTTP API', () => {
     })
     expect(doorway.status).toBe(200)
   })
+
+  it('GET /pi/library excludes archived sites by default, includes with ?status=', async () => {
+    const create = await app.request('/pi/sites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateId: 'job-search' }),
+    })
+    const created = (await create.json()) as { siteId: string }
+
+    const archive = await app.request(`/pi/sites/${created.siteId}/archive`, {
+      method: 'POST',
+    })
+    expect(archive.status).toBe(200)
+
+    const defaultLibrary = await app.request('/pi/library')
+    const defaultBody = (await defaultLibrary.json()) as {
+      sites: Array<{ id: string; status: string }>
+    }
+    expect(
+      defaultBody.sites.find((s) => s.id === created.siteId),
+    ).toBeUndefined()
+
+    const withArchived = await app.request(
+      '/pi/library?status=active,dormant,drafting,archived',
+    )
+    const archivedBody = (await withArchived.json()) as {
+      sites: Array<{ id: string; status: string }>
+    }
+    const archivedSite = archivedBody.sites.find((s) => s.id === created.siteId)
+    expect(archivedSite?.status).toBe('archived')
+  })
 })
