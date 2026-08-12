@@ -72,6 +72,14 @@ export function withBundledBunAcpAdapterEnv(input: {
   const browserosDir = input.browserosDir?.trim()
   if (browserosDir) {
     env.BUN_INSTALL_CACHE_DIR = join(browserosDir, 'cache', 'bun-install')
+    // Redirect Bun's native-module extraction to a persistent directory so we
+    // can ad-hoc sign the extracted .node files once and they survive reboots.
+    // Must match the directory used by detectHostAdapter's prewarm probe so
+    // the signed files are found on all subsequent loads — health checks and
+    // live ACP sessions alike.
+    if (platform === 'darwin') {
+      env.TMPDIR = join(browserosDir, 'bun-tmp')
+    }
   }
   return env
 }
