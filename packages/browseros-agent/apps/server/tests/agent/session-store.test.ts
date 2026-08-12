@@ -425,6 +425,63 @@ describe('SessionStore idle eviction', () => {
     // test guards against a future refactor that iterates meta instead.
     expect(store.evictIdleSessions(0)).toBe(0)
   })
+
+  it('calls onBeforeEvict so a scheduled task hidden page gets closed on eviction', () => {
+    const calls: Array<{
+      conversationId: string
+      hiddenPageId: number | undefined
+    }> = []
+    const storeWithHook = new SessionStore({
+      onBeforeEvict: (session, conversationId) => {
+        calls.push({ conversationId, hiddenPageId: session.hiddenPageId })
+      },
+    })
+    const { session } = makeFakeSession()
+    session.hiddenPageId = 42
+    storeWithHook.set('hidden-page-convo', session)
+
+    storeWithHook.evictIdleSessions(0)
+
+    expect(calls).toEqual([
+      { conversationId: 'hidden-page-convo', hiddenPageId: 42 },
+    ])
+    storeWithHook.stopSweeper()
+  })
+
+  it('does not clear the persist lock on eviction, so a still-in-flight write is still awaited', async () => {
+    // White-box: asserts on the private persistLocks map directly, because
+    // driving this race through the public persistMessages() API would
+    // require injecting an artificial delay into a real SQLite write with
+    // no existing seam to do that. The behavior under test — the lock
+    // entry survives eviction — is exactly what the fix changed, so
+    // reaching into the field is the most direct way to pin it down.
+    interface SessionStoreInternals {
+      persistLocks: Map<string, Promise<void>>
+    }
+    const { session } = makeFakeSession()
+    store.set('in-flight-write-convo', session)
+
+    // Simulate a persistMessages() call that's still running when the
+    // sweep fires — evictIdleSessions must not clear persistLocks, or a
+    // later persistMessages() for the same conversationId would race it
+    // instead of queueing behind it (see the comment at the deletion site
+    // for the full failure mode this guards against).
+    let releaseFirstWrite!: () => void
+    const firstWriteGate = new Promise<void>((resolve) => {
+      releaseFirstWrite = resolve
+    })
+    const internals = store as unknown as SessionStoreInternals
+    internals.persistLocks.set('in-flight-write-convo', firstWriteGate)
+
+    store.evictIdleSessions(0)
+
+    expect(internals.persistLocks.has('in-flight-write-convo')).toBe(true)
+    expect(internals.persistLocks.get('in-flight-write-convo')).toBe(
+      firstWriteGate,
+    )
+    releaseFirstWrite()
+    await firstWriteGate
+  })
 })
 
 describe('ToolOutputStore', () => {

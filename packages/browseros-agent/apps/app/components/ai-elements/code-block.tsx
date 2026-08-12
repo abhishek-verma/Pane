@@ -13,6 +13,7 @@ import {
 import type { BundledLanguage } from 'shiki'
 import { Button } from '@/components/ui/button'
 import { highlightHtmlInSandbox } from '@/lib/code-highlight/shiki-sandbox-broker'
+import { sentry } from '@/lib/sentry/sentry'
 import { cn } from '@/lib/utils'
 
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
@@ -29,6 +30,8 @@ const CodeBlockContext = createContext<CodeBlockContextType>({
   code: '',
 })
 
+export type HighlightedHtml = { light: string; dark: string; failed: boolean }
+
 /**
  * @public
  * Runs in the Shiki sandbox (shiki-sandbox-broker.ts), not inline — tool
@@ -40,12 +43,29 @@ export async function highlightCode(
   code: string,
   language: BundledLanguage,
   showLineNumbers = false,
-) {
+): Promise<HighlightedHtml> {
+  // Promise.all here means both requests are enqueued together up front,
+  // not that they run concurrently — the sandbox broker's queue processes
+  // one request at a time (its own highlighting work is single-threaded
+  // JS regardless), so this is back-to-back, not overlapped. Enqueuing
+  // both immediately is still the right call: it keeps them adjacent in
+  // the shared queue instead of interleaved with another CodeBlock's
+  // requests.
   const [light, dark] = await Promise.all([
     highlightHtmlInSandbox(code, language, 'one-light', showLineNumbers),
     highlightHtmlInSandbox(code, language, 'one-dark-pro', showLineNumbers),
   ])
-  return [light.ok ? light.value : '', dark.ok ? dark.value : ''] as const
+  if (!light.ok || !dark.ok) {
+    sentry.captureException(
+      new Error(!light.ok ? light.error : !dark.ok ? dark.error : 'unknown'),
+      { extra: { message: 'Failed to highlight code block', language } },
+    )
+  }
+  return {
+    light: light.ok ? light.value : '',
+    dark: dark.ok ? dark.value : '',
+    failed: !light.ok || !dark.ok,
+  }
 }
 
 /** @public */
@@ -57,23 +77,46 @@ export const CodeBlock = ({
   children,
   ...props
 }: CodeBlockProps) => {
-  const [html, setHtml] = useState<string>('')
-  const [darkHtml, setDarkHtml] = useState<string>('')
-  const mounted = useRef(false)
+  const [result, setResult] = useState<HighlightedHtml | null>(null)
+  // Guards against out-of-order resolution now that highlighting is a
+  // queued sandbox round trip (possibly retried) rather than an inline
+  // call — a later request can start and finish before an earlier one's
+  // (e.g. streaming tool-call JSON re-triggering this effect faster than
+  // the sandbox can keep up). Only the response matching the MOST
+  // RECENTLY started request is ever applied, regardless of arrival order.
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
-    highlightCode(code, language, showLineNumbers).then(([light, dark]) => {
-      if (!mounted.current) {
-        setHtml(light)
-        setDarkHtml(dark)
-        mounted.current = true
-      }
+    const requestId = ++requestIdRef.current
+    highlightCode(code, language, showLineNumbers).then((next) => {
+      if (requestIdRef.current === requestId) setResult(next)
     })
-
-    return () => {
-      mounted.current = false
-    }
   }, [code, language, showLineNumbers])
+
+  if (result?.failed) {
+    return (
+      <CodeBlockContext.Provider value={{ code }}>
+        <div
+          className={cn(
+            'group relative w-full overflow-hidden rounded-md border bg-background text-foreground',
+            className,
+          )}
+          {...props}
+        >
+          <div className="relative">
+            <pre className="m-0 overflow-auto whitespace-pre-wrap p-4 font-mono text-sm">
+              {code}
+            </pre>
+            {children && (
+              <div className="absolute top-2 right-2 flex items-center gap-2">
+                {children}
+              </div>
+            )}
+          </div>
+        </div>
+      </CodeBlockContext.Provider>
+    )
+  }
 
   return (
     <CodeBlockContext.Provider value={{ code }}>
@@ -88,12 +131,12 @@ export const CodeBlock = ({
           <div
             className="overflow-hidden dark:hidden [&>pre]:m-0 [&>pre]:bg-background! [&>pre]:p-4 [&>pre]:text-foreground! [&>pre]:text-sm [&_code]:font-mono [&_code]:text-sm"
             // biome-ignore lint/security/noDangerouslySetInnerHtml: "this is needed."
-            dangerouslySetInnerHTML={{ __html: html }}
+            dangerouslySetInnerHTML={{ __html: result?.light ?? '' }}
           />
           <div
             className="hidden overflow-hidden dark:block [&>pre]:m-0 [&>pre]:bg-background! [&>pre]:p-4 [&>pre]:text-foreground! [&>pre]:text-sm [&_code]:font-mono [&_code]:text-sm"
             // biome-ignore lint/security/noDangerouslySetInnerHtml: "this is needed."
-            dangerouslySetInnerHTML={{ __html: darkHtml }}
+            dangerouslySetInnerHTML={{ __html: result?.dark ?? '' }}
           />
           {children && (
             <div className="absolute top-2 right-2 flex items-center gap-2">

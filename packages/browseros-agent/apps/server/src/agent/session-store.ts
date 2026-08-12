@@ -234,6 +234,21 @@ interface SessionMeta {
   touchedAt: number
 }
 
+export interface SessionStoreOptions {
+  /**
+   * Called for a session right before `evictIdleSessions` disposes its
+   * agent — the only teardown step `SessionStore` cannot do itself, since
+   * closing a scheduled task's hidden CDP page requires the browser
+   * dependency `ChatService` owns, not `SessionStore`. Mirrors
+   * `ChatService.closeHiddenPage`'s own call shape exactly (same fields,
+   * same "log and move on" failure handling) — every other teardown path
+   * (`delete()`, normal turn completion) already closes the hidden page,
+   * this hook is what makes idle eviction match them instead of leaking a
+   * real, visible browser tab.
+   */
+  onBeforeEvict?: (session: AgentSession, conversationId: string) => void
+}
+
 export class SessionStore {
   private sessions = new Map<string, AgentSession>()
   /** Last-access time + original conversationId, keyed the same as `sessions`. */
@@ -243,10 +258,18 @@ export class SessionStore {
   /** Per-session write serialization (promise chain). */
   private persistLocks = new Map<string, Promise<void>>()
   private sweepTimer: ReturnType<typeof setInterval> | null = null
+  private readonly onBeforeEvict?: (
+    session: AgentSession,
+    conversationId: string,
+  ) => void
   /** Shared image store for all sessions managed by this store. */
   readonly imageStore = new ToolImageStore()
   /** Full tool-output spill for UI projection (agent transcript stays fat). */
   readonly outputStore = new ToolOutputStore()
+
+  constructor(options: SessionStoreOptions = {}) {
+    this.onBeforeEvict = options.onBeforeEvict
+  }
 
   get(conversationId: string): AgentSession | undefined {
     const key = liveSessionKey(conversationId)
@@ -333,8 +356,17 @@ export class SessionStore {
 
       this.sessions.delete(key)
       this.meta.delete(key)
-      this.persistLocks.delete(key)
+      // persistLocks is deliberately left alone (unlike delete(), which
+      // clears it): a persistMessages() write can still be in flight for
+      // this key (touchedAt only refreshes on get()/set(), not on every
+      // checkpoint write). Dropping the lock here would let a later
+      // persistMessages() call for the same conversationId skip awaiting
+      // that write and interleave its own DELETE+INSERT against the same
+      // rows. Leaving the (tiny, resolved-once-idle) promise reference in
+      // place keeps the write-serialization chain correct across an evict
+      // + rebuild, at effectively no memory cost.
       evicted++
+      this.onBeforeEvict?.(session, meta.conversationId)
       void session.agent.dispose().catch((err: unknown) => {
         logger.warn('Failed to dispose idle session', {
           conversationId: meta.conversationId,

@@ -66,6 +66,11 @@ export const TIMEOUTS = {
   // for a conversation nobody is actively using. See session-store.ts.
   SESSION_IDLE_EVICT: 30 * 60_000,
   SESSION_SWEEP_INTERVAL: 5 * 60_000,
+
+  // Shiki sandbox (shiki-sandbox-broker.ts) — persistent-iframe analog of
+  // PI_LIMITS.MERMAID_RENDER_TIMEOUT_MS's disposable-iframe timeout.
+  SHIKI_SANDBOX_BOOT: 10_000,
+  SHIKI_HIGHLIGHT: 8_000,
 } as const
 
 export type TimeoutKey = keyof typeof TIMEOUTS

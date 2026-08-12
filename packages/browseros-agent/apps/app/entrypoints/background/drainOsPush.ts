@@ -73,11 +73,16 @@ export function drainOsPush(): void {
     if (alarm.name === ALARM_NAME) void tick()
   })
 
-  // A notification is either clicked or dismissed, never both — without
-  // this, a dismissed-not-clicked notification's entry (the common case)
-  // never leaves the map for as long as the service worker stays resident.
+  // Without this, a dismissed-not-clicked notification's entry (the common
+  // case) never leaves the map for as long as the service worker stays
+  // resident. Deferred rather than immediate: Chrome does not guarantee
+  // onClosed fires strictly after onClicked when a click also closes the
+  // notification (platform-dependent) — an immediate delete here could
+  // race onClicked's own read of the same entry and silently drop a real
+  // click. A few seconds of extra retention on an already-rare path is a
+  // better trade than an intermittently-broken notification click.
   chrome.notifications.onClosed.addListener((notificationId) => {
-    deepLinkById.delete(notificationId)
+    setTimeout(() => deepLinkById.delete(notificationId), 3_000)
   })
 
   chrome.notifications.onClicked.addListener((notificationId) => {

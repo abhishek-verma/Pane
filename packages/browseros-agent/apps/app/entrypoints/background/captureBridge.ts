@@ -561,6 +561,7 @@ async function handleNavigation(tabId: number, url: string): Promise<void> {
       stopSpeakerPoll(sessionId)
       deactivateCaptureGlow(tabId, sessionId)
       await stopTabAudioCapture(sessionId).catch(() => null)
+      lastMuteBySession.delete(sessionId)
     }
     captureWasInCallTabs.delete(tabId)
     unknownStreakByTab.delete(tabId)
@@ -678,6 +679,7 @@ export function captureBridge(): void {
     stopSpeakerPoll(data.sessionId)
     await stopTabAudioCapture(data.sessionId)
     await stopMeetingSession(data.sessionId).catch(() => null)
+    lastMuteBySession.delete(data.sessionId)
     const tabs = await chrome.tabs.query({})
     for (const tab of tabs) {
       if (typeof tab.id === 'number') {

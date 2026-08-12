@@ -19,6 +19,7 @@
  * tool-call input/output display, which doesn't go through Streamdown).
  */
 
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { BundledLanguage, ThemeInput } from 'streamdown'
 import {
   isShikiHighlightHtmlResponse,
@@ -36,9 +37,6 @@ import {
 export type ShikiBrokerResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: string; retryable: boolean }
-
-const SANDBOX_BOOT_TIMEOUT_MS = 10_000
-const HIGHLIGHT_TIMEOUT_MS = 8_000
 
 type QueueTask = () => Promise<void>
 
@@ -63,7 +61,7 @@ export function highlightInSandbox(
   themes: [ThemeInput, ThemeInput],
   opts: { timeoutMs?: number } = {},
 ): Promise<ShikiBrokerResult<ShikiHighlightPayload>> {
-  const timeoutMs = opts.timeoutMs ?? HIGHLIGHT_TIMEOUT_MS
+  const timeoutMs = opts.timeoutMs ?? TIMEOUTS.SHIKI_HIGHLIGHT
   return new Promise((resolve) => {
     enqueue(async () => {
       const call = await callWithRetry(() =>
@@ -100,7 +98,7 @@ export function highlightHtmlInSandbox(
   showLineNumbers: boolean,
   opts: { timeoutMs?: number } = {},
 ): Promise<ShikiBrokerResult<string>> {
-  const timeoutMs = opts.timeoutMs ?? HIGHLIGHT_TIMEOUT_MS
+  const timeoutMs = opts.timeoutMs ?? TIMEOUTS.SHIKI_HIGHLIGHT
   return new Promise((resolve) => {
     enqueue(async () => {
       const call = await callWithRetry(() =>
@@ -196,7 +194,7 @@ function getSandboxWindow(): Promise<Window> {
     const timer = setTimeout(() => {
       cleanup()
       reject(new Error('shiki sandbox boot timed out'))
-    }, SANDBOX_BOOT_TIMEOUT_MS)
+    }, TIMEOUTS.SHIKI_SANDBOX_BOOT)
 
     const onMessage = (event: MessageEvent) => {
       if (event.source !== iframe.contentWindow) return
