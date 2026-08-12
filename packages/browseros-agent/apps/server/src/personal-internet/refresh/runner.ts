@@ -307,6 +307,9 @@ async function runOne(
     }
     case 'C': {
       const site = job.targetType === 'site' ? getSite(job.targetId) : null
+      if (site?.status === 'archived') {
+        return 'skipped'
+      }
       const enabled =
         options.harvestEnabled === true || site?.harvestEnabled === 1
       if (!enabled || !site) {

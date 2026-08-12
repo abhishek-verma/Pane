@@ -110,6 +110,56 @@ describe('pi refresh bus', () => {
     expect(jobs).toHaveLength(0)
   })
 
+  it('harvest skips kind C for an archived site even if a job exists', async () => {
+    setup()
+    const created = await applyPiMutation({
+      type: 'upsert-site',
+      templateId: 'job-search',
+      harvestEnabled: true,
+      harvestSources: ['linkedin.com'],
+    })
+    const siteId = created.siteId!
+
+    await applyPiMutation({ type: 'archive-site', siteId })
+
+    // Manually insert a job directly (bypassing bus dispatch, which already
+    // correctly excludes archived sites) to simulate a stale/raced job that
+    // reaches the runner for an already-archived site.
+    const { insertRefreshJob } = await import(
+      '../../src/personal-internet/store'
+    )
+    const staleJob = insertRefreshJob({
+      targetType: 'site',
+      targetId: siteId,
+      kind: 'C',
+      triggerName: 'harvest-due',
+      coalesceKey: `site:${siteId}:C:browser:stale`,
+    })
+
+    const outcome = await executeRefreshJob({
+      id: staleJob.id,
+      targetType: 'site',
+      targetId: siteId,
+      kind: 'C',
+      triggerName: 'harvest-due',
+      coalesceKey: staleJob.coalesceKey,
+      status: 'pending',
+      errorText: null,
+      filterValue: null,
+      createdAt: staleJob.createdAt,
+      updatedAt: staleJob.updatedAt,
+    })
+    expect(outcome).toBe('skipped')
+
+    const { getDbHandle } = await import('../../src/lib/db')
+    const runRow = getDbHandle()
+      .sqlite.prepare(
+        `SELECT id FROM scheduled_runs WHERE source = 'pi-harvest' AND source_id = ?`,
+      )
+      .get(siteId)
+    expect(runRow).toBeNull()
+  })
+
   it('kind A recomputes pulse; failure keeps last pulse', async () => {
     setup()
     const created = await applyPiMutation({
