@@ -6,8 +6,8 @@ import type { ComponentProps } from 'react'
 import { createContext, memo, useContext, useEffect, useState } from 'react'
 import { Streamdown } from 'streamdown'
 import {
-  MERMAID_RENDERER_PLUGINS,
   normalizeMermaidFenceCase,
+  STREAMDOWN_PLUGINS,
 } from '@/components/tool-evidence/ChatMermaidBlock'
 import {
   Collapsible,
@@ -187,7 +187,7 @@ export const ReasoningContent = memo(
           and the spread leaks Radix's incompatible type. */}
       <Streamdown
         linkSafety={streamdownLinkSafety}
-        plugins={MERMAID_RENDERER_PLUGINS}
+        plugins={STREAMDOWN_PLUGINS}
       >
         {normalizeMermaidFenceCase(children)}
       </Streamdown>

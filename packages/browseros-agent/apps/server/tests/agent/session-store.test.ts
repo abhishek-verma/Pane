@@ -4,13 +4,32 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { UIMessage } from 'ai'
 import { eq } from 'drizzle-orm'
+import type { AiSdkAgent } from '../../src/agent/ai-sdk-agent'
+import { conversationTurnRegistry } from '../../src/agent/conversation-turn-registry'
 import {
+  type AgentSession,
   SessionStore,
   ToolImageStore,
   ToolOutputStore,
 } from '../../src/agent/session-store'
 import { closeDb, getDb, initializeDb } from '../../src/lib/db'
 import { chatSessions } from '../../src/lib/db/schema/chat-sessions'
+
+function makeFakeSession(): {
+  session: AgentSession
+  getDisposeCalls: () => number
+} {
+  let disposeCalls = 0
+  const agent = {
+    dispose: async () => {
+      disposeCalls++
+    },
+  } as unknown as AiSdkAgent
+  return {
+    session: { agent },
+    getDisposeCalls: () => disposeCalls,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -321,6 +340,147 @@ describe('ToolImageStore', () => {
     expect(sessionStore.imageStore).toBeInstanceOf(ToolImageStore)
     // Same reference across calls
     expect(sessionStore.imageStore).toBe(sessionStore.imageStore)
+  })
+})
+
+describe('SessionStore idle eviction', () => {
+  let store: SessionStore
+
+  beforeEach(() => {
+    store = new SessionStore()
+  })
+
+  afterEach(() => {
+    store.stopSweeper()
+  })
+
+  it('does not evict a session touched within the idle window', () => {
+    const { session, getDisposeCalls } = makeFakeSession()
+    store.set('recent-convo', session)
+
+    const evicted = store.evictIdleSessions(60_000)
+
+    expect(evicted).toBe(0)
+    expect(store.has('recent-convo')).toBe(true)
+    expect(getDisposeCalls()).toBe(0)
+  })
+
+  it('evicts and disposes a session idle past the threshold', async () => {
+    const { session, getDisposeCalls } = makeFakeSession()
+    store.set('stale-convo', session)
+
+    // maxIdleMs=0 treats "touched just now" as already past the window —
+    // avoids depending on real elapsed wall-clock time in a unit test.
+    const evicted = store.evictIdleSessions(0)
+    // dispose() is fire-and-forget inside evictIdleSessions — give its
+    // microtask a turn before asserting the call landed.
+    await Promise.resolve()
+
+    expect(evicted).toBe(1)
+    expect(store.has('stale-convo')).toBe(false)
+    expect(getDisposeCalls()).toBe(1)
+  })
+
+  it('does not evict a session with an actively running turn, even if idle', () => {
+    const { session, getDisposeCalls } = makeFakeSession()
+    store.set('active-convo', session)
+    const turn = conversationTurnRegistry.register('active-convo')
+
+    try {
+      const evicted = store.evictIdleSessions(0)
+
+      expect(evicted).toBe(0)
+      expect(store.has('active-convo')).toBe(true)
+      expect(getDisposeCalls()).toBe(0)
+    } finally {
+      conversationTurnRegistry.complete(turn.turnId, 'done')
+    }
+  })
+
+  it('re-touching a session on get() resets its idle clock', async () => {
+    const { session, getDisposeCalls } = makeFakeSession()
+    store.set('touched-convo', session)
+
+    await new Promise((r) => setTimeout(r, 40))
+    store.get('touched-convo') // should push touchedAt forward to ~now
+
+    // A 25ms idle window is well past the *original* set() touch (40ms
+    // ago) but should not be past the get()-refreshed one (~0ms ago) —
+    // proves get() actually updates touchedAt rather than being a no-op.
+    const evicted = store.evictIdleSessions(25)
+
+    expect(evicted).toBe(0)
+    expect(store.has('touched-convo')).toBe(true)
+    expect(getDisposeCalls()).toBe(0)
+  })
+
+  it('remove() and delete() also drop eviction metadata (no leak via meta map)', async () => {
+    const { session: s1 } = makeFakeSession()
+    store.set('removed-convo', s1)
+    store.remove('removed-convo')
+
+    // A stale meta entry with no matching session would be silently
+    // skipped by evictIdleSessions' `for (const [key, session] of
+    // this.sessions)` loop anyway (it iterates sessions, not meta) — this
+    // test guards against a future refactor that iterates meta instead.
+    expect(store.evictIdleSessions(0)).toBe(0)
+  })
+
+  it('calls onBeforeEvict so a scheduled task hidden page gets closed on eviction', () => {
+    const calls: Array<{
+      conversationId: string
+      hiddenPageId: number | undefined
+    }> = []
+    const storeWithHook = new SessionStore({
+      onBeforeEvict: (session, conversationId) => {
+        calls.push({ conversationId, hiddenPageId: session.hiddenPageId })
+      },
+    })
+    const { session } = makeFakeSession()
+    session.hiddenPageId = 42
+    storeWithHook.set('hidden-page-convo', session)
+
+    storeWithHook.evictIdleSessions(0)
+
+    expect(calls).toEqual([
+      { conversationId: 'hidden-page-convo', hiddenPageId: 42 },
+    ])
+    storeWithHook.stopSweeper()
+  })
+
+  it('does not clear the persist lock on eviction, so a still-in-flight write is still awaited', async () => {
+    // White-box: asserts on the private persistLocks map directly, because
+    // driving this race through the public persistMessages() API would
+    // require injecting an artificial delay into a real SQLite write with
+    // no existing seam to do that. The behavior under test — the lock
+    // entry survives eviction — is exactly what the fix changed, so
+    // reaching into the field is the most direct way to pin it down.
+    interface SessionStoreInternals {
+      persistLocks: Map<string, Promise<void>>
+    }
+    const { session } = makeFakeSession()
+    store.set('in-flight-write-convo', session)
+
+    // Simulate a persistMessages() call that's still running when the
+    // sweep fires — evictIdleSessions must not clear persistLocks, or a
+    // later persistMessages() for the same conversationId would race it
+    // instead of queueing behind it (see the comment at the deletion site
+    // for the full failure mode this guards against).
+    let releaseFirstWrite!: () => void
+    const firstWriteGate = new Promise<void>((resolve) => {
+      releaseFirstWrite = resolve
+    })
+    const internals = store as unknown as SessionStoreInternals
+    internals.persistLocks.set('in-flight-write-convo', firstWriteGate)
+
+    store.evictIdleSessions(0)
+
+    expect(internals.persistLocks.has('in-flight-write-convo')).toBe(true)
+    expect(internals.persistLocks.get('in-flight-write-convo')).toBe(
+      firstWriteGate,
+    )
+    releaseFirstWrite()
+    await firstWriteGate
   })
 })
 

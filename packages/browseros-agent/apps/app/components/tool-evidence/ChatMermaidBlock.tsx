@@ -5,8 +5,9 @@
  */
 
 import type { FC } from 'react'
-import type { CustomRenderer, CustomRendererProps } from 'streamdown'
+import type { CustomRendererProps, PluginConfig } from 'streamdown'
 import { Button } from '@/components/ui/button'
+import { shikiWorkerPlugin } from '@/lib/code-highlight/shiki-highlighter-plugin'
 import { useMermaidRender } from '@/lib/personal-internet/useMermaidRender'
 
 const MermaidRenderingPlaceholder: FC<{ sandboxed?: boolean }> = ({
@@ -66,7 +67,7 @@ export const ChatMermaidBlock: FC<{ source: string }> = ({ source }) => {
 
 /**
  * Registered as Streamdown's `plugins.renderers` entry for `language:
- * "mermaid"` — see MERMAID_RENDERER_PLUGINS below. Streamdown checks a
+ * "mermaid"` — see STREAMDOWN_PLUGINS below. Streamdown checks a
  * matching custom renderer before it ever reaches its own built-in Mermaid
  * diagram plugin, so this is the one place in the render path that
  * determines whether a mermaid fence goes to the sandbox or to Streamdown's
@@ -84,14 +85,16 @@ export const ChatMermaidStreamdownRenderer: FC<CustomRendererProps> = ({
 /**
  * Shared by every Streamdown instance that can render arbitrary model text
  * (ChatMarkdown, PiMarkdown, reasoning.tsx) — one definition so they can't
- * drift out of sync with each other.
+ * drift out of sync with each other. Covers both heavy subsystems that need
+ * to run off the main render thread: Mermaid diagram layout (sandboxed
+ * iframe, disposable per render) and Shiki code highlighting (sandboxed
+ * iframe, persistent — see shiki-sandbox-broker.ts).
  */
-export const MERMAID_RENDERER_PLUGINS: {
-  renderers: CustomRenderer[]
-} = {
+export const STREAMDOWN_PLUGINS: PluginConfig = {
   renderers: [
     { language: 'mermaid', component: ChatMermaidStreamdownRenderer },
   ],
+  code: shikiWorkerPlugin,
 }
 
 /**

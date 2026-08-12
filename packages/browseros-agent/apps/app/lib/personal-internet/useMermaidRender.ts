@@ -6,7 +6,7 @@
  * Shared by ChatMermaidBlock and PiMermaidView — both render the same
  * sandboxed-broker source and need identical retry semantics; keeping this
  * in one hook is what stops them drifting out of sync with each other (the
- * same reasoning MERMAID_RENDERER_PLUGINS being a single constant follows).
+ * same reasoning STREAMDOWN_PLUGINS being a single constant follows).
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'

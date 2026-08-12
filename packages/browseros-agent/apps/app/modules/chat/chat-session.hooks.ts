@@ -1,4 +1,5 @@
 import { useChat } from '@ai-sdk/react'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { ConsequenceClass } from '@browseros/shared/trust/consequence-class'
 import { useQueryClient } from '@tanstack/react-query'
 import { DefaultChatTransport, type UIMessage } from 'ai'
@@ -299,6 +300,20 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     })
   }, [])
 
+  useEffect(() => {
+    // setConversationId's own detachAttachOnly() only covers switching to a
+    // DIFFERENT conversation while this provider stays mounted — it does
+    // nothing when the whole provider unmounts (e.g. newtab navigating away
+    // from /home/chat and back, which fully unmounts+remounts
+    // ChatSessionProvider). Without this, an in-flight attach's fetch/
+    // ReadableStream loop, its onMessages closure, and every "snapshot" SSE
+    // frame it keeps parsing (each carrying the full UIMessage[] for that
+    // turn) stay alive until the server-side turn finishes, however long
+    // that takes, retained by nothing the unmounted React tree can reach.
+    const controller = turnControllerRef.current
+    return () => controller.detachAttachOnly()
+  }, [])
+
   const {
     startTask: startExecutionTask,
     syncFromMessages: syncExecutionHistory,
@@ -418,6 +433,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     clearError,
     regenerate,
   } = useChat({
+    // Coalesces streamed-token state updates so the message tree (markdown
+    // parse, syntax highlight, diagram dispatch) re-renders on a fixed
+    // cadence instead of once per SSE token — without this, a response with
+    // heavy content re-runs the full render pipeline hundreds of times per
+    // stream.
+    experimental_throttle: TIMEOUTS.CHAT_STREAM_RENDER_THROTTLE,
     // The AI SDK does not auto-resume after `addToolApprovalResponse` unless
     // `sendAutomaticallyWhen` is configured. Without this, approving/denying a
     // consequential tool only flips the local part to `approval-responded` and

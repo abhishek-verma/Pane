@@ -8,9 +8,16 @@ import {
   XIcon,
 } from 'lucide-react'
 import type { ComponentProps, HTMLAttributes, ReactElement } from 'react'
-import { createContext, memo, useContext, useEffect, useState } from 'react'
-import type { BundledTheme } from 'shiki'
+import {
+  createContext,
+  memo,
+  useContext,
+  useDeferredValue,
+  useEffect,
+  useState,
+} from 'react'
 import { Streamdown } from 'streamdown'
+import { STREAMDOWN_PLUGINS } from '@/components/tool-evidence/ChatMermaidBlock'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group'
 import {
@@ -19,13 +26,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { STREAMDOWN_CODE_THEMES } from '@/lib/code-highlight/shiki-highlighter-plugin'
 import { cn } from '@/lib/utils'
 import { streamdownLinkSafety } from './streamdown-external-link-modal'
-
-const themes = ['catppuccin-latte', 'catppuccin-mocha'] as [
-  BundledTheme,
-  BundledTheme,
-]
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage['role']
@@ -347,22 +350,45 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>
  * @public
  */
 export const MessageResponse = memo(
-  ({ className, linkSafety, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn(
-        // Constrain code blocks/tables to their own container instead of the
-        // viewport — a vw-based width ignored the message bubble's own
-        // indentation, so blocks overflowed past their clipped ancestor and
-        // the copy/download buttons became unclickable (painted outside the
-        // hit-testable area).
-        'size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_[data-streamdown="code-block"]]:w-full [&_[data-streamdown="code-block"]]:max-w-full [&_[data-streamdown="table-wrapper"]]:w-full [&_[data-streamdown="table-wrapper"]]:max-w-full',
-        className,
-      )}
-      shikiTheme={themes}
-      {...props}
-      linkSafety={linkSafety ?? streamdownLinkSafety}
-    />
-  ),
+  ({
+    className,
+    linkSafety,
+    // Default so any current or future consumer of MessageResponse gets
+    // worker-isolated Mermaid + Shiki rendering for free, the same way it
+    // already gets shikiTheme — no per-call-site opt-in to forget. Callers
+    // that need a different plugin set can still override it explicitly.
+    plugins = STREAMDOWN_PLUGINS,
+    children,
+    ...props
+  }: MessageResponseProps) => {
+    // Lets React interrupt/chunk rendering of a large accumulated document
+    // across multiple commits instead of one uninterruptible pass, so the
+    // browser can still paint and respond mid-render. Doesn't reduce total
+    // render work — it's the backstop for whatever work remains after
+    // throttled streaming updates (chat-session.hooks.ts) and off-thread
+    // Mermaid/Shiki rendering (plugins above) — see the OOM/hang
+    // investigation this was added for.
+    const deferredChildren = useDeferredValue(children)
+    return (
+      <Streamdown
+        className={cn(
+          // Constrain code blocks/tables to their own container instead of the
+          // viewport — a vw-based width ignored the message bubble's own
+          // indentation, so blocks overflowed past their clipped ancestor and
+          // the copy/download buttons became unclickable (painted outside the
+          // hit-testable area).
+          'size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_[data-streamdown="code-block"]]:w-full [&_[data-streamdown="code-block"]]:max-w-full [&_[data-streamdown="table-wrapper"]]:w-full [&_[data-streamdown="table-wrapper"]]:max-w-full',
+          className,
+        )}
+        shikiTheme={STREAMDOWN_CODE_THEMES}
+        plugins={plugins}
+        {...props}
+        linkSafety={linkSafety ?? streamdownLinkSafety}
+      >
+        {deferredChildren}
+      </Streamdown>
+    )
+  },
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children &&
     prevProps.mode === nextProps.mode &&

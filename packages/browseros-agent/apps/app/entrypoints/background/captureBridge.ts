@@ -221,6 +221,7 @@ async function failCaptureForSession(
   stopSpeakerPoll(sessionId)
   captureWasInCallTabs.delete(tabId)
   unknownStreakByTab.delete(tabId)
+  lastMuteBySession.delete(sessionId)
   deactivateCaptureGlow(tabId, sessionId)
   await stopTabAudioCapture(sessionId).catch(() => null)
   await failMeetingSession(sessionId, message).catch(() => null)
@@ -398,6 +399,7 @@ async function syncActiveSessions(): Promise<void> {
       const session = sessions.find((item) => item.id === sessionId)
       const tabId = session?.tabId
       await stopTabAudioCapture(sessionId)
+      lastMuteBySession.delete(sessionId)
       if (typeof tabId === 'number') {
         deactivateCaptureGlow(tabId, sessionId)
         captureWasInCallTabs.delete(tabId)
@@ -559,6 +561,7 @@ async function handleNavigation(tabId: number, url: string): Promise<void> {
       stopSpeakerPoll(sessionId)
       deactivateCaptureGlow(tabId, sessionId)
       await stopTabAudioCapture(sessionId).catch(() => null)
+      lastMuteBySession.delete(sessionId)
     }
     captureWasInCallTabs.delete(tabId)
     unknownStreakByTab.delete(tabId)
@@ -676,6 +679,7 @@ export function captureBridge(): void {
     stopSpeakerPoll(data.sessionId)
     await stopTabAudioCapture(data.sessionId)
     await stopMeetingSession(data.sessionId).catch(() => null)
+    lastMuteBySession.delete(data.sessionId)
     const tabs = await chrome.tabs.query({})
     for (const tab of tabs) {
       if (typeof tab.id === 'number') {
