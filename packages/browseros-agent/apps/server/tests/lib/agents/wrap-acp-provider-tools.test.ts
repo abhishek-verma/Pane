@@ -519,7 +519,7 @@ describe('wrapAcpProviderExecutedTools', () => {
       ])
     })
 
-    it('doGenerate routes through the same suppression instead of throwing on the redundant error', async () => {
+    it('doGenerate routes through the same suppression instead of throwing on the redundant error, and preserves finishReason/usage/providerMetadata', async () => {
       const model = streamOf([
         {
           type: 'tool-call',
@@ -527,6 +527,7 @@ describe('wrapAcpProviderExecutedTools', () => {
           toolName: 'Skill',
           input: '{"skill":"pi-page-dsl"}',
           providerExecuted: true,
+          providerMetadata: { acpx: { turnId: 't1' } },
         },
         {
           type: 'tool-result',
@@ -535,6 +536,7 @@ describe('wrapAcpProviderExecutedTools', () => {
           result: 'Unknown skill: pi-page-dsl',
           isError: true,
           providerExecuted: true,
+          providerMetadata: { acpx: { turnId: 't1' } },
         },
         {
           type: 'error',
@@ -543,20 +545,70 @@ describe('wrapAcpProviderExecutedTools', () => {
         {
           type: 'finish',
           finishReason: 'tool-calls',
-          usage: {},
+          usage: { inputTokens: 12, outputTokens: 34, totalTokens: 46 },
+          providerMetadata: { acpx: { errorCode: 'unknown' } },
         },
       ])
 
       const wrapped = wrapAcpProviderExecutedTools(model) as {
-        doGenerate: () => Promise<{ content: Array<Record<string, unknown>> }>
+        doGenerate: () => Promise<{
+          content: Array<Record<string, unknown>>
+          finishReason: unknown
+          usage: unknown
+          providerMetadata?: unknown
+        }>
       }
       const result = await wrapped.doGenerate()
 
-      expect(
-        result.content.some(
-          (part) => part.type === 'tool-result' && part.isError === true,
-        ),
-      ).toBe(true)
+      const toolResult = result.content.find(
+        (part) => part.type === 'tool-result',
+      )
+      expect(toolResult).toMatchObject({
+        isError: true,
+        providerMetadata: { acpx: { turnId: 't1' } },
+      })
+      expect(result.finishReason).toBe('tool-calls')
+      expect(result.usage).toEqual({
+        inputTokens: 12,
+        outputTokens: 34,
+        totalTokens: 46,
+      })
+      expect(result.providerMetadata).toEqual({
+        acpx: { errorCode: 'unknown' },
+      })
+    })
+
+    it('doGenerate keeps the default finishReason/usage when a finish chunk omits them', async () => {
+      const model = streamOf([
+        {
+          type: 'tool-call',
+          toolCallId: 'c1',
+          toolName: 'navigate',
+          input: '{}',
+          providerExecuted: true,
+        },
+        {
+          type: 'tool-result',
+          toolCallId: 'c1',
+          toolName: 'navigate',
+          result: { ok: true },
+          providerExecuted: true,
+        },
+        // finish chunk with no finishReason/usage fields at all
+        { type: 'finish' },
+      ])
+
+      const wrapped = wrapAcpProviderExecutedTools(model) as {
+        doGenerate: () => Promise<{ finishReason: unknown; usage: unknown }>
+      }
+      const result = await wrapped.doGenerate()
+
+      expect(result.finishReason).toBe('unknown')
+      expect(result.usage).toEqual({
+        inputTokens: undefined,
+        outputTokens: undefined,
+        totalTokens: undefined,
+      })
     })
   })
 })

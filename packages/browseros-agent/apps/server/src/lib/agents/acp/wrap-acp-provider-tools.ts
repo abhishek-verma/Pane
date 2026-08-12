@@ -133,6 +133,11 @@ function rewriteStreamPart(part: unknown): unknown {
  * so routing through `target.doGenerate` directly would bypass the error
  * fix above entirely for any caller using `generateText`/`doGenerate`
  * against this model (e.g. `experimental_repairToolCall`).
+ *
+ * acpx-ai-provider doesn't export `accumulateStream`, so this is a
+ * hand-copy pinned to the `acpx-ai-provider@0.0.6` shape. Re-diff against
+ * `accumulateStream`/`applyPart` in its `dist/index.js` on any
+ * acpx-ai-provider version bump.
  */
 async function accumulateRewrittenStream(
   stream: ReadableStream<unknown>,
@@ -169,72 +174,87 @@ async function accumulateRewrittenStream(
   }
 
   const reader = stream.getReader()
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    const part = value as ToolishPart
-    switch (part.type) {
-      case 'text-start':
-        textBuffers.set(part.id as string, '')
-        break
-      case 'text-delta':
-        textBuffers.set(
-          part.id as string,
-          (textBuffers.get(part.id as string) ?? '') + (part.delta as string),
-        )
-        break
-      case 'text-end':
-        flushBuffer(textBuffers, part.id as string, 'text')
-        break
-      case 'reasoning-start':
-        reasoningBuffers.set(part.id as string, '')
-        break
-      case 'reasoning-delta':
-        reasoningBuffers.set(
-          part.id as string,
-          (reasoningBuffers.get(part.id as string) ?? '') +
-            (part.delta as string),
-        )
-        break
-      case 'reasoning-end':
-        flushBuffer(reasoningBuffers, part.id as string, 'reasoning')
-        break
-      case 'tool-call':
-        content.push({
-          type: 'tool-call',
-          toolCallId: part.toolCallId,
-          toolName: part.toolName,
-          input: part.input,
-          providerExecuted: part.providerExecuted,
-          dynamic: part.dynamic,
-        })
-        break
-      case 'tool-result':
-        content.push({
-          type: 'tool-result',
-          toolCallId: part.toolCallId,
-          toolName: part.toolName,
-          result: part.result,
-          providerExecuted: part.providerExecuted,
-          dynamic: part.dynamic,
-          ...((part as { isError?: boolean }).isError ? { isError: true } : {}),
-        })
-        break
-      case 'finish':
-        finishReason = (part as { finishReason?: unknown }).finishReason
-        usage = (part as { usage?: unknown }).usage
-        if ((part as { providerMetadata?: unknown }).providerMetadata) {
-          providerMetadata = (part as { providerMetadata?: unknown })
-            .providerMetadata
-        }
-        break
-      case 'error':
-        throw part.error instanceof Error
-          ? part.error
-          : new Error(String((part as { error?: unknown }).error))
-      default:
-        break
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      const part = value as ToolishPart
+      switch (part.type) {
+        case 'text-start':
+          textBuffers.set(part.id as string, '')
+          break
+        case 'text-delta':
+          textBuffers.set(
+            part.id as string,
+            (textBuffers.get(part.id as string) ?? '') + (part.delta as string),
+          )
+          break
+        case 'text-end':
+          flushBuffer(textBuffers, part.id as string, 'text')
+          break
+        case 'reasoning-start':
+          reasoningBuffers.set(part.id as string, '')
+          break
+        case 'reasoning-delta':
+          reasoningBuffers.set(
+            part.id as string,
+            (reasoningBuffers.get(part.id as string) ?? '') +
+              (part.delta as string),
+          )
+          break
+        case 'reasoning-end':
+          flushBuffer(reasoningBuffers, part.id as string, 'reasoning')
+          break
+        case 'tool-call':
+          content.push({
+            type: 'tool-call',
+            toolCallId: part.toolCallId,
+            toolName: part.toolName,
+            input: part.input,
+            providerExecuted: part.providerExecuted,
+            dynamic: part.dynamic,
+            ...(part.providerMetadata
+              ? { providerMetadata: part.providerMetadata }
+              : {}),
+          })
+          break
+        case 'tool-result':
+          content.push({
+            type: 'tool-result',
+            toolCallId: part.toolCallId,
+            toolName: part.toolName,
+            result: part.result,
+            providerExecuted: part.providerExecuted,
+            dynamic: part.dynamic,
+            ...((part as { isError?: boolean }).isError
+              ? { isError: true }
+              : {}),
+            ...(part.providerMetadata
+              ? { providerMetadata: part.providerMetadata }
+              : {}),
+          })
+          break
+        case 'finish':
+          // Fall back to the pre-seeded defaults above rather than clobbering
+          // them with undefined if a finish chunk omits either field.
+          finishReason =
+            (part as { finishReason?: unknown }).finishReason ?? finishReason
+          usage = (part as { usage?: unknown }).usage ?? usage
+          if ((part as { providerMetadata?: unknown }).providerMetadata) {
+            providerMetadata = (part as { providerMetadata?: unknown })
+              .providerMetadata
+          }
+          break
+        case 'error':
+          throw part.error instanceof Error
+            ? part.error
+            : new Error(String((part as { error?: unknown }).error))
+        default:
+          break
+      }
     }
+  } finally {
+    reader.releaseLock()
   }
 
   return {
@@ -334,19 +354,17 @@ export function wrapAcpProviderExecutedTools(
 
   const wrappedDoStream: typeof base.doStream = async (...args: unknown[]) => {
     const result = await base.doStream(...args)
-    let gate: ReturnType<typeof createErrorGate>
+    let gate: ReturnType<typeof createErrorGate> | undefined
     return {
       ...result,
       stream: result.stream.pipeThrough(
         new TransformStream({
-          start(controller) {
-            gate = createErrorGate(controller)
-          },
-          transform(chunk) {
+          transform(chunk, controller) {
+            gate ??= createErrorGate(controller)
             gate.transform(chunk)
           },
           flush() {
-            gate.flush()
+            gate?.flush()
           },
         }),
       ),
