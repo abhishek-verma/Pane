@@ -178,6 +178,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
   }
 
   const retryTranscription = async () => {
+    if (isTranscribing) return
     const blob = lastFailedBlobRef.current
     if (!blob) return
     await runTranscription(blob)

@@ -381,7 +381,14 @@ export function createCaptureRoutes() {
 
       const sessionId = `dictation:${randomUUID()}`
       const tmpPath = join(tmpdir(), `pane-dictation-${randomUUID()}.webm`)
-      const buf = Buffer.from(await file.arrayBuffer())
+
+      let buf: Buffer
+      try {
+        buf = Buffer.from(await file.arrayBuffer())
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        return c.json({ error: message }, 500)
+      }
 
       return streamSSE(c, async (stream) => {
         let closed = false
@@ -390,8 +397,14 @@ export function createCaptureRoutes() {
         })
         const writeEvent = async (event: string, data: unknown) => {
           if (closed) return
-          await stream.writeSSE({ event, data: JSON.stringify(data) })
+          await stream
+            .writeSSE({ event, data: JSON.stringify(data) })
+            .catch(() => {})
         }
+        // Fires regardless of whether the sidecar is actually making
+        // progress, so it can't distinguish "still transcribing" from
+        // "wedged" — a fully stuck sidecar only surfaces via the client's
+        // absolute ceiling, not the inactivity watchdog this feeds.
         const heartbeat = setInterval(() => {
           void writeEvent('heartbeat', { ts: Date.now() })
         }, 10_000)

@@ -81,7 +81,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
         transcribeAbortRef.current = ac
         try {
           voiceDebug('transcribe request', { bytes: blob.size })
-          const result = await transcribeAudio(blob)
+          const result = await transcribeAudio(blob, { signal: ac.signal })
           if (ac.signal.aborted) return
           voiceDebug('transcribe response', {
             chars: result.text.length,
@@ -92,6 +92,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
           })
           if (verdict.action === 'drop') {
             voiceDebug('sanitize drop', verdict.reason)
+            lastFailedBlobRef.current = null
             store.send({ type: 'TRANSCRIBE_DROPPED', reason: verdict.reason })
             return
           }

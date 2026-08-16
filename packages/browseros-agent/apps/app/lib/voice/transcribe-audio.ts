@@ -71,7 +71,10 @@ export async function transcribeAudio(
   }
 
   try {
-    resetInactivityTimer()
+    // The inactivity watchdog only measures server activity once the SSE
+    // stream is established — the upload itself (and connection setup) has
+    // no progress signal to reset it against, so it's bounded only by the
+    // absolute ceiling below until the first frame arrives.
     const response = await agentFetch(`${serverUrl}/capture/asr/transcribe`, {
       method: 'POST',
       body: formData,
@@ -88,6 +91,7 @@ export async function transcribeAudio(
       throw new Error('Transcription failed: empty response')
     }
 
+    resetInactivityTimer()
     let finalText: string | undefined
     for await (const frame of readSseFrames(response.body)) {
       resetInactivityTimer()
@@ -112,7 +116,7 @@ export async function transcribeAudio(
     return { text: finalText }
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      if (options?.signal?.aborted) throw err
+      if (options?.signal?.aborted) throw new Error('Transcription cancelled')
       throw new Error('Transcription timed out. Please try again.')
     }
     throw err
