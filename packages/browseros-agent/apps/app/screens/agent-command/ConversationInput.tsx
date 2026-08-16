@@ -607,8 +607,24 @@ export const ConversationInput: FC<ConversationInputProps> = ({
           />
         </div>
         {voice.error ? (
-          <div className="px-5 pb-2 text-destructive text-xs">
-            {voice.error}
+          <div className="flex items-center gap-1.5 px-5 pb-2 text-destructive text-xs">
+            <span>{voice.error}</span>
+            {voice.canRetry && (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-destructive text-xs underline"
+                onClick={voice.retryTranscription}
+              >
+                Retry
+              </Button>
+            )}
+          </div>
+        ) : null}
+        {voice.isTranscribing && voice.partialTranscript ? (
+          <div className="truncate px-5 pb-2 text-muted-foreground text-xs italic">
+            {voice.partialTranscript}
           </div>
         ) : null}
         <CalmContextControls

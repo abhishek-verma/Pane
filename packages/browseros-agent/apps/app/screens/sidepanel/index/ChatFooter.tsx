@@ -2,6 +2,7 @@ import { ChevronDown, Folder, Layers, PlugZap } from 'lucide-react'
 import type { FC, FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
+import { Button } from '@/components/ui/button'
 import {
   type SelectedTextData,
   selectedTextStorage,
@@ -190,7 +191,25 @@ export const ChatFooter: FC<ChatFooterProps> = ({
         </div>
 
         {voice?.error && (
-          <div className="mt-1 text-destructive text-xs">{voice.error}</div>
+          <div className="mt-1 flex items-center gap-1.5 text-destructive text-xs">
+            <span>{voice.error}</span>
+            {voice.canRetry && (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-destructive text-xs underline"
+                onClick={voice.retryTranscription}
+              >
+                Retry
+              </Button>
+            )}
+          </div>
+        )}
+        {voice?.isTranscribing && voice.partialTranscript && (
+          <div className="mt-1 truncate text-muted-foreground text-xs italic">
+            {voice.partialTranscript}
+          </div>
         )}
 
         <VoiceModeArea voiceLoop={voiceLoop}>

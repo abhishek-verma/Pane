@@ -49,6 +49,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
   const vadRef = useRef<VadHandle | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
+  const lastFailedBlobRef = useRef<Blob | null>(null)
   const warmUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const interruptedIdsRef = useRef<Set<string>>(new Set())
   const stateSubRef = useRef<{ unsubscribe: () => void } | null>(null)
@@ -104,6 +105,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
           track(SIDEPANEL_VOICE_MODE_TURN_CAPTURED_EVENT, {
             chars: verdict.text.length,
           })
+          lastFailedBlobRef.current = null
           store.send({ type: 'TRANSCRIBE_OK', text: verdict.text })
         } catch (err) {
           if (ac.signal.aborted) return
@@ -113,6 +115,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
           track(SIDEPANEL_VOICE_MODE_TRANSCRIBE_FAILED_EVENT, {
             reason: 'error',
           })
+          lastFailedBlobRef.current = blob
           store.send({ type: 'TRANSCRIBE_FAIL', message })
         }
       }),
@@ -144,6 +147,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
   const releaseResources = () => {
     transcribeAbortRef.current?.abort()
     transcribeAbortRef.current = null
+    lastFailedBlobRef.current = null
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       try {
         recorderRef.current.stop()
@@ -304,12 +308,17 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
   }
 
   const retry = () => {
-    // Error state reaches this point only after releaseResources()
-    // ran in open()'s catch, so capture/vad/monitor refs are all
-    // null. Dispatching a store-only RETRY would put the chip back
-    // to "Listening" with no live capture behind it. Re-running
-    // open() reacquires the mic and re-emits OPEN, which clears the
-    // error chip naturally.
+    // If the last failure was a transcription failure, the audio that
+    // failed is still around — resend it instead of asking the user to
+    // speak again. Capture/vad/monitor stay untouched in this path.
+    if (lastFailedBlobRef.current) {
+      store.send({ type: 'RETRY_TRANSCRIBE', blob: lastFailedBlobRef.current })
+      return
+    }
+    // Otherwise the error happened before any audio was captured (e.g.
+    // mic permission), which already ran releaseResources() in open()'s
+    // catch, so capture/vad/monitor refs are all null. Re-running open()
+    // reacquires the mic and re-emits OPEN, which clears the error chip.
     void open()
   }
 

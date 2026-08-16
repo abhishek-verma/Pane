@@ -18,19 +18,25 @@ export interface VoiceInputState {
   isTranscribing: boolean
   audioLevels: number[]
   error: string | null
+  partialTranscript: string
+  canRetry: boolean
   onStartRecording: () => void
   onStopRecording: () => void
+  retryTranscription: () => void
 }
 
 export interface UseVoiceInputReturn {
   isRecording: boolean
   isTranscribing: boolean
   transcript: string
+  partialTranscript: string
   audioLevel: number
   audioLevels: number[]
   error: string | null
+  canRetry: boolean
   startRecording: () => Promise<boolean>
   stopRecording: () => Promise<void>
+  retryTranscription: () => Promise<void>
   clearTranscript: () => void
 }
 
@@ -40,14 +46,17 @@ export function useVoiceInput(): UseVoiceInputReturn {
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [transcript, setTranscript] = useState('')
+  const [partialTranscript, setPartialTranscript] = useState('')
   const [audioLevel, setAudioLevel] = useState(0)
   const [audioLevels, setAudioLevels] = useState<number[]>(EMPTY_LEVELS)
   const [error, setError] = useState<string | null>(null)
+  const [canRetry, setCanRetry] = useState(false)
 
   const captureRef = useRef<AudioCaptureHandle | null>(null)
   const monitorRef = useRef<AudioLevelMonitor | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const lastFailedBlobRef = useRef<Blob | null>(null)
 
   const releaseAll = () => {
     monitorRef.current?.stop()
@@ -72,6 +81,8 @@ export function useVoiceInput(): UseVoiceInputReturn {
     try {
       setError(null)
       setTranscript('')
+      lastFailedBlobRef.current = null
+      setCanRetry(false)
       chunksRef.current = []
 
       const capture = await openAudioCapture()
@@ -110,6 +121,36 @@ export function useVoiceInput(): UseVoiceInputReturn {
     }
   }
 
+  const runTranscription = async (audioBlob: Blob) => {
+    setError(null)
+    setPartialTranscript('')
+    setIsTranscribing(true)
+    try {
+      const { text } = await transcribeAudio(audioBlob, {
+        onPartial: setPartialTranscript,
+      })
+      const trimmed = text.trim()
+      if (trimmed) {
+        lastFailedBlobRef.current = null
+        setCanRetry(false)
+        setTranscript(trimmed)
+      } else {
+        // No blob to retry here — the audio was fine, there just wasn't
+        // any speech in it, so re-sending it would fail the same way.
+        lastFailedBlobRef.current = null
+        setCanRetry(false)
+        setError('No speech detected')
+      }
+    } catch (err) {
+      lastFailedBlobRef.current = audioBlob
+      setCanRetry(true)
+      setError(err instanceof Error ? err.message : 'Transcription failed')
+    } finally {
+      setIsTranscribing(false)
+      setPartialTranscript('')
+    }
+  }
+
   const stopRecording = async () => {
     const mediaRecorder = mediaRecorderRef.current
 
@@ -133,20 +174,13 @@ export function useVoiceInput(): UseVoiceInputReturn {
       return
     }
 
-    setIsTranscribing(true)
-    try {
-      const { text } = await transcribeAudio(audioBlob)
-      const trimmed = text.trim()
-      if (trimmed) {
-        setTranscript(trimmed)
-      } else {
-        setError('No speech detected')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Transcription failed')
-    } finally {
-      setIsTranscribing(false)
-    }
+    await runTranscription(audioBlob)
+  }
+
+  const retryTranscription = async () => {
+    const blob = lastFailedBlobRef.current
+    if (!blob) return
+    await runTranscription(blob)
   }
 
   const clearTranscript = () => {
@@ -158,11 +192,14 @@ export function useVoiceInput(): UseVoiceInputReturn {
     isRecording,
     isTranscribing,
     transcript,
+    partialTranscript,
     audioLevel,
     audioLevels,
     error,
+    canRetry,
     startRecording,
     stopRecording,
+    retryTranscription,
     clearTranscript,
   }
 }

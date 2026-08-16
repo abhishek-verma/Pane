@@ -34,7 +34,6 @@ import {
   pruneCaptureRetention,
 } from '../../capture/performance'
 import {
-  drainAsrSession,
   enqueueAsrJob,
   registerAsrSession,
   unregisterAsrSession,
@@ -365,7 +364,10 @@ export function createCaptureRoutes() {
     .post('/asr/transcribe', async (c) => {
       // One-shot dictation: accepts webm/opus audio, splits into sequential
       // 24-second feeds to the ASR sidecar (matching its MAX_WINDOW_SAMPLES),
-      // and returns the concatenated transcript.
+      // and streams the transcript back over SSE as each feed finishes.
+      // Long recordings can take longer than any single fixed request
+      // timeout would allow, so the client watches for stream inactivity
+      // instead of racing a flat deadline against the whole upload.
       const formData = await c.req.formData()
       const file = formData.get('file')
       if (!(file instanceof File)) {
@@ -379,54 +381,76 @@ export function createCaptureRoutes() {
 
       const sessionId = `dictation:${randomUUID()}`
       const tmpPath = join(tmpdir(), `pane-dictation-${randomUUID()}.webm`)
+      const buf = Buffer.from(await file.arrayBuffer())
 
-      try {
-        const buf = Buffer.from(await file.arrayBuffer())
-        if (buf.length < 100) {
-          return c.json({ text: '' })
-        }
-        await writeFile(tmpPath, buf)
-
-        const segments: string[] = []
-
-        await registerAsrSession(sessionId, {
-          onPartial: () => {},
-          onFinal: (seg) => {
-            if (seg.text?.trim()) segments.push(seg.text.trim())
-          },
+      return streamSSE(c, async (stream) => {
+        let closed = false
+        stream.onAbort(() => {
+          closed = true
         })
-
-        // The sidecar processes max 24s per feed (MAX_WINDOW_SAMPLES).
-        // For longer audio, send multiple sequential feeds of the same file.
-        // Each feed advances the internal lastEndSample window by 24s.
-        // Estimate duration from file size (~32kbps for webm/opus).
-        const estimatedDurationSec = Math.max(5, (buf.length * 8) / 32000)
-        const numFeeds = Math.ceil(estimatedDurationSec / 24)
-
-        for (let seq = 0; seq < numFeeds; seq++) {
-          await enqueueAsrJob({
-            sessionId,
-            sequence: seq,
-            mimeType: file.type || 'audio/webm',
-            capturedAt: Date.now(),
-            audioPath: tmpPath,
-            force: true,
-          })
+        const writeEvent = async (event: string, data: unknown) => {
+          if (closed) return
+          await stream.writeSSE({ event, data: JSON.stringify(data) })
         }
+        const heartbeat = setInterval(() => {
+          void writeEvent('heartbeat', { ts: Date.now() })
+        }, 10_000)
 
-        // All feeds enqueued sequentially. drainAsrSession waits for all to ack.
-        // The sidecar emits the final segment BEFORE ack (ack is in finally{}),
-        // so by the time drain resolves, all segments are already collected.
-        await drainAsrSession(sessionId)
+        try {
+          if (buf.length < 100) {
+            await writeEvent('final', { text: '' })
+            return
+          }
+          await writeFile(tmpPath, buf)
 
-        return c.json({ text: segments.join(' ') })
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
-        return c.json({ error: message }, 500)
-      } finally {
-        await unregisterAsrSession(sessionId)
-        unlink(tmpPath).catch(() => {})
-      }
+          const segments: string[] = []
+
+          await registerAsrSession(sessionId, {
+            onPartial: () => {},
+            onFinal: (seg) => {
+              const text = seg.text?.trim()
+              if (!text) return
+              segments.push(text)
+              void writeEvent('segment', {
+                text,
+                cumulative: segments.join(' '),
+              })
+            },
+          })
+
+          // The sidecar processes max 24s per feed (MAX_WINDOW_SAMPLES).
+          // For longer audio, send multiple sequential feeds of the same file.
+          // Each feed advances the internal lastEndSample window by 24s.
+          // Estimate duration from file size (~32kbps for webm/opus).
+          const estimatedDurationSec = Math.max(5, (buf.length * 8) / 32000)
+          const numFeeds = Math.ceil(estimatedDurationSec / 24)
+
+          for (let seq = 0; seq < numFeeds; seq++) {
+            if (closed) break
+            // Resolves only once the sidecar acks this feed, and the
+            // sidecar emits the final segment before acking — so by the
+            // time this loop finishes, every segment has already been
+            // collected and streamed above.
+            await enqueueAsrJob({
+              sessionId,
+              sequence: seq,
+              mimeType: file.type || 'audio/webm',
+              capturedAt: Date.now(),
+              audioPath: tmpPath,
+              force: true,
+            })
+          }
+
+          await writeEvent('final', { text: segments.join(' ') })
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          await writeEvent('error', { error: message })
+        } finally {
+          clearInterval(heartbeat)
+          await unregisterAsrSession(sessionId)
+          unlink(tmpPath).catch(() => {})
+        }
+      })
     })
     .post('/chunk', async (c) => {
       const body = ChunkSchema.parse(await c.req.json())
