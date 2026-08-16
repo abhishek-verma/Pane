@@ -57,6 +57,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const lastFailedBlobRef = useRef<Blob | null>(null)
+  const transcribeAbortRef = useRef<AbortController | null>(null)
 
   const releaseAll = () => {
     monitorRef.current?.stop()
@@ -73,6 +74,11 @@ export function useVoiceInput(): UseVoiceInputReturn {
       if (mediaRecorderRef.current?.state === 'recording') {
         mediaRecorderRef.current.stop()
       }
+      // Without this, a transcription in flight when the component
+      // unmounts (nav away, panel closed) would keep running against
+      // nothing — up to the 10-minute absolute ceiling — holding a slot
+      // in the server's ASR scheduler the whole time.
+      transcribeAbortRef.current?.abort()
       releaseAll()
     }
   }, [])
@@ -122,13 +128,19 @@ export function useVoiceInput(): UseVoiceInputReturn {
   }
 
   const runTranscription = async (audioBlob: Blob) => {
+    transcribeAbortRef.current?.abort()
+    const ac = new AbortController()
+    transcribeAbortRef.current = ac
+
     setError(null)
     setPartialTranscript('')
     setIsTranscribing(true)
     try {
       const { text } = await transcribeAudio(audioBlob, {
         onPartial: setPartialTranscript,
+        signal: ac.signal,
       })
+      if (ac.signal.aborted) return
       const trimmed = text.trim()
       if (trimmed) {
         lastFailedBlobRef.current = null
@@ -142,12 +154,15 @@ export function useVoiceInput(): UseVoiceInputReturn {
         setError('No speech detected')
       }
     } catch (err) {
+      if (ac.signal.aborted) return
       lastFailedBlobRef.current = audioBlob
       setCanRetry(true)
       setError(err instanceof Error ? err.message : 'Transcription failed')
     } finally {
-      setIsTranscribing(false)
-      setPartialTranscript('')
+      if (!ac.signal.aborted) {
+        setIsTranscribing(false)
+        setPartialTranscript('')
+      }
     }
   }
 
