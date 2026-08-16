@@ -197,8 +197,11 @@ export const Chat = () => {
     isTranscribing: voice.isTranscribing,
     audioLevels: voice.audioLevels,
     error: voice.error,
+    partialTranscript: voice.partialTranscript,
+    canRetry: voice.canRetry,
     onStartRecording: handleStartRecording,
     onStopRecording: handleStopRecording,
+    retryTranscription: voice.retryTranscription,
   }
 
   const isStreaming =

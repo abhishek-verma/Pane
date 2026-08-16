@@ -10,6 +10,13 @@ import {
   SIDEPANEL_VOICE_MODE_TURN_CAPTURED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import {
+  acquireMicLock,
+  createMicLockOwnerId,
+  MIC_IN_USE_MESSAGE,
+  releaseMicLock,
+  renewMicLock,
+} from '@/lib/voice/mic-lock'
 import { transcribeAudio } from '@/lib/voice/transcribe-audio'
 import {
   type AudioCaptureHandle,
@@ -29,6 +36,9 @@ import type { VoiceLoopApi } from './voice-types'
 const WARM_UP_MS = 800
 const WAVEFORM_BAND_COUNT = 5
 const STATUS_POLL_MS = 200
+// Well under the mic lock's staleness window, so a long voice-mode session
+// keeps renewing its claim rather than looking abandoned to another window.
+const MIC_LOCK_RENEW_MS = 5_000
 
 export interface ChatSessionLike {
   sendMessage: (params: { text: string }) => void
@@ -49,9 +59,14 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
   const vadRef = useRef<VadHandle | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
+  const lastFailedBlobRef = useRef<Blob | null>(null)
   const warmUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const interruptedIdsRef = useRef<Set<string>>(new Set())
   const stateSubRef = useRef<{ unsubscribe: () => void } | null>(null)
+  const micLockOwnerIdRef = useRef(createMicLockOwnerId())
+  const micLockRenewTimerRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  )
 
   // Poll the chat session's status from the ref instead of subscribing
   // to it via React deps. The chat session updates dozens of times a
@@ -80,7 +95,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
         transcribeAbortRef.current = ac
         try {
           voiceDebug('transcribe request', { bytes: blob.size })
-          const result = await transcribeAudio(blob)
+          const result = await transcribeAudio(blob, { signal: ac.signal })
           if (ac.signal.aborted) return
           voiceDebug('transcribe response', {
             chars: result.text.length,
@@ -91,6 +106,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
           })
           if (verdict.action === 'drop') {
             voiceDebug('sanitize drop', verdict.reason)
+            lastFailedBlobRef.current = null
             store.send({ type: 'TRANSCRIBE_DROPPED', reason: verdict.reason })
             return
           }
@@ -104,6 +120,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
           track(SIDEPANEL_VOICE_MODE_TURN_CAPTURED_EVENT, {
             chars: verdict.text.length,
           })
+          lastFailedBlobRef.current = null
           store.send({ type: 'TRANSCRIBE_OK', text: verdict.text })
         } catch (err) {
           if (ac.signal.aborted) return
@@ -113,6 +130,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
           track(SIDEPANEL_VOICE_MODE_TRANSCRIBE_FAILED_EVENT, {
             reason: 'error',
           })
+          lastFailedBlobRef.current = blob
           store.send({ type: 'TRANSCRIBE_FAIL', message })
         }
       }),
@@ -144,6 +162,7 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
   const releaseResources = () => {
     transcribeAbortRef.current?.abort()
     transcribeAbortRef.current = null
+    lastFailedBlobRef.current = null
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       try {
         recorderRef.current.stop()
@@ -164,6 +183,11 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
       clearTimeout(warmUpTimerRef.current)
       warmUpTimerRef.current = null
     }
+    if (micLockRenewTimerRef.current !== null) {
+      clearInterval(micLockRenewTimerRef.current)
+      micLockRenewTimerRef.current = null
+    }
+    void releaseMicLock(micLockOwnerIdRef.current)
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup runs only on unmount; closing over latest refs is intentional
@@ -176,8 +200,18 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
   const open = async (): Promise<void> => {
     if (captureRef.current) return
     try {
+      const acquiredLock = await acquireMicLock(micLockOwnerIdRef.current)
+      if (!acquiredLock) {
+        store.send({ type: 'ERROR', message: MIC_IN_USE_MESSAGE })
+        return
+      }
+
       const capture = await openAudioCapture()
       captureRef.current = capture
+
+      micLockRenewTimerRef.current = setInterval(() => {
+        void renewMicLock(micLockOwnerIdRef.current)
+      }, MIC_LOCK_RENEW_MS)
 
       const monitor = createAudioLevelMonitor({
         bandCount: WAVEFORM_BAND_COUNT,
@@ -304,12 +338,17 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
   }
 
   const retry = () => {
-    // Error state reaches this point only after releaseResources()
-    // ran in open()'s catch, so capture/vad/monitor refs are all
-    // null. Dispatching a store-only RETRY would put the chip back
-    // to "Listening" with no live capture behind it. Re-running
-    // open() reacquires the mic and re-emits OPEN, which clears the
-    // error chip naturally.
+    // If the last failure was a transcription failure, the audio that
+    // failed is still around — resend it instead of asking the user to
+    // speak again. Capture/vad/monitor stay untouched in this path.
+    if (lastFailedBlobRef.current) {
+      store.send({ type: 'RETRY_TRANSCRIBE', blob: lastFailedBlobRef.current })
+      return
+    }
+    // Otherwise the error happened before any audio was captured (e.g.
+    // mic permission), which already ran releaseResources() in open()'s
+    // catch, so capture/vad/monitor refs are all null. Re-running open()
+    // reacquires the mic and re-emits OPEN, which clears the error chip.
     void open()
   }
 

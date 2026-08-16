@@ -216,6 +216,16 @@ export function createVoiceLoopStore() {
         errorMessage: event.message,
       }),
 
+      // Re-runs transcription against the audio that failed last time,
+      // instead of re-opening the mic and waiting for the user to speak
+      // again. The blob only ever travels as an event payload — it is
+      // not (and should not be) part of the serializable context.
+      RETRY_TRANSCRIBE: (ctx, event: { blob: Blob }, enqueue) => {
+        if (ctx.state !== 'error') return ctx
+        enqueue.emit.runTranscribe({ blob: event.blob })
+        return { ...ctx, state: 'transcribing' as const, errorMessage: null }
+      },
+
       AUDIO_LEVELS: (ctx, event: { levels: number[] }) => ({
         ...ctx,
         audioLevels: event.levels,
