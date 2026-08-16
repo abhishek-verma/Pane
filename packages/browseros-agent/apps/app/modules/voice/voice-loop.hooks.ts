@@ -10,6 +10,13 @@ import {
   SIDEPANEL_VOICE_MODE_TURN_CAPTURED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { track } from '@/lib/metrics/track'
+import {
+  acquireMicLock,
+  createMicLockOwnerId,
+  MIC_IN_USE_MESSAGE,
+  releaseMicLock,
+  renewMicLock,
+} from '@/lib/voice/mic-lock'
 import { transcribeAudio } from '@/lib/voice/transcribe-audio'
 import {
   type AudioCaptureHandle,
@@ -29,6 +36,9 @@ import type { VoiceLoopApi } from './voice-types'
 const WARM_UP_MS = 800
 const WAVEFORM_BAND_COUNT = 5
 const STATUS_POLL_MS = 200
+// Well under the mic lock's staleness window, so a long voice-mode session
+// keeps renewing its claim rather than looking abandoned to another window.
+const MIC_LOCK_RENEW_MS = 5_000
 
 export interface ChatSessionLike {
   sendMessage: (params: { text: string }) => void
@@ -53,6 +63,10 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
   const warmUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const interruptedIdsRef = useRef<Set<string>>(new Set())
   const stateSubRef = useRef<{ unsubscribe: () => void } | null>(null)
+  const micLockOwnerIdRef = useRef(createMicLockOwnerId())
+  const micLockRenewTimerRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  )
 
   // Poll the chat session's status from the ref instead of subscribing
   // to it via React deps. The chat session updates dozens of times a
@@ -169,6 +183,11 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
       clearTimeout(warmUpTimerRef.current)
       warmUpTimerRef.current = null
     }
+    if (micLockRenewTimerRef.current !== null) {
+      clearInterval(micLockRenewTimerRef.current)
+      micLockRenewTimerRef.current = null
+    }
+    void releaseMicLock(micLockOwnerIdRef.current)
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup runs only on unmount; closing over latest refs is intentional
@@ -181,8 +200,18 @@ export function useVoiceLoop(opts: UseVoiceLoopOptions): VoiceLoopApi {
   const open = async (): Promise<void> => {
     if (captureRef.current) return
     try {
+      const acquiredLock = await acquireMicLock(micLockOwnerIdRef.current)
+      if (!acquiredLock) {
+        store.send({ type: 'ERROR', message: MIC_IN_USE_MESSAGE })
+        return
+      }
+
       const capture = await openAudioCapture()
       captureRef.current = capture
+
+      micLockRenewTimerRef.current = setInterval(() => {
+        void renewMicLock(micLockOwnerIdRef.current)
+      }, MIC_LOCK_RENEW_MS)
 
       const monitor = createAudioLevelMonitor({
         bandCount: WAVEFORM_BAND_COUNT,

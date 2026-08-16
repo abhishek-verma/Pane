@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  acquireMicLock,
+  createMicLockOwnerId,
+  MIC_IN_USE_MESSAGE,
+  releaseMicLock,
+  renewMicLock,
+} from '@/lib/voice/mic-lock'
 import { transcribeAudio } from '@/lib/voice/transcribe-audio'
 import {
   type AudioCaptureHandle,
@@ -10,6 +17,10 @@ import {
   createAudioLevelMonitor,
   emptySample,
 } from './audio-level-monitor'
+
+// Well under the mic lock's staleness window, so a long recording keeps
+// renewing its claim rather than looking abandoned to another window.
+const MIC_LOCK_RENEW_MS = 5_000
 
 const WAVEFORM_BAND_COUNT = 5
 
@@ -58,6 +69,10 @@ export function useVoiceInput(): UseVoiceInputReturn {
   const chunksRef = useRef<Blob[]>([])
   const lastFailedBlobRef = useRef<Blob | null>(null)
   const transcribeAbortRef = useRef<AbortController | null>(null)
+  const micLockOwnerIdRef = useRef(createMicLockOwnerId())
+  const micLockRenewTimerRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  )
 
   const releaseAll = () => {
     monitorRef.current?.stop()
@@ -66,6 +81,11 @@ export function useVoiceInput(): UseVoiceInputReturn {
     captureRef.current = null
     setAudioLevel(0)
     setAudioLevels(EMPTY_LEVELS)
+    if (micLockRenewTimerRef.current !== null) {
+      clearInterval(micLockRenewTimerRef.current)
+      micLockRenewTimerRef.current = null
+    }
+    void releaseMicLock(micLockOwnerIdRef.current)
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup only needs to run on unmount
@@ -91,8 +111,18 @@ export function useVoiceInput(): UseVoiceInputReturn {
       setCanRetry(false)
       chunksRef.current = []
 
+      const acquiredLock = await acquireMicLock(micLockOwnerIdRef.current)
+      if (!acquiredLock) {
+        setError(MIC_IN_USE_MESSAGE)
+        return false
+      }
+
       const capture = await openAudioCapture()
       captureRef.current = capture
+
+      micLockRenewTimerRef.current = setInterval(() => {
+        void renewMicLock(micLockOwnerIdRef.current)
+      }, MIC_LOCK_RENEW_MS)
 
       const monitor = createAudioLevelMonitor({
         bandCount: WAVEFORM_BAND_COUNT,
