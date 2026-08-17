@@ -17,8 +17,10 @@ import {
   MemoryWriteRejectedError,
 } from '@browseros/memory/scan'
 import { assertSkillFetchUrlAllowed } from '@browseros/memory/skill-url'
+import type { SkillProvenance } from '@browseros/memory/types'
 import { logger } from '../lib/logger'
 import {
+  deleteSkillFiles,
   ensureMemoriesLayout,
   memoriesRoot,
   readSkillFile,
@@ -26,6 +28,7 @@ import {
 } from './files'
 import { assertMemoryAddFits } from './prompt-budget'
 import {
+  deleteSkillRecord,
   demoteEntry,
   getSkill,
   getSkillByIdOrName,
@@ -43,6 +46,86 @@ const LOW_SUCCESS_THRESHOLD = 0.4
 const LOW_SUCCESS_MIN_USES = 5
 const UNRECALLED_MEMORY_DAYS = 30
 const SKILL_FETCH_MAX_REDIRECTS = 3
+
+/** Built-in skill ids all use this prefix (see memory/builtin-skills.ts). */
+const BUILTIN_SKILL_ID_PREFIX = 'builtin-'
+
+function isBuiltinSkillId(id: string): boolean {
+  return id.startsWith(BUILTIN_SKILL_ID_PREFIX)
+}
+
+export class SkillNotDeletableError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SkillNotDeletableError'
+  }
+}
+
+/**
+ * Permanently remove a non-built-in skill (files + DB row). Built-in skills
+ * are reseeded on every startup (ensureBuiltinSkills) and can only be
+ * archived, never deleted.
+ */
+export async function removeSkill(
+  id: string,
+  options: { memoriesRoot?: string } = {},
+): Promise<void> {
+  if (isBuiltinSkillId(id)) {
+    throw new SkillNotDeletableError(
+      `"${id}" is a built-in skill and can't be deleted — archive it instead.`,
+    )
+  }
+  await deleteSkillFiles(id, options.memoriesRoot)
+  deleteSkillRecord(id)
+}
+
+/** Author and install a new skill from a full SKILL.md body (agent- or user-written). */
+export async function installSkillFromAuthoredBody(
+  body: string,
+  options: {
+    id?: string
+    provenance?: Extract<SkillProvenance, 'agent-written' | 'user-written'>
+    bucketId?: string
+    memoriesRoot?: string
+  } = {},
+): Promise<string> {
+  const parsed = parseSkillFrontmatter(body, 'agent-skill')
+  const id =
+    options.id?.trim() ||
+    parsed.name.toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
+  if (isBuiltinSkillId(id)) {
+    throw new SkillFetchError(
+      `Skill id "${id}" is reserved for built-in skills — choose a different id or name.`,
+    )
+  }
+  await installSkillFromBody({
+    id,
+    body,
+    provenance: options.provenance ?? 'agent-written',
+    bucketId: options.bucketId ?? DEFAULT_BUCKET_ID,
+    memoriesRoot: options.memoriesRoot,
+  })
+  return id
+}
+
+/**
+ * Activates any skill still sitting in the (removed) staging gate — a
+ * one-time migration for installs upgrading from before self-authored
+ * skills went live immediately. No-op once nothing is staged.
+ */
+export async function activateAllStagedSkills(
+  memoriesRootPath?: string,
+): Promise<string[]> {
+  const pending = listSkills({ status: 'staged', limit: 200 })
+  const activated: string[] = []
+  for (const skill of pending) {
+    const result = await activateStagedSkill(skill.id, {
+      memoriesRoot: memoriesRootPath,
+    })
+    if (result.ok) activated.push(skill.id)
+  }
+  return activated
+}
 
 export async function activateStagedSkill(
   id: string,
@@ -371,9 +454,14 @@ export async function installSkillFromUrl(
   return id
 }
 
-/** Install from a local path or remote URL. */
+/**
+ * Install a skill from a local path, a remote URL, or (unlike the other two,
+ * which import someone else's file) by authoring a full SKILL.md body
+ * directly — the path an agent with no connected workspace still uses to
+ * turn a workflow it just ran into something reusable next time.
+ */
 export async function installSkillFromSource(
-  source: { path?: string; url?: string },
+  source: { path?: string; url?: string; body?: string },
   options: {
     id?: string
     bucketId?: string
@@ -381,8 +469,11 @@ export async function installSkillFromSource(
     allowAnyLocalPath?: boolean
   } = {},
 ): Promise<string> {
-  if (source.path && source.url) {
-    throw new SkillFetchError('Provide either path or url, not both')
+  const provided = [source.path, source.url, source.body].filter(
+    (v) => v != null && v !== '',
+  ).length
+  if (provided !== 1) {
+    throw new SkillFetchError('Provide exactly one of path, url, or body')
   }
   if (source.url) {
     return installSkillFromUrl(source.url, options)
@@ -390,5 +481,5 @@ export async function installSkillFromSource(
   if (source.path) {
     return installSkillFromPath(source.path, options)
   }
-  throw new SkillFetchError('Provide a local path or https URL')
+  return installSkillFromAuthoredBody(source.body as string, options)
 }

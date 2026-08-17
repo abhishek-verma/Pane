@@ -7,9 +7,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import {
-  listStagedSkillIds,
   readPromptFiles,
-  readStagedSkill,
   seedPromptFilesIfMissing,
   writePromptFileAndReindex,
 } from '../../memory/files'
@@ -22,11 +20,11 @@ import {
 } from '../../memory/personas'
 import { runSkillReviewJob } from '../../memory/review-job'
 import {
-  activateStagedSkill,
   archiveSkill,
   installSkillFromSource,
-  rejectStagedSkill,
+  removeSkill,
   runCurationPass,
+  SkillNotDeletableError,
 } from '../../memory/skills'
 import {
   forgetMemoryEntry,
@@ -39,10 +37,6 @@ import type { Env } from '../types'
 
 const PutFileSchema = z.object({
   content: z.string(),
-})
-
-const ApproveSchema = z.object({
-  id: z.string().min(1),
 })
 
 const ImportSchema = z
@@ -118,26 +112,6 @@ export function createMemoryRoutes() {
         }),
       })
     })
-    .get('/skills/staged', async (c) => {
-      const ids = await listStagedSkillIds()
-      const items = []
-      for (const id of ids) {
-        const body = await readStagedSkill(id)
-        items.push({ id, body })
-      }
-      return c.json({ staged: items })
-    })
-    .post('/skills/staged/approve', async (c) => {
-      const body = ApproveSchema.parse(await c.req.json())
-      const result = await activateStagedSkill(body.id)
-      if (!result.ok) return c.json(result, 400)
-      return c.json(result)
-    })
-    .post('/skills/staged/reject', async (c) => {
-      const body = ApproveSchema.parse(await c.req.json())
-      await rejectStagedSkill(body.id)
-      return c.json({ ok: true })
-    })
     .post('/skills/import', async (c) => {
       const body = ImportSchema.parse(await c.req.json())
       try {
@@ -163,6 +137,17 @@ export function createMemoryRoutes() {
     .post('/skills/:id/archive', async (c) => {
       await archiveSkill(c.req.param('id'))
       return c.json({ ok: true })
+    })
+    .delete('/skills/:id', async (c) => {
+      try {
+        await removeSkill(c.req.param('id'))
+        return c.json({ ok: true })
+      } catch (err) {
+        if (err instanceof SkillNotDeletableError || err instanceof Error) {
+          return c.json({ error: err.message }, 400)
+        }
+        throw err
+      }
     })
     .post('/review/run', async (c) => {
       const result = await runSkillReviewJob({ skipBatteryCheck: true })

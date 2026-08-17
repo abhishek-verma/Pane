@@ -104,16 +104,16 @@ const outcomeFeatures: StoryFeature[] = [
   {
     id: 'learning-loop',
     Icon: Brain,
-    tag: 'STAGED',
+    tag: 'LEARNING',
     title: 'Gets better at your work',
     description:
-      'Editable local memory and staged skill drafts let useful parts of prior work carry into the next task.',
+      'Editable local memory and self-written skills let useful parts of prior work carry into the next task.',
     detailedDescription:
-      'Pane keeps plain local memory files you can inspect, edit, or delete. Repeated successful tool runs can produce a proposed skill, but the workflow is deliberately staged: the draft waits for review and does not activate itself. This is the early foundation for a deeper learning loop.',
+      'Pane keeps plain local memory files you can inspect, edit, or delete, and writes new skills itself — either when it notices a repeating workflow, or when you ask it to remember how you like something done. Skills go live immediately in Settings > Memory & Skills; no separate review step.',
     highlights: [
       'SOUL.md, USER.md, and MEMORY.md stay editable',
-      'Skill candidates come from repeated successful runs',
-      'Drafts remain staged until you review them',
+      'Pane writes new skills from repeated successful runs',
+      'Skills activate immediately — delete or archive anytime',
       'The full self-improving loop is still maturing',
     ],
     gifUrl: SKILLS_GIF_URL,
@@ -491,7 +491,7 @@ export const FeaturesPage: FC = () => {
                   ],
                   [
                     'SKILLS',
-                    'Proposed drafts stay staged until you review them.',
+                    'Activate immediately; delete or archive anytime.',
                   ],
                   [
                     'SCHEDULES',

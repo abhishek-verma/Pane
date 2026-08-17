@@ -83,6 +83,7 @@ const WRITE_LOCAL_TASK_TOOLS = new Set([
   'user_edit',
   'skills_install',
   'skills_archive',
+  'skills_delete',
   'capture_start',
   'capture_stop',
   'pi_site_upsert',
@@ -488,5 +489,49 @@ export function describeToolCall(
     const href = typeof args.href === 'string' ? args.href : ''
     return href ? `open ${href}` : 'open PI page'
   }
+  if (toolName === 'soul_edit') {
+    const content = typeof args.content === 'string' ? args.content : ''
+    return `Update SOUL.md (persona, voice, boundaries):\n${previewText(content)}`
+  }
+  if (toolName === 'user_edit') {
+    const content = typeof args.content === 'string' ? args.content : ''
+    return `Update USER.md (your profile):\n${previewText(content)}`
+  }
+  if (toolName === 'memory_add' || toolName === 'memory_replace') {
+    const content = typeof args.content === 'string' ? args.content : ''
+    return `Remember: ${previewText(content, 200)}`
+  }
+  if (toolName === 'memory_remove') {
+    const match = typeof args.match === 'string' ? args.match : ''
+    return `Forget memory matching "${match}"`
+  }
+  if (toolName === 'skills_install') {
+    if (typeof args.body === 'string') {
+      const id = typeof args.id === 'string' ? args.id : ''
+      const label = id || '(new skill)'
+      return `Save new skill "${label}":\n${previewText(args.body, 300)}`
+    }
+    const source =
+      typeof args.url === 'string'
+        ? args.url
+        : typeof args.path === 'string'
+          ? args.path
+          : '(source)'
+    return `Install skill from ${source}`
+  }
+  if (toolName === 'skills_archive') {
+    const id = typeof args.id === 'string' ? args.id : ''
+    return `Archive skill: ${id}`
+  }
+  if (toolName === 'skills_delete') {
+    const id = typeof args.id === 'string' ? args.id : ''
+    return `Permanently delete skill: ${id}`
+  }
   return toolName
+}
+
+function previewText(text: string, maxChars = 400): string {
+  const trimmed = text.trim()
+  if (trimmed.length <= maxChars) return trimmed
+  return `${trimmed.slice(0, maxChars)}…`
 }

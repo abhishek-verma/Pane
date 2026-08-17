@@ -6,7 +6,7 @@
  * File IO for ~/.browseros/memories/. Files are the source of truth.
  */
 
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   DEFAULT_MEMORY_TEMPLATE,
@@ -133,7 +133,13 @@ export async function removeMemoryFileLine(
   return true
 }
 
+/** Every real skill id (builtin- prefix or sanitized kebab-case) matches this. */
+const VALID_SKILL_ID = /^[a-z0-9_-]+$/
+
 export function skillDir(skillId: string, root?: string): string {
+  if (!VALID_SKILL_ID.test(skillId)) {
+    throw new Error(`Invalid skill id: ${JSON.stringify(skillId)}`)
+  }
   return join(memoriesRoot(root), SKILLS_DIR, skillId)
 }
 
@@ -151,6 +157,14 @@ export async function writeSkillFile(
   const path = skillFilePath(skillId, root)
   await writeFile(path, body, 'utf-8')
   return path
+}
+
+/** Permanently removes a skill's on-disk directory (SKILL.md and any assets). */
+export async function deleteSkillFiles(
+  skillId: string,
+  root?: string,
+): Promise<void> {
+  await rm(skillDir(skillId, root), { recursive: true, force: true })
 }
 
 export async function readSkillFile(
@@ -188,27 +202,4 @@ export async function writeStagedSkill(
   const path = join(base, STAGING_DIR, `${skillId}.md`)
   await writeFile(path, body, 'utf-8')
   return path
-}
-
-export async function readStagedSkill(
-  skillId: string,
-  root?: string,
-): Promise<string | null> {
-  const base = memoriesRoot(root)
-  return (await readOrEmpty(join(base, STAGING_DIR, `${skillId}.md`))) || null
-}
-
-export async function listStagedSkillIds(root?: string): Promise<string[]> {
-  const base = await ensureMemoriesLayout(root)
-  const staging = join(base, STAGING_DIR)
-  try {
-    const entries = await readdir(staging)
-    return entries
-      .filter((name) => name.endsWith('.md'))
-      .map((name) => name.replace(/\.md$/, ''))
-      .sort()
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return []
-    throw err
-  }
 }

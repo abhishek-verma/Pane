@@ -9,8 +9,7 @@ import { assertMemoryContent } from '@browseros/memory/scan'
 import { getDeniedHosts } from '../context/grants'
 import { graphAddEdge, graphAddEvent, graphUpsertNode } from '../context/repo'
 import { getDbHandle } from '../lib/db'
-import { writeStagedSkill } from '../memory/files'
-import { upsertSkillRecord } from '../memory/store'
+import { installSkillFromBody } from '../memory/store'
 import { getCapturePausedReason } from './performance'
 
 function isUrlDenied(url: string, bucketId: string): boolean {
@@ -57,7 +56,7 @@ export async function observeBrowsingLearning(
   const stagedSkillId = `capture-learning-${crypto.randomUUID()}`
   const body = `---
 name: Browsing learning from ${new URL(input.url).hostname}
-description: Capture-derived workflow candidate staged for review.
+description: Capture-derived workflow candidate, auto-saved from browsing.
 ---
 
 # Browsing Learning
@@ -66,15 +65,12 @@ Source: ${input.url}
 
 ${digest}
 `
-  await writeStagedSkill(stagedSkillId, body)
-  upsertSkillRecord({
+  await installSkillFromBody({
     id: stagedSkillId,
-    name: `Browsing learning: ${input.title ?? new URL(input.url).hostname}`,
-    description: 'Capture-derived workflow candidate staged for review.',
+    body,
     provenance: 'agent-written',
     sourceRun: 'capture:browsing',
     bucketId,
-    status: 'staged',
   })
   graphAddEvent({
     bucketId,

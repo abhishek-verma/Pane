@@ -299,7 +299,7 @@ describe('Chat durability checkpoints', () => {
     let stepPersists = 0
 
     streamResponseHandler = async ({ onStepFinish, onFinish, uiMessages }) => {
-      const user = uiMessages![0]!
+      const user = uiMessages![0]
       const step1 = [
         user,
         {

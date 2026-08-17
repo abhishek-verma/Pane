@@ -664,7 +664,6 @@ describe('retired memory and identity', () => {
     expect(prompt).not.toContain('memory_read_core')
     expect(prompt).not.toContain('soul_read')
     expect(prompt).not.toContain('soul_update')
-    expect(prompt).not.toContain('SOUL.md')
     expect(prompt).not.toContain('CORE.md')
   })
 

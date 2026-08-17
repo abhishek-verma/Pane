@@ -536,6 +536,7 @@ export async function installSkillFromBody(input: {
   id: string
   body: string
   provenance: SkillProvenance
+  sourceRun?: string | null
   bucketId?: string
   memoriesRoot?: string
 }): Promise<SkillRecord> {
@@ -547,6 +548,7 @@ export async function installSkillFromBody(input: {
     name,
     description,
     provenance: input.provenance,
+    sourceRun: input.sourceRun,
     bucketId: input.bucketId,
     status: 'active',
   })
@@ -580,4 +582,9 @@ export function setSkillStatus(id: string, status: SkillStatus): void {
   sqlite()
     .prepare(`UPDATE skills SET status = ?, updated_at = ? WHERE id = ?`)
     .run(status, now(), id)
+}
+
+/** Permanently removes a skill's DB row. Callers must also delete its files. */
+export function deleteSkillRecord(id: string): void {
+  sqlite().prepare(`DELETE FROM skills WHERE id = ?`).run(id)
 }
