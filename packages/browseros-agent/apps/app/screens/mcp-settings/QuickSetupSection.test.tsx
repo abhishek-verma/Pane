@@ -48,8 +48,21 @@ describe('QuickSetupSection', () => {
     const html = render()
 
     expect(html).toContain(
-      'claude mcp add --transport http pane http://127.0.0.1:9200/mcp --scope user',
+      'claude mcp add --transport http pane &#x27;http://127.0.0.1:9200/mcp&#x27; --scope user',
     )
+  })
+
+  it('single-quotes the URL in shell command snippets so a query param survives a paste into zsh', () => {
+    // The real getMcpServerUrl() embeds ?browserosProfileId=<uuid>. An
+    // unquoted `?` is a glob metacharacter in zsh (macOS default shell) —
+    // pasted bare, the command fails with "zsh: no matches found".
+    const url = 'http://127.0.0.1:9200/mcp?browserosProfileId=test-profile-id'
+    const html = render(url)
+
+    expect(html).toContain(
+      `claude mcp add --transport http pane &#x27;${url}&#x27; --scope user`,
+    )
+    expect(html).toContain(`codex mcp add pane &#x27;${url}&#x27;`)
   })
 
   it('renders Claude Desktop setup as an mcp-remote command wrapper', () => {

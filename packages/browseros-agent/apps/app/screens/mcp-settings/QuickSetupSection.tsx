@@ -51,8 +51,11 @@ const clients: ClientConfig[] = [
     name: 'Claude Code',
     kind: 'command',
     action: 'Run in your terminal:',
+    // Single-quote the URL: it carries a query param (browserosProfileId),
+    // and an unquoted `?` is a glob metacharacter in zsh (macOS default) —
+    // pasted bare, `zsh: no matches found` would kill the command.
     getSnippet: (url) =>
-      `claude mcp add --transport http pane ${url} --scope user`,
+      `claude mcp add --transport http pane '${url}' --scope user`,
   },
   {
     id: 'claude-desktop',
@@ -86,7 +89,8 @@ const clients: ClientConfig[] = [
     name: 'Codex',
     kind: 'command',
     action: 'Run in your terminal:',
-    getSnippet: (url) => `codex mcp add pane ${url}`,
+    // Quoted for the same reason as claude-code above.
+    getSnippet: (url) => `codex mcp add pane '${url}'`,
   },
 ]
 
