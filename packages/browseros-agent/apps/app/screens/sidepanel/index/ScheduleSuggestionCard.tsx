@@ -92,9 +92,9 @@ export const ScheduleSuggestionCard: FC<ScheduleSuggestionCardProps> = ({
 
       <div className="flex items-start gap-3 pr-6">
         {createdJob ? (
-          <Check className="h-4 w-4 shrink-0 text-green-500" />
+          <Check className="h-4 w-4 shrink-0 text-signal" />
         ) : (
-          <Clock className="h-4 w-4 shrink-0 text-[var(--accent-orange)]" />
+          <Clock className="h-4 w-4 shrink-0 text-signal" />
         )}
         <div>
           <p className="font-medium text-sm">

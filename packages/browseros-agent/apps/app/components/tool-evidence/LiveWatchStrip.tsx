@@ -38,9 +38,9 @@ function liveWatchDotClass(args: {
   sparse: boolean
 }): string {
   if (args.status === 'connected' && args.hasBlob && !args.sparse) {
-    return 'animate-pulse bg-emerald-500'
+    return 'animate-pulse bg-signal'
   }
-  if (args.status === 'connected' && args.sparse) return 'bg-amber-500/80'
+  if (args.status === 'connected' && args.sparse) return 'bg-signal/50'
   return 'bg-muted-foreground/40'
 }
 

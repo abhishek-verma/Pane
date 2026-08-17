@@ -970,15 +970,15 @@
 .agent-approval {
   border-radius: 0;
   border: none;
-  border-left: 2px solid oklch(0.75 0.12 85);
-  background: oklch(from oklch(0.85 0.12 85) l c h / 0.12);
+  border-left: 2px solid oklch(from var(--destructive) l c h / 0.7);
+  background: oklch(from var(--destructive) l c h / 0.1);
   padding: 0.75rem;
   box-shadow: none;
 }
 
 .dark .agent-approval {
-  border-left-color: oklch(0.78 0.12 85);
-  background: oklch(from oklch(0.7 0.12 85) l c h / 0.1);
+  border-left-color: oklch(from var(--destructive) l c h / 0.75);
+  background: oklch(from var(--destructive) l c h / 0.12);
 }
 
 @keyframes voice-persona-breath {

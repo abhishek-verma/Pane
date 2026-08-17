@@ -40,7 +40,7 @@ export const FileChangeCard: FC<{
               {title}
             </span>
             {stats ? (
-              <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
                 {stats}
               </span>
             ) : null}
