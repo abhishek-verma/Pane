@@ -212,7 +212,7 @@ export const Chat = () => {
 
   return (
     <>
-      <main className="mt-4 flex h-full flex-1 flex-col space-y-4 overflow-y-auto">
+      <main className="mt-4 flex h-full min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
         {isRestoringConversation ? (
           <div className="flex flex-1 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
