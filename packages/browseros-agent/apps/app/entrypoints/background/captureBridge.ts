@@ -248,7 +248,7 @@ async function startCaptureAudio(
  * icon-only UIs or future Zoom clients where the DOM probe returns nothing useful).
  */
 async function shouldStartCaptureForState(
-  adapter: MeetingSiteAdapter,
+  _adapter: MeetingSiteAdapter,
   tabId: number,
   callState: Awaited<ReturnType<typeof getMeetingTabCallState>>,
 ): Promise<boolean> {

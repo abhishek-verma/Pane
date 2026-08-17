@@ -124,7 +124,48 @@ export const ChatFooter: FC<ChatFooterProps> = ({
       )}
 
       <div className="px-3 pt-2 pb-3">
-        <div className="flex items-center gap-2">
+        <VoiceModeArea voiceLoop={voiceLoop}>
+          <ChatInput
+            input={input}
+            status={status}
+            mode={mode}
+            sendDisabled={sendDisabled}
+            isTurnActive={isTurnActive}
+            onInputChange={onInputChange}
+            onSubmit={onSubmit}
+            onStop={onStop}
+            selectedTabs={attachedTabs}
+            onToggleTab={onToggleTab}
+            onTabMentionOpenChange={setIsTabMentionOpen}
+            voice={voice}
+            onOpenVoiceMode={onOpenVoiceMode}
+            ref={chatInputRef}
+          />
+        </VoiceModeArea>
+
+        {voice?.error && (
+          <div className="mt-1 flex items-center gap-1.5 text-destructive text-xs">
+            <span>{voice.error}</span>
+            {voice.canRetry && (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-destructive text-xs underline"
+                onClick={voice.retryTranscription}
+              >
+                Retry
+              </Button>
+            )}
+          </div>
+        )}
+        {voice?.isTranscribing && voice.partialTranscript && (
+          <div className="mt-1 truncate text-muted-foreground text-xs italic">
+            {voice.partialTranscript}
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center gap-2">
           <ChatModeToggle mode={mode} onModeChange={onModeChange} />
 
           <div className="h-4 w-px bg-border/50" />
@@ -142,7 +183,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
             >
               <Layers className="h-4 w-4" />
               {attachedTabs.length > 0 && (
-                <span className="font-medium text-[var(--accent-orange)] text-xs">
+                <span className="font-medium text-signal text-xs">
                   {attachedTabs.length}
                 </span>
               )}
@@ -167,7 +208,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
                 <div className="relative">
                   <Folder className="h-4 w-4" />
                   {selectedFolder && (
-                    <div className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-[var(--accent-orange)]" />
+                    <div className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-signal" />
                   )}
                 </div>
                 <ChevronDown className="h-3 w-3" />
@@ -189,47 +230,6 @@ export const ChatFooter: FC<ChatFooterProps> = ({
             </button>
           </div>
         </div>
-
-        {voice?.error && (
-          <div className="mt-1 flex items-center gap-1.5 text-destructive text-xs">
-            <span>{voice.error}</span>
-            {voice.canRetry && (
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-destructive text-xs underline"
-                onClick={voice.retryTranscription}
-              >
-                Retry
-              </Button>
-            )}
-          </div>
-        )}
-        {voice?.isTranscribing && voice.partialTranscript && (
-          <div className="mt-1 truncate text-muted-foreground text-xs italic">
-            {voice.partialTranscript}
-          </div>
-        )}
-
-        <VoiceModeArea voiceLoop={voiceLoop}>
-          <ChatInput
-            input={input}
-            status={status}
-            mode={mode}
-            sendDisabled={sendDisabled}
-            isTurnActive={isTurnActive}
-            onInputChange={onInputChange}
-            onSubmit={onSubmit}
-            onStop={onStop}
-            selectedTabs={attachedTabs}
-            onToggleTab={onToggleTab}
-            onTabMentionOpenChange={setIsTabMentionOpen}
-            voice={voice}
-            onOpenVoiceMode={onOpenVoiceMode}
-            ref={chatInputRef}
-          />
-        </VoiceModeArea>
       </div>
     </footer>
   )

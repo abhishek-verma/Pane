@@ -697,10 +697,16 @@ function getMemoryAndSkillsGuidance(
   const chatMode = Boolean(options?.chatMode)
   const hasWorkspace = !!options?.workspaceDir && !chatMode
 
+  let section = 0
+  const nextSection = () => {
+    section += 1
+    return section
+  }
+
   let body = `<memory_and_skills_guidance>
 ## Memory & Skills Management
 
-### 1. Unified Context & Memory Search
+### ${nextSection()}. Unified Context & Memory Search
 - For **meetings / calls / transcripts**, start with \`capture_list\` then \`capture_read\`. Do not use filesystem tools on capture paths.
 - Use \`context_search\` with the user's natural question (or a short topic). It runs hybrid FTS + local embeddings. Do not hand-craft long AND keyword lists. If it returns suggestions after a miss, follow them (\`filesystem_ls\`, \`capture_list\`, \`session_search\`). For full meeting text, use \`capture_read\`.
 - Use \`session_search\` when the user asks about a prior chat ("did we discuss…").
@@ -710,38 +716,49 @@ function getMemoryAndSkillsGuidance(
 
   if (!chatMode) {
     body += `
-### 2. Memory Lifecycle (Concise Fact Summaries Only)
+### ${nextSection()}. Memory Lifecycle (Concise Fact Summaries Only)
 - **Top-of-mind rules**: Memories must remain concise, high-level summaries and "top-of-mind" facts to avoid clogging the prompt budget. Do NOT store large tables, detailed research logs, or raw code in memory.${hasWorkspace ? ' Instead, save detailed files to the Workspace.' : ''}
 - **Creating/Adding**: Call \`memory_add\` when the user explicitly asks you to remember something, or proactively when you learn a persistent high-level fact (e.g. user preferences, API key locations, project base folders).
 - **Updating**: Call \`memory_replace\` when a fact or preference is modified or updated.
 - **Removing**: Call \`memory_remove\` when the user asks to forget a fact or when it becomes obsolete.
+
+### ${nextSection()}. Building SOUL.md & USER.md (persona and profile)
+- \`<soul>\` and \`<user_profile>\` above are the same SOUL.md / USER.md shown in Settings > Memory & Skills. Edits via \`soul_edit\`/\`user_edit\` apply for the rest of *this* conversation once approved — they are not a no-op.
+- Filling these in is a standing background goal, especially in a user's first several sessions: if \`<user_profile>\` still has unknown/placeholder fields (name, role, timezone, preferences), look for a natural moment to fill them in — either because the user just told you something durable, or by asking one short, low-friction question. Never more than one such question per session, and never as the opening line of a reply.
+- Update USER.md when you learn durable facts: name, role/company, timezone, communication style, recurring tools or sites, stated preferences ("always ask before X", "prefer Y format"). Prefer small, incremental edits — read the current \`<user_profile>\` first and edit it, don't discard it.
+- Update SOUL.md only when the user explicitly asks you to behave differently, or you notice a stable, repeated correction to your tone or behavior. Do not put user facts in SOUL.md.
+- Do not narrate this as a checklist to the user ("let me fill in your profile") — do it the way a competent assistant remembers things, as a side effect of the conversation.
 `
   } else {
     body += `
-### 2. Read-only chat mode
+### ${nextSection()}. Read-only chat mode
 - You can recall and search memory/context, but you cannot add, replace, or remove memories in this mode.
-- You cannot install skills, mutate tasks or PI sites, or start/stop captures.
+- You cannot install or write skills, mutate tasks or PI sites, or start/stop captures.
 `
   }
 
   if (hasWorkspace) {
     body += `
-### 3. Workspace (Knowledge & Files Workspace)
+### ${nextSection()}. Workspace (Knowledge & Files Workspace)
 - The Workspace (working directory) is your long-term context store for structured documents, spreadsheets, tables, templates, and research logs.
 - Save detailed multi-page research, CSV files (e.g. job trackers), market notes, and multidimensional logs in workspace files rather than memory.
 `
   }
 
   body += `
-### ${hasWorkspace ? '4' : '3'}. Custom Skills
+### ${nextSection()}. Custom Skills
 - Use \`skills_list\` to see active skills (name and description).
 - Load full instructions using \`skills_load\` before running a task that matches an active skill in the skill index.
 ${
   chatMode
     ? ''
-    : '- Use `skills_install` when installing new workflows or guides.\n'
+    : `- \`skills_install\` covers three cases: a local SKILL.md path, an https URL (agentskills.io) — or, with \`body\` instead of path/url, authoring one yourself right now from a full SKILL.md you write (frontmatter \`name\`/\`description\` + numbered steps). Once approved it is active immediately and appears in the skill index for future sessions — no separate review step.
+- **This is on you, not a background job**: before you consider a task finished, check whether the sequence of tool calls you just ran for the user is one you've now done 2-3+ times in a way that generalizes (not a one-off, single-use task). If so, author it with \`skills_install\` (\`body\`) before you stop — don't wait to be asked, and don't assume it'll get picked up automatically later. Skip it for anything that only makes sense once.
+- **Keep skills correct, not just growing**: if \`skills_load\`ing an existing skill turns up steps that are stale, wrong, or missing something you just learned, fix it — call \`skills_list\` for its exact id, then \`skills_install\` with \`body\` + that same id to overwrite it in place. Do not author a new near-duplicate skill for a workflow that already has one; update the existing one instead.
+- Keep authored skills narrow and honest about when to use / not use them. Use \`skills_archive\` to retire one that's stale and no longer worth fixing, or \`skills_delete\` to permanently remove one that was a mistake, a duplicate, or that the user asks you to remove. Never delete a built-in skill (id starts with \`builtin-\`) — archive it instead.
+`
 }
-### ${hasWorkspace ? '5' : '4'}. Context
+### ${nextSection()}. Context
 - Context is your short-term session state (current window, messages list, page DOM snapshots). It disappears when starting a new chat session.
 </memory_and_skills_guidance>`
 

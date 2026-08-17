@@ -61,7 +61,7 @@ export const ChatHeader: FC<ChatHeaderProps> = ({
         >
           <button
             type="button"
-            className="group relative inline-flex cursor-pointer items-center gap-2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
+            className="group relative inline-flex cursor-pointer items-center gap-2 rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground data-[state=open]:bg-accent"
             title="Change AI Provider"
           >
             {selectedProvider.kind === 'acp' ? (

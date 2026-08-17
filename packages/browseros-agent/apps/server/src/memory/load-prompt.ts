@@ -6,11 +6,13 @@
  * Load files → allocate budget → frozen prompt snapshot for a session.
  */
 
+import { createHash } from 'node:crypto'
 import { DEFAULT_BUCKET_ID } from '@browseros/memory/constants'
 import { ensureBuiltinSkills } from './builtin-skills'
 import { readPromptFiles, seedPromptFilesIfMissing } from './files'
 import { resolveSoulForBucket } from './personas'
 import { allocatePromptMemory, type PromptBudgetResult } from './prompt-budget'
+import { activateAllStagedSkills } from './skills'
 import { bumpSurfaced, listEntries, listSkills } from './store'
 
 export async function loadPromptMemorySnapshot(options: {
@@ -21,6 +23,9 @@ export async function loadPromptMemorySnapshot(options: {
   await seedPromptFilesIfMissing(options.memoriesRoot)
   // Avoid racing startup's fire-and-forget seed: skill index must include builtins.
   await ensureBuiltinSkills({ memoriesRoot: options.memoriesRoot })
+  // One-time migration for installs upgrading from the removed staging gate —
+  // no-op once nothing is left in 'staged' status.
+  await activateAllStagedSkills(options.memoriesRoot)
   const files = await readPromptFiles(options.memoriesRoot)
   const soulResolved = await resolveSoulForBucket(
     bucketId,
@@ -70,4 +75,23 @@ export async function loadPromptMemorySnapshot(options: {
   }
 
   return allocated
+}
+
+/**
+ * Cheap content stamp for SOUL.md + USER.md, used to detect edits made
+ * mid-conversation (via `soul_edit`/`user_edit` or the Settings page) so the
+ * chat service can rebuild the frozen system prompt instead of silently
+ * running the rest of the conversation against stale persona/profile text.
+ */
+export async function getSoulUserFingerprint(options: {
+  bucketId?: string
+  memoriesRoot?: string
+}): Promise<string> {
+  const bucketId = options.bucketId ?? DEFAULT_BUCKET_ID
+  const [soulResolved, files] = await Promise.all([
+    resolveSoulForBucket(bucketId, options.memoriesRoot),
+    readPromptFiles(options.memoriesRoot),
+  ])
+  const raw = `${soulResolved.soul} ${files.user}`
+  return createHash('sha1').update(raw).digest('hex')
 }

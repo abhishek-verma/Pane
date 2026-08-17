@@ -34,7 +34,7 @@ const CopyChip: FC<{ label: string; text: string }> = ({ label, text }) => {
       }}
     >
       {copied ? (
-        <Check className="h-3 w-3 text-green-500" />
+        <Check className="h-3 w-3 text-signal" />
       ) : (
         <Copy className="h-3 w-3" />
       )}
@@ -76,9 +76,7 @@ export const TerminalCard: FC<{ evidence: ToolEvidence }> = ({ evidence }) => {
           <span
             className={cn(
               'shrink-0 font-mono text-[10px] tabular-nums',
-              exitOk
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-destructive',
+              exitOk ? 'text-signal' : 'text-destructive',
             )}
           >
             {exitLabel}

@@ -25,9 +25,8 @@ export const DiffLines: FC<{
             key={i}
             className={cn(
               'whitespace-pre-wrap break-all px-1',
-              isAdd &&
-                'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-              isDel && 'bg-red-500/10 text-red-700 dark:text-red-400',
+              isAdd && 'bg-signal/10 text-signal',
+              isDel && 'bg-destructive/10 text-destructive',
               !isAdd && !isDel && 'text-muted-foreground',
             )}
           >

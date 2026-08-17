@@ -89,7 +89,7 @@ export const GenericToolRow: FC<{
     <Collapsible open={open} onOpenChange={setOpen} className="w-full min-w-0">
       <CollapsibleTrigger className="flex w-full items-center gap-2 py-1 text-left text-muted-foreground text-xs hover:text-foreground">
         <ToolStatusIcon state={evidence.state} />
-        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <span className="min-w-0 flex-1 truncate font-mono">{title}</span>
         <ChevronDown
           className={cn(
             'h-3.5 w-3.5 shrink-0 transition-transform',

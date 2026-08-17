@@ -7,6 +7,7 @@ import {
   it,
   mock,
 } from 'bun:test'
+import { BROWSEROS_PROFILE_ID_QUERY_PARAM } from '@browseros/shared/constants/headers'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { buildChatRequestBody } from '../messaging/server/buildChatRequestBody'
 
@@ -80,7 +81,13 @@ mock.module('@/lib/llm-providers/storage', () => ({
 
 mock.module('@/lib/browseros/helpers', () => ({
   getAgentServerUrl: async () => 'http://127.0.0.1:9105',
-  getMcpServerUrl: async () => 'http://127.0.0.1:9106/mcp',
+  // bun's mock.module has no per-file scope — this stub stays bound for the
+  // rest of the process once any other test file imports the real module
+  // (see lib/browseros/helpers.test.ts). Keep the shape realistic (query
+  // param present) so a test that ends up seeing this stub instead of the
+  // real implementation still sees a structurally valid URL.
+  getMcpServerUrl: async () =>
+    `http://127.0.0.1:9106/mcp?${BROWSEROS_PROFILE_ID_QUERY_PARAM}=test-fallback-profile-id`,
   getHealthCheckUrl: async () => 'http://127.0.0.1:9106/health',
   getProxyPort: async () => 9106,
 }))

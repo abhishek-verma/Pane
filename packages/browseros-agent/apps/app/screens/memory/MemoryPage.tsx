@@ -9,16 +9,12 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  useMemoryFiles,
-  useMemorySkills,
-  usePersonas,
-  useStagedSkills,
-} from './useMemoryApi'
+import { useMemoryFiles, useMemorySkills, usePersonas } from './useMemoryApi'
+
+const BUILTIN_SKILL_PREFIX = 'builtin-'
 
 export const MemoryPage: FC = () => {
   const { data, isLoading, error, save } = useMemoryFiles()
-  const staged = useStagedSkills()
   const skills = useMemorySkills()
   const personas = usePersonas()
 
@@ -109,68 +105,62 @@ export const MemoryPage: FC = () => {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-medium text-sm">Staged skills</h2>
-        {(staged.data?.staged ?? []).length === 0 && (
-          <p className="text-muted-foreground text-sm">
-            No skills waiting for review. Pane proposes skills when it notices
-            repeating patterns in your workflow — they'll appear here for your
-            approval.
-          </p>
-        )}
-        <ul className="space-y-3">
-          {(staged.data?.staged ?? []).map((s) => (
-            <li key={s.id} className="rounded-lg border px-3 py-2 text-sm">
-              <div className="font-medium">{s.id}</div>
-              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs">
-                {s.body?.slice(0, 800)}
-              </pre>
-              <div className="mt-2 flex gap-2">
-                <Button size="sm" onClick={() => staged.approve.mutate(s.id)}>
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => staged.reject.mutate(s.id)}
-                >
-                  Reject
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="space-y-3">
         <h2 className="font-medium text-sm">Skills</h2>
+        <p className="text-muted-foreground text-sm">
+          Pane saves a new skill here whenever it notices a repeating workflow,
+          or when you ask it to remember how to do something. Every skill listed
+          here is already active — no approval step.
+        </p>
         <ul className="space-y-2">
-          {(skills.data?.skills ?? []).map((s) => (
-            <li
-              key={s.id}
-              className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
-            >
-              <div>
-                <div className="font-medium">
-                  {s.name}{' '}
-                  <span className="text-muted-foreground text-xs">
-                    ({s.status}, uses={s.uses})
-                  </span>
+          {(skills.data?.skills ?? []).map((s) => {
+            const isBuiltin = s.id.startsWith(BUILTIN_SKILL_PREFIX)
+            return (
+              <li
+                key={s.id}
+                className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
+              >
+                <div>
+                  <div className="font-medium">
+                    {s.name}{' '}
+                    <span className="text-muted-foreground text-xs">
+                      ({s.status}, uses={s.uses})
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground text-xs">
+                    {s.description}
+                  </div>
                 </div>
-                <div className="text-muted-foreground text-xs">
-                  {s.description}
+                <div className="flex shrink-0 gap-2">
+                  {s.status !== 'archived' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => skills.archive.mutate(s.id)}
+                    >
+                      Archive
+                    </Button>
+                  )}
+                  {!isBuiltin && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Permanently delete the skill "${s.name}"?`,
+                          )
+                        ) {
+                          skills.remove.mutate(s.id)
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </div>
-              </div>
-              {s.status !== 'archived' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => skills.archive.mutate(s.id)}
-                >
-                  Archive
-                </Button>
-              )}
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
         <div className="flex gap-2">
           <Input

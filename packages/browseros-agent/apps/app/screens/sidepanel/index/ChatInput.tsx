@@ -288,7 +288,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
           <button
             type="button"
             onClick={voice.onStopRecording}
-            className="cursor-pointer rounded-full bg-red-600 p-2 text-white transition-colors duration-200 hover:bg-red-900"
+            className="cursor-pointer rounded-full bg-destructive p-2 text-destructive-foreground transition-colors duration-200 hover:bg-destructive/80"
           >
             <Square className="h-3.5 w-3.5" />
             <span className="sr-only">Stop recording</span>
@@ -301,7 +301,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
           <button
             type="button"
             disabled
-            className="rounded-full p-2 text-muted-foreground"
+            className="rounded-md p-2 text-muted-foreground"
           >
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             <span className="sr-only">Transcribing</span>
@@ -314,7 +314,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
           type="button"
           onClick={voice.onStartRecording}
           disabled={isSubmitDisabled}
-          className="cursor-pointer rounded-full p-2 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="cursor-pointer rounded-md p-2 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Mic className="h-3.5 w-3.5" />
           <span className="sr-only">Voice input</span>
@@ -328,7 +328,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
           <button
             type="button"
             onClick={onStop}
-            className="cursor-pointer rounded-full bg-red-600 p-2 text-white transition-colors duration-200 hover:bg-red-900"
+            className="cursor-pointer rounded-full bg-destructive p-2 text-destructive-foreground transition-colors duration-200 hover:bg-destructive/80"
           >
             <SquareStop className="h-3.5 w-3.5" />
             <span className="sr-only">Stop</span>
@@ -345,7 +345,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             voice?.isRecording ||
             voice?.isTranscribing
           }
-          className="cursor-pointer rounded-full bg-[var(--accent-orange)] p-2 text-primary-foreground transition-colors duration-200 hover:bg-[var(--accent-orange-bright)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="cursor-pointer rounded-full bg-signal p-2 text-signal-foreground transition-colors duration-200 hover:bg-signal-bright disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Send className="h-3.5 w-3.5" />
           <span className="sr-only">Send</span>
@@ -387,14 +387,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
         {voice?.isRecording ? (
           <div
             className={cn(
-              'agent-composer-field flex min-h-[42px] flex-1 items-center justify-center gap-1 border-red-500/50 px-4 py-2.5',
+              'agent-composer-field flex min-h-[42px] flex-1 items-center justify-center gap-1 border-destructive/50 px-4 py-2.5',
               inputPaddingRight,
             )}
           >
             {voice.audioLevels.map((level, i) => (
               <div
                 key={i.toString()}
-                className="w-1 rounded-full bg-red-500 transition-all duration-75"
+                className="w-1 rounded-full bg-destructive transition-all duration-75"
                 style={{
                   height: `${Math.max(4, Math.min(20, level * 0.6))}px`,
                 }}
@@ -429,7 +429,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
               onClick={onOpenVoiceMode}
               title="Voice mode"
               aria-label="Voice mode"
-              className="cursor-pointer rounded-full p-2 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground"
+              className="cursor-pointer rounded-md p-2 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground"
             >
               <AudioLines className="h-3.5 w-3.5" />
             </button>

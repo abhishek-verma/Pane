@@ -10,15 +10,13 @@ import type { ToolEvidenceState } from '@/lib/tool-evidence/types'
 
 export const ToolStatusIcon: FC<{ state: ToolEvidenceState }> = ({ state }) => {
   if (state === 'completed') {
-    return <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-500" />
+    return <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-signal" />
   }
   if (state === 'denied') {
-    return <ShieldX className="h-3.5 w-3.5 shrink-0 text-red-400" />
+    return <ShieldX className="h-3.5 w-3.5 shrink-0 text-destructive" />
   }
   if (state === 'running') {
-    return (
-      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-[var(--accent-orange)]" />
-    )
+    return <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-signal" />
   }
   if (state === 'error') {
     return <XCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />

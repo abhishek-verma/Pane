@@ -70,7 +70,7 @@ describe('review job + skills + curation + personas', () => {
     expect(candidates.length).toBe(0)
   })
 
-  it('extraction bar stages when workflow repeats', async () => {
+  it('extraction bar activates a skill when workflow repeats', async () => {
     const { memoriesRoot } = setup()
     await seedPromptFilesIfMissing(memoriesRoot)
     const now = Date.now()
@@ -101,8 +101,8 @@ Steps: ${c.toolNames.join(', ')}
     })
     expect(result.staged).toContain('export-weekly')
     const skill = getSkill('export-weekly')
-    expect(skill?.status).toBe('staged')
-    expect(skill?.status).not.toBe('active')
+    // Drafts activate immediately — no staging/review gate.
+    expect(skill?.status).toBe('active')
   })
 
   it('skips runs with denied actions or failed exit codes', async () => {
@@ -147,9 +147,9 @@ ${c.runIds.join(',')}
     })
     expect(result.staged).toContain('only-ok-runs')
     // denied-run and bash-fail must not satisfy repeatCount alone with ok-a/ok-b
-    // signature is the same for all — only ok-a + ok-b should count (2), still stages
+    // signature is the same for all — only ok-a + ok-b should count (2), still activates
     const skill = getSkill('only-ok-runs')
-    expect(skill?.status).toBe('staged')
+    expect(skill?.status).toBe('active')
   })
 
   it('does not stage when only failed runs match the signature', async () => {

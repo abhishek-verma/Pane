@@ -215,6 +215,11 @@ export interface AgentSession {
   workingDir?: string
   /** Chat/agent mode stamp when the session was built, for change detection. */
   chatMode?: boolean
+  /**
+   * SOUL.md + USER.md content stamp when the session's system prompt was
+   * built, for mid-conversation change detection (see getSoulUserFingerprint).
+   */
+  soulUserKey?: string
   /** Browser-generated output paths returned during this conversation. */
   outputFileAccess?: BrowserOutputFileAccess
   /** Mutable per-run trust gate state; shared with wrapped tools. */

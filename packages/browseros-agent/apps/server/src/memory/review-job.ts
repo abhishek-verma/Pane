@@ -3,7 +3,8 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Background review: draft staged skills from repeated successful workflows.
+ * Background review: draft and auto-activate skills from repeated successful
+ * workflows (no manual approval step — see installSkillFromBody).
  * Schedule: server-side setInterval from Application.initCoreServices (not a
  * second scheduler product). Pause-on-battery via context/battery.
  */
@@ -16,8 +17,7 @@ import { detectOnBattery, getPauseOnBatteryPref } from '../context/battery'
 import { getDbHandle } from '../lib/db'
 import { logger } from '../lib/logger'
 import { getLastUsedModel } from './draft-model'
-import { writeStagedSkill } from './files'
-import { upsertSkillRecord } from './store'
+import { installSkillFromBody } from './store'
 
 export const REVIEW_MAX_EVENTS = 200
 export const REVIEW_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
@@ -57,6 +57,7 @@ export interface ReviewJobOptions {
 export interface ReviewJobResult {
   skipped?: string
   considered: number
+  /** Ids of skills drafted and activated this run (field name kept for API stability). */
   staged: string[]
 }
 
@@ -316,16 +317,27 @@ export async function runSkillReviewJob(
       return defaultDraft(c)
     })
 
+  // Drafts install straight to 'active' (no staging gate — see the removed
+  // Settings staging UI). They still go through assertMemoryContent's
+  // injection scan inside installSkillFromBody, and stay reversible: the
+  // curation pass (runCurationPass) auto-archives unused/low-success skills.
   const staged: string[] = []
   for (const candidate of candidates) {
     const body = await draft(candidate)
     if (!body) continue
     const skillId =
       body.match(/^name:\s*(.+)$/m)?.[1]?.trim() ??
-      `staged-${randomUUID().slice(0, 8)}`
+      `workflow-${randomUUID().slice(0, 8)}`
     const safeId = skillId.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase()
     try {
-      await writeStagedSkill(safeId, body, options.memoriesRoot)
+      await installSkillFromBody({
+        id: safeId,
+        body,
+        provenance: 'agent-written',
+        sourceRun: candidate.runIds[0] ?? null,
+        bucketId: candidate.bucketId,
+        memoriesRoot: options.memoriesRoot,
+      })
     } catch (err) {
       if (err instanceof MemoryWriteRejectedError) {
         logger.warn('skill review draft blocked by injection scan', {
@@ -336,17 +348,6 @@ export async function runSkillReviewJob(
       }
       throw err
     }
-    upsertSkillRecord({
-      id: safeId,
-      name: safeId,
-      description:
-        body.match(/^description:\s*(.+)$/m)?.[1]?.trim() ??
-        'Staged workflow skill',
-      provenance: 'agent-written',
-      sourceRun: candidate.runIds[0] ?? null,
-      bucketId: candidate.bucketId,
-      status: 'staged',
-    })
     staged.push(safeId)
   }
 

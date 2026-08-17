@@ -53,6 +53,7 @@ import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpSe
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
 import { tryGetProfileKey } from '../../lib/profile-context'
+import { getSoulUserFingerprint } from '../../memory/load-prompt'
 import { finalizeSkillOutcomesForRun } from '../../memory/skill-outcomes'
 import { indexWorkspaceFiles } from '../../retrieval/workspace-index'
 import { defaultWorkspace } from '../../tools/filesystem/workspace'
@@ -389,6 +390,14 @@ export class ChatService {
     // Build stable keys for change detection
     const mcpServerKey = this.buildMcpServerKey(request.browserContext)
     const llmKey = this.buildLlmKey(agentConfig)
+    // SOUL.md/USER.md are frozen into the system prompt at session creation
+    // (see memory/personas.ts). Re-stamp every turn so a `soul_edit`/
+    // `user_edit` tool call — or a Settings-page save — mid-conversation
+    // rebuilds the agent instead of silently continuing on stale persona/
+    // profile text for the rest of the chat.
+    const soulUserKey = await getSoulUserFingerprint({
+      bucketId: request.bucketId ?? 'default',
+    })
 
     // Snapshot every mid-conversation change detector against the
     // pre-rebuild session before rebuilding anything. rebuildSession()
@@ -408,12 +417,26 @@ export class ChatService {
       !!previousSession && previousSession.workingDir !== request.userWorkingDir
     const modeChanged =
       !!previousSession && previousSession.chatMode !== agentConfig.chatMode
+    // Unlike the other detectors, a *missing* stamp does not count as a
+    // change: every session this service creates stamps soulUserKey, so a
+    // missing value only occurs for sessions built elsewhere (tests,
+    // pre-upgrade in-memory state) that don't care about this detector —
+    // treating it as "changed" would force a spurious rebuild on their very
+    // next turn.
+    const soulUserChanged =
+      !!previousSession &&
+      previousSession.soulUserKey != null &&
+      previousSession.soulUserKey !== soulUserKey
 
     const contextChanges: string[] = []
 
     if (
       previousSession &&
-      (llmChanged || mcpChanged || workspaceChanged || modeChanged)
+      (llmChanged ||
+        mcpChanged ||
+        workspaceChanged ||
+        modeChanged ||
+        soulUserChanged)
     ) {
       logger.info('Session inputs changed mid-conversation, rebuilding agent', {
         conversationId: request.conversationId,
@@ -421,6 +444,7 @@ export class ChatService {
         mcpChanged,
         workspaceChanged,
         modeChanged,
+        soulUserChanged,
       })
 
       session = await this.rebuildSession(
@@ -429,6 +453,7 @@ export class ChatService {
         agentConfig,
         mcpServerKey,
         llmKey,
+        soulUserKey,
       )
 
       // Mid-chat LLM hot-switch: UI can change provider/model without
@@ -437,6 +462,12 @@ export class ChatService {
       if (llmChanged && previousSession.llmKey != null) {
         contextChanges.push(
           `The user switched the chat model to ${agentConfig.provider}/${agentConfig.model} during this conversation. Continue with the new model; prior turns remain in context.`,
+        )
+      }
+
+      if (soulUserChanged) {
+        contextChanges.push(
+          "Your SOUL.md persona and/or USER.md profile were updated during this conversation (via your own soul_edit/user_edit tool call, or the Settings page). The refreshed content is now in your system prompt's <soul> and <user_profile> sections above — follow it for the rest of this chat.",
         )
       }
 
@@ -532,6 +563,7 @@ export class ChatService {
         browserContext,
         mcpServerKey,
         llmKey,
+        soulUserKey,
         workingDir: request.userWorkingDir,
         chatMode: agentConfig.chatMode,
         outputFileAccess,
@@ -1291,6 +1323,7 @@ export class ChatService {
     agentConfig: ResolvedAgentConfig,
     mcpServerKey: string,
     llmKey: string,
+    soulUserKey: string,
   ): Promise<AgentSession> {
     const previousMessages = session.agent.messages
     await session.agent.dispose()
@@ -1323,6 +1356,7 @@ export class ChatService {
       browserContext,
       mcpServerKey,
       llmKey,
+      soulUserKey,
       workingDir: request.userWorkingDir,
       chatMode: agentConfig.chatMode,
       outputFileAccess,

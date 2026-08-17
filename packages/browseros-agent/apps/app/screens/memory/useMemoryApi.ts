@@ -54,63 +54,6 @@ export function useMemoryFiles() {
   return { ...query, save }
 }
 
-export function useStagedSkills() {
-  const { baseUrl, isLoading: urlLoading } = useAgentServerUrl()
-  const qc = useQueryClient()
-  const query = useQuery({
-    queryKey: [MEMORY_QUERY_KEY, 'staged', baseUrl],
-    enabled: Boolean(baseUrl) && !urlLoading,
-    queryFn: async () => {
-      const res = await agentFetch(
-        `${base(baseUrl as string)}/memory/skills/staged`,
-      )
-      if (!res.ok)
-        throw new Error(`Failed to load staged skills (${res.status})`)
-      return (await res.json()) as {
-        staged: Array<{ id: string; body: string | null }>
-      }
-    },
-  })
-
-  const approve = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await agentFetch(
-        `${base(baseUrl as string)}/memory/skills/staged/approve`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id }),
-        },
-      )
-      if (!res.ok) throw new Error('Approve failed')
-      return res.json()
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: [MEMORY_QUERY_KEY] })
-    },
-  })
-
-  const reject = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await agentFetch(
-        `${base(baseUrl as string)}/memory/skills/staged/reject`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id }),
-        },
-      )
-      if (!res.ok) throw new Error('Reject failed')
-      return res.json()
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: [MEMORY_QUERY_KEY] })
-    },
-  })
-
-  return { ...query, approve, reject }
-}
-
 export function useMemorySkills() {
   const { baseUrl, isLoading: urlLoading } = useAgentServerUrl()
   const qc = useQueryClient()
@@ -170,7 +113,26 @@ export function useMemorySkills() {
     },
   })
 
-  return { ...query, importPath, archive }
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await agentFetch(
+        `${base(baseUrl as string)}/memory/skills/${id}`,
+        { method: 'DELETE' },
+      )
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as {
+          error?: string
+        } | null
+        throw new Error(body?.error ?? 'Delete failed')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: [MEMORY_QUERY_KEY] })
+    },
+  })
+
+  return { ...query, importPath, archive, remove }
 }
 
 export function usePersonas() {

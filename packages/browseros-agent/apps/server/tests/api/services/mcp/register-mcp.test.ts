@@ -103,6 +103,7 @@ describe('registerTools', () => {
     'skills_load',
     'skills_install',
     'skills_archive',
+    'skills_delete',
     'capture_stop',
     'capture_status',
     'capture_list',

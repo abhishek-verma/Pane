@@ -85,7 +85,7 @@ export const SidebarLayout: FC = () => {
             )}
           </main>
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetContent side="left" className="w-72 p-0">
+            <SheetContent side="left" className="w-64 border-r-0 p-0">
               <AppSidebar expanded onOpenShortcuts={openShortcuts} />
             </SheetContent>
           </Sheet>
