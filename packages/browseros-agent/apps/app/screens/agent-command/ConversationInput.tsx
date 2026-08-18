@@ -562,8 +562,10 @@ export const ConversationInput: FC<ConversationInputProps> = ({
               placeholder={
                 voice.isTranscribing
                   ? 'Transcribing...'
-                  : (placeholder ??
-                    `Message ${selectedProvider?.name ?? 'agent'}...`)
+                  : voice.isRecording
+                    ? 'Listening...'
+                    : (placeholder ??
+                      `Message ${selectedProvider?.name ?? 'agent'}...`)
               }
               disabled={disabled || voice.isTranscribing}
               className={cn(
@@ -622,7 +624,8 @@ export const ConversationInput: FC<ConversationInputProps> = ({
             )}
           </div>
         ) : null}
-        {voice.isTranscribing && voice.partialTranscript ? (
+        {(voice.isRecording || voice.isTranscribing) &&
+        voice.partialTranscript ? (
           <div className="truncate px-5 pb-2 text-muted-foreground text-xs italic">
             {voice.partialTranscript}
           </div>

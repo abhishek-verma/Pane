@@ -159,11 +159,12 @@ export const ChatFooter: FC<ChatFooterProps> = ({
             )}
           </div>
         )}
-        {voice?.isTranscribing && voice.partialTranscript && (
-          <div className="mt-1 truncate text-muted-foreground text-xs italic">
-            {voice.partialTranscript}
-          </div>
-        )}
+        {(voice?.isRecording || voice?.isTranscribing) &&
+          voice.partialTranscript && (
+            <div className="mt-1 truncate text-muted-foreground text-xs italic">
+              {voice.partialTranscript}
+            </div>
+          )}
 
         <div className="mt-2 flex items-center gap-2">
           <ChatModeToggle mode={mode} onModeChange={onModeChange} />

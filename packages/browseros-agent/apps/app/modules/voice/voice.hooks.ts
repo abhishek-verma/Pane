@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  cancelDictationSession,
+  createDictationSessionId,
+  type DictationEventsHandle,
+  openDictationEvents,
+  postDictationFeed,
+} from '@/lib/voice/live-dictation'
+import {
   acquireMicLock,
   createMicLockOwnerId,
   MIC_IN_USE_MESSAGE,
@@ -21,6 +28,16 @@ import {
 // Well under the mic lock's staleness window, so a long recording keeps
 // renewing its claim rather than looking abandoned to another window.
 const MIC_LOCK_RENEW_MS = 5_000
+
+// Sidecar's decideAsrWindow needs >=10s of unprocessed audio before a
+// non-forced feed does real transcription work (anything less is a wasted
+// decode-and-noop) — matching that as the steady cadence means every tick
+// after the first reliably produces a caption instead of paying decode
+// cost for nothing. The one exception is the very first tick: forced, at
+// 4s, so the user sees their first live caption quickly while the buffer
+// is still cheap to decode.
+const LIVE_FEED_FIRST_DELAY_MS = 4_000
+const LIVE_FEED_INTERVAL_MS = 10_000
 
 const WAVEFORM_BAND_COUNT = 5
 
@@ -73,6 +90,26 @@ export function useVoiceInput(): UseVoiceInputReturn {
   const micLockRenewTimerRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   )
+  const dictationSessionIdRef = useRef<string | null>(null)
+  const dictationEventsRef = useRef<DictationEventsHandle | null>(null)
+  const liveFeedFirstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
+  const liveFeedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  )
+  const liveFeedInFlightRef = useRef<Promise<unknown> | null>(null)
+
+  const stopLiveFeedTimers = () => {
+    if (liveFeedFirstTimerRef.current !== null) {
+      clearTimeout(liveFeedFirstTimerRef.current)
+      liveFeedFirstTimerRef.current = null
+    }
+    if (liveFeedIntervalRef.current !== null) {
+      clearInterval(liveFeedIntervalRef.current)
+      liveFeedIntervalRef.current = null
+    }
+  }
 
   const releaseAll = () => {
     monitorRef.current?.stop()
@@ -99,6 +136,16 @@ export function useVoiceInput(): UseVoiceInputReturn {
       // nothing — up to the 10-minute absolute ceiling — holding a slot
       // in the server's ASR scheduler the whole time.
       transcribeAbortRef.current?.abort()
+      // Same idea for a live dictation session started but never
+      // finalized — without this it'd sit registered against the shared
+      // ASR worker until the server's own idle sweep reaps it.
+      stopLiveFeedTimers()
+      dictationEventsRef.current?.stop()
+      dictationEventsRef.current = null
+      if (dictationSessionIdRef.current) {
+        void cancelDictationSession(dictationSessionIdRef.current)
+        dictationSessionIdRef.current = null
+      }
       releaseAll()
     }
   }, [])
@@ -149,6 +196,41 @@ export function useVoiceInput(): UseVoiceInputReturn {
 
       mediaRecorder.start(250)
       setIsRecording(true)
+
+      const sessionId = createDictationSessionId()
+      dictationSessionIdRef.current = sessionId
+      setPartialTranscript('')
+      dictationEventsRef.current = openDictationEvents(sessionId, {
+        onSegment: setPartialTranscript,
+      })
+
+      const sendLiveFeed = (force: boolean) => {
+        if (liveFeedInFlightRef.current) return
+        if (chunksRef.current.length === 0) return
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const feed = postDictationFeed(sessionId, blob, {
+          force,
+          final: false,
+        }).catch(() => {
+          // Periodic feeds are best-effort — only the final feed's
+          // failure needs to surface an error to the user.
+        })
+        liveFeedInFlightRef.current = feed
+        void feed.finally(() => {
+          if (liveFeedInFlightRef.current === feed) {
+            liveFeedInFlightRef.current = null
+          }
+        })
+      }
+
+      liveFeedFirstTimerRef.current = setTimeout(() => {
+        liveFeedFirstTimerRef.current = null
+        sendLiveFeed(true)
+        liveFeedIntervalRef.current = setInterval(() => {
+          sendLiveFeed(false)
+        }, LIVE_FEED_INTERVAL_MS)
+      }, LIVE_FEED_FIRST_DELAY_MS)
+
       return true
     } catch (err) {
       releaseAll()
@@ -157,7 +239,12 @@ export function useVoiceInput(): UseVoiceInputReturn {
     }
   }
 
-  const runTranscription = async (audioBlob: Blob) => {
+  // Retry resends the full retained blob through the untouched one-shot
+  // endpoint rather than replaying the incremental live-feed steps — no
+  // new dictation session, no risk of orphaning one if the retry itself
+  // fails, and it reuses transcribe-audio.ts's own inactivity/ceiling
+  // timeout handling unchanged.
+  const runRetryTranscription = async (audioBlob: Blob) => {
     transcribeAbortRef.current?.abort()
     const ac = new AbortController()
     transcribeAbortRef.current = ac
@@ -208,25 +295,84 @@ export function useVoiceInput(): UseVoiceInputReturn {
       mediaRecorder.stop()
     })
 
+    stopLiveFeedTimers()
     releaseAll()
     setIsRecording(false)
 
+    const sessionId = dictationSessionIdRef.current
+    dictationSessionIdRef.current = null
     const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
     chunksRef.current = []
 
     if (audioBlob.size === 0) {
       setError('No audio recorded')
+      dictationEventsRef.current?.stop()
+      dictationEventsRef.current = null
+      if (sessionId) void cancelDictationSession(sessionId)
       return
     }
 
-    await runTranscription(audioBlob)
+    if (!sessionId) {
+      // Shouldn't happen (a session is always started alongside
+      // recording), but fall back to the one-shot path rather than lose
+      // the recording if it somehow didn't get one.
+      await runRetryTranscription(audioBlob)
+      return
+    }
+
+    // Let any in-flight periodic feed settle first so the final feed
+    // can't land out of sequence order ahead of it server-side.
+    await liveFeedInFlightRef.current
+
+    transcribeAbortRef.current?.abort()
+    const ac = new AbortController()
+    transcribeAbortRef.current = ac
+
+    setError(null)
+    setIsTranscribing(true)
+    try {
+      const { text } = await postDictationFeed(sessionId, audioBlob, {
+        force: true,
+        final: true,
+        signal: ac.signal,
+      })
+      if (ac.signal.aborted) return
+      dictationEventsRef.current?.stop()
+      dictationEventsRef.current = null
+      const trimmed = text?.trim() ?? ''
+      if (trimmed) {
+        lastFailedBlobRef.current = null
+        setCanRetry(false)
+        setTranscript(trimmed)
+      } else {
+        lastFailedBlobRef.current = null
+        setCanRetry(false)
+        setError('No speech detected')
+      }
+    } catch (err) {
+      if (ac.signal.aborted) return
+      dictationEventsRef.current?.stop()
+      dictationEventsRef.current = null
+      // The final feed's own catch already best-effort closes the
+      // session server-side on failure, but cover the case where the
+      // request never reached the server at all (offline, etc.).
+      void cancelDictationSession(sessionId)
+      lastFailedBlobRef.current = audioBlob
+      setCanRetry(true)
+      setError(err instanceof Error ? err.message : 'Transcription failed')
+    } finally {
+      if (!ac.signal.aborted) {
+        setIsTranscribing(false)
+        setPartialTranscript('')
+      }
+    }
   }
 
   const retryTranscription = async () => {
     if (isTranscribing) return
     const blob = lastFailedBlobRef.current
     if (!blob) return
-    await runTranscription(blob)
+    await runRetryTranscription(blob)
   }
 
   const clearTranscript = () => {
