@@ -22,7 +22,7 @@ export interface DictationSegment {
   cumulative: string
 }
 
-interface DictationSession {
+export interface DictationSession {
   tmpPath: string
   sequence: number
   segments: DictationSegment[]
@@ -54,13 +54,21 @@ export function getOrCreateDictationSession(
   return session
 }
 
-export function touchDictationSession(sessionId: string): void {
-  const session = sessions.get(sessionId)
-  if (session) session.lastActivityAt = Date.now()
+// Every helper below takes the DictationSession object a route handler
+// already resolved via getOrCreateDictationSession, instead of re-resolving
+// it from `sessionId` again — a second independent lookup mid-request could
+// otherwise silently recreate a brand-new session (fresh tmpPath, empty
+// segments, orphaned ASR registration) if a concurrent DELETE tore down the
+// original between the two lookups.
+
+export function touchDictationSession(session: DictationSession): void {
+  session.lastActivityAt = Date.now()
 }
 
-export async function ensureAsrRegistered(sessionId: string): Promise<void> {
-  const session = getOrCreateDictationSession(sessionId)
+export async function ensureAsrRegistered(
+  sessionId: string,
+  session: DictationSession,
+): Promise<void> {
   if (session.registered) return
   session.registered = true
   await registerAsrSession(sessionId, {
@@ -79,15 +87,16 @@ export async function ensureAsrRegistered(sessionId: string): Promise<void> {
   })
 }
 
-export function nextSequence(sessionId: string): number {
-  const session = getOrCreateDictationSession(sessionId)
+export function nextSequence(session: DictationSession): number {
   const seq = session.sequence
   session.sequence += 1
   return seq
 }
 
-export function getDictationSegments(sessionId: string): DictationSegment[] {
-  return sessions.get(sessionId)?.segments ?? []
+export function getDictationSegments(
+  session: DictationSession,
+): DictationSegment[] {
+  return session.segments
 }
 
 export async function closeDictationSession(sessionId: string): Promise<void> {

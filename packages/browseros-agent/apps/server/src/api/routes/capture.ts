@@ -390,7 +390,7 @@ export function createCaptureRoutes() {
           )
         }
 
-        const { writeFile, unlink } = await import('node:fs/promises')
+        const { unlink } = await import('node:fs/promises')
         const { tmpdir } = await import('node:os')
         const { join } = await import('node:path')
         const { randomUUID } = await import('node:crypto')
@@ -501,15 +501,15 @@ export function createCaptureRoutes() {
         const force = formData.get('force') === 'true'
 
         const session = getOrCreateDictationSession(sessionId)
-        touchDictationSession(sessionId)
+        touchDictationSession(session)
 
         try {
           const buf = Buffer.from(await file.arrayBuffer())
           await writeFile(session.tmpPath, buf)
-          await ensureAsrRegistered(sessionId)
+          await ensureAsrRegistered(sessionId, session)
           await enqueueAsrJob({
             sessionId,
-            sequence: nextSequence(sessionId),
+            sequence: nextSequence(session),
             mimeType: file.type || 'audio/webm',
             capturedAt: Date.now(),
             audioPath: session.tmpPath,
@@ -518,7 +518,7 @@ export function createCaptureRoutes() {
 
           if (!final) return c.json({ ok: true })
 
-          const text = getDictationSegments(sessionId).at(-1)?.cumulative ?? ''
+          const text = getDictationSegments(session).at(-1)?.cumulative ?? ''
           await closeDictationSession(sessionId)
           return c.json({ ok: true, text })
         } catch (err) {
@@ -529,23 +529,23 @@ export function createCaptureRoutes() {
       })
       .get('/dictation/:sessionId/events', async (c) => {
         const sessionId = c.req.param('sessionId')
-        getOrCreateDictationSession(sessionId)
+        const session = getOrCreateDictationSession(sessionId)
 
         return streamSSE(c, async (stream) => {
           let closed = false
 
-          for (const segment of getDictationSegments(sessionId)) {
-            await stream
-              .writeSSE({ event: 'segment', data: JSON.stringify(segment) })
-              .catch(() => {})
-          }
-
+          // Subscribe before replaying the backlog (both synchronous, no
+          // await between them) so a segment published while the replay
+          // loop is still mid-flight — each writeSSE call below is an
+          // await point — is caught by the live listener instead of being
+          // silently dropped (publishCaptureEvent no-ops with no listener
+          // registered yet).
           const unsub = subscribeCaptureEvents(sessionId, async (event) => {
             if (closed || event.type !== 'segment') return
             const text = event.segment.text?.trim()
             if (!text) return
             const cumulative =
-              getDictationSegments(sessionId).at(-1)?.cumulative ?? text
+              getDictationSegments(session).at(-1)?.cumulative ?? text
             await stream
               .writeSSE({
                 event: 'segment',
@@ -553,6 +553,18 @@ export function createCaptureRoutes() {
               })
               .catch(() => {})
           })
+
+          // A snapshot copy, not a live reference — session.segments can
+          // grow mid-loop (each writeSSE below is an await point) via the
+          // listener just subscribed above, and iterating the live array
+          // directly would then double-send whatever segment landed during
+          // that window.
+          const backlog = [...getDictationSegments(session)]
+          for (const segment of backlog) {
+            await stream
+              .writeSSE({ event: 'segment', data: JSON.stringify(segment) })
+              .catch(() => {})
+          }
 
           const heartbeat = setInterval(() => {
             void stream

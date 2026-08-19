@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { sentry } from '@/lib/sentry/sentry'
 import {
   cancelDictationSession,
   createDictationSessionId,
@@ -99,6 +100,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
     null,
   )
   const liveFeedInFlightRef = useRef<Promise<unknown> | null>(null)
+  const liveFeedAbortRef = useRef<AbortController | null>(null)
 
   const stopLiveFeedTimers = () => {
     if (liveFeedFirstTimerRef.current !== null) {
@@ -138,8 +140,13 @@ export function useVoiceInput(): UseVoiceInputReturn {
       transcribeAbortRef.current?.abort()
       // Same idea for a live dictation session started but never
       // finalized — without this it'd sit registered against the shared
-      // ASR worker until the server's own idle sweep reaps it.
+      // ASR worker until the server's own idle sweep reaps it. Abort any
+      // in-flight periodic feed *before* the DELETE below, narrowing the
+      // window where a feed still landing after the session's already
+      // been torn down could resurrect a new orphaned registration.
       stopLiveFeedTimers()
+      liveFeedAbortRef.current?.abort()
+      liveFeedAbortRef.current = null
       dictationEventsRef.current?.stop()
       dictationEventsRef.current = null
       if (dictationSessionIdRef.current) {
@@ -202,7 +209,15 @@ export function useVoiceInput(): UseVoiceInputReturn {
       setPartialTranscript('')
       dictationEventsRef.current = openDictationEvents(sessionId, {
         onSegment: setPartialTranscript,
+        onError: (message) => {
+          sentry.captureException(new Error(message), {
+            extra: { message: 'Live dictation caption stream failed' },
+          })
+        },
       })
+
+      const feedAbort = new AbortController()
+      liveFeedAbortRef.current = feedAbort
 
       const sendLiveFeed = (force: boolean) => {
         if (liveFeedInFlightRef.current) return
@@ -211,6 +226,7 @@ export function useVoiceInput(): UseVoiceInputReturn {
         const feed = postDictationFeed(sessionId, blob, {
           force,
           final: false,
+          signal: feedAbort.signal,
         }).catch(() => {
           // Periodic feeds are best-effort — only the final feed's
           // failure needs to surface an error to the user.
