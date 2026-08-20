@@ -5,6 +5,21 @@ export type PrefObject = chrome.browserOS.PrefObject
 export type ChoosePathOptions = chrome.browserOS.ChoosePathOptions
 export type SelectedPath = chrome.browserOS.SelectedPath
 
+/**
+ * Thrown by `getPref` specifically when `chrome.browserOS.getPref` doesn't
+ * exist at all (dev / non-BrowserOS Chromium) — a permanent, structural
+ * condition for the lifetime of the page, distinct from a native call that
+ * exists but fails or returns an unset value (which can resolve later).
+ * Callers that want to cache a "this will never be available" result
+ * (e.g. profile-key.ts) check for this type specifically.
+ */
+export class PrefApiUnavailableError extends Error {
+  constructor() {
+    super('getPref API not available')
+    this.name = 'PrefApiUnavailableError'
+  }
+}
+
 export class BrowserOSAdapter {
   private static instance: BrowserOSAdapter | null = null
 
@@ -78,7 +93,7 @@ export class BrowserOSAdapter {
 
   async getPref(name: string): Promise<PrefObject> {
     if (typeof chrome.browserOS?.getPref !== 'function') {
-      throw new Error('getPref API not available')
+      throw new PrefApiUnavailableError()
     }
 
     return new Promise<PrefObject>((resolve, reject) => {
