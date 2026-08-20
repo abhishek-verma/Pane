@@ -10,7 +10,11 @@ import { createHash } from 'node:crypto'
 import { DEFAULT_BUCKET_ID } from '@browseros/memory/constants'
 import { ensureBuiltinSkills } from './builtin-skills'
 import { readPromptFiles, seedPromptFilesIfMissing } from './files'
-import { resolveSoulForBucket } from './personas'
+import {
+  getPersonaTemplate,
+  readPersonaMap,
+  resolveSoulForBucket,
+} from './personas'
 import { allocatePromptMemory, type PromptBudgetResult } from './prompt-budget'
 import { activateAllStagedSkills } from './skills'
 import { bumpSurfaced, listEntries, listSkills } from './store'
@@ -82,16 +86,26 @@ export async function loadPromptMemorySnapshot(options: {
  * mid-conversation (via `soul_edit`/`user_edit` or the Settings page) so the
  * chat service can rebuild the frozen system prompt instead of silently
  * running the rest of the conversation against stale persona/profile text.
+ *
+ * Runs on every chat turn, so it reads the prompt files exactly once —
+ * `resolveSoulForBucket` also reads them internally to resolve the same
+ * "file wins over persona template" fallback, so calling it here as well
+ * would double every SOUL.md/USER.md/MEMORY.md read on the hot path for no
+ * benefit (the persona template only matters when SOUL.md has never been
+ * written, which `seedPromptFilesIfMissing` makes rare in practice).
  */
 export async function getSoulUserFingerprint(options: {
   bucketId?: string
   memoriesRoot?: string
 }): Promise<string> {
   const bucketId = options.bucketId ?? DEFAULT_BUCKET_ID
-  const [soulResolved, files] = await Promise.all([
-    resolveSoulForBucket(bucketId, options.memoriesRoot),
-    readPromptFiles(options.memoriesRoot),
-  ])
-  const raw = `${soulResolved.soul} ${files.user}`
+  const files = await readPromptFiles(options.memoriesRoot)
+  let soul = files.soul
+  if (!soul.trim()) {
+    const map = await readPersonaMap(options.memoriesRoot)
+    const personaId = map.pinned ?? map.bucketPersonas[bucketId] ?? 'default'
+    soul = getPersonaTemplate(personaId)?.body ?? ''
+  }
+  const raw = `${soul} ${files.user}`
   return createHash('sha1').update(raw).digest('hex')
 }

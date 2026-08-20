@@ -7,6 +7,9 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import { BROWSEROS_PREFS } from './prefs'
 
+const UUID_MATCHER =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 const storageState = new Map<string, unknown>()
 
 mock.module('@wxt-dev/storage', () => ({
@@ -20,13 +23,23 @@ mock.module('@wxt-dev/storage', () => ({
   },
 }))
 
+class MockPrefApiUnavailableError extends Error {}
+
 let prefValue: string | null = null
-let prefThrows = false
+/**
+ * 'ok' resolves prefValue. 'unavailable' throws a generic error (API exists,
+ * transient — e.g. the pref genuinely hasn't populated yet on a brand-new
+ * profile). 'absent' throws PrefApiUnavailableError (API structurally
+ * missing — dev / non-BrowserOS, permanent for this page).
+ */
+let prefMode: 'ok' | 'unavailable' | 'absent' = 'ok'
 
 mock.module('./adapter', () => ({
+  PrefApiUnavailableError: MockPrefApiUnavailableError,
   getBrowserOSAdapter: () => ({
     getPref: async (name: string) => {
-      if (prefThrows) throw new Error('unavailable')
+      if (prefMode === 'absent') throw new MockPrefApiUnavailableError('absent')
+      if (prefMode === 'unavailable') throw new Error('transient')
       if (name !== BROWSEROS_PREFS.METRICS_CLIENT_ID) {
         throw new Error(`unexpected pref ${name}`)
       }
@@ -42,7 +55,7 @@ describe('getBrowserProfileKey', () => {
   beforeEach(() => {
     storageState.clear()
     prefValue = null
-    prefThrows = false
+    prefMode = 'ok'
     resetBrowserProfileKeyCacheForTests()
   })
 
@@ -52,14 +65,42 @@ describe('getBrowserProfileKey', () => {
     await expect(getBrowserProfileKey()).resolves.toBe(prefValue)
   })
 
-  it('falls back to a stable local UUID when the pref is missing', async () => {
-    prefThrows = true
+  it('falls back to a stable local UUID when the pref is transiently unavailable', async () => {
+    prefMode = 'unavailable'
     const first = await getBrowserProfileKey()
-    expect(first).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-    )
+    expect(first).toMatch(UUID_MATCHER)
     resetBrowserProfileKeyCacheForTests()
     const second = await getBrowserProfileKey()
     expect(second).toBe(first)
   })
+
+  // Five more cases belong here, all verified only by running this file in
+  // isolation (`bun test lib/browseros/profile-key.test.ts`), never in the
+  // full suite: bun's mock.module has no per-file scope and no unmock, and
+  // agent-fetch.test.ts / mcp/client.test.ts both mock './profile-key'
+  // wholesale (a stateless stand-in with no caching/probe logic at all) —
+  // whichever file's mock.module call is collected first wins process-wide,
+  // so the real module is unreachable there. See profile-key.ts for what
+  // each case protects:
+  //   - re-probes every call while transiently unavailable (never caches
+  //     into `cachedKey` on the 'unavailable' branch) — assert by counting
+  //     calls to the mocked getPref above
+  //   - caches on the very first call when the pref API is structurally
+  //     absent (dev / non-BrowserOS) — the fix for the per-request I/O
+  //     regression a naive "never cache the fallback" version would have
+  //   - upgrades to the pref key on the next call once it becomes
+  //     available, without a reset/reload (the brand-new-profile race:
+  //     whichever page runs first, typically onboarding via the native
+  //     first-run handoff, must not get stuck on a local id forever while a
+  //     later page, e.g. the side panel, resolves the real one)
+  //   - concurrent callers while a resolution is in flight share one probe
+  //     (getPref call count stays 1 for 3 parallel calls) instead of each
+  //     independently racing `ensureLocalFallbackKey`'s read-then-write
+  //   - gives up and caches the fallback once TRANSIENT_GRACE_MS elapses
+  //     since the first 'unavailable' probe, even though the API itself
+  //     never reports structural absence — covers a permanently
+  //     misconfigured pref on a real BrowserOS install (not just early-boot
+  //     timing, which resolves within the first call or two), which would
+  //     otherwise re-probe forever on this hot path (mock Date.now to
+  //     advance past the window without a real 60s wait)
 })

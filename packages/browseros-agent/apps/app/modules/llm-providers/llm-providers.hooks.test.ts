@@ -67,6 +67,10 @@ const createBrowserOSProvider = () => ({
 mock.module('@/lib/browseros/adapter', () => ({
   BrowserOSAdapter: MockBrowserOSAdapter,
   getBrowserOSAdapter: () => browserOSAdapter,
+  // bun's mock.module has no per-file scope — this mock can win the
+  // registration race for the whole process, so it must export everything
+  // ./adapter's real module does (profile-key.ts imports this too).
+  PrefApiUnavailableError: class extends Error {},
 }))
 
 mock.module('@/lib/browseros/prefs', () => ({
