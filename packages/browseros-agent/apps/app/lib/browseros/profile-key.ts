@@ -20,8 +20,21 @@ export const browserProfileKeyStorage = storage.defineItem<string | null>(
   { fallback: null },
 )
 
+/**
+ * Grace period for a genuinely-transient 'unavailable' probe (the pref API
+ * exists but hasn't produced a valid id yet) before giving up and caching
+ * the fallback anyway. The brand-new-profile race this covers resolves
+ * within the first call or two in practice; this bound exists for the
+ * other way 'unavailable' can happen — a permanently misconfigured pref on
+ * a real BrowserOS install, not just early-boot timing — which would
+ * otherwise re-probe forever on a hot path (agentFetch calls this per
+ * request).
+ */
+const TRANSIENT_GRACE_MS = 60_000
+
 let cachedKey: string | null = null
 let inFlight: Promise<string> | null = null
+let firstTransientProbeAt: number | null = null
 
 function isUuid(value: string): boolean {
   return UUID_RE.test(value)
@@ -70,9 +83,16 @@ async function resolveProfileKey(): Promise<string> {
   // 'absent' is permanent for this page (the API will never appear), so the
   // fallback is as final as a pref value would be — cache it like one.
   // 'unavailable' may still resolve on a later call (the brand-new-profile
-  // race below), so it stays uncached and every subsequent call re-probes.
+  // race), so it stays uncached and every subsequent call re-probes — but
+  // only within TRANSIENT_GRACE_MS of the first such probe, after which a
+  // pref that's still not there is treated as never coming and cached too.
   if (probe.status === 'absent') {
     cachedKey = fallback
+  } else {
+    firstTransientProbeAt ??= Date.now()
+    if (Date.now() - firstTransientProbeAt >= TRANSIENT_GRACE_MS) {
+      cachedKey = fallback
+    }
   }
   return fallback
 }
@@ -113,4 +133,5 @@ export async function getBrowserProfileKey(): Promise<string> {
 export function resetBrowserProfileKeyCacheForTests(): void {
   cachedKey = null
   inFlight = null
+  firstTransientProbeAt = null
 }

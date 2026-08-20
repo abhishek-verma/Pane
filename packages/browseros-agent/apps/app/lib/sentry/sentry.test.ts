@@ -49,6 +49,10 @@ mock.module('../browseros/adapter', () => ({
     getVersion: mock().mockResolvedValue('1.0'),
     getBrowserosVersion: mock().mockResolvedValue('1.0'),
   }),
+  // bun's mock.module has no per-file scope — this mock can win the
+  // registration race for the whole process, so it must export everything
+  // ./adapter's real module does (profile-key.ts imports this too).
+  PrefApiUnavailableError: class extends Error {},
 }))
 
 describe('initSentry', () => {

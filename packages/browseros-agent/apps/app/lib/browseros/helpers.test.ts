@@ -44,6 +44,10 @@ mock.module('./adapter', () => ({
   getBrowserOSAdapter: () => ({
     getPref: async (name: string) => readPref(name),
   }),
+  // bun's mock.module has no per-file scope — this mock can win the
+  // registration race for the whole process, so it must export everything
+  // ./adapter's real module does (profile-key.ts imports this too).
+  PrefApiUnavailableError: class extends Error {},
 }))
 
 describe('BrowserOS helper URLs', () => {

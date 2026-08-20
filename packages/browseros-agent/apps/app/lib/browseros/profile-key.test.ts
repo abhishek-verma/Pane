@@ -74,7 +74,7 @@ describe('getBrowserProfileKey', () => {
     expect(second).toBe(first)
   })
 
-  // Four more cases belong here, all verified only by running this file in
+  // Five more cases belong here, all verified only by running this file in
   // isolation (`bun test lib/browseros/profile-key.test.ts`), never in the
   // full suite: bun's mock.module has no per-file scope and no unmock, and
   // agent-fetch.test.ts / mcp/client.test.ts both mock './profile-key'
@@ -96,4 +96,11 @@ describe('getBrowserProfileKey', () => {
   //   - concurrent callers while a resolution is in flight share one probe
   //     (getPref call count stays 1 for 3 parallel calls) instead of each
   //     independently racing `ensureLocalFallbackKey`'s read-then-write
+  //   - gives up and caches the fallback once TRANSIENT_GRACE_MS elapses
+  //     since the first 'unavailable' probe, even though the API itself
+  //     never reports structural absence — covers a permanently
+  //     misconfigured pref on a real BrowserOS install (not just early-boot
+  //     timing, which resolves within the first call or two), which would
+  //     otherwise re-probe forever on this hot path (mock Date.now to
+  //     advance past the window without a real 60s wait)
 })
