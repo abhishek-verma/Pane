@@ -36,6 +36,21 @@ def find_patch_files(patches_dir: Path) -> List[Path]:
     )
 
 
+def _check_patch_applies(
+    patch_path: Path, chromium_src: Path, display_path: Path
+) -> Tuple[bool, Optional[str]]:
+    """Run `git apply --check` and report the result."""
+    result = run_git_command(
+        ["git", "apply", "--check", "-p1", str(patch_path)], cwd=chromium_src
+    )
+    if result.returncode == 0:
+        log_success(f"  ✓ Would apply: {display_path}")
+        return True, None
+    else:
+        log_error(f"  ✗ Would fail: {display_path}")
+        return False, result.stderr
+
+
 def apply_single_patch(
     patch_path: Path,
     chromium_src: Path,
@@ -56,10 +71,48 @@ def apply_single_patch(
         Tuple of (success: bool, error_message: Optional[str])
     """
     display_path = patch_path.relative_to(relative_to) if relative_to else patch_path
+    file_path = str(display_path)
+
+    if reset_to and dry_run:
+        # A dry run must not leave permanent changes, but checking against
+        # whatever the file currently holds (which may already have this or
+        # another patch applied) defeats the point of --reset-to: it can
+        # report a false "would fail" against an already-patched file, or a
+        # false "would apply" against a file that happens to already match.
+        # So: swap in the true base-commit content on disk only (no `git
+        # checkout`, no index changes) for the duration of the check, then
+        # always restore the original file afterward.
+        target_file = chromium_src / file_path
+        existed_before = target_file.exists()
+        original_bytes = target_file.read_bytes() if existed_before else None
+        try:
+            if file_exists_in_commit(file_path, reset_to, chromium_src):
+                log_info(
+                    f"  Resetting to {reset_to[:8]} for check (not persisted): {file_path}"
+                )
+                base_content = run_git_command(
+                    ["git", "show", f"{reset_to}:{file_path}"],
+                    cwd=chromium_src,
+                )
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+                target_file.write_text(base_content.stdout, encoding="utf-8")
+            else:
+                log_info(
+                    f"  Deleting for check (not in {reset_to[:8]}, not persisted): {file_path}"
+                )
+                if target_file.exists():
+                    target_file.unlink()
+
+            return _check_patch_applies(patch_path, chromium_src, display_path)
+        finally:
+            if existed_before:
+                assert original_bytes is not None
+                target_file.write_bytes(original_bytes)
+            elif target_file.exists():
+                target_file.unlink()
 
     # Reset file to base commit if requested
     if reset_to and not dry_run:
-        file_path = str(display_path)
         if file_exists_in_commit(file_path, reset_to, chromium_src):
             log_info(f"  Resetting to {reset_to[:8]}: {file_path}")
             reset_file_to_commit(file_path, reset_to, chromium_src)
@@ -71,16 +124,7 @@ def apply_single_patch(
                 target_file.unlink()
 
     if dry_run:
-        # Just check if patch would apply
-        result = run_git_command(
-            ["git", "apply", "--check", "-p1", str(patch_path)], cwd=chromium_src
-        )
-        if result.returncode == 0:
-            log_success(f"  ✓ Would apply: {display_path}")
-            return True, None
-        else:
-            log_error(f"  ✗ Would fail: {display_path}")
-            return False, result.stderr
+        return _check_patch_applies(patch_path, chromium_src, display_path)
     else:
         # Try standard apply first
         result = run_git_command(
