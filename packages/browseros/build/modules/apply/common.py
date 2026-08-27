@@ -4,6 +4,7 @@ Common functions shared across apply module commands.
 Contains core patch application logic used by apply_all, apply_feature, and apply_patch.
 """
 
+import tempfile
 from pathlib import Path
 from typing import List, Tuple, Optional
 
@@ -36,6 +37,56 @@ def find_patch_files(patches_dir: Path) -> List[Path]:
     )
 
 
+def _check_patch_applies(
+    patch_path: Path, chromium_src: Path, display_path: Path
+) -> Tuple[bool, Optional[str]]:
+    """Run `git apply --check` and report the result."""
+    result = run_git_command(
+        ["git", "apply", "--check", "-p1", str(patch_path)], cwd=chromium_src
+    )
+    if result.returncode == 0:
+        log_success(f"  ✓ Would apply: {display_path}")
+        return True, None
+    else:
+        log_error(f"  ✗ Would fail: {display_path}")
+        return False, result.stderr
+
+
+def _check_patch_against_base_commit(
+    patch_path: Path,
+    chromium_src: Path,
+    file_path: str,
+    display_path: Path,
+    reset_to: str,
+) -> Tuple[bool, Optional[str]]:
+    """Check whether a patch applies against `file_path` as of `reset_to`.
+
+    Builds the base-commit content in a throwaway scratch directory and runs
+    `git apply --check` there, so the real chromium_src checkout is never
+    read from or written to.
+    """
+    with tempfile.TemporaryDirectory(prefix="browseros-patch-check-") as scratch:
+        scratch_file = Path(scratch) / file_path
+
+        if file_exists_in_commit(file_path, reset_to, chromium_src):
+            log_info(f"  Checking against {reset_to[:8]} (scratch copy): {file_path}")
+            base_content = run_git_command(
+                ["git", "show", f"{reset_to}:{file_path}"], cwd=chromium_src
+            )
+            if base_content.returncode != 0:
+                error = base_content.stderr or "git show failed"
+                log_error(f"  ✗ Could not read {file_path} @ {reset_to[:8]}: {error}")
+                return False, error
+            scratch_file.parent.mkdir(parents=True, exist_ok=True)
+            scratch_file.write_text(base_content.stdout, encoding="utf-8")
+        else:
+            log_info(
+                f"  Checking as new file (not in {reset_to[:8]}, scratch copy): {file_path}"
+            )
+
+        return _check_patch_applies(patch_path, Path(scratch), display_path)
+
+
 def apply_single_patch(
     patch_path: Path,
     chromium_src: Path,
@@ -56,10 +107,25 @@ def apply_single_patch(
         Tuple of (success: bool, error_message: Optional[str])
     """
     display_path = patch_path.relative_to(relative_to) if relative_to else patch_path
+    file_path = str(display_path)
+
+    if reset_to and dry_run:
+        # A dry run must not touch the real checkout at all, but checking
+        # against whatever the file currently holds there (which may already
+        # have this or another patch applied) defeats the point of
+        # --reset-to: it can report a false "would fail" against an
+        # already-patched file, or a false "would apply" against a file that
+        # happens to already match. So: build the base-commit content in an
+        # isolated scratch directory (never touching chromium_src) and check
+        # the patch against that instead. This also means an interrupted
+        # process (SIGKILL, OOM-kill) can never leave the real working tree
+        # mutated — the scratch dir is disposable.
+        return _check_patch_against_base_commit(
+            patch_path, chromium_src, file_path, display_path, reset_to
+        )
 
     # Reset file to base commit if requested
     if reset_to and not dry_run:
-        file_path = str(display_path)
         if file_exists_in_commit(file_path, reset_to, chromium_src):
             log_info(f"  Resetting to {reset_to[:8]}: {file_path}")
             reset_file_to_commit(file_path, reset_to, chromium_src)
@@ -71,16 +137,7 @@ def apply_single_patch(
                 target_file.unlink()
 
     if dry_run:
-        # Just check if patch would apply
-        result = run_git_command(
-            ["git", "apply", "--check", "-p1", str(patch_path)], cwd=chromium_src
-        )
-        if result.returncode == 0:
-            log_success(f"  ✓ Would apply: {display_path}")
-            return True, None
-        else:
-            log_error(f"  ✗ Would fail: {display_path}")
-            return False, result.stderr
+        return _check_patch_applies(patch_path, chromium_src, display_path)
     else:
         # Try standard apply first
         result = run_git_command(

@@ -1,22 +1,24 @@
 diff --git a/chrome/browser/ui/side_panel/side_panel_action_callback.cc b/chrome/browser/ui/side_panel/side_panel_action_callback.cc
-index f81e396170..c4d7abeeac 100644
+index f81e396170..5db0724ad5 100644
 --- a/chrome/browser/ui/side_panel/side_panel_action_callback.cc
 +++ b/chrome/browser/ui/side_panel/side_panel_action_callback.cc
-@@ -4,6 +4,13 @@
+@@ -4,6 +4,15 @@
  
  #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
  
-+#include <optional>
-+
 +#include "base/logging.h"
-+#include "chrome/browser/extensions/api/side_panel/side_panel_service.h"
-+#include "chrome/browser/extensions/extension_tab_util.h"
++#include "chrome/browser/browseros/core/browseros_constants.h"
++#include "chrome/browser/extensions/extension_action_dispatcher.h"
++#include "chrome/browser/infobars/simple_alert_infobar_creator.h"
 +#include "chrome/browser/profiles/profile.h"
++#include "components/infobars/content/content_infobar_manager.h"
++#include "extensions/browser/extension_action.h"
++#include "extensions/browser/extension_action_manager.h"
 +
  // TODO(crbug.com/492550611): Remove once we only need BWI.
  #if !BUILDFLAG(IS_ANDROID)
  #include "chrome/browser/ui/browser.h"
-@@ -12,6 +19,9 @@
+@@ -12,6 +21,9 @@
  #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
  #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
  #include "chrome/browser/ui/side_panel/side_panel_ui.h"
@@ -26,66 +28,65 @@ index f81e396170..c4d7abeeac 100644
  
  namespace {
  constexpr std::underlying_type_t<SidePanelOpenTrigger>
-@@ -41,3 +51,62 @@ actions::ActionItem::InvokeActionCallback CreateToggleSidePanelActionCallback(
+@@ -41,3 +53,61 @@ actions::ActionItem::InvokeActionCallback CreateToggleSidePanelActionCallback(
        },
        key, bwi);
  }
 +
-+actions::ActionItem::InvokeActionCallback
-+CreateBrowserosToggleSidePanelActionCallback(
-+    const extensions::ExtensionId& extension_id,
-+    BrowserWindowInterface* bwi) {
-+  return base::BindRepeating(
-+      [](extensions::ExtensionId extension_id, BrowserWindowInterface* bwi,
-+         actions::ActionItem* item, actions::ActionInvocationContext context) {
-+        LOG(INFO) << "browseros: Toolbar action clicked for extension="
-+                  << extension_id;
++// Dispatches action.onClicked for the BrowserOS Agent extension on the
++// active tab of `bwi`, exactly as if a normal pinned extension toolbar icon
++// had been clicked. See side_panel_action_callback.h for why: this makes the
++// extension's own toggleSidePanel() the single implementation of side panel
++// open/close behavior (for both per-tab and per-window modes) rather than
++// having native code re-decide panel scope itself.
++void DispatchAgentSidePanelToggleClick(BrowserWindowInterface* bwi) {
++  tabs::TabInterface* active_tab = bwi->GetActiveTabInterface();
++  if (!active_tab) {
++    LOG(WARNING) << "browseros: No active tab for Agent side panel toggle";
++    return;
++  }
 +
-+        tabs::TabInterface* active_tab = bwi->GetActiveTabInterface();
-+        if (!active_tab) {
-+          LOG(WARNING) << "browseros: No active tab";
-+          return;
-+        }
++  content::WebContents* active_contents = active_tab->GetContents();
++  if (!active_contents) {
++    LOG(WARNING) << "browseros: No active tab contents for Agent toggle";
++    return;
++  }
 +
-+        content::WebContents* active_contents = active_tab->GetContents();
-+        if (!active_contents) {
-+          LOG(WARNING) << "browseros: No active tab contents";
-+          return;
-+        }
++  Profile* profile =
++      Profile::FromBrowserContext(active_contents->GetBrowserContext());
++  const extensions::Extension* extension =
++      extensions::ExtensionRegistry::Get(profile)
++          ->enabled_extensions()
++          .GetByID(browseros::kAgentExtensionId);
 +
-+        int tab_id = extensions::ExtensionTabUtil::GetTabId(active_contents);
-+        LOG(INFO) << "browseros: Active tab_id=" << tab_id;
++  if (!extension) {
++    LOG(WARNING) << "browseros: Agent extension not found";
++    infobars::ContentInfoBarManager* infobar_manager =
++        infobars::ContentInfoBarManager::FromWebContents(active_contents);
++    if (infobar_manager) {
++      CreateSimpleAlertInfoBar(
++          infobar_manager,
++          infobars::InfoBarDelegate::
++              BROWSEROS_AGENT_INSTALLING_INFOBAR_DELEGATE,
++          nullptr,
++          u"Pane Agent is installing/updating. Please try again shortly.",
++          /*auto_expire=*/true,
++          /*should_animate=*/true,
++          /*closeable=*/true);
++    }
++    return;
++  }
 +
-+        Profile* profile =
-+            Profile::FromBrowserContext(active_contents->GetBrowserContext());
-+        const extensions::Extension* extension =
-+            extensions::ExtensionRegistry::Get(profile)
-+                ->enabled_extensions()
-+                .GetByID(extension_id);
++  extensions::ExtensionAction* extension_action =
++      extensions::ExtensionActionManager::Get(profile)->GetExtensionAction(
++          *extension);
++  if (!extension_action) {
++    LOG(WARNING) << "browseros: No ExtensionAction for Agent extension";
++    return;
++  }
 +
-+        if (!extension) {
-+          LOG(WARNING) << "browseros: Extension not found: " << extension_id;
-+          return;
-+        }
-+
-+        extensions::SidePanelService* service =
-+            extensions::SidePanelService::Get(profile);
-+        if (!service) {
-+          LOG(WARNING) << "browseros: SidePanelService not found";
-+          return;
-+        }
-+
-+        auto result = service->BrowserosToggleSidePanelForTab(
-+            *extension, profile, tab_id,
-+            /*include_incognito_information=*/true,
-+            /*desired_state=*/std::nullopt);
-+
-+        if (!result.has_value()) {
-+          LOG(WARNING) << "browseros: Toggle failed: " << result.error();
-+          return;
-+        }
-+
-+        LOG(INFO) << "browseros: Toggle result: " << result.value();
-+      },
-+      extension_id, bwi);
++  LOG(INFO) << "browseros: Dispatching action.onClicked for Agent extension";
++  extensions::ExtensionActionDispatcher::Get(profile)
++      ->DispatchExtensionActionClicked(*extension_action, active_contents,
++                                        extension);
 +}
