@@ -1,25 +1,20 @@
 diff --git a/chrome/browser/ui/side_panel/side_panel_action_callback.h b/chrome/browser/ui/side_panel/side_panel_action_callback.h
-index eb087227fd..7fa9b9469b 100644
+index eb087227fd..6b2f9ec63c 100644
 --- a/chrome/browser/ui/side_panel/side_panel_action_callback.h
 +++ b/chrome/browser/ui/side_panel/side_panel_action_callback.h
-@@ -7,6 +7,7 @@
- 
- #include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
- #include "chrome/browser/ui/side_panel/side_panel_enums.h"
-+#include "extensions/common/extension_id.h"
- #include "ui/actions/actions.h"
- #include "ui/base/class_property.h"
- 
-@@ -16,6 +17,13 @@ actions::ActionItem::InvokeActionCallback CreateToggleSidePanelActionCallback(
+@@ -16,6 +16,16 @@ actions::ActionItem::InvokeActionCallback CreateToggleSidePanelActionCallback(
      SidePanelEntryKey key,
      BrowserWindowInterface* bwi);
  
-+// Creates an action callback for BrowserOS extensions that uses the contextual
-+// tab-specific side panel toggle.
-+actions::ActionItem::InvokeActionCallback
-+CreateBrowserosToggleSidePanelActionCallback(
-+    const extensions::ExtensionId& extension_id,
-+    BrowserWindowInterface* bwi);
++// Dispatches a real extension action.onClicked event for the BrowserOS Agent
++// extension on the active tab of `bwi`, exactly as if the user had clicked a
++// normal pinned extension toolbar icon. This lets the extension's own
++// scope-aware toggleSidePanel() (apps/app/lib/browseros/toggleSidePanel.ts)
++// be the single implementation of open/close behavior for both per-tab and
++// per-window (shared) side panel modes, instead of native code re-deciding
++// panel scope itself. Shows an "installing/updating" infobar if the agent
++// extension isn't installed/enabled yet.
++void DispatchAgentSidePanelToggleClick(BrowserWindowInterface* bwi);
 +
  extern const ui::ClassProperty<
      std::underlying_type_t<SidePanelOpenTrigger>>* const

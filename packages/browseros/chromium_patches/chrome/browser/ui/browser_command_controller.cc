@@ -1,94 +1,38 @@
 diff --git a/chrome/browser/ui/browser_command_controller.cc b/chrome/browser/ui/browser_command_controller.cc
-index 738696abf0..b2e7c63201 100644
+index 738696abf0..dfc8ded0aa 100644
 --- a/chrome/browser/ui/browser_command_controller.cc
 +++ b/chrome/browser/ui/browser_command_controller.cc
-@@ -7,7 +7,9 @@
+@@ -7,6 +7,7 @@
  #include <stddef.h>
  
  #include <algorithm>
 +#include <optional>
  #include <string>
-+#include <tuple>
  
  #include "base/check_deref.h"
- #include "base/command_line.h"
-@@ -23,11 +25,14 @@
- #include "build/build_config.h"
- #include "chrome/app/chrome_command_ids.h"
- #include "chrome/browser/actor/ui/actor_overlay_web_view.h"
-+#include "chrome/browser/browseros/core/browseros_constants.h"
- #include "chrome/browser/browser_process.h"
- #include "chrome/browser/browsing_data/browsing_data_important_sites_util.h"
- #include "chrome/browser/defaults.h"
- #include "chrome/browser/devtools/devtools_window.h"
- #include "chrome/browser/devtools/features.h"
-+#include "chrome/browser/extensions/api/side_panel/side_panel_service.h"
-+#include "chrome/browser/extensions/extension_tab_util.h"
- #include "chrome/browser/feedback/public/feedback_source.h"
- #include "chrome/browser/feedback/show_feedback_page.h"
- #include "chrome/browser/glic/fre/glic_fre_controller.h"
-@@ -37,6 +42,7 @@
- #include "chrome/browser/glic/public/glic_enabling.h"
- #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
- #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
-+#include "chrome/browser/infobars/simple_alert_infobar_creator.h"
- #include "chrome/browser/lifetime/application_lifetime.h"
- #include "chrome/browser/prefs/incognito_mode_prefs.h"
- #include "chrome/browser/profiles/profile.h"
-@@ -120,6 +126,7 @@
- #include "content/public/browser/web_contents_observer.h"
- #include "content/public/common/profiling.h"
- #include "content/public/common/url_constants.h"
-+#include "components/infobars/content/content_infobar_manager.h"
- #include "extensions/browser/extension_registrar.h"
- #include "extensions/browser/extension_registry.h"
- #include "extensions/common/extension_urls.h"
-@@ -1089,6 +1096,44 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
+@@ -71,6 +72,7 @@
+ #include "chrome/browser/ui/profiles/profile_view_utils.h"
+ #include "chrome/browser/ui/read_anything/read_anything_controller.h"
+ #include "chrome/browser/ui/read_anything/read_anything_entry_point_controller.h"
++#include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
+ #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
+ #include "chrome/browser/ui/side_panel/side_panel_ui.h"
+ #include "chrome/browser/ui/singleton_tabs.h"
+@@ -1089,6 +1091,13 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
        browser_->GetFeatures().side_panel_ui()->Show(
            SidePanelEntryId::kBookmarks, SidePanelOpenTrigger::kAppMenu);
        break;
-+    case IDC_TOGGLE_BROWSEROS_AGENT: {
-+      content::WebContents* active_contents =
-+          browser_->tab_strip_model()->GetActiveWebContents();
-+      if (!active_contents) {
-+        break;
-+      }
-+      int tab_id = extensions::ExtensionTabUtil::GetTabId(active_contents);
-+      Profile* profile = browser_->profile();
-+      const extensions::Extension* extension =
-+          extensions::ExtensionRegistry::Get(profile)
-+              ->enabled_extensions()
-+              .GetByID(browseros::kAgentExtensionId);
-+      if (!extension) {
-+        infobars::ContentInfoBarManager* infobar_manager =
-+            infobars::ContentInfoBarManager::FromWebContents(active_contents);
-+        if (infobar_manager) {
-+          CreateSimpleAlertInfoBar(
-+              infobar_manager,
-+              infobars::InfoBarDelegate::
-+                  BROWSEROS_AGENT_INSTALLING_INFOBAR_DELEGATE,
-+              nullptr,
-+              u"Pane Agent is installing/updating. Please try again shortly.",
-+              /*auto_expire=*/true,
-+              /*should_animate=*/true,
-+              /*closeable=*/true);
-+        }
-+        break;
-+      }
-+      extensions::SidePanelService* service =
-+          extensions::SidePanelService::Get(profile);
-+      if (service) {
-+        std::ignore = service->BrowserosToggleSidePanelForTab(
-+            *extension, profile, tab_id,
-+            /*include_incognito_information=*/true,
-+            /*desired_state=*/std::nullopt);
-+      }
++    case IDC_TOGGLE_BROWSEROS_AGENT:
++      // Dispatches a real action.onClicked event so toggleSidePanel.ts's
++      // scope-aware logic is the single implementation of side panel
++      // open/close behavior. See side_panel_action_callback.h for
++      // DispatchAgentSidePanelToggleClick.
++      DispatchAgentSidePanelToggleClick(browser_);
 +      break;
-+    }
      case IDC_SHOW_APP_MENU:
        base::RecordAction(base::UserMetricsAction("Accel_Show_App_Menu"));
        ShowAppMenu(browser_);
-@@ -1802,6 +1847,7 @@ void BrowserCommandController::InitCommandState() {
+@@ -1802,6 +1811,7 @@ void BrowserCommandController::InitCommandState() {
    }
  
    command_updater_.UpdateCommandEnabled(IDC_SHOW_BOOKMARK_SIDE_PANEL, true);
