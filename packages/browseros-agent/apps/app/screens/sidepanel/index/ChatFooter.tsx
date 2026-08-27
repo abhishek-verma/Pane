@@ -3,6 +3,7 @@ import type { FC, FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { Button } from '@/components/ui/button'
+import { LiveCaption } from '@/components/voice/LiveCaption'
 import {
   type SelectedTextData,
   selectedTextStorage,
@@ -161,9 +162,7 @@ export const ChatFooter: FC<ChatFooterProps> = ({
         )}
         {(voice?.isRecording || voice?.isTranscribing) &&
           voice.partialTranscript && (
-            <div className="mt-1 truncate text-muted-foreground text-xs italic">
-              {voice.partialTranscript}
-            </div>
+            <LiveCaption text={voice.partialTranscript} className="mt-1" />
           )}
 
         <div className="mt-2 flex items-center gap-2">

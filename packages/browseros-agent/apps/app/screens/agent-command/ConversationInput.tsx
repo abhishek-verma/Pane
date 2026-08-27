@@ -29,6 +29,7 @@ import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { LiveCaption } from '@/components/voice/LiveCaption'
 import { type StagedAttachment, stageAttachments } from '@/lib/attachments'
 import { PaneIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
 import type { ProviderType } from '@/lib/llm-providers/types'
@@ -626,9 +627,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
         ) : null}
         {(voice.isRecording || voice.isTranscribing) &&
         voice.partialTranscript ? (
-          <div className="truncate px-5 pb-2 text-muted-foreground text-xs italic">
-            {voice.partialTranscript}
-          </div>
+          <LiveCaption text={voice.partialTranscript} className="px-5 pb-2" />
         ) : null}
         <CalmContextControls
           providers={providers}
