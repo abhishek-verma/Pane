@@ -7,17 +7,17 @@
     <language>en</language>
 
 <item>
-  <title>Pane - 0.47.0.84</title>
+  <title>Pane - 0.47.0.85</title>
   <description sparkle:format="plain-text">
   </description>
-  <sparkle:version>7971.97</sparkle:version>
-  <sparkle:shortVersionString>0.47.0.84</sparkle:shortVersionString>
-  <pubDate>Thu, 20 Aug 2026 17:46:58 +0000</pubDate>
+  <sparkle:version>7972.97</sparkle:version>
+  <sparkle:shortVersionString>0.47.0.85</sparkle:shortVersionString>
+  <pubDate>Thu, 27 Aug 2026 05:10:28 +0000</pubDate>
   <link>https://github.com/abhishek-verma/Pane/releases</link>
   <enclosure
-    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.84/Pane_v0.47.0.84_arm64.dmg"
-    sparkle:edSignature="7MrLBHChacnWhJrY8D3LnpVkBuVQPtA5F84TgsBn6P9auhj7i9Z/u02JHSvaOZmmfEQDCTDaRTuUZVupiY4HDg=="
-    length="220124950"
+    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.85/Pane_v0.47.0.85_arm64.dmg"
+    sparkle:edSignature="DF9y+hhui6oR1iXKYo30cR9EQzTmGb/xmO43URhkhEFqpJ5v6cudfVN/wjvX0+gGV2TsJ8L3r/D/t+4QxWWaDw=="
+    length="219810554"
     type="application/octet-stream" />
   <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
 </item>
