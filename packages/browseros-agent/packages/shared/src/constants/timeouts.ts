@@ -81,6 +81,15 @@ export const TIMEOUTS = {
   CAPTURE_UPLOAD_DRAIN_STOP: 5_000,
   CAPTURE_START_MESSAGE: 15_000,
   CAPTURE_STOP_MESSAGE: 15_000,
+  /**
+   * Server-side session teardown (ASR drain, BYOK provider stop) is
+   * single-flighted per session — stop/force-stop/interrupt/fail can all
+   * race for the same one. This bounds how long a *joining* caller waits on
+   * that shared run; the run itself is left to finish in the background so
+   * a legitimately slow ASR drain doesn't lose its work, it's just no
+   * longer allowed to wedge every other request for that session.
+   */
+  CAPTURE_TEARDOWN: 60_000,
 } as const
 
 export type TimeoutKey = keyof typeof TIMEOUTS

@@ -18,6 +18,7 @@ import type {
   TranscriptionProviderId,
   TranscriptSegment,
 } from '@browseros/capture/types'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { graphAddEvent, graphUpsertNode } from '../context/repo'
 import { getCaptureDir } from '../lib/browseros-dir'
 import { getDbHandle } from '../lib/db'
@@ -429,20 +430,14 @@ export async function resumeMeetingCapture(input: {
 export async function interruptMeetingCapture(
   sessionId: string,
 ): Promise<CaptureSessionSummary | null> {
-  await drainAsrQueue(sessionId)
-  await flushAsrRemainder(sessionId)
+  const before = getCaptureSession(sessionId)
+  if (!before) return null
+  if (before.status === 'stopped' || before.status === 'error') return before
+
+  await teardownCaptureSession(sessionId, { flushRemainder: true })
   const session = getCaptureSession(sessionId)
   if (!session) return null
   if (session.status === 'stopped' || session.status === 'error') return session
-
-  const reg = registeredSessions.get(sessionId)
-  if (reg?.byokSession) {
-    await reg.byokSession.stop().catch(() => undefined)
-  }
-  await unregisterAsrSession(sessionId)
-  registeredSessions.delete(sessionId)
-  await unregisterMicAsrSession(sessionId)
-  clearSpeakerTimeline(sessionId)
 
   sqlite()
     .prepare(`UPDATE capture_sessions SET status = 'interrupted' WHERE id = ?`)
@@ -898,6 +893,27 @@ export async function appendPageSnapshot(input: {
   )
 }
 
+/** Resolves with `fallback` after `ms` if `promise` hasn't settled by then. */
+function withDeadline<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        clearTimeout(timer)
+        resolve(fallback)
+      },
+    )
+  })
+}
+
 /** In-flight teardownCaptureSession() calls, keyed by sessionId. */
 const teardownInFlight = new Map<string, Promise<void>>()
 
@@ -911,6 +927,12 @@ const teardownInFlight = new Map<string, Promise<void>>()
  * errors, not just wasted work. A caller racing in after the first started
  * joins that same run rather than starting a second one — its own
  * flushRemainder preference is ignored in that case.
+ *
+ * Bounded by CAPTURE_TEARDOWN: if the underlying work (e.g. a wedged BYOK
+ * sidecar) never settles, every caller — including the one that started it
+ * — gives up after the deadline instead of hanging forever. The task keeps
+ * running in the background regardless, so a merely slow drain still
+ * finishes and its map entry still gets cleared once it does.
  */
 async function teardownCaptureSession(
   sessionId: string,
@@ -918,7 +940,7 @@ async function teardownCaptureSession(
 ): Promise<void> {
   const existing = teardownInFlight.get(sessionId)
   if (existing) {
-    await existing
+    await withDeadline(existing, TIMEOUTS.CAPTURE_TEARDOWN, undefined)
     return
   }
   const task = (async () => {
@@ -934,32 +956,23 @@ async function teardownCaptureSession(
     clearSpeakerTimeline(sessionId)
   })()
   teardownInFlight.set(sessionId, task)
-  try {
-    await task
-  } finally {
+  void task.finally(() => {
     if (teardownInFlight.get(sessionId) === task) {
       teardownInFlight.delete(sessionId)
     }
-  }
+  })
+  await withDeadline(task, TIMEOUTS.CAPTURE_TEARDOWN, undefined)
 }
 
-export async function stopMeetingCapture(
-  sessionId: string,
-): Promise<CaptureSessionSummary | null> {
-  await teardownCaptureSession(sessionId, { flushRemainder: true })
-
-  const session = getCaptureSession(sessionId)
-  if (!session) return null
-  const endedAt = Date.now()
+/** Shared by stopMeetingCapture and forceStopMeetingCapture. */
+function markCaptureSessionStopped(sessionId: string): void {
   sqlite()
     .prepare(
       `UPDATE capture_sessions
        SET status = 'stopped', ended_at = ?
        WHERE id = ?`,
     )
-    .run(endedAt, sessionId)
-
-  const indexed = await indexMeetingCapture(sessionId)
+    .run(Date.now(), sessionId)
   publishCaptureEvent(sessionId, {
     type: 'status',
     sessionId,
@@ -973,6 +986,17 @@ export async function stopMeetingCapture(
       })
     })
     .catch(() => undefined)
+}
+
+export async function stopMeetingCapture(
+  sessionId: string,
+): Promise<CaptureSessionSummary | null> {
+  await teardownCaptureSession(sessionId, { flushRemainder: true })
+
+  const session = getCaptureSession(sessionId)
+  if (!session) return null
+  markCaptureSessionStopped(sessionId)
+  const indexed = await indexMeetingCapture(sessionId)
   return indexed ?? getCaptureSession(sessionId)
 }
 
@@ -992,27 +1016,7 @@ export async function forceStopMeetingCapture(
     return session
   }
 
-  const endedAt = Date.now()
-  sqlite()
-    .prepare(
-      `UPDATE capture_sessions
-       SET status = 'stopped', ended_at = ?
-       WHERE id = ?`,
-    )
-    .run(endedAt, sessionId)
-  publishCaptureEvent(sessionId, {
-    type: 'status',
-    sessionId,
-    status: 'stopped',
-  })
-  void import('../personal-internet/refresh/bus')
-    .then(({ dispatchTrigger }) => {
-      dispatchTrigger({
-        triggerName: 'meeting-ended',
-        filterValue: sessionId,
-      })
-    })
-    .catch(() => undefined)
+  markCaptureSessionStopped(sessionId)
 
   void (async () => {
     try {

@@ -59,6 +59,8 @@ const recorders = new Map<string, RecorderState>()
 const micSpeakingBySession = new Map<string, boolean>()
 /** In-flight stopRecording() calls, keyed by sessionId — see startRecording. */
 const stoppingSessions = new Map<string, Promise<void>>()
+/** In-flight startRecording() calls, keyed by sessionId — see stopRecording. */
+const startingSessions = new Map<string, Promise<void>>()
 
 /** Resolves with `fallback` after `ms` if `promise` hasn't settled by then. */
 function withDeadline<T>(
@@ -397,63 +399,85 @@ async function startRecording(input: {
     throw new Error('Capture server URL missing')
   }
 
-  const opened = await openCaptureStreams({
-    streamId: input.streamId,
-    includeMic: input.includeMic !== false,
-    sessionId: input.sessionId,
-  })
+  // Tracked so a stopRecording() landing before openCaptureStreams()/
+  // recorders.set() below finishes can wait for this to register instead of
+  // silently no-op'ing and orphaning the recorder this call is about to
+  // create — see the pendingStart wait in stopRecording.
+  const task = (async (): Promise<{
+    includeMic: boolean
+    chunksUploaded: number
+  }> => {
+    const opened = await openCaptureStreams({
+      streamId: input.streamId,
+      includeMic: input.includeMic !== false,
+      sessionId: input.sessionId,
+    })
 
-  const liveTracks = opened.tab
-    .getAudioTracks()
-    .filter((track) => track.readyState === 'live')
-  if (liveTracks.length === 0) {
-    opened.cleanup()
-    throw new Error('Capture stream has no live audio tracks')
-  }
-
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-    ? 'audio/webm;codecs=opus'
-    : 'audio/webm'
-
-  // Dual-channel: separate MediaRecorders for tab (guests) and mic (user).
-  // Tab always records. Mic can be paused/resumed based on meeting mute state.
-  const tabRecorder = new MediaRecorder(opened.tab, { mimeType })
-  const state: RecorderState = {
-    sessionId: input.sessionId,
-    tabId: input.tabId,
-    cleanup: opened.cleanup,
-    includeMic: opened.includeMic,
-    serverUrl: input.serverUrl,
-    profileKey: input.profileKey,
-    uploadErrors: 0,
-    uploadChain: Promise.resolve(),
-    failingOut: false,
-    mixed: { recorder: tabRecorder, sequence: 0 },
-    pending: await loadPending(input.sessionId),
-    localSpeaking: false,
-  }
-
-  wireTrack(state, 'tab', tabRecorder, mimeType)
-
-  // Separate mic recorder if mic is available
-  if (opened.mic && opened.includeMic) {
-    const micLiveTracks = opened.mic
+    const liveTracks = opened.tab
       .getAudioTracks()
-      .filter((t) => t.readyState === 'live')
-    if (micLiveTracks.length > 0) {
-      const micRecorder = new MediaRecorder(opened.mic, { mimeType })
-      state.mic = { recorder: micRecorder, sequence: 0 }
-      wireTrack(state, 'mic', micRecorder, mimeType)
+      .filter((track) => track.readyState === 'live')
+    if (liveTracks.length === 0) {
+      opened.cleanup()
+      throw new Error('Capture stream has no live audio tracks')
+    }
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : 'audio/webm'
+
+    // Dual-channel: separate MediaRecorders for tab (guests) and mic (user).
+    // Tab always records. Mic can be paused/resumed based on meeting mute state.
+    const tabRecorder = new MediaRecorder(opened.tab, { mimeType })
+    const state: RecorderState = {
+      sessionId: input.sessionId,
+      tabId: input.tabId,
+      cleanup: opened.cleanup,
+      includeMic: opened.includeMic,
+      serverUrl: input.serverUrl,
+      profileKey: input.profileKey,
+      uploadErrors: 0,
+      uploadChain: Promise.resolve(),
+      failingOut: false,
+      mixed: { recorder: tabRecorder, sequence: 0 },
+      pending: await loadPending(input.sessionId),
+      localSpeaking: false,
+    }
+
+    wireTrack(state, 'tab', tabRecorder, mimeType)
+
+    // Separate mic recorder if mic is available
+    if (opened.mic && opened.includeMic) {
+      const micLiveTracks = opened.mic
+        .getAudioTracks()
+        .filter((t) => t.readyState === 'live')
+      if (micLiveTracks.length > 0) {
+        const micRecorder = new MediaRecorder(opened.mic, { mimeType })
+        state.mic = { recorder: micRecorder, sequence: 0 }
+        wireTrack(state, 'mic', micRecorder, mimeType)
+      }
+    }
+
+    recorders.set(input.sessionId, state)
+    // Retry any durable buffered chunks from a prior offscreen death.
+    state.uploadChain = state.uploadChain
+      .then(() => flushPendingBuffer(state))
+      .catch(() => undefined)
+
+    return { includeMic: opened.includeMic, chunksUploaded: 0 }
+  })()
+
+  const voidTask = task.then(
+    () => undefined,
+    () => undefined,
+  )
+  startingSessions.set(input.sessionId, voidTask)
+  try {
+    return await task
+  } finally {
+    if (startingSessions.get(input.sessionId) === voidTask) {
+      startingSessions.delete(input.sessionId)
     }
   }
-
-  recorders.set(input.sessionId, state)
-  // Retry any durable buffered chunks from a prior offscreen death.
-  state.uploadChain = state.uploadChain
-    .then(() => flushPendingBuffer(state))
-    .catch(() => undefined)
-
-  return { includeMic: opened.includeMic, chunksUploaded: 0 }
 }
 
 // Bounded: a MediaRecorder's native 'stop' event can fail to fire on some
@@ -474,6 +498,17 @@ function stopOne(recorder: MediaRecorder): Promise<void> {
 }
 
 async function stopRecording(sessionId: string): Promise<void> {
+  // A stop landing before startRecording() has reached recorders.set() would
+  // otherwise find nothing and no-op, permanently orphaning the recorder
+  // startRecording is about to register with nobody left tracking it. Wait
+  // for that registration (bounded — if start is itself abnormally slow,
+  // don't hang here indefinitely; the caller's own timeout already covers
+  // the user-visible side of this).
+  const pendingStart = startingSessions.get(sessionId)
+  if (pendingStart) {
+    await withDeadline(pendingStart, TIMEOUTS.CAPTURE_START_MESSAGE, undefined)
+  }
+
   const state = recorders.get(sessionId)
   if (!state) return
   state.failingOut = true
