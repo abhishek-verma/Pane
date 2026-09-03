@@ -61,6 +61,8 @@ const micSpeakingBySession = new Map<string, boolean>()
 const stoppingSessions = new Map<string, Promise<void>>()
 /** In-flight startRecording() calls, keyed by sessionId — see stopRecording. */
 const startingSessions = new Map<string, Promise<void>>()
+/** Sessions stopRecording() gave up waiting on startRecording() for. */
+const stopRequested = new Set<string>()
 
 /** Resolves with `fallback` after `ms` if `promise` hasn't settled by then. */
 function withDeadline<T>(
@@ -463,6 +465,13 @@ async function startRecording(input: {
       .then(() => flushPendingBuffer(state))
       .catch(() => undefined)
 
+    // A stopRecording() call already gave up waiting on us (see the
+    // pendingStart wait there) before we finished registering — tear down
+    // immediately instead of leaving a live, untracked recorder running.
+    if (stopRequested.has(input.sessionId)) {
+      void teardownRecorderState(input.sessionId, state)
+    }
+
     return { includeMic: opened.includeMic, chunksUploaded: 0 }
   })()
 
@@ -497,25 +506,17 @@ function stopOne(recorder: MediaRecorder): Promise<void> {
   )
 }
 
-async function stopRecording(sessionId: string): Promise<void> {
-  // A stop landing before startRecording() has reached recorders.set() would
-  // otherwise find nothing and no-op, permanently orphaning the recorder
-  // startRecording is about to register with nobody left tracking it. Wait
-  // for that registration (bounded — if start is itself abnormally slow,
-  // don't hang here indefinitely; the caller's own timeout already covers
-  // the user-visible side of this).
-  const pendingStart = startingSessions.get(sessionId)
-  if (pendingStart) {
-    await withDeadline(pendingStart, TIMEOUTS.CAPTURE_START_MESSAGE, undefined)
-  }
-
-  const state = recorders.get(sessionId)
-  if (!state) return
+/** Actual MediaRecorder/track/upload teardown, shared by both entry points below. */
+async function teardownRecorderState(
+  sessionId: string,
+  state: RecorderState,
+): Promise<void> {
   state.failingOut = true
   // Remove immediately, before any awaits, so a concurrent startRecording
   // (racing in via a runtime message) doesn't see a "live" entry and reuse
   // this dying recorder — see the pendingStop wait in startRecording.
   recorders.delete(sessionId)
+  stopRequested.delete(sessionId)
 
   const teardown = (async () => {
     // mixed/mic recorders share the same audio pipeline, so a hang in one
@@ -545,6 +546,30 @@ async function stopRecording(sessionId: string): Promise<void> {
       stoppingSessions.delete(sessionId)
     }
   }
+}
+
+async function stopRecording(sessionId: string): Promise<void> {
+  // Mark unconditionally, before the bounded wait below can give up: if
+  // startRecording is still mid-flight and finishes registering after we
+  // stop waiting on it, it checks this flag and self-terminates instead of
+  // leaving a live, untracked recorder running — see startRecording.
+  stopRequested.add(sessionId)
+
+  // A stop landing before startRecording() has reached recorders.set() would
+  // otherwise find nothing and no-op, permanently orphaning the recorder
+  // startRecording is about to register with nobody left tracking it. Wait
+  // for that registration (bounded — if start is itself abnormally slow,
+  // don't hang here indefinitely; the caller's own timeout already covers
+  // the user-visible side of this, and stopRequested above covers the
+  // orphan risk regardless of how long start ends up taking).
+  const pendingStart = startingSessions.get(sessionId)
+  if (pendingStart) {
+    await withDeadline(pendingStart, TIMEOUTS.CAPTURE_START_MESSAGE, undefined)
+  }
+
+  const state = recorders.get(sessionId)
+  if (!state) return
+  await teardownRecorderState(sessionId, state)
 }
 
 onRuntimeMessage(RuntimeMessageType.captureAudioStart, async ({ data }) => {

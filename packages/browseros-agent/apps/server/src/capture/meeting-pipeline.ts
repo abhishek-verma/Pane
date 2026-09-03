@@ -893,22 +893,25 @@ export async function appendPageSnapshot(input: {
   )
 }
 
-/** Resolves with `fallback` after `ms` if `promise` hasn't settled by then. */
-function withDeadline<T>(
-  promise: Promise<T>,
-  ms: number,
-  fallback: T,
-): Promise<T> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(fallback), ms)
+/**
+ * Waits for `promise`, but gives up after `ms` if it's still pending —
+ * *without* treating that as success: a genuine rejection from `promise`
+ * still propagates once it happens, it just doesn't block the caller from
+ * moving on in the meantime. Only use this to join work someone else is
+ * driving; the driving caller should await the real promise directly so a
+ * real failure surfaces where it belongs.
+ */
+function joinWithDeadline(promise: Promise<void>, ms: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
     promise.then(
-      (value) => {
-        clearTimeout(timer)
-        resolve(value)
-      },
       () => {
         clearTimeout(timer)
-        resolve(fallback)
+        resolve()
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
       },
     )
   })
@@ -928,11 +931,13 @@ const teardownInFlight = new Map<string, Promise<void>>()
  * joins that same run rather than starting a second one — its own
  * flushRemainder preference is ignored in that case.
  *
- * Bounded by CAPTURE_TEARDOWN: if the underlying work (e.g. a wedged BYOK
- * sidecar) never settles, every caller — including the one that started it
- * — gives up after the deadline instead of hanging forever. The task keeps
- * running in the background regardless, so a merely slow drain still
- * finishes and its map entry still gets cleared once it does.
+ * Only a *joining* caller is bounded (CAPTURE_TEARDOWN) — force-stop or a
+ * delete/fail racing in while a stop is already draining must not hang
+ * waiting on someone else's run. The caller that actually starts the work
+ * awaits it directly, unbounded, exactly like before this single-flight
+ * existed: a normal stop still waits for the real ASR drain to finish
+ * (which can legitimately take well past a minute) before indexing, rather
+ * than risking a truncated transcript.
  */
 async function teardownCaptureSession(
   sessionId: string,
@@ -940,7 +945,7 @@ async function teardownCaptureSession(
 ): Promise<void> {
   const existing = teardownInFlight.get(sessionId)
   if (existing) {
-    await withDeadline(existing, TIMEOUTS.CAPTURE_TEARDOWN, undefined)
+    await joinWithDeadline(existing, TIMEOUTS.CAPTURE_TEARDOWN)
     return
   }
   const task = (async () => {
@@ -956,12 +961,13 @@ async function teardownCaptureSession(
     clearSpeakerTimeline(sessionId)
   })()
   teardownInFlight.set(sessionId, task)
-  void task.finally(() => {
+  try {
+    await task
+  } finally {
     if (teardownInFlight.get(sessionId) === task) {
       teardownInFlight.delete(sessionId)
     }
-  })
-  await withDeadline(task, TIMEOUTS.CAPTURE_TEARDOWN, undefined)
+  }
 }
 
 /** Shared by stopMeetingCapture and forceStopMeetingCapture. */
@@ -995,8 +1001,13 @@ export async function stopMeetingCapture(
 
   const session = getCaptureSession(sessionId)
   if (!session) return null
-  markCaptureSessionStopped(sessionId)
+  // Index before announcing "stopped": clients refetch on that event (and
+  // useCaptureApi.ts tears its SSE connection down right after, since the
+  // same event flips isActive false), so the summary/graph node must
+  // already be written by the time it fires or that refetch can land on
+  // stale/placeholder data with nothing left to prompt a retry.
   const indexed = await indexMeetingCapture(sessionId)
+  markCaptureSessionStopped(sessionId)
   return indexed ?? getCaptureSession(sessionId)
 }
 
