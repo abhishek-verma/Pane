@@ -86,6 +86,7 @@ const WRITE_LOCAL_TASK_TOOLS = new Set([
   'skills_delete',
   'capture_start',
   'capture_stop',
+  'capture_force_stop',
   'pi_site_upsert',
   'pi_page_delete',
   'pi_site_archive',

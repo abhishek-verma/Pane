@@ -898,19 +898,55 @@ export async function appendPageSnapshot(input: {
   )
 }
 
+/** In-flight teardownCaptureSession() calls, keyed by sessionId. */
+const teardownInFlight = new Map<string, Promise<void>>()
+
+/**
+ * ASR drain / BYOK stop / session unregistration shared by stopMeetingCapture,
+ * forceStopMeetingCapture, and failMeetingCapture. Single-flighted per
+ * sessionId: stopMeetingCapture and forceStopMeetingCapture can legitimately
+ * race for the same session (force-stop is meant to be called *because*
+ * stop looks stuck), and running ASR-drain/BYOK-stop/unregister twice
+ * concurrently for one session is the kind of thing that produces its own
+ * errors, not just wasted work. A caller racing in after the first started
+ * joins that same run rather than starting a second one — its own
+ * flushRemainder preference is ignored in that case.
+ */
+async function teardownCaptureSession(
+  sessionId: string,
+  options: { flushRemainder: boolean },
+): Promise<void> {
+  const existing = teardownInFlight.get(sessionId)
+  if (existing) {
+    await existing
+    return
+  }
+  const task = (async () => {
+    await drainAsrQueue(sessionId)
+    if (options.flushRemainder) await flushAsrRemainder(sessionId)
+    const reg = registeredSessions.get(sessionId)
+    if (reg?.byokSession) {
+      await reg.byokSession.stop().catch(() => undefined)
+    }
+    await unregisterAsrSession(sessionId)
+    registeredSessions.delete(sessionId)
+    await unregisterMicAsrSession(sessionId)
+    clearSpeakerTimeline(sessionId)
+  })()
+  teardownInFlight.set(sessionId, task)
+  try {
+    await task
+  } finally {
+    if (teardownInFlight.get(sessionId) === task) {
+      teardownInFlight.delete(sessionId)
+    }
+  }
+}
+
 export async function stopMeetingCapture(
   sessionId: string,
 ): Promise<CaptureSessionSummary | null> {
-  await drainAsrQueue(sessionId)
-  await flushAsrRemainder(sessionId)
-  const reg = registeredSessions.get(sessionId)
-  if (reg?.byokSession) {
-    await reg.byokSession.stop().catch(() => undefined)
-  }
-  await unregisterAsrSession(sessionId)
-  registeredSessions.delete(sessionId)
-  await unregisterMicAsrSession(sessionId)
-  clearSpeakerTimeline(sessionId)
+  await teardownCaptureSession(sessionId, { flushRemainder: true })
 
   const session = getCaptureSession(sessionId)
   if (!session) return null
@@ -980,16 +1016,7 @@ export async function forceStopMeetingCapture(
 
   void (async () => {
     try {
-      await drainAsrQueue(sessionId)
-      await flushAsrRemainder(sessionId)
-      const reg = registeredSessions.get(sessionId)
-      if (reg?.byokSession) {
-        await reg.byokSession.stop().catch(() => undefined)
-      }
-      await unregisterAsrSession(sessionId)
-      registeredSessions.delete(sessionId)
-      await unregisterMicAsrSession(sessionId)
-      clearSpeakerTimeline(sessionId)
+      await teardownCaptureSession(sessionId, { flushRemainder: true })
       await indexMeetingCapture(sessionId)
     } catch (err) {
       logger.warn('force-stop background cleanup failed', { sessionId, err })
@@ -1079,15 +1106,7 @@ export async function failMeetingCapture(
   sessionId: string,
   errorMessage: string,
 ): Promise<CaptureSessionSummary | null> {
-  await drainAsrQueue(sessionId)
-  const reg = registeredSessions.get(sessionId)
-  if (reg?.byokSession) {
-    await reg.byokSession.stop().catch(() => undefined)
-  }
-  await unregisterAsrSession(sessionId)
-  registeredSessions.delete(sessionId)
-  await unregisterMicAsrSession(sessionId)
-  clearSpeakerTimeline(sessionId)
+  await teardownCaptureSession(sessionId, { flushRemainder: false })
 
   const session = getCaptureSession(sessionId)
   if (!session) return null

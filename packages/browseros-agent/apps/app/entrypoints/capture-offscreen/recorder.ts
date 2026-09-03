@@ -544,8 +544,15 @@ onRuntimeMessage(RuntimeMessageType.captureAudioStatus, async () => {
       uploadErrors: state.uploadErrors,
     }),
   )
+  // Sessions mid-teardown (stopRecording already removed them from
+  // `recorders`, see the comment there) still hold live tracks/uploads and
+  // must count as "using the document" — otherwise a concurrent
+  // closeCaptureOffscreenDocumentIfIdle() can see zero live sessions and
+  // force-close the shared offscreen document out from under them.
+  const sessionIds = new Set(sessions.map((session) => session.sessionId))
+  for (const sessionId of stoppingSessions.keys()) sessionIds.add(sessionId)
   return {
-    sessionIds: sessions.map((session) => session.sessionId),
+    sessionIds: Array.from(sessionIds),
     sessions,
   }
 })
