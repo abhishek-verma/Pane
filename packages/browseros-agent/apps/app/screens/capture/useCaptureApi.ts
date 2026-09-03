@@ -261,6 +261,33 @@ export function useCaptureTranscript(
   }
 }
 
+/**
+ * Escape hatch for a session stuck showing "live" because the normal stop
+ * chain is wedged — marks it stopped immediately, skipping transcript
+ * finalization.
+ */
+export function useForceStopMeeting() {
+  const { baseUrl } = useAgentServerUrl()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await captureFetch(
+        `${base(baseUrl as string)}/capture/meetings/force-stop`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        },
+      )
+      if (!res.ok)
+        throw new Error(`Failed to force-stop meeting (${res.status})`)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [CAPTURE_QUERY_KEY] })
+    },
+  })
+}
+
 export function useDeleteMeeting() {
   const { baseUrl } = useAgentServerUrl()
   const queryClient = useQueryClient()

@@ -165,6 +165,7 @@ Pane records consented Meet/Zoom/Teams (and similar) calls locally:
 - \`capture_read\` → metadata + local excerpt + transcript text for a sessionId (default include=full; excerpt is not AI notes)
 - \`capture_status\` → pause reason, disk usage, active session count
 - \`capture_stop\` → stop an active capture (recording itself is started by the browser extension)
+- \`capture_force_stop\` → only if \`capture_stop\` already ran and did not complete (hung, or the session still shows active/live) — immediately marks it stopped, skipping transcript finalization
 - Do **not** use generic filesystem or shell tools on capture storage paths; always use \`capture_read\`
 
 ### Context, Memory, Tasks & Home

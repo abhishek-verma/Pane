@@ -14,6 +14,7 @@ import {
   useCaptureStatus,
   useCaptureTranscript,
   useDeleteMeeting,
+  useForceStopMeeting,
 } from './useCaptureApi'
 
 function dedupeTranscriptFinals<
@@ -68,6 +69,7 @@ export const CapturePage: FC = () => {
     activeSelectedSession?.status === 'active',
   )
   const deleteMeeting = useDeleteMeeting()
+  const forceStopMeeting = useForceStopMeeting()
 
   const visibleSessions = [...meetings.sessions]
     .filter(
@@ -239,6 +241,23 @@ export const CapturePage: FC = () => {
                   >
                     Reload
                   </Button>
+                  {selectedSessionId &&
+                    (selectedSession?.status === 'active' ||
+                      selectedSession?.status === 'interrupted' ||
+                      selectedSession?.status === 'paused') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[11px]"
+                        title="Immediately mark this meeting as stopped, skipping transcript finalization. Use this if it's stuck showing as live."
+                        disabled={forceStopMeeting.isPending}
+                        onClick={() =>
+                          void forceStopMeeting.mutateAsync(selectedSessionId)
+                        }
+                      >
+                        Force stop
+                      </Button>
+                    )}
                   {selectedSessionId && (
                     <Button
                       variant="ghost"

@@ -9,6 +9,7 @@ import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
 import {
+  forceStopMeetingCapture,
   getCaptureSession,
   listCaptureSessions,
   stopMeetingCapture,
@@ -149,6 +150,20 @@ export function buildCaptureToolSet(
         if (!session)
           return { text: `Capture not found: ${sessionId}`, isError: true }
         return { text: `Stopped capture ${session.id}.` }
+      },
+    }),
+    capture_force_stop: tool({
+      description:
+        'Force-stop a stuck local meeting capture session immediately, skipping transcript finalization. Only use this if capture_stop was already called and did not complete (e.g. the tool call hung, or the session still shows as active/live afterwards).',
+      inputSchema: z.object({
+        sessionId: z.string().min(1),
+        ...promotedField,
+      }),
+      execute: async ({ sessionId }) => {
+        const session = await forceStopMeetingCapture(sessionId)
+        if (!session)
+          return { text: `Capture not found: ${sessionId}`, isError: true }
+        return { text: `Force-stopped capture ${session.id}.` }
       },
     }),
     capture_status: tool({

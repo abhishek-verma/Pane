@@ -29,6 +29,7 @@ import {
   deleteMeetingCapture,
   failMeetingCapture,
   feedCaptureChunk,
+  forceStopMeetingCapture,
   getCaptureSession,
   interruptMeetingCapture,
   listCaptureSessions,
@@ -186,6 +187,14 @@ export function createCaptureRoutes() {
           .object({ sessionId: z.string().min(1) })
           .parse(await c.req.json())
         return c.json({ session: await stopMeetingCapture(body.sessionId) })
+      })
+      .post('/meetings/force-stop', async (c) => {
+        const body = z
+          .object({ sessionId: z.string().min(1) })
+          .parse(await c.req.json())
+        return c.json({
+          session: await forceStopMeetingCapture(body.sessionId),
+        })
       })
       .post('/meetings/interrupt', async (c) => {
         const body = z

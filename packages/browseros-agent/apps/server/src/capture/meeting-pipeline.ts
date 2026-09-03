@@ -941,6 +941,65 @@ export async function stopMeetingCapture(
 }
 
 /**
+ * Escape hatch for when stopMeetingCapture itself is stuck (e.g. a wedged
+ * ASR sidecar or drain queue) — flips the session to 'stopped' immediately
+ * and does the normal teardown (ASR drain, BYOK stop, indexing) best-effort
+ * in the background, unawaited. Callers only ever wait on the DB write, so
+ * this can never hang the way the guarded path still theoretically could.
+ */
+export async function forceStopMeetingCapture(
+  sessionId: string,
+): Promise<CaptureSessionSummary | null> {
+  const session = getCaptureSession(sessionId)
+  if (!session) return null
+  if (session.status === 'stopped' || session.status === 'error') {
+    return session
+  }
+
+  const endedAt = Date.now()
+  sqlite()
+    .prepare(
+      `UPDATE capture_sessions
+       SET status = 'stopped', ended_at = ?
+       WHERE id = ?`,
+    )
+    .run(endedAt, sessionId)
+  publishCaptureEvent(sessionId, {
+    type: 'status',
+    sessionId,
+    status: 'stopped',
+  })
+  void import('../personal-internet/refresh/bus')
+    .then(({ dispatchTrigger }) => {
+      dispatchTrigger({
+        triggerName: 'meeting-ended',
+        filterValue: sessionId,
+      })
+    })
+    .catch(() => undefined)
+
+  void (async () => {
+    try {
+      await drainAsrQueue(sessionId)
+      await flushAsrRemainder(sessionId)
+      const reg = registeredSessions.get(sessionId)
+      if (reg?.byokSession) {
+        await reg.byokSession.stop().catch(() => undefined)
+      }
+      await unregisterAsrSession(sessionId)
+      registeredSessions.delete(sessionId)
+      await unregisterMicAsrSession(sessionId)
+      clearSpeakerTimeline(sessionId)
+      await indexMeetingCapture(sessionId)
+    } catch (err) {
+      logger.warn('force-stop background cleanup failed', { sessionId, err })
+    }
+  })()
+
+  return getCaptureSession(sessionId)
+}
+
+/**
  * Write summary.md + graph FTS text from the on-disk transcript.
  * Safe to call repeatedly for reindexing placeholder nodes.
  */
