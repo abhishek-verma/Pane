@@ -71,6 +71,13 @@ export const TIMEOUTS = {
   // PI_LIMITS.MERMAID_RENDER_TIMEOUT_MS's disposable-iframe timeout.
   SHIKI_SANDBOX_BOOT: 10_000,
   SHIKI_HIGHLIGHT: 8_000,
+
+  // Capture (meeting recording) stop bounds — a MediaRecorder whose native
+  // 'stop' event never fires, or an unresponsive offscreen document, must
+  // not wedge capture_stop / tab-close cleanup indefinitely and leave a
+  // session stuck "live".
+  CAPTURE_RECORDER_STOP: 5_000,
+  CAPTURE_STOP_MESSAGE: 12_000,
 } as const
 
 export type TimeoutKey = keyof typeof TIMEOUTS

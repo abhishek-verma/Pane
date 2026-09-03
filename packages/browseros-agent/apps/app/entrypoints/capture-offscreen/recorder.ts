@@ -7,6 +7,7 @@
  * Durable pending-upload buffer survives transient server failures.
  */
 
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import {
   onRuntimeMessage,
   RuntimeMessageType,
@@ -430,13 +431,26 @@ async function stopRecording(sessionId: string): Promise<void> {
   if (!state) return
   state.failingOut = true
 
+  // Bounded: a MediaRecorder's native 'stop' event can fail to fire on some
+  // track/state edge cases, which would otherwise hang capture_stop (and the
+  // whole background -> offscreen stop chain) forever, leaving the session
+  // stuck "live". Give up after CAPTURE_RECORDER_STOP and let cleanup() below
+  // force-stop the underlying tracks regardless.
   const stopOne = (recorder: MediaRecorder) =>
     new Promise<void>((resolve) => {
       if (recorder.state === 'inactive') {
         resolve()
         return
       }
-      recorder.addEventListener('stop', () => resolve(), { once: true })
+      const timer = setTimeout(resolve, TIMEOUTS.CAPTURE_RECORDER_STOP)
+      recorder.addEventListener(
+        'stop',
+        () => {
+          clearTimeout(timer)
+          resolve()
+        },
+        { once: true },
+      )
       recorder.stop()
     })
 

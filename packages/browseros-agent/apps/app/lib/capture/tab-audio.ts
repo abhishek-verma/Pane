@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { getBrowserProfileKey } from '@/lib/browseros/profile-key'
@@ -15,6 +16,28 @@ import {
   closeCaptureOffscreenDocumentIfIdle,
   ensureCaptureOffscreenDocument,
 } from './offscreen-audio'
+
+/**
+ * A hung offscreen document (or a `captureAudioStop` handler that never
+ * resolves) must not block the stop chain forever — the caller still needs
+ * to clear local session state so the meeting doesn't stay "live" even
+ * after the tab/browser has closed.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        clearTimeout(timer)
+        resolve(null)
+      },
+    )
+  })
+}
 
 async function resolveStreamId(tabId: number): Promise<string> {
   const adapter = getBrowserOSAdapter()
@@ -91,9 +114,10 @@ export async function stopTabAudioCapture(sessionId: string): Promise<void> {
   const tabId = activeSessions.get(sessionId)
   if (tabId === undefined) return
 
-  await sendRuntimeMessage(RuntimeMessageType.captureAudioStop, {
-    sessionId,
-  }).catch(() => null)
+  await withTimeout(
+    sendRuntimeMessage(RuntimeMessageType.captureAudioStop, { sessionId }),
+    TIMEOUTS.CAPTURE_STOP_MESSAGE,
+  )
 
   activeSessions.delete(sessionId)
   await closeCaptureOffscreenDocumentIfIdle()
