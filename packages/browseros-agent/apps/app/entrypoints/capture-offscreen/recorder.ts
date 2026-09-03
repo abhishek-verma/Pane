@@ -486,6 +486,12 @@ async function startRecording(input: {
     if (startingSessions.get(input.sessionId) === voidTask) {
       startingSessions.delete(input.sessionId)
     }
+    // Whether we self-terminated above, finished normally, or threw: this
+    // start is no longer in flight, so nothing should still be waiting to
+    // self-terminate on our behalf. Clears it in every case (start failure
+    // included) so it can never leak onto an unrelated future start for the
+    // same, possibly-reused, sessionId — see stopRecording.
+    stopRequested.delete(input.sessionId)
   }
 }
 
@@ -549,21 +555,19 @@ async function teardownRecorderState(
 }
 
 async function stopRecording(sessionId: string): Promise<void> {
-  // Mark unconditionally, before the bounded wait below can give up: if
-  // startRecording is still mid-flight and finishes registering after we
-  // stop waiting on it, it checks this flag and self-terminates instead of
-  // leaving a live, untracked recorder running — see startRecording.
-  stopRequested.add(sessionId)
-
   // A stop landing before startRecording() has reached recorders.set() would
   // otherwise find nothing and no-op, permanently orphaning the recorder
-  // startRecording is about to register with nobody left tracking it. Wait
-  // for that registration (bounded — if start is itself abnormally slow,
+  // startRecording is about to register with nobody left tracking it. Only
+  // relevant when a start is actually in flight — mark it (startRecording's
+  // finally block always clears this, on every path, so it can't leak onto
+  // an unrelated future start for the same, possibly-reused, sessionId) and
+  // wait for it to register (bounded — if start is itself abnormally slow,
   // don't hang here indefinitely; the caller's own timeout already covers
-  // the user-visible side of this, and stopRequested above covers the
-  // orphan risk regardless of how long start ends up taking).
+  // the user-visible side of this, and the flag covers the orphan risk
+  // regardless of how long start ends up taking).
   const pendingStart = startingSessions.get(sessionId)
   if (pendingStart) {
+    stopRequested.add(sessionId)
     await withDeadline(pendingStart, TIMEOUTS.CAPTURE_START_MESSAGE, undefined)
   }
 
@@ -605,12 +609,15 @@ onRuntimeMessage(RuntimeMessageType.captureAudioStatus, async () => {
     }),
   )
   // Sessions mid-teardown (stopRecording already removed them from
-  // `recorders`, see the comment there) still hold live tracks/uploads and
-  // must count as "using the document" — otherwise a concurrent
-  // closeCaptureOffscreenDocumentIfIdle() can see zero live sessions and
-  // force-close the shared offscreen document out from under them.
+  // `recorders`, see the comment there) or mid-start (startRecording hasn't
+  // reached recorders.set() yet, e.g. still awaiting getUserMedia) still
+  // hold or are about to hold live tracks/uploads and must count as "using
+  // the document" — otherwise a concurrent closeCaptureOffscreenDocumentIfIdle()
+  // can see zero live sessions and force-close the shared offscreen document
+  // out from under them.
   const sessionIds = new Set(sessions.map((session) => session.sessionId))
   for (const sessionId of stoppingSessions.keys()) sessionIds.add(sessionId)
+  for (const sessionId of startingSessions.keys()) sessionIds.add(sessionId)
   return {
     sessionIds: Array.from(sessionIds),
     sessions,

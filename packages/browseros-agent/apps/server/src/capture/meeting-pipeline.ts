@@ -439,9 +439,20 @@ export async function interruptMeetingCapture(
   if (!session) return null
   if (session.status === 'stopped' || session.status === 'error') return session
 
-  sqlite()
-    .prepare(`UPDATE capture_sessions SET status = 'interrupted' WHERE id = ?`)
+  // Guarded, not just pre-checked: interrupt can join the same in-flight
+  // teardown as a concurrent stopMeetingCapture (both single-flighted onto
+  // teardownCaptureSession), and both resolve before either has written its
+  // final status — the plain pre-check above can't see a 'stopped' write
+  // that hasn't happened yet. This UPDATE can never clobber one that lands
+  // first, whichever caller wins the race.
+  const result = sqlite()
+    .prepare(
+      `UPDATE capture_sessions
+       SET status = 'interrupted'
+       WHERE id = ? AND status NOT IN ('stopped', 'error')`,
+    )
     .run(sessionId)
+  if (result.changes === 0) return getCaptureSession(sessionId)
   publishCaptureEvent(sessionId, {
     type: 'status',
     sessionId,
@@ -970,8 +981,8 @@ async function teardownCaptureSession(
   }
 }
 
-/** Shared by stopMeetingCapture and forceStopMeetingCapture. */
-function markCaptureSessionStopped(sessionId: string): void {
+/** DB write only — see announceCaptureSessionStopped for the client-facing half. */
+function writeCaptureSessionStoppedStatus(sessionId: string): void {
   sqlite()
     .prepare(
       `UPDATE capture_sessions
@@ -979,6 +990,15 @@ function markCaptureSessionStopped(sessionId: string): void {
        WHERE id = ?`,
     )
     .run(Date.now(), sessionId)
+}
+
+/**
+ * SSE 'status' event + refresh trigger. Kept separate from the DB write
+ * above so a caller can persist "stopped" immediately (the guarantee
+ * force-stop exists for) while still deferring the client-facing
+ * announcement until indexing has actually run — see forceStopMeetingCapture.
+ */
+function announceCaptureSessionStopped(sessionId: string): void {
   publishCaptureEvent(sessionId, {
     type: 'status',
     sessionId,
@@ -1007,7 +1027,8 @@ export async function stopMeetingCapture(
   // already be written by the time it fires or that refetch can land on
   // stale/placeholder data with nothing left to prompt a retry.
   const indexed = await indexMeetingCapture(sessionId)
-  markCaptureSessionStopped(sessionId)
+  writeCaptureSessionStoppedStatus(sessionId)
+  announceCaptureSessionStopped(sessionId)
   return indexed ?? getCaptureSession(sessionId)
 }
 
@@ -1017,6 +1038,12 @@ export async function stopMeetingCapture(
  * and does the normal teardown (ASR drain, BYOK stop, indexing) best-effort
  * in the background, unawaited. Callers only ever wait on the DB write, so
  * this can never hang the way the guarded path still theoretically could.
+ *
+ * The DB write happens synchronously (that's the guarantee), but the
+ * client-facing SSE event is deferred to the background block, after
+ * indexing — same reason as stopMeetingCapture above: firing it early would
+ * let a client refetch and tear its SSE connection down before there's
+ * anything indexed to show.
  */
 export async function forceStopMeetingCapture(
   sessionId: string,
@@ -1027,7 +1054,7 @@ export async function forceStopMeetingCapture(
     return session
   }
 
-  markCaptureSessionStopped(sessionId)
+  writeCaptureSessionStoppedStatus(sessionId)
 
   void (async () => {
     try {
@@ -1035,6 +1062,8 @@ export async function forceStopMeetingCapture(
       await indexMeetingCapture(sessionId)
     } catch (err) {
       logger.warn('force-stop background cleanup failed', { sessionId, err })
+    } finally {
+      announceCaptureSessionStopped(sessionId)
     }
   })()
 
