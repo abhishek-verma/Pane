@@ -77,7 +77,10 @@ export const TIMEOUTS = {
   // not wedge capture_stop / tab-close cleanup indefinitely and leave a
   // session stuck "live".
   CAPTURE_RECORDER_STOP: 5_000,
-  CAPTURE_STOP_MESSAGE: 12_000,
+  /** Bounds draining in-flight chunk uploads on stop; unflushed chunks stay in the durable pending buffer and retry later. */
+  CAPTURE_UPLOAD_DRAIN_STOP: 5_000,
+  CAPTURE_START_MESSAGE: 15_000,
+  CAPTURE_STOP_MESSAGE: 15_000,
 } as const
 
 export type TimeoutKey = keyof typeof TIMEOUTS

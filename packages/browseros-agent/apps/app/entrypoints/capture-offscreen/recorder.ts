@@ -57,6 +57,29 @@ interface RecorderState {
 
 const recorders = new Map<string, RecorderState>()
 const micSpeakingBySession = new Map<string, boolean>()
+/** In-flight stopRecording() calls, keyed by sessionId — see startRecording. */
+const stoppingSessions = new Map<string, Promise<void>>()
+
+/** Resolves with `fallback` after `ms` if `promise` hasn't settled by then. */
+function withDeadline<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        clearTimeout(timer)
+        resolve(fallback)
+      },
+    )
+  })
+}
 
 function bufferKey(sessionId: string): string {
   return `capturePending:${sessionId}`
@@ -355,6 +378,13 @@ async function startRecording(input: {
   includeMic?: boolean
   profileKey: string
 }): Promise<{ includeMic: boolean; chunksUploaded: number }> {
+  // A restart for this sessionId (e.g. SPA navigation) can land while the
+  // previous stopRecording() is still tearing down — recorders.has() alone
+  // can't tell "actively recording" from "dying". Wait out any in-flight
+  // stop first so we don't silently reuse/collide with the old state.
+  const pendingStop = stoppingSessions.get(input.sessionId)
+  if (pendingStop) await pendingStop.catch(() => undefined)
+
   if (recorders.has(input.sessionId)) {
     const existing = recorders.get(input.sessionId)
     return {
@@ -426,41 +456,60 @@ async function startRecording(input: {
   return { includeMic: opened.includeMic, chunksUploaded: 0 }
 }
 
+// Bounded: a MediaRecorder's native 'stop' event can fail to fire on some
+// track/state edge cases, which would otherwise hang capture_stop (and the
+// whole background -> offscreen stop chain) forever, leaving the session
+// stuck "live". Give up after CAPTURE_RECORDER_STOP and let cleanup() below
+// force-stop the underlying tracks regardless.
+function stopOne(recorder: MediaRecorder): Promise<void> {
+  if (recorder.state === 'inactive') return Promise.resolve()
+  return withDeadline(
+    new Promise<void>((resolve) => {
+      recorder.addEventListener('stop', () => resolve(), { once: true })
+      recorder.stop()
+    }),
+    TIMEOUTS.CAPTURE_RECORDER_STOP,
+    undefined,
+  )
+}
+
 async function stopRecording(sessionId: string): Promise<void> {
   const state = recorders.get(sessionId)
   if (!state) return
   state.failingOut = true
-
-  // Bounded: a MediaRecorder's native 'stop' event can fail to fire on some
-  // track/state edge cases, which would otherwise hang capture_stop (and the
-  // whole background -> offscreen stop chain) forever, leaving the session
-  // stuck "live". Give up after CAPTURE_RECORDER_STOP and let cleanup() below
-  // force-stop the underlying tracks regardless.
-  const stopOne = (recorder: MediaRecorder) =>
-    new Promise<void>((resolve) => {
-      if (recorder.state === 'inactive') {
-        resolve()
-        return
-      }
-      const timer = setTimeout(resolve, TIMEOUTS.CAPTURE_RECORDER_STOP)
-      recorder.addEventListener(
-        'stop',
-        () => {
-          clearTimeout(timer)
-          resolve()
-        },
-        { once: true },
-      )
-      recorder.stop()
-    })
-
-  await stopOne(state.mixed.recorder)
-  if (state.mic) await stopOne(state.mic.recorder)
-  // Drain any in-flight uploads before cleanup
-  await state.uploadChain.catch(() => undefined)
-  state.cleanup()
+  // Remove immediately, before any awaits, so a concurrent startRecording
+  // (racing in via a runtime message) doesn't see a "live" entry and reuse
+  // this dying recorder — see the pendingStop wait in startRecording.
   recorders.delete(sessionId)
-  await clearPending(sessionId)
+
+  const teardown = (async () => {
+    // mixed/mic recorders share the same audio pipeline, so a hang in one
+    // is plausibly a hang in both — stop them concurrently rather than
+    // eating the outer stop-message budget twice.
+    await Promise.all([
+      stopOne(state.mixed.recorder),
+      state.mic ? stopOne(state.mic.recorder) : Promise.resolve(),
+    ])
+    // Drain any in-flight uploads before cleanup, but don't let a stalled
+    // upload (network retry/backoff) hang teardown — unflushed chunks stay
+    // in the durable pending buffer and retry on the next start.
+    await withDeadline(
+      state.uploadChain.catch(() => undefined),
+      TIMEOUTS.CAPTURE_UPLOAD_DRAIN_STOP,
+      undefined,
+    )
+    state.cleanup()
+    await clearPending(sessionId)
+  })()
+
+  stoppingSessions.set(sessionId, teardown)
+  try {
+    await teardown
+  } finally {
+    if (stoppingSessions.get(sessionId) === teardown) {
+      stoppingSessions.delete(sessionId)
+    }
+  }
 }
 
 onRuntimeMessage(RuntimeMessageType.captureAudioStart, async ({ data }) => {
