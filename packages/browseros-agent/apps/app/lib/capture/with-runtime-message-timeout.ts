@@ -5,16 +5,17 @@
  */
 
 /**
- * A hung offscreen document (or a runtime-message handler that never
- * resolves) must not block its caller forever — background/UI cleanup and
- * setup flows need to make progress even when the offscreen side is wedged.
+ * Resolves with `fallback` after `ms` if `promise` hasn't settled by then —
+ * a hung offscreen document (or any promise that never resolves) must not
+ * block its caller forever.
  */
-export function withRuntimeMessageTimeout<T>(
+export function withDeadline<T>(
   promise: Promise<T>,
   ms: number,
-): Promise<T | null> {
+  fallback: T,
+): Promise<T> {
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), ms)
+    const timer = setTimeout(() => resolve(fallback), ms)
     promise.then(
       (value) => {
         clearTimeout(timer)
@@ -22,8 +23,16 @@ export function withRuntimeMessageTimeout<T>(
       },
       () => {
         clearTimeout(timer)
-        resolve(null)
+        resolve(fallback)
       },
     )
   })
+}
+
+/** `withDeadline` specialized to the common "give up with null" case. */
+export function withRuntimeMessageTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+): Promise<T | null> {
+  return withDeadline(promise, ms, null)
 }
