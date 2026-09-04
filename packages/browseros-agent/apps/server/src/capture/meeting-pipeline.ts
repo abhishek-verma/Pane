@@ -1025,11 +1025,14 @@ export async function stopMeetingCapture(
   // useCaptureApi.ts tears its SSE connection down right after, since the
   // same event flips isActive false), so the summary/graph node must
   // already be written by the time it fires or that refetch can land on
-  // stale/placeholder data with nothing left to prompt a retry.
-  const indexed = await indexMeetingCapture(sessionId)
+  // stale/placeholder data with nothing left to prompt a retry. Note
+  // indexMeetingCapture's own return value isn't used here: it reads the
+  // session before the status write below, so it would still report the
+  // pre-stop status.
+  await indexMeetingCapture(sessionId)
   writeCaptureSessionStoppedStatus(sessionId)
   announceCaptureSessionStopped(sessionId)
-  return indexed ?? getCaptureSession(sessionId)
+  return getCaptureSession(sessionId)
 }
 
 /**

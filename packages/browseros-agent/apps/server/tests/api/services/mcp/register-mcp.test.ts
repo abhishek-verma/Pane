@@ -105,6 +105,7 @@ describe('registerTools', () => {
     'skills_archive',
     'skills_delete',
     'capture_stop',
+    'capture_force_stop',
     'capture_status',
     'capture_list',
     'capture_read',
