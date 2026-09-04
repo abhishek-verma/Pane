@@ -8,6 +8,7 @@
  */
 
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
+import { withDeadline } from '@/lib/capture/with-runtime-message-timeout'
 import {
   onRuntimeMessage,
   RuntimeMessageType,
@@ -63,27 +64,6 @@ const stoppingSessions = new Map<string, Promise<void>>()
 const startingSessions = new Map<string, Promise<void>>()
 /** Sessions stopRecording() gave up waiting on startRecording() for. */
 const stopRequested = new Set<string>()
-
-/** Resolves with `fallback` after `ms` if `promise` hasn't settled by then. */
-function withDeadline<T>(
-  promise: Promise<T>,
-  ms: number,
-  fallback: T,
-): Promise<T> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(fallback), ms)
-    promise.then(
-      (value) => {
-        clearTimeout(timer)
-        resolve(value)
-      },
-      () => {
-        clearTimeout(timer)
-        resolve(fallback)
-      },
-    )
-  })
-}
 
 function bufferKey(sessionId: string): string {
   return `capturePending:${sessionId}`

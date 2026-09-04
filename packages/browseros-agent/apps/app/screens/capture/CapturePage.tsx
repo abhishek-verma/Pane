@@ -250,7 +250,10 @@ export const CapturePage: FC = () => {
                         size="sm"
                         className="h-6 px-2 text-[11px]"
                         title="Immediately mark this meeting as stopped, skipping transcript finalization. Use this if it's stuck showing as live."
-                        disabled={forceStopMeeting.isPending}
+                        disabled={
+                          forceStopMeeting.isPending &&
+                          forceStopMeeting.variables === selectedSessionId
+                        }
                         onClick={() =>
                           void forceStopMeeting.mutateAsync(selectedSessionId)
                         }
