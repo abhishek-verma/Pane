@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import { getBrowserProfileKey } from '@/lib/browseros/profile-key'
@@ -15,6 +16,7 @@ import {
   closeCaptureOffscreenDocumentIfIdle,
   ensureCaptureOffscreenDocument,
 } from './offscreen-audio'
+import { withRuntimeMessageTimeout } from './with-runtime-message-timeout'
 
 async function resolveStreamId(tabId: number): Promise<string> {
   const adapter = getBrowserOSAdapter()
@@ -66,22 +68,30 @@ export async function startTabAudioCapture(input: {
   const streamId = await resolveStreamId(input.tabId)
   await ensureCaptureOffscreenDocument()
 
-  const response = await sendRuntimeMessage(
-    RuntimeMessageType.captureAudioStart,
-    {
+  const response = await withRuntimeMessageTimeout(
+    sendRuntimeMessage(RuntimeMessageType.captureAudioStart, {
       sessionId: input.sessionId,
       tabId: input.tabId,
       streamId,
       serverUrl,
       profileKey,
       includeMic: true,
-    },
+    }),
+    TIMEOUTS.CAPTURE_START_MESSAGE,
   )
 
-  if (!response?.ok) {
-    throw new Error(
-      response?.error ?? 'Offscreen audio capture failed to start',
-    )
+  if (response === null) {
+    // Timed out, not a confirmed failure — the offscreen side may still
+    // finish starting after we gave up waiting on it. Register the session
+    // anyway so the caller's failure cleanup (failCaptureForSession ->
+    // stopTabAudioCapture) can still reach and stop it later, instead of
+    // leaking a recorder no code path can ever address again.
+    activeSessions.set(input.sessionId, input.tabId)
+    throw new Error('Offscreen audio capture start timed out')
+  }
+
+  if (!response.ok) {
+    throw new Error(response.error ?? 'Offscreen audio capture failed to start')
   }
 
   activeSessions.set(input.sessionId, input.tabId)
@@ -91,9 +101,10 @@ export async function stopTabAudioCapture(sessionId: string): Promise<void> {
   const tabId = activeSessions.get(sessionId)
   if (tabId === undefined) return
 
-  await sendRuntimeMessage(RuntimeMessageType.captureAudioStop, {
-    sessionId,
-  }).catch(() => null)
+  await withRuntimeMessageTimeout(
+    sendRuntimeMessage(RuntimeMessageType.captureAudioStop, { sessionId }),
+    TIMEOUTS.CAPTURE_STOP_MESSAGE,
+  )
 
   activeSessions.delete(sessionId)
   await closeCaptureOffscreenDocumentIfIdle()

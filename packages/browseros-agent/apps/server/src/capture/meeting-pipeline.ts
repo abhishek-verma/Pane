@@ -18,6 +18,7 @@ import type {
   TranscriptionProviderId,
   TranscriptSegment,
 } from '@browseros/capture/types'
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import { graphAddEvent, graphUpsertNode } from '../context/repo'
 import { getCaptureDir } from '../lib/browseros-dir'
 import { getDbHandle } from '../lib/db'
@@ -429,24 +430,29 @@ export async function resumeMeetingCapture(input: {
 export async function interruptMeetingCapture(
   sessionId: string,
 ): Promise<CaptureSessionSummary | null> {
-  await drainAsrQueue(sessionId)
-  await flushAsrRemainder(sessionId)
+  const before = getCaptureSession(sessionId)
+  if (!before) return null
+  if (before.status === 'stopped' || before.status === 'error') return before
+
+  await teardownCaptureSession(sessionId, { flushRemainder: true })
   const session = getCaptureSession(sessionId)
   if (!session) return null
   if (session.status === 'stopped' || session.status === 'error') return session
 
-  const reg = registeredSessions.get(sessionId)
-  if (reg?.byokSession) {
-    await reg.byokSession.stop().catch(() => undefined)
-  }
-  await unregisterAsrSession(sessionId)
-  registeredSessions.delete(sessionId)
-  await unregisterMicAsrSession(sessionId)
-  clearSpeakerTimeline(sessionId)
-
-  sqlite()
-    .prepare(`UPDATE capture_sessions SET status = 'interrupted' WHERE id = ?`)
+  // Guarded, not just pre-checked: interrupt can join the same in-flight
+  // teardown as a concurrent stopMeetingCapture (both single-flighted onto
+  // teardownCaptureSession), and both resolve before either has written its
+  // final status — the plain pre-check above can't see a 'stopped' write
+  // that hasn't happened yet. This UPDATE can never clobber one that lands
+  // first, whichever caller wins the race.
+  const result = sqlite()
+    .prepare(
+      `UPDATE capture_sessions
+       SET status = 'interrupted'
+       WHERE id = ? AND status NOT IN ('stopped', 'error')`,
+    )
     .run(sessionId)
+  if (result.changes === 0) return getCaptureSession(sessionId)
   publishCaptureEvent(sessionId, {
     type: 'status',
     sessionId,
@@ -898,32 +904,101 @@ export async function appendPageSnapshot(input: {
   )
 }
 
-export async function stopMeetingCapture(
-  sessionId: string,
-): Promise<CaptureSessionSummary | null> {
-  await drainAsrQueue(sessionId)
-  await flushAsrRemainder(sessionId)
-  const reg = registeredSessions.get(sessionId)
-  if (reg?.byokSession) {
-    await reg.byokSession.stop().catch(() => undefined)
-  }
-  await unregisterAsrSession(sessionId)
-  registeredSessions.delete(sessionId)
-  await unregisterMicAsrSession(sessionId)
-  clearSpeakerTimeline(sessionId)
+/**
+ * Waits for `promise`, but gives up after `ms` if it's still pending —
+ * *without* treating that as success: a genuine rejection from `promise`
+ * still propagates once it happens, it just doesn't block the caller from
+ * moving on in the meantime. Only use this to join work someone else is
+ * driving; the driving caller should await the real promise directly so a
+ * real failure surfaces where it belongs.
+ */
+function joinWithDeadline(promise: Promise<void>, ms: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
+    promise.then(
+      () => {
+        clearTimeout(timer)
+        resolve()
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
+}
 
-  const session = getCaptureSession(sessionId)
-  if (!session) return null
-  const endedAt = Date.now()
+/** In-flight teardownCaptureSession() calls, keyed by sessionId. */
+const teardownInFlight = new Map<string, Promise<void>>()
+
+/**
+ * ASR drain / BYOK stop / session unregistration shared by stopMeetingCapture,
+ * forceStopMeetingCapture, and failMeetingCapture. Single-flighted per
+ * sessionId: stopMeetingCapture and forceStopMeetingCapture can legitimately
+ * race for the same session (force-stop is meant to be called *because*
+ * stop looks stuck), and running ASR-drain/BYOK-stop/unregister twice
+ * concurrently for one session is the kind of thing that produces its own
+ * errors, not just wasted work. A caller racing in after the first started
+ * joins that same run rather than starting a second one — its own
+ * flushRemainder preference is ignored in that case.
+ *
+ * Only a *joining* caller is bounded (CAPTURE_TEARDOWN) — force-stop or a
+ * delete/fail racing in while a stop is already draining must not hang
+ * waiting on someone else's run. The caller that actually starts the work
+ * awaits it directly, unbounded, exactly like before this single-flight
+ * existed: a normal stop still waits for the real ASR drain to finish
+ * (which can legitimately take well past a minute) before indexing, rather
+ * than risking a truncated transcript.
+ */
+async function teardownCaptureSession(
+  sessionId: string,
+  options: { flushRemainder: boolean },
+): Promise<void> {
+  const existing = teardownInFlight.get(sessionId)
+  if (existing) {
+    await joinWithDeadline(existing, TIMEOUTS.CAPTURE_TEARDOWN)
+    return
+  }
+  const task = (async () => {
+    await drainAsrQueue(sessionId)
+    if (options.flushRemainder) await flushAsrRemainder(sessionId)
+    const reg = registeredSessions.get(sessionId)
+    if (reg?.byokSession) {
+      await reg.byokSession.stop().catch(() => undefined)
+    }
+    await unregisterAsrSession(sessionId)
+    registeredSessions.delete(sessionId)
+    await unregisterMicAsrSession(sessionId)
+    clearSpeakerTimeline(sessionId)
+  })()
+  teardownInFlight.set(sessionId, task)
+  try {
+    await task
+  } finally {
+    if (teardownInFlight.get(sessionId) === task) {
+      teardownInFlight.delete(sessionId)
+    }
+  }
+}
+
+/** DB write only — see announceCaptureSessionStopped for the client-facing half. */
+function writeCaptureSessionStoppedStatus(sessionId: string): void {
   sqlite()
     .prepare(
       `UPDATE capture_sessions
        SET status = 'stopped', ended_at = ?
        WHERE id = ?`,
     )
-    .run(endedAt, sessionId)
+    .run(Date.now(), sessionId)
+}
 
-  const indexed = await indexMeetingCapture(sessionId)
+/**
+ * SSE 'status' event + refresh trigger. Kept separate from the DB write
+ * above so a caller can persist "stopped" immediately (the guarantee
+ * force-stop exists for) while still deferring the client-facing
+ * announcement until indexing has actually run — see forceStopMeetingCapture.
+ */
+function announceCaptureSessionStopped(sessionId: string): void {
   publishCaptureEvent(sessionId, {
     type: 'status',
     sessionId,
@@ -937,7 +1012,65 @@ export async function stopMeetingCapture(
       })
     })
     .catch(() => undefined)
-  return indexed ?? getCaptureSession(sessionId)
+}
+
+export async function stopMeetingCapture(
+  sessionId: string,
+): Promise<CaptureSessionSummary | null> {
+  await teardownCaptureSession(sessionId, { flushRemainder: true })
+
+  const session = getCaptureSession(sessionId)
+  if (!session) return null
+  // Index before announcing "stopped": clients refetch on that event (and
+  // useCaptureApi.ts tears its SSE connection down right after, since the
+  // same event flips isActive false), so the summary/graph node must
+  // already be written by the time it fires or that refetch can land on
+  // stale/placeholder data with nothing left to prompt a retry. Note
+  // indexMeetingCapture's own return value isn't used here: it reads the
+  // session before the status write below, so it would still report the
+  // pre-stop status.
+  await indexMeetingCapture(sessionId)
+  writeCaptureSessionStoppedStatus(sessionId)
+  announceCaptureSessionStopped(sessionId)
+  return getCaptureSession(sessionId)
+}
+
+/**
+ * Escape hatch for when stopMeetingCapture itself is stuck (e.g. a wedged
+ * ASR sidecar or drain queue) — flips the session to 'stopped' immediately
+ * and does the normal teardown (ASR drain, BYOK stop, indexing) best-effort
+ * in the background, unawaited. Callers only ever wait on the DB write, so
+ * this can never hang the way the guarded path still theoretically could.
+ *
+ * The DB write happens synchronously (that's the guarantee), but the
+ * client-facing SSE event is deferred to the background block, after
+ * indexing — same reason as stopMeetingCapture above: firing it early would
+ * let a client refetch and tear its SSE connection down before there's
+ * anything indexed to show.
+ */
+export async function forceStopMeetingCapture(
+  sessionId: string,
+): Promise<CaptureSessionSummary | null> {
+  const session = getCaptureSession(sessionId)
+  if (!session) return null
+  if (session.status === 'stopped' || session.status === 'error') {
+    return session
+  }
+
+  writeCaptureSessionStoppedStatus(sessionId)
+
+  void (async () => {
+    try {
+      await teardownCaptureSession(sessionId, { flushRemainder: true })
+      await indexMeetingCapture(sessionId)
+    } catch (err) {
+      logger.warn('force-stop background cleanup failed', { sessionId, err })
+    } finally {
+      announceCaptureSessionStopped(sessionId)
+    }
+  })()
+
+  return getCaptureSession(sessionId)
 }
 
 /**
@@ -1020,15 +1153,7 @@ export async function failMeetingCapture(
   sessionId: string,
   errorMessage: string,
 ): Promise<CaptureSessionSummary | null> {
-  await drainAsrQueue(sessionId)
-  const reg = registeredSessions.get(sessionId)
-  if (reg?.byokSession) {
-    await reg.byokSession.stop().catch(() => undefined)
-  }
-  await unregisterAsrSession(sessionId)
-  registeredSessions.delete(sessionId)
-  await unregisterMicAsrSession(sessionId)
-  clearSpeakerTimeline(sessionId)
+  await teardownCaptureSession(sessionId, { flushRemainder: false })
 
   const session = getCaptureSession(sessionId)
   if (!session) return null

@@ -7,6 +7,7 @@
  * Durable pending-upload buffer survives transient server failures.
  */
 
+import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import {
   onRuntimeMessage,
   RuntimeMessageType,
@@ -56,6 +57,33 @@ interface RecorderState {
 
 const recorders = new Map<string, RecorderState>()
 const micSpeakingBySession = new Map<string, boolean>()
+/** In-flight stopRecording() calls, keyed by sessionId — see startRecording. */
+const stoppingSessions = new Map<string, Promise<void>>()
+/** In-flight startRecording() calls, keyed by sessionId — see stopRecording. */
+const startingSessions = new Map<string, Promise<void>>()
+/** Sessions stopRecording() gave up waiting on startRecording() for. */
+const stopRequested = new Set<string>()
+
+/** Resolves with `fallback` after `ms` if `promise` hasn't settled by then. */
+function withDeadline<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      () => {
+        clearTimeout(timer)
+        resolve(fallback)
+      },
+    )
+  })
+}
 
 function bufferKey(sessionId: string): string {
   return `capturePending:${sessionId}`
@@ -354,6 +382,13 @@ async function startRecording(input: {
   includeMic?: boolean
   profileKey: string
 }): Promise<{ includeMic: boolean; chunksUploaded: number }> {
+  // A restart for this sessionId (e.g. SPA navigation) can land while the
+  // previous stopRecording() is still tearing down — recorders.has() alone
+  // can't tell "actively recording" from "dying". Wait out any in-flight
+  // stop first so we don't silently reuse/collide with the old state.
+  const pendingStop = stoppingSessions.get(input.sessionId)
+  if (pendingStop) await pendingStop.catch(() => undefined)
+
   if (recorders.has(input.sessionId)) {
     const existing = recorders.get(input.sessionId)
     return {
@@ -366,87 +401,179 @@ async function startRecording(input: {
     throw new Error('Capture server URL missing')
   }
 
-  const opened = await openCaptureStreams({
-    streamId: input.streamId,
-    includeMic: input.includeMic !== false,
-    sessionId: input.sessionId,
-  })
+  // Tracked so a stopRecording() landing before openCaptureStreams()/
+  // recorders.set() below finishes can wait for this to register instead of
+  // silently no-op'ing and orphaning the recorder this call is about to
+  // create — see the pendingStart wait in stopRecording.
+  const task = (async (): Promise<{
+    includeMic: boolean
+    chunksUploaded: number
+  }> => {
+    const opened = await openCaptureStreams({
+      streamId: input.streamId,
+      includeMic: input.includeMic !== false,
+      sessionId: input.sessionId,
+    })
 
-  const liveTracks = opened.tab
-    .getAudioTracks()
-    .filter((track) => track.readyState === 'live')
-  if (liveTracks.length === 0) {
-    opened.cleanup()
-    throw new Error('Capture stream has no live audio tracks')
-  }
-
-  const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-    ? 'audio/webm;codecs=opus'
-    : 'audio/webm'
-
-  // Dual-channel: separate MediaRecorders for tab (guests) and mic (user).
-  // Tab always records. Mic can be paused/resumed based on meeting mute state.
-  const tabRecorder = new MediaRecorder(opened.tab, { mimeType })
-  const state: RecorderState = {
-    sessionId: input.sessionId,
-    tabId: input.tabId,
-    cleanup: opened.cleanup,
-    includeMic: opened.includeMic,
-    serverUrl: input.serverUrl,
-    profileKey: input.profileKey,
-    uploadErrors: 0,
-    uploadChain: Promise.resolve(),
-    failingOut: false,
-    mixed: { recorder: tabRecorder, sequence: 0 },
-    pending: await loadPending(input.sessionId),
-    localSpeaking: false,
-  }
-
-  wireTrack(state, 'tab', tabRecorder, mimeType)
-
-  // Separate mic recorder if mic is available
-  if (opened.mic && opened.includeMic) {
-    const micLiveTracks = opened.mic
+    const liveTracks = opened.tab
       .getAudioTracks()
-      .filter((t) => t.readyState === 'live')
-    if (micLiveTracks.length > 0) {
-      const micRecorder = new MediaRecorder(opened.mic, { mimeType })
-      state.mic = { recorder: micRecorder, sequence: 0 }
-      wireTrack(state, 'mic', micRecorder, mimeType)
+      .filter((track) => track.readyState === 'live')
+    if (liveTracks.length === 0) {
+      opened.cleanup()
+      throw new Error('Capture stream has no live audio tracks')
+    }
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : 'audio/webm'
+
+    // Dual-channel: separate MediaRecorders for tab (guests) and mic (user).
+    // Tab always records. Mic can be paused/resumed based on meeting mute state.
+    const tabRecorder = new MediaRecorder(opened.tab, { mimeType })
+    const state: RecorderState = {
+      sessionId: input.sessionId,
+      tabId: input.tabId,
+      cleanup: opened.cleanup,
+      includeMic: opened.includeMic,
+      serverUrl: input.serverUrl,
+      profileKey: input.profileKey,
+      uploadErrors: 0,
+      uploadChain: Promise.resolve(),
+      failingOut: false,
+      mixed: { recorder: tabRecorder, sequence: 0 },
+      pending: await loadPending(input.sessionId),
+      localSpeaking: false,
+    }
+
+    wireTrack(state, 'tab', tabRecorder, mimeType)
+
+    // Separate mic recorder if mic is available
+    if (opened.mic && opened.includeMic) {
+      const micLiveTracks = opened.mic
+        .getAudioTracks()
+        .filter((t) => t.readyState === 'live')
+      if (micLiveTracks.length > 0) {
+        const micRecorder = new MediaRecorder(opened.mic, { mimeType })
+        state.mic = { recorder: micRecorder, sequence: 0 }
+        wireTrack(state, 'mic', micRecorder, mimeType)
+      }
+    }
+
+    recorders.set(input.sessionId, state)
+    // Retry any durable buffered chunks from a prior offscreen death.
+    state.uploadChain = state.uploadChain
+      .then(() => flushPendingBuffer(state))
+      .catch(() => undefined)
+
+    // A stopRecording() call already gave up waiting on us (see the
+    // pendingStart wait there) before we finished registering — tear down
+    // immediately instead of leaving a live, untracked recorder running.
+    if (stopRequested.has(input.sessionId)) {
+      void teardownRecorderState(input.sessionId, state)
+    }
+
+    return { includeMic: opened.includeMic, chunksUploaded: 0 }
+  })()
+
+  const voidTask = task.then(
+    () => undefined,
+    () => undefined,
+  )
+  startingSessions.set(input.sessionId, voidTask)
+  try {
+    return await task
+  } finally {
+    if (startingSessions.get(input.sessionId) === voidTask) {
+      startingSessions.delete(input.sessionId)
+    }
+    // Whether we self-terminated above, finished normally, or threw: this
+    // start is no longer in flight, so nothing should still be waiting to
+    // self-terminate on our behalf. Clears it in every case (start failure
+    // included) so it can never leak onto an unrelated future start for the
+    // same, possibly-reused, sessionId — see stopRecording.
+    stopRequested.delete(input.sessionId)
+  }
+}
+
+// Bounded: a MediaRecorder's native 'stop' event can fail to fire on some
+// track/state edge cases, which would otherwise hang capture_stop (and the
+// whole background -> offscreen stop chain) forever, leaving the session
+// stuck "live". Give up after CAPTURE_RECORDER_STOP and let cleanup() below
+// force-stop the underlying tracks regardless.
+function stopOne(recorder: MediaRecorder): Promise<void> {
+  if (recorder.state === 'inactive') return Promise.resolve()
+  return withDeadline(
+    new Promise<void>((resolve) => {
+      recorder.addEventListener('stop', () => resolve(), { once: true })
+      recorder.stop()
+    }),
+    TIMEOUTS.CAPTURE_RECORDER_STOP,
+    undefined,
+  )
+}
+
+/** Actual MediaRecorder/track/upload teardown, shared by both entry points below. */
+async function teardownRecorderState(
+  sessionId: string,
+  state: RecorderState,
+): Promise<void> {
+  state.failingOut = true
+  // Remove immediately, before any awaits, so a concurrent startRecording
+  // (racing in via a runtime message) doesn't see a "live" entry and reuse
+  // this dying recorder — see the pendingStop wait in startRecording.
+  recorders.delete(sessionId)
+  stopRequested.delete(sessionId)
+
+  const teardown = (async () => {
+    // mixed/mic recorders share the same audio pipeline, so a hang in one
+    // is plausibly a hang in both — stop them concurrently rather than
+    // eating the outer stop-message budget twice.
+    await Promise.all([
+      stopOne(state.mixed.recorder),
+      state.mic ? stopOne(state.mic.recorder) : Promise.resolve(),
+    ])
+    // Drain any in-flight uploads before cleanup, but don't let a stalled
+    // upload (network retry/backoff) hang teardown — unflushed chunks stay
+    // in the durable pending buffer and retry on the next start.
+    await withDeadline(
+      state.uploadChain.catch(() => undefined),
+      TIMEOUTS.CAPTURE_UPLOAD_DRAIN_STOP,
+      undefined,
+    )
+    state.cleanup()
+    await clearPending(sessionId)
+  })()
+
+  stoppingSessions.set(sessionId, teardown)
+  try {
+    await teardown
+  } finally {
+    if (stoppingSessions.get(sessionId) === teardown) {
+      stoppingSessions.delete(sessionId)
     }
   }
-
-  recorders.set(input.sessionId, state)
-  // Retry any durable buffered chunks from a prior offscreen death.
-  state.uploadChain = state.uploadChain
-    .then(() => flushPendingBuffer(state))
-    .catch(() => undefined)
-
-  return { includeMic: opened.includeMic, chunksUploaded: 0 }
 }
 
 async function stopRecording(sessionId: string): Promise<void> {
+  // A stop landing before startRecording() has reached recorders.set() would
+  // otherwise find nothing and no-op, permanently orphaning the recorder
+  // startRecording is about to register with nobody left tracking it. Only
+  // relevant when a start is actually in flight — mark it (startRecording's
+  // finally block always clears this, on every path, so it can't leak onto
+  // an unrelated future start for the same, possibly-reused, sessionId) and
+  // wait for it to register (bounded — if start is itself abnormally slow,
+  // don't hang here indefinitely; the caller's own timeout already covers
+  // the user-visible side of this, and the flag covers the orphan risk
+  // regardless of how long start ends up taking).
+  const pendingStart = startingSessions.get(sessionId)
+  if (pendingStart) {
+    stopRequested.add(sessionId)
+    await withDeadline(pendingStart, TIMEOUTS.CAPTURE_START_MESSAGE, undefined)
+  }
+
   const state = recorders.get(sessionId)
   if (!state) return
-  state.failingOut = true
-
-  const stopOne = (recorder: MediaRecorder) =>
-    new Promise<void>((resolve) => {
-      if (recorder.state === 'inactive') {
-        resolve()
-        return
-      }
-      recorder.addEventListener('stop', () => resolve(), { once: true })
-      recorder.stop()
-    })
-
-  await stopOne(state.mixed.recorder)
-  if (state.mic) await stopOne(state.mic.recorder)
-  // Drain any in-flight uploads before cleanup
-  await state.uploadChain.catch(() => undefined)
-  state.cleanup()
-  recorders.delete(sessionId)
-  await clearPending(sessionId)
+  await teardownRecorderState(sessionId, state)
 }
 
 onRuntimeMessage(RuntimeMessageType.captureAudioStart, async ({ data }) => {
@@ -481,8 +608,18 @@ onRuntimeMessage(RuntimeMessageType.captureAudioStatus, async () => {
       uploadErrors: state.uploadErrors,
     }),
   )
+  // Sessions mid-teardown (stopRecording already removed them from
+  // `recorders`, see the comment there) or mid-start (startRecording hasn't
+  // reached recorders.set() yet, e.g. still awaiting getUserMedia) still
+  // hold or are about to hold live tracks/uploads and must count as "using
+  // the document" — otherwise a concurrent closeCaptureOffscreenDocumentIfIdle()
+  // can see zero live sessions and force-close the shared offscreen document
+  // out from under them.
+  const sessionIds = new Set(sessions.map((session) => session.sessionId))
+  for (const sessionId of stoppingSessions.keys()) sessionIds.add(sessionId)
+  for (const sessionId of startingSessions.keys()) sessionIds.add(sessionId)
   return {
-    sessionIds: sessions.map((session) => session.sessionId),
+    sessionIds: Array.from(sessionIds),
     sessions,
   }
 })

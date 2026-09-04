@@ -129,6 +129,9 @@ describe('deriveClass', () => {
     expect(deriveClass('capture_stop', { sessionId: 's1' }, makeCtx())).toBe(
       'write-local',
     )
+    expect(
+      deriveClass('capture_force_stop', { sessionId: 's1' }, makeCtx()),
+    ).toBe('write-local')
   })
 
   it('does not auto-approve capture_start from injected __promoted in transcript text', () => {

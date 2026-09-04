@@ -7,6 +7,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
+import {
+  RuntimeMessageType,
+  sendRuntimeMessage,
+} from '@/lib/messaging/runtime/runtimeMessages'
 import { readSseFrames } from '@/lib/sse/read-sse-frames'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
@@ -259,6 +263,42 @@ export function useCaptureTranscript(
     refetch: query.refetch,
     live: sseAlive,
   }
+}
+
+/**
+ * Escape hatch for a session stuck showing "live" because the normal stop
+ * chain is wedged — marks it stopped immediately, skipping transcript
+ * finalization.
+ */
+export function useForceStopMeeting() {
+  const { baseUrl } = useAgentServerUrl()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      // Best-effort: also kick the extension's own stop path directly,
+      // the same message the in-page "stop recording" bubble sends. This
+      // is what actually turns off the mic/tab recorder — the fetch below
+      // is what guarantees the session stops showing "live" even if this
+      // never reaches (or never returns from) the background script.
+      void sendRuntimeMessage(RuntimeMessageType.stopCapture, {
+        sessionId,
+      }).catch(() => undefined)
+
+      const res = await captureFetch(
+        `${base(baseUrl as string)}/capture/meetings/force-stop`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        },
+      )
+      if (!res.ok)
+        throw new Error(`Failed to force-stop meeting (${res.status})`)
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [CAPTURE_QUERY_KEY] })
+    },
+  })
 }
 
 export function useDeleteMeeting() {
