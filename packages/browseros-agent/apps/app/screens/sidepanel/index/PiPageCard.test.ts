@@ -11,6 +11,14 @@ mock.module('@wxt-dev/storage', () => ({
   },
 }))
 
+mock.module('@/lib/personal-internet/open-pi-href', () => ({
+  openPiHref: async () => null,
+}))
+
+mock.module('./pi-page-card-auto-open', () => ({
+  autoOpenPiPageAndFollowPanel: async () => {},
+}))
+
 const { markOpened, __resetPiPageCardAutoOpenForTests } = await import(
   './PiPageCard'
 )

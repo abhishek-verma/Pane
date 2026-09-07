@@ -76,9 +76,26 @@ mock.module('@/lib/browseros/helpers', () => ({
   getProxyPort: async () => 9106,
 }))
 
+mock.module('@/lib/browseros/agent-fetch', () => ({
+  agentFetch: (input: RequestInfo | URL, init?: RequestInit) =>
+    globalThis.fetch(input, init),
+}))
+
 mock.module('@/lib/mcp/mcpServerStorage', () => ({
   mcpServerStorage: {
     getValue: async () => [],
+  },
+}))
+
+mock.module('@/lib/trust/trust-pins-storage', () => ({
+  requireBrowserInputApprovalStorage: {
+    getValue: async () => false,
+  },
+}))
+
+mock.module('@/lib/workspace/workspace-storage', () => ({
+  selectedWorkspaceStorage: {
+    getValue: async () => null,
   },
 }))
 

@@ -22,15 +22,11 @@ describe('withTestEnv', () => {
 })
 
 describe('buildTestCommand', () => {
-  it('preloads the test env bootstrap before running targets', () => {
-    expect(buildTestCommand(['./tests/api'])).toEqual([
-      process.execPath,
-      '--env-file=.env.development',
-      'test',
-      '--preload=./tests/__helpers__/test-env.ts',
-      '--max-concurrency=1',
-      './tests/api',
-    ])
+  it('runs targets through the isolated test runner', () => {
+    const command = buildTestCommand(['./tests/api'])
+    expect(command.slice(0, 2)).toEqual([process.execPath, 'run'])
+    expect(command[2]).toEndWith('/scripts/run-bun-test.ts')
+    expect(command[3]).toEndWith('/apps/server/tests/api')
   })
 })
 
