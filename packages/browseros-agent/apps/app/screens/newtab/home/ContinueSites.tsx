@@ -7,7 +7,6 @@
 import { Globe } from 'lucide-react'
 import { type FC, useState } from 'react'
 import { getFavicons } from '@/lib/getFavicons'
-import { PiSectionLabel } from '@/screens/personal-internet/PiChrome'
 import { useContinueSites } from './continue-sites.hooks'
 
 const ContinueSiteIcon: FC<{ src: string; alt: string }> = ({ src, alt }) => {
@@ -36,9 +35,12 @@ export const ContinueSites: FC = () => {
   if (sites.length === 0) return null
 
   return (
-    <section className="border-border border-t">
+    <section
+      aria-label="Frequently visited sites"
+      className="mx-auto w-full max-w-3xl"
+    >
       <div className="py-3">
-        <PiSectionLabel>Continue</PiSectionLabel>
+        <h2 className="text-muted-foreground text-xs">Your shortcuts</h2>
       </div>
       <div className="flex flex-wrap gap-2 pb-3">
         {sites.map((site) => {
@@ -47,7 +49,7 @@ export const ContinueSites: FC = () => {
             <a
               key={site.url}
               href={site.url}
-              className="flex items-center gap-2 border border-border px-2.5 py-1.5 text-sm transition-colors hover:bg-muted/60"
+              className="flex items-center gap-2 rounded-xl border border-border/60 bg-background px-3 py-2.5 text-sm transition-colors hover:bg-muted/60"
             >
               {icon ? (
                 <ContinueSiteIcon src={icon} alt={site.name} />

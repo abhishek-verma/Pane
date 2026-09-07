@@ -17,10 +17,6 @@ import { type ToolSet, tool } from 'ai'
 import { metrics } from '../lib/metrics'
 import type { ToolImageStore } from './session-store'
 import {
-  ensureSessionTabGroup,
-  getSessionTabGroupId,
-} from './session-tab-groups'
-import {
   rehydrateImagesForModel,
   stripAndStoreImages,
 } from './tool-image-strip'
@@ -146,9 +142,7 @@ export function buildBrowserToolSet(
               executeBrowserTool(def, params as Record<string, unknown>, {
                 session,
                 signal,
-                defaultTabGroupId: sessionId
-                  ? getSessionTabGroupId(sessionId)
-                  : undefined,
+                agentScope: sessionId ?? 'pane',
               }),
             ))
 
@@ -172,21 +166,6 @@ export function buildBrowserToolSet(
             continue
           }
           break
-        }
-
-        if (
-          sessionId &&
-          def.name === 'tabs' &&
-          isNewTabAction(params) &&
-          !result.isError &&
-          !getSessionTabGroupId(sessionId)
-        ) {
-          const page = (
-            result.structuredContent as { page?: number } | undefined
-          )?.page
-          if (typeof page === 'number') {
-            await ensureSessionTabGroup(session, sessionId, page)
-          }
         }
 
         metrics.log('tool_executed', {
@@ -233,15 +212,6 @@ export function buildBrowserToolSet(
   }
 
   return toolSet
-}
-
-function isNewTabAction(params: unknown): boolean {
-  return (
-    !!params &&
-    typeof params === 'object' &&
-    'action' in params &&
-    (params as { action?: unknown }).action === 'new'
-  )
 }
 
 function readOnlyGuard(

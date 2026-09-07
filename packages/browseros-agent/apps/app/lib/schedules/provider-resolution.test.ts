@@ -58,24 +58,8 @@ mock.module('@/lib/llm-providers/storage', () => ({
       (storageValues.get('defaultProviderId') as string | undefined) ??
       'browseros'
 
-    if (!cloudOnly) {
-      return providers.find((p) => p.id === preferredId) ?? providers[0] ?? null
-    }
-
-    const cloudProviders = providers.filter(
-      (provider) =>
-        provider.type !== 'browseros' &&
-        provider.type !== 'codex' &&
-        provider.type !== 'claude-code' &&
-        provider.type !== 'acp-custom',
-    )
-    if (preferredProviderId) {
-      const preferred = cloudProviders.find(
-        (provider) => provider.id === preferredProviderId,
-      )
-      if (preferred) return preferred
-    }
-    return cloudProviders[0] ?? null
+    void cloudOnly
+    return providers.find((p) => p.id === preferredId) ?? providers[0] ?? null
   },
 }))
 
@@ -141,7 +125,7 @@ afterAll(() => {
 })
 
 describe('scheduled provider resolution', () => {
-  it('falls back through the configured default when an explicit scheduled provider is local runtime only', async () => {
+  it('uses an explicitly selected local-runtime provider for a scheduled task', async () => {
     const { getChatServerResponse } = await import('./getChatServerResponse')
 
     await getChatServerResponse({
@@ -150,13 +134,13 @@ describe('scheduled provider resolution', () => {
     })
 
     expect(fetchBodies[0]).toMatchObject({
-      provider: 'anthropic',
-      providerName: 'Anthropic Sonnet',
-      model: 'claude-sonnet-4-6',
+      provider: 'codex',
+      providerName: 'Codex',
+      model: 'gpt-5.3-codex',
     })
   })
 
-  it('falls back through the configured default when an explicit refine provider is local runtime only', async () => {
+  it('uses an explicitly selected local-runtime provider for prompt refinement', async () => {
     globalThis.fetch = mock(async (_url, init) => {
       fetchBodies.push(JSON.parse(String(init?.body ?? '{}')))
       return Response.json({ success: true, refined: 'Refined prompt' })
@@ -171,8 +155,8 @@ describe('scheduled provider resolution', () => {
     })
 
     expect(fetchBodies[0]).toMatchObject({
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-6',
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
     })
   })
 })

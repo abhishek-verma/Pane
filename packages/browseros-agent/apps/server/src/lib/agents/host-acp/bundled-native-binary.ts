@@ -42,7 +42,14 @@ export function resolveBundledNativeBinary(input: {
   }
 }
 
-/** Prepends BrowserOS's packaged CLI directory so ACP packages spawn bundled CLIs first. */
+/**
+ * Adds BrowserOS's packaged CLI directory as a fallback.
+ *
+ * ACP adapters launch `claude` and `codex` by name. Keeping this directory
+ * last is intentional: a user-installed CLI carries their current auth and
+ * model support, while the packaged CLI keeps first-run/offline installs
+ * functional when no host binary is available.
+ */
 export function withBundledNativeBinaryPath(input: {
   resourcesDir?: string | null
   env: Record<string, string>
@@ -67,7 +74,7 @@ export function withBundledNativeBinaryPath(input: {
     .split(delimiter)
     .filter(Boolean)
     .filter((part) => part !== dir)
-  env[key] = [dir, ...parts].join(delimiter)
+  env[key] = [...parts, dir].join(delimiter)
   return env
 }
 

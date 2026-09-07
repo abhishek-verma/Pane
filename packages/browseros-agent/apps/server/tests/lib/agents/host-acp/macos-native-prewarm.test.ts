@@ -6,7 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { execFile } from 'node:child_process'
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
@@ -114,6 +114,24 @@ describe('signUnsignedNodeFiles', () => {
     const result = await signUnsignedNodeFiles(dir, 'darwin')
     expect(result.skipped).toContain('already-signed.node')
     expect(result.signed).not.toContain('already-signed.node')
+  })
+
+  it('also scans Bun extraction subdirectories', async () => {
+    const nestedDir = join(dir, 'bun-v1', 'native')
+    const nodeFile = join(nestedDir, 'already-signed.node')
+    await mkdir(nestedDir, { recursive: true })
+    await writeFile(nodeFile, 'not-a-real-macho')
+
+    try {
+      await execFileAsync('codesign', ['--sign', '-', '--force', nodeFile], {
+        timeout: 10_000,
+      })
+    } catch {
+      return
+    }
+
+    const result = await signUnsignedNodeFiles(dir, 'darwin')
+    expect(result.skipped).toContain('bun-v1/native/already-signed.node')
   })
 })
 

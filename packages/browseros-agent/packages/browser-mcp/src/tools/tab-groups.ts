@@ -1,3 +1,4 @@
+import { paneGroupTitle } from '@browseros/browser-core/core/agent-tab-groups'
 import type { TabGroup } from '@browseros/browser-core/tab-groups'
 import { z } from 'zod'
 import { defineTool, errorResult, textResult } from './framework'
@@ -110,7 +111,7 @@ export const tab_groups = defineTool({
           ? { groupId: args.groupId, tabIds }
           : {
               tabIds,
-              ...(args.title !== undefined && { title: args.title }),
+              title: paneGroupTitle(args.title),
             }
         const method = args.groupId
           ? 'Browser.addTabsToGroup'
@@ -139,7 +140,9 @@ export const tab_groups = defineTool({
         }
         const { group } = (await ctx.session.cdp('Browser.updateTabGroup', {
           groupId: args.groupId,
-          ...(args.title !== undefined && { title: args.title }),
+          ...(args.title !== undefined && {
+            title: paneGroupTitle(args.title),
+          }),
           ...(args.color !== undefined && { color: args.color }),
           ...(args.collapsed !== undefined && { collapsed: args.collapsed }),
         })) as { group: TabGroup }

@@ -31,6 +31,7 @@ type RegisterFn = (
 export interface BrowserToolDefaults {
   defaultWindowId?: number
   defaultTabGroupId?: string
+  agentScope?: string
 }
 
 export interface BrowserToolRegistrationOptions {

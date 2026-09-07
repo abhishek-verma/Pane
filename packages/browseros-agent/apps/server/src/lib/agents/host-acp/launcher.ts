@@ -36,6 +36,8 @@ export interface ResolveAcpSpawnCommandInput {
   resolveBundledBun?: typeof resolveBundledBun
   /** Injected for tests; production callers leave it unset. */
   resolveNpx?: (name: string) => Promise<ResolvedHostBinary | null>
+  /** Resolves the user's Claude/Codex CLI so it cannot be shadowed by Pane. */
+  resolveNative?: (name: string) => Promise<ResolvedHostBinary | null>
 }
 
 /**
@@ -59,14 +61,24 @@ export async function resolveAcpSpawnCommand(
     platform: input.platform,
   })
   if (bunPath) {
+    // The ACP package delegates to the native CLI by its bare name. Resolve
+    // the user's CLI first and carry its enriched PATH into the child. This
+    // preserves the user's login/auth/model support across Pane updates; the
+    // packaged CLI remains an offline fallback for users without a host CLI.
+    const resolveNative =
+      input.resolveNative ??
+      ((name: string) =>
+        resolveHostBinary(name, { env: input.env, platform: input.platform }))
+    const native = await resolveNative(config.nativeBinary).catch(() => null)
     return {
       command: wrapCommandWithEnv(
         `${quoteAcpCommandToken(bunPath)} x --bun --silent --package ${quoteAcpCommandToken(config.acpPackageSpec)} ${quoteAcpCommandToken(config.acpBin)}`,
         withBundledBunAcpAdapterEnv({
           bunPath,
           browserosDir: input.browserosDir,
-          env: input.env,
+          env: native?.env ?? input.env,
           platform: input.platform,
+          includeBundledCliPath: !native,
         }),
       ),
       source: 'bundled-bun',

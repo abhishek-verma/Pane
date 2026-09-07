@@ -8,6 +8,7 @@ import { createDefaultMcpGateContext } from '@browseros/browser-mcp/trust/mcp-ga
 import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { z } from 'zod'
+import { buildSchedulerToolSet } from '../agent/scheduler-tools'
 import { gateExecute } from '../agent/trust/gate'
 import { buildCaptureToolSet } from '../capture/tools'
 import { buildMemoryToolSet } from '../memory/tools'
@@ -47,6 +48,11 @@ export function registerContextMcpTools(
     ...buildMemoryToolSet(getBucketId),
     ...buildCaptureToolSet(getBucketId),
     ...buildPersonalInternetToolSet(getBucketId),
+    // ACP providers receive Pane tools through this MCP server rather than
+    // the in-process AI SDK ToolLoopAgent. Keep scheduler controls here so
+    // Claude Code, Codex, and API-key providers expose the same automation
+    // management surface.
+    ...buildSchedulerToolSet(),
   } as unknown as Record<string, AiSdkToolLike>
 
   for (const [name, tool] of Object.entries(tools)) {

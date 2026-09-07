@@ -80,6 +80,7 @@ export function createMcpServer(deps: McpServiceDeps) {
     browserSession: deps.browserSession,
     defaultWindowId: deps.defaultWindowId,
     defaultTabGroupId: deps.defaultTabGroupId,
+    agentScope: runId,
     instructions: MCP_INSTRUCTIONS,
     registration: {
       outputFileAccess: deps.remoteAgentHarness?.outputFileAccess,

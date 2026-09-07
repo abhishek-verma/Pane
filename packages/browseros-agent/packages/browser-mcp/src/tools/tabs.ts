@@ -53,6 +53,7 @@ export const tabs = defineTool({
             hidden: args.hidden,
             windowId: ctx.defaultWindowId,
             tabGroupId: ctx.defaultTabGroupId,
+            agentScope: ctx.agentScope ?? 'pane',
           },
         )
         return textResult(`opened page ${page}`, { page })

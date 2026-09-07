@@ -43,6 +43,7 @@ export function createBrowserMcpServer(
     {
       defaultWindowId: options.defaultWindowId,
       defaultTabGroupId: options.defaultTabGroupId,
+      agentScope: options.agentScope,
     },
     options.registration,
   )

@@ -212,7 +212,13 @@ export async function detectHostAdapter(
   }
 }
 
-/** Resolves BrowserOS-packaged native CLIs before consulting the user's host PATH. */
+/**
+ * Resolves the user's native CLI before Pane's packaged fallback.
+ *
+ * The host CLI is where the user signs in and receives provider updates, so
+ * probing the packaged binary first could report a stale version even while a
+ * supported CLI was installed and working normally outside Pane.
+ */
 async function resolveNativeCli(input: {
   adapter: HostAcpAdapter
   nativeBinary: string
@@ -222,6 +228,8 @@ async function resolveNativeCli(input: {
   resolveBinary: (name: string) => Promise<ResolvedHostBinary | null>
   resolveBundledNativeBinary: typeof resolveBundledNativeBinary
 }): Promise<ResolvedHostBinary | null> {
+  const host = await input.resolveBinary(input.nativeBinary)
+  if (host) return host
   const bundled = input.resolveBundledNativeBinary({
     adapter: input.adapter,
     resourcesDir: input.resourcesDir,
@@ -229,7 +237,7 @@ async function resolveNativeCli(input: {
     platform: input.platform,
   })
   if (bundled) return bundled
-  return input.resolveBinary(input.nativeBinary)
+  return null
 }
 
 async function detectAdapterLaunch(input: {

@@ -45,6 +45,7 @@ export interface ConversationInputSendInput {
 }
 
 export interface ConversationInputProps {
+  draft?: { text: string; id: number }
   onSend: (input: ConversationInputSendInput) => void
   /**
    * Merged provider/agent picker shown only on the `home` variant. Lets the
@@ -95,6 +96,7 @@ function InputActionButton({
       onClick={onClick}
       size="icon"
       disabled={disabled}
+      aria-label={streaming && hasContent ? 'Queue message' : 'Start task'}
       title={streaming && hasContent ? 'Queue message' : undefined}
       className="h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
     >
@@ -224,7 +226,7 @@ function CalmContextControls({
   const { selectedFolder } = useWorkspace()
 
   return (
-    <div className="mx-3 flex items-center gap-0.5 pt-0.5 pb-1.5">
+    <div className="mx-3 flex flex-wrap items-center gap-1 pt-1 pb-3">
       {showAgentSelector &&
       providers &&
       selectedProvider &&
@@ -261,18 +263,23 @@ function CalmContextControls({
           />
         </>
       ) : null}
-      <WorkspaceSelector>
-        <button
-          type="button"
-          className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-        >
-          <Folder className="size-3" />
-          <span>Workspace</span>
-          <span className="font-mono text-[10.5px] text-muted-foreground/70">
-            {selectedFolder?.name ?? 'none'}
-          </span>
-        </button>
-      </WorkspaceSelector>
+      <details className="contents">
+        <summary className="cursor-pointer rounded-md px-2 py-1 text-muted-foreground text-xs hover:bg-accent">
+          More options
+        </summary>
+        <WorkspaceSelector>
+          <button
+            type="button"
+            className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
+          >
+            <Folder className="size-3" />
+            <span>Workspace</span>
+            <span className="font-mono text-[10.5px] text-muted-foreground/70">
+              {selectedFolder?.name ?? 'none'}
+            </span>
+          </button>
+        </WorkspaceSelector>
+      </details>
       <TabPickerPopover
         variant="selector"
         selectedTabs={selectedTabs}
@@ -288,7 +295,7 @@ function CalmContextControls({
           )}
         >
           <Layers className="size-3" />
-          <span>Tabs</span>
+          <span>Use open tabs</span>
           <span
             className={cn(
               'font-mono text-[10.5px]',
@@ -326,7 +333,7 @@ function CalmContextControls({
         className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         <PlugZap className="size-3" />
-        <span>Apps</span>
+        <span>Connect apps</span>
       </button>
     </div>
   )
@@ -334,7 +341,7 @@ function CalmContextControls({
 
 function HomeShell({ children }: { children: ReactNode }) {
   return (
-    <div className="agent-composer-field overflow-hidden transition-[border-color] duration-150 focus-within:border-[var(--accent-orange)]">
+    <div className="overflow-hidden rounded-2xl border border-border bg-background p-2 shadow-sm transition-colors focus-within:border-primary">
       {children}
     </div>
   )
@@ -350,6 +357,7 @@ function ConversationShell({ children }: { children: ReactNode }) {
 
 export const ConversationInput: FC<ConversationInputProps> = ({
   onSend,
+  draft,
   providers,
   selectedProvider,
   onSelectProvider,
@@ -372,6 +380,12 @@ export const ConversationInput: FC<ConversationInputProps> = ({
   const voice = useVoiceInput()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isConversation = variant === 'conversation'
+
+  useEffect(() => {
+    if (!draft) return
+    setInput(draft.text)
+    textareaRef.current?.focus()
+  }, [draft])
 
   const stageFiles = async (files: File[]) => {
     if (files.length === 0) return
@@ -549,6 +563,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
           <BotInputIcon />
           <div className="flex-1">
             <Textarea
+              aria-label="Task for Pane"
               ref={textareaRef}
               value={input}
               onChange={(event) => setInput(event.currentTarget.value)}

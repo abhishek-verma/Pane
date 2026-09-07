@@ -20,6 +20,7 @@ export type HomeGrowth = {
 export type HomePayload = {
   firstName: string | null
   pi: PiHomeProjection
+  piUnavailable?: boolean
   growth: HomeGrowth
 }
 
@@ -41,19 +42,24 @@ export async function loadHome(): Promise<HomePayload> {
   const files = await readPromptFiles()
   const firstName = extractFirstName(files.user)
 
+  let piUnavailable = false
   let pi: PiHomeProjection
   try {
     const { buildPiHomeProjection, emptyPiHomeProjection } = await import(
       '../personal-internet/home-projection'
     )
     pi = await buildPiHomeProjection()
-    if (!pi) pi = emptyPiHomeProjection()
+    if (!pi) {
+      piUnavailable = true
+      pi = emptyPiHomeProjection()
+    }
   } catch {
+    piUnavailable = true
     const { emptyPiHomeProjection } = await import(
       '../personal-internet/home-projection'
     )
     pi = emptyPiHomeProjection()
   }
 
-  return { firstName, pi, growth: computeGrowth(pi) }
+  return { firstName, pi, piUnavailable, growth: computeGrowth(pi) }
 }

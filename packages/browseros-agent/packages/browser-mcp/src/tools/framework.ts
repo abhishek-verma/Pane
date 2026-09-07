@@ -13,6 +13,7 @@ export interface ToolContext {
   session: BrowserSession
   defaultWindowId?: number
   defaultTabGroupId?: string
+  agentScope?: string
   signal?: AbortSignal
 }
 

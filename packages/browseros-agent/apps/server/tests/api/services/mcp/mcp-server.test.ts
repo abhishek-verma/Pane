@@ -58,6 +58,19 @@ describe('createMcpServer requestApproval wiring', () => {
     requestChannelApprovalSpy.mockClear()
   })
 
+  it('registers scheduler controls for ACP clients on the shared MCP surface', () => {
+    const server = inspect(
+      createMcpServer({
+        version: '0.0.0-test',
+        browserSession: { pages: {} } as unknown as BrowserSession,
+        executionDir: '/tmp/browseros-execution',
+      }),
+    )
+
+    expect(server._registeredTools.trigger_list).toBeDefined()
+    expect(server._registeredTools.trigger_delete).toBeDefined()
+  })
+
   it('blocks a consequential browser tool on human approval, then executes for real', async () => {
     requestChannelApprovalSpy.mockImplementationOnce(async () => ({
       approval: {} as never,

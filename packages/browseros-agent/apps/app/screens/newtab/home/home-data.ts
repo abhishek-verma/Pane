@@ -25,6 +25,7 @@ export interface HomeGrowth {
 export interface HomeData {
   firstName?: string | null
   pi?: PiHomeProjection | null
+  piUnavailable?: boolean
   growth?: HomeGrowth
 }
 

@@ -34,6 +34,10 @@ const stubNpxMissing: (
 ) => Promise<{ path: string; env: NodeJS.ProcessEnv } | null> = async (_name) =>
   null
 
+const stubNativeMissing: (
+  name: string,
+) => Promise<{ path: string; env: NodeJS.ProcessEnv } | null> = async () => null
+
 function splitCommandLikeAcpx(value: string): {
   command: string
   args: string[]
@@ -87,6 +91,7 @@ describe('resolveAcpSpawnCommand', () => {
       env: { PATH: '/usr/bin' },
       resourcesDir: '/fake/resources',
       resolveBundledBun: stubBunPresent,
+      resolveNative: stubNativeMissing,
     })
     expect(out).not.toBeNull()
     expect(out?.source).toBe('bundled-bun')
@@ -101,10 +106,28 @@ describe('resolveAcpSpawnCommand', () => {
       env: { PATH: '/usr/bin' },
       resourcesDir: '/fake/resources',
       resolveBundledBun: stubBunPresent,
+      resolveNative: stubNativeMissing,
     })
     expect(out?.source).toBe('bundled-bun')
     expect(out?.command).toBe(
       `env PATH='${dirname(FAKE_BUN_PATH)}:/usr/bin' '${FAKE_BUN_PATH}' x --bun --silent --package '${HOST_ACP_ADAPTER_CONFIG.codex.acpPackageSpec}' '${HOST_ACP_ADAPTER_CONFIG.codex.acpBin}'`,
+    )
+  })
+
+  it("prefers the resolved host CLI over Pane's packaged fallback", async () => {
+    const out = await resolveAcpSpawnCommand({
+      agentType: 'claude',
+      env: { PATH: '/usr/bin' },
+      resourcesDir: '/fake/resources',
+      resolveBundledBun: stubBunPresent,
+      resolveNative: async () => ({
+        path: '/Users/dev/.local/bin/claude',
+        env: { PATH: '/Users/dev/.local/bin:/usr/bin' },
+      }),
+    })
+
+    expect(out?.command).toBe(
+      `env PATH='/Users/dev/.local/bin:/usr/bin' '${FAKE_BUN_PATH}' x --bun --silent --package '${HOST_ACP_ADAPTER_CONFIG.claude.acpPackageSpec}' '${HOST_ACP_ADAPTER_CONFIG.claude.acpBin}'`,
     )
   })
 
@@ -159,6 +182,7 @@ describe('resolveAcpSpawnCommand', () => {
       agentType: 'claude',
       resourcesDir: '/Applications/BrowserOS.app/Contents/Resources',
       resolveBundledBun: () => bunWithSpaces,
+      resolveNative: stubNativeMissing,
     })
     const split = splitCommandLikeAcpx(out?.command ?? '')
     const bunIndex = split.args.indexOf(bunWithSpaces)
@@ -181,6 +205,7 @@ describe('resolveAcpSpawnCommand', () => {
       resourcesDir: 'C:\\fake\\resources',
       platform: 'win32',
       resolveBundledBun: () => WINDOWS_BUN_PATH,
+      resolveNative: stubNativeMissing,
     })
 
     expect(out?.source).toBe('bundled-bun')
