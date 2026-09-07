@@ -8,10 +8,7 @@ import {
   migrateLlmProvidersToV4,
   normalizeProviderNames,
 } from './provider-name-normalization'
-import {
-  resolveChatProvider,
-  resolveCloudChatProvider,
-} from './provider-runtime'
+import { resolveChatProvider } from './provider-runtime'
 import {
   DEFAULT_PROVIDER_ID,
   DEFAULT_PROVIDER_NAME,
@@ -156,15 +153,17 @@ export function createDefaultProvidersConfig(): LlmProviderConfig[] {
 /** Resolves the active chat provider from local storage. */
 export async function resolveStoredChatProvider(
   preferredProviderId?: string | null,
+  // Retained for extension/API compatibility. Pane's local chat server
+  // supports ACP providers, including for scheduled tasks and refinement.
+  // Do not use this to filter out locally installed Claude Code/Codex.
   cloudOnly = false,
 ): Promise<LlmProviderConfig | null> {
   const providers = await loadProviders()
   const defaultProviderId = await defaultProviderIdStorage.getValue()
   const preferredId = preferredProviderId ?? defaultProviderId
 
-  return cloudOnly
-    ? resolveCloudChatProvider(providers, preferredId)
-    : resolveChatProvider(providers, preferredId)
+  void cloudOnly
+  return resolveChatProvider(providers, preferredId)
 }
 
 export const defaultProviderIdStorage = storage.defineItem<string>(

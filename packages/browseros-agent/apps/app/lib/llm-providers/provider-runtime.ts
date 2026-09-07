@@ -41,7 +41,7 @@ export function canTestProvider(provider: LlmProviderConfig): boolean {
   return true
 }
 
-/** Resolves a chat-compatible provider, skipping local runtime configs. */
+/** Resolves a provider compatible with Pane's local `/chat` server. */
 export function resolveChatProvider(
   providers: LlmProviderConfig[],
   preferredProviderId?: string | null,
@@ -57,11 +57,10 @@ export function resolveChatProvider(
 }
 
 /**
- * Scheduled tasks and refine-prompt requests go through the hosted
- * BrowserOS `/chat` endpoint and therefore cannot use local-runtime
- * providers (claude-code, codex, acp-custom) which only exist as a
- * spawned CLI on the user's machine. These helpers explicitly skip
- * those types so the resolver falls back to a cloud-routable provider.
+ * Legacy names retained for callers that historically requested a
+ * "cloud-only" provider. Scheduled tasks and prompt refinement run against
+ * Pane's local agent server, which supports ACP-backed providers just like
+ * interactive chat, so local CLI providers must remain eligible.
  */
 export function findCloudChatProviderById(
   providers: LlmProviderConfig[],
@@ -69,17 +68,15 @@ export function findCloudChatProviderById(
 ): LlmProviderConfig | null {
   if (!providerId) return null
   const provider = providers.find((candidate) => candidate.id === providerId)
-  return provider && !isLocalRuntimeProviderType(provider.type)
-    ? provider
-    : null
+  return provider && isChatProviderType(provider.type) ? provider : null
 }
 
 export function resolveCloudChatProvider(
   providers: LlmProviderConfig[],
   preferredProviderId?: string | null,
 ): LlmProviderConfig | null {
-  const cloudProviders = providers.filter(
-    (provider) => !isLocalRuntimeProviderType(provider.type),
+  const cloudProviders = providers.filter((provider) =>
+    isChatProviderType(provider.type),
   )
   if (preferredProviderId) {
     const preferred = findCloudChatProviderById(

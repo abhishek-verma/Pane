@@ -1,5 +1,7 @@
 import type { ProtocolApi } from '@browseros/cdp-protocol/protocol-api'
 import { logger } from '../logger'
+import { AgentTabGroups, agentTabLabel } from './agent-tab-groups'
+import { currentAgentTabScope } from './agent-tab-scope'
 import {
   type CdpConnection,
   EXCLUDED_URL_PREFIXES,
@@ -56,11 +58,13 @@ export class PageManager {
   private connectionEpoch: number
   private nextPageId = 1
   private hiddenWindowId?: number
+  private readonly agentTabGroups: AgentTabGroups
 
   constructor(
     private readonly cdp: CdpConnection,
     private readonly hooks: PageManagerHooks = {},
   ) {
+    this.agentTabGroups = new AgentTabGroups(cdp)
     this.connectionEpoch = cdp.connectionEpoch()
   }
 
@@ -205,8 +209,18 @@ export class PageManager {
       hidden?: boolean
       windowId?: number
       tabGroupId?: string
+      agentScope?: string
     },
   ): Promise<number> {
+    const scope = currentAgentTabScope()
+    if (scope) {
+      opts = {
+        ...opts,
+        agentScope: scope.agentScope,
+        windowId: opts?.windowId ?? scope.defaultWindowId,
+        tabGroupId: scope.defaultTabGroupId,
+      }
+    }
     await this.ensureConnected()
     const windowId = await this.resolveWindowIdForNewPage(opts)
     const created = await this.cdp.Browser.createTab({
@@ -215,6 +229,17 @@ export class PageManager {
       ...(windowId !== undefined && { windowId }),
     })
     const tabId = (created.tab as TabInfo).tabId
+
+    // Organize immediately after creation, before waiting for the page to load.
+    // Never report a successful agent open while leaving an ungrouped tab behind.
+    if (opts?.agentScope) {
+      await this.organizeAgentTab(
+        created.tab as TabInfo,
+        url,
+        opts.agentScope,
+        opts.tabGroupId,
+      )
+    }
 
     let tab: TabInfo | undefined
     for (let attempt = 0; attempt < 30; attempt++) {
@@ -226,7 +251,7 @@ export class PageManager {
     }
     if (!tab) throw new Error(`Tab ${tabId} not found after creation`)
 
-    if (opts?.tabGroupId) {
+    if (opts?.tabGroupId && !opts.agentScope) {
       try {
         await this.cdp.Browser.addTabsToGroup({
           groupId: opts.tabGroupId,
@@ -245,6 +270,41 @@ export class PageManager {
     const pageId = this.nextPageId++
     this.pages.set(pageId, { pageId, ...tab, url: tab.url || url })
     return pageId
+  }
+
+  private async organizeAgentTab(
+    tab: TabInfo,
+    url: string,
+    scope: string,
+    preferred?: string,
+  ): Promise<void> {
+    const tabId = tab.tabId
+    try {
+      const info = tab
+      const targetWindow =
+        info.windowId ??
+        ((await this.cdp.Browser.getTabInfo({ tabId })).tab as TabInfo).windowId
+      if (targetWindow === undefined)
+        throw new Error('Tab window is unavailable')
+      await this.agentTabGroups.add(
+        tabId,
+        targetWindow,
+        scope,
+        preferred,
+        agentTabLabel(url),
+      )
+    } catch (error) {
+      try {
+        await this.cdp.Browser.closeTab({ tabId })
+      } catch {
+        throw new Error(
+          `Pane could not organize or close tab ${tabId}. Close it manually before retrying.`,
+        )
+      }
+      throw new Error(
+        `Pane could not create a tab folder. The new tab was closed. ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
   }
 
   private async resolveWindowIdForNewPage(opts?: {

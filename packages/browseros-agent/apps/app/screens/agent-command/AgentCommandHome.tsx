@@ -1,3 +1,5 @@
+import { TodayAgenda } from '@/screens/newtab/home/TodayAgenda'
+import '@/screens/newtab/home/home.css'
 /**
  * @license
  * Copyright 2025 BrowserOS
@@ -5,6 +7,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { FolderOpen } from 'lucide-react'
 import { type FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import type { Provider } from '@/components/chat/chatComponentTypes'
@@ -24,23 +27,11 @@ import {
 } from '@/modules/chat/sidepanel-chat-targets'
 import { useLlmProviders } from '@/modules/llm-providers/llm-providers.hooks'
 import { ContinueSites } from '@/screens/newtab/home/ContinueSites'
-import { EmptyHomeState } from '@/screens/newtab/home/EmptyHomeState'
-import { GrowthSignal } from '@/screens/newtab/home/GrowthSignal'
-import {
-  fetchHome,
-  HOME_QUERY_KEY,
-  type HomeData,
-} from '@/screens/newtab/home/home-data'
-import { MilestoneCard } from '@/screens/newtab/home/MilestoneCard'
-import { PiHomeRegions } from '@/screens/newtab/home/PiHomeRegions'
-import { useFirstSkillMilestone } from '@/screens/newtab/home/use-first-skill-milestone'
+import { fetchHome, HOME_QUERY_KEY } from '@/screens/newtab/home/home-data'
+import { HomeAction, PiHomeRegions } from '@/screens/newtab/home/PiHomeRegions'
 import { useActiveHint } from '@/screens/newtab/index/active-hint.hooks'
 import { SignInHint } from '@/screens/newtab/index/SignInHint'
-import {
-  PiRailAction,
-  PiStatusDot,
-  PiTopRail,
-} from '@/screens/personal-internet/PiChrome'
+import { PiTopRail } from '@/screens/personal-internet/PiChrome'
 import {
   piPost,
   usePiInvalidateListener,
@@ -50,6 +41,7 @@ import {
   type ConversationInputSendInput,
 } from './ConversationInput'
 import {
+  harnessHomeText,
   resolveHomeLlmRoutingMode,
   routeHomeSend,
 } from './home-compose.helpers'
@@ -60,31 +52,12 @@ function homeGreeting(firstName: string | null): string {
   const greeting =
     hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   if (firstName) return `${greeting}, ${firstName}`
-  return 'What should Pane work on next?'
-}
-
-function homeSubtitle(pi: HomeData['pi']): string {
-  const doorways = pi?.doorways?.length ?? 0
-  if (doorways === 0) {
-    return 'Ask Pane to start living work — a job search, research hub, or anything you need to keep running.'
-  }
-  if (doorways === 1) {
-    return 'One living site is ready below — open it, or ask Pane for the next move.'
-  }
-  return `${doorways} living sites below — pick one up, or ask Pane for the next move.`
-}
-
-function homeStatusLabel(pi: HomeData['pi'], loading: boolean): string {
-  if (loading) return 'Loading'
-  const continuity = pi?.continuity?.length ?? 0
-  const doorways = pi?.doorways?.length ?? 0
-  if (continuity > 0) return `${continuity} open`
-  if (doorways > 0) return `${doorways} live`
-  return 'Idle'
+  return greeting
 }
 
 export const AgentCommandHome: FC = () => {
   const navigate = useNavigate()
+  const [sendError, setSendError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const activeHint = useActiveHint()
   usePiInvalidateListener()
@@ -111,6 +84,7 @@ export const AgentCommandHome: FC = () => {
     data: homeData,
     isLoading: homeLoading,
     isError: homeError,
+    refetch: refetchHome,
   } = useQuery({
     queryKey: HOME_QUERY_KEY,
     queryFn: fetchHome,
@@ -125,15 +99,22 @@ export const AgentCommandHome: FC = () => {
   // freezing the "updated while you were away" markers for the session.
   // biome-ignore lint/correctness/useExhaustiveDependencies: see comment above
   useEffect(() => {
-    if (homeLoading || hasMarkedVisitRef.current) return
+    if (
+      homeLoading ||
+      !homeData?.pi ||
+      homeData.piUnavailable ||
+      hasMarkedVisitRef.current
+    )
+      return
     hasMarkedVisitRef.current = true
-    void piPost('/pi/home/mark-visited', {}).catch(() => {
-      hasMarkedVisitRef.current = false
-    })
+    void piPost('/pi/home/mark-visited', {})
+      .then((res) => {
+        if (!res.ok) hasMarkedVisitRef.current = false
+      })
+      .catch(() => {
+        hasMarkedVisitRef.current = false
+      })
   }, [homeLoading, homeData?.pi?.generatedAt])
-
-  const { show: showMilestone, dismiss: dismissMilestone } =
-    useFirstSkillMilestone(homeData?.growth?.skillsLearned)
 
   useEffect(() => {
     const HOME_FOCUSED_DEBOUNCE_MS = 60_000
@@ -195,21 +176,30 @@ export const AgentCommandHome: FC = () => {
   }, [targets, providerOptions, selectedProvider, defaultProviderId])
 
   const handleSend = async (input: ConversationInputSendInput) => {
-    if (!selectedProvider) return
-    if (selectedProvider.kind === 'llm' && llmRoutingMode === 'wait') return
+    if (!selectedProvider) throw new Error('No assistant selected')
+    if (selectedProvider.kind === 'llm' && llmRoutingMode === 'wait')
+      throw new Error('Assistant is still loading')
     const agentSessionId =
       selectedProvider.kind === 'acp' ? crypto.randomUUID() : undefined
-    const route = routeHomeSend(selectedProvider, input.text, {
+    const text =
+      selectedProvider.kind === 'acp'
+        ? harnessHomeText(
+            input.text,
+            input.selectedTabs,
+            input.attachments.length > 0,
+          )
+        : input.text
+    const route = routeHomeSend(selectedProvider, text, {
       agentSessionId,
       selectedTabs: input.selectedTabs,
     })
-    if (!route) return
+    if (!route) throw new Error('Unable to route this task')
     if (route.kind === 'acp') {
       if (!agentSessionId) return
       setPendingInitialMessage({
         agentId: route.agentId,
         sessionId: agentSessionId,
-        text: input.text,
+        text,
         attachments: input.attachments,
         createdAt: Date.now(),
       })
@@ -238,36 +228,23 @@ export const AgentCommandHome: FC = () => {
     navigate(route.path)
   }
 
-  const hasLivingWork =
-    (homeData?.pi?.doorways.length ?? 0) > 0 ||
-    (homeData?.pi?.continuity.length ?? 0) > 0 ||
-    (homeData?.pi?.libraryCount ?? 0) > 0
-  const statusLive =
-    !homeLoading &&
-    ((homeData?.pi?.continuity.length ?? 0) > 0 ||
-      (homeData?.pi?.doorways.length ?? 0) > 0)
-
   return (
-    <div className="min-h-full">
+    <div className="pane-home min-h-full bg-background">
       <PiTopRail
         crumbs={['HOME']}
-        status={
-          <PiStatusDot
-            label={homeStatusLabel(homeData?.pi, homeLoading)}
-            live={statusLive}
-          />
+        actions={
+          <HomeAction to="/pi/library">
+            <FolderOpen className="size-3.5" />
+            Your work
+          </HomeAction>
         }
-        actions={<PiRailAction to="/pi/library">Library</PiRailAction>}
       />
-
-      <div className="border-border border-b px-5 py-2 font-mono text-[11px] text-muted-foreground tracking-wide">
-        {homeSubtitle(homeData?.pi)}
-      </div>
-
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-5 py-8 pb-16">
-        {showMilestone ? <MilestoneCard onDismiss={dismissMilestone} /> : null}
-        <div className="space-y-4">
-          <h1 className="font-semibold text-2xl leading-tight tracking-[-0.02em]">
+      <main className="mx-auto w-full max-w-4xl space-y-8 px-5 pt-10 pb-12 sm:px-8 sm:pt-10">
+        <section aria-labelledby="home-heading" className="w-full">
+          <h1
+            id="home-heading"
+            className="mb-6 font-medium text-2xl tracking-[-0.03em] sm:text-[28px]"
+          >
             {homeGreeting(homeData?.firstName ?? null)}
           </h1>
           <ConversationInput
@@ -275,42 +252,61 @@ export const AgentCommandHome: FC = () => {
             providers={providerOptions}
             selectedProvider={selectedProvider}
             onSelectProvider={setSelectedProvider}
-            onSend={handleSend}
+            onSend={async (input) => {
+              setSendError(null)
+              try {
+                await handleSend(input)
+              } catch {
+                setSendError('Your task couldn’t start. Please try again.')
+                return false
+              }
+            }}
             streaming={false}
             disabled={!selectedProvider || waitingForLlmCapabilities}
-            attachmentsEnabled={true}
-            placeholder={
-              selectedProvider
-                ? `Ask ${selectedProvider.name} to handle a task...`
-                : 'Loading providers...'
-            }
-            onOpenVoiceMode={() => {
-              navigate('/home/chat?voice=open&mode=agent')
-            }}
+            attachmentsEnabled={selectedProvider?.kind === 'acp'}
+            placeholder="Ask Pane…"
+            onOpenVoiceMode={() => navigate('/home/chat?voice=open&mode=agent')}
           />
-        </div>
-
-        <ContinueSites />
-
-        <div className="flex flex-col gap-0">
-          {homeLoading ? (
-            <p className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]">
-              Loading your private web…
+          {sendError ? (
+            <p role="alert" className="mt-3 text-destructive text-sm">
+              {sendError}
             </p>
-          ) : homeError ? (
-            <p className="text-destructive text-sm">
-              Could not load home. Check that the Pane agent server is running.
+          ) : null}
+          {!selectedProvider ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
+              <span>Connect an assistant to start a task.</span>
+              <HomeAction to="/settings/ai">Set up assistant</HomeAction>
+            </div>
+          ) : null}
+          <ContinueSites />
+        </section>
+        <TodayAgenda />
+        {homeLoading ? (
+          <div
+            role="status"
+            aria-label="Loading saved work"
+            className="grid gap-4 sm:grid-cols-2"
+          >
+            <div className="h-36 animate-pulse bg-muted" />
+            <div className="h-36 animate-pulse bg-muted" />
+          </div>
+        ) : homeError || homeData?.piUnavailable ? (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-3 border border-border bg-background p-5"
+          >
+            <p className="text-muted-foreground text-sm">
+              Saved work is temporarily unavailable. You can still start a task
+              above.
             </p>
-          ) : hasLivingWork ? (
-            <PiHomeRegions data={homeData?.pi} />
-          ) : (
-            <EmptyHomeState />
-          )}
-        </div>
-
-        <GrowthSignal growth={homeData?.growth} />
-      </div>
-
+            <HomeAction onClick={() => void refetchHome()}>
+              Try again
+            </HomeAction>
+          </div>
+        ) : (
+          <PiHomeRegions data={homeData?.pi} />
+        )}
+      </main>
       {activeHint === 'signin' ? <SignInHint /> : null}
     </div>
   )

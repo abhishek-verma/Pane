@@ -29,9 +29,10 @@
  */
 
 import { execFile } from 'node:child_process'
+import type { Dirent } from 'node:fs'
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import { promisify } from 'node:util'
 import { logger } from '../../logger'
 
@@ -70,8 +71,9 @@ export interface SignUnsignedNodeFilesResult {
 }
 
 /**
- * Ad-hoc signs any unsigned `.node` (Mach-O dylib) files found directly
- * under `dir`. Ignores files that are already signed.
+ * Ad-hoc signs any unsigned `.node` (Mach-O dylib) files under `dir`,
+ * including Bun's nested version-specific extraction folders. Ignores files
+ * that are already signed.
  *
  * Ad-hoc signing (`codesign --sign -`) is sufficient on macOS to prevent
  * the "could not verify is free of malware" Gatekeeper dialog for
@@ -91,19 +93,12 @@ export async function signUnsignedNodeFiles(
 
   if (platform !== 'darwin') return result
 
-  let entries: string[]
-  try {
-    entries = await readdir(dir)
-  } catch {
-    return result
-  }
-
-  const nodeFiles = entries.filter((e) => e.endsWith('.node'))
+  const nodeFiles = await findNativeNodeFiles(dir)
   if (nodeFiles.length === 0) return result
 
   await Promise.all(
-    nodeFiles.map(async (filename) => {
-      const filePath = join(dir, filename)
+    nodeFiles.map(async (filePath) => {
+      const filename = relative(dir, filePath)
       try {
         const info = await stat(filePath)
         if (!info.isFile()) {
@@ -137,6 +132,27 @@ export async function signUnsignedNodeFiles(
   )
 
   return result
+}
+
+/** Collects regular `.node` files without following symlinks outside `dir`. */
+async function findNativeNodeFiles(dir: string): Promise<string[]> {
+  let entries: Dirent<string>[]
+  try {
+    entries = await readdir(dir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+
+  const files: string[] = []
+  for (const entry of entries) {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...(await findNativeNodeFiles(path)))
+    } else if (entry.isFile() && entry.name.endsWith('.node')) {
+      files.push(path)
+    }
+  }
+  return files
 }
 
 async function isAlreadySigned(filePath: string): Promise<boolean> {

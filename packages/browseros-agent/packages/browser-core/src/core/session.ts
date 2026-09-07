@@ -1,3 +1,5 @@
+import { paneGroupTitle } from './agent-tab-groups'
+import { currentAgentTabScope } from './agent-tab-scope'
 import type { CdpConnection } from './connection'
 import { Input } from './input/input'
 import { Navigation } from './navigation'
@@ -77,6 +79,24 @@ export class BrowserSession {
     params?: Record<string, unknown>,
     sessionId?: string,
   ): Promise<unknown> {
+    if (currentAgentTabScope()) {
+      if (method === 'Browser.createTab' || method === 'Target.createTarget') {
+        throw new Error(
+          'Use browser.pages.newPage(url) to open a tab in the task’s Pane folder.',
+        )
+      }
+      if (
+        method === 'Browser.createTabGroup' ||
+        (method === 'Browser.updateTabGroup' && params?.title !== undefined)
+      ) {
+        params = {
+          ...params,
+          title: paneGroupTitle(
+            typeof params?.title === 'string' ? params.title : undefined,
+          ),
+        }
+      }
+    }
     return this.connection.rawSend(method, params ?? {}, sessionId)
   }
 
@@ -86,6 +106,8 @@ export class BrowserSession {
     paramsJson: string,
     sessionId?: string,
   ): Promise<unknown> {
+    if (currentAgentTabScope())
+      return this.cdp(method, JSON.parse(paramsJson), sessionId)
     return this.connection.rawSendJson(method, paramsJson, sessionId)
   }
 
@@ -96,6 +118,8 @@ export class BrowserSession {
     paramsJson: string,
   ): Promise<unknown> {
     const { sessionId } = await this.pages.getSession(pageId)
+    if (currentAgentTabScope())
+      return this.cdp(method, JSON.parse(paramsJson), sessionId)
     return this.connection.rawSendJson(method, paramsJson, sessionId)
   }
 

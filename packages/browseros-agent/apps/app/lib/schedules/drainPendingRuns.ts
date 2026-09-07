@@ -12,6 +12,7 @@ export interface PendingScheduledRun {
   idempotencyKey: string
   status: string
   source?: string
+  sourceId?: string | null
 }
 
 export interface DrainServerRunsDeps {
@@ -22,6 +23,7 @@ export interface DrainServerRunsDeps {
     scheduledRunId: string
     idempotencyKey: string
     conversationId?: string
+    useSelectedWorkspace?: boolean
   }) => Promise<{ text: string; conversationId: string }>
   /** If set, only claim these run ids. */
   runIds?: string[]
@@ -43,6 +45,16 @@ export async function drainPendingRunsOnce(
   if (deps.runIds?.length) {
     const allow = new Set(deps.runIds)
     runs = runs.filter((r) => allow.has(r.id))
+    // A targeted refresh must not disappear behind the first page of jobs.
+    for (const id of allow) {
+      if (runs.some((run) => run.id === id)) continue
+      const response = await deps.fetchFn(
+        `${base}/scheduler/runs/${encodeURIComponent(id)}`,
+      )
+      if (!response.ok) continue
+      const payload = (await response.json()) as { run?: PendingScheduledRun }
+      if (payload.run?.status === 'pending') runs.push(payload.run)
+    }
   } else if (deps.skipSources?.length) {
     const skip = new Set(deps.skipSources)
     runs = runs.filter((r) => !r.source || !skip.has(r.source))
@@ -61,21 +73,28 @@ export async function drainPendingRunsOnce(
     claimed += 1
 
     const conversationId = crypto.randomUUID()
-    // Publish conversationId early so UI can open the owner agent.
-    await deps
-      .fetchFn(`${base}/scheduler/runs/${encodeURIComponent(run.id)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId }),
-      })
-      .catch(() => null)
-
     try {
+      // The owner must be durable before tools can save an ACP review report.
+      const ownerRes = await deps.fetchFn(
+        `${base}/scheduler/runs/${encodeURIComponent(run.id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId }),
+        },
+      )
+      if (!ownerRes.ok) {
+        throw new Error(
+          `Could not link the review conversation: ${ownerRes.status}`,
+        )
+      }
       const chat = await deps.runChat({
         message: run.prompt,
         scheduledRunId: run.id,
         idempotencyKey: run.idempotencyKey,
         conversationId,
+        useSelectedWorkspace:
+          run.source === 'manual' && !!run.sourceId?.startsWith('agenda:'),
       })
       const completeRes = await deps.fetchFn(
         `${base}/scheduler/runs/${encodeURIComponent(run.id)}/complete`,

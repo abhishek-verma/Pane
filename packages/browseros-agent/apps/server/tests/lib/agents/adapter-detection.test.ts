@@ -158,7 +158,7 @@ describe('adapter detection', () => {
     })
   })
 
-  it('uses bundled native CLIs before host PATH for version and auth probes', async () => {
+  it("uses a host native CLI before Pane's bundled fallback for version and auth probes", async () => {
     const resourcesDir = '/Applications/BrowserOS.app/Contents/Resources'
     const bundledDir = join(resourcesDir, 'bin', 'third_party')
     const bundledCodex = join(bundledDir, 'codex')
@@ -186,6 +186,12 @@ describe('adapter detection', () => {
       env: { PATH: '/usr/bin' },
       resolveBinary: async (name) => {
         hostResolveCalls.push(name)
+        if (name === 'codex') {
+          return {
+            path: '/Users/dev/.local/bin/codex',
+            env: { PATH: '/Users/dev/.local/bin:/usr/bin' },
+          }
+        }
         return null
       },
       runCommand: async (cmd, args, options) => {
@@ -212,17 +218,17 @@ describe('adapter detection', () => {
       version: 'codex-cli 0.136.0',
       checkedAt: 1234,
     })
-    expect(hostResolveCalls).toEqual([])
+    expect(hostResolveCalls).toEqual(['codex'])
     expect(commandCalls).toEqual([
       {
-        cmd: bundledCodex,
+        cmd: '/Users/dev/.local/bin/codex',
         args: ['--version'],
-        pathEnv: `${bundledDir}:/usr/bin`,
+        pathEnv: '/Users/dev/.local/bin:/usr/bin',
       },
       {
-        cmd: bundledCodex,
+        cmd: '/Users/dev/.local/bin/codex',
         args: ['login', 'status'],
-        pathEnv: `${bundledDir}:/usr/bin`,
+        pathEnv: '/Users/dev/.local/bin:/usr/bin',
       },
     ])
   })

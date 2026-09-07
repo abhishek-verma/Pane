@@ -388,7 +388,7 @@ class MacOSSignModule(CommandModule):
             )
 
     def _patch_bundle_version(self, app_path: Path, ctx: Context) -> None:
-        """Patch CFBundleVersion in Info.plist to the Sparkle-compatible version.
+        """Patch both release version keys before signing the app bundle.
 
         The raw Chromium build bakes CFBundleVersion from chrome/VERSION (e.g.
         7778.97). The Sparkle appcast uses browseros_chromium_version BUILD.PATCH
@@ -407,6 +407,12 @@ class MacOSSignModule(CommandModule):
             return
 
         sparkle_version = f"{parts[2]}.{parts[3]}"  # e.g. "7949.97"
+        semantic_version = ctx.get_semantic_version()
+        if not semantic_version:
+            raise RuntimeError(
+                "Semantic Pane version is missing; refusing to sign an app with "
+                "Chromium's CFBundleShortVersionString"
+            )
 
         info_plist = app_path / "Contents" / "Info.plist"
         if not info_plist.exists():
@@ -418,7 +424,16 @@ class MacOSSignModule(CommandModule):
             "-c", f"Set :CFBundleVersion {sparkle_version}",
             str(info_plist),
         ])
+        run_command([
+            "/usr/libexec/PlistBuddy",
+            "-c", f"Set :CFBundleShortVersionString {semantic_version}",
+            str(info_plist),
+        ])
         log_info(f"  ✓ CFBundleVersion → {sparkle_version} (was raw Chromium build)")
+        log_info(
+            f"  ✓ CFBundleShortVersionString → {semantic_version} "
+            "(was raw Chromium version)"
+        )
 
     def _clear_extended_attributes(self, app_path: Path) -> None:
         log_info("🧹 Clearing extended attributes...")

@@ -1,6 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { testProvider } from './testProvider'
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { LlmProviderConfig } from './types'
+
+mock.module('@/lib/browseros/profile-key', () => ({
+  getBrowserProfileKey: async () => 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+  resetBrowserProfileKeyCacheForTests: () => {},
+}))
+
+const { testProvider } = await import('./testProvider')
 
 let lastCall: { url: string; body: Record<string, unknown> } | null = null
 let originalFetch: typeof globalThis.fetch

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import {
+  harnessHomeText,
   resolveHomeLlmRoutingMode,
   routeHomeSend,
 } from './home-compose.helpers'
@@ -108,4 +109,22 @@ describe('resolveHomeLlmRoutingMode', () => {
       }),
     ).toBe('sidepanel')
   })
+})
+
+it('routes attachment-only Home submissions with a usable prompt', () => {
+  const text = harnessHomeText('', [], true)
+  expect(routeHomeSend(acp, text, { agentSessionId: 'files' })?.path).toContain(
+    'attached%20files',
+  )
+})
+it('carries the selected tab references into the harness message', () => {
+  const text = harnessHomeText('Summarize these', [
+    {
+      id: 11,
+      title: 'Research',
+      url: 'https://example.test/research',
+    } as chrome.tabs.Tab,
+  ])
+  expect(text).toContain('Summarize these')
+  expect(text).toContain('Research: https://example.test/research')
 })

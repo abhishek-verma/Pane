@@ -27,6 +27,7 @@ export const CHAT_MODE_ALLOWED_NON_BROWSER_TOOLS = new Set([
   'context_search',
   'session_search',
   'tasks_list',
+  'agenda_list',
   'skills_list',
   'skills_load',
   'filesystem_read',

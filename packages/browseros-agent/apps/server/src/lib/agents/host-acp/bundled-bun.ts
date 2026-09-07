@@ -52,6 +52,13 @@ export function withBundledBunAcpAdapterEnv(input: {
   browserosDir?: string | null
   env?: Record<string, string | undefined>
   platform?: NodeJS.Platform
+  /**
+   * Keep BrowserOS's packaged CLI directory off PATH when a current host
+   * Claude/Codex CLI was resolved. ACP adapters spawn `claude` / `codex` by
+   * name, and putting the packaged directory first silently downgraded users
+   * to the version shipped with Pane.
+   */
+  includeBundledCliPath?: boolean
 }): Record<string, string> {
   const platform = input.platform ?? process.platform
   const sourceEnv = input.env ?? process.env
@@ -64,7 +71,7 @@ export function withBundledBunAcpAdapterEnv(input: {
       browserosDir: input.browserosDir,
       platform,
     }),
-    dirname(input.bunPath),
+    ...(input.includeBundledCliPath === false ? [] : [dirname(input.bunPath)]),
     ...(sourceEnv[pathKey] ?? '').split(delimiter),
   ].filter((entry): entry is string => Boolean(entry))
 

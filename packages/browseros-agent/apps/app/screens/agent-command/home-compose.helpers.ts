@@ -1,4 +1,5 @@
 import type { Provider } from '@/components/chat/chatComponentTypes'
+import { displayTabUrl } from '@/lib/personal-internet/attachable-tab-url'
 
 export type HomeSendRoute =
   | { kind: 'llm'; providerId: string; path: string }
@@ -52,4 +53,22 @@ export function routeHomeSend(
     providerId: provider.id,
     path: `/home/chat?q=${encoded}&mode=agent${tabsParam}`,
   }
+}
+
+/** Harness messages have no separate tab field; carry the explicitly selected references. */
+export function harnessHomeText(
+  text: string,
+  tabs: chrome.tabs.Tab[],
+  hasAttachments = false,
+): string {
+  const prompt =
+    text.trim() ||
+    (hasAttachments ? 'Please help me with the attached files.' : '')
+  const references = tabs.flatMap((tab) => {
+    const url = displayTabUrl(tab.url)
+    return url ? [`- ${tab.title || 'Selected tab'}: ${url}`] : []
+  })
+  return references.length
+    ? `${prompt}\n\nSelected tabs (source references):\n${references.join('\n')}`
+    : prompt
 }

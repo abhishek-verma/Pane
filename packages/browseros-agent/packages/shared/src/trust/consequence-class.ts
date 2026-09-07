@@ -71,6 +71,12 @@ const READ_CONTEXT_TOOLS = new Set([
   'pi_page_patch',
   'pi_entity_ensure',
   'trigger_list',
+  // Agenda is a reversible local response surface, like PI page content.
+  // Its store protects user choices; these tools cannot write external apps.
+  'agenda_list',
+  'agenda_upsert',
+  'agenda_update',
+  'agenda_review_finish',
 ])
 
 const WRITE_LOCAL_TASK_TOOLS = new Set([

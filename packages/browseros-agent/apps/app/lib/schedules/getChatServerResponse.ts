@@ -6,6 +6,7 @@ import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
 import { buildChatRequestBody } from '@/lib/messaging/server/buildChatRequestBody'
 import { requireBrowserInputApprovalStorage } from '@/lib/trust/trust-pins-storage'
+import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from '@/modules/chat/chat-types'
 import { personalizationStorage } from '../personalization/personalizationStorage'
 import { scheduleSystemPrompt } from './scheduleSystemPrompt'
@@ -25,6 +26,8 @@ export interface ChatServerRequest {
   activeTab?: ActiveTab
   signal?: AbortSignal
   providerId?: string
+  /** Explicit Today reviews may inspect the workspace already selected by the user. */
+  useSelectedWorkspace?: boolean
   /** Server scheduled_runs id for trigger/keep-alive drain. */
   scheduledRunId?: string
   /** Stable key for consequential step dedupe across retries. */
@@ -88,6 +91,9 @@ export async function getChatServerResponse(
   const agentServerUrl = await getAgentServerUrl()
   const provider = await resolveProvider(request.providerId)
   const conversationId = request.conversationId ?? crypto.randomUUID()
+  const workspace = request.useSelectedWorkspace
+    ? await selectedWorkspaceStorage.getValue()
+    : null
   const personalization = await personalizationStorage.getValue()
 
   const mcpServers = (await mcpServerStorage.getValue()) ?? []
@@ -131,6 +137,9 @@ export async function getChatServerResponse(
               }
             : undefined,
         userSystemPrompt: `${personalization}\n${scheduleSystemPrompt}`,
+        userWorkingDir: workspace?.path,
+        workspaceId: workspace?.id,
+        bucketId: workspace?.bucketId,
         supportsImages: provider.supportsImages,
         requireBrowserInputApproval,
         isScheduledTask: true,

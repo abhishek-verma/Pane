@@ -12,6 +12,7 @@ import { releasePiFocus } from '../../personal-internet/focus'
 import { buildPiHomeProjection } from '../../personal-internet/home-projection'
 import { ensureAndMaterialize } from '../../personal-internet/materialize'
 import {
+  getJob,
   handleHostOpened,
   handleRefreshTrigger,
 } from '../../personal-internet/refresh/bus'
@@ -479,7 +480,12 @@ export function createPersonalInternetRoutes() {
       return c.json({
         ok: true,
         jobIds: jobs.map((job) => job.id),
-        refreshed: refreshed.ran,
+        refreshed: refreshed.ran.filter((result) =>
+          jobs.some((job) => job.id === result.id),
+        ),
+        pending: jobs.filter((job) =>
+          ['pending', 'running'].includes(getJob(job.id)?.status ?? ''),
+        ).length,
         generatedAt: projection.generatedAt,
         continuity: projection.continuity,
       })

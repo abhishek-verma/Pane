@@ -28,6 +28,11 @@ import type { Provider } from '@/components/chat/chatComponentTypes'
 import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { Button } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { LiveCaption } from '@/components/voice/LiveCaption'
 import { type StagedAttachment, stageAttachments } from '@/lib/attachments'
@@ -45,7 +50,10 @@ export interface ConversationInputSendInput {
 }
 
 export interface ConversationInputProps {
-  onSend: (input: ConversationInputSendInput) => void
+  draft?: { text: string; id: number }
+  onSend: (
+    input: ConversationInputSendInput,
+  ) => void | boolean | Promise<void> | Promise<boolean | undefined>
   /**
    * Merged provider/agent picker shown only on the `home` variant. Lets the
    * composer target either an LLM provider (BrowserOS, etc.) or a named agent.
@@ -95,6 +103,7 @@ function InputActionButton({
       onClick={onClick}
       size="icon"
       disabled={disabled}
+      aria-label={streaming && hasContent ? 'Queue message' : 'Start task'}
       title={streaming && hasContent ? 'Queue message' : undefined}
       className="h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
     >
@@ -210,6 +219,7 @@ function CalmContextControls({
   onAttachClick,
   attachDisabled,
   attachmentsEnabled,
+  onOpenVoiceMode,
 }: {
   providers?: Provider[]
   selectedProvider?: Provider | null
@@ -220,59 +230,12 @@ function CalmContextControls({
   onAttachClick: () => void
   attachDisabled: boolean
   attachmentsEnabled: boolean
+  onOpenVoiceMode?: () => void
 }) {
   const { selectedFolder } = useWorkspace()
 
   return (
-    <div className="mx-3 flex items-center gap-0.5 pt-0.5 pb-1.5">
-      {showAgentSelector &&
-      providers &&
-      selectedProvider &&
-      onSelectProvider ? (
-        <>
-          <ChatProviderSelector
-            providers={providers}
-            selectedProvider={selectedProvider}
-            onSelectProvider={onSelectProvider}
-          >
-            <button
-              type="button"
-              className={cn(
-                'inline-flex h-6 max-w-[200px] items-center gap-1.5 rounded-md border border-border/60 bg-accent/30 pr-2 pl-2.5 text-[11.5px] text-foreground transition-colors',
-                'hover:border-border hover:bg-accent/70 data-[state=open]:border-border data-[state=open]:bg-accent/70',
-              )}
-            >
-              {selectedProvider.type === 'browseros' ? (
-                <PaneWordmark size="xs" />
-              ) : (
-                <>
-                  <TargetPillIcon provider={selectedProvider} />
-                  <span className="truncate font-medium font-mono text-[11.5px] tracking-[-0.01em]">
-                    {selectedProvider.name}
-                  </span>
-                </>
-              )}
-              <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
-            </button>
-          </ChatProviderSelector>
-          <span
-            aria-hidden="true"
-            className="mx-1 inline-block h-3.5 w-px shrink-0 bg-border"
-          />
-        </>
-      ) : null}
-      <WorkspaceSelector>
-        <button
-          type="button"
-          className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-        >
-          <Folder className="size-3" />
-          <span>Workspace</span>
-          <span className="font-mono text-[10.5px] text-muted-foreground/70">
-            {selectedFolder?.name ?? 'none'}
-          </span>
-        </button>
-      </WorkspaceSelector>
+    <div className="mx-3 flex flex-wrap items-center gap-1 pt-1 pb-3">
       <TabPickerPopover
         variant="selector"
         selectedTabs={selectedTabs}
@@ -288,7 +251,7 @@ function CalmContextControls({
           )}
         >
           <Layers className="size-3" />
-          <span>Tabs</span>
+          <span>Use open tabs</span>
           <span
             className={cn(
               'font-mono text-[10.5px]',
@@ -303,38 +266,121 @@ function CalmContextControls({
       </TabPickerPopover>
       <span
         aria-hidden="true"
-        className="mx-1 inline-block h-3.5 w-px shrink-0 bg-border"
-      />
-      <button
-        type="button"
-        onClick={onAttachClick}
-        disabled={attachDisabled || !attachmentsEnabled}
-        title="Attach files"
-        className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <Paperclip className="size-3" />
-        <span>Attach</span>
-      </button>
-      <button
-        type="button"
-        onClick={() =>
-          window.open(
-            chrome.runtime.getURL('/app.html#/settings/mcp'),
-            '_blank',
-          )
+        className={
+          attachmentsEnabled
+            ? 'mx-1 inline-block h-3.5 w-px shrink-0 bg-border'
+            : 'hidden'
         }
-        className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      >
-        <PlugZap className="size-3" />
-        <span>Apps</span>
-      </button>
+      />
+      {attachmentsEnabled ? (
+        <button
+          type="button"
+          onClick={onAttachClick}
+          disabled={attachDisabled || !attachmentsEnabled}
+          title="Attach files"
+          className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Paperclip className="size-3" />
+          <span>Attach</span>
+        </button>
+      ) : null}
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="ml-auto inline-flex h-8 items-center gap-1 rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
+          >
+            Options
+            <ChevronDown className="size-3" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="home-floating w-72 space-y-3 rounded-none p-4"
+        >
+          <p className="font-medium text-sm">Task options</p>
+          {VOICE_SUPPORTED && onOpenVoiceMode ? (
+            <button
+              type="button"
+              className="flex items-center gap-2 text-sm hover:underline"
+              onClick={onOpenVoiceMode}
+            >
+              <Mic className="size-4" />
+              Voice conversation
+            </button>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {showAgentSelector &&
+            providers &&
+            selectedProvider &&
+            onSelectProvider ? (
+              <>
+                <ChatProviderSelector
+                  providers={providers}
+                  selectedProvider={selectedProvider}
+                  onSelectProvider={onSelectProvider}
+                >
+                  <button
+                    type="button"
+                    className={cn(
+                      'inline-flex h-6 max-w-[200px] items-center gap-1.5 rounded-md border border-border/60 bg-accent/30 pr-2 pl-2.5 text-[11.5px] text-foreground transition-colors',
+                      'hover:border-border hover:bg-accent/70 data-[state=open]:border-border data-[state=open]:bg-accent/70',
+                    )}
+                  >
+                    {selectedProvider.type === 'browseros' ? (
+                      <PaneWordmark size="xs" />
+                    ) : (
+                      <>
+                        <TargetPillIcon provider={selectedProvider} />
+                        <span className="truncate font-medium font-mono text-[11.5px] tracking-[-0.01em]">
+                          {selectedProvider.name}
+                        </span>
+                      </>
+                    )}
+                    <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+                  </button>
+                </ChatProviderSelector>
+                <span
+                  aria-hidden="true"
+                  className="mx-1 inline-block h-3.5 w-px shrink-0 bg-border"
+                />
+              </>
+            ) : null}
+            <WorkspaceSelector>
+              <button
+                type="button"
+                className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
+              >
+                <Folder className="size-3" />
+                <span>Files folder</span>
+                <span className="font-mono text-[10.5px] text-muted-foreground/70">
+                  {selectedFolder?.name ?? 'Choose folder'}
+                </span>
+              </button>
+            </WorkspaceSelector>
+            <button
+              type="button"
+              onClick={() =>
+                window.open(
+                  chrome.runtime.getURL('/app.html#/settings/mcp'),
+                  '_blank',
+                )
+              }
+              className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <PlugZap className="size-3" />
+              <span>Connect apps</span>
+            </button>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }
 
 function HomeShell({ children }: { children: ReactNode }) {
   return (
-    <div className="agent-composer-field overflow-hidden transition-[border-color] duration-150 focus-within:border-[var(--accent-orange)]">
+    <div className="agent-composer-field overflow-hidden transition-colors focus-within:border-primary">
       {children}
     </div>
   )
@@ -350,6 +396,7 @@ function ConversationShell({ children }: { children: ReactNode }) {
 
 export const ConversationInput: FC<ConversationInputProps> = ({
   onSend,
+  draft,
   providers,
   selectedProvider,
   onSelectProvider,
@@ -367,11 +414,18 @@ export const ConversationInput: FC<ConversationInputProps> = ({
   const [attachments, setAttachments] = useState<StagedAttachment[]>([])
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
   const [isStaging, setIsStaging] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const voice = useVoiceInput()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isConversation = variant === 'conversation'
+
+  useEffect(() => {
+    if (!draft) return
+    setInput(draft.text)
+    textareaRef.current?.focus()
+  }, [draft])
 
   const stageFiles = async (files: File[]) => {
     if (files.length === 0) return
@@ -444,16 +498,24 @@ export const ConversationInput: FC<ConversationInputProps> = ({
   // and block input until the current turn finishes.
   const queueAware = Boolean(onStop)
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const text = input.trim()
-    if (disabled || isStaging) return
+    if (disabled || isStaging || submitting) return
     if (streaming && !queueAware) return
     if (!text && attachments.length === 0) return
-    onSend({ text, attachments, selectedTabs })
-    setInput('')
-    setAttachments([])
-    setSelectedTabs([])
-    setAttachmentError(null)
+    setSubmitting(true)
+    try {
+      const sent = await onSend({ text, attachments, selectedTabs })
+      if (sent === false) return
+      setInput('')
+      setAttachments([])
+      setSelectedTabs([])
+      setAttachmentError(null)
+    } catch {
+      setAttachmentError('Your message could not be sent. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -543,12 +605,14 @@ export const ConversationInput: FC<ConversationInputProps> = ({
         <div
           className={cn(
             'flex gap-2.5 px-3 pt-2 pb-1',
+            variant === 'home' && 'home-composer-main',
             isExpandedDraft ? 'items-end' : 'items-center',
           )}
         >
           <BotInputIcon />
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <Textarea
+              aria-label="Task for Pane"
               ref={textareaRef}
               value={input}
               onChange={(event) => setInput(event.currentTarget.value)}
@@ -568,7 +632,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
                     : (placeholder ??
                       `Message ${selectedProvider?.name ?? 'agent'}...`)
               }
-              disabled={disabled || voice.isTranscribing}
+              disabled={disabled || submitting || voice.isTranscribing}
               className={cn(
                 'resize-none border-none bg-transparent px-0 text-[14px] shadow-none focus-visible:ring-0 dark:bg-transparent',
                 '[field-sizing:fixed]',
@@ -578,7 +642,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
             />
           </div>
           {streaming && onStop ? <StopButton onStop={onStop} /> : null}
-          {VOICE_SUPPORTED && onOpenVoiceMode ? (
+          {VOICE_SUPPORTED && onOpenVoiceMode && variant !== 'home' ? (
             <VoiceModeEntryButton onClick={onOpenVoiceMode} />
           ) : null}
           {VOICE_SUPPORTED ? (
@@ -597,6 +661,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
             disabled={
               !hasContent ||
               isStaging ||
+              submitting ||
               !!disabled ||
               voice.isRecording ||
               voice.isTranscribing ||
@@ -639,6 +704,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
           onAttachClick={openFilePicker}
           attachDisabled={attachments.length >= 10 || isStaging || !!disabled}
           attachmentsEnabled={attachmentsEnabled}
+          onOpenVoiceMode={variant === 'home' ? onOpenVoiceMode : undefined}
         />
         {isDragOver ? (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[inherit] bg-background/80 font-medium text-foreground text-sm backdrop-blur-sm">

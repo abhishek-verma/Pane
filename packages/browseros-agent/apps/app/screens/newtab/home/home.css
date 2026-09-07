@@ -1,0 +1,207 @@
+/* Home keeps Living Grid's neutral shell, rules and compact geometry.
+   Pastel tiles preview the existing place palette, rather than introducing
+   new brand accents or changing the tokens used elsewhere in the app. */
+.pane-home {
+  --home-paper: var(--background);
+  --home-ink: var(--foreground);
+  --home-muted-ink: var(--muted-foreground);
+  --home-rule: var(--border);
+  --home-signal: var(--signal);
+}
+
+.pane-home .home-color-tile[data-field] {
+  --background: var(--home-paper);
+  --foreground: var(--home-ink);
+  --muted-foreground: var(--home-muted-ink);
+  --border: var(--home-rule);
+  --signal: var(--home-signal);
+  --primary: var(--home-signal);
+  --muted: color-mix(in oklab, var(--field) 65%, var(--home-paper));
+  border-color: color-mix(in oklab, var(--field) 35%, var(--home-rule));
+  border-radius: 0;
+  background: color-mix(in oklab, var(--field) 45%, var(--home-paper));
+  color: var(--home-ink);
+  box-shadow: none;
+}
+
+.pane-home .home-color-tile[data-field]:hover {
+  background: color-mix(in oklab, var(--field) 65%, var(--home-paper));
+}
+
+.dark .pane-home .home-color-tile[data-field] {
+  background: color-mix(in oklab, var(--field) 55%, var(--home-paper));
+}
+
+.dark .pane-home .home-color-tile[data-field]:hover {
+  background: color-mix(in oklab, var(--field) 80%, var(--home-paper));
+}
+
+.pane-home input[type="date"] {
+  color-scheme: light;
+}
+
+.dark .pane-home input[type="date"] {
+  color-scheme: dark;
+}
+
+/* Home is a square, flat surface, including controls shared with chat. */
+.pane-home [class*="rounded-"],
+.home-floating,
+.home-floating [class*="rounded-"] {
+  border-radius: 0;
+}
+.home-floating {
+  border-radius: 0;
+  box-shadow: 0 4px 16px #0000000d;
+}
+.home-section-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.home-today {
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+.home-agenda-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+  min-height: 84px;
+  padding: 16px 0;
+}
+.home-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+  border-radius: 0;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+.home-icon-button:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.home-icon-button:disabled,
+.home-text-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.home-icon-button:focus-visible,
+.home-text-action:focus-visible,
+.home-date-trigger:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+.home-text-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  font-family: inherit;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: normal;
+  background: transparent;
+  color: var(--foreground);
+}
+.home-text-action:hover {
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.home-date-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  min-height: 32px;
+}
+.home-menu-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  width: 100%;
+  font-size: 12px;
+  text-align: left;
+}
+.home-menu-action:hover {
+  background: var(--muted);
+}
+.pane-home [aria-label="Message composer"] {
+  padding: 8px 4px 0;
+}
+.pane-home [aria-label="Task for Pane"] {
+  min-height: 40px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 560px) {
+  .home-agenda-row {
+    grid-template-columns: 36px minmax(0, 1fr);
+    column-gap: 12px;
+    row-gap: 4px;
+  }
+  .home-agenda-row > .home-color-tile {
+    width: 36px;
+    height: 36px;
+  }
+  .home-agenda-actions {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
+.pane-home .agent-composer-field {
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid var(--border);
+}
+
+.pane-home .home-composer-main {
+  align-items: flex-start;
+}
+.pane-home .home-composer-main > div:first-child {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.home-agenda-actions > .home-text-action {
+  width: 84px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.home-agenda-title {
+  overflow: hidden;
+}
+
+/* Every site header uses the same row and fixed action slots. */
+.home-site-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px 32px 32px;
+  align-items: center;
+  height: 32px;
+}
+.home-site-symbol,
+.home-site-update {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  color: var(--home-ink);
+  opacity: 0.65;
+}
+.home-site-update {
+  justify-content: center;
+}

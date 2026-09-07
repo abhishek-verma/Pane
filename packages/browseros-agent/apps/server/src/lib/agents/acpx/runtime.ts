@@ -804,6 +804,7 @@ function createBrowserosAgentRegistry(input: {
                 bunPath: launch.bundledBunPath,
                 browserosDir: input.browserosDir,
                 env: commandEnv,
+                includeBundledCliPath: false,
               })
             : commandEnv,
         )

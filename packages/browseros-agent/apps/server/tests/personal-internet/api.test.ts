@@ -82,6 +82,14 @@ describe('pi HTTP API', () => {
     })
     expect(temp.status).toBe(201)
     const tempBody = (await temp.json()) as { pageId: string }
+    const withTemp = await (await app.request('/pi/library')).json()
+    expect(withTemp.temps).toContainEqual(
+      expect.objectContaining({
+        id: tempBody.pageId,
+        title: 'Compare',
+        route: `#/pi/temp/${tempBody.pageId}`,
+      }),
+    )
     const getTemp = await app.request(`/pi/temps/${tempBody.pageId}`)
     expect(getTemp.status).toBe(200)
 
@@ -94,6 +102,13 @@ describe('pi HTTP API', () => {
       },
     )
     expect(preserve.status).toBe(200)
+    const afterKeep = await (await app.request('/pi/library')).json()
+    expect(
+      afterKeep.temps.some(
+        (item: { id: string }) => item.id === tempBody.pageId,
+      ),
+    ).toBe(false)
+    expect(afterKeep.sites.length).toBe(2)
 
     const host = await app.request('/pi/hooks/host-opened', {
       method: 'POST',

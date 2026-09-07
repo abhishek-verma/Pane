@@ -15,6 +15,7 @@ import {
   findResumableSession,
   getCaptureSession,
   interruptMeetingCapture,
+  listCaptureSessions,
   ROOM_RESUME_TTL_MS,
   startMeetingCapture,
   stopMeetingCapture,
@@ -41,7 +42,17 @@ describe('capture continuity contracts', () => {
     setCapturePausedReason(null)
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    for (const session of listCaptureSessions({ kind: 'meeting' })) {
+      if (
+        session.status === 'active' ||
+        session.status === 'interrupted' ||
+        session.status === 'paused'
+      ) {
+        await stopMeetingCapture(session.id)
+      }
+    }
+    resetSharedAsrWorkerForTests()
     delete process.env.BROWSEROS_DIR
     delete process.env.BROWSEROS_ASR_MOCK
     closeDb()

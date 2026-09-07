@@ -6,6 +6,13 @@ const projectRoot = resolve(import.meta.dir, '..', '..')
 const testsRoot = resolve(projectRoot, 'tests')
 const cleanupScript = resolve(testsRoot, '__helpers__/cleanup.sh')
 const testPreloadPath = './tests/__helpers__/test-env.ts'
+const isolatedRunner = resolve(
+  projectRoot,
+  '..',
+  '..',
+  'scripts',
+  'run-bun-test.ts',
+)
 const preferredDirectoryGroups = ['agent', 'api', 'tools', 'browser']
 const ignoredDirectories = new Set(['__fixtures__', '__helpers__'])
 const rootGroupExclusions = new Set(['server.integration.test.ts'])
@@ -95,7 +102,12 @@ function runCommand(cmd: string[], label: string): number {
   console.log(`\n==> ${label}`)
   const result = spawnSync(cmd[0], cmd.slice(1), {
     cwd: projectRoot,
-    env: withTestEnv(process.env),
+    env: withTestEnv({
+      ...process.env,
+      BROWSEROS_TEST_CWD: projectRoot,
+      BROWSEROS_TEST_ENV_FILE: resolve(projectRoot, '.env.development'),
+      BROWSEROS_TEST_PRELOAD: resolve(projectRoot, testPreloadPath),
+    }),
     stdio: 'inherit',
   })
 
@@ -115,20 +127,12 @@ export function buildTestCommand(
   targets: string[],
   junitPath?: string,
 ): string[] {
-  const cmd = [
-    process.execPath,
-    '--env-file=.env.development',
-    'test',
-    `--preload=${testPreloadPath}`,
-    // Singleton DB + BROWSEROS_DIR races if files run concurrently.
-    '--max-concurrency=1',
-  ]
+  const cmd = [process.execPath, 'run', isolatedRunner]
   if (junitPath) {
     const outputPath = resolve(projectRoot, junitPath)
     mkdirSync(dirname(outputPath), { recursive: true })
-    cmd.push('--reporter=junit', `--reporter-outfile=${outputPath}`)
   }
-  cmd.push(...targets)
+  cmd.push(...targets.map((target) => resolve(projectRoot, target)))
   return cmd
 }
 

@@ -14,6 +14,7 @@ interface RunScheduledJobResponse {
 }
 
 type ScheduleMessagesProtocol = {
+  reviewAgenda(data: { runId: string }): RunScheduledJobResponse
   runScheduledJob(data: RunScheduledJobData): RunScheduledJobResponse
   cancelScheduledJobRun(
     data: CancelScheduledJobRunData,

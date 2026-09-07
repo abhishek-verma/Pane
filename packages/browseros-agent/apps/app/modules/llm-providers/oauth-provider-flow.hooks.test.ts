@@ -15,6 +15,10 @@ mock.module('@/lib/metrics/track', () => ({
   track: () => {},
 }))
 
+mock.module('@/lib/browseros/agent-fetch', () => ({
+  agentFetch: async () => new Response(),
+}))
+
 mock.module('@/lib/llm-providers/client-oauth', () => ({
   requestDeviceCode: async () => {
     throw new Error('not used')

@@ -84,7 +84,7 @@ describe('bundled native binary helpers', () => {
     })
   })
 
-  it('prepends the bundled CLI directory once for ACP adapter commands', async () => {
+  it('appends the bundled CLI directory once as an ACP fallback', async () => {
     const resourcesDir = await mkdtemp(join(tmpdir(), 'browseros-native-cli-'))
     tempDirs.push(resourcesDir)
     const bundledDir = join(resourcesDir, 'bin', 'third_party')
@@ -97,7 +97,7 @@ describe('bundled native binary helpers', () => {
         platform: 'linux',
       }),
     ).toEqual({
-      PATH: `${bundledDir}:/opt/bin`,
+      PATH: `/opt/bin:${bundledDir}`,
     })
 
     expect(
@@ -107,7 +107,7 @@ describe('bundled native binary helpers', () => {
         platform: 'linux',
       }),
     ).toEqual({
-      PATH: `${bundledDir}:/opt/bin`,
+      PATH: `/opt/bin:${bundledDir}`,
     })
   })
 })
