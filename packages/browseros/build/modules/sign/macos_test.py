@@ -290,6 +290,49 @@ class SignModuleGuardWiringTest(unittest.TestCase):
             MacOSSignModule()._verify_server_resources(app_path, ctx)
 
 
+class BundleVersionPatchingTest(unittest.TestCase):
+    def test_patches_sparkle_and_semantic_versions_before_signing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app_path = Path(tmp) / "Pane.app"
+            info_plist = app_path / "Contents" / "Info.plist"
+            _write_file(info_plist)
+            ctx = mock.Mock()
+            ctx.browseros_chromium_version = "148.0.7973.97"
+            ctx.get_semantic_version.return_value = "0.47.0.86"
+
+            with mock.patch.object(macos_module, "run_command") as run:
+                MacOSSignModule()._patch_bundle_version(app_path, ctx)
+
+            self.assertEqual(
+                run.call_args_list,
+                [
+                    mock.call([
+                        "/usr/libexec/PlistBuddy",
+                        "-c",
+                        "Set :CFBundleVersion 7973.97",
+                        str(info_plist),
+                    ]),
+                    mock.call([
+                        "/usr/libexec/PlistBuddy",
+                        "-c",
+                        "Set :CFBundleShortVersionString 0.47.0.86",
+                        str(info_plist),
+                    ]),
+                ],
+            )
+
+    def test_refuses_to_sign_without_a_semantic_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app_path = Path(tmp) / "Pane.app"
+            _write_file(app_path / "Contents" / "Info.plist")
+            ctx = mock.Mock()
+            ctx.browseros_chromium_version = "148.0.7973.97"
+            ctx.get_semantic_version.return_value = ""
+
+            with self.assertRaisesRegex(RuntimeError, "Semantic Pane version is missing"):
+                MacOSSignModule()._patch_bundle_version(app_path, ctx)
+
+
 def _completed(cmd, returncode=0, stdout=""):
     return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr="")
 
