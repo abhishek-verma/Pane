@@ -127,6 +127,13 @@
       "when": 1786200000000,
       "tag": "0017_pi_harvest_config",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1786300000000,
+      "tag": "0018_agenda",
+      "breakpoints": true
     }
   ]
 }

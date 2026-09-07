@@ -8,8 +8,10 @@
 
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { onScheduleMessage } from '@/lib/messaging/schedules/scheduleMessages'
 import { drainPendingRunsOnce } from '@/lib/schedules/drainPendingRuns'
 import { getChatServerResponse } from '@/lib/schedules/getChatServerResponse'
+import { nudgeDrainServerRuns } from '@/lib/schedules/nudgeDrainServerRuns'
 
 const ALARM_NAME = 'drain-server-runs'
 const PERIOD_MINUTES = 1
@@ -18,6 +20,11 @@ export { drainPendingRunsOnce } from '@/lib/schedules/drainPendingRuns'
 
 export function drainServerRuns(): void {
   let draining = false
+  onScheduleMessage('reviewAgenda', ({ data }) => {
+    // The run is durable before this message; the alarm remains a fallback.
+    void nudgeDrainServerRuns({ runIds: [data.runId] }).catch(() => undefined)
+    return { success: true }
+  })
 
   const tick = async () => {
     if (draining) return
@@ -34,12 +41,14 @@ export function drainServerRuns(): void {
           scheduledRunId,
           idempotencyKey,
           conversationId,
+          useSelectedWorkspace,
         }) => {
           const response = await getChatServerResponse({
             message,
             scheduledRunId,
             idempotencyKey,
             conversationId,
+            useSelectedWorkspace,
           })
           return {
             text: response.text,

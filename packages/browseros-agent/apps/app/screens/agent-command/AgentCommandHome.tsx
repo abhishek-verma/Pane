@@ -1,3 +1,5 @@
+import { TodayAgenda } from '@/screens/newtab/home/TodayAgenda'
+import '@/screens/newtab/home/home.css'
 /**
  * @license
  * Copyright 2025 BrowserOS
@@ -5,13 +7,7 @@
  */
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowUpRight,
-  Compass,
-  FolderOpen,
-  ListChecks,
-  Search,
-} from 'lucide-react'
+import { FolderOpen } from 'lucide-react'
 import { type FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import type { Provider } from '@/components/chat/chatComponentTypes'
@@ -35,6 +31,7 @@ import { fetchHome, HOME_QUERY_KEY } from '@/screens/newtab/home/home-data'
 import { HomeAction, PiHomeRegions } from '@/screens/newtab/home/PiHomeRegions'
 import { useActiveHint } from '@/screens/newtab/index/active-hint.hooks'
 import { SignInHint } from '@/screens/newtab/index/SignInHint'
+import { PiTopRail } from '@/screens/personal-internet/PiChrome'
 import {
   piPost,
   usePiInvalidateListener,
@@ -44,6 +41,7 @@ import {
   type ConversationInputSendInput,
 } from './ConversationInput'
 import {
+  harnessHomeText,
   resolveHomeLlmRoutingMode,
   routeHomeSend,
 } from './home-compose.helpers'
@@ -59,7 +57,6 @@ function homeGreeting(firstName: string | null): string {
 
 export const AgentCommandHome: FC = () => {
   const navigate = useNavigate()
-  const [draft, setDraft] = useState<{ text: string; id: number }>()
   const [sendError, setSendError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const activeHint = useActiveHint()
@@ -179,21 +176,30 @@ export const AgentCommandHome: FC = () => {
   }, [targets, providerOptions, selectedProvider, defaultProviderId])
 
   const handleSend = async (input: ConversationInputSendInput) => {
-    if (!selectedProvider) return
-    if (selectedProvider.kind === 'llm' && llmRoutingMode === 'wait') return
+    if (!selectedProvider) throw new Error('No assistant selected')
+    if (selectedProvider.kind === 'llm' && llmRoutingMode === 'wait')
+      throw new Error('Assistant is still loading')
     const agentSessionId =
       selectedProvider.kind === 'acp' ? crypto.randomUUID() : undefined
-    const route = routeHomeSend(selectedProvider, input.text, {
+    const text =
+      selectedProvider.kind === 'acp'
+        ? harnessHomeText(
+            input.text,
+            input.selectedTabs,
+            input.attachments.length > 0,
+          )
+        : input.text
+    const route = routeHomeSend(selectedProvider, text, {
       agentSessionId,
       selectedTabs: input.selectedTabs,
     })
-    if (!route) return
+    if (!route) throw new Error('Unable to route this task')
     if (route.kind === 'acp') {
       if (!agentSessionId) return
       setPendingInitialMessage({
         agentId: route.agentId,
         sessionId: agentSessionId,
-        text: input.text,
+        text,
         attachments: input.attachments,
         createdAt: Date.now(),
       })
@@ -222,34 +228,27 @@ export const AgentCommandHome: FC = () => {
     navigate(route.path)
   }
 
-  const startDraft = (text: string) => setDraft({ text, id: Date.now() })
-
   return (
-    <div className="min-h-full bg-muted/15">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-5 sm:px-8">
-        <span className="font-semibold text-sm">Home</span>
-        <HomeAction to="/pi/library">
-          <FolderOpen className="size-4" />
-          Saved work
-        </HomeAction>
-      </header>
-      <main className="mx-auto w-full max-w-5xl space-y-8 px-5 pt-6 pb-16 sm:px-8 sm:pt-10">
-        <section aria-labelledby="home-heading" className="mx-auto max-w-3xl">
-          <p className="mb-2 text-muted-foreground text-sm">
-            {homeGreeting(homeData?.firstName ?? null)}
-          </p>
+    <div className="pane-home min-h-full bg-background">
+      <PiTopRail
+        crumbs={['HOME']}
+        actions={
+          <HomeAction to="/pi/library">
+            <FolderOpen className="size-3.5" />
+            Your work
+          </HomeAction>
+        }
+      />
+      <main className="mx-auto w-full max-w-4xl space-y-8 px-5 pt-10 pb-12 sm:px-8 sm:pt-10">
+        <section aria-labelledby="home-heading" className="w-full">
           <h1
             id="home-heading"
-            className="font-semibold text-3xl leading-tight tracking-tight sm:text-4xl"
+            className="mb-6 font-medium text-2xl tracking-[-0.03em] sm:text-[28px]"
           >
-            What would you like to do?
+            {homeGreeting(homeData?.firstName ?? null)}
           </h1>
-          <p className="mt-3 mb-6 text-base text-muted-foreground">
-            Find answers, compare options, or get a task done.
-          </p>
           <ConversationInput
             variant="home"
-            draft={draft}
             providers={providerOptions}
             selectedProvider={selectedProvider}
             onSelectProvider={setSelectedProvider}
@@ -259,13 +258,13 @@ export const AgentCommandHome: FC = () => {
                 await handleSend(input)
               } catch {
                 setSendError('Your task couldn’t start. Please try again.')
-                setDraft({ text: input.text, id: Date.now() })
+                return false
               }
             }}
             streaming={false}
             disabled={!selectedProvider || waitingForLlmCapabilities}
-            attachmentsEnabled={true}
-            placeholder="Tell Pane what you need help with…"
+            attachmentsEnabled={selectedProvider?.kind === 'acp'}
+            placeholder="Ask Pane…"
             onOpenVoiceMode={() => navigate('/home/chat?voice=open&mode=agent')}
           />
           {sendError ? (
@@ -276,54 +275,25 @@ export const AgentCommandHome: FC = () => {
           {!selectedProvider ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
               <span>Connect an assistant to start a task.</span>
-              <HomeAction to="/settings/llm">Set up assistant</HomeAction>
+              <HomeAction to="/settings/ai">Set up assistant</HomeAction>
             </div>
           ) : null}
-          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {[
-              {
-                icon: Search,
-                label: 'Research a topic',
-                prompt: 'Help me research ',
-              },
-              {
-                icon: Compass,
-                label: 'Compare options',
-                prompt: 'Help me compare ',
-              },
-              {
-                icon: ListChecks,
-                label: 'Make a plan',
-                prompt: 'Help me make a plan for ',
-              },
-            ].map(({ icon: Icon, label, prompt }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={() => startDraft(prompt)}
-                className="flex items-center gap-3 rounded-xl border border-border/60 bg-background px-4 py-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary"
-              >
-                <Icon className="size-4 text-primary" />
-                <span className="flex-1">{label}</span>
-                <ArrowUpRight className="size-3.5 text-muted-foreground" />
-              </button>
-            ))}
-          </div>
+          <ContinueSites />
         </section>
-        <ContinueSites />
+        <TodayAgenda />
         {homeLoading ? (
           <div
             role="status"
             aria-label="Loading saved work"
             className="grid gap-4 sm:grid-cols-2"
           >
-            <div className="h-36 animate-pulse rounded-2xl bg-muted" />
-            <div className="h-36 animate-pulse rounded-2xl bg-muted" />
+            <div className="h-36 animate-pulse bg-muted" />
+            <div className="h-36 animate-pulse bg-muted" />
           </div>
         ) : homeError || homeData?.piUnavailable ? (
           <div
             role="alert"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-background p-5"
+            className="flex flex-wrap items-center justify-between gap-3 border border-border bg-background p-5"
           >
             <p className="text-muted-foreground text-sm">
               Saved work is temporarily unavailable. You can still start a task

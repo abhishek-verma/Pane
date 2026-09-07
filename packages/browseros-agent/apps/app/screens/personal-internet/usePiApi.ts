@@ -142,10 +142,20 @@ export type PiLibrarySite = {
   pulseLine?: string
 }
 
+export type PiLibraryTemp = {
+  id: string
+  title: string
+  status: string
+  expiresAt: number
+  route: string
+}
+
 export function usePiLibrary() {
   return useQuery({
     queryKey: ['pi', 'library'],
-    queryFn: () => piGet<{ sites: PiLibrarySite[] }>('/pi/library'),
+    queryFn: () =>
+      piGet<{ sites: PiLibrarySite[]; temps: PiLibraryTemp[] }>('/pi/library'),
+    refetchInterval: 5_000,
   })
 }
 

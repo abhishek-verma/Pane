@@ -10,6 +10,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { currentAgentTabScope } from '@browseros/browser-core/core/agent-tab-scope'
 import type { BrowserSession } from '@browseros/browser-core/core/session'
 import { createBrowserOutputFileAccess } from '@browseros/browser-mcp/output-file'
 import { registerBrowserTools } from '@browseros/browser-mcp/register'
@@ -469,6 +470,7 @@ describe('registerBrowserTools', () => {
         hidden?: boolean
         windowId?: number
         tabGroupId?: string
+        agentScope?: string
       }
     }> = []
     const session = {
@@ -480,6 +482,7 @@ describe('registerBrowserTools', () => {
             hidden?: boolean
             windowId?: number
             tabGroupId?: string
+            agentScope?: string
           },
         ) => {
           calls.push({ url, opts })
@@ -508,6 +511,7 @@ describe('registerBrowserTools', () => {
           hidden: false,
           windowId: 7,
           tabGroupId: 'group-a',
+          agentScope: 'pane',
         },
       },
     ])
@@ -608,6 +612,42 @@ describe('registerBrowserTools', () => {
       | { timeout?: { description?: string } }
       | undefined
     expect(inputSchema?.timeout?.description).toContain('default 2000')
+  })
+
+  it('keeps concurrent run scripts in their own task scope', async () => {
+    const first = createFakeServer()
+    const second = createFakeServer()
+    const session = {
+      pages: {
+        newPage: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 1))
+          return currentAgentTabScope()?.agentScope
+        },
+      },
+    } as unknown as BrowserSession
+    registerBrowserTools(first.server as never, session, {
+      agentScope: 'first-task',
+    })
+    registerBrowserTools(second.server as never, session, {
+      agentScope: 'second-task',
+    })
+    const [a, b] = await Promise.all([
+      first.handlers.get('run')?.({
+        code: 'return await browser.pages.newPage("about:blank")',
+      }),
+      second.handlers.get('run')?.({
+        code: 'return await browser.pages.newPage("about:blank")',
+      }),
+    ])
+    expect(a?.structuredContent).toMatchObject({
+      ok: true,
+      value: 'first-task',
+    })
+    expect(b?.structuredContent).toMatchObject({
+      ok: true,
+      value: 'second-task',
+    })
+    expect(currentAgentTabScope()).toBeUndefined()
   })
 
   it('runs server-runtime JavaScript against the browser session', async () => {

@@ -20,6 +20,7 @@ import {
   type UIMessage,
   wrapLanguageModel,
 } from 'ai'
+import { buildAgendaToolSet } from '../agenda/tools'
 import { buildCaptureToolSet } from '../capture/tools'
 import { buildContextToolSet, buildTasksToolSet } from '../context/tools'
 import { buildIngestGateHooks } from '../context/wire-ingest'
@@ -238,6 +239,7 @@ export class AiSdkAgent {
       ...filesystemTools,
       ...buildNudgeToolSet(),
       ...buildSchedulerToolSet(),
+      ...buildAgendaToolSet(),
       ...buildContextToolSet(
         () => config.resolvedConfig.workspace?.bucketId ?? 'default',
         () => config.resolvedConfig.workingDir ?? workspace?.root ?? null,

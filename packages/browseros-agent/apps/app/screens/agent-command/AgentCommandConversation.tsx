@@ -29,6 +29,7 @@ import { useAgentConversation } from './agent-conversation.hooks'
 import { ConversationHeader } from './ConversationHeader'
 import { ConversationInput } from './ConversationInput'
 import { useHarnessChatHistory } from './harness-chat-history.hooks'
+import { harnessHomeText } from './home-compose.helpers'
 import { consumePendingInitialMessage } from './pending-initial-message'
 import { QueuePanel } from './QueuePanel'
 
@@ -200,6 +201,11 @@ function AgentConversationController({
           <ConversationInput
             variant="conversation"
             onSend={(input) => {
+              const text = harnessHomeText(
+                input.text,
+                input.selectedTabs,
+                input.attachments.length > 0,
+              )
               const attachments = input.attachments.map((a) => a.payload)
               const attachmentPreviews = input.attachments.map((a) => ({
                 id: a.id,
@@ -216,12 +222,12 @@ function AgentConversationController({
                 enqueueMessage.mutate({
                   agentId,
                   sessionId,
-                  message: input.text,
+                  message: text,
                   attachments,
                 })
                 return
               }
-              void send({ text: input.text, attachments, attachmentPreviews })
+              void send({ text, attachments, attachmentPreviews })
             }}
             onStop={handleStop}
             streaming={streaming}

@@ -51,12 +51,18 @@ export class Browser {
 
   async newPage(
     url: string,
-    opts?: { hidden?: boolean; background?: boolean; windowId?: number },
+    opts?: {
+      hidden?: boolean
+      background?: boolean
+      windowId?: number
+      agentScope?: string
+    },
   ): Promise<number> {
     if (opts?.hidden) return this.core.pages.newPage(url, opts)
     const windowId = await this.resolveVisibleWindowId(opts?.windowId)
     return this.core.pages.newPage(url, {
       background: opts?.background,
+      agentScope: opts?.agentScope,
       windowId,
     })
   }

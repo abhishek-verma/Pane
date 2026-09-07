@@ -9,24 +9,33 @@ import { type FC, useState } from 'react'
 import { getFavicons } from '@/lib/getFavicons'
 import { useContinueSites } from './continue-sites.hooks'
 
-const ContinueSiteIcon: FC<{ src: string; alt: string }> = ({ src, alt }) => {
+const ContinueSiteIcon: FC<{ src?: string }> = ({ src }) => {
+  const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
-
-  if (failed) return <Globe className="h-4 w-4 text-muted-foreground" />
-
   return (
-    <img
-      src={src}
-      alt={alt}
-      className="h-4 w-4 object-contain"
-      onError={() => setFailed(true)}
-      onLoad={(e) => {
-        const img = e.currentTarget
-        if (img.naturalWidth === 0 || img.naturalHeight === 0) {
-          setFailed(true)
-        }
-      }}
-    />
+    <span
+      aria-hidden="true"
+      className="relative flex size-4 shrink-0 items-center justify-center"
+    >
+      {!loaded || failed ? (
+        <Globe className="size-4 text-muted-foreground" />
+      ) : null}
+      {src && !failed ? (
+        <img
+          src={src}
+          alt=""
+          className={`absolute inset-0 size-4 object-contain ${loaded ? '' : 'opacity-0'}`}
+          onError={() => setFailed(true)}
+          onLoad={(event) => {
+            const valid =
+              event.currentTarget.naturalWidth > 1 &&
+              event.currentTarget.naturalHeight > 1
+            setLoaded(valid)
+            setFailed(!valid)
+          }}
+        />
+      ) : null}
+    </span>
   )
 }
 
@@ -35,27 +44,17 @@ export const ContinueSites: FC = () => {
   if (sites.length === 0) return null
 
   return (
-    <section
-      aria-label="Frequently visited sites"
-      className="mx-auto w-full max-w-3xl"
-    >
-      <div className="py-3">
-        <h2 className="text-muted-foreground text-xs">Your shortcuts</h2>
-      </div>
-      <div className="flex flex-wrap gap-2 pb-3">
+    <section aria-label="Frequently visited sites" className="mt-4">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         {sites.map((site) => {
           const icon = site.host ? getFavicons(site.host) : undefined
           return (
             <a
               key={site.url}
               href={site.url}
-              className="flex items-center gap-2 rounded-xl border border-border/60 bg-background px-3 py-2.5 text-sm transition-colors hover:bg-muted/60"
+              className="flex items-center gap-2 py-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
             >
-              {icon ? (
-                <ContinueSiteIcon src={icon} alt={site.name} />
-              ) : (
-                <Globe className="h-4 w-4 text-muted-foreground" />
-              )}
+              <ContinueSiteIcon key={icon ?? site.url} src={icon} />
               <span className="max-w-32 truncate">{site.name}</span>
             </a>
           )

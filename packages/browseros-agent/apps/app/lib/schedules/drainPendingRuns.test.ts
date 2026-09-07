@@ -208,3 +208,64 @@ describe('drainPendingRunsOnce', () => {
     expect(result.completed).toBe(0)
   })
 })
+
+it('drains a targeted review beyond the first page without starting unrelated jobs', async () => {
+  const calls: string[] = []
+  const fetchFn = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    calls.push(`${init?.method ?? 'GET'} ${url}`)
+    if (url.endsWith('?status=pending'))
+      return Response.json({ runs: [{ id: 'other', status: 'pending' }] })
+    if (url.endsWith('/review-late') && !init?.method)
+      return Response.json({
+        run: {
+          id: 'review-late',
+          status: 'pending',
+          prompt: 'Review today',
+          idempotencyKey: 'agenda-review',
+        },
+      })
+    return Response.json({ run: { id: 'review-late', status: 'running' } })
+  }
+  const outcome = await drainPendingRunsOnce({
+    getBaseUrl: async () => 'http://localhost',
+    fetchFn: fetchFn as typeof fetch,
+    runIds: ['review-late'],
+    runChat: async () => ({ text: 'Reviewed', conversationId: 'conversation' }),
+  })
+  expect(outcome.completed).toBe(1)
+  expect(calls).toContain('GET http://localhost/scheduler/runs/review-late')
+  expect(calls.some((call) => call.includes('/other/claim'))).toBe(false)
+})
+
+it('does not start an ownerless review when linking its conversation fails', async () => {
+  const chats = mock(async () => ({ text: 'ok', conversationId: 'c' }))
+  let failure: { status?: string; error?: string } = {}
+  const fetchFn = async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).includes('status=pending'))
+      return Response.json({
+        runs: [
+          {
+            id: 'review',
+            status: 'pending',
+            prompt: 'Review',
+            idempotencyKey: 'review',
+          },
+        ],
+      })
+    if (init?.method === 'PATCH') return new Response(null, { status: 503 })
+    if (String(input).endsWith('/complete'))
+      failure = JSON.parse(String(init?.body))
+    return Response.json({})
+  }
+  expect(
+    await drainPendingRunsOnce({
+      getBaseUrl: async () => 'http://localhost',
+      fetchFn: fetchFn as typeof fetch,
+      runChat: chats,
+    }),
+  ).toEqual({ claimed: 1, completed: 0, failed: 1 })
+  expect(chats).not.toHaveBeenCalled()
+  expect(failure.status).toBe('failed')
+  expect(failure.error).toContain('link the review conversation')
+})

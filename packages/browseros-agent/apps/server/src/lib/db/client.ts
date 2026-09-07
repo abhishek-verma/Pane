@@ -402,10 +402,48 @@ export const currentMigrationHistory = [
     hash: 'f60718293a4b5c6d7e8f9012345678abcdef0123456789abcde0123456',
     createdAt: 1786200000000,
   },
+  {
+    tag: '0018_agenda',
+    hash: 'b78d471f869fe5d66b4c00d54d23618406b510df2bbc9d2669607315971415fd',
+    createdAt: 1786300000000,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
 const currentSchemaStatements = [
+  `CREATE TABLE IF NOT EXISTS agenda_changes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id TEXT NOT NULL,
+  actor TEXT NOT NULL,
+  before_json TEXT,
+  after_json TEXT NOT NULL,
+  evidence TEXT,
+  created_at INTEGER NOT NULL
+);
+`,
+  `CREATE TABLE IF NOT EXISTS agenda_items (
+  id TEXT PRIMARY KEY NOT NULL,
+  source_key TEXT NOT NULL UNIQUE,
+  day TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  data_json TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  user_fields_json TEXT NOT NULL DEFAULT '[]',
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);`,
+  `CREATE INDEX IF NOT EXISTS agenda_items_day_status_idx ON agenda_items(day, status);`,
+  `CREATE TABLE IF NOT EXISTS agenda_reviews (
+  id TEXT PRIMARY KEY NOT NULL,
+  day TEXT NOT NULL,
+  timezone TEXT NOT NULL,
+  run_id TEXT NOT NULL UNIQUE,
+  report_json TEXT,
+  created_at INTEGER NOT NULL,
+  checked_at INTEGER
+);`,
+  `CREATE INDEX IF NOT EXISTS agenda_reviews_day_idx ON agenda_reviews(day, created_at);`,
+
   `
     CREATE TABLE IF NOT EXISTS agent_definitions (
       id text PRIMARY KEY NOT NULL,

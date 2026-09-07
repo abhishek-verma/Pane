@@ -1,3 +1,4 @@
+import { withAgentTabScope } from '@browseros/browser-core/core/agent-tab-scope'
 import type { BrowserSession } from '@browseros/browser-core/core/session'
 import type { TypeOf, ZodObject, ZodRawShape } from 'zod'
 import {
@@ -153,7 +154,15 @@ export async function executeTool(
   const response = new ToolResponse()
   try {
     const result = await abortable(
-      def.handler(parsed.data as Record<string, unknown>, ctx, response),
+      withAgentTabScope(
+        {
+          agentScope: ctx.agentScope ?? 'pane',
+          defaultWindowId: ctx.defaultWindowId,
+          defaultTabGroupId: ctx.defaultTabGroupId,
+        },
+        () =>
+          def.handler(parsed.data as Record<string, unknown>, ctx, response),
+      ),
       ctx.signal,
     )
     if (result) response.appendResult(result)

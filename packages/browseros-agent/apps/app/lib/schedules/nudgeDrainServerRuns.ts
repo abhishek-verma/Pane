@@ -26,12 +26,14 @@ export async function nudgeDrainServerRuns(options?: {
       scheduledRunId,
       idempotencyKey,
       conversationId,
+      useSelectedWorkspace,
     }) => {
       const response = await getChatServerResponse({
         message,
         scheduledRunId,
         idempotencyKey,
         conversationId,
+        useSelectedWorkspace,
       })
       return {
         text: response.text,

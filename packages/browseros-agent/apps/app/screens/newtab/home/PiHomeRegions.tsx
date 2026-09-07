@@ -1,30 +1,26 @@
 import { useQueryClient } from '@tanstack/react-query'
-import {
-  Bell,
-  Check,
-  ChevronRight,
-  FolderOpen,
-  Pin,
-  RefreshCw,
-  X,
-} from 'lucide-react'
+import { Bell, ChevronRight, MoreHorizontal, Pin, X } from 'lucide-react'
 import { type ComponentProps, type FC, useEffect, useState } from 'react'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { navigatePiDocument } from '@/lib/personal-internet/pi-document'
-import { executePiAction } from '@/lib/pi-actions'
 import { executeWidgetAction } from '@/lib/widget-actions'
+import { piSiteField } from '@/screens/personal-internet/field'
 import { PiRailAction } from '@/screens/personal-internet/PiChrome'
 import type { PiHomeProjection } from '@/screens/personal-internet/types'
 import { piPost } from '@/screens/personal-internet/usePiApi'
 import { HOME_QUERY_KEY } from './home-data'
-import { homeRefreshMessage } from './home-feedback'
 import { templateIcon } from './template-visuals'
 
 export function HomeAction(props: ComponentProps<typeof PiRailAction>) {
   return (
     <PiRailAction
       {...props}
-      className="h-9 gap-2 rounded-lg border-border/60 px-3 font-sans text-xs normal-case tracking-normal"
+      className={`h-8 gap-2 px-2.5 font-mono text-[10px] uppercase tracking-[0.06em] ${props.className ?? ''}`}
     />
   )
 }
@@ -61,18 +57,20 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
     null,
   )
   const [showAll, setShowAll] = useState(false)
+  const [expiryTime, setExpiryTime] = useState(Date.now)
 
   useEffect(() => {
     const expiries = (data?.continuity ?? []).flatMap((block) =>
       block.metadata?.kind === 'approval' &&
       typeof block.metadata.expiresAt === 'number' &&
-      block.metadata.expiresAt > Date.now()
+      block.metadata.expiresAt > Math.max(expiryTime, Date.now())
         ? [block.metadata.expiresAt]
         : [],
     )
     if (!expiries.length) return
     const timer = window.setTimeout(
       () => {
+        setExpiryTime(Date.now())
         void queryClient.invalidateQueries({ queryKey: HOME_QUERY_KEY })
       },
       Math.min(
@@ -81,11 +79,12 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
       ),
     )
     return () => window.clearTimeout(timer)
-  }, [data?.continuity, queryClient])
+  }, [data?.continuity, queryClient, expiryTime])
 
   if (!data) return null
   const continuity = data.continuity.filter(
     (block) =>
+      block.metadata?.kind === 'approval' &&
       !(
         block.metadata?.kind === 'approval' &&
         typeof block.metadata.expiresAt === 'number' &&
@@ -124,79 +123,39 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
       {note ? (
         <p
           role={note.error ? 'alert' : 'status'}
-          className={`rounded-xl px-4 py-3 text-sm ${note.error ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}
+          className={`border border-border px-3 py-2 font-mono text-xs ${note.error ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}
         >
           {note.text}
         </p>
       ) : null}
-      <section
-        aria-labelledby="home-attention"
-        className="rounded-2xl border border-border/70 bg-background p-5 sm:p-6"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2
-            id="home-attention"
-            className="flex items-center gap-2 font-semibold text-base"
-          >
-            <Bell className="size-4 text-muted-foreground" />
-            Needs attention
-            {continuity.length > 0 ? (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs">
-                {continuity.length}
-              </span>
-            ) : null}
-          </h2>
-          <HomeAction
-            disabled={!!busy}
-            onClick={() =>
-              void run('refresh', async () => {
-                const response = await post('/pi/home/refresh', {})
-                return homeRefreshMessage(await response.json())
-              })
-            }
-          >
-            <RefreshCw
-              className={`size-3.5 ${busy === 'refresh' ? 'animate-spin' : ''}`}
-            />
-            {busy === 'refresh' ? 'Checking…' : 'Check for updates'}
-          </HomeAction>
-        </div>
-        {continuity.length === 0 ? (
-          <div className="flex items-center gap-3 pt-5 text-muted-foreground text-sm">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
-              <Check className="size-4" />
-            </span>
-            <div>
-              <p className="font-medium text-foreground">
-                You’re all caught up
-              </p>
-              <p className="mt-1 text-xs">
-                Requests and follow-ups from your saved work appear here.
-              </p>
-            </div>
+      {continuity.length > 0 ? (
+        <section
+          aria-labelledby="home-attention"
+          className="border-border border-y py-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2
+              id="home-attention"
+              className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]"
+            >
+              <Bell className="size-4 text-muted-foreground" />
+              Pending decisions
+              {continuity.length > 0 ? (
+                <span className="border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  {continuity.length}
+                </span>
+              ) : null}
+            </h2>
           </div>
-        ) : (
           <div className="mt-4 divide-y divide-border/60">
             {visible.map((block) => {
               const tokens = approvalTokens(block.metadata)
-              const isApproval = block.metadata?.kind === 'approval'
               return (
                 <article key={block.id} className="py-4 first:pt-0 last:pb-0">
                   <h3 className="font-medium text-sm">{block.title}</h3>
-                  {isApproval ? (
-                    <p className="mt-2 whitespace-pre-line text-muted-foreground text-sm leading-relaxed">
-                      {block.body}
-                    </p>
-                  ) : (
-                    <details className="mt-1 text-muted-foreground text-sm">
-                      <summary className="cursor-pointer truncate">
-                        {block.body.split('\n')[0]}
-                      </summary>
-                      <p className="mt-2 whitespace-pre-line leading-relaxed">
-                        {block.body}
-                      </p>
-                    </details>
-                  )}
+                  <p className="mt-2 whitespace-pre-line text-muted-foreground text-sm leading-relaxed">
+                    {block.body}
+                  </p>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     {tokens ? (
                       <>
@@ -268,77 +227,36 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                           </HomeAction>
                         )}
                       </>
-                    ) : isApproval ? (
+                    ) : (
                       <HomeAction to="/settings/action-log">
                         Review request
                       </HomeAction>
-                    ) : (
-                      <>
-                        {block.route ? (
-                          <HomeAction to={routePath(block.route)}>
-                            View details
-                            <ChevronRight className="size-3" />
-                          </HomeAction>
-                        ) : null}
-                        {block.agentQuery ? (
-                          <HomeAction
-                            disabled={!!busy}
-                            onClick={() =>
-                              void run(block.id, async () => {
-                                const query = block.agentQuery
-                                if (!query) return undefined
-                                await executePiAction({
-                                  kind: 'agent',
-                                  query,
-                                  metadata: block.metadata ?? {},
-                                })
-                                return undefined
-                              })
-                            }
-                          >
-                            Ask Pane to help
-                          </HomeAction>
-                        ) : null}
-                      </>
                     )}
-                    {!isApproval ? (
-                      <HomeAction
-                        disabled={!!busy}
-                        onClick={() =>
-                          mutate(block.id, '/pi/home/continuity/dismiss', {
-                            id: block.id,
-                          })
-                        }
-                      >
-                        Dismiss
-                      </HomeAction>
-                    ) : null}
                   </div>
                 </article>
               )
             })}
           </div>
-        )}
-        {continuity.length > 3 ? (
-          <button
-            type="button"
-            className="mt-4 text-primary text-sm hover:underline"
-            onClick={() => setShowAll(!showAll)}
-          >
-            {showAll ? 'Show less' : `Show all ${continuity.length} items`}
-          </button>
-        ) : null}
-      </section>
+          {continuity.length > 3 ? (
+            <button
+              type="button"
+              className="mt-4 text-primary text-sm hover:underline"
+              onClick={() => setShowAll(!showAll)}
+            >
+              {showAll ? 'Show less' : `Show all ${continuity.length} items`}
+            </button>
+          ) : null}
+        </section>
+      ) : null}
 
       {data.libraryCount > 0 ? (
         <section aria-labelledby="home-saved-work">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 flex items-center justify-between gap-3 border-border border-t pt-5">
             <h2
               id="home-saved-work"
-              className="flex items-center gap-2 font-semibold text-base"
+              className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.06em]"
             >
-              <FolderOpen className="size-4 text-muted-foreground" />
-              Your saved work
+              Sites
             </h2>
             <HomeAction to="/pi/library">
               View all
@@ -352,82 +270,118 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                 return (
                   <div
                     key={doorway.siteId}
-                    className="group rounded-2xl border border-border/70 bg-background p-4 transition-colors hover:border-primary/40"
+                    data-field={piSiteField(doorway.siteId)}
+                    className="home-color-tile group min-w-0 border p-4 transition-colors"
                   >
+                    <div className="home-site-header">
+                      <span className="home-site-symbol" aria-hidden="true">
+                        <Icon className="size-5" />
+                      </span>
+                      <span className="home-site-update">
+                        {doorway.updatedSinceLastVisit ? (
+                          <span
+                            className="size-1.5 bg-current"
+                            title="Updated since your last visit"
+                            role="img"
+                            aria-label="Updated"
+                          />
+                        ) : null}
+                      </span>
+                      <button
+                        type="button"
+                        className="home-icon-button home-site-open"
+                        aria-label={`Open ${doorway.name}`}
+                        title="Open site"
+                        onClick={() =>
+                          navigatePiDocument(routePath(doorway.primaryRoute))
+                        }
+                      >
+                        <ChevronRight className="size-4" />
+                      </button>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="home-icon-button home-site-menu"
+                            aria-label={`Options for ${doorway.name}`}
+                            title="More options"
+                          >
+                            <MoreHorizontal className="size-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="end"
+                          className="home-floating w-44 p-2"
+                        >
+                          <button
+                            type="button"
+                            aria-pressed={doorway.pinned}
+                            disabled={!!busy}
+                            onClick={() =>
+                              mutate(
+                                doorway.siteId,
+                                '/pi/home/doorway/visibility',
+                                doorway.pinned
+                                  ? { unpinSiteId: doorway.siteId }
+                                  : { pinSiteId: doorway.siteId },
+                              )
+                            }
+                            className="home-menu-action disabled:opacity-50"
+                          >
+                            <Pin className="size-3" />
+                            {doorway.pinned ? 'Pinned' : 'Pin'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!!busy}
+                            onClick={() =>
+                              mutate(
+                                doorway.siteId,
+                                '/pi/home/doorway/visibility',
+                                { hideSiteId: doorway.siteId },
+                              )
+                            }
+                            className="home-menu-action disabled:opacity-50"
+                          >
+                            <X className="size-3" />
+                            Hide
+                          </button>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                     <button
                       type="button"
-                      className="w-full rounded-lg text-left focus-visible:outline-2 focus-visible:outline-primary"
+                      className="mt-4 w-full min-w-0 text-left focus-visible:outline-2 focus-visible:outline-primary"
                       onClick={() =>
                         navigatePiDocument(routePath(doorway.primaryRoute))
                       }
                     >
-                      <div className="mb-5 flex items-center justify-between">
-                        <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                          <Icon className="size-5" />
-                        </span>
-                        {doorway.updatedSinceLastVisit ? (
-                          <span className="rounded-full bg-primary/10 px-2 py-1 text-primary text-xs">
-                            Updated
-                          </span>
-                        ) : (
-                          <ChevronRight className="size-4 text-muted-foreground" />
-                        )}
-                      </div>
-                      <h3 className="truncate font-medium text-base">
+                      <h3
+                        className="line-clamp-2 font-medium text-base leading-5 [overflow-wrap:anywhere]"
+                        title={doorway.name}
+                      >
                         {doorway.name}
                       </h3>
-                      <p className="mt-1 line-clamp-2 min-h-10 text-muted-foreground text-sm">
+                      <p
+                        className="mt-2 line-clamp-2 text-muted-foreground text-xs leading-4 [overflow-wrap:anywhere]"
+                        title={doorway.pulseLine}
+                      >
                         {doorway.pulseLine}
                       </p>
                     </button>
-                    <div className="mt-3 flex gap-2 border-border/50 border-t pt-3">
-                      <button
-                        type="button"
-                        aria-pressed={doorway.pinned}
-                        disabled={!!busy}
-                        onClick={() =>
-                          mutate(
-                            doorway.siteId,
-                            '/pi/home/doorway/visibility',
-                            doorway.pinned
-                              ? { unpinSiteId: doorway.siteId }
-                              : { pinSiteId: doorway.siteId },
-                          )
-                        }
-                        className="flex min-h-8 items-center gap-1.5 rounded-md px-2 text-muted-foreground text-xs hover:bg-muted disabled:opacity-50"
-                      >
-                        <Pin className="size-3" />
-                        {doorway.pinned ? 'Pinned' : 'Pin'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!!busy}
-                        onClick={() =>
-                          mutate(
-                            doorway.siteId,
-                            '/pi/home/doorway/visibility',
-                            { hideSiteId: doorway.siteId },
-                          )
-                        }
-                        className="ml-auto flex min-h-8 items-center gap-1.5 rounded-md px-2 text-muted-foreground text-xs hover:bg-muted disabled:opacity-50"
-                      >
-                        <X className="size-3" />
-                        Hide
-                      </button>
-                    </div>
                   </div>
                 )
               })}
             </div>
           ) : (
-            <p className="rounded-xl bg-muted/40 p-4 text-muted-foreground text-sm">
+            <p className="border border-border bg-muted/40 p-4 text-muted-foreground text-sm">
               Your work is saved in the library. Open “View all” to find it.
             </p>
           )}
         </section>
       ) : null}
       {data.proposeDoorways?.length ? (
-        <details className="rounded-xl border border-border/60 p-4">
+        <details className="border-border border-t py-4">
           <summary className="cursor-pointer text-muted-foreground text-sm">
             Add saved work to Home
           </summary>

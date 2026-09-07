@@ -126,6 +126,12 @@ describe('registerTools', () => {
     'pi_page_archive',
     'pi_preserve_temp',
     'pi_home_regions_patch',
+    'trigger_list',
+    'trigger_delete',
+    'agenda_list',
+    'agenda_upsert',
+    'agenda_update',
+    'agenda_review_finish',
   ]
   let infoMessages: unknown[] = []
 
@@ -285,6 +291,7 @@ describe('registerTools', () => {
         background?: boolean
         hidden?: boolean
         tabGroupId?: string
+        agentScope?: string
         windowId?: number
       }
     }> = []
@@ -298,6 +305,7 @@ describe('registerTools', () => {
               background?: boolean
               hidden?: boolean
               tabGroupId?: string
+              agentScope?: string
               windowId?: number
             },
           ) => {
@@ -326,6 +334,7 @@ describe('registerTools', () => {
           background: true,
           hidden: false,
           tabGroupId: 'group-a',
+          agentScope: 'pane',
           windowId: 7,
         },
       },

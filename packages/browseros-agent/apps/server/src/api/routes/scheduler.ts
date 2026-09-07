@@ -7,6 +7,7 @@
 import type { ConsequenceClass } from '@browseros/shared/trust/consequence-class'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { createAgendaRoutes } from '../../agenda/routes'
 import { addConversationPin } from '../../agent/conversation-context-store'
 import {
   handleApprovalInboundText,
@@ -67,6 +68,7 @@ export function createSchedulerRoutes() {
   const keepAlive = createKeepAliveService()
 
   return new Hono<Env>()
+    .route('/agenda', createAgendaRoutes())
     .get('/triggers', (c) => c.json({ rules: listTriggerRules() }))
     .get('/triggers/:id', (c) => {
       const rule = getTriggerRule(c.req.param('id'))

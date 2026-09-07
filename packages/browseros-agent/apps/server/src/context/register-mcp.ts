@@ -8,6 +8,7 @@ import { createDefaultMcpGateContext } from '@browseros/browser-mcp/trust/mcp-ga
 import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { z } from 'zod'
+import { buildAgendaToolSet } from '../agenda/tools'
 import { buildSchedulerToolSet } from '../agent/scheduler-tools'
 import { gateExecute } from '../agent/trust/gate'
 import { buildCaptureToolSet } from '../capture/tools'
@@ -53,6 +54,7 @@ export function registerContextMcpTools(
     // Claude Code, Codex, and API-key providers expose the same automation
     // management surface.
     ...buildSchedulerToolSet(),
+    ...buildAgendaToolSet(),
   } as unknown as Record<string, AiSdkToolLike>
 
   for (const [name, tool] of Object.entries(tools)) {

@@ -65,6 +65,7 @@ describe('createBrowserMcpServer', () => {
         hidden?: boolean
         windowId?: number
         tabGroupId?: string
+        agentScope?: string
       }
     }> = []
     const events: Array<Record<string, unknown>> = []
@@ -82,6 +83,7 @@ describe('createBrowserMcpServer', () => {
                 hidden?: boolean
                 windowId?: number
                 tabGroupId?: string
+                agentScope?: string
               },
             ) => {
               calls.push({ url, opts })
@@ -115,6 +117,7 @@ describe('createBrowserMcpServer', () => {
           hidden: false,
           windowId: 7,
           tabGroupId: 'group-a',
+          agentScope: 'pane',
         },
       },
     ])

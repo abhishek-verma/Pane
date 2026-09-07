@@ -68,6 +68,10 @@
     "./sentry/sanitize": {
       "types": "./src/sentry/sanitize.ts",
       "default": "./src/sentry/sanitize.ts"
+    },
+    "./schemas/agenda": {
+      "types": "./src/schemas/agenda.ts",
+      "default": "./src/schemas/agenda.ts"
     }
   }
 }

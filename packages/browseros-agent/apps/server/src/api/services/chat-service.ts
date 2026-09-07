@@ -504,6 +504,7 @@ export class ChatService {
       if (request.isScheduledTask) {
         try {
           hiddenPageId = await this.deps.browser.newPage('about:blank', {
+            agentScope: request.conversationId,
             hidden: true,
             background: true,
           })

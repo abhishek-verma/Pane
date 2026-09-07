@@ -138,7 +138,7 @@ describe('tab_groups tool', () => {
     expect(result.isError).toBeFalsy()
     expect(calls[0]).toEqual({
       method: 'Browser.createTabGroup',
-      params: { tabIds: [11, 22], title: 'Work' },
+      params: { tabIds: [11, 22], title: 'Pane · Work' },
     })
     expect(result.structuredContent).toMatchObject({
       group: { groupId: 'g1', pageIds: [1, 2] },
@@ -190,7 +190,7 @@ describe('tab_groups tool', () => {
     expect(result.isError).toBeFalsy()
     expect(calls[0]).toEqual({
       method: 'Browser.updateTabGroup',
-      params: { groupId: 'g1', title: 'Renamed', color: 'red' },
+      params: { groupId: 'g1', title: 'Pane · Renamed', color: 'red' },
     })
     expect(result.structuredContent).toMatchObject({
       group: { title: 'Renamed', color: 'red' },

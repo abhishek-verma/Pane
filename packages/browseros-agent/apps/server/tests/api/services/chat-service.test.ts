@@ -231,9 +231,10 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
       createChatServiceDeps({ sessionStore, browser }),
     )
 
+    const conversationId = crypto.randomUUID()
     await service.processMessage(
       {
-        conversationId: crypto.randomUUID(),
+        conversationId,
         message: 'Run the scheduled task',
         isScheduledTask: true,
         mode: 'agent',
@@ -253,6 +254,7 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
     )
 
     expect(browser.newPage).toHaveBeenCalledWith('about:blank', {
+      agentScope: conversationId,
       hidden: true,
       background: true,
     })
