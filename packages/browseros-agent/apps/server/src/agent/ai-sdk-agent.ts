@@ -20,15 +20,10 @@ import {
   type UIMessage,
   wrapLanguageModel,
 } from 'ai'
-import { buildAgendaToolSet } from '../agenda/tools'
-import { buildCaptureToolSet } from '../capture/tools'
-import { buildContextToolSet, buildTasksToolSet } from '../context/tools'
 import { buildIngestGateHooks } from '../context/wire-ingest'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
 import { loadPromptMemorySnapshot } from '../memory/load-prompt'
-import { buildMemoryToolSet } from '../memory/tools'
-import { buildPersonalInternetToolSet } from '../personal-internet/tools'
 import { buildFilesystemToolSet } from '../tools/filesystem/build-toolset'
 import { createReadTool } from '../tools/filesystem/read'
 import { defaultWorkspace } from '../tools/filesystem/workspace'
@@ -40,12 +35,11 @@ import {
   getMessageNormalizationOptions,
   normalizeMessagesForModel,
 } from './message-normalization'
-import { buildNudgeToolSet } from './nudge-tools'
+import { buildPaneToolSet } from './pane-toolset'
 import { buildSystemPrompt } from './prompt'
 import { createLanguageModel } from './provider-factory'
 import { createRepairToolCall } from './repair-tool-call'
 import { resolveContextWindowSize } from './resolve-context-window'
-import { buildSchedulerToolSet } from './scheduler-tools'
 import type { ToolImageStore } from './session-store'
 import { buildBrowserToolSet } from './tool-adapter'
 import { wrapToolSetWithGate } from './trust/gate'
@@ -237,35 +231,13 @@ export class AiSdkAgent {
       ...browserTools,
       ...externalMcpTools,
       ...filesystemTools,
-      ...buildNudgeToolSet(),
-      ...buildSchedulerToolSet(),
-      ...buildAgendaToolSet(),
-      ...buildContextToolSet(
-        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
-        () => config.resolvedConfig.workingDir ?? workspace?.root ?? null,
-      ),
-      ...buildTasksToolSet(
-        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
-      ),
-      ...buildCaptureToolSet(
-        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
-        { includeStartTool: false },
-      ),
-      ...buildMemoryToolSet(
-        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
-        () => gateCtx?.runId ?? config.resolvedConfig.conversationId,
-      ),
-      ...buildPersonalInternetToolSet(
-        () => config.resolvedConfig.workspace?.bucketId ?? 'default',
-      ),
-    }
-
-    if (
-      config.resolvedConfig.isScheduledTask ||
-      config.resolvedConfig.chatMode
-    ) {
-      // In-process agent only exposes suggest_schedule (app-connect lives on ACP/nudge MCP).
-      delete mergedTools.suggest_schedule
+      ...buildPaneToolSet({
+        bucketId: workspace?.bucketId,
+        workingDir: config.resolvedConfig.workingDir ?? workspace?.root,
+        runId: gateCtx?.runId ?? config.resolvedConfig.conversationId,
+        chatMode: config.resolvedConfig.chatMode,
+        isScheduledTask: config.resolvedConfig.isScheduledTask,
+      }),
     }
 
     const toolsForGate = config.resolvedConfig.chatMode

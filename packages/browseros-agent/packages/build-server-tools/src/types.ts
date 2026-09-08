@@ -61,6 +61,14 @@ export interface BuildProductDescriptor {
   defaultUpload?: boolean
   env: BuildEnvSpec
   bundle?: BundleOptions
+  prepareTargetResources?: (
+    target: BuildTarget,
+    rootDir: string,
+  ) => Promise<{ rules: ResourceRule[]; dispose?: () => Promise<void> }>
+  finalizeTargetArtifact?: (
+    artifact: StagedArtifact,
+    options: { ci: boolean },
+  ) => Promise<void>
 }
 
 export interface BuildConfig {

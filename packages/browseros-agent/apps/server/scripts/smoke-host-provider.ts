@@ -7,7 +7,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createAcpxProvider } from 'acpx-ai-provider'
-import { wrapAcpProviderExecutedTools } from '../src/lib/agents/acp/wrap-acp-provider-tools'
+import { PaneAcpLanguageModel } from '../src/lib/agents/acp/language-model'
 import { resolveAcpSpawnCommand } from '../src/lib/agents/host-acp/launcher'
 
 const [agent, resourcesDir, model] = process.argv.slice(2)
@@ -22,8 +22,8 @@ const launcher = await resolveAcpSpawnCommand({
   resourcesDir,
   browserosDir: root,
 })
-if (launcher?.source !== 'bundled-bun') {
-  throw new Error('Release smoke requires the packaged Bun runtime')
+if (launcher?.source !== 'packaged-runtime') {
+  throw new Error('Release smoke requires the locked packaged runtime')
 }
 const provider = createAcpxProvider({
   agent,
@@ -40,7 +40,7 @@ const timeout = setTimeout(() => {
 try {
   await provider.prepare()
   if (model) await provider.setConfigOption('model', model)
-  const wrapped = wrapAcpProviderExecutedTools(provider.languageModel())
+  const wrapped = new PaneAcpLanguageModel(provider)
   const result = await wrapped.doGenerate({
     prompt: [
       {

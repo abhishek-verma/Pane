@@ -10,6 +10,8 @@
 
 /** `Tool: browseros/pi_read` or `browseros/pi_read` → bare identifier. */
 const MCP_TOOL_TITLE_RE = /^(?:Tool:\s*)?([A-Za-z][\w-]*)\/([A-Za-z_][\w-]*)$/i
+const MCP_DOTTED_TITLE_RE = /^mcp\.([A-Za-z][\w-]*)\.([A-Za-z_][\w-]*)$/i
+const MCP_ENCODED_TITLE_RE = /^mcp__([A-Za-z][\w-]*)__([A-Za-z_][\w-]*)$/i
 
 /**
  * Map an ACP tool title to the bare tool name used in Pane's tool registry.
@@ -18,6 +20,9 @@ const MCP_TOOL_TITLE_RE = /^(?:Tool:\s*)?([A-Za-z][\w-]*)\/([A-Za-z_][\w-]*)$/i
 export function normalizeAcpToolTitle(title: string): string {
   const trimmed = title.trim()
   if (!trimmed) return trimmed
-  const match = MCP_TOOL_TITLE_RE.exec(trimmed)
+  const match =
+    MCP_TOOL_TITLE_RE.exec(trimmed) ??
+    MCP_DOTTED_TITLE_RE.exec(trimmed) ??
+    MCP_ENCODED_TITLE_RE.exec(trimmed)
   return match?.[2] ?? trimmed
 }

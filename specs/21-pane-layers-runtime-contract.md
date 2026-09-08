@@ -1,7 +1,11 @@
 # Pane Layers — runtime contracts and verification
 
+**Implementation:** follow the [LP-00–LP-13 work breakdown](./PANE-LAYERS-IMPLEMENTATION-PLAN.md) for execution order and release gates; this document defines the interfaces and behavior.
+
 **Status:** proposed engineering contract, 2026-09-08; no implementation or test results claimed.  
 **Parent:** [21 — Pane Layers](./21-pane-layers.md). This companion resolves that plan's abstract action protocol, UI placement, and authoring-verification details. Example TypeScript is a proposed interface, not an existing SDK.
+
+**Additional release requirements:** [Capability honesty, skills, and provider parity](./21-pane-layers-capabilities-and-skills.md) requires server-backed feasibility checks, progressive skill loading, and automatic distribution to native/Claude Code/Codex paths. Supported-provider parity includes action execution, not only tool visibility.
 
 ## 1. Responsibility boundaries
 
@@ -140,7 +144,7 @@ Keep the action protocol independent of provider response formats:
 - Native constrained structured output can be an adapter optimization, fed through the **same** acceptance function; do not depend on it across all providers.
 - Providers without a supported structured-result path are **unsupported for this action**. Show a compatible-provider choice before starting. Never silently switch providers or transmit page content elsewhere.
 - Reuse model/provider resolution and cancellation infrastructure, not the general chat tool assembly. In the inspected code, `AiSdkAgent.create` merges browser, filesystem, scheduler, memory and external tools and loads memory/context. A translation runner must not inherit those defaults.
-- ACP/external harness providers need an explicit capability check: can tools, context, workspace access and termination be constrained for this invocation? If not, they cannot back managed transform actions in v1. A prompt telling an unrestricted harness to behave is insufficient. Keep that limitation visible while adding a tested dedicated adapter later.
+- ACP/external harness providers need an explicit capability check: can tools, context, workspace access and termination be constrained for this invocation? A prompt telling an unrestricted harness to behave is insufficient. Implement and test the necessary Claude Code and Codex adapters as release requirements; do not defer them while claiming provider-independent Layers or require the user to configure a separate Layer provider. Unsupported optional providers remain explicitly gated.
 
 For a multi-step agent action, install the declared allowlisted tools plus this same terminal result tool. It can research or prepare a draft within scope and ultimately submit a typed result. External writes still go through the existing trust gate. Neither “read-only tool” metadata nor the model's claimed intent can grant extra authority.
 
@@ -316,7 +320,7 @@ Evidence may contain private page content. Keep cropped images and bounded snaps
 - **L0:** settle native action/bubble hosting, secure broker bootstrap and provider capability matrix; prototype private typed submission with one compatible provider. Write protocol schemas before authoring tools. A schema demo is not itself the security gate.
 - **L1:** instance identity, revisioned manifest/cache, resource ledger, native summary view model and managed lifecycle test fixtures. Start native controller work early even if dogfood uses the sidebar.
 - **L2:** `layer_test`, `layer_inspect_runtime`, independent acceptance checks, evidence/receipts, safe test-tab workflow and bounded repair. Creation is not complete on source generation.
-- **L3:** dedicated action runner, private submission adapter, strict semantic validation, event/status/replay endpoints, streaming reducer, translation renderer and live-provider test.
+- **L3:** dedicated action runner with native, Claude Code and Codex adapters, invocation-private submission through native or scoped MCP transport, strict semantic validation, event/status/replay endpoints, streaming reducer, translation renderer and live-provider tests across the supported matrix.
 - **L4:** same typed-result bindings for data actions; account-aware caching and rate limits. Data results do not need an LLM unless their action explicitly declares a transformation.
 - **L5:** native button/popover, library/sidepanel integration and the full lifecycle/provider/accessibility/security release matrix. Record tested platforms/provider combinations and unsupported cases.
 

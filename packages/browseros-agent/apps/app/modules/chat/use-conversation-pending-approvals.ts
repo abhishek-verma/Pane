@@ -8,12 +8,15 @@
  * poll /scheduler/approvals or the user only sees Home Today cards.
  */
 
-import type { ConsequenceClass } from '@browseros/shared/trust/consequence-class'
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
-import { conversationTrustStorage } from '@/lib/trust/trust-pins-storage'
+import { persistApprovedTrust } from '@/lib/trust/persist-approved-trust'
+import {
+  PINNABLE_CLASSES,
+  type PinnableClass,
+} from '@/lib/trust/trust-pins-storage'
 import { matchPendingForConversation } from '@/modules/chat/match-pending-for-conversation'
 import { HOME_QUERY_KEY } from '@/screens/newtab/home/home-data'
 
@@ -30,6 +33,7 @@ export type ResolveChannelApprovalResult = {
   ok: boolean
   resumed: boolean
   detail: string
+  resolution?: string
 }
 
 async function fetchPendingForConversation(
@@ -84,6 +88,7 @@ export async function resolveChannelApproval(
       return {
         ok: true,
         resumed,
+        resolution: 'approved',
         detail: resumed
           ? 'Approved — the agent can continue this step'
           : 'Approved, but the agent is no longer waiting (timed out or restarted). This step will not run.',
@@ -170,27 +175,47 @@ export function useConversationPendingApprovals(
   const resolve = useCallback(
     async (
       approval: ConversationPendingApproval,
-      resolution: 'approve' | 'deny' | 'allowForChat',
+      resolution: 'approve' | 'deny' | 'allowForChat' | 'allowAlways',
     ) => {
       setResolvingId(approval.id)
       setNote(null)
       let result: ResolveChannelApprovalResult
-      if (resolution === 'allowForChat') {
+      if (resolution === 'allowForChat' || resolution === 'allowAlways') {
+        if (
+          !PINNABLE_CLASSES.includes(approval.consequenceClass as PinnableClass)
+        ) {
+          setResolvingId(null)
+          return {
+            ok: false,
+            resumed: false,
+            detail: 'This action cannot be granted persistent trust.',
+          }
+        }
         result = await resolveChannelApproval(approval.approveToken, {
           pin: true,
         })
         // Persist client-side only when the server successfully resolved the approval,
         // so a failed/expired token never grants permanent trust.
-        if (result.ok && conversationId) {
-          const current = await conversationTrustStorage.getValue()
-          const cls = approval.consequenceClass as ConsequenceClass
-          await conversationTrustStorage.setValue({
-            ...current,
-            [conversationId]: {
-              ...(current[conversationId] ?? {}),
-              [cls]: true,
-            },
-          })
+        if (
+          result.ok &&
+          result.resolution === 'approved' &&
+          result.resumed &&
+          conversationId
+        ) {
+          try {
+            await persistApprovedTrust({
+              result,
+              conversationId,
+              consequenceClass: approval.consequenceClass,
+              scope: resolution === 'allowAlways' ? 'always' : 'chat',
+            })
+          } catch {
+            result = {
+              ...result,
+              detail:
+                'Approved for this turn, but the trust preference could not be saved. Please retry from Settings.',
+            }
+          }
         }
       } else {
         const token =

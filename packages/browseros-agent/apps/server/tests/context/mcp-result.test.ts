@@ -2,6 +2,13 @@ import { describe, expect, it } from 'bun:test'
 import { toMcpToolResult } from '../../src/context/register-mcp'
 
 describe('AI SDK to MCP result boundary', () => {
+  it('preserves nudge card payloads without nesting the content envelope', () => {
+    const text = JSON.stringify({ type: 'schedule_suggestion', query: 'test' })
+    expect(
+      toMcpToolResult({ content: [{ type: 'text', text }], isError: false })
+        .content[0].text,
+    ).toBe(text)
+  })
   it('preserves structured scheduler data, including empty lists and false results', () => {
     for (const result of [
       { triggers: [] },

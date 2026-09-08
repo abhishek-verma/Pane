@@ -21,6 +21,7 @@ import {
   interruptDbRunningChatTurn,
   markChatTurnTerminal,
 } from '../../agent/chat-turns-store'
+import { setConversationContext } from '../../agent/conversation-context-store'
 import {
   type ChatTurnInfo,
   conversationTurnRegistry,
@@ -385,6 +386,12 @@ export class ChatService {
       gateContext,
     }
 
+    setConversationContext(request.conversationId, gateContext, {
+      bucketId: request.bucketId,
+      workingDir: agentConfig.workingDir,
+      chatMode: agentConfig.chatMode,
+      isScheduledTask: agentConfig.isScheduledTask,
+    })
     let isNewSession = false
 
     // Build stable keys for change detection

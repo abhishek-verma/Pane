@@ -52,6 +52,7 @@ export async function writeArtifactMetadata(
   const files: MetadataFile[] = []
 
   for (const filePath of fileList.sort()) {
+    if (filePath === 'artifact-metadata.json') continue
     files.push(await toMetadataFile(artifactRoot, filePath))
   }
 

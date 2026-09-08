@@ -95,6 +95,41 @@ describe('approval-over-channel (M5.5)', () => {
     expect(handled.resolution).toBe('denied')
   })
 
+  it('accepts an immediate notification reply even if notification delivery never returns', async () => {
+    setup()
+    const result = await requestChannelApproval({
+      runId: 'immediate',
+      toolCallId: 'call',
+      toolName: 'run',
+      consequenceClass: 'system',
+      preview: 'test',
+      waitMs: 100,
+      notify: async (message) => {
+        const resolved = resolveByToken(message.approveToken)!
+        expect(resolved.resumed).toBe(true)
+        signalApprovalResolved(resolved.approval.id, resolved.resolution)
+        await new Promise(() => {})
+      },
+    })
+    expect(result.resolution).toBe('approved')
+  })
+
+  it('cancels the waiter when its owning turn is cancelled', async () => {
+    setup()
+    const abort = new AbortController()
+    const pending = requestChannelApproval({
+      runId: 'cancelled',
+      toolCallId: 'call',
+      toolName: 'run',
+      consequenceClass: 'system',
+      preview: 'test',
+      signal: abort.signal,
+      notify: async () => {},
+    })
+    abort.abort()
+    expect((await pending).resolution).toBe('timeout')
+  })
+
   it('approve token cannot be used as deny', async () => {
     setup()
     const a = createPendingApproval({

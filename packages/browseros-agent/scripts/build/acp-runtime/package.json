@@ -1,0 +1,10 @@
+{
+  "name": "pane-packaged-acp-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Release-owned adapter closure. Install with npm ci; never install on end-user machines.",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.75.1",
+    "@agentclientprotocol/codex-acp": "1.10.0"
+  }
+}

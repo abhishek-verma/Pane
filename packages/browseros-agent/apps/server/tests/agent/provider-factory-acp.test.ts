@@ -7,6 +7,7 @@ import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { PaneAcpLanguageModel } from '../../src/lib/agents/acp/language-model'
 
 let lastBuildArgs: Record<string, unknown> | null = null
 const fakeLanguageModel = { kind: 'fake-acp-model' }
@@ -17,6 +18,7 @@ const setModeCalls: string[] = []
 let rejectModes: string[] = []
 let omitRuntimeSetMode = false
 const fakeProvider = {
+  settings: { agent: 'test' },
   languageModel: () => fakeLanguageModel,
   close: async () => {
     closeCalls += 1
@@ -176,7 +178,7 @@ beforeEach(() => {
 describe('createLanguageModel — ACP providers', () => {
   it('routes claude-code to buildAcpxProvider with agentId=claude', async () => {
     const { model } = await createLanguageModel(baseConfig() as never)
-    expect(model).toBe(fakeLanguageModel as never)
+    expect(model).toBeInstanceOf(PaneAcpLanguageModel)
     expect(lastBuildArgs?.agentId).toBe('claude')
     expect(lastBuildArgs?.conversationId).toBe('conv-acp-1')
   })
@@ -415,7 +417,7 @@ describe('createLanguageModel — ACP providers', () => {
 describe('createLanguageModel — ACP dangerously-allow mode', () => {
   it('prepares the session and sets bypassPermissions for claude-code', async () => {
     const { model } = await createLanguageModel(baseConfig() as never)
-    expect(model).toBe(fakeLanguageModel as never)
+    expect(model).toBeInstanceOf(PaneAcpLanguageModel)
     expect(prepareCalls).toBe(1)
     expect(setModeCalls).toEqual(['bypassPermissions'])
   })
@@ -431,7 +433,7 @@ describe('createLanguageModel — ACP dangerously-allow mode', () => {
       ...baseConfig(),
       provider: 'codex',
     } as never)
-    expect(model).toBe(fakeLanguageModel as never)
+    expect(model).toBeInstanceOf(PaneAcpLanguageModel)
     expect(setModeCalls).toEqual(['agent-full-access', 'full-access'])
   })
 
@@ -441,14 +443,14 @@ describe('createLanguageModel — ACP dangerously-allow mode', () => {
       ...baseConfig(),
       provider: 'codex',
     } as never)
-    expect(model).toBe(fakeLanguageModel as never)
+    expect(model).toBeInstanceOf(PaneAcpLanguageModel)
     expect(setModeCalls).toEqual(['agent-full-access', 'full-access'])
   })
 
   it('still returns a model when prepare() fails, without attempting setMode', async () => {
     prepareError = new Error('spawn failed')
     const { model } = await createLanguageModel(baseConfig() as never)
-    expect(model).toBe(fakeLanguageModel as never)
+    expect(model).toBeInstanceOf(PaneAcpLanguageModel)
     expect(prepareCalls).toBe(1)
     expect(setModeCalls).toEqual([])
   })
@@ -456,7 +458,7 @@ describe('createLanguageModel — ACP dangerously-allow mode', () => {
   it('skips mode control when the runtime does not expose setMode', async () => {
     omitRuntimeSetMode = true
     const { model } = await createLanguageModel(baseConfig() as never)
-    expect(model).toBe(fakeLanguageModel as never)
+    expect(model).toBeInstanceOf(PaneAcpLanguageModel)
     expect(prepareCalls).toBe(1)
     expect(setModeCalls).toEqual([])
   })

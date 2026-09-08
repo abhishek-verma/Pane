@@ -1,6 +1,6 @@
 import type { ProtocolApi } from '@browseros/cdp-protocol/protocol-api'
 import { logger } from '../logger'
-import { AgentTabGroups, agentTabLabel } from './agent-tab-groups'
+import { AgentTabGroups } from './agent-tab-groups'
 import { currentAgentTabScope } from './agent-tab-scope'
 import {
   type CdpConnection,
@@ -235,7 +235,6 @@ export class PageManager {
     if (opts?.agentScope) {
       await this.organizeAgentTab(
         created.tab as TabInfo,
-        url,
         opts.agentScope,
         opts.tabGroupId,
       )
@@ -274,7 +273,6 @@ export class PageManager {
 
   private async organizeAgentTab(
     tab: TabInfo,
-    url: string,
     scope: string,
     preferred?: string,
   ): Promise<void> {
@@ -286,13 +284,7 @@ export class PageManager {
         ((await this.cdp.Browser.getTabInfo({ tabId })).tab as TabInfo).windowId
       if (targetWindow === undefined)
         throw new Error('Tab window is unavailable')
-      await this.agentTabGroups.add(
-        tabId,
-        targetWindow,
-        scope,
-        preferred,
-        agentTabLabel(url),
-      )
+      await this.agentTabGroups.add(tabId, targetWindow, scope, preferred)
     } catch (error) {
       try {
         await this.cdp.Browser.closeTab({ tabId })

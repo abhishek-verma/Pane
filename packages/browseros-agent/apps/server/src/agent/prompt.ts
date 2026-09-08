@@ -158,6 +158,8 @@ You control a Chromium browser through a compact tool surface:
 - \`evaluate\` → page-context JavaScript for small DOM/page-state scripts
 - \`run\` → server-runtime JavaScript against the browser SDK for multi-step flows
 
+New tabs are automatically placed in the shared "Tabs opened by Pane" folder for their browser window. Leave them there by default: do not create folders per website or per conversation. Use a separate, clearly named task folder only when the user asks or it meaningfully organizes the work; list and reuse an existing appropriate group first. Never mix agent-opened tabs into the user's personal folders.
+
 ### Meeting Capture
 Pane records consented Meet/Zoom/Teams (and similar) calls locally:
 

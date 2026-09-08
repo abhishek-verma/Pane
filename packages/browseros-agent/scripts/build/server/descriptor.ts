@@ -2,6 +2,7 @@ import {
   type BuildProductDescriptor,
   wasmBinaryPlugin,
 } from '@browseros/build-server-tools'
+import { finalizeAcpArtifact, prepareAcpRuntime } from './acp-runtime'
 
 export const SERVER_BUNDLE_ENTRYPOINT = 'apps/server/src/compiled-bootstrap.ts'
 
@@ -22,6 +23,8 @@ const CI_INLINE_ENV_DEFAULTS = {
 
 export const browserosServerBuildProduct: BuildProductDescriptor = {
   label: 'Pane server',
+  prepareTargetResources: prepareAcpRuntime,
+  finalizeTargetArtifact: finalizeAcpArtifact,
   packageDir: 'apps/server',
   entrypoint: SERVER_BUNDLE_ENTRYPOINT,
   distRoot: 'dist/prod/server',
