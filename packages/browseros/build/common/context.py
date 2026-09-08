@@ -358,7 +358,7 @@ class Context:
 
     @staticmethod
     def _load_semantic_version(root_dir: Path) -> str:
-        """Load semantic version from resources/BROWSEROS_VERSION
+        """Load the canonical Pane release version, with legacy fork fallback.
 
         File format:
             BROWSEROS_MAJOR=0
@@ -368,7 +368,9 @@ class Context:
 
         Returns: "0.31.0" (PATCH only included if non-zero)
         """
-        version_file = join_paths(root_dir, "resources", "BROWSEROS_VERSION")
+        version_file = join_paths(root_dir, "resources", "PANE_VERSION")
+        if not version_file.exists():
+            version_file = join_paths(root_dir, "resources", "BROWSEROS_VERSION")
         if not version_file.exists():
             return ""
 

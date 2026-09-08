@@ -30,7 +30,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - name: Check native discovery and fail-closed release rules
         working-directory: packages/browseros
-        run: uv run python -m unittest build.modules.sign.macos_test build.scripts.sign_server_runtime_test
+        run: uv run python -m unittest build.common.context_version_test build.modules.sign.macos_test build.scripts.sign_server_runtime_test
 
   test:
     name: Tests / ${{ matrix.suite }}
