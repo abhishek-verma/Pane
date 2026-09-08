@@ -1,5 +1,12 @@
 # BrowserOS Agent Extension
 
+## v0.0.178 (2026-09-08)
+
+## What's Changed
+
+- fix: unify provider contracts and prepare Pane 0.47.0.88 (#241)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
