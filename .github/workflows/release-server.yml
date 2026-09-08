@@ -80,13 +80,22 @@ jobs:
     if: |
       always() &&
       (github.event_name != 'workflow_dispatch' || needs.authorize_manual_dispatch.result == 'success')
-    runs-on: ubuntu-latest
+    # macOS provider executables embed native modules. Extract their full
+    # closure on macOS before signing; a Linux cross-build cannot validate it.
+    runs-on: macos-14
     outputs:
       server_version: ${{ steps.version.outputs.package_version }}
     permissions:
       contents: write
       pull-requests: read
     timeout-minutes: 120
+    env:
+      MACOS_CERTIFICATE_NAME: "Developer ID Application: Abhishek Verma (4Z2UAB6AWC)"
+      DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+      P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+      NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
+      NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+      NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER }}
     defaults:
       run:
         working-directory: packages/browseros-agent
@@ -205,6 +214,15 @@ jobs:
         with:
           bun-version: "1.3.6"
 
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Prepare signing dependencies and x64 runtime execution
+        run: |
+          uv sync --project ../browseros
+          if [ "$(uname -m)" = "arm64" ]; then
+            sudo softwareupdate --install-rosetta --agree-to-license
+          fi
+
       - name: Install dependencies
         run: bun ci
 
@@ -305,7 +323,8 @@ jobs:
           set -euo pipefail
           TAG="$RELEASE_TAG"
           TITLE="Pane Server - v$PACKAGE_VERSION"
-          mapfile -t ZIP_FILES < <(find packages/browseros-agent/dist/prod/server -maxdepth 1 -type f -name 'browseros-server-resources-*.zip' | sort)
+          ZIP_FILES=()
+          while IFS= read -r ZIP_FILE; do ZIP_FILES+=("$ZIP_FILE"); done < <(find packages/browseros-agent/dist/prod/server -maxdepth 1 -type f -name 'browseros-server-resources-*.zip' | sort)
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists, updating"
@@ -335,8 +354,7 @@ jobs:
             exit 0
           fi
 
-          python3 -m pip install -q -e packages/browseros
-          browseros ota server github-appcast \
+          uv run --project packages/browseros browseros ota server github-appcast \
             --version "$PACKAGE_VERSION" \
             --tag "$RELEASE_TAG" \
             --output-dir "${GITHUB_WORKSPACE}/updates/server"

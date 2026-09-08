@@ -1,14 +1,20 @@
 import type { TabGroup } from '../tab-groups'
 import type { CdpConnection } from './connection'
 
-/** One named folder per task and browser window. Shared by every agent path. */
+const groupingQueues = new WeakMap<CdpConnection, Promise<unknown>>()
+
+export const DEFAULT_AGENT_TAB_GROUP_TITLE = 'Tabs opened by Pane'
+// Chromium exposes named colors, not arbitrary brand values. Green is the
+// supported match for Pane's lime signal accent.
+export const DEFAULT_AGENT_TAB_GROUP_COLOR = 'green'
+
+/** One shared fallback per window; explicit task folders remain task-scoped. */
 export class AgentTabGroups {
   private readonly groups = new Map<string, string>()
   private readonly owners = new Map<
     string,
     { windowId: number; tabs: Set<number> }
   >()
-  private tail: Promise<unknown> = Promise.resolve()
 
   constructor(private readonly cdp: CdpConnection) {}
 
@@ -17,11 +23,10 @@ export class AgentTabGroups {
     windowId: number,
     scope: string,
     preferred?: string,
-    label?: string,
   ): Promise<void> {
     // Tabs can be opened in parallel. Serialize discovery/creation so the first
     // two tabs cannot each create their own folder.
-    const work = this.tail
+    const work = (groupingQueues.get(this.cdp) ?? Promise.resolve())
       .catch(() => {})
       .then(async () => {
         const key = `${scope}:${windowId}`
@@ -47,13 +52,19 @@ export class AgentTabGroups {
             this.owners.delete(id)
           }
         }
-        const groupId = this.groups.get(key) ?? preferred
-        const group = groups.find(
-          (g) =>
-            g.groupId === groupId &&
-            g.windowId === windowId &&
-            (this.groups.has(key) || /^Pane(?:\s*[·:—-]|$)/i.test(g.title)),
-        )
+        const groupId = preferred ?? this.groups.get(key)
+        const group =
+          groups.find(
+            (g) =>
+              g.groupId === groupId &&
+              g.windowId === windowId &&
+              (this.groups.get(key) === g.groupId || isPaneGroupTitle(g.title)),
+          ) ??
+          groups.find(
+            (g) =>
+              g.windowId === windowId &&
+              g.title === DEFAULT_AGENT_TAB_GROUP_TITLE,
+          )
         if (group) {
           try {
             await this.cdp.Browser.addTabsToGroup({
@@ -63,25 +74,35 @@ export class AgentTabGroups {
             await this.cdp.Browser.updateTabGroup({
               groupId: group.groupId,
               title: paneGroupTitle(group.title),
+              ...(paneGroupTitle(group.title) ===
+                DEFAULT_AGENT_TAB_GROUP_TITLE && {
+                color: DEFAULT_AGENT_TAB_GROUP_COLOR,
+              }),
             })
             this.remember(key, group.groupId, windowId, tabId)
             return
-          } catch {
-            // A user may close the group between discovery and attachment.
+          } catch (error) {
+            // Only recreate a group that disappeared. A transient attachment or
+            // label failure must not create another fallback alongside it.
+            const current = (await this.cdp.Browser.getTabGroups()) as {
+              groups: TabGroup[]
+            }
+            if (current.groups.some((g) => g.groupId === group.groupId))
+              throw error
             this.groups.delete(key)
           }
         }
         const { group: created } = (await this.cdp.Browser.createTabGroup({
           tabIds: [tabId],
-          title: paneGroupTitle(label),
+          title: DEFAULT_AGENT_TAB_GROUP_TITLE,
         })) as { group: TabGroup }
         this.remember(key, created.groupId, windowId, tabId)
         await this.cdp.Browser.updateTabGroup({
           groupId: created.groupId,
-          color: 'blue',
+          color: DEFAULT_AGENT_TAB_GROUP_COLOR,
         })
       })
-    this.tail = work
+    groupingQueues.set(this.cdp, work)
     return work
   }
 
@@ -91,8 +112,11 @@ export class AgentTabGroups {
     windowId: number,
     tabId: number,
   ): void {
+    const tabs =
+      this.groups.get(key) === groupId
+        ? (this.owners.get(key)?.tabs ?? new Set<number>())
+        : new Set<number>()
     this.groups.set(key, groupId)
-    const tabs = this.owners.get(key)?.tabs ?? new Set<number>()
     tabs.add(tabId)
     this.owners.set(key, { windowId, tabs })
   }
@@ -101,15 +125,13 @@ export class AgentTabGroups {
 /** Keep the ownership label even when a model omits or clears the name. */
 export function paneGroupTitle(title?: string): string {
   const clean = title?.trim()
-  if (!clean) return 'Pane · Task'
-  return /^Pane(?:\s*[·:—-]|$)/i.test(clean) ? clean : `Pane · ${clean}`
+  if (!clean) return DEFAULT_AGENT_TAB_GROUP_TITLE
+  return isPaneGroupTitle(clean) ? clean : `Pane · ${clean}`
 }
 
-/** A useful fallback without exposing URL paths or query parameters. */
-export function agentTabLabel(url: string): string | undefined {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '') || undefined
-  } catch {
-    return undefined
-  }
+function isPaneGroupTitle(title: string): boolean {
+  return (
+    title === DEFAULT_AGENT_TAB_GROUP_TITLE ||
+    /^Pane(?:\s*[·:—-]|$)/i.test(title)
+  )
 }

@@ -27,7 +27,9 @@ function createSession(opts: FakeOpts = {}) {
     pages: {
       list: async () => [],
       getInfo: (pageId: number) =>
-        pageId in pageTabs ? { tabId: pageTabs[pageId] } : undefined,
+        pageId in pageTabs
+          ? { tabId: pageTabs[pageId], windowId: 1 }
+          : undefined,
       resolveTabIds: async (tabIds: number[]) => {
         const result = new Map<number, number>()
         for (const tabId of tabIds) {
@@ -145,6 +147,45 @@ describe('tab_groups tool', () => {
     })
   })
 
+  it('reuses the shared fallback when the agent omits a title', async () => {
+    const { session, calls } = createSession({
+      pageTabs: { 1: 11, 2: 22 },
+      groups: [{ ...GROUP, title: 'Tabs opened by Pane' }],
+    })
+    const result = await executeTool(
+      tab_groups,
+      { action: 'create', pages: [1, 2] },
+      { session },
+    )
+    expect(result.isError).toBeFalsy()
+    expect(calls).toEqual([
+      { method: 'Browser.getTabGroups', params: undefined },
+      {
+        method: 'Browser.addTabsToGroup',
+        params: { groupId: 'g1', tabIds: [11, 22] },
+      },
+      {
+        method: 'Browser.updateTabGroup',
+        params: { groupId: 'g1', color: 'green' },
+      },
+    ])
+  })
+  it('uses the readable fallback for a blank title without adopting personal groups', async () => {
+    const { session, calls } = createSession({
+      pageTabs: { 1: 11 },
+      groups: [GROUP],
+    })
+    const result = await executeTool(
+      tab_groups,
+      { action: 'create', pages: [1], title: '  ' },
+      { session },
+    )
+    expect(result.isError).toBeFalsy()
+    expect(calls[1]).toEqual({
+      method: 'Browser.createTabGroup',
+      params: { tabIds: [11], title: 'Tabs opened by Pane' },
+    })
+  })
   it('adds pages to an existing group when groupId is provided on create', async () => {
     const { session, calls } = createSession({
       pageTabs: { 1: 11, 2: 22 },

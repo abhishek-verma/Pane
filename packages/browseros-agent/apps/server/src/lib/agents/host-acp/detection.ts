@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { pathToFileURL } from 'node:url'
 import {
   type HostCommandRunner,
   type ResolvedHostBinary,
@@ -17,12 +18,9 @@ import {
   type HostAcpAdapter,
   hasAcpPackageConfig,
 } from './config'
-import {
-  defaultPrewarmDir,
-  prewarmEnvOverrides,
-  prewarmProviderNativeModules,
-} from './macos-native-prewarm'
+import { defaultPrewarmDir, prewarmEnvOverrides } from './macos-native-prewarm'
 import { probeNpxPackageCache } from './npx-package-cache'
+import { resolvePackagedAcpRuntime } from './packaged-runtime'
 
 export { probeNpxPackageCache } from './npx-package-cache'
 
@@ -47,6 +45,7 @@ export type AdapterAuthState =
   | 'not-applicable'
   | 'unknown'
 export type AdapterLaunchSource =
+  | 'packaged-runtime'
   | 'bundled-bun'
   | 'host-npx'
   | 'host-cli'
@@ -72,11 +71,8 @@ export interface DetectHostAdapterOptions {
   platform?: NodeJS.Platform
   resourcesDir?: string | null
   /**
-   * BrowserOS state directory. When provided on macOS, Bun's native-module
-   * extraction is redirected here (persistent across reboots) and extracted
-   * `.node` files are ad-hoc signed after a successful version probe —
-   * preventing macOS Gatekeeper "could not verify is free of malware" dialogs
-   * for all users, not just the first-run case.
+   * BrowserOS state directory for development probe temporary data.
+   * Production probes use the release-owned native loader and never sign files.
    */
   browserosDir?: string | null
   timeoutMs?: number
@@ -104,6 +100,71 @@ export async function detectHostAdapter(
   const timeoutMs = options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS
   const now = options.now ?? Date.now
   const runCommand = options.runCommand ?? runHostCommand
+  // Inspect the same immutable executable the chat will launch. Probing a
+  // host CLI here can itself extract unsigned modules and reports the wrong version.
+  try {
+    const packaged = resolvePackagedAcpRuntime({
+      ...options,
+      agentType: adapter,
+    })
+    if (packaged?.executable) {
+      const binary = {
+        path: packaged.executable,
+        env: {
+          ...env,
+          ...(packaged.preload
+            ? {
+                BUN_OPTIONS: `--preload=${pathToFileURL(packaged.preload).href}`,
+              }
+            : {}),
+          DISABLE_AUTOUPDATER: '1',
+        },
+      }
+      const [version, authState] = await Promise.all([
+        probeVersion(binary, runCommand, timeoutMs),
+        probeAuth(adapter, binary, runCommand, timeoutMs),
+      ])
+      return {
+        healthy: version.ok && authState !== 'unauthenticated',
+        checkedAt: now(),
+        readiness: !version.ok
+          ? 'unknown'
+          : authState === 'unauthenticated'
+            ? 'needs-auth'
+            : authState === 'unknown'
+              ? 'diagnostic-warning'
+              : 'ready',
+        installState: 'installed',
+        nativeCliState: 'present',
+        authState,
+        version: version.version,
+        adapterLaunchSource: 'packaged-runtime',
+        packageCacheState: 'cached',
+        ...(!version.ok
+          ? {
+              reason:
+                'Pane packaged runtime failed its version probe. Reinstall Pane.',
+            }
+          : {}),
+      }
+    }
+    if (process.env.NODE_ENV === 'production')
+      throw new Error(
+        'Pane packaged provider runtime is missing. Reinstall Pane.',
+      )
+  } catch (error) {
+    return {
+      healthy: false,
+      reason: error instanceof Error ? error.message : String(error),
+      checkedAt: now(),
+      readiness: 'needs-install',
+      installState: 'not-installed',
+      nativeCliState: 'missing',
+      authState: 'unknown',
+      adapterLaunchSource: 'none',
+      packageCacheState: 'unknown',
+    }
+  }
   const resolveBinary =
     options.resolveBinary ??
     ((name: string) => resolveHostBinary(name, { env, platform, timeoutMs }))
@@ -115,9 +176,7 @@ export async function detectHostAdapter(
   const resolveBundledNative =
     options.resolveBundledNativeBinary ?? resolveBundledNativeBinary
 
-  // On macOS, redirect Bun's native-module extraction to a persistent directory
-  // so we can ad-hoc sign the files after probing and prevent Gatekeeper
-  // "could not verify is free of malware" dialogs for all users.
+  // Development fallback only; production returned above without probing host CLIs.
   const prewarmOverrides =
     platform === 'darwin'
       ? prewarmEnvOverrides(
@@ -165,19 +224,6 @@ export async function detectHostAdapter(
     versionProbeOk = probes[0].ok
     version = probes[0].version
     authState = probes[1]
-
-    // After a successful version probe on macOS, Bun has extracted its native
-    // modules into prewarmDir. Ad-hoc sign any unsigned ones now so Gatekeeper
-    // never shows "could not verify is free of malware" dialogs to users.
-    // Also attempt a one-time spctl registration so the exception persists
-    // through all future auto-updates of the provider binary.
-    if (versionProbeOk && platform === 'darwin') {
-      void prewarmProviderNativeModules(
-        options.browserosDir ?? '',
-        platform,
-        nativeCli.path,
-      )
-    }
   }
   const launchKind = hasAcpPackageConfig(config) ? 'package' : 'host-cli'
   const installState = determineInstallState({

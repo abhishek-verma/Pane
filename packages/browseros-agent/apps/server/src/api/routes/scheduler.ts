@@ -188,10 +188,13 @@ export function createSchedulerRoutes() {
         .parse(await c.req.json())
       const result = resolveByToken(body.token)
       if (!result) return c.json({ error: 'unknown token' }, 404)
-      signalApprovalResolved(result.approval.id, result.resolution)
       if (
         body.pin &&
         result.resolution === 'approved' &&
+        result.resumed &&
+        ['write-local', 'system', 'write-external', 'spend'].includes(
+          result.approval.consequenceClass,
+        ) &&
         result.approval.conversationId
       ) {
         addConversationPin(
@@ -199,6 +202,7 @@ export function createSchedulerRoutes() {
           result.approval.consequenceClass as ConsequenceClass,
         )
       }
+      signalApprovalResolved(result.approval.id, result.resolution)
       return c.json({
         ...result,
         resumed: result.resumed,

@@ -10,6 +10,8 @@ on:
     paths:
       - .github/workflows/test.yml
       - packages/browseros-agent/**
+      - packages/browseros/build/**
+      - packages/browseros/pyproject.toml
   workflow_dispatch:
 
 permissions:
@@ -19,6 +21,17 @@ env:
   PANE_APPIMAGE_URL: ${{ vars.PANE_APPIMAGE_URL || '' }}
 
 jobs:
+  native-runtime-contract:
+    name: Tests / native-runtime-contract
+    runs-on: macos-14
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v5
+      - name: Check native discovery and fail-closed release rules
+        working-directory: packages/browseros
+        run: uv run python -m unittest build.modules.sign.macos_test build.scripts.sign_server_runtime_test
+
   test:
     name: Tests / ${{ matrix.suite }}
     runs-on: ubuntu-latest
@@ -33,6 +46,10 @@ jobs:
           - suite: server-agent
             command: (cd apps/server && bun run test:agent)
             junit_path: test-results/server-agent.xml
+            needs_browser: false
+          - suite: provider-contract
+            command: bun run ./scripts/run-bun-test.ts ./apps/server/tests/api/services/mcp/provider-tool-contract.test.ts ./apps/server/tests/context/tool-parity.test.ts ./apps/server/tests/lib/agents/acpx-provider/buildAcpMcpServers.test.ts ./apps/server/tests/lib/agents/host-acp/packaged-runtime.test.ts
+            junit_path: test-results/provider-contract.xml
             needs_browser: false
           - suite: server-api
             command: (cd apps/server && bun run test:api)

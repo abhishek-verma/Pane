@@ -109,7 +109,6 @@ describe('registerTools', () => {
     'capture_status',
     'capture_list',
     'capture_read',
-    'capture_start',
     'pi_list',
     'pi_read',
     'pi_pulse_get',
@@ -132,6 +131,7 @@ describe('registerTools', () => {
     'agenda_upsert',
     'agenda_update',
     'agenda_review_finish',
+    'suggest_schedule',
   ]
   let infoMessages: unknown[] = []
 

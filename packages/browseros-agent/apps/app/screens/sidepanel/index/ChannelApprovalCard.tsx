@@ -9,6 +9,10 @@
 
 import type { FC } from 'react'
 import { Button } from '@/components/ui/button'
+import {
+  PINNABLE_CLASSES,
+  type PinnableClass,
+} from '@/lib/trust/trust-pins-storage'
 import type { ConversationPendingApproval } from '@/modules/chat/use-conversation-pending-approvals'
 
 function stripPreviewPrefix(preview: string): string {
@@ -21,14 +25,24 @@ export const ChannelApprovalCard: FC<{
   note?: string | null
   onApprove: () => void
   onAllowForChat: () => void
+  onAllowAlways: () => void
   onDeny: () => void
-}> = ({ approval, busy, note, onApprove, onAllowForChat, onDeny }) => {
+}> = ({
+  approval,
+  busy,
+  note,
+  onApprove,
+  onAllowForChat,
+  onAllowAlways,
+  onDeny,
+}) => {
   const action = stripPreviewPrefix(approval.preview) || approval.toolName
+  const pinnable = PINNABLE_CLASSES.includes(
+    approval.consequenceClass as PinnableClass,
+  )
   return (
     <div className="mx-4 mb-3 rounded-md border border-[var(--signal)]/40 bg-card p-3">
-      <div className="font-medium text-sm">
-        Background agent paused — needs approval
-      </div>
+      <div className="font-medium text-sm">Agent paused — needs approval</div>
       <div className="mt-1 whitespace-pre-wrap text-muted-foreground text-xs leading-5">
         Action: {action}
       </div>
@@ -41,14 +55,26 @@ export const ChannelApprovalCard: FC<{
         <Button size="sm" disabled={busy} onClick={onApprove} variant="default">
           Approve
         </Button>
-        <Button
-          size="sm"
-          disabled={busy}
-          onClick={onAllowForChat}
-          variant="default"
-        >
-          Allow for this chat
-        </Button>
+        {pinnable && (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={onAllowForChat}
+            variant="default"
+          >
+            Allow for this chat
+          </Button>
+        )}
+        {pinnable && (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={onAllowAlways}
+            variant="default"
+          >
+            Always allow
+          </Button>
+        )}
         <Button size="sm" disabled={busy} onClick={onDeny} variant="outline">
           Deny
         </Button>

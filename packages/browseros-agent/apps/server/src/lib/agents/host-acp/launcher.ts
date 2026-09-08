@@ -3,14 +3,12 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Constructs the spawn command for a built-in ACP adapter. Prefers the BrowserOS-shipped Bun at
- * <resourcesDir>/bin/third_party/bun so end-user installs without Node
- * still have a working launcher; falls back to the existing
- * `npx -y …` command when the bundled binary is unavailable
- * (development configurations, third_party not shipped, platforms
- * outside darwin / linux / win32).
+ * Production launches only the release-owned, locked adapter/runtime closure.
+ * Missing/corrupt resources fail explicitly rather than downloading code during
+ * a chat. Package runners and host CLI overrides are development-only fallbacks.
  */
 
+import { pathToFileURL } from 'node:url'
 import { type ResolvedHostBinary, resolveHostBinary } from './binary-resolver'
 import { resolveBundledBun, withBundledBunAcpAdapterEnv } from './bundled-bun'
 import {
@@ -18,8 +16,12 @@ import {
   type HostAcpAdapter,
   hasAcpPackageConfig,
 } from './config'
+import { resolvePackagedAcpRuntime } from './packaged-runtime'
 
-export type AcpLauncherSource = 'bundled-bun' | 'host-npx-fallback'
+export type AcpLauncherSource =
+  | 'packaged-runtime'
+  | 'bundled-bun'
+  | 'host-npx-fallback'
 
 export interface AcpLauncherResolution {
   command: string
@@ -54,6 +56,52 @@ export async function resolveAcpSpawnCommand(
   if (!(input.agentType in HOST_ACP_ADAPTER_CONFIG)) return null
   const config = HOST_ACP_ADAPTER_CONFIG[input.agentType as HostAcpAdapter]
   if (!hasAcpPackageConfig(config)) return null
+
+  const packaged = resolvePackagedAcpRuntime({
+    ...input,
+    agentType: input.agentType as HostAcpAdapter,
+  })
+  if (packaged) {
+    const bunPath = (input.resolveBundledBun ?? resolveBundledBun)(input)
+    if (!bunPath)
+      throw new Error(
+        'Pane is missing its packaged JavaScript runtime. Reinstall Pane.',
+      )
+    return {
+      source: 'packaged-runtime',
+      command: wrapCommandWithEnv(
+        `${quoteAcpCommandToken(bunPath)} ${quoteAcpCommandToken(packaged.entrypoint)}`,
+        {
+          ...withBundledBunAcpAdapterEnv({
+            bunPath,
+            browserosDir: input.browserosDir,
+            env: input.env,
+            platform: input.platform,
+          }),
+          // Use only the release-tested CLI, not an older SDK copy or host PATH.
+          ...(packaged.executable
+            ? {
+                [input.agentType === 'claude'
+                  ? 'CLAUDE_CODE_EXECUTABLE'
+                  : 'CODEX_PATH']: packaged.executable,
+              }
+            : {}),
+          ...(packaged.preload
+            ? {
+                BUN_OPTIONS: `--preload=${pathToFileURL(packaged.preload).href}`,
+              }
+            : {}),
+          DISABLE_AUTOUPDATER: '1',
+          BUN_BE_BUN: '0',
+        },
+      ),
+    }
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'Pane is missing its packaged provider runtime. Update or reinstall Pane; runtime downloads are disabled in production.',
+    )
+  }
 
   const resolveNative =
     input.resolveNative ??

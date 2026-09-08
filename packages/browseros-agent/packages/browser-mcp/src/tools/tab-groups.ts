@@ -1,4 +1,9 @@
-import { paneGroupTitle } from '@browseros/browser-core/core/agent-tab-groups'
+import {
+  DEFAULT_AGENT_TAB_GROUP_COLOR,
+  DEFAULT_AGENT_TAB_GROUP_TITLE,
+  paneGroupTitle,
+} from '@browseros/browser-core/core/agent-tab-groups'
+import type { BrowserSession } from '@browseros/browser-core/core/session'
 import type { TabGroup } from '@browseros/browser-core/tab-groups'
 import { z } from 'zod'
 import { defineTool, errorResult, textResult } from './framework'
@@ -25,10 +30,33 @@ function formatGroup(group: TabGroupWithPages): string {
   return `[${group.groupId}] "${group.title || '(unnamed)'}" (${group.color})${collapsed} pages: ${pages}`
 }
 
+async function findDefaultGroup(
+  session: BrowserSession,
+  pageIds: number[],
+): Promise<string | undefined> {
+  const windowId = session.pages.getInfo(pageIds[0])?.windowId
+  if (
+    windowId === undefined ||
+    pageIds.some((id) => session.pages.getInfo(id)?.windowId !== windowId)
+  ) {
+    throw new Error(
+      'tab_groups create: a shared folder requires pages from one known browser window.',
+    )
+  }
+  const { groups } = (await session.cdp('Browser.getTabGroups')) as {
+    groups: TabGroup[]
+  }
+  return groups.find(
+    (group) =>
+      group.windowId === windowId &&
+      group.title === DEFAULT_AGENT_TAB_GROUP_TITLE,
+  )?.groupId
+}
+
 export const tab_groups = defineTool({
   name: 'tab_groups',
   description:
-    'Manage tab groups: list groups, group pages, update a group (title/color/collapsed), ungroup pages, or close a group. Page ids come from the tabs tool.',
+    'Manage tab groups: list groups, group pages, update a group (title/color/collapsed), ungroup pages, or close a group. Page ids come from the tabs tool. New agent tabs already share "Tabs opened by Pane" by default; leave them there unless a separate named folder is useful. Do not create folders per website.',
   input: z.object({
     action: z
       .enum(['list', 'create', 'update', 'ungroup', 'close'])
@@ -107,17 +135,29 @@ export const tab_groups = defineTool({
           )
         }
         const tabIds = await toTabIds(args.pages)
-        const params = args.groupId
-          ? { groupId: args.groupId, tabIds }
+        let groupId = args.groupId
+        const title = paneGroupTitle(args.title)
+        if (!groupId && title === DEFAULT_AGENT_TAB_GROUP_TITLE) {
+          groupId = await findDefaultGroup(ctx.session, args.pages)
+        }
+        const params = groupId
+          ? { groupId, tabIds }
           : {
               tabIds,
-              title: paneGroupTitle(args.title),
+              title,
             }
-        const method = args.groupId
+        const method = groupId
           ? 'Browser.addTabsToGroup'
           : 'Browser.createTabGroup'
-        const { group } = (await ctx.session.cdp(method, params)) as {
+        let { group } = (await ctx.session.cdp(method, params)) as {
           group: TabGroup
+        }
+        if (group.title === DEFAULT_AGENT_TAB_GROUP_TITLE) {
+          const updated = (await ctx.session.cdp('Browser.updateTabGroup', {
+            groupId: group.groupId,
+            color: DEFAULT_AGENT_TAB_GROUP_COLOR,
+          })) as { group: TabGroup }
+          group = updated.group
         }
         const resolved = await withPages(group)
         return textResult(`grouped into ${formatGroup(resolved)}`, {

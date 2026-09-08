@@ -125,7 +125,10 @@ async function stageLocalRule(
   const sourcePath = isAbsolute(rule.source.path)
     ? rule.source.path
     : resolve(sourceRoot, rule.source.path)
-  await cp(sourcePath, destinationPath, { recursive: rule.recursive === true })
+  await cp(sourcePath, destinationPath, {
+    recursive: rule.recursive === true,
+    verbatimSymlinks: true,
+  })
 
   if (rule.executable && target.os !== 'windows') {
     await chmod(destinationPath, 0o755)

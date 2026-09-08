@@ -16,6 +16,16 @@ interface CapturedCall {
 let lastCall: CapturedCall | null = null
 let nextResult: unknown = null
 
+// Probe normalization is a unit test, not a scan of the developer's shell and
+// installed CLIs. Real host discovery is covered by binary-resolver tests.
+const hostResolver = await import(
+  '../../../../src/lib/agents/host-acp/binary-resolver'
+)
+mock.module('../../../../src/lib/agents/host-acp/binary-resolver', () => ({
+  ...hostResolver,
+  resolveHostBinary: async () => null,
+}))
+
 mock.module('acp-probe', () => ({
   probeAgent: async (input: CapturedCall) => {
     lastCall = input

@@ -113,6 +113,7 @@ export function createMcpRoutes(deps: McpRouteDeps) {
       remoteAgentHarness: harness,
       workspace: workingDir ? defaultWorkspace(workingDir) : undefined,
       scopeId,
+      signal: c.req.raw.signal,
       trustPins: getConversationPins(scopeId),
     })
     const transport = makeMcpTransport({

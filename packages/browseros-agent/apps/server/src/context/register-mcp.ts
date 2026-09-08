@@ -8,13 +8,8 @@ import { createDefaultMcpGateContext } from '@browseros/browser-mcp/trust/mcp-ga
 import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { z } from 'zod'
-import { buildAgendaToolSet } from '../agenda/tools'
-import { buildSchedulerToolSet } from '../agent/scheduler-tools'
+import { buildPaneToolSet, type PaneToolContext } from '../agent/pane-toolset'
 import { gateExecute } from '../agent/trust/gate'
-import { buildCaptureToolSet } from '../capture/tools'
-import { buildMemoryToolSet } from '../memory/tools'
-import { buildPersonalInternetToolSet } from '../personal-internet/tools'
-import { buildContextToolSet, buildTasksToolSet } from './tools'
 
 interface AiSdkToolLike {
   description?: string
@@ -39,23 +34,13 @@ type McpRegisterFn = (
 
 export function registerContextMcpTools(
   server: McpServer,
-  options: { bucketId?: string; gateContext?: GateContext } = {},
+  options: PaneToolContext & { gateContext?: GateContext } = {},
 ): void {
   const register = server.registerTool.bind(server) as unknown as McpRegisterFn
-  const getBucketId = () => options.bucketId ?? 'default'
-  const tools = {
-    ...buildContextToolSet(getBucketId),
-    ...buildTasksToolSet(getBucketId),
-    ...buildMemoryToolSet(getBucketId),
-    ...buildCaptureToolSet(getBucketId),
-    ...buildPersonalInternetToolSet(getBucketId),
-    // ACP providers receive Pane tools through this MCP server rather than
-    // the in-process AI SDK ToolLoopAgent. Keep scheduler controls here so
-    // Claude Code, Codex, and API-key providers expose the same automation
-    // management surface.
-    ...buildSchedulerToolSet(),
-    ...buildAgendaToolSet(),
-  } as unknown as Record<string, AiSdkToolLike>
+  const tools = buildPaneToolSet(options) as unknown as Record<
+    string,
+    AiSdkToolLike
+  >
 
   for (const [name, tool] of Object.entries(tools)) {
     register(
@@ -88,6 +73,17 @@ export function registerContextMcpTools(
 
 /** AI SDK tools may return structured data, not only a { text } envelope. */
 export function toMcpToolResult(result: Record<string, unknown>) {
+  // Nudge/UI tools already return MCP text content. Do not nest that envelope
+  // inside JSON: both the model and chat cards consume the same payload.
+  const textContent = Array.isArray(result.content)
+    ? result.content.filter(
+        (item): item is { type: 'text'; text: string } =>
+          item !== null &&
+          typeof item === 'object' &&
+          item.type === 'text' &&
+          typeof item.text === 'string',
+      )
+    : []
   return {
     content: [
       {
@@ -95,7 +91,9 @@ export function toMcpToolResult(result: Record<string, unknown>) {
         text:
           typeof result.text === 'string'
             ? result.text
-            : JSON.stringify(result),
+            : textContent.length
+              ? textContent.map((item) => item.text).join('\n')
+              : JSON.stringify(result),
       },
     ],
     isError: result.isError === true,

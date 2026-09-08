@@ -38,6 +38,44 @@ def _write_file(path: Path, content: str = "data\n") -> None:
 
 
 class MacOSSignDiscoveryTest(unittest.TestCase):
+    def test_rejects_native_resource_symlink_escape_before_signing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "Pane.app"
+            root = app / "Contents/Resources/BrowserOSServer/default/resources"
+            root.mkdir(parents=True)
+            (root / "outside").symlink_to(Path(tmp), target_is_directory=True)
+            with self.assertRaisesRegex(RuntimeError, "escapes its bundle"):
+                find_components_to_sign(app)
+
+    def test_scans_every_server_resource_directory_not_only_acp_addons(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "Pane.app"
+            for server in ("BrowserOSServer", "BrowserOSClawServer"):
+                root = app / f"Contents/Resources/{server}/default/resources"
+                for name in ("future/dependency", "another/runtime.bin", "plugin/new.node"):
+                    binary = root / name
+                    binary.parent.mkdir(parents=True, exist_ok=True)
+                    binary.write_bytes(bytes.fromhex("cffaedfe") + bytes(64))
+            found = find_components_to_sign(app)
+            native = found["executables"] + found["dylibs"]
+            self.assertEqual(len(native), 6)
+
+    def test_discovers_new_native_runtime_components_without_a_filename_allowlist(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Path(tmp) / "Pane.app"
+            root = app / "Contents/Resources/BrowserOSServer/default/resources/acp-runtime"
+            root.mkdir(parents=True)
+            binary = root / "future-provider.runtime"
+            binary.write_bytes(bytes.fromhex("cffaedfe") + bytes(64))
+            module = root / "new-addon.node"
+            module.write_bytes(bytes.fromhex("cffaedfe") + bytes(64))
+            script = root / "script.js"
+            _write_exec(script)
+            components = find_components_to_sign(app)
+            self.assertIn(binary, components["executables"])
+            self.assertIn(module, components["dylibs"])
+            self.assertNotIn(script, components["executables"])
+
     def test_discovers_registered_server_binaries_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             app_path = Path(tmp) / "BrowserOS.app"

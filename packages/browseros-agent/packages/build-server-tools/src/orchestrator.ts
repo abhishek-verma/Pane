@@ -7,6 +7,7 @@ import { compileProductBinaries } from './compile'
 import { loadBuildConfig } from './config'
 import { log } from './log'
 import { getTargetRules, loadManifest } from './manifest'
+import { writeArtifactMetadata } from './metadata'
 import { createR2Client } from './r2'
 import { stageCompiledArtifact, stageTargetArtifact } from './stage'
 import type { BuildProductDescriptor, ResourceManifest } from './types'
@@ -61,16 +62,31 @@ export async function runProdResourceBuild(
       const rules = getTargetRules(manifest, binary.target).filter(
         (rule) => rule.source.type === 'local',
       )
-      const staged = await stageCompiledArtifact(
-        product,
-        binary.binaryPath,
+      const prepared = await product.prepareTargetResources?.(
         binary.target,
-        buildConfig.version,
-        rules,
         rootDir,
       )
-      localArtifacts.push(staged)
-      log.success(`Packaged ${binary.target.id}`)
+      try {
+        rules.push(...(prepared?.rules ?? []))
+        const staged = await stageCompiledArtifact(
+          product,
+          binary.binaryPath,
+          binary.target,
+          buildConfig.version,
+          rules,
+          rootDir,
+        )
+        localArtifacts.push(staged)
+        await product.finalizeTargetArtifact?.(staged, { ci: true })
+        await writeArtifactMetadata(
+          staged.rootDir,
+          staged.target,
+          buildConfig.version,
+        )
+        log.success(`Packaged ${binary.target.id}`)
+      } finally {
+        await prepared?.dispose?.()
+      }
     }
 
     const archiveResults = await archiveArtifacts(
@@ -95,31 +111,48 @@ export async function runProdResourceBuild(
   try {
     for (const binary of compiled) {
       const rules = getTargetRules(manifest, binary.target)
-      log.step(
-        `Staging ${binary.target.name} (${rules.length} resource rule(s))`,
+      const prepared = await product.prepareTargetResources?.(
+        binary.target,
+        rootDir,
       )
-      const staged =
-        client && r2
-          ? await stageTargetArtifact(
-              product,
-              binary.binaryPath,
-              binary.target,
-              rules,
-              rootDir,
-              client,
-              r2,
-              buildConfig.version,
-            )
-          : await stageCompiledArtifact(
-              product,
-              binary.binaryPath,
-              binary.target,
-              buildConfig.version,
-              rules,
-              rootDir,
-            )
-      stagedArtifacts.push(staged)
-      log.success(`Staged ${binary.target.id}`)
+      try {
+        rules.push(...(prepared?.rules ?? []))
+        log.step(
+          `Staging ${binary.target.name} (${rules.length} resource rule(s))`,
+        )
+        const staged =
+          client && r2
+            ? await stageTargetArtifact(
+                product,
+                binary.binaryPath,
+                binary.target,
+                rules,
+                rootDir,
+                client,
+                r2,
+                buildConfig.version,
+              )
+            : await stageCompiledArtifact(
+                product,
+                binary.binaryPath,
+                binary.target,
+                buildConfig.version,
+                rules,
+                rootDir,
+              )
+        stagedArtifacts.push(staged)
+        await product.finalizeTargetArtifact?.(staged, { ci: false })
+        // Signing changes executable bytes. Archive checksums must describe the
+        // final signed content, not the pre-finalization staging snapshot.
+        await writeArtifactMetadata(
+          staged.rootDir,
+          staged.target,
+          buildConfig.version,
+        )
+        log.success(`Staged ${binary.target.id}`)
+      } finally {
+        await prepared?.dispose?.()
+      }
     }
 
     const uploadResults =

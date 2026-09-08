@@ -47,6 +47,20 @@ SERVER_RESOURCES_BUNDLE_REL = SERVER_BUNDLES[0].macos_bundle_resources_root
 SERVER_RESOURCES_JUNK_FILES = {".DS_Store"}
 
 
+def is_macho_file(path: Path) -> bool:
+    """Discover native code by its format, not a filename allowlist."""
+    try:
+        with path.open("rb") as stream:
+            return stream.read(4) in {
+                bytes.fromhex("feedface"), bytes.fromhex("cefaedfe"),
+                bytes.fromhex("feedfacf"), bytes.fromhex("cffaedfe"),
+                bytes.fromhex("cafebabe"), bytes.fromhex("bebafeca"),
+                bytes.fromhex("cafebabf"), bytes.fromhex("bfbafeca"),
+            }
+    except OSError:
+        return False
+
+
 def verify_server_resources_bundle(app_path: Path, chromium_src: Path) -> List[str]:
     """Check bundled server resources match what the build staged."""
     problems: List[str] = []
@@ -621,6 +635,11 @@ def find_components_to_sign(
         if not bundle_root.exists():
             continue
         for item in bundle_root.rglob("*"):
+            # Release resources may contain package-manager symlinks, but they
+            # must resolve inside this sealed resource tree. Signing an outside
+            # target would neither package nor protect that executable.
+            if item.is_symlink() and not item.resolve().is_relative_to(bundle_root.resolve()):
+                raise RuntimeError(f"Server resource symlink escapes its bundle: {item}")
             if not item.is_file():
                 continue
             # Native modules / dylibs shipped under server resources (e.g. whisper)
@@ -630,9 +649,9 @@ def find_components_to_sign(
                     components["dylibs"].append(item)
                 continue
             if (
-                not item.suffix
-                and os.access(item, os.X_OK)
-                and get_browseros_server_binary_info(item) is not None
+                is_macho_file(item)
+                or (not item.suffix and os.access(item, os.X_OK)
+                    and get_browseros_server_binary_info(item) is not None)
             ):
                 components["executables"].append(item)
 

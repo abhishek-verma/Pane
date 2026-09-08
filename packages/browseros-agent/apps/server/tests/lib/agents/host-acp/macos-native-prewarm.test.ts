@@ -1,209 +1,29 @@
-/**
- * @license
- * Copyright 2025 BrowserOS
- * SPDX-License-Identifier: AGPL-3.0-or-later
- */
-
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { expect, it } from 'bun:test'
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
 import {
-  BUN_PREWARM_SUBDIR,
-  defaultPrewarmDir,
   ensurePrewarmDir,
   prewarmEnvOverrides,
-  prewarmProviderNativeModules,
-  registerBinaryWithGatekeeper,
-  signUnsignedNodeFiles,
 } from '../../../../src/lib/agents/host-acp/macos-native-prewarm'
 
-const execFileAsync = promisify(execFile)
-
-describe('prewarmEnvOverrides', () => {
-  it('sets TMPDIR to the given directory', () => {
-    const overrides = prewarmEnvOverrides('/some/dir')
-    expect(overrides).toEqual({ TMPDIR: '/some/dir' })
-  })
-})
-
-describe('defaultPrewarmDir', () => {
-  it('returns os.tmpdir() as fallback', () => {
-    expect(defaultPrewarmDir()).toBe(tmpdir())
-  })
-})
-
-describe('ensurePrewarmDir', () => {
-  let base: string
-
-  beforeEach(async () => {
-    base = await mkdtemp(join(tmpdir(), 'pane-prewarm-test-'))
-  })
-
-  afterEach(async () => {
-    await rm(base, { recursive: true, force: true })
-  })
-
-  it('creates bun-tmp subdirectory', async () => {
-    const dir = await ensurePrewarmDir(base)
-    expect(dir).toBe(join(base, BUN_PREWARM_SUBDIR))
-    const info = await stat(dir)
-    expect(info.isDirectory()).toBe(true)
-  })
-
-  it('is idempotent', async () => {
-    await ensurePrewarmDir(base)
-    await expect(ensurePrewarmDir(base)).resolves.toBe(
-      join(base, BUN_PREWARM_SUBDIR),
+it('creates only a temporary data directory, with no security-setting mutations', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'pane-data-dir-test-'))
+  try {
+    const dir = await ensurePrewarmDir(root)
+    expect((await stat(dir)).isDirectory()).toBe(true)
+    expect(await ensurePrewarmDir(root)).toBe(dir)
+    expect(prewarmEnvOverrides(dir)).toEqual({ TMPDIR: dir })
+    const source = await readFile(
+      new URL(
+        '../../../../src/lib/agents/host-acp/macos-native-prewarm.ts',
+        import.meta.url,
+      ),
+      'utf8',
     )
-  })
-})
-
-describe('signUnsignedNodeFiles', () => {
-  let dir: string
-
-  beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), 'pane-sign-test-'))
-  })
-
-  afterEach(async () => {
-    await rm(dir, { recursive: true, force: true })
-  })
-
-  it('returns empty results for non-darwin platforms', async () => {
-    const result = await signUnsignedNodeFiles(dir, 'linux')
-    expect(result.signed).toHaveLength(0)
-    expect(result.failed).toHaveLength(0)
-    expect(result.skipped).toHaveLength(0)
-  })
-
-  it('returns empty results when no .node files present', async () => {
-    await writeFile(join(dir, 'foo.txt'), 'hello')
-    const result = await signUnsignedNodeFiles(dir, 'darwin')
-    expect(result.signed).toHaveLength(0)
-    expect(result.failed).toHaveLength(0)
-    expect(result.skipped).toHaveLength(0)
-  })
-
-  it('returns empty results for missing directory', async () => {
-    const result = await signUnsignedNodeFiles(
-      join(dir, 'nonexistent'),
-      'darwin',
-    )
-    expect(result.signed).toHaveLength(0)
-  })
-
-  it('skips files that are already signed (darwin only)', async () => {
-    // Create a stub .node file and ad-hoc sign it so it's "already signed"
-    const nodeFile = join(dir, 'already-signed.node')
-    // Write a minimal valid Mach-O arm64 dylib header (stub)
-    await writeFile(nodeFile, 'not-a-real-macho')
-
-    // Ad-hoc sign it first
-    try {
-      await execFileAsync('codesign', ['--sign', '-', '--force', nodeFile], {
-        timeout: 10_000,
-      })
-    } catch {
-      // If codesign not available (CI), skip this assertion
-      return
-    }
-
-    const result = await signUnsignedNodeFiles(dir, 'darwin')
-    expect(result.skipped).toContain('already-signed.node')
-    expect(result.signed).not.toContain('already-signed.node')
-  })
-
-  it('also scans Bun extraction subdirectories', async () => {
-    const nestedDir = join(dir, 'bun-v1', 'native')
-    const nodeFile = join(nestedDir, 'already-signed.node')
-    await mkdir(nestedDir, { recursive: true })
-    await writeFile(nodeFile, 'not-a-real-macho')
-
-    try {
-      await execFileAsync('codesign', ['--sign', '-', '--force', nodeFile], {
-        timeout: 10_000,
-      })
-    } catch {
-      return
-    }
-
-    const result = await signUnsignedNodeFiles(dir, 'darwin')
-    expect(result.skipped).toContain('bun-v1/native/already-signed.node')
-  })
-})
-
-describe('prewarmProviderNativeModules', () => {
-  let base: string
-
-  beforeEach(async () => {
-    base = await mkdtemp(join(tmpdir(), 'pane-prewarm-modules-test-'))
-  })
-
-  afterEach(async () => {
-    await rm(base, { recursive: true, force: true })
-  })
-
-  it('no-ops on non-darwin platforms', async () => {
-    await expect(
-      prewarmProviderNativeModules(base, 'linux'),
-    ).resolves.toBeUndefined()
-  })
-
-  it('creates bun-tmp dir and runs without throwing on darwin', async () => {
-    await expect(
-      prewarmProviderNativeModules(base, 'darwin'),
-    ).resolves.toBeUndefined()
-
-    const prewarmDir = join(base, BUN_PREWARM_SUBDIR)
-    const info = await stat(prewarmDir)
-    expect(info.isDirectory()).toBe(true)
-  })
-
-  it('handles empty browserosDir gracefully', async () => {
-    await expect(
-      prewarmProviderNativeModules('', 'darwin'),
-    ).resolves.toBeUndefined()
-  })
-})
-
-describe('registerBinaryWithGatekeeper', () => {
-  let base: string
-
-  beforeEach(async () => {
-    base = await mkdtemp(join(tmpdir(), 'pane-gk-test-'))
-  })
-
-  afterEach(async () => {
-    await rm(base, { recursive: true, force: true })
-  })
-
-  it('no-ops on non-darwin platforms', async () => {
-    await expect(
-      registerBinaryWithGatekeeper('/usr/bin/env', base, 'linux'),
-    ).resolves.toBeUndefined()
-  })
-
-  it('no-ops on darwin with a non-existent binary', async () => {
-    await expect(
-      registerBinaryWithGatekeeper('/nonexistent/binary', base, 'darwin'),
-    ).resolves.toBeUndefined()
-  })
-
-  it('skips registration if identity already recorded in registry', async () => {
-    const registryPath = join(base, 'gatekeeper-registered.json')
-    await writeFile(
-      registryPath,
-      JSON.stringify({ 'TEAMID/com.example': true }),
-    )
-    // Provide a non-existent binary — should still short-circuit without error
-    await expect(
-      registerBinaryWithGatekeeper('/nonexistent', base, 'darwin'),
-    ).resolves.toBeUndefined()
-    // Registry file unchanged
-    const raw = await readFile(registryPath, 'utf8')
-    expect(JSON.parse(raw)).toEqual({ 'TEAMID/com.example': true })
-  })
+    expect(source).not.toContain('execFile')
+    expect(source).not.toContain('child_process')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })

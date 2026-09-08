@@ -12,6 +12,7 @@ import type {
   GateApprovalResolution,
   TrustPin,
 } from '@browseros/shared/trust/consequence-class'
+import { getConversationContext } from '../../../agent/conversation-context-store'
 import { ingestToolResult, summarizeToolResult } from '../../../context/ingest'
 import { registerContextMcpTools } from '../../../context/register-mcp'
 import { logger } from '../../../lib/logger'
@@ -38,18 +39,24 @@ export interface McpServiceDeps {
   bucketId?: string
   /** X-BrowserOS-Scope-Id header value; groups approvals for this MCP client. */
   scopeId?: string
+  /** Cancellation of the owning MCP request also cancels an approval wait. */
+  signal?: AbortSignal
   /** Trust pins for the associated conversation (if any). */
   trustPins?: Partial<Record<ConsequenceClass, TrustPin>>
 }
 
 /** Creates a per-request BrowserOS MCP server with tools for the requested surface. */
 export function createMcpServer(deps: McpServiceDeps) {
-  const bucketId = deps.bucketId ?? 'default'
-  const runId = deps.scopeId ?? 'ephemeral'
+  const conversation = deps.scopeId
+    ? getConversationContext(deps.scopeId)
+    : undefined
+  const bucketId = conversation?.tools?.bucketId ?? deps.bucketId ?? 'default'
+  const runId = conversation?.gateContext?.runId ?? deps.scopeId ?? 'ephemeral'
   const gateContext = createDefaultMcpGateContext({
+    ...conversation?.gateContext,
     workspaceRoot: deps.workspace?.root ?? deps.executionDir,
     runId,
-    pins: deps.trustPins ?? {},
+    pins: conversation?.gateContext?.pins ?? deps.trustPins ?? {},
     // For an ACP provider (e.g. Claude Code) pointed at our own /mcp,
     // buildBrowserOsSelfMcpEntry forwards the real chat conversationId as
     // X-BrowserOS-Scope-Id — the same id apps/app polls in
@@ -68,6 +75,7 @@ export function createMcpServer(deps: McpServiceDeps) {
         consequenceClass: request.consequenceClass,
         preview: request.preview,
         timeoutMs: MCP_APPROVAL_TIMEOUT_MS,
+        signal: deps.signal,
       })
       return resolution
     },
@@ -126,7 +134,16 @@ export function createMcpServer(deps: McpServiceDeps) {
   }
 
   // Always expose context/tasks on /mcp so CLI + external MCP clients can use them.
-  registerContextMcpTools(server, { bucketId, gateContext })
+  registerContextMcpTools(server, {
+    ...conversation?.tools,
+    bucketId,
+    workingDir:
+      conversation?.tools?.workingDir ??
+      deps.workspace?.root ??
+      deps.executionDir,
+    runId: conversation?.gateContext?.runId ?? runId,
+    gateContext,
+  })
 
   return server
 }

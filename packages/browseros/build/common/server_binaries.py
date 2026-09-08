@@ -87,7 +87,15 @@ WINDOWS_SERVER_BINARIES: List[str] = list(BROWSEROS_SERVER_BUNDLE.windows_binari
 
 def macos_sign_spec_for(binary_path: Path) -> Optional[SignSpec]:
     """Look up sign metadata by file stem."""
-    return MACOS_SERVER_BINARIES.get(binary_path.stem)
+    known = MACOS_SERVER_BINARIES.get(binary_path.stem)
+    if known is not None:
+        return known
+    if "acp-runtime" in binary_path.parts:
+        return SignSpec(
+            f"acp.{binary_path.stem}", "runtime",
+            "browseros-executable-entitlements.plist",
+        )
+    return None
 
 
 def expected_windows_binary_paths(server_bin_dir: Path) -> List[Path]:

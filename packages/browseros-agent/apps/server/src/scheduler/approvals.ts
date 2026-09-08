@@ -195,6 +195,13 @@ export function hasActiveWaiter(approvalId: string): boolean {
 export function resolveByToken(token: string): ResolveByTokenResult | null {
   const approval = findPendingByToken(token)
   if (!approval) return null
+  if (approval.status === 'pending' && approval.expiresAt <= Date.now()) {
+    return {
+      approval: resolveApproval(approval.id, 'timeout')!,
+      resolution: 'timeout',
+      resumed: hasActiveWaiter(approval.id),
+    }
+  }
   if (approval.status !== 'pending') {
     return {
       approval,
@@ -250,6 +257,7 @@ export async function requestChannelApproval(input: {
   consequenceClass: string
   preview: string
   timeoutMs?: number
+  signal?: AbortSignal
   /** Inject for tests — skip real reach */
   notify?: typeof notifyApproval
   /** Inject for tests — skip real wait */
@@ -257,31 +265,41 @@ export async function requestChannelApproval(input: {
 }): Promise<{ approval: PendingApproval; resolution: ApprovalResolution }> {
   const approval = createPendingApproval(input)
   const notify = input.notify ?? notifyApproval
-
-  try {
-    await notify({
-      runId: input.runId,
-      toolName: input.toolName,
-      preview: input.preview,
-      approveToken: approval.approveToken,
-      denyToken: approval.denyToken,
-    })
-  } catch (err) {
-    logger.warn('approval reach notify failed', {
-      error: err instanceof Error ? err.message : String(err),
-    })
-  }
-
   const timeoutMs = input.timeoutMs ?? DEFAULT_APPROVAL_TIMEOUT_MS
-  const resolution = await new Promise<ApprovalResolution>((resolve) => {
-    const timer = setTimeout(() => {
-      waiters.delete(approval.id)
+  // Install the waiter before notification. A fast UI/channel reply must not
+  // resolve a DB row while no continuation is registered yet.
+  const waiting = new Promise<ApprovalResolution>((resolve) => {
+    const finish = (resolution: ApprovalResolution) => {
+      input.signal?.removeEventListener('abort', onAbort)
+      resolve(resolution)
+    }
+    const onAbort = () => {
       resolveApproval(approval.id, 'timeout')
-      resolve('timeout')
-    }, input.waitMs ?? timeoutMs)
-    waiters.set(approval.id, { resolve, timer })
+      signalApprovalResolved(approval.id, 'timeout')
+    }
+    const timer = setTimeout(onAbort, input.waitMs ?? timeoutMs)
+    waiters.set(approval.id, { resolve: finish, timer })
+    input.signal?.addEventListener('abort', onAbort, { once: true })
+    if (input.signal?.aborted) onAbort()
   })
 
+  // Delivery is best-effort; it must not hold a resolved or cancelled tool open.
+  void Promise.resolve()
+    .then(() =>
+      notify({
+        runId: input.runId,
+        toolName: input.toolName,
+        preview: input.preview,
+        approveToken: approval.approveToken,
+        denyToken: approval.denyToken,
+      }),
+    )
+    .catch((err) => {
+      logger.warn('approval reach notify failed', {
+        error: err instanceof Error ? err.message : String(err),
+      })
+    })
+  const resolution = await waiting
   return { approval: getPendingApproval(approval.id) ?? approval, resolution }
 }
 

@@ -35,7 +35,7 @@ describe('buildAcpMcpServers', () => {
     }
   })
 
-  it('keeps BrowserOS first even when a custom server shares the name', () => {
+  it('prevents a custom server from replacing the Pane tool surface', () => {
     const out = buildAcpMcpServers({
       ...baseOpts,
       customMcpServers: [
@@ -46,10 +46,8 @@ describe('buildAcpMcpServers', () => {
     if (out[0]?.type === 'http') {
       expect(out[0].url).toBe('http://127.0.0.1:9100/mcp')
     }
-    expect(out[1]?.name).toBe('browseros')
-    if (out[1]?.type === 'http') {
-      expect(out[1].url).toBe('https://impostor.example.com/mcp')
-    }
+    expect(out).toHaveLength(2)
+    expect(out[1]?.name).toBe('browseros_custom_1')
   })
 
   it('forwards defaultWindowId into the BrowserOS entry headers', () => {

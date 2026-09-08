@@ -389,6 +389,8 @@ Cloud sync, hosted credits/default-model, hosted skills marketplace, cloud-headl
 
 # Phase 9 — Page reshape & overlays: the web, reshaped for you (post-launch, incremental)
 
+> **Layers implementation update (2026-09-08):** use [Pane Layers implementation plan](./PANE-LAYERS-IMPLEMENTATION-PLAN.md) for the user-requested persistent customization platform. Its LP-00–LP-13 tasks supersede the older M9.x feature breakdown below for Layers, including native controls, canonical skills, provider parity and advanced scripts. The older text is retained as historical roadmap context; this planning update does not assert that prior browser release prerequisites have passed.
+
 **Ship gate (Pane v0.9+):** Pane can reshape **one opted-in vertical at a time** with your-context overlays or feed de-slop — never the whole web at once. First slice ships complete for that slice (consent + isolation + overlay + learning loop + settings). Additional sites/feeds are **added one by one** based on usage data, not bundled for first launch. Spec [16](./16-page-reshape-and-overlays.md).
 
 **Why not before v1.0:** Page reshape is high trust risk, high engineering cost (per-site DOM variance, injection defense, performance), and easy to ship badly. Browsing learnings (M6.3) already feed memory; reshape applies them **on-page** only when we know which surfaces users want. **Do not start Phase 9 until Phase 7 ship gate is met.**

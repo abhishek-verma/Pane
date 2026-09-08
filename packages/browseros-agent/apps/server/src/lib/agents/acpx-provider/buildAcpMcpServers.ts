@@ -31,10 +31,18 @@ export function buildAcpMcpServers(
   opts: BuildAcpMcpServersOptions,
 ): McpServerSpec[] {
   const out: McpServerSpec[] = [buildBrowserOsSelfMcpEntry(opts)]
+  const names = new Set(out.map((server) => server.name))
   for (const server of opts.customMcpServers ?? []) {
+    // ACP clients commonly index servers by name (last entry wins). Never
+    // allow a custom connector to shadow Pane's entire tool surface.
+    let name = server.name
+    for (let suffix = 1; names.has(name); suffix++) {
+      name = `${server.name}_custom_${suffix}`
+    }
+    names.add(name)
     out.push({
       type: 'http',
-      name: server.name,
+      name,
       url: server.url,
       headers: [],
     })
