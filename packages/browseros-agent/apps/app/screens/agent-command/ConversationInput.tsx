@@ -3,6 +3,7 @@ import {
   AudioLines,
   Bot,
   ChevronDown,
+  ChevronRight,
   FileText,
   Folder,
   Layers,
@@ -22,7 +23,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { PaneWordmark } from '@/components/branding/PaneWordmark'
 import { ChatProviderSelector } from '@/components/chat/ChatProviderSelector'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
@@ -36,8 +36,6 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { LiveCaption } from '@/components/voice/LiveCaption'
 import { type StagedAttachment, stageAttachments } from '@/lib/attachments'
-import { PaneIcon, ProviderIcon } from '@/lib/llm-providers/providerIcons'
-import type { ProviderType } from '@/lib/llm-providers/types'
 import { cn } from '@/lib/utils'
 import { VOICE_SUPPORTED } from '@/lib/voice/voice-supported'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
@@ -203,11 +201,8 @@ function VoiceButton({
 /**
  * Calm-composer footer shared by both `/home` (`variant="home"`) and
  * the chat surface at `/home/agents/:agentId` (`variant="conversation"`).
- * Pill-shaped chips on an internal dashed divider, with a right-aligned
- * keyboard hint. The merged provider/agent picker is conditional via
- * `showAgentSelector`: home shows it as a filled pill on the left; the
- * chat surface hides it (the target is locked once you're in the
- * conversation).
+ * Tab context and attachments stay inline; optional task settings use flat rows.
+ * The provider/agent picker is hidden once a conversation locks its target.
  */
 function CalmContextControls({
   providers,
@@ -296,82 +291,75 @@ function CalmContextControls({
         </PopoverTrigger>
         <PopoverContent
           align="end"
-          className="home-floating w-72 space-y-3 rounded-none p-4"
+          aria-label="Task options"
+          className="home-floating home-task-options w-80 max-w-[calc(100vw-32px)] p-1"
         >
-          <p className="font-medium text-sm">Task options</p>
+          {showAgentSelector &&
+          providers &&
+          selectedProvider &&
+          onSelectProvider ? (
+            <ChatProviderSelector
+              providers={providers}
+              selectedProvider={selectedProvider}
+              onSelectProvider={onSelectProvider}
+              contentClassName="home-floating"
+            >
+              <button
+                type="button"
+                className="home-option-row"
+                aria-label={`Assistant: ${selectedProvider.name}`}
+              >
+                <Bot className="size-4" />
+                <span>Assistant</span>
+                <span
+                  className="home-option-value"
+                  title={selectedProvider.name}
+                >
+                  {selectedProvider.name}
+                </span>
+                <ChevronRight className="size-3.5" />
+              </button>
+            </ChatProviderSelector>
+          ) : null}
+          <WorkspaceSelector contentClassName="home-floating">
+            <button
+              type="button"
+              className="home-option-row"
+              aria-label={`Files folder: ${selectedFolder?.name ?? 'None selected'}`}
+            >
+              <Folder className="size-4" />
+              <span>Files folder</span>
+              <span className="home-option-value" title={selectedFolder?.path}>
+                {selectedFolder?.name ?? 'Choose…'}
+              </span>
+              <ChevronRight className="size-3.5" />
+            </button>
+          </WorkspaceSelector>
           {VOICE_SUPPORTED && onOpenVoiceMode ? (
             <button
               type="button"
-              className="flex items-center gap-2 text-sm hover:underline"
+              className="home-option-row"
               onClick={onOpenVoiceMode}
             >
               <Mic className="size-4" />
-              Voice conversation
+              <span className="col-span-2">Voice conversation</span>
+              <ArrowRight className="size-3.5" />
             </button>
           ) : null}
-          <div className="flex flex-wrap items-center gap-2">
-            {showAgentSelector &&
-            providers &&
-            selectedProvider &&
-            onSelectProvider ? (
-              <>
-                <ChatProviderSelector
-                  providers={providers}
-                  selectedProvider={selectedProvider}
-                  onSelectProvider={onSelectProvider}
-                >
-                  <button
-                    type="button"
-                    className={cn(
-                      'inline-flex h-6 max-w-[200px] items-center gap-1.5 rounded-md border border-border/60 bg-accent/30 pr-2 pl-2.5 text-[11.5px] text-foreground transition-colors',
-                      'hover:border-border hover:bg-accent/70 data-[state=open]:border-border data-[state=open]:bg-accent/70',
-                    )}
-                  >
-                    {selectedProvider.type === 'browseros' ? (
-                      <PaneWordmark size="xs" />
-                    ) : (
-                      <>
-                        <TargetPillIcon provider={selectedProvider} />
-                        <span className="truncate font-medium font-mono text-[11.5px] tracking-[-0.01em]">
-                          {selectedProvider.name}
-                        </span>
-                      </>
-                    )}
-                    <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
-                  </button>
-                </ChatProviderSelector>
-                <span
-                  aria-hidden="true"
-                  className="mx-1 inline-block h-3.5 w-px shrink-0 bg-border"
-                />
-              </>
-            ) : null}
-            <WorkspaceSelector>
-              <button
-                type="button"
-                className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
-              >
-                <Folder className="size-3" />
-                <span>Files folder</span>
-                <span className="font-mono text-[10.5px] text-muted-foreground/70">
-                  {selectedFolder?.name ?? 'Choose folder'}
-                </span>
-              </button>
-            </WorkspaceSelector>
-            <button
-              type="button"
-              onClick={() =>
-                window.open(
-                  chrome.runtime.getURL('/app.html#/settings/mcp'),
-                  '_blank',
-                )
-              }
-              className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <PlugZap className="size-3" />
-              <span>Connect apps</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() =>
+              window.open(
+                chrome.runtime.getURL('/app.html#/settings/mcp'),
+                '_blank',
+              )
+            }
+            className="home-option-row"
+          >
+            <PlugZap className="size-4" />
+            <span className="col-span-2">Connect apps</span>
+            <ArrowRight className="size-3.5" />
+          </button>
         </PopoverContent>
       </Popover>
     </div>
@@ -793,10 +781,4 @@ function BotInputIcon() {
       <Bot className="h-4 w-4" />
     </div>
   )
-}
-
-function TargetPillIcon({ provider }: { provider: Provider }) {
-  if (provider.kind === 'acp') return <Bot className="size-3" />
-  if (provider.type === 'browseros') return <PaneIcon size={12} />
-  return <ProviderIcon type={provider.type as ProviderType} size={12} />
 }

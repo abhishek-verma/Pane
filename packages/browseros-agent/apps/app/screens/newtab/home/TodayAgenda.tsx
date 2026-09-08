@@ -323,7 +323,7 @@ function AgendaRow({
                   required
                   value={moveDay}
                   onChange={(event) => setMoveDay(event.target.value)}
-                  className="w-full border border-border bg-background p-2 text-xs"
+                  className="home-date-input w-full"
                 />
                 <HomeAction
                   disabled={busy || !moveDay}
@@ -560,7 +560,10 @@ export function TodayAgenda() {
                 <ChevronDown className="size-3" />
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="home-floating w-auto">
+            <PopoverContent
+              align="start"
+              className="home-floating home-date-picker w-auto p-1"
+            >
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -578,7 +581,7 @@ export function TodayAgenda() {
                     if (/^\d{4}-\d{2}-\d{2}$/.test(event.target.value))
                       changeDay(event.target.value)
                   }}
-                  className="border border-border bg-background p-2 text-xs"
+                  className="home-date-input"
                 />
                 <button
                   type="button"
@@ -592,7 +595,7 @@ export function TodayAgenda() {
               {chosenDay ? (
                 <button
                   type="button"
-                  className="home-text-action mt-3"
+                  className="home-menu-action justify-center"
                   onClick={() => changeDay(today)}
                 >
                   Back to today

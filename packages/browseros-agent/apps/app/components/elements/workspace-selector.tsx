@@ -20,12 +20,13 @@ import type { WorkspaceFolder } from '@/lib/workspace/workspace-storage'
 import { useWorkspace } from '@/modules/workspace/workspace.hooks'
 
 export interface WorkspaceSelectorProps {
+  contentClassName?: string
   side?: 'top' | 'bottom' | 'left' | 'right'
 }
 
 export const WorkspaceSelector: FC<
   PropsWithChildren<WorkspaceSelectorProps>
-> = ({ children, side = 'bottom' }) => {
+> = ({ children, side = 'bottom', contentClassName }) => {
   const [open, setOpen] = useState(false)
   const [filterText, setFilterText] = useState('')
   const {
@@ -92,7 +93,7 @@ export const WorkspaceSelector: FC<
       <PopoverContent
         side={side}
         align="start"
-        className="w-72 p-0"
+        className={cn('w-72 p-0', contentClassName)}
         role="dialog"
         aria-label="Select workspace folder"
       >

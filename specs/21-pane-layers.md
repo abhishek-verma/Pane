@@ -5,6 +5,8 @@
 **Decision:** make persistent, agent-authored website customizations a first-class Pane capability.  
 **Working brand:** **Pane Layers** — **Make any website work your way.**
 
+**Engineering follow-up (2026-09-08):** [Runtime contracts, UI ownership, and authoring verification](./21-pane-layers-runtime-contract.md) specifies action request/result schemas, provider adapters, document-bound event delivery, native site controls, and the agent's test protocol. It is part of this proposal, not implemented functionality.
+
 ## 1. Product definition
 
 A Layer is a saved customization that Pane applies whenever you visit matching pages. Ask for the change in natural language, see it on the actual page, and keep it. Manage it from the current site's Layers control or a central library.
@@ -65,7 +67,7 @@ Preview applies only local reversible behavior by default. It does not trigger a
 
 ### 3.2 Control the current site
 
-Primary shipped entry point: a **Layers · 2** chip in the sidepanel's current-tab header. Preserve the existing toolbar action that opens Pane. A dedicated native address-bar Layers control is a later discoverability improvement, not a prerequisite for core delivery.
+Primary product entry point: a dedicated **Layers** button in the browser toolbar immediately beside the address bar, opening a compact current-site popover without opening chat. Keep a **Layers · 2** chip in the sidepanel's current-tab header as a secondary entry point. Preserve the existing toolbar action that opens Pane. An extension-only sidebar entry is acceptable during L1–L4 dogfood; the native button and popover are an L5 beta release requirement. The [runtime companion](./21-pane-layers-runtime-contract.md) specifies surface ownership and native integration work.
 
 The site panel displays:
 
@@ -298,7 +300,7 @@ Keep the managed program and Layer protocol separate from PI's page-document DSL
 
 ### Tools and API contract
 
-Agent tools: `layer_list`, `layer_read`, `layer_draft`, `layer_preview`, `layer_validate`, `layer_activate`, `layer_update`, `layer_set_enabled`, `layer_remove`, and `layer_diagnose`. Read/diagnose tools are read-class; draft and local managed activation are write-local under existing scope/grants. New privilege grants require the policy path, not a tool-supplied boolean. External effects belong to the invoked action's consequence class. MCP callers cannot bypass draft validation, profile binding, or grant checks.
+Agent tools: `layer_list`, `layer_read`, `layer_draft`, `layer_preview`, `layer_validate`, `layer_test`, `layer_inspect_runtime`, `layer_activate`, `layer_update`, `layer_set_enabled`, `layer_remove`, and `layer_diagnose`. Read/diagnose tools are read-class; draft and local managed activation are write-local under existing scope/grants. Tests require scoped preview/browser authority and explicit action/data budgets; they are not universally read-class just because they are called tests. New privilege grants require the policy path, not a tool-supplied boolean. External effects belong to the invoked action's consequence class. MCP callers cannot bypass draft validation, profile binding, or grant checks. See the [verification contract](./21-pane-layers-runtime-contract.md) for independent harness receipts and live-versus-fixture evidence.
 
 Preview returns `{ layerId, versionId, previewId, targetDocument, scopeSummary, capabilityDiff, validation }`. Activation references that immutable version and validation receipt; reject mismatched/expired receipts when the page-dependent assumptions require revalidation. Source inspection and hash are integrity checks, not a proof of script safety.
 
@@ -312,12 +314,12 @@ These are dependency-ordered milestones, not a delivery-date promise. They super
 | --- | --- | --- |
 | **L0 — Prove boundaries** | Probe userScripts on the actual Pane bundle, permission UX, message sender data, update behavior, and world isolation. Design authenticated extension→server pairing. Build static/SPA/hostile-page fixtures. Validate data-source options. | Written runtime ADR and demonstrable broker identity/revocation. Unknowns are resolved before privileged script bridging. |
 | **L1 — Persistent local Layer** | Shared manifest, scoped SQLite store, versioned cache, managed collapse/decorate runtime, navigation lifecycle, complete cleanup, current-site toggle, minimal library, global/site pause. Use a manually supplied program first. | Hide → save → reload/restart → disable works in two profiles independently, with server off and capture off. No model/network on mount. |
-| **L2 — Agent authoring and preview** | Register tools in agent + MCP, DOM anchor capture/picker, draft validation, preview receipt, explicit-persistence handling, version replacement, Edit with Pane, repair and rollback. | Natural-language hide request produces a working durable Layer; failed edits leave the old version intact; wider scope cannot slip through silently. |
+| **L2 — Agent authoring and preview** | Register tools in agent + MCP, DOM anchor capture/picker, draft validation, independent `layer_test`/runtime inspection, verification receipts, explicit-persistence handling, version replacement, Edit with Pane, bounded repair and rollback. | Natural-language hide request produces a working durable Layer; activation references evidence for that exact version; failed edits leave the old version intact; wider scope cannot slip through silently. |
 | **L3 — Agentic buttons** | Named action definitions, bounded runner, document binding, cancellation/dedupe, cost/provider UI, trusted approvals, translation renderer/cache. | Translation button appears after restart; click translates; original survives failures; forged requests and stale results are rejected. |
 | **L4 — Data Layers** | Connector/HTTPS operation policy, credential isolation, entity extraction, visible-first batching, account-aware cache, 401/403/429 states. | Controlled data enrichment fixture works end-to-end with zero routine model calls; destination/redirect/account-isolation tests pass. |
-| **L5 — Managed beta release** | Finish library/settings/history, accessibility, lifecycle/performance tests, diagnostics and staged rollout. Bundle server + extension together through normal release process. | Two complete user demos (hide and translate), one controlled API demo, no known critical trust/lifecycle failures; kill controls tested. |
+| **L5 — Managed beta release** | Ship the native Layers button/current-site popover; finish library/settings/history, accessibility, lifecycle/performance tests, diagnostics and staged rollout. Bundle browser + server + extension through normal release process. | Two complete user demos (hide and translate), one controlled API demo, no known critical trust/lifecycle failures; controls work with the sidebar closed; kill controls tested. |
 | **L6 — Advanced JavaScript** | Store/edit/preview JS, add userScripts permission/enablement UX, per-Layer worlds, authenticated capability bootstrap, restricted named-action bridge, cleanup API, explicit full-page trust receipt. | Hostile-script and cross-Layer tests, revocation while running, restart/update recovery, honest reload recovery, and separate user comprehension review. Required before claiming a general userscript engine. |
-| **L7 — Expansion** | Native address-bar affordance, verified site adapters, import/export, later GM compatibility, sharing with review, optional context-aware actions. | Each capability has its own source/access and trust gate; no automatic remote script updates. |
+| **L7 — Expansion** | Verified site adapters, import/export, later GM compatibility, sharing with review, optional context-aware actions. | Each capability has its own source/access and trust gate; no automatic remote script updates. |
 
 After L0/L1, UI and authoring can be developed against the stable shared protocol while action/data work proceeds. Integration still follows the gates above. The plan does not require starting several agents or separate Codex tasks now.
 
