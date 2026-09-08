@@ -282,33 +282,35 @@ async function accumulateRewrittenStream(
  * killing the whole turn instead of letting the model see the tool error
  * and recover, which is how every other tool failure behaves.
  *
- * A genuine fatal error (dropped connection, etc.) is raised from the
- * `catch` block in the same function instead: it enqueues only the
- * `error` chunk and closes the stream with no `finish` behind it. So an
- * `error` chunk immediately followed by a `finish` chunk is always the
- * redundant, already-reported turn-failure case; an `error` chunk with no
- * `finish` behind it (stream just ends) is always the genuine case. This
- * buffers one `error` chunk at a time to make that lookahead decision
- * without depending on which specific tool-result preceded it.
+ * Fatal runtime/model errors can ALSO be followed by finish. Only suppress
+ * a terminal error when its message matches an already-reported failed tool
+ * result; otherwise preserve it so a warning cannot masquerade as a successful
+ * response. Buffer one error for this conservative duplicate check.
  */
 function createErrorGate(
   controller: TransformStreamDefaultController<unknown>,
 ) {
   let pendingError: unknown = null
+  const reportedToolErrors = new Set<string>()
   return {
     transform(chunk: unknown) {
       const part =
         chunk && typeof chunk === 'object' ? (chunk as ToolishPart) : null
+      if (part?.type === 'tool-result' && part.isError === true) {
+        if (typeof part.result === 'string') reportedToolErrors.add(part.result)
+      }
       if (pendingError !== null) {
         const buffered = pendingError
         pendingError = null
-        if (part?.type === 'finish') {
+        const error = (buffered as { error?: unknown }).error
+        const message = error instanceof Error ? error.message : String(error)
+        if (part?.type === 'finish' && reportedToolErrors.has(message)) {
           // Redundant turn-level error immediately before finish — drop it,
           // let finish complete the turn normally.
           controller.enqueue(rewriteStreamPart(chunk))
           return
         }
-        // Not immediately followed by finish — genuine error, forward it.
+        // No proven duplicate — preserve the error, including before finish.
         controller.enqueue(buffered)
       }
       if (part?.type === 'error') {

@@ -176,7 +176,7 @@ describe('probeAcpAgent — bundled-Bun launcher swap', () => {
     })
     expect(lastCall?.agent).toBeUndefined()
     expect(lastCall?.command).toContain('npx')
-    expect(lastCall?.command).toContain('@zed-industries/codex-acp')
+    expect(lastCall?.command).toContain('@agentclientprotocol/codex-acp')
   })
 
   it('passes through an explicit command unchanged regardless of resourcesDir', async () => {

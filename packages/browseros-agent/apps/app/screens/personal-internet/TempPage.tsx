@@ -7,19 +7,35 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { type FC, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { piFavicon, piPageTitle } from '@/lib/document-title/page-metadata'
+import { usePageMetadata } from '@/lib/document-title/usePageMetadata'
 import { navigateAppShell } from '@/lib/personal-internet/pi-document'
 import { tempHref } from '@/lib/personal-internet/pi-href'
 import { executePiAction } from '@/lib/pi-actions'
 import { PiLinkActions, PiRailAction } from './PiChrome'
 import { PiPageRenderer } from './PiPageRenderer'
-import { piDelete, piPost, usePiTemp } from './usePiApi'
+import {
+  piDelete,
+  piPost,
+  usePiInvalidateListener,
+  usePiTemp,
+} from './usePiApi'
 
 export const TempPage: FC = () => {
   const { tempId } = useParams()
+  usePiInvalidateListener()
   const query = usePiTemp(tempId)
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
+  const pageTitle = query.data?.doc.title || query.data?.temp.title
+  usePageMetadata(
+    piPageTitle(
+      pageTitle || (query.isLoading ? 'Loading…' : 'Page not found'),
+      'Temp',
+    ),
+    piFavicon(`temp:${tempId ?? 'unknown'}`, pageTitle || 'Temp', true),
+  )
 
   if (query.isLoading) {
     return <div className="p-6 text-muted-foreground text-sm">Loading…</div>

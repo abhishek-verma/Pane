@@ -1116,7 +1116,7 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
     expect(command).toContain('/runtime/codex-home')
     // Spawn must go through BrowserOS's own npx command for the official
     // codex-acp package, not a bare `codex` binary.
-    expect(command).toContain('npx -y @zed-industries/codex-acp')
+    expect(command).toContain('npx -y @agentclientprotocol/codex-acp')
   })
 
   it('prepends the bundled native CLI directory to host ACP adapter commands', async () => {
@@ -1201,7 +1201,7 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
         `'${bunPath}' x --bun --silent --package '@agentclientprotocol/claude-agent-acp@^0.64.0' 'claude-agent-acp'`,
       )
       expect(codexCommand).toContain(
-        `'${bunPath}' x --bun --silent --package '@zed-industries/codex-acp@^0.16.0' 'codex-acp'`,
+        `'${bunPath}' x --bun --silent --package '@agentclientprotocol/codex-acp@^1.10.0' 'codex-acp'`,
       )
       expect(codexCommand).toContain('BUN_INSTALL_CACHE_DIR=')
       expect(codexCommand).toContain('cache/acp-node-shim')

@@ -114,6 +114,21 @@ describe('resolveAcpSpawnCommand', () => {
     )
   })
 
+  it('keeps Codex on the adapter-compatible runtime even with an older host CLI', async () => {
+    const out = await resolveAcpSpawnCommand({
+      agentType: 'codex',
+      env: { PATH: '/usr/bin' },
+      resolveBundledBun: stubBunPresent,
+      resolveNative: async () => ({
+        path: '/Users/dev/.local/bin/codex',
+        env: { PATH: '/Users/dev/.local/bin:/usr/bin' },
+      }),
+    })
+    expect(out?.command).toContain('@agentclientprotocol/codex-acp@^1.10.0')
+    expect(out?.command).not.toContain('CODEX_PATH=')
+    expect(out?.command).not.toContain('@zed-industries')
+  })
+
   it("prefers the resolved host CLI over Pane's packaged fallback", async () => {
     const out = await resolveAcpSpawnCommand({
       agentType: 'claude',
@@ -127,7 +142,22 @@ describe('resolveAcpSpawnCommand', () => {
     })
 
     expect(out?.command).toBe(
-      `env PATH='/Users/dev/.local/bin:/usr/bin' '${FAKE_BUN_PATH}' x --bun --silent --package '${HOST_ACP_ADAPTER_CONFIG.claude.acpPackageSpec}' '${HOST_ACP_ADAPTER_CONFIG.claude.acpBin}'`,
+      `env CLAUDE_CODE_EXECUTABLE='/Users/dev/.local/bin/claude' PATH='/Users/dev/.local/bin:/usr/bin' '${FAKE_BUN_PATH}' x --bun --silent --package '${HOST_ACP_ADAPTER_CONFIG.claude.acpPackageSpec}' '${HOST_ACP_ADAPTER_CONFIG.claude.acpBin}'`,
+    )
+  })
+
+  it('uses the exact Claude executable with the npx fallback too', async () => {
+    const out = await resolveAcpSpawnCommand({
+      agentType: 'claude',
+      resolveBundledBun: stubBunMissing,
+      resolveNpx: stubNpxPresent,
+      resolveNative: async () => ({
+        path: '/Users/dev/CLI tools/claude',
+        env: { PATH: '/usr/bin' },
+      }),
+    })
+    expect(splitCommandLikeAcpx(out!.command).args).toContain(
+      'CLAUDE_CODE_EXECUTABLE=/Users/dev/CLI tools/claude',
     )
   })
 
@@ -137,6 +167,7 @@ describe('resolveAcpSpawnCommand', () => {
       resourcesDir: '/fake/resources',
       resolveBundledBun: stubBunMissing,
       resolveNpx: stubNpxPresent,
+      resolveNative: stubNativeMissing,
     })
     expect(out?.source).toBe('host-npx-fallback')
     const split = splitCommandLikeAcpx(out?.command ?? '')
@@ -150,6 +181,7 @@ describe('resolveAcpSpawnCommand', () => {
       resourcesDir: '/fake/resources',
       resolveBundledBun: stubBunMissing,
       resolveNpx: stubNpxMissing,
+      resolveNative: stubNativeMissing,
     })
     expect(out?.source).toBe('host-npx-fallback')
     // bare 'npx' gets shell-quoted; acpx's splitCommandLine strips quotes so the spawned token is still `npx`

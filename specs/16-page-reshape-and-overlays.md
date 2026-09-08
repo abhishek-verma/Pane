@@ -1,5 +1,7 @@
 # 16 — Page Reshape & Overlays (the web, reshaped for you)
 
+> **2026-09-07 proposal:** [21 — Pane Layers](./21-pane-layers.md) develops this concept into persistent, user-requested website customizations, with branding, UX, managed and JavaScript runtime modes, and an implementation sequence. It also identifies privacy/isolation assumptions below that must be corrected if the new plan is adopted. This document remains the historical proposal; the new feature is not implemented yet.
+
 ## Summary
 
 Because Pane is the browser, it can read a page in the context of *your* goals and **layer what you need on top of it** — without changing the underlying web. A job listing shows a fit score against your resume and skills, not a generic "AI summary." A flight search highlights the routes that fit your calendar. A long policy doc gets margin notes tied to the project you're working on. A feed (LinkedIn, X, Hacker News) fades the engagement bait and recruiter spam and keeps the people you actually learn from. The web stays the web; Pane layers *yours* on top.
