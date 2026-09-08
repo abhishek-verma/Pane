@@ -57,6 +57,18 @@ const realBrowserosDir = requireFromHere(
   '../../src/lib/browseros-dir.ts',
 ) as typeof import('../../src/lib/browseros-dir')
 const realGetBrowserosDir = realBrowserosDir.getBrowserosDir
+const realBinaryResolver = {
+  ...requireFromHere('../../src/lib/agents/host-acp/binary-resolver.ts'),
+}
+// Factory tests verify command wiring, not the developer's login shell.
+// Keep real runtime coverage in the opt-in packaged provider smoke test.
+mock.module('../../src/lib/agents/host-acp/binary-resolver', () => ({
+  ...realBinaryResolver,
+  resolveHostBinary: async (name: string) => ({
+    path: `/usr/bin/${name}`,
+    env: { PATH: '/usr/bin' },
+  }),
+}))
 const realChildProcess = requireFromHere(
   'node:child_process',
 ) as typeof import('node:child_process')
@@ -129,6 +141,10 @@ afterAll(() => {
   mock.module('node:fs/promises', () => realFsPromises)
   mock.module('../../src/lib/browseros-dir', () => realBrowserosDir)
   mock.module('node:child_process', () => realChildProcess)
+  mock.module(
+    '../../src/lib/agents/host-acp/binary-resolver',
+    () => realBinaryResolver,
+  )
 })
 
 function baseConfig(): Record<string, unknown> {
@@ -226,7 +242,7 @@ describe('createLanguageModel — ACP providers', () => {
     expect(overrides?.claude).toContain('npx')
     expect(overrides?.claude).toContain('@agentclientprotocol/claude-agent-acp')
     expect(overrides?.codex).toContain('npx')
-    expect(overrides?.codex).toContain('@zed-industries/codex-acp')
+    expect(overrides?.codex).toContain('@agentclientprotocol/codex-acp')
   })
 
   it('pre-seeds the bundled-Bun launcher for claude and codex when resourcesDir points at a real bundled bun', async () => {
@@ -252,7 +268,7 @@ describe('createLanguageModel — ACP providers', () => {
     expect(overrides?.claude).toContain(bunPath)
     expect(overrides?.claude).toContain('@agentclientprotocol/claude-agent-acp')
     expect(overrides?.codex).toContain(bunPath)
-    expect(overrides?.codex).toContain('@zed-industries/codex-acp')
+    expect(overrides?.codex).toContain('@agentclientprotocol/codex-acp')
 
     fs.rmSync(tmpRoot, { recursive: true, force: true })
   })
@@ -280,7 +296,7 @@ describe('createLanguageModel — ACP providers', () => {
       | undefined
     expect(overrides?.['my-agent']).toBe('my-bin acp')
     expect(overrides?.claude).toContain('@agentclientprotocol/claude-agent-acp')
-    expect(overrides?.codex).toContain('@zed-industries/codex-acp')
+    expect(overrides?.codex).toContain('@agentclientprotocol/codex-acp')
 
     fs.rmSync(tmpRoot, { recursive: true, force: true })
   })

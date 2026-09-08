@@ -8,6 +8,8 @@ import { type FC, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { piFavicon, piPageTitle } from '@/lib/document-title/page-metadata'
+import { usePageMetadata } from '@/lib/document-title/usePageMetadata'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { entityHref } from '@/lib/personal-internet/pi-href'
 import { executePiAction, refreshPiPageWithAgent } from '@/lib/pi-actions'
@@ -36,6 +38,7 @@ import {
   piPost,
   usePiInvalidateListener,
   usePiPage,
+  usePiSite,
 } from './usePiApi'
 
 const MATERIALIZE_TIMEOUT_MS = 90_000
@@ -155,12 +158,24 @@ export const EntityPage: FC = () => {
     useState<PendingMaterializeApproval | null>(null)
   const [resolvingApproval, setResolvingApproval] = useState(false)
   const pageQuery = usePiPage(siteId, pageId ?? undefined)
+  const siteQuery = usePiSite(siteId)
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const enrichSinceRef = useRef<number | null>(null)
   const debounceRef = useRef<number | null>(null)
   const mountedKeyRef = useRef<string>('')
   const pageIdRef = useRef<string | null>(null)
   const field = piEntityField(siteId, entityKey)
+  // Params can change before the ensure effect clears the previous entity.
+  const isCurrentEntity = mountedKeyRef.current === `${siteId}:${entityKey}`
+  const tabTitle =
+    (isCurrentEntity &&
+      (pageQuery.data?.doc?.title || pageQuery.data?.page.title || company)) ||
+    entityKey ||
+    'Entity'
+  usePageMetadata(
+    piPageTitle(tabTitle, siteQuery.data?.site.name),
+    piFavicon(`${siteId}:${entityKey}`, tabTitle),
+  )
 
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: ensure lifecycle + stale-response guards
   const ensure = async (opts: { materialize: boolean; force?: boolean }) => {

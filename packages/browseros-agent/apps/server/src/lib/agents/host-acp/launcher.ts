@@ -55,31 +55,40 @@ export async function resolveAcpSpawnCommand(
   const config = HOST_ACP_ADAPTER_CONFIG[input.agentType as HostAcpAdapter]
   if (!hasAcpPackageConfig(config)) return null
 
+  const resolveNative =
+    input.resolveNative ??
+    ((name: string) =>
+      resolveHostBinary(name, { env: input.env, platform: input.platform }))
+  const native = await resolveNative(config.nativeBinary).catch(() => null)
+  // Claude ACP resolves its SDK's private CLI, not `claude` on PATH.
+  // Its documented override must name the exact executable we detected.
+  const nativeOverrides: Record<string, string> =
+    input.agentType === 'claude' && native
+      ? { CLAUDE_CODE_EXECUTABLE: native.path }
+      : {}
+
   const resolve = input.resolveBundledBun ?? resolveBundledBun
   const bunPath = resolve({
     resourcesDir: input.resourcesDir,
     platform: input.platform,
   })
   if (bunPath) {
-    // The ACP package delegates to the native CLI by its bare name. Resolve
-    // the user's CLI first and carry its enriched PATH into the child. This
-    // preserves the user's login/auth/model support across Pane updates; the
-    // packaged CLI remains an offline fallback for users without a host CLI.
-    const resolveNative =
-      input.resolveNative ??
-      ((name: string) =>
-        resolveHostBinary(name, { env: input.env, platform: input.platform }))
-    const native = await resolveNative(config.nativeBinary).catch(() => null)
+    // Claude uses the explicit executable override above. Codex uses the
+    // adapter's compatible runtime by default, not an arbitrary host CLI:
+    // a host CLI can itself be too old for the user's selected model.
     return {
       command: wrapCommandWithEnv(
         `${quoteAcpCommandToken(bunPath)} x --bun --silent --package ${quoteAcpCommandToken(config.acpPackageSpec)} ${quoteAcpCommandToken(config.acpBin)}`,
-        withBundledBunAcpAdapterEnv({
-          bunPath,
-          browserosDir: input.browserosDir,
-          env: native?.env ?? input.env,
-          platform: input.platform,
-          includeBundledCliPath: !native,
-        }),
+        {
+          ...withBundledBunAcpAdapterEnv({
+            bunPath,
+            browserosDir: input.browserosDir,
+            env: native?.env ?? input.env,
+            platform: input.platform,
+            includeBundledCliPath: !native,
+          }),
+          ...nativeOverrides,
+        },
       ),
       source: 'bundled-bun',
     }
@@ -98,9 +107,13 @@ export async function resolveAcpSpawnCommand(
   )
   // Wrap with the enriched env so that shebang interpreters (e.g. `#!/usr/bin/env node`)
   // referenced by the npx script can be found even in a GUI-launched minimal PATH.
-  const command = npxResolved?.env
-    ? wrapCommandWithEnv(baseCommand, npxResolved.env as Record<string, string>)
-    : baseCommand
+  const command =
+    npxResolved?.env || Object.keys(nativeOverrides).length
+      ? wrapCommandWithEnv(baseCommand, {
+          ...(npxResolved?.env as Record<string, string>),
+          ...nativeOverrides,
+        })
+      : baseCommand
   return { command, source: 'host-npx-fallback' }
 }
 

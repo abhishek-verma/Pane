@@ -25,6 +25,7 @@ import {
 import type { Provider } from './chatComponentTypes'
 
 export interface ChatProviderSelectorProps {
+  contentClassName?: string
   providers: Provider[]
   selectedProvider: Provider
   onSelectProvider: (provider: Provider) => void
@@ -32,14 +33,24 @@ export interface ChatProviderSelectorProps {
 
 export const ChatProviderSelector: FC<
   PropsWithChildren<ChatProviderSelectorProps>
-> = ({ children, providers, selectedProvider, onSelectProvider }) => {
+> = ({
+  children,
+  providers,
+  selectedProvider,
+  onSelectProvider,
+  contentClassName,
+}) => {
   const [open, setOpen] = useState(false)
   const groups = groupProviderOptions(providers)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="w-64 p-0">
+      <PopoverContent
+        side="bottom"
+        align="start"
+        className={cn('w-64 p-0', contentClassName)}
+      >
         <Command>
           <CommandInput
             placeholder="Search providers or agents..."

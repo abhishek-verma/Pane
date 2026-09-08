@@ -356,6 +356,51 @@ describe('wrapAcpProviderExecutedTools', () => {
       return parts
     }
 
+    it('preserves a fatal model/runtime error followed by finish', async () => {
+      const parts = await collect(
+        streamOf([
+          { type: 'text-start', id: 'warning' },
+          {
+            type: 'text-delta',
+            id: 'warning',
+            delta: 'Model metadata not found',
+          },
+          { type: 'text-end', id: 'warning' },
+          { type: 'error', error: new Error('Internal error') },
+          { type: 'finish', finishReason: 'error', usage: {} },
+        ]),
+      )
+      expect(parts.map((part) => part.type)).toEqual([
+        'text-start',
+        'text-delta',
+        'text-end',
+        'error',
+        'finish',
+      ])
+    })
+
+    it('preserves an unrelated fatal error after a failed tool', async () => {
+      const parts = await collect(
+        streamOf([
+          {
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'Skill',
+            result: 'Unknown skill',
+            isError: true,
+            providerExecuted: true,
+          },
+          { type: 'error', error: new Error('Internal error') },
+          { type: 'finish', finishReason: 'error', usage: {} },
+        ]),
+      )
+      expect(parts.map((part) => part.type)).toEqual([
+        'tool-result',
+        'error',
+        'finish',
+      ])
+    })
+
     it('drops a stream error chunk that immediately precedes finish (Claude Code Skill tool_use_error)', async () => {
       // Reproduces: Claude Code's native `Skill` tool fails ("Unknown skill:
       // pi-page-dsl"). acpx-ai-provider finalizes it as a normal

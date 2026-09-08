@@ -205,3 +205,54 @@
 .home-site-update {
   justify-content: center;
 }
+
+/* A single menu surface, with unboxed controls and consistent row geometry. */
+.home-option-row {
+  display: grid;
+  grid-template-columns: 16px auto minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+}
+.home-option-row > svg {
+  color: var(--muted-foreground);
+}
+.home-option-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.home-option-row:hover,
+.home-option-row[data-state="open"] {
+  background: var(--muted);
+}
+.home-option-row:focus-visible,
+.home-date-input:focus-visible,
+.home-date-picker .home-icon-button:focus-visible {
+  outline: 1px solid var(--foreground);
+  outline-offset: -2px;
+}
+.home-date-input {
+  min-width: 0;
+  min-height: 36px;
+  border: 0;
+  padding: 6px 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--foreground);
+  color-scheme: light;
+  font: inherit;
+  font-size: 12px;
+}
+.dark .home-date-input {
+  color-scheme: dark;
+}

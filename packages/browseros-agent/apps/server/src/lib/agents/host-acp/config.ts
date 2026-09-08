@@ -29,10 +29,13 @@ export const HOST_ACP_ADAPTER_CONFIG = {
   codex: {
     displayName: 'Codex',
     nativeBinary: 'codex',
-    acpCommand: 'npx -y @zed-industries/codex-acp@^0.16.0',
-    acpPackageSpec: '@zed-industries/codex-acp@^0.16.0',
-    acpPackageName: '@zed-industries/codex-acp',
-    acpPackageVersionRange: '^0.16.0',
+    // This adapter starts its compatible @openai/codex app-server runtime.
+    // The Zed adapter statically embeds an older Codex core and cannot use
+    // newer model support from the user's CLI, regardless of PATH.
+    acpCommand: 'npx -y @agentclientprotocol/codex-acp@^1.10.0',
+    acpPackageSpec: '@agentclientprotocol/codex-acp@^1.10.0',
+    acpPackageName: '@agentclientprotocol/codex-acp',
+    acpPackageVersionRange: '^1.10.0',
     acpBin: 'codex-acp',
   },
 } as const satisfies Record<HostAcpAdapter, HostAcpAdapterConfig>
@@ -44,9 +47,8 @@ export const HOST_ACP_ADAPTER_CONFIG = {
  * adapter inherits the user's own CLI defaults (e.g. Claude settings
  * `permissions.defaultMode: "dontAsk"`, which auto-denies the BrowserOS
  * MCP tools). Candidates are tried in order; codex lists two ids because
- * @agentclientprotocol/codex-acp advertises `agent-full-access` while
- * @zed-industries/codex-acp (bundled-bun / npx fallback) uses
- * `full-access` for the same approval=never + danger-full-access preset.
+ * @agentclientprotocol/codex-acp advertises `agent-full-access`; the legacy
+ * `full-access` id remains a compatibility candidate.
  * Claude lists two ids because different adapter versions use different
  * names for the same full-bypass mode.
  */

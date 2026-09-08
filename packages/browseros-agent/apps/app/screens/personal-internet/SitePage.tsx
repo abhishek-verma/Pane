@@ -6,6 +6,8 @@
 
 import { type FC, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { piFavicon, piPageTitle } from '@/lib/document-title/page-metadata'
+import { usePageMetadata } from '@/lib/document-title/usePageMetadata'
 import { pageHref, siteHref } from '@/lib/personal-internet/pi-href'
 import { executePiAction, refreshPiPageWithAgent } from '@/lib/pi-actions'
 import { cn } from '@/lib/utils'
@@ -82,6 +84,20 @@ export const SitePage: FC = () => {
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const field = piSiteField(siteId)
+  const siteName = siteQuery.data?.site.name
+  const pageTitle =
+    pageQuery.data?.doc?.title ||
+    pageQuery.data?.page.title ||
+    siteQuery.data?.pages.find((page) => page.id === resolvedPageId)?.title
+  usePageMetadata(
+    piPageTitle(
+      pageTitle ||
+        siteName ||
+        (siteQuery.isLoading ? 'Loading site…' : 'Site unavailable'),
+      siteName,
+    ),
+    piFavicon(siteId ?? 'site', siteName || pageTitle || 'Site'),
+  )
 
   if (siteQuery.isLoading || pageQuery.isLoading) {
     return (

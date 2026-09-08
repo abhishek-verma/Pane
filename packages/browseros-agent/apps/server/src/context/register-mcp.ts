@@ -22,7 +22,7 @@ interface AiSdkToolLike {
   execute: (
     args: Record<string, unknown>,
     options: { signal?: AbortSignal },
-  ) => Promise<{ text: string; isError?: boolean }>
+  ) => Promise<Record<string, unknown>>
 }
 
 type McpRegisterFn = (
@@ -72,15 +72,32 @@ export function registerContextMcpTools(
             ...(options.gateContext ?? createDefaultMcpGateContext()),
             surface: 'mcp',
           },
-          async (cleanArgs) =>
-            tool.execute(cleanArgs, { signal: extra?.signal }),
+          async (cleanArgs) => {
+            const output = toMcpToolResult(
+              await tool.execute(cleanArgs, { signal: extra?.signal }),
+            )
+            return { text: output.content[0].text, isError: output.isError }
+          },
           'text',
         )
-        return {
-          content: [{ type: 'text', text: result.text || '' }],
-          isError: result.isError,
-        }
+        return toMcpToolResult(result)
       },
     )
+  }
+}
+
+/** AI SDK tools may return structured data, not only a { text } envelope. */
+export function toMcpToolResult(result: Record<string, unknown>) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text:
+          typeof result.text === 'string'
+            ? result.text
+            : JSON.stringify(result),
+      },
+    ],
+    isError: result.isError === true,
   }
 }

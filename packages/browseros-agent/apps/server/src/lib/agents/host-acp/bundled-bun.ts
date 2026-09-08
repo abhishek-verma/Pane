@@ -53,10 +53,9 @@ export function withBundledBunAcpAdapterEnv(input: {
   env?: Record<string, string | undefined>
   platform?: NodeJS.Platform
   /**
-   * Keep BrowserOS's packaged CLI directory off PATH when a current host
-   * Claude/Codex CLI was resolved. ACP adapters spawn `claude` / `codex` by
-   * name, and putting the packaged directory first silently downgraded users
-   * to the version shipped with Pane.
+   * Keep BrowserOS's packaged CLI directory off PATH when a host CLI was
+   * resolved. Runtime selection itself uses the adapter-specific executable
+   * contract in launcher.ts; PATH alone does not select an adapter's runtime.
    */
   includeBundledCliPath?: boolean
 }): Record<string, string> {
