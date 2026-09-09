@@ -7,16 +7,16 @@
     <language>en</language>
 
 <item>
-  <title>Pane - 0.47.0.89</title>
-  <description sparkle:format="plain-text">Persistent Layers, redesigned chat composition, scheduler integration, and provider-parity runtime updates.</description>
-  <sparkle:version>7976.97</sparkle:version>
-  <sparkle:shortVersionString>0.47.0.89</sparkle:shortVersionString>
-  <pubDate>Wed, 09 Sep 2026 07:00:50 +0000</pubDate>
+  <title>Pane - 0.47.0.90</title>
+  <description sparkle:format="plain-text">Layers popup sizing and stricter typed-message isolation.</description>
+  <sparkle:version>7977.97</sparkle:version>
+  <sparkle:shortVersionString>0.47.0.90</sparkle:shortVersionString>
+  <pubDate>Wed, 09 Sep 2026 08:29:58 +0000</pubDate>
   <link>https://github.com/abhishek-verma/Pane/releases</link>
   <enclosure
-    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.89/Pane_v0.47.0.89_arm64.dmg"
-    sparkle:edSignature="2EW0eEd36M4a6Qt6sNVBbndFC+SHspsSBiUcZoMZ4EJ79LQIJnz6gvFElbaTQty8kWTXMQtYme1yCTCIXov5Dg=="
-    length="411353034"
+    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.90/Pane_v0.47.0.90_arm64.dmg"
+    sparkle:edSignature="7NIlC1JcRimkS6UDpcPL+oyjjTbH+Mn75/wTI4qJ1MCCJxFdEE5nU/ygglbGaCXFBn6Ck2zNPCZM8rypE6Q+DA=="
+    length="411481805"
     type="application/octet-stream" />
   <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
 </item>
