@@ -22,6 +22,6 @@ type ScheduleMessagesProtocol = {
 }
 
 const { sendMessage, onMessage } =
-  defineExtensionMessaging<ScheduleMessagesProtocol>()
+  defineExtensionMessaging<ScheduleMessagesProtocol>({ breakError: true })
 
 export { onMessage as onScheduleMessage, sendMessage as sendScheduleMessage }

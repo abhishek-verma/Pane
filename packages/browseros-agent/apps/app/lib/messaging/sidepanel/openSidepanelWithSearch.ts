@@ -9,7 +9,7 @@ type OpenSidePanelWithSearchParams = {
  * @public
  */
 const { sendMessage, onMessage } =
-  defineExtensionMessaging<OpenSidePanelWithSearchParams>()
+  defineExtensionMessaging<OpenSidePanelWithSearchParams>({ breakError: true })
 
 export {
   onMessage as onOpenSidePanelWithSearch,

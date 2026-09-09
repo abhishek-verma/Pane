@@ -124,6 +124,6 @@ type RuntimeMessagesProtocol = {
 }
 
 const { sendMessage, onMessage } =
-  defineExtensionMessaging<RuntimeMessagesProtocol>()
+  defineExtensionMessaging<RuntimeMessagesProtocol>({ breakError: true })
 
 export { onMessage as onRuntimeMessage, sendMessage as sendRuntimeMessage }

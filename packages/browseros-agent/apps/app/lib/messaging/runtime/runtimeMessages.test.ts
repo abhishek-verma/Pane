@@ -47,6 +47,19 @@ describe('runtime message protocol', () => {
     expect(source).not.toContain("message?.type === 'stop-agent'")
   })
 
+  it('ignores unrelated raw extension messages in every typed message bus', () => {
+    const files = [
+      'lib/messaging/runtime/runtimeMessages.ts',
+      'lib/messaging/server/serverMessages.ts',
+      'lib/messaging/schedules/scheduleMessages.ts',
+      'lib/messaging/sidepanel/openSidepanelWithSearch.ts',
+    ]
+
+    for (const file of files) {
+      expect(readAgentFile(file)).toContain('breakError: true')
+    }
+  })
+
   it('keeps the stop-agent and tab-id payload contracts explicit', () => {
     const stopAgent = {
       conversationId: 'conversation-1',

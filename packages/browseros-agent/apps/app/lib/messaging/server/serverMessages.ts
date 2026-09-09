@@ -10,6 +10,6 @@ type ServerMessagesProtocol = {
  * @public
  */
 const { sendMessage, onMessage } =
-  defineExtensionMessaging<ServerMessagesProtocol>()
+  defineExtensionMessaging<ServerMessagesProtocol>({ breakError: true })
 
 export { onMessage as onServerMessage, sendMessage as sendServerMessage }
