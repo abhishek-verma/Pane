@@ -5,6 +5,7 @@ import type { TranslationResult } from '@browseros/shared/layers/action-protocol
 import { layerDefinitionSchema } from '@browseros/shared/layers/manifest'
 import { LayerActions } from '../../src/layers/actions'
 import { LayerBroker } from '../../src/layers/broker'
+import { LayerProviderError } from '../../src/layers/provider-error'
 import { LayerStore } from '../../src/layers/store'
 import { LAYER_ACTIVITY_SCHEMA_SQL } from '../../src/lib/db/schema/layer-activity'
 import { LAYERS_SCHEMA_SQL } from '../../src/lib/db/schema/layers'
@@ -309,4 +310,25 @@ it('reports the deadline separately from cancellation and finishes activity', as
       .find((run) => run.invocationId === f.request.binding.invocationId)
       ?.status,
   ).toBe('failed')
+})
+
+it('delivers actionable account-denied codes without automatically retrying', async () => {
+  const f = setup()
+  let calls = 0
+  const service = new LayerActions(f.broker, async () => {
+    calls++
+    throw new LayerProviderError(
+      'PROVIDER_ACCESS_DENIED',
+      false,
+      'private error detail',
+    )
+  })
+  const events = await service.run(f.profileId, f.request, f.store)
+  expect(events.at(-1)?.payload).toEqual({
+    type: 'failed',
+    code: 'PROVIDER_ACCESS_DENIED',
+    retryable: false,
+  })
+  expect(JSON.stringify(events)).not.toContain('private error detail')
+  expect(calls).toBe(1)
 })

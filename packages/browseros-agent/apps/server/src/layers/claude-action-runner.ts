@@ -14,6 +14,7 @@ import { asSchema } from 'ai'
 import { resolveHostBinary } from '../lib/agents/host-acp/binary-resolver'
 import type { TranslationRun } from './action-runner'
 import { startPrivateLayerMcp } from './private-mcp'
+import { claudeAccountError } from './provider-error'
 import { PageTaskResultSink, TranslationResultSink } from './result-acceptance'
 import { createScriptPageTools } from './script-page-task'
 
@@ -143,7 +144,7 @@ export async function runClaudeLayerAction(
   delete env.CLAUDECODE
   delete env.PANE_LAYERS_BOOTSTRAP_FD
   let child: ReturnType<typeof Bun.spawn> | undefined
-  let failure: string | undefined
+  let failure: Error | undefined
   let initialized = false
   let result: LayerActionResult | undefined
   let sawTerminal = false
@@ -182,8 +183,8 @@ export async function runClaudeLayerAction(
         stderr: 'pipe',
       },
     )
-    const fail = (message: string) => {
-      failure ??= message
+    const fail = (message: string | Error) => {
+      failure ??= typeof message === 'string' ? new Error(message) : message
       stop()
     }
     const onEvent = (event: Record<string, unknown>) => {
@@ -224,6 +225,13 @@ export async function runClaudeLayerAction(
         initialized = true
       }
       if (event.type === 'result') {
+        if (event.is_error) {
+          const accountError = claudeAccountError(event.result)
+          if (accountError) {
+            fail(accountError)
+            return
+          }
+        }
         if (
           !initialized ||
           sawTerminal ||
@@ -288,7 +296,7 @@ export async function runClaudeLayerAction(
       child.exited,
     ])
     run.signal.throwIfAborted()
-    if (failure) throw new Error(failure)
+    if (failure) throw failure
     if (
       child.exitCode !== 0 ||
       Date.now() >= deadline ||

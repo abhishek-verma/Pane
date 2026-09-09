@@ -18,6 +18,7 @@ import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import { runLayerTranslation, type TranslationRun } from './action-runner'
 import type { LayerBroker } from './broker'
+import { LayerProviderError } from './provider-error'
 import { PageTaskResultSink, TranslationResultSink } from './result-acceptance'
 import { type LayerStore, LayerStoreError, layerDigest } from './store'
 
@@ -309,7 +310,7 @@ export class LayerActions {
           event(2, acceptedData),
           event(3, { type: 'completed' }),
         ]
-      } catch {
+      } catch (error) {
         store.finishRun(
           binding.invocationId,
           controller.signal.aborted && !timedOut ? 'cancelled' : 'failed',
@@ -324,8 +325,14 @@ export class LayerActions {
                 ? { type: 'cancelled' }
                 : {
                     type: 'failed',
-                    code: 'PROVIDER_RESULT_FAILED',
-                    retryable: true,
+                    code:
+                      error instanceof LayerProviderError
+                        ? error.code
+                        : 'PROVIDER_RESULT_FAILED',
+                    retryable:
+                      error instanceof LayerProviderError
+                        ? error.retryable
+                        : true,
                   },
           ),
         ]

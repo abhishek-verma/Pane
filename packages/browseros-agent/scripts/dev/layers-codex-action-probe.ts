@@ -1,12 +1,19 @@
 import { randomUUID } from 'node:crypto'
+import { runClaudeLayerAction } from '../../apps/server/src/layers/claude-action-runner'
 import { runCodexLayerAction } from '../../apps/server/src/layers/codex-action-runner'
 
-/** Actual installed CLI and production adapter; fake model and page host only. */
+/** Installed CLI/production adapter. Local model by default; explicit live flag
+ * sends only a fixed public sample. Generated protocol checks use a synthetic
+ * page host; actual DOM effects are verified in layers-integration-probe.ts. */
 export async function probeCodexActions() {
   const live = process.argv.includes('--live-action')
   const generated = process.argv.includes('--scripts')
-  if (live && generated)
-    throw new Error('The live fixture supports typed translation only')
+  const claude = process.argv.includes('--claude')
+  if (claude && !live)
+    throw new Error('Use the separate Claude fixture for local tests')
+  const runner: typeof runCodexLayerAction = claude
+    ? (run) => runClaudeLayerAction(run)
+    : runCodexLayerAction
   const requests: Array<{
     model: unknown
     tools: string[]
@@ -19,7 +26,7 @@ export async function probeCodexActions() {
     targetLanguage: 'en',
     blocks: [{ blockId: 'first', translatedText: 'Hello' }],
   }
-  const result = await runCodexLayerAction(
+  const result = await runner(
     {
       binding: {
         invocationId: randomUUID(),
@@ -52,12 +59,15 @@ export async function probeCodexActions() {
           : 'pane.translation.v1',
         targetLanguage: 'en',
         limits: {
-          maxSteps: generated ? 3 : 1,
+          maxSteps: generated ? (claude ? 4 : 3) : claude ? 2 : 1,
           maxOutputTokens: live ? 4096 : generated ? 1536 : 512,
           deadlineMs: 25000,
         },
       },
-      config: { provider: 'codex', model: 'gpt-5.5' },
+      config: {
+        provider: claude ? 'claude-code' : 'codex',
+        model: claude ? 'claude-sonnet-4-6' : 'gpt-5.5',
+      },
       signal: new AbortController().signal,
       current: () => true,
       pageHost: {
@@ -204,18 +214,25 @@ export async function probeCodexActions() {
   })
   if (live) {
     if (
-      result.schema !== 'pane.translation.v1' ||
-      result.blocks[0]?.blockId !== 'first'
+      generated
+        ? result.schema !== 'pane.script-task-receipt.v1' ||
+          !result.executions.length ||
+          inspected === 0 ||
+          executed === 0
+        : result.schema !== 'pane.translation.v1' ||
+          result.blocks[0]?.blockId !== 'first'
     )
       throw new Error('The live account did not return the bound translation')
     console.log(
       JSON.stringify({
         passed: [
-          'configured Codex account',
-          'private typed translation result',
+          `configured ${claude ? 'Claude' : 'Codex'} account`,
+          generated
+            ? 'live private page-tool protocol with synthetic host'
+            : 'private typed translation result',
           'no alternate API key',
         ],
-        providerTokenCeiling: false,
+        providerTokenCeiling: claude,
         acceptedOutputLimit: 4096,
       }),
     )

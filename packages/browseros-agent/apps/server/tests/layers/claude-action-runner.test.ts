@@ -31,7 +31,7 @@ writeFileSync(process.env.REPORT_PATH, process.cwd());
 const mode = process.env.MODE;
 console.log(JSON.stringify({type:'system',subtype:'init',tools:mode === 'tools' ? ['StructuredOutput','Bash'] : ['StructuredOutput'],mcp_servers:[],model:mode === 'model' ? 'different' : 'fixture'}));
 if (mode === 'wait') await new Promise(resolve => setTimeout(resolve,30000));
-else console.log(JSON.stringify({type:'result',subtype:'success',is_error:false,modelUsage:{fixture:{}},usage:{output_tokens:40},structured_output:mode === 'invalid' ? {html:'<script>no</script>'} : {schema:'pane.translation.v1',targetLanguage:'en',blocks:[{blockId:'first',translatedText:'Hello'}]}}));
+else console.log(JSON.stringify({type:'result',subtype:'success',is_error:mode === 'blocked',result:mode === 'blocked' ? 'Your organization has disabled Claude subscription access for Claude Code private-account-detail' : undefined,modelUsage:{fixture:{}},usage:{output_tokens:40},structured_output:mode === 'invalid' ? {html:'<script>no</script>'} : {schema:'pane.translation.v1',targetLanguage:'en',blocks:[{blockId:'first',translatedText:'Hello'}]}}));
 `,
   )
   await chmod(binary, 0o700)
@@ -114,5 +114,22 @@ it('kills a cancelled CLI run and removes its temporary workspace', async () => 
   expect(started).toBe(true)
   f.controller.abort()
   await expect(result).rejects.toThrow()
+  await expectWorkspaceRemoved(f.report)
+})
+
+it('reports organization-disabled account access without raw provider details or fallback', async () => {
+  const f = await fixture('blocked')
+  let failure: any
+  try {
+    await runClaudeLayerAction(f.run, f.options)
+  } catch (error) {
+    failure = error
+  }
+  expect(failure).toMatchObject({
+    code: 'PROVIDER_ACCESS_DENIED',
+    retryable: false,
+  })
+  expect(failure.message).toContain('organization has disabled')
+  expect(failure.message).not.toContain('private-account-detail')
   await expectWorkspaceRemoved(f.report)
 })

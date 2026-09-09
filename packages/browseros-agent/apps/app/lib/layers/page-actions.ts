@@ -181,7 +181,16 @@ export class LayerPageActions {
                 : result.status === 'failed' &&
                     result.code === 'DEADLINE_EXCEEDED'
                   ? 'This action reached its time limit. Try a smaller section.'
-                  : 'The provider did not return a complete valid result. Try again.',
+                  : result.status === 'failed' &&
+                      result.code === 'PROVIDER_ACCESS_DENIED'
+                    ? 'Your organization has disabled Claude subscription access for Claude Code. Ask your administrator to enable access.'
+                    : result.status === 'failed' &&
+                        result.code === 'PROVIDER_AUTH_REQUIRED'
+                      ? 'Sign in to the saved provider before trying this action again.'
+                      : result.status === 'failed' &&
+                          result.code === 'PROVIDER_RATE_LIMITED'
+                        ? 'The saved provider has reached its usage limit. Try again after it resets.'
+                        : 'The provider did not return a complete valid result. Try again.',
             )
         }
         if (!rendered) throw new Error('The action did not complete.')
