@@ -40,7 +40,6 @@ import {
   researchModeStorage,
   researchThreadStorage,
 } from '@/lib/capture/research-mode'
-import { stopSpeakerPoll } from '@/lib/capture/speaker-poll'
 import {
   isRecording,
   recordingSessionIds,
@@ -198,7 +197,6 @@ async function stopCaptureForSession(
   sessionId: string,
   tabId: number,
 ): Promise<void> {
-  stopSpeakerPoll(sessionId)
   captureWasInCallTabs.delete(tabId)
   unknownStreakByTab.delete(tabId)
   lastMuteBySession.delete(sessionId)
@@ -219,7 +217,6 @@ async function failCaptureForSession(
   tabId: number,
   message: string,
 ): Promise<void> {
-  stopSpeakerPoll(sessionId)
   captureWasInCallTabs.delete(tabId)
   unknownStreakByTab.delete(tabId)
   lastMuteBySession.delete(sessionId)
@@ -295,7 +292,6 @@ async function syncActiveSessions(): Promise<void> {
         if (isRecording(session.id)) {
           await stopCaptureForSession(session.id, tabId)
         } else {
-          stopSpeakerPoll(session.id)
           deactivateCaptureGlow(tabId, session.id)
           captureWasInCallTabs.delete(tabId)
           unknownStreakByTab.delete(tabId)
@@ -396,7 +392,6 @@ async function syncActiveSessions(): Promise<void> {
     // Orphan local recorders (server session already gone).
     for (const sessionId of recordingSessionIds()) {
       if (activeIds.has(sessionId)) continue
-      stopSpeakerPoll(sessionId)
       const session = sessions.find((item) => item.id === sessionId)
       const tabId = session?.tabId
       await stopTabAudioCapture(sessionId)
@@ -568,7 +563,6 @@ async function handleNavigation(tabId: number, url: string): Promise<void> {
     // with a fresh stream once the page renders its in-call DOM.
     const staleIds = sessionIdsForTab(tabId)
     for (const sessionId of staleIds) {
-      stopSpeakerPoll(sessionId)
       deactivateCaptureGlow(tabId, sessionId)
       await stopTabAudioCapture(sessionId).catch(() => null)
       lastMuteBySession.delete(sessionId)
@@ -713,7 +707,6 @@ export function captureBridge(): void {
   })
 
   onRuntimeMessage(RuntimeMessageType.stopCapture, async ({ data }) => {
-    stopSpeakerPoll(data.sessionId)
     await stopTabAudioCapture(data.sessionId)
     await stopMeetingSession(data.sessionId).catch(() => null)
     lastMuteBySession.delete(data.sessionId)
@@ -726,20 +719,4 @@ export function captureBridge(): void {
   })
 
   void syncActiveSessions()
-}
-
-export async function setResearchCaptureMode(enabled: boolean): Promise<void> {
-  await researchModeStorage.setValue(enabled)
-}
-
-export async function getResearchCaptureMode(): Promise<boolean> {
-  return researchModeStorage.getValue()
-}
-
-export async function setBrowsingCaptureMode(enabled: boolean): Promise<void> {
-  await browsingCaptureModeStorage.setValue(enabled)
-}
-
-export async function getBrowsingCaptureMode(): Promise<boolean> {
-  return browsingCaptureModeStorage.getValue()
 }

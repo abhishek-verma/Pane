@@ -4,10 +4,19 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { afterEach, describe, expect, it } from 'bun:test'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  mock,
+  spyOn,
+} from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import * as battery from '../../src/context/battery'
 import { closeDb, initializeDb } from '../../src/lib/db'
 import {
   enqueueRefresh,
@@ -20,7 +29,12 @@ import { setQuietHoursConfig } from '../../src/reach/quiet-hours'
 
 describe('pi harvest guards', () => {
   const dirs: string[] = []
+  beforeEach(() => {
+    spyOn(battery, 'detectOnBattery').mockResolvedValue(false)
+    spyOn(battery, 'getPauseOnBatteryPref').mockReturnValue(true)
+  })
   afterEach(() => {
+    mock.restore()
     closeDb()
     delete process.env.BROWSEROS_DIR
     setQuietHoursConfig({ enabled: false })

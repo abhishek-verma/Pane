@@ -29,10 +29,7 @@ function extractReplayText(output: unknown): string {
 }
 
 /** Formats replay output the same way the sidepanel client does. */
-export function formatReplayOutputForTool(
-  toolName: string,
-  output: unknown,
-): unknown {
+function formatReplayOutputForTool(toolName: string, output: unknown): unknown {
   const text = extractReplayText(output)
   const isError = Boolean((output as { isError?: boolean })?.isError)
   if (toolName.startsWith('filesystem_')) {

@@ -200,7 +200,7 @@ function AgentConversationController({
           ) : null}
           <ConversationInput
             variant="conversation"
-            onSend={(input) => {
+            onSend={async (input) => {
               const text = harnessHomeText(
                 input.text,
                 input.selectedTabs,
@@ -219,7 +219,7 @@ function AgentConversationController({
               // starting a parallel turn. Drains automatically as
               // soon as the active turn ends.
               if (streaming || activeTurnId) {
-                enqueueMessage.mutate({
+                await enqueueMessage.mutateAsync({
                   agentId,
                   sessionId,
                   message: text,
@@ -227,7 +227,14 @@ function AgentConversationController({
                 })
                 return
               }
-              void send({ text, attachments, attachmentPreviews })
+              return new Promise<boolean>((resolve) => {
+                void send({
+                  text,
+                  attachments,
+                  attachmentPreviews,
+                  onAccepted: resolve,
+                })
+              })
             }}
             onStop={handleStop}
             streaming={streaming}

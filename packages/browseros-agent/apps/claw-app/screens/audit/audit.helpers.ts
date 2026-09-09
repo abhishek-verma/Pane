@@ -14,15 +14,6 @@ export function formatRelative(createdAt: number, now: number): string {
   return `${Math.floor(delta / ONE_DAY)}d ago`
 }
 
-export function siteOf(url: string | null): string {
-  if (!url) return ''
-  try {
-    return new URL(url).hostname.replace(/^www\./, '')
-  } catch {
-    return url
-  }
-}
-
 export function formatDuration(ms: number): string {
   const v = ms < 0 ? 0 : ms
   if (v < 1000) return `${v}ms`

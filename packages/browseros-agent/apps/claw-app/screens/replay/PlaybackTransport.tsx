@@ -8,7 +8,7 @@ import type { Playback } from './use-playback'
 
 const SCRUBBER_STEP = 0.1
 
-interface PlaybackTransportProps {
+export interface PlaybackTransportProps {
   playback: Playback
   totalSeconds: number
   frames: readonly ReplayFrame[]

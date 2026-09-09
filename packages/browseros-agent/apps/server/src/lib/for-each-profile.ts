@@ -11,7 +11,7 @@ import { listOpenProfileKeys } from './db'
 import { isValidProfileKey, runWithProfileAsync } from './profile-context'
 
 /** Profile keys that exist on disk or already have an open DB handle. */
-export async function listActiveProfileKeys(): Promise<string[]> {
+async function listActiveProfileKeys(): Promise<string[]> {
   const fromDisk = await listKnownProfileKeys()
   const open = listOpenProfileKeys()
   const keys = new Set<string>()

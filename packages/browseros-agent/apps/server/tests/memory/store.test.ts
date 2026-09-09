@@ -129,7 +129,9 @@ describe('memory store (M4.1)', () => {
       source: 'user',
       memoriesRoot,
     })
-    const { writePromptFileAndReindex } = await import('../../src/memory/files')
+    const { writePromptFileAndReindex } = await import(
+      '../../src/memory/prompt-file-service'
+    )
     await writePromptFileAndReindex(
       'memory',
       `# Memory\n\n- prefers spaces over tabs\n`,

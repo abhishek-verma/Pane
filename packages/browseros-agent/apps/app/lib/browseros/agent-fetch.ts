@@ -12,12 +12,12 @@ import {
   emitPiInvalidate,
   shouldInvalidateFromPiFetch,
 } from '@/lib/pi-invalidate'
+import { getLayerCredential } from '../layers/native'
+import { getAgentServerUrl } from './helpers'
 import { getBrowserProfileKey } from './profile-key'
 
 /** Builds headers that identify the active Chrome browser profile. */
-export async function getAgentProfileHeaders(): Promise<
-  Record<string, string>
-> {
+async function getAgentProfileHeaders(): Promise<Record<string, string>> {
   const profileKey = await getBrowserProfileKey()
   return { [BROWSEROS_PROFILE_ID_HEADER]: profileKey }
 }
@@ -36,6 +36,29 @@ export async function agentFetch(
   for (const [key, value] of Object.entries(profileHeaders)) {
     if (!headers.has(key)) {
       headers.set(key, value)
+    }
+  }
+  const requestUrl = new URL(
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input.url,
+    'http://invalid.local',
+  )
+  if (
+    requestUrl.pathname === '/chat' ||
+    requestUrl.pathname.startsWith('/agents/')
+  ) {
+    // Never forward a browser credential to arbitrary URLs passed to this helper.
+    try {
+      if (requestUrl.origin === new URL(await getAgentServerUrl()).origin) {
+        const credential = await getLayerCredential()
+        headers.set('Authorization', `Bearer ${credential.token}`)
+        headers.set(BROWSEROS_PROFILE_ID_HEADER, credential.profileId)
+      }
+    } catch {
+      /* Older builds keep ordinary chat available without Layer authority. */
     }
   }
   const res = await fetch(input, { ...init, headers })

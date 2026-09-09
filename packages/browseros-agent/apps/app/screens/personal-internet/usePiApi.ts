@@ -170,17 +170,6 @@ export function usePiArchivedSites(enabled: boolean) {
   })
 }
 
-export function usePiTemplates() {
-  return useQuery({
-    queryKey: ['pi', 'templates'],
-    staleTime: Infinity,
-    queryFn: () =>
-      piGet<{
-        templates: Array<{ id: string; name: string; jtbd: string }>
-      }>('/pi/templates'),
-  })
-}
-
 export function usePiRecords(siteId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ['pi', 'records', siteId],

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import type { RunRow } from '@/modules/api/runs.hooks'
 import { auditIconFor, isCheckmarkHarness } from './governance.helpers'
 
-interface AuditRowProps {
+export interface AuditRowProps {
   run: RunRow
   onReplay: (run: RunRow) => void
 }

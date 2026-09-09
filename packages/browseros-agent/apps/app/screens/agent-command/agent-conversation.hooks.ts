@@ -19,6 +19,7 @@ import type { AgentChatHistoryMessage } from './agent-chat-types'
 import { mapAgentHarnessToolStatus } from './agent-stream-events'
 
 interface SendInput {
+  onAccepted?: (accepted: boolean) => void
   text: string
   attachments?: ServerAttachmentPayload[]
   // Optional preview metadata used to render the optimistic user turn.
@@ -345,17 +346,7 @@ export function useAgentConversation(
       signal,
       attachments,
     })
-    if (initial.status !== 409) return initial
-    // 409 means the server already has an active turn for this agent
-    // (a previous tab kicked one off and we're a fresh mount that
-    // missed the resume window). Attach to it instead of double-sending.
-    const body = (await initial.json()) as { turnId?: string }
-    if (!body.turnId) return initial
-    return attachToHarnessTurn(targetAgentId, {
-      sessionId,
-      turnId: body.turnId,
-      signal,
-    })
+    return initial
   }
 
   /** Pull session-key / turn-id off response headers and propagate to refs + the optimistic turn. */
@@ -383,8 +374,10 @@ export function useAgentConversation(
       typeof input === 'string' ? { text: input } : input
     const trimmed = normalized.text.trim()
     const attachments = normalized.attachments ?? []
-    if (streaming) return
-    if (!trimmed && attachments.length === 0) return
+    if (streaming || (!trimmed && attachments.length === 0)) {
+      normalized.onAccepted?.(false)
+      return
+    }
 
     const turn: AgentConversationTurn = {
       id: crypto.randomUUID(),
@@ -412,6 +405,7 @@ export function useAgentConversation(
         attachments,
         abortController.signal,
       )
+      normalized.onAccepted?.(response.ok && response.status !== 409)
       applyResponseHeadersToTurn(response)
       if (!response.ok) {
         const err = await response.text()
@@ -430,6 +424,7 @@ export function useAgentConversation(
         abortController.signal,
       )
     } catch (err) {
+      normalized.onAccepted?.(false)
       if (abortController.signal.aborted) return
       const msg = err instanceof Error ? err.message : String(err)
       updateCurrentTurnParts((parts) => [

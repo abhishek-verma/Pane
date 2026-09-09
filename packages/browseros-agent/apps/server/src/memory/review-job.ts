@@ -20,10 +20,10 @@ import { getLastUsedModel } from './draft-model'
 import { installSkillFromBody } from './store'
 
 export const REVIEW_MAX_EVENTS = 200
-export const REVIEW_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
-export const REVIEW_MIN_TOOL_CALLS = 5
-export const REVIEW_REPEAT_COUNT = 2
-export const REVIEW_INTERVAL_MS = 6 * 60 * 60 * 1000
+const REVIEW_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
+const REVIEW_MIN_TOOL_CALLS = 5
+const REVIEW_REPEAT_COUNT = 2
+const REVIEW_INTERVAL_MS = 6 * 60 * 60 * 1000
 
 export interface GraphEventRow {
   id: string
@@ -115,7 +115,7 @@ function payloadIndicatesFailure(payloadJson: string): boolean {
  * Failed tool settlements are already skipped at ingest, so graph events are
  * mostly successes; this filters aborted/denied/bash-failure runs.
  */
-export function isSuccessfulWorkflowRun(
+function isSuccessfulWorkflowRun(
   runId: string,
   runEvents: GraphEventRow[],
   deniedRunIds: Set<string>,

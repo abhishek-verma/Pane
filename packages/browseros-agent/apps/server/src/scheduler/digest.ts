@@ -67,7 +67,7 @@ function parseDigestHourFromUserMd(userMd: string): number {
   return DEFAULT_DIGEST_HOUR
 }
 
-export function assembleDailyDigestMarkdown(options?: {
+function assembleDailyDigestMarkdown(options?: {
   now?: number
   bucketId?: string
 }): string {
@@ -334,7 +334,7 @@ async function tickDigest(): Promise<void> {
 }
 
 /** Test helper */
-export function _resetDigestMonitorForTests(): void {
+function _resetDigestMonitorForTests(): void {
   if (digestTimer) {
     clearInterval(digestTimer)
     digestTimer = null

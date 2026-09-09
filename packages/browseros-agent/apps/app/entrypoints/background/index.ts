@@ -29,6 +29,7 @@ import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { captureBridge } from './captureBridge'
 import { drainOsPush } from './drainOsPush'
 import { drainServerRuns } from './drainServerRuns'
+import { layersBridge } from './layers'
 import { scheduledJobRuns } from './scheduledJobRuns'
 
 const LEGACY_TOOL_APPROVAL_STORAGE_KEYS = [
@@ -63,6 +64,7 @@ export default defineBackground(() => {
   drainServerRuns()
   drainOsPush()
   captureBridge()
+  layersBridge()
 
   chrome.action.onClicked.addListener(async (tab) => {
     if (typeof tab.id === 'number' && typeof tab.windowId === 'number') {

@@ -24,9 +24,3 @@ export function startCaptureRetentionMonitor(): void {
     void pruneAllProfiles().catch(() => null)
   }, RETENTION_INTERVAL_MS)
 }
-
-export function stopCaptureRetentionMonitor(): void {
-  if (!retentionTimer) return
-  clearInterval(retentionTimer)
-  retentionTimer = null
-}

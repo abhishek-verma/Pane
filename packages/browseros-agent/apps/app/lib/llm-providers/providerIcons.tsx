@@ -88,6 +88,3 @@ export const PaneIcon: FC<{ size?: number; className?: string }> = ({
     />
   )
 }
-
-/** @deprecated Use `PaneIcon` instead. */
-export const BrowserOSIcon = PaneIcon

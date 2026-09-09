@@ -1,46 +1,46 @@
 import {
-  ArrowRight,
-  AudioLines,
-  Bot,
-  ChevronDown,
-  ChevronRight,
-  FileText,
+  Camera,
+  FilePlus2,
   Folder,
   Layers,
-  Loader2,
-  Mic,
-  Paperclip,
   PlugZap,
-  Square,
-  X,
+  Plus,
+  SlidersHorizontal,
 } from 'lucide-react'
 import {
-  type DragEvent,
   type FC,
-  type ReactNode,
+  type SetStateAction,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
 import { ChatProviderSelector } from '@/components/chat/ChatProviderSelector'
 import type { Provider } from '@/components/chat/chatComponentTypes'
+import { AttachmentPreviews } from '@/components/chat/composer/AttachmentPreviews'
+import { ScreenshotCapture } from '@/components/chat/composer/ScreenshotCapture'
 import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
 import { WorkspaceSelector } from '@/components/elements/workspace-selector'
-import { Button } from '@/components/ui/button'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Textarea } from '@/components/ui/textarea'
-import { LiveCaption } from '@/components/voice/LiveCaption'
-import { type StagedAttachment, stageAttachments } from '@/lib/attachments'
-import { cn } from '@/lib/utils'
-import { VOICE_SUPPORTED } from '@/lib/voice/voice-supported'
+import {
+  ATTACHMENT_ACCEPT,
+  type StagedAttachment,
+  stageAttachments,
+} from '@/lib/attachments'
+import {
+  type ChatDraft,
+  emptyDraft,
+  removeAcceptedDraft,
+} from '@/modules/chat/composer-store'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
-import { useWorkspace } from '@/modules/workspace/workspace.hooks'
-
+import { ChatAttachedTabs } from '@/screens/sidepanel/index/ChatAttachedTabs'
+import {
+  ChatInput,
+  type ChatInputHandle,
+} from '@/screens/sidepanel/index/ChatInput'
 export interface ConversationInputSendInput {
   text: string
   attachments: StagedAttachment[]
@@ -80,705 +80,324 @@ export interface ConversationInputProps {
   onOpenVoiceMode?: () => void
 }
 
-function InputActionButton({
-  disabled,
-  onClick,
-  streaming,
-  hasContent,
-}: {
-  disabled: boolean
-  onClick: () => void
-  streaming: boolean
-  hasContent: boolean
-}) {
-  // Show the spinner while streaming only when there's nothing to
-  // send — once the user types something, the icon flips back to the
-  // paper-plane so it reads as "queue this message" instead of
-  // "still working".
-  const showSpinner = streaming && !hasContent
-  return (
-    <Button
-      onClick={onClick}
-      size="icon"
-      disabled={disabled}
-      aria-label={streaming && hasContent ? 'Queue message' : 'Start task'}
-      title={streaming && hasContent ? 'Queue message' : undefined}
-      className="h-10 w-10 flex-shrink-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-    >
-      {showSpinner ? (
-        <Loader2 className="h-5 w-5 animate-spin" />
-      ) : (
-        <ArrowRight className="h-5 w-5" />
-      )}
-    </Button>
-  )
-}
-
-function StopButton({ onStop }: { onStop: () => void }) {
-  return (
-    <Button
-      type="button"
-      size="icon"
-      variant="ghost"
-      onClick={onStop}
-      title="Stop current turn — queued messages will start next."
-      aria-label="Stop current turn"
-      className="h-8 w-8 flex-shrink-0 rounded-md bg-destructive/10 text-destructive transition-colors hover:bg-destructive/15 hover:text-destructive"
-    >
-      <Square className="h-3.5 w-3.5 fill-current" />
-    </Button>
-  )
-}
-
-function VoiceModeEntryButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={onClick}
-      className="h-10 w-10 flex-shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground"
-      title="Open voice mode"
-      aria-label="Open voice mode"
-    >
-      <AudioLines className="h-5 w-5" />
-    </Button>
-  )
-}
-
-function VoiceButton({
-  isRecording,
-  isTranscribing,
-  onStart,
-  onStop,
-}: {
-  isRecording: boolean
-  isTranscribing: boolean
-  onStart: () => void
-  onStop: () => void
-}) {
-  if (isRecording) {
-    return (
-      <Button
-        type="button"
-        size="icon"
-        onClick={onStop}
-        className="h-10 w-10 flex-shrink-0 rounded-full bg-red-600 text-white hover:bg-red-700"
-      >
-        <Square className="h-4 w-4" />
-      </Button>
-    )
-  }
-
-  if (isTranscribing) {
-    return (
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        disabled
-        className="h-10 w-10 flex-shrink-0 rounded-md"
-      >
-        <Loader2 className="h-5 w-5 animate-spin" />
-      </Button>
-    )
-  }
-
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      onClick={onStart}
-      className="h-10 w-10 flex-shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground"
-      title="Voice input"
-    >
-      <Mic className="h-5 w-5" />
-    </Button>
-  )
-}
-
-/**
- * Calm-composer footer shared by both `/home` (`variant="home"`) and
- * the chat surface at `/home/agents/:agentId` (`variant="conversation"`).
- * Tab context and attachments stay inline; optional task settings use flat rows.
- * The provider/agent picker is hidden once a conversation locks its target.
- */
-function CalmContextControls({
-  providers,
-  selectedProvider,
-  onSelectProvider,
-  selectedTabs,
-  onToggleTab,
-  showAgentSelector,
-  onAttachClick,
-  attachDisabled,
-  attachmentsEnabled,
-  onOpenVoiceMode,
-}: {
-  providers?: Provider[]
-  selectedProvider?: Provider | null
-  onSelectProvider?: (provider: Provider) => void
-  selectedTabs: chrome.tabs.Tab[]
-  onToggleTab: (tab: chrome.tabs.Tab) => void
-  showAgentSelector: boolean
-  onAttachClick: () => void
-  attachDisabled: boolean
-  attachmentsEnabled: boolean
-  onOpenVoiceMode?: () => void
-}) {
-  const { selectedFolder } = useWorkspace()
-
-  return (
-    <div className="mx-3 flex flex-wrap items-center gap-1 pt-1 pb-3">
-      <TabPickerPopover
-        variant="selector"
-        selectedTabs={selectedTabs}
-        onToggleTab={onToggleTab}
-      >
-        <button
-          type="button"
-          className={cn(
-            'inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] transition-colors data-[state=open]:bg-accent data-[state=open]:text-foreground',
-            selectedTabs.length > 0
-              ? 'bg-[var(--accent-orange)] text-primary-foreground hover:bg-[var(--accent-orange)]/90'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-          )}
-        >
-          <Layers className="size-3" />
-          <span>Use open tabs</span>
-          <span
-            className={cn(
-              'font-mono text-[10.5px]',
-              selectedTabs.length > 0
-                ? 'text-primary-foreground/80'
-                : 'text-muted-foreground/70',
-            )}
-          >
-            {selectedTabs.length}
-          </span>
-        </button>
-      </TabPickerPopover>
-      <span
-        aria-hidden="true"
-        className={
-          attachmentsEnabled
-            ? 'mx-1 inline-block h-3.5 w-px shrink-0 bg-border'
-            : 'hidden'
-        }
-      />
-      {attachmentsEnabled ? (
-        <button
-          type="button"
-          onClick={onAttachClick}
-          disabled={attachDisabled || !attachmentsEnabled}
-          title="Attach files"
-          className="inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Paperclip className="size-3" />
-          <span>Attach</span>
-        </button>
-      ) : null}
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="ml-auto inline-flex h-8 items-center gap-1 rounded-md px-2 text-muted-foreground text-xs hover:bg-accent"
-          >
-            Options
-            <ChevronDown className="size-3" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="end"
-          aria-label="Task options"
-          className="home-floating home-task-options w-80 max-w-[calc(100vw-32px)] p-1"
-        >
-          {showAgentSelector &&
-          providers &&
-          selectedProvider &&
-          onSelectProvider ? (
-            <ChatProviderSelector
-              providers={providers}
-              selectedProvider={selectedProvider}
-              onSelectProvider={onSelectProvider}
-              contentClassName="home-floating"
-            >
-              <button
-                type="button"
-                className="home-option-row"
-                aria-label={`Assistant: ${selectedProvider.name}`}
-              >
-                <Bot className="size-4" />
-                <span>Assistant</span>
-                <span
-                  className="home-option-value"
-                  title={selectedProvider.name}
-                >
-                  {selectedProvider.name}
-                </span>
-                <ChevronRight className="size-3.5" />
-              </button>
-            </ChatProviderSelector>
-          ) : null}
-          <WorkspaceSelector contentClassName="home-floating">
-            <button
-              type="button"
-              className="home-option-row"
-              aria-label={`Files folder: ${selectedFolder?.name ?? 'None selected'}`}
-            >
-              <Folder className="size-4" />
-              <span>Files folder</span>
-              <span className="home-option-value" title={selectedFolder?.path}>
-                {selectedFolder?.name ?? 'Choose…'}
-              </span>
-              <ChevronRight className="size-3.5" />
-            </button>
-          </WorkspaceSelector>
-          {VOICE_SUPPORTED && onOpenVoiceMode ? (
-            <button
-              type="button"
-              className="home-option-row"
-              onClick={onOpenVoiceMode}
-            >
-              <Mic className="size-4" />
-              <span className="col-span-2">Voice conversation</span>
-              <ArrowRight className="size-3.5" />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() =>
-              window.open(
-                chrome.runtime.getURL('/app.html#/settings/mcp'),
-                '_blank',
-              )
-            }
-            className="home-option-row"
-          >
-            <PlugZap className="size-4" />
-            <span className="col-span-2">Connect apps</span>
-            <ArrowRight className="size-3.5" />
-          </button>
-        </PopoverContent>
-      </Popover>
-    </div>
-  )
-}
-
-function HomeShell({ children }: { children: ReactNode }) {
-  return (
-    <div className="agent-composer-field overflow-hidden transition-colors focus-within:border-primary">
-      {children}
-    </div>
-  )
-}
-
-function ConversationShell({ children }: { children: ReactNode }) {
-  return (
-    <div className="agent-composer-field overflow-hidden bg-background/95 transition-[border-color] duration-150 focus-within:border-[var(--accent-orange)]">
-      {children}
-    </div>
-  )
-}
-
 export const ConversationInput: FC<ConversationInputProps> = ({
-  onSend,
   draft,
+  onSend,
   providers,
   selectedProvider,
   onSelectProvider,
   streaming,
   disabled,
-  placeholder,
   attachmentsEnabled = true,
   variant = 'conversation',
   onStop,
   onOpenVoiceMode,
 }) => {
-  const [input, setInput] = useState('')
-  const [selectedTabs, setSelectedTabs] = useState<chrome.tabs.Tab[]>([])
-  const [isExpandedDraft, setIsExpandedDraft] = useState(false)
-  const [attachments, setAttachments] = useState<StagedAttachment[]>([])
-  const [attachmentError, setAttachmentError] = useState<string | null>(null)
-  const [isStaging, setIsStaging] = useState(false)
+  const [content, setContent] = useState<ChatDraft>(emptyDraft)
+  const { text: input, tabs, attachments } = content
+  function setInput(value: SetStateAction<string>) {
+    setContent((current) => ({
+      ...current,
+      text: typeof value === 'function' ? value(current.text) : value,
+    }))
+  }
+  function setTabs(value: SetStateAction<chrome.tabs.Tab[]>) {
+    setContent((current) => ({
+      ...current,
+      tabs: typeof value === 'function' ? value(current.tabs) : value,
+    }))
+  }
+  function setAttachments(value: SetStateAction<StagedAttachment[]>) {
+    setContent((current) => ({
+      ...current,
+      attachments:
+        typeof value === 'function' ? value(current.attachments) : value,
+    }))
+  }
+  const [error, setError] = useState<string>()
+  const [preparing, setPreparing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [isDragOver, setIsDragOver] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [capture, setCapture] = useState(false)
+  const [menu, setMenu] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  const files = useRef<HTMLInputElement>(null)
+  const editor = useRef<ChatInputHandle>(null)
+  const attachmentRef = useRef(attachments)
+  attachmentRef.current = attachments
+  const stagingCount = useRef(0)
+  const staging = useRef(Promise.resolve())
   const voice = useVoiceInput()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const isConversation = variant === 'conversation'
-
   useEffect(() => {
-    if (!draft) return
-    setInput(draft.text)
-    textareaRef.current?.focus()
+    if (draft) {
+      setContent((current) => ({ ...current, text: draft.text }))
+      editor.current?.focus()
+    }
   }, [draft])
-
-  const stageFiles = async (files: File[]) => {
-    if (files.length === 0) return
-    if (!attachmentsEnabled) {
-      setAttachmentError('Attachments are not supported for this agent yet.')
-      return
-    }
-    setIsStaging(true)
-    setAttachmentError(null)
-    try {
-      const result = await stageAttachments(files, attachments.length)
-      if (result.staged.length > 0) {
-        setAttachments((prev) => [...prev, ...result.staged])
-      }
-      if (result.errors.length > 0) {
-        setAttachmentError(result.errors.map((e) => e.message).join(' \u2022 '))
-      }
-    } finally {
-      setIsStaging(false)
-    }
-  }
-
-  const removeAttachment = (id: string) => {
-    setAttachments((prev) => prev.filter((a) => a.id !== id))
-    setAttachmentError(null)
-  }
-
-  useLayoutEffect(() => {
-    const element = textareaRef.current
-    if (!element) return
-
-    const maxHeight = isConversation ? 176 : 100
-    const collapsedHeight = isConversation ? 56 : 72
-    element.style.height = '0px'
-    const nextHeight = Math.min(element.scrollHeight, maxHeight)
-    element.style.height = `${nextHeight}px`
-    element.style.overflowY =
-      element.scrollHeight > maxHeight ? 'auto' : 'hidden'
-    setIsExpandedDraft(nextHeight > collapsedHeight)
-  })
-
   useEffect(() => {
     if (voice.transcript && !voice.isTranscribing) {
-      setInput(voice.transcript)
+      setContent((current) => ({
+        ...current,
+        text: [current.text, voice.transcript].filter(Boolean).join(' '),
+      }))
       voice.clearTranscript()
     }
-  }, [voice.transcript, voice.isTranscribing, voice])
-
-  useEffect(() => {
-    if (attachmentsEnabled) return
-    setAttachments([])
-    setAttachmentError(null)
-  }, [attachmentsEnabled])
-
-  const toggleTab = (tab: chrome.tabs.Tab) => {
-    setSelectedTabs((prev) => {
-      const isSelected = prev.some((selected) => selected.id === tab.id)
-      if (isSelected) {
-        return prev.filter((selected) => selected.id !== tab.id)
-      }
-      return [...prev, tab]
-    })
+  }, [voice.transcript, voice.isTranscribing, voice.clearTranscript])
+  function addFiles(incoming: File[]) {
+    if (!attachmentsEnabled) {
+      setError('This assistant does not support attachments.')
+      return
+    }
+    stagingCount.current += 1
+    setPreparing(true)
+    staging.current = staging.current
+      .then(async () => {
+        const result = await stageAttachments(
+          incoming,
+          attachmentRef.current.length,
+        )
+        const next = [...attachmentRef.current, ...result.staged].slice(0, 10)
+        attachmentRef.current = next
+        setAttachments(next)
+        setError(
+          result.errors.map((error) => error.message).join('\n') || undefined,
+        )
+      })
+      .catch((error) =>
+        setError(
+          error instanceof Error
+            ? error.message
+            : 'Could not read the attachment.',
+        ),
+      )
+      .finally(() => {
+        stagingCount.current -= 1
+        setPreparing(stagingCount.current > 0)
+      })
   }
-
-  const hasContent = input.trim().length > 0 || attachments.length > 0
-  // Queue-aware composers (the conversation panel passes `onStop`)
-  // accept input while streaming — the parent decides whether the
-  // submission opens a new turn or enqueues onto the active one.
-  // Surfaces without a Stop hook (home) keep the legacy behaviour
-  // and block input until the current turn finishes.
-  const queueAware = Boolean(onStop)
-
-  const handleSend = async () => {
-    const text = input.trim()
-    if (disabled || isStaging || submitting) return
-    if (streaming && !queueAware) return
-    if (!text && attachments.length === 0) return
+  const toggleTab = (tab: chrome.tabs.Tab) =>
+    setTabs((value) =>
+      value.some((item) => item.id === tab.id)
+        ? value.filter((item) => item.id !== tab.id)
+        : [...value, tab],
+    )
+  async function submit() {
+    if (
+      disabled ||
+      submitting ||
+      preparing ||
+      (!input.trim() && !attachments.length)
+    )
+      return
     setSubmitting(true)
+    setError(undefined)
     try {
-      const sent = await onSend({ text, attachments, selectedTabs })
-      if (sent === false) return
-      setInput('')
-      setAttachments([])
-      setSelectedTabs([])
-      setAttachmentError(null)
-    } catch {
-      setAttachmentError('Your message could not be sent. Please try again.')
+      const accepted = await onSend({
+        text: input.trim(),
+        attachments,
+        selectedTabs: tabs,
+      })
+      if (accepted === false) {
+        setError('Your message was not accepted. Your draft is still here.')
+        return
+      }
+      setContent((current) => removeAcceptedDraft(current, content))
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Could not send. Your draft is still here.',
+      )
     } finally {
       setSubmitting(false)
     }
   }
-
-  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = event.clipboardData?.items
-    if (!items) return
-    const files: File[] = []
-    for (const item of items) {
-      if (item.kind === 'file') {
-        const file = item.getAsFile()
-        if (file) files.push(file)
-      }
-    }
-    if (files.length > 0) {
-      event.preventDefault()
-      void stageFiles(files)
-    }
-  }
-
-  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setIsDragOver(false)
-    const files = Array.from(event.dataTransfer?.files ?? [])
-    if (files.length > 0) {
-      void stageFiles(files)
-    }
-  }
-
-  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-    if (!event.dataTransfer?.types.includes('Files')) return
-    event.preventDefault()
-    setIsDragOver(true)
-  }
-
-  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
-    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
-      return
-    }
-    setIsDragOver(false)
-  }
-
-  const openFilePicker = () => {
-    if (!attachmentsEnabled) {
-      setAttachmentError('Attachments are not supported for this agent yet.')
-      return
-    }
-    fileInputRef.current?.click()
-  }
-
-  const handleFileInputChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const files = Array.from(event.target.files ?? [])
-    event.target.value = ''
-    if (files.length > 0) void stageFiles(files)
-  }
-
-  const shell = variant === 'home' ? HomeShell : ConversationShell
-  const Shell = shell
-
   return (
-    <Shell>
-      <section
-        // Drag/drop on a region isn't a click affordance — wrap the
-        // composer in a labeled <section> so the a11y rule is satisfied
-        // without misrepresenting the surface as interactive.
-        aria-label="Message composer"
-        className={cn('relative', isDragOver && 'ring-2 ring-primary/60')}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/png,image/jpeg,image/webp,image/gif,text/*,application/json"
-          className="hidden"
-          onChange={handleFileInputChange}
-        />
-        {attachments.length > 0 || attachmentError ? (
-          <AttachmentStrip
-            attachments={attachments}
-            onRemove={removeAttachment}
-            error={attachmentError}
-          />
-        ) : null}
-        <div
-          className={cn(
-            'flex gap-2.5 px-3 pt-2 pb-1',
-            variant === 'home' && 'home-composer-main',
-            isExpandedDraft ? 'items-end' : 'items-center',
-          )}
-        >
-          <BotInputIcon />
-          <div className="min-w-0 flex-1">
-            <Textarea
-              aria-label="Task for Pane"
-              ref={textareaRef}
-              value={input}
-              onChange={(event) => setInput(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  handleSend()
-                }
-              }}
-              onPaste={handlePaste}
-              rows={1}
-              placeholder={
-                voice.isTranscribing
-                  ? 'Transcribing...'
-                  : voice.isRecording
-                    ? 'Listening...'
-                    : (placeholder ??
-                      `Message ${selectedProvider?.name ?? 'agent'}...`)
-              }
-              disabled={disabled || submitting || voice.isTranscribing}
-              className={cn(
-                'resize-none border-none bg-transparent px-0 text-[14px] shadow-none focus-visible:ring-0 dark:bg-transparent',
-                '[field-sizing:fixed]',
-                'min-h-[32px] py-1.5 leading-[1.45]',
-                'placeholder:text-muted-foreground/80',
+    <section
+      aria-label="Message composer"
+      className={`relative rounded-2xl border border-border/70 bg-background p-3 shadow-sm focus-within:border-foreground/25 ${dragging ? 'ring-1 ring-foreground/30' : ''}`}
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes('Files')) {
+          event.preventDefault()
+          setDragging(true)
+        }
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(event) => {
+        event.preventDefault()
+        setDragging(false)
+        addFiles(Array.from(event.dataTransfer.files))
+      }}
+    >
+      <input
+        ref={files}
+        type="file"
+        multiple
+        accept={ATTACHMENT_ACCEPT}
+        className="hidden"
+        aria-label="Add files or photos"
+        onChange={(event) => {
+          addFiles(Array.from(event.target.files ?? []))
+          event.target.value = ''
+        }}
+      />
+      <AttachmentPreviews
+        attachments={attachments}
+        onRemove={(id) =>
+          setAttachments((value) => value.filter((item) => item.id !== id))
+        }
+      />
+      <ChatAttachedTabs
+        tabs={tabs.filter((tab) => !input.includes(`](tab:${tab.id})`))}
+        onRemoveTab={(id) => {
+          setTabs((value) => value.filter((tab) => tab.id !== id))
+          setInput((value) =>
+            value.replace(/@\[[^\]]+\]\(tab:(\d+)\)/g, (token, tabId) =>
+              Number(tabId) === id ? '' : token,
+            ),
+          )
+        }}
+      />
+      <ChatInput
+        ref={editor}
+        input={input}
+        onInputChange={setInput}
+        onSubmit={(event) => {
+          event.preventDefault()
+          void submit()
+        }}
+        onStop={onStop ?? (() => {})}
+        isTurnActive={streaming}
+        status={streaming ? 'streaming' : 'ready'}
+        mode="agent"
+        sendDisabled={disabled || submitting || (streaming && !onStop)}
+        selectedTabs={tabs}
+        onToggleTab={toggleTab}
+        hasAttachments={attachments.length > 0}
+        onFiles={addFiles}
+        preparing={preparing}
+        onOpenVoiceMode={onOpenVoiceMode}
+        voice={{
+          isRecording: voice.isRecording,
+          isTranscribing: voice.isTranscribing,
+          audioLevels: voice.audioLevels,
+          error: voice.error,
+          canRetry: voice.canRetry,
+          partialTranscript: voice.partialTranscript,
+          onStartRecording: voice.startRecording,
+          onStopRecording: voice.stopRecording,
+          retryTranscription: voice.retryTranscription,
+        }}
+        controls={
+          <>
+            <Popover open={menu} onOpenChange={setMenu}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Add context"
+                  className="rounded-full p-2 text-muted-foreground hover:bg-muted"
+                >
+                  <Plus className="size-5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-64 p-1.5">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
+                  onClick={() => {
+                    setMenu(false)
+                    files.current?.click()
+                  }}
+                >
+                  <FilePlus2 className="size-4" />
+                  Add files or photos
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
+                  onClick={() => {
+                    setMenu(false)
+                    setCapture(true)
+                  }}
+                >
+                  <Camera className="size-4" />
+                  Take screenshot
+                </button>
+                <TabPickerPopover
+                  variant="selector"
+                  selectedTabs={tabs}
+                  onToggleTab={toggleTab}
+                  side="right"
+                >
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
+                  >
+                    <Layers className="size-4" />
+                    Add tabs
+                  </button>
+                </TabPickerPopover>
+                <div className="my-1 border-t" />
+                <WorkspaceSelector side="right">
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
+                  >
+                    <Folder className="size-4" />
+                    Workspace folder
+                  </button>
+                </WorkspaceSelector>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
+                  onClick={() =>
+                    window.open(
+                      chrome.runtime.getURL('/app.html#/settings/mcp'),
+                      '_blank',
+                    )
+                  }
+                >
+                  <PlugZap className="size-4" />
+                  Connect apps
+                </button>
+              </PopoverContent>
+            </Popover>
+            {variant === 'home' &&
+              selectedProvider &&
+              providers &&
+              onSelectProvider && (
+                <ChatProviderSelector
+                  providers={providers}
+                  selectedProvider={selectedProvider}
+                  onSelectProvider={onSelectProvider}
+                >
+                  <button
+                    type="button"
+                    className="flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1 text-muted-foreground text-xs hover:bg-muted"
+                  >
+                    <SlidersHorizontal className="size-3.5" />
+                    <span className="max-w-32 truncate">
+                      {selectedProvider.name}
+                    </span>
+                  </button>
+                </ChatProviderSelector>
               )}
-            />
-          </div>
-          {streaming && onStop ? <StopButton onStop={onStop} /> : null}
-          {VOICE_SUPPORTED && onOpenVoiceMode && variant !== 'home' ? (
-            <VoiceModeEntryButton onClick={onOpenVoiceMode} />
-          ) : null}
-          {VOICE_SUPPORTED ? (
-            <VoiceButton
-              isRecording={voice.isRecording}
-              isTranscribing={voice.isTranscribing}
-              onStart={() => {
-                void voice.startRecording()
-              }}
-              onStop={() => {
-                void voice.stopRecording()
-              }}
-            />
-          ) : null}
-          <InputActionButton
-            disabled={
-              !hasContent ||
-              isStaging ||
-              submitting ||
-              !!disabled ||
-              voice.isRecording ||
-              voice.isTranscribing ||
-              (streaming && !queueAware)
-            }
-            onClick={handleSend}
-            // Spinner stays the user-facing "agent is busy" hint; with the
-            // queue active we still spin while a turn is in flight.
-            streaming={streaming}
-            hasContent={hasContent}
-          />
-        </div>
-        {voice.error ? (
-          <div className="flex items-center gap-1.5 px-5 pb-2 text-destructive text-xs">
-            <span>{voice.error}</span>
-            {voice.canRetry && (
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-destructive text-xs underline"
-                onClick={voice.retryTranscription}
-              >
-                Retry
-              </Button>
-            )}
-          </div>
-        ) : null}
-        {(voice.isRecording || voice.isTranscribing) &&
-        voice.partialTranscript ? (
-          <LiveCaption text={voice.partialTranscript} className="px-5 pb-2" />
-        ) : null}
-        <CalmContextControls
-          providers={providers}
-          selectedProvider={selectedProvider}
-          onSelectProvider={onSelectProvider}
-          selectedTabs={selectedTabs}
-          onToggleTab={toggleTab}
-          showAgentSelector={variant === 'home'}
-          onAttachClick={openFilePicker}
-          attachDisabled={attachments.length >= 10 || isStaging || !!disabled}
-          attachmentsEnabled={attachmentsEnabled}
-          onOpenVoiceMode={variant === 'home' ? onOpenVoiceMode : undefined}
-        />
-        {isDragOver ? (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[inherit] bg-background/80 font-medium text-foreground text-sm backdrop-blur-sm">
-            Drop files to attach
-          </div>
-        ) : null}
-      </section>
-    </Shell>
-  )
-}
-
-function AttachmentStrip({
-  attachments,
-  onRemove,
-  error,
-}: {
-  attachments: StagedAttachment[]
-  onRemove: (id: string) => void
-  error: string | null
-}) {
-  return (
-    <div className="border-border/40 border-b px-4 pt-3 pb-2">
-      {attachments.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {attachments.map((attachment) => (
-            <AttachmentChip
-              key={attachment.id}
-              attachment={attachment}
-              onRemove={() => onRemove(attachment.id)}
-            />
-          ))}
-        </div>
-      ) : null}
-      {error ? (
-        <div className="mt-2 text-destructive text-xs">{error}</div>
-      ) : null}
-    </div>
-  )
-}
-
-function AttachmentChip({
-  attachment,
-  onRemove,
-}: {
-  attachment: StagedAttachment
-  onRemove: () => void
-}) {
-  if (attachment.kind === 'image' && attachment.dataUrl) {
-    return (
-      <div className="group relative size-16 overflow-hidden rounded-md border border-border/60">
-        <img
-          src={attachment.dataUrl}
-          alt={attachment.name}
-          className="size-full object-cover"
-        />
-        <button
-          type="button"
-          onClick={onRemove}
-          className="absolute top-1 right-1 inline-flex size-5 items-center justify-center rounded-full bg-background/80 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-          aria-label={`Remove ${attachment.name}`}
+          </>
+        }
+      />
+      {(error || voice.error) && (
+        <p
+          role="alert"
+          className="mt-2 whitespace-pre-wrap text-destructive text-xs"
         >
-          <X className="size-3" />
-        </button>
-      </div>
-    )
-  }
-  return (
-    <div className="group flex max-w-[220px] items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5">
-      <FileText className="size-4 shrink-0 text-muted-foreground" />
-      <span className="truncate text-xs">{attachment.name}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="ml-1 inline-flex size-4 items-center justify-center text-muted-foreground hover:text-foreground"
-        aria-label={`Remove ${attachment.name}`}
-      >
-        <X className="size-3" />
-      </button>
-    </div>
-  )
-}
-
-function BotInputIcon() {
-  return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]">
-      <Bot className="h-4 w-4" />
-    </div>
+          {error || voice.error}
+        </p>
+      )}
+      {capture && (
+        <ScreenshotCapture
+          onAttach={addFiles}
+          onClose={() => setCapture(false)}
+        />
+      )}
+    </section>
   )
 }

@@ -15,7 +15,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { getBrowserosDir } from '../lib/browseros-dir'
 import { logger } from '../lib/logger'
-import { setIngestPaused } from './ingest'
+import { setIngestPaused } from './ingest-state'
 
 const execFileAsync = promisify(execFile)
 
@@ -58,7 +58,7 @@ export function getPauseOnBatteryPref(): boolean {
 }
 
 /** Parse `pmset -g batt` output. Returns null if unknown. */
-export function parsePmsetBattery(output: string): boolean | null {
+function parsePmsetBattery(output: string): boolean | null {
   const lower = output.toLowerCase()
   if (lower.includes('ac power') || lower.includes("from 'ac power'")) {
     return false
@@ -105,7 +105,7 @@ export async function detectOnBattery(): Promise<boolean | null> {
   }
 }
 
-export async function refreshBatteryIngestPause(): Promise<void> {
+async function refreshBatteryIngestPause(): Promise<void> {
   if (!pauseOnBatteryPref) {
     setIngestPaused(false)
     return

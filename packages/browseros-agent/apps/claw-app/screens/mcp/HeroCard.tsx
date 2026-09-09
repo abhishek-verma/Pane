@@ -1,7 +1,7 @@
 import { Check, Copy, PlugZap } from 'lucide-react'
 import { useState } from 'react'
 
-interface HeroCardProps {
+export interface HeroCardProps {
   url: string
   cli: string
 }

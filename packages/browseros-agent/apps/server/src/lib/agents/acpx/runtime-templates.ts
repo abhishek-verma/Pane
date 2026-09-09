@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { LAYER_SKILLS } from '../../../layers/skills'
+
 export const SOUL_TEMPLATE = `# SOUL.md - Who You Are
 
 You are a BrowserOS ACPX agent.
@@ -75,6 +77,9 @@ Use memory/YYYY-MM-DD.md for observations, task breadcrumbs, and candidate memor
 `
 
 export const RUNTIME_SKILLS: Record<string, string> = {
+  ...Object.fromEntries(
+    LAYER_SKILLS.map(({ id, body }) => [id.replace(/^builtin-/, ''), body]),
+  ),
   browseros: `---
 name: browseros
 description: Use BrowserOS MCP tools for browser automation. Use for browsing, clicking, filling forms, extracting page content, or multi-tab research.

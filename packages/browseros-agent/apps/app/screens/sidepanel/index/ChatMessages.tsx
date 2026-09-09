@@ -20,10 +20,13 @@ import {
   ReasoningContent,
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning'
+import { AttachmentPreviews } from '@/components/chat/composer/AttachmentPreviews'
+import { MessageRevision } from '@/components/chat/composer/MessageRevision'
 import { ChatMarkdown } from '@/components/tool-evidence/ChatMarkdown'
 import { ChatMessageErrorBoundary } from '@/components/tool-evidence/ChatMessageErrorBoundary'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
+import { messageAttachments } from '@/modules/chat/composer-message'
 import { ChatMessageActions } from './ChatMessageActions'
 import { ConnectAppCard } from './ConnectAppCard'
 import {
@@ -95,6 +98,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
     [message, isLastMessage, isStreaming],
   )
 
+  const attachments = useMemo(
+    () => (message.role === 'user' ? messageAttachments(message) : []),
+    [message],
+  )
+  const [quote, setQuote] = useState('')
   const toolBatches = segments.filter((s) => s.type === 'tool-batch')
   const lastToolBatchKey = toolBatches[toolBatches.length - 1]?.key
 
@@ -104,8 +112,19 @@ const ChatMessageRow = memo(function ChatMessageRow({
     .join('\n\n')
 
   return (
-    <div
+    <section
+      aria-label={`${message.role} message`}
       className="w-full min-w-0"
+      onMouseUp={(event) => {
+        const selection = window.getSelection()
+        setQuote(
+          message.role === 'assistant' &&
+            selection?.anchorNode &&
+            event.currentTarget.contains(selection.anchorNode)
+            ? selection.toString().trim()
+            : '',
+        )
+      }}
       style={{
         contentVisibility: 'auto',
         containIntrinsicSize: 'auto 120px',
@@ -113,6 +132,9 @@ const ChatMessageRow = memo(function ChatMessageRow({
     >
       <Message from={message.role}>
         <MessageContent>
+          {message.role === 'user' && (
+            <AttachmentPreviews attachments={attachments} />
+          )}
           {action ? (
             <UserActionMessage action={action} />
           ) : (
@@ -188,6 +210,29 @@ const ChatMessageRow = memo(function ChatMessageRow({
           )}
         </MessageContent>
       </Message>
+      <MessageRevision message={message} />
+      {quote && (
+        <button
+          type="button"
+          className="my-1 rounded-lg border px-2 py-1 text-xs hover:bg-muted"
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent('pane:chat-draft', {
+                detail: {
+                  conversationId,
+                  text: `Regarding your answer:\n${quote
+                    .split('\n')
+                    .map((line) => `> ${line}`)
+                    .join('\n')}\n\n`,
+                },
+              }),
+            )
+            setQuote('')
+          }}
+        >
+          Reply to selection
+        </button>
+      )}
       {message.role === 'assistant' && (!isLastMessage || !isStreaming) ? (
         <ChatMessageActions
           messageId={message.id}
@@ -200,7 +245,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
           }
         />
       ) : null}
-    </div>
+    </section>
   )
 }, chatMessageRowPropsEqual)
 

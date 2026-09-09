@@ -92,18 +92,3 @@ export const STATUS_META: Record<RunStatus, StatusMeta> = {
     pulse: false,
   },
 }
-
-/** Convenience: status that represents an in-flight run. */
-export function isActiveStatus(status: RunStatus): boolean {
-  return (
-    status === 'running' ||
-    status === 'live' ||
-    status === 'needs-ok' ||
-    status === 'needs-human'
-  )
-}
-
-/** Convenience: terminal statuses where the run no longer changes. */
-export function isEndedStatus(status: RunStatus): boolean {
-  return status === 'done' || status === 'stopped'
-}

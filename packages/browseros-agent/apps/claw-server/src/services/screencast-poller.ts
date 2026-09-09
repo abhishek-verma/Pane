@@ -38,10 +38,10 @@ import {
 } from '../lib/tab-activity'
 import { screencastCache } from './screencast-cache'
 
-export const DEFAULT_POLL_INTERVAL_MS = 1500
-export const SCREENSHOT_TIMEOUT_MS = 2000
-export const MAX_PARALLEL_SHOTS = 8
-export const JPEG_QUALITY = 50
+const DEFAULT_POLL_INTERVAL_MS = 1500
+const SCREENSHOT_TIMEOUT_MS = 2000
+const MAX_PARALLEL_SHOTS = 8
+const JPEG_QUALITY = 50
 
 export interface ScreencastPollerHandle {
   stop(): void

@@ -6,11 +6,11 @@
 /** Floor between committed frames — bounds decode + React work under flood. */
 export const LIVE_WATCH_MIN_FRAME_INTERVAL_MS = 100
 /** If an rAF callback is this late, drop the pending frame (event-loop lag). */
-export const LIVE_WATCH_LAG_DROP_MS = 50
+const LIVE_WATCH_LAG_DROP_MS = 50
 /** Connected without a fresh frame for this long → background/sparse hint. */
-export const LIVE_WATCH_SPARSE_FRAME_MS = 2_500
+const LIVE_WATCH_SPARSE_FRAME_MS = 2_500
 
-export function jpegBase64ToBlobUrl(jpegBase64: string): string | null {
+function jpegBase64ToBlobUrl(jpegBase64: string): string | null {
   try {
     const binary = atob(jpegBase64)
     const bytes = new Uint8Array(binary.length)

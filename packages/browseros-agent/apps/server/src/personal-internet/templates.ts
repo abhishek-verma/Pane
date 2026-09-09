@@ -226,7 +226,7 @@ function blankSite(): PiPageDoc {
 }
 
 /** Base site policy — no harvest triggers until user-confirmed config. */
-export const defaultSitePolicy = (): PiRefreshPolicy => ({
+const defaultSitePolicy = (): PiRefreshPolicy => ({
   triggers: [
     { name: 'entity-mutated', kind: 'A' },
     { name: 'new-day', kind: 'D' },

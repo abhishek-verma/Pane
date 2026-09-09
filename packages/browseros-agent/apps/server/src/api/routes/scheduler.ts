@@ -9,6 +9,8 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { createAgendaRoutes } from '../../agenda/routes'
 import { addConversationPin } from '../../agent/conversation-context-store'
+import { conversationTurnRegistry } from '../../agent/conversation-turn-registry'
+import { getDbHandle } from '../../lib/db'
 import {
   handleApprovalInboundText,
   listPendingApprovals,
@@ -16,6 +18,15 @@ import {
   signalApprovalResolved,
 } from '../../scheduler/approvals'
 import { runDailyDigest } from '../../scheduler/digest'
+import {
+  createScheduledJob,
+  deleteScheduledJob,
+  enqueueDueScheduledJobs,
+  enqueueScheduledJob,
+  listScheduledJobs,
+  ScheduleInputSchema,
+  updateScheduledJob,
+} from '../../scheduler/jobs-store'
 import { createKeepAliveService } from '../../scheduler/keep-alive'
 import {
   createTriggerRule,
@@ -69,6 +80,31 @@ export function createSchedulerRoutes() {
 
   return new Hono<Env>()
     .route('/agenda', createAgendaRoutes())
+    .get('/jobs', (c) => c.json({ jobs: listScheduledJobs() }))
+    .post('/jobs', async (c) =>
+      c.json(
+        {
+          job: createScheduledJob(
+            ScheduleInputSchema.parse(await c.req.json()),
+          ),
+        },
+        201,
+      ),
+    )
+    .patch('/jobs/:id', async (c) =>
+      c.json({
+        job: updateScheduledJob(
+          c.req.param('id'),
+          ScheduleInputSchema.partial().parse(await c.req.json()),
+        ),
+      }),
+    )
+    .delete('/jobs/:id', (c) =>
+      c.json({ deleted: deleteScheduledJob(c.req.param('id')) }),
+    )
+    .post('/jobs/:id/run', (c) =>
+      c.json({ run: enqueueScheduledJob(c.req.param('id')) }, 202),
+    )
     .get('/triggers', (c) => c.json({ rules: listTriggerRules() }))
     .get('/triggers/:id', (c) => {
       const rule = getTriggerRule(c.req.param('id'))
@@ -93,6 +129,7 @@ export function createSchedulerRoutes() {
     })
     .get('/runs', (c) => {
       const status = c.req.query('status')
+      if (status?.split(',').includes('pending')) enqueueDueScheduledJobs()
       // Before listing pending, reclaim abandoned running rows so drains retry.
       if (!status || status.split(',').includes('pending')) {
         reclaimStaleRunningRuns()
@@ -109,7 +146,7 @@ export function createSchedulerRoutes() {
               | 'awaiting-approval'
             >)
           : undefined,
-        limit: 50,
+        limit: 200,
       })
       return c.json({ runs })
     })
@@ -117,6 +154,33 @@ export function createSchedulerRoutes() {
       const run = getScheduledRun(c.req.param('id'))
       if (!run) return c.json({ error: 'not found' }, 404)
       return c.json({ run })
+    })
+    .post('/runs/:id/cancel', (c) => {
+      const run = getScheduledRun(c.req.param('id'))
+      if (!run) return c.json({ error: 'not found' }, 404)
+      if (!['pending', 'running', 'awaiting-approval'].includes(run.status))
+        return c.json({ cancelled: false })
+      if (run.conversationId)
+        conversationTurnRegistry.cancelActiveFor(
+          run.conversationId,
+          'scheduled-job-cancelled',
+        )
+      updateRunStatus(run.id, {
+        status: 'cancelled',
+        completedAt: Date.now(),
+        error: 'Cancelled by user',
+      })
+      return c.json({ cancelled: true })
+    })
+    .delete('/runs/:id', (c) => {
+      const run = getScheduledRun(c.req.param('id'))
+      if (!run) return c.json({ error: 'not found' }, 404)
+      if (['pending', 'running', 'awaiting-approval'].includes(run.status))
+        return c.json({ error: 'Cancel the run before deleting it' }, 409)
+      getDbHandle()
+        .sqlite.query('DELETE FROM scheduled_runs WHERE id = ?')
+        .run(run.id)
+      return c.json({ deleted: true })
     })
     .post('/runs/:id/claim', (c) => {
       const run = claimScheduledRun(c.req.param('id'))

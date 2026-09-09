@@ -85,21 +85,6 @@ export async function writePromptFile(
   await writeFile(join(base, name), content, 'utf-8')
 }
 
-/**
- * Write a prompt file and rebuild the SQLite index from files.
- * Use for Settings / persona wholesale edits so files stay source of truth
- * for recall and always-on prompt assembly.
- */
-export async function writePromptFileAndReindex(
-  which: 'soul' | 'user' | 'memory',
-  content: string,
-  root?: string,
-): Promise<void> {
-  await writePromptFile(which, content, root)
-  const { rebuildIndexFromFiles } = await import('./store')
-  await rebuildIndexFromFiles(root)
-}
-
 /** Append a bullet line to MEMORY.md (file SoT). */
 export async function appendMemoryFileLine(
   line: string,
@@ -136,14 +121,14 @@ export async function removeMemoryFileLine(
 /** Every real skill id (builtin- prefix or sanitized kebab-case) matches this. */
 const VALID_SKILL_ID = /^[a-z0-9_-]+$/
 
-export function skillDir(skillId: string, root?: string): string {
+function skillDir(skillId: string, root?: string): string {
   if (!VALID_SKILL_ID.test(skillId)) {
     throw new Error(`Invalid skill id: ${JSON.stringify(skillId)}`)
   }
   return join(memoriesRoot(root), SKILLS_DIR, skillId)
 }
 
-export function skillFilePath(skillId: string, root?: string): string {
+function skillFilePath(skillId: string, root?: string): string {
   return join(skillDir(skillId, root), SKILL_FILE)
 }
 

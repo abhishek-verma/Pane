@@ -1,7 +1,7 @@
 import { Bolt, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-interface WelcomeStepProps {
+export interface WelcomeStepProps {
   onSetup: () => void
   onSkip: () => void
 }

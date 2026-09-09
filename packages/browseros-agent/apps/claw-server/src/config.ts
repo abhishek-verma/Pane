@@ -47,13 +47,13 @@ export type ConfigResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: string }
 
-interface LoadClawConfigOptions {
+export interface LoadClawConfigOptions {
   argv?: string[]
   cwd?: string
   env?: Record<string, string | undefined>
 }
 
-interface DefaultResourcesRuntime {
+export interface DefaultResourcesRuntime {
   execPath?: string
   importMetaPath?: string
   isStandalone?: boolean

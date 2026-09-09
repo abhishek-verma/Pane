@@ -23,7 +23,7 @@ import { BlockNotice } from './BlockNotice'
 import { HandoffNotice } from './HandoffNotice'
 import { VERB_META } from './live-run.helpers'
 
-interface ActivityPanelProps {
+export interface ActivityPanelProps {
   run: RunDetail
   paused: boolean
   onAllowOnce: () => void

@@ -15,7 +15,7 @@ import { StatusBadge } from './StatusBadge'
 
 const SEARCH_DEBOUNCE_MS = 250
 
-interface FilterBarProps {
+export interface FilterBarProps {
   agentOptions: AgentChip[]
   statusOptions: { status: TaskStatus; count: number }[]
   siteOptions: { site: string; count: number }[]

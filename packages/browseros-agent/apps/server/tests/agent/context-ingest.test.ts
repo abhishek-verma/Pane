@@ -14,8 +14,8 @@ import {
   flushIngestQueue,
   ingestToolResult,
   isInternalBrowserUrl,
-  setIngestPaused,
 } from '../../src/context/ingest'
+import { setIngestPaused } from '../../src/context/ingest-state'
 import { closeDb, initializeDb } from '../../src/lib/db'
 
 describe('context graph ingest', () => {

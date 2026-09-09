@@ -34,7 +34,6 @@ import {
   drainAsrSession,
   enqueueAsrJob,
   registerAsrSession,
-  registeredAsrSessionCount,
   unregisterAsrSession,
 } from './shared-asr-worker'
 import {
@@ -376,7 +375,7 @@ export function findResumableSession(input: {
   return row ? rowToSummary(row) : null
 }
 
-export async function resumeMeetingCapture(input: {
+async function resumeMeetingCapture(input: {
   sessionId: string
   tabId: number
   url?: string
@@ -1265,11 +1264,7 @@ export function getCaptureSession(id: string): CaptureSessionSummary | null {
   return row ? rowToSummary(row) : null
 }
 
-export function activeCaptureSessionCount(): number {
-  return registeredAsrSessionCount() || registeredSessions.size
-}
-
-export function isSessionRecording(id: string): boolean {
+function isSessionRecording(id: string): boolean {
   return registeredSessions.has(id) || sessionsInitializing.has(id)
 }
 

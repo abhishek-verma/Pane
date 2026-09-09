@@ -14,7 +14,6 @@ import {
   onboardingIcpStorage,
   onboardingProfileStorage,
 } from '@/lib/onboarding/onboardingStorage'
-import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
 function base(url: string) {
   return url.replace(/\/$/, '')
@@ -78,14 +77,5 @@ export async function seedMemoryFromOnboarding(
     })
   } catch {
     // best-effort
-  }
-}
-
-/** Hook-friendly wrapper that resolves the agent server URL. */
-export function useSeedMemoryFromOnboarding() {
-  const { baseUrl } = useAgentServerUrl()
-  return async () => {
-    if (!baseUrl) return
-    await seedMemoryFromOnboarding(baseUrl as string)
   }
 }

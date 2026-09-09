@@ -14,7 +14,6 @@ import { KEEP_ALIVE_DEFAULT_SERVER_PORT } from '../config'
 import { logger } from '../lib/logger'
 
 export const LAUNCH_AGENT_LABEL = 'com.pane.agent-server'
-export const LAUNCH_AGENT_PLIST = `~/Library/LaunchAgents/${LAUNCH_AGENT_LABEL}.plist`
 
 export interface KeepAliveStatus {
   platform: NodeJS.Platform
@@ -38,11 +37,11 @@ const LIMITATIONS = [
   'Non-browser work can fire while the machine is awake with keep-alive on.',
 ]
 
-export function launchAgentsDir(home = homedir()): string {
+function launchAgentsDir(home = homedir()): string {
   return join(home, 'Library', 'LaunchAgents')
 }
 
-export function plistPath(home = homedir()): string {
+function plistPath(home = homedir()): string {
   return join(launchAgentsDir(home), `${LAUNCH_AGENT_LABEL}.plist`)
 }
 
@@ -271,7 +270,7 @@ export function createKeepAliveService(): KeepAliveService {
 
 const WINDOWS_TASK_NAME = 'PaneAgentServer'
 
-export function createWindowsKeepAliveService(): KeepAliveService {
+function createWindowsKeepAliveService(): KeepAliveService {
   return {
     async status() {
       let installed = false
@@ -376,7 +375,7 @@ WantedBy=default.target
 `
 }
 
-export function createLinuxKeepAliveService(options?: {
+function createLinuxKeepAliveService(options?: {
   home?: string
   programArguments?: string[]
 }): KeepAliveService {

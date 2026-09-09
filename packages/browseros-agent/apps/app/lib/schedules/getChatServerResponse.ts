@@ -25,6 +25,12 @@ export interface ChatServerRequest {
   windowId?: number
   activeTab?: ActiveTab
   signal?: AbortSignal
+  executionContext?: {
+    providerId?: string
+    userWorkingDir?: string
+    workspaceId?: string
+    bucketId?: string
+  }
   providerId?: string
   /** Explicit Today reviews may inspect the workspace already selected by the user. */
   useSelectedWorkspace?: boolean
@@ -77,6 +83,11 @@ const resolveProvider = async (
   providerId?: string,
 ): Promise<LlmProviderConfig> => {
   const provider = await resolveStoredChatProvider(providerId, true)
+  if (providerId && provider?.id !== providerId) {
+    throw new Error(
+      'The scheduled AI provider is no longer available. Edit the task to choose a provider.',
+    )
+  }
   if (!provider) {
     throw new Error(
       'No AI provider configured. Add one in Settings → AI & Agents.',
@@ -89,11 +100,14 @@ export async function getChatServerResponse(
   request: ChatServerRequest,
 ): Promise<ChatServerResponse> {
   const agentServerUrl = await getAgentServerUrl()
-  const provider = await resolveProvider(request.providerId)
+  const provider = await resolveProvider(
+    request.executionContext?.providerId ?? request.providerId,
+  )
   const conversationId = request.conversationId ?? crypto.randomUUID()
-  const workspace = request.useSelectedWorkspace
-    ? await selectedWorkspaceStorage.getValue()
-    : null
+  const workspace =
+    !request.executionContext && request.useSelectedWorkspace
+      ? await selectedWorkspaceStorage.getValue()
+      : null
   const personalization = await personalizationStorage.getValue()
 
   const mcpServers = (await mcpServerStorage.getValue()) ?? []
@@ -137,9 +151,10 @@ export async function getChatServerResponse(
               }
             : undefined,
         userSystemPrompt: `${personalization}\n${scheduleSystemPrompt}`,
-        userWorkingDir: workspace?.path,
-        workspaceId: workspace?.id,
-        bucketId: workspace?.bucketId,
+        userWorkingDir:
+          request.executionContext?.userWorkingDir ?? workspace?.path,
+        workspaceId: request.executionContext?.workspaceId ?? workspace?.id,
+        bucketId: request.executionContext?.bucketId ?? workspace?.bucketId,
         supportsImages: provider.supportsImages,
         requireBrowserInputApproval,
         isScheduledTask: true,
@@ -204,6 +219,8 @@ function processEvent(event: UIMessageEvent, state: StreamParseState): void {
     state.error = event.errorText
   } else if (event.type === 'finish') {
     state.receivedFinish = true
+    if (event.finishReason === 'error')
+      state.error ??= 'The scheduled agent finished with an error.'
   }
 }
 

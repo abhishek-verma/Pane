@@ -3,7 +3,7 @@ import type { ComponentType, SVGProps } from 'react'
 import { Button } from '@/components/ui/button'
 import type { PendingApproval } from '@/modules/api/run.hooks'
 
-interface ApprovalCardProps {
+export interface ApprovalCardProps {
   approval: PendingApproval
   harnessLabel: string
   onAllowOnce: () => void

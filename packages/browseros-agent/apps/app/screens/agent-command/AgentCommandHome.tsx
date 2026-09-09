@@ -1,3 +1,8 @@
+import {
+  composerKey,
+  emptyComposer,
+  updateComposer,
+} from '@/modules/chat/composer-store'
 import { TodayAgenda } from '@/screens/newtab/home/TodayAgenda'
 import '@/screens/newtab/home/home.css'
 /**
@@ -179,6 +184,29 @@ export const AgentCommandHome: FC = () => {
     if (!selectedProvider) throw new Error('No assistant selected')
     if (selectedProvider.kind === 'llm' && llmRoutingMode === 'wait')
       throw new Error('Assistant is still loading')
+    if (input.attachments.length && selectedProvider.kind === 'llm') {
+      const target = targets.find(
+        (entry) => entry.kind === 'llm' && entry.id === selectedProvider.id,
+      )
+      await persistSidepanelChatTargetSelection(target)
+      await setDefaultProvider(selectedProvider.id)
+      const conversationId = crypto.randomUUID()
+      await updateComposer(
+        composerKey(conversationId, selectedProvider.id),
+        () => ({
+          ...emptyComposer(),
+          draft: {
+            text: input.text,
+            tabs: input.selectedTabs,
+            attachments: input.attachments,
+          },
+        }),
+      )
+      navigate(
+        `/home/chat?conversationId=${conversationId}&sendDraft=${encodeURIComponent(selectedProvider.id)}`,
+      )
+      return
+    }
     const agentSessionId =
       selectedProvider.kind === 'acp' ? crypto.randomUUID() : undefined
     const text =
@@ -263,7 +291,7 @@ export const AgentCommandHome: FC = () => {
             }}
             streaming={false}
             disabled={!selectedProvider || waitingForLlmCapabilities}
-            attachmentsEnabled={selectedProvider?.kind === 'acp'}
+            attachmentsEnabled={true}
             placeholder="Ask Pane…"
             onOpenVoiceMode={() => navigate('/home/chat?voice=open&mode=agent')}
           />

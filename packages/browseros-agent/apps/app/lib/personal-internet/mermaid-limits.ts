@@ -8,8 +8,6 @@
 
 import { PI_LIMITS } from '@browseros/shared/constants/limits'
 
-export { PI_LIMITS }
-
 /** Rough edge count: mermaid arrow operators. */
 export function countMermaidEdges(source: string): number {
   const re =

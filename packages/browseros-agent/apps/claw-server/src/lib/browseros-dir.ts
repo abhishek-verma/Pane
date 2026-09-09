@@ -25,7 +25,7 @@ import { env } from '../env'
 
 const CLAW_SERVER_SUBDIR = 'claw-server'
 
-export function getBrowserosDir(): string {
+function getBrowserosDir(): string {
   if (env.browserosDirOverride) return env.browserosDirOverride
   const dirName = env.isDevelopment
     ? PATHS.DEV_BROWSEROS_DIR_NAME

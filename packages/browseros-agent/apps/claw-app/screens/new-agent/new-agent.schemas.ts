@@ -36,7 +36,7 @@ export type Harness = (typeof HARNESSES)[number]
  * user's machine, which BrowserOS cannot guarantee. Mirrors the
  * apps/server `HIDDEN_AGENTS` rationale.
  */
-export const RETIRED_HARNESSES = [
+const RETIRED_HARNESSES = [
   'Claude Desktop',
 ] as const satisfies readonly Harness[]
 
@@ -45,12 +45,10 @@ export const SELECTABLE_HARNESSES = HARNESSES.filter(
     !(RETIRED_HARNESSES as readonly Harness[]).includes(h),
 )
 
-export type SelectableHarness = (typeof SELECTABLE_HARNESSES)[number]
-
-export const LOGIN_MODES = ['profile', 'all', 'selective'] as const
+const LOGIN_MODES = ['profile', 'all', 'selective'] as const
 export type LoginMode = (typeof LOGIN_MODES)[number]
 
-export const APPROVAL_VERDICTS = ['Auto', 'Ask', 'Block'] as const
+const APPROVAL_VERDICTS = ['Auto', 'Ask', 'Block'] as const
 export type ApprovalVerdict = (typeof APPROVAL_VERDICTS)[number]
 
 export interface ApprovalCategory {
@@ -94,13 +92,11 @@ export const APPROVAL_CATEGORIES: readonly ApprovalCategory[] = [
   },
 ] as const
 
-export const customAclRuleSchema = z.object({
+const customAclRuleSchema = z.object({
   id: z.string(),
   label: z.string().min(1),
   domain: z.string().min(1),
 })
-
-export type CustomAclRule = z.infer<typeof customAclRuleSchema>
 
 export const newAgentSchema = z.object({
   name: z.string().trim().min(1, 'Give the connector a name'),

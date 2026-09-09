@@ -3,7 +3,7 @@ import { HarnessIcon } from '@/components/harness/HarnessIcon'
 import { cn } from '@/lib/utils'
 import type { AgentProfile } from '@/modules/api/agents.hooks'
 
-interface CopyFromExistingCardProps {
+export interface CopyFromExistingCardProps {
   profiles: readonly AgentProfile[]
   selectedId: string | null
   onClone: (profile: AgentProfile) => void

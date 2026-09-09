@@ -39,7 +39,7 @@ const labeledActionSchema = z.object({
 const cardActionSchema = z.union([labeledActionSchema, actionSchema])
 
 /** Cards on a page board — membership is via column.cardIds, never card.columnId. */
-export const boardCardSchema = z
+const boardCardSchema = z
   .object({
     id: z
       .string()
@@ -58,7 +58,7 @@ export const boardCardSchema = z
   })
   .strict()
 
-export const boardColumnSchema = z.object({
+const boardColumnSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   cardIds: z
@@ -98,7 +98,7 @@ const svgNodeSchema = z.object({
   alt: z.string().optional(),
 })
 
-export const piNodeSchema: z.ZodType<unknown> = z.lazy(() =>
+const piNodeSchema: z.ZodType<unknown> = z.lazy(() =>
   z.discriminatedUnion('type', [
     z.object({
       type: z.literal('title'),
@@ -217,7 +217,7 @@ export const pageDocSchema = z
     'PI page doc. For boards: columns[].cardIds + cards[].id/title/subtitle. Never put columnId or description on cards — use upsertBoardCard to place cards by columnId. Budgets: max 200 nodes, depth 12, at most 4 mermaid nodes, mermaid source ≤16KiB / 200 edges.',
   )
 
-export const upsertBoardCardOpSchema = z.object({
+const upsertBoardCardOpSchema = z.object({
   op: z.literal('upsertBoardCard'),
   card: z.object({
     id: z.string().min(1),

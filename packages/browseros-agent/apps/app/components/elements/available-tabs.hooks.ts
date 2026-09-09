@@ -51,14 +51,12 @@ export function useAvailableTabs({
 
   const tabs = useMemo(() => {
     if (!filterText) return allTabs
-    const search = filterText.toLowerCase()
+    const words = filterText.toLowerCase().trim().split(/\s+/)
     return allTabs.filter((tab) => {
       const shown = displayTabUrl(tab.url).toLowerCase()
-      return (
-        tab.title?.toLowerCase().includes(search) ||
-        tab.url?.toLowerCase().includes(search) ||
-        shown.includes(search)
-      )
+      const haystack =
+        `${tab.title ?? ''} ${tab.url ?? ''} ${shown}`.toLowerCase()
+      return words.every((word) => haystack.includes(word))
     })
   }, [allTabs, filterText])
 

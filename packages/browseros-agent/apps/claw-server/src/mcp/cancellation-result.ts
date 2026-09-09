@@ -18,9 +18,9 @@ import type { ToolResult } from './register-fn'
  * tell operator-driven cancellations apart from other tool errors
  * (timeouts, target detached, etc).
  */
-export const CANCELLATION_DISCRIMINATOR = 'cockpit.operator-cancelled' as const
+const CANCELLATION_DISCRIMINATOR = 'cockpit.operator-cancelled' as const
 
-export interface CancellationStructured {
+interface CancellationStructured {
   cancellationReason: string
   cancellationKind: typeof CANCELLATION_DISCRIMINATOR
 }

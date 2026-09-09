@@ -16,13 +16,6 @@ export const tabActivityRegistry: TabActivityRegistry =
   createTabActivityRegistry({ getSession: getBrowserSession })
 
 export { extractPageId } from './extract-page-id'
-export type {
-  TabActivityRecord,
-  TabActivityRegistry,
-  ToolEvent,
-} from './registry'
-export {
-  ACTIVE_WINDOW_MS,
-  createTabActivityRegistry,
-  RECENT_TOOLS_CAP,
-} from './registry'
+export type { TabActivityRecord, TabActivityRegistry } from './registry'
+
+import './registry'

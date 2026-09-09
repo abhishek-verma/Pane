@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import type { ReplayFrame } from '@/modules/api/replay.hooks'
 import { KIND_STYLE, VERB_META } from './replay.helpers'
 
-interface ReplayViewportProps {
+export interface ReplayViewportProps {
   site: string
   /** The frame whose caption is currently displayed. */
   frame: ReplayFrame | undefined

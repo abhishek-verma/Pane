@@ -9,7 +9,9 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 // Same isolation note as tab-group-ops.test.ts: only mock the
 // framework, not the registry, so the real BROWSER_TOOLS catalogue
 // stays intact for other suites in the same `bun test` run.
+const framework = await import('@browseros/browser-mcp/tools/framework')
 mock.module('@browseros/browser-mcp/tools/framework', () => ({
+  ...framework,
   executeTool: async () => ({
     isError: false,
     content: [{ type: 'text', text: 'ok' }],

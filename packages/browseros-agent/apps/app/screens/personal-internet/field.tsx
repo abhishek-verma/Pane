@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
  * Order is load-bearing: a field is assigned by hashing modulo this length,
  * so reordering reassigns every existing place. Append only.
  */
-export const PI_FIELDS = [
+const PI_FIELDS = [
   'rust',
   'ember',
   'amber',
@@ -45,7 +45,7 @@ function fnv1a(input: string): number {
 }
 
 /** Deterministic, so a place looks the same on every visit and every device. */
-export function piFieldFor(seed: string): PiField {
+function piFieldFor(seed: string): PiField {
   return PI_FIELDS[fnv1a(seed) % PI_FIELDS.length]
 }
 

@@ -27,7 +27,7 @@ import type {
 } from './types'
 
 /** Rough edge count: mermaid arrow operators. */
-export function countMermaidEdges(source: string): number {
+function countMermaidEdges(source: string): number {
   const re =
     /(?:-->|---|-\.-|==>|==|~.>~|-\.->|===>|<-->|<--|<===|o--|x--|-->>)/g
   let count = 0
@@ -36,7 +36,7 @@ export function countMermaidEdges(source: string): number {
 }
 
 /** Reject %%{init}%% directives that try to override secure Mermaid limits. */
-export function hasForbiddenMermaidDirective(source: string): boolean {
+function hasForbiddenMermaidDirective(source: string): boolean {
   if (!/%%\s*\{\s*init\s*:/i.test(source)) return false
   return /maxTextSize|maxEdges|securityLevel|startOnLoad/i.test(source)
 }
@@ -82,7 +82,7 @@ function countMermaidNodes(nodes: PiNode[]): number {
 }
 
 /** Normalize `{ label, action }` or bare `PiAction` into a labeled pair. */
-export function normalizeCardAction(entry: PiCardAction): {
+function normalizeCardAction(entry: PiCardAction): {
   label: string
   action: PiAction
 } {
@@ -173,7 +173,7 @@ function slugCardId(title: string, index: number): string {
  * `card.id` or `column.cardIds`. Detect that, reject on agent writes, or
  * coerce when healing stored docs (`coerce: true`).
  */
-export function normalizeBoardNode(
+function normalizeBoardNode(
   node: Extract<PiNode, { type: 'board' }>,
   path: string,
   opts: { coerce?: boolean } = {},
@@ -697,7 +697,7 @@ function findFirstTable(
 }
 
 /** Drop "More sections loading…" placeholders before appending BTF sections. */
-export function stripMaterializePlaceholders(nodes: PiNode[]): PiNode[] {
+function stripMaterializePlaceholders(nodes: PiNode[]): PiNode[] {
   const out: PiNode[] = []
   for (const n of nodes) {
     if (n.type === 'note' && /more sections loading/i.test(n.text)) {
@@ -722,10 +722,7 @@ export function stripMaterializePlaceholders(nodes: PiNode[]): PiNode[] {
  * During materialize, treat a replace that does not start with the page
  * title as an append instead.
  */
-export function shouldAppendSectionReplace(
-  doc: PiPageDoc,
-  nodes: PiNode[],
-): boolean {
+function shouldAppendSectionReplace(doc: PiPageDoc, nodes: PiNode[]): boolean {
   const phase = doc.meta?.materialize?.phase
   if (!phase || phase === 'done') return false
   if (nodes.length === 0) return false

@@ -29,7 +29,7 @@ import { screencastCache } from '../../services/screencast-cache'
 import { list as listAgents } from '../agents/service'
 import { resolveAgentDisplay } from './agent-display'
 
-export interface EnrichedTabRecord extends TabActivityRecord {
+interface EnrichedTabRecord extends TabActivityRecord {
   agentLabel: string
   harness: string | null
   // No stored colour on the agent profile yet; emit null so the UI

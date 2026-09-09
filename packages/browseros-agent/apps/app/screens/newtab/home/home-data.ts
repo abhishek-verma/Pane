@@ -9,12 +9,6 @@
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 import type { PiHomeProjection } from '@/screens/personal-internet/types'
-import { markHomeLoaderCalledChat } from './home-loader-guard'
-
-export {
-  homeLoaderCalledChat,
-  resetHomeLoaderChatFlag,
-} from './home-loader-guard'
 
 export interface HomeGrowth {
   skillsLearned: number
@@ -34,7 +28,6 @@ export const HOME_QUERY_KEY = ['scheduler', 'home'] as const
 export async function fetchHome(): Promise<HomeData> {
   const base = await getAgentServerUrl()
   const url = `${base}/scheduler/home`
-  if (url.includes('/chat')) markHomeLoaderCalledChat()
   const res = await agentFetch(url)
   if (!res.ok) throw new Error(`Home load failed: ${res.status}`)
   return res.json() as Promise<HomeData>

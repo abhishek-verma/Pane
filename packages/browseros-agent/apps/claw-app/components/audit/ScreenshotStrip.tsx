@@ -6,7 +6,7 @@ import {
   taskScreenshotUrl,
 } from '@/modules/api/audit.hooks'
 
-interface ScreenshotStripProps {
+export interface ScreenshotStripProps {
   dispatches: ToolDispatchRow[]
   screenshotDispatchIds: number[]
   startedAt: number

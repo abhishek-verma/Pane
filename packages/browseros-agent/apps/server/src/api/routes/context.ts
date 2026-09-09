@@ -19,7 +19,10 @@ import {
   listVisitedDomains,
   setGrant,
 } from '../../context/grants'
-import { getIngestPauseReason, isIngestPaused } from '../../context/ingest'
+import {
+  getIngestPauseReason,
+  isIngestPaused,
+} from '../../context/ingest-state'
 import {
   graphCurrentWork,
   graphDeleteNodes,

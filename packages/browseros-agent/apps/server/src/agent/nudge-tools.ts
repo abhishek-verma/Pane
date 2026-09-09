@@ -16,7 +16,7 @@ export function buildNudgeToolSet(): ToolSet {
   return {
     suggest_schedule: tool({
       description:
-        'Call this to suggest scheduling a task. Use in two cases: (1) MANDATORY after completing a task that could run on a recurring schedule (news, monitoring, reports, price tracking, data gathering). (2) Immediately when the user explicitly asks to schedule, automate, or repeat the current task - do NOT ask for clarification, infer all parameters from context. Do NOT call if the task requires real-time user interaction.',
+        'Call this to suggest scheduling a task. Use in two cases: (1) MANDATORY after completing a task that could run on a recurring schedule (news, monitoring, reports, price tracking, data gathering). For an explicit request to schedule, automate, or repeat work, use schedule_create to persist it instead of this suggestion. Do NOT call if the task requires real-time user interaction.',
       inputSchema: z.object({
         query: z.string().describe('The original user query to schedule'),
         suggestedName: z

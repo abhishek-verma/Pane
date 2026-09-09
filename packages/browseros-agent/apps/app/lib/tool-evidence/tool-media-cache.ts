@@ -84,10 +84,6 @@ export function setCachedToolOutputText(
   enforceOutputTextLimits()
 }
 
-export function clearCachedToolOutputText(toolCallId: string): void {
-  toolOutputTextCache.delete(toolCallId)
-}
-
 export function getCachedToolImageBlobUrl(
   toolCallId: string,
 ): string | undefined {

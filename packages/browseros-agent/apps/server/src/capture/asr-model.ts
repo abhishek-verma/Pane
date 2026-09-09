@@ -46,7 +46,7 @@ function modelDir(): string {
 }
 
 /** Canonical path for a given model bin file. */
-export function modelPath(modelName = DEFAULT_MODEL_NAME): string {
+function modelPath(modelName = DEFAULT_MODEL_NAME): string {
   return join(modelDir(), `${modelName}.bin`)
 }
 

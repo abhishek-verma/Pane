@@ -7,7 +7,7 @@ import { formatDuration } from '@/screens/audit/audit.helpers'
 import { AgentDot } from './AgentDot'
 import { StatusBadge } from './StatusBadge'
 
-interface TaskHeaderProps {
+export interface TaskHeaderProps {
   task: TaskDetail
 }
 

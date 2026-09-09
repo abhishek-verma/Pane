@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { hexForSlug } from '@/screens/audit/audit.colors'
 
-interface AgentDotProps {
+export interface AgentDotProps {
   slug: string
   className?: string
 }

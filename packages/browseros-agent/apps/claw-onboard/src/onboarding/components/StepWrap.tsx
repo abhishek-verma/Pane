@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-interface StepWrapProps {
+export interface StepWrapProps {
   children: ReactNode
 }
 

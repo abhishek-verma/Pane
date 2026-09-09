@@ -20,7 +20,7 @@ function truncateText(text: string, maxChars: number): string {
 const REASONING_TRUNCATION_SUFFIX = '\n…[truncated]'
 
 /** Size estimate that never JSON.stringify's image `data` fields. */
-export function estimateToolOutputBytes(value: unknown): number {
+function estimateToolOutputBytes(value: unknown): number {
   if (value == null) return 0
   if (typeof value === 'string') return value.length
   if (typeof value !== 'object') return 8

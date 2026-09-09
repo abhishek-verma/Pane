@@ -22,7 +22,7 @@ function unavailable(): Promise<never> {
 }
 
 /** CDP backend that never connects and rejects all protocol calls. */
-export function createDisconnectedCdpBackend(): CdpBackend {
+function createDisconnectedCdpBackend(): CdpBackend {
   const rawSend: RawSend = () => unavailable()
   const rawOn: RawOn = () => () => {}
   const api = createProtocolApi(rawSend, rawOn)

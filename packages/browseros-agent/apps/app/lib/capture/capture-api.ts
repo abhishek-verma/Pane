@@ -65,52 +65,6 @@ export async function fetchActiveMeetingSessions(): Promise<CaptureSession[]> {
   )
 }
 
-export async function interruptMeetingSession(
-  sessionId: string,
-): Promise<void> {
-  const res = await captureApiFetch(
-    `${await baseUrl()}/capture/meetings/interrupt`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId }),
-    },
-  )
-  if (!res.ok) throw new Error(`capture interrupt failed (${res.status})`)
-}
-
-export async function pauseMeetingSession(sessionId: string): Promise<void> {
-  const res = await captureApiFetch(
-    `${await baseUrl()}/capture/meetings/pause`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId }),
-    },
-  )
-  if (!res.ok) throw new Error(`capture pause failed (${res.status})`)
-}
-
-export async function resumeMeetingSession(sessionId: string): Promise<void> {
-  const res = await captureApiFetch(
-    `${await baseUrl()}/capture/meetings/resume`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId }),
-    },
-  )
-  if (!res.ok) throw new Error(`capture resume failed (${res.status})`)
-}
-
-export async function deleteMeetingSession(sessionId: string): Promise<void> {
-  const res = await captureApiFetch(
-    `${await baseUrl()}/capture/meetings/${encodeURIComponent(sessionId)}`,
-    { method: 'DELETE' },
-  )
-  if (!res.ok) throw new Error(`capture delete failed (${res.status})`)
-}
-
 export async function stopMeetingSession(sessionId: string): Promise<void> {
   const res = await captureApiFetch(
     `${await baseUrl()}/capture/meetings/stop`,
@@ -199,29 +153,4 @@ export async function fetchCaptureConsents(bucketId?: string): Promise<
     }>
   }
   return json.consents
-}
-
-export async function postSpeakerObservation(
-  sessionId: string,
-  observation: {
-    displayName: string
-    isLocalSelf?: boolean
-    confidence: number
-    observedAt: number
-    source: string
-    localSpeaking?: boolean
-    participants?: Array<{ displayName: string; isLocalSelf?: boolean }>
-  },
-): Promise<void> {
-  const res = await captureApiFetch(
-    `${await baseUrl()}/capture/meetings/${encodeURIComponent(sessionId)}/speaker`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(observation),
-    },
-  )
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`speaker observation failed (${res.status})`)
-  }
 }

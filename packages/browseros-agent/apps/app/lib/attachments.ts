@@ -22,6 +22,29 @@ const ALLOWED_IMAGE_MEDIA_TYPES = [
   'image/gif',
 ] as const
 
+export const ATTACHMENT_ACCEPT =
+  'image/png,image/jpeg,image/webp,image/gif,application/pdf,text/*,application/json,.txt,.md,.csv,.json,.log,.yaml,.yml,.ts,.tsx,.js,.py,.css,.html'
+
+const TEXT_EXTENSIONS = new Set([
+  'txt',
+  'md',
+  'csv',
+  'json',
+  'log',
+  'yaml',
+  'yml',
+  'ts',
+  'tsx',
+  'js',
+  'jsx',
+  'py',
+  'css',
+  'html',
+  'xml',
+  'sh',
+  'sql',
+])
+
 const ALLOWED_FILE_MEDIA_TYPE_PREFIXES = ['text/', 'application/json'] as const
 
 export type ServerImageAttachment = {
@@ -41,6 +64,12 @@ export type ServerFileAttachment = {
 export type ServerAttachmentPayload =
   | ServerImageAttachment
   | ServerFileAttachment
+  | {
+      kind: 'document'
+      mediaType: 'application/pdf'
+      name: string
+      dataUrl: string
+    }
 
 /** UI-side representation: what the composer needs to render a chip. */
 export interface StagedAttachment {
@@ -91,11 +120,70 @@ function makeId(): string {
 export async function stageAttachment(
   file: File,
 ): Promise<StageAttachmentResult> {
-  const mediaType = file.type || 'application/octet-stream'
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  const mediaType =
+    file.type && file.type !== 'application/octet-stream'
+      ? file.type
+      : extension === 'pdf'
+        ? 'application/pdf'
+        : TEXT_EXTENSIONS.has(extension)
+          ? 'text/plain'
+          : ((
+              {
+                png: 'image/png',
+                jpg: 'image/jpeg',
+                jpeg: 'image/jpeg',
+                webp: 'image/webp',
+              } as Record<string, string>
+            )[extension] ?? 'application/octet-stream')
+
+  if (mediaType === 'application/pdf') {
+    if (file.size > MAX_IMAGE_BYTES)
+      return {
+        ok: false,
+        error: {
+          code: 'too_large',
+          message: `${file.name}: PDF must be under 5 MB.`,
+        },
+      }
+    try {
+      if (!(await file.slice(0, 5).text()).startsWith('%PDF-'))
+        throw new Error(`${file.name}: this is not a valid PDF.`)
+      const dataUrl = await readAsDataUrl(
+        file.type === mediaType ? file : new Blob([file], { type: mediaType }),
+      )
+      return {
+        ok: true,
+        attachment: {
+          id: makeId(),
+          kind: 'file',
+          mediaType,
+          name: file.name,
+          dataUrl,
+          payload: { kind: 'document', mediaType, name: file.name, dataUrl },
+        },
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        error: {
+          code: 'read_failed',
+          message:
+            error instanceof Error
+              ? error.message
+              : `Could not read ${file.name}.`,
+        },
+      }
+    }
+  }
 
   if (isImageMediaType(mediaType)) {
     try {
-      const compressed = await compressImageIfNeeded(file)
+      const compressed = await compressImageIfNeeded(
+        file.type === mediaType
+          ? file
+          : new File([file], file.name, { type: mediaType }),
+      )
       const dataUrl = await readAsDataUrl(compressed)
       const encodedMediaType = compressed.type || mediaType
       // Rough byte ceiling — `data:image/png;base64,...` doubles size with
@@ -142,6 +230,14 @@ export async function stageAttachment(
   }
 
   if (isAllowedFileMediaType(mediaType)) {
+    if (file.size > MAX_FILE_TEXT_BYTES)
+      return {
+        ok: false,
+        error: {
+          code: 'too_large',
+          message: `${file.name}: text files must be under 1 MB.`,
+        },
+      }
     let text: string
     try {
       text = await file.text()
@@ -157,7 +253,7 @@ export async function stageAttachment(
         },
       }
     }
-    if (text.length > MAX_FILE_TEXT_BYTES) {
+    if (new TextEncoder().encode(text).byteLength > MAX_FILE_TEXT_BYTES) {
       return {
         ok: false,
         error: {
@@ -168,6 +264,15 @@ export async function stageAttachment(
         },
       }
     }
+    if (text.includes('\0'))
+      return {
+        ok: false,
+        error: {
+          code: 'unsupported_type',
+          mediaType,
+          message: `${file.name}: binary content cannot be read as text.`,
+        },
+      }
     return {
       ok: true,
       attachment: {

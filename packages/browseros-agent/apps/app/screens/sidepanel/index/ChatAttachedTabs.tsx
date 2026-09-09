@@ -1,5 +1,10 @@
 import { Globe, X } from 'lucide-react'
 import type { FC } from 'react'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 export interface ChatAttachedTabsProps {
   tabs: chrome.tabs.Tab[]
@@ -27,9 +32,36 @@ export const ChatAttachedTabs: FC<ChatAttachedTabsProps> = ({
                 <Globe className="h-3 w-3 text-muted-foreground" />
               )}
             </div>
-            <div className="flex-1 truncate font-medium text-foreground text-xs">
-              {tab.title}
-            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex-1 truncate text-left font-medium text-foreground text-xs"
+                  title={tab.url}
+                >
+                  {tab.title}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" className="w-72 space-y-2 p-4">
+                <p className="font-medium text-sm">{tab.title}</p>
+                <p className="break-all text-muted-foreground text-xs">
+                  {tab.url}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Attached as a page reference. Pane can read it when needed.
+                </p>
+                {tab.url?.match(/^https?:/) && (
+                  <a
+                    href={tab.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block text-xs underline"
+                  >
+                    Open source
+                  </a>
+                )}
+              </PopoverContent>
+            </Popover>
             <button
               type="button"
               onClick={() => onRemoveTab(tab.id)}

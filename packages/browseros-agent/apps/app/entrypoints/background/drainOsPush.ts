@@ -19,15 +19,7 @@ import {
 const ALARM_NAME = 'drain-os-push'
 const PERIOD_MINUTES = 0.5
 
-export type {
-  ChromeNotificationOptions,
-  QueuedOsNotification,
-} from '@/lib/schedules/drainOsPushQueue'
-export {
-  drainOsPushQueueOnce,
-  resolveNotificationClickTarget,
-  toChromeNotificationOptions,
-} from '@/lib/schedules/drainOsPushQueue'
+import '@/lib/schedules/drainOsPushQueue'
 
 function defaultCreateNotification(
   notificationId: string,

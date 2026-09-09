@@ -472,11 +472,6 @@ export function summarizeRawPage(raw: unknown): {
   return { title, nodeTypes, boardSummaries }
 }
 
-export function assertValidNodes(nodes: PiNode[]): void {
-  // Exported for tests / future use
-  void nodes
-}
-
 function truncateForRender(text: string, max = 70): string {
   const clean = text.replace(/\s+/g, ' ').trim()
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean

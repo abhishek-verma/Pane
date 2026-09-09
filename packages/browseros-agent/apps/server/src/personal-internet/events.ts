@@ -28,11 +28,6 @@ export function getLastPiMutationAt(): number {
   return lastMutationAt
 }
 
-export function onPiEvent(listener: Listener): () => void {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
-
 export function emitPiEvent(
   name: PiEventName,
   payload: Omit<PiEvent, 'name' | 'at'> = {},

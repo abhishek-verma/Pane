@@ -74,3 +74,36 @@ describe('stageAttachment', () => {
     }
   })
 })
+
+it('recognizes text extensions with missing MIME and rejects binary masquerading as text', async () => {
+  const result = await stageAttachment(new File(['hello 世界'], 'notes.md'))
+  expect(result.ok && result.attachment.payload).toMatchObject({
+    kind: 'file',
+    text: 'hello 世界',
+  })
+  expect((await stageAttachment(new File(['abc\0def'], 'notes.txt'))).ok).toBe(
+    false,
+  )
+})
+it('checks text bytes before reading and validates PDF signature', async () => {
+  expect(
+    (await stageAttachment(new File(['界'.repeat(400_000)], 'notes.txt'))).ok,
+  ).toBe(false)
+  expect((await stageAttachment(new File(['not a pdf'], 'brief.pdf'))).ok).toBe(
+    false,
+  )
+  const pdf = await stageAttachment(
+    new File(['%PDF-1.7\nfixture'], 'brief.pdf'),
+  )
+  expect(pdf.ok && pdf.attachment.payload.kind).toBe('document')
+})
+it('encodes an image with missing MIME using its inferred image type', async () => {
+  const image = await stageAttachment(
+    new File([new Uint8Array([1, 2, 3])], 'photo.png'),
+  )
+  expect(image.ok && image.attachment.payload).toMatchObject({
+    kind: 'image',
+    mediaType: 'image/png',
+    dataUrl: 'data:image/png;base64,AQID',
+  })
+})

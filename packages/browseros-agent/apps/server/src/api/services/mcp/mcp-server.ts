@@ -22,7 +22,10 @@ import {
   requestChannelApproval,
 } from '../../../scheduler/approvals'
 import { registerFilesystemMcpTools } from '../../../tools/filesystem/register-mcp'
-import type { Workspace } from '../../../tools/filesystem/workspace'
+import {
+  defaultWorkspace,
+  type Workspace,
+} from '../../../tools/filesystem/workspace'
 import { shouldLogToolRegistration } from '../../../tools/registration-log-sampling'
 import { MCP_INSTRUCTIONS } from './mcp-prompt'
 import type { RemoteAgentHarnessTools } from './register-mcp'
@@ -51,10 +54,18 @@ export function createMcpServer(deps: McpServiceDeps) {
     ? getConversationContext(deps.scopeId)
     : undefined
   const bucketId = conversation?.tools?.bucketId ?? deps.bucketId ?? 'default'
+  const workspace = conversation?.tools?.workingDir
+    ? defaultWorkspace(conversation.tools.workingDir, {
+        ...deps.workspace,
+        root: conversation.tools.workingDir,
+        bucketId,
+        workspaceId: conversation.tools.workspaceId,
+      })
+    : deps.workspace
   const runId = conversation?.gateContext?.runId ?? deps.scopeId ?? 'ephemeral'
   const gateContext = createDefaultMcpGateContext({
     ...conversation?.gateContext,
-    workspaceRoot: deps.workspace?.root ?? deps.executionDir,
+    workspaceRoot: workspace?.root ?? deps.executionDir,
     runId,
     pins: conversation?.gateContext?.pins ?? deps.trustPins ?? {},
     // For an ACP provider (e.g. Claude Code) pointed at our own /mcp,
@@ -129,8 +140,8 @@ export function createMcpServer(deps: McpServiceDeps) {
       outputFileAccess: deps.remoteAgentHarness.outputFileAccess,
       gateContext,
     })
-  } else if (deps.workspace) {
-    registerFilesystemMcpTools(server, deps.workspace, { gateContext })
+  } else if (workspace) {
+    registerFilesystemMcpTools(server, workspace, { gateContext })
   }
 
   // Always expose context/tasks on /mcp so CLI + external MCP clients can use them.

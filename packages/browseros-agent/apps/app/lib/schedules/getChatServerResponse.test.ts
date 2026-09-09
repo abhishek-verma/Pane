@@ -90,3 +90,33 @@ it('allows a review without a selected folder and rejects interrupted streams', 
     getChatServerResponse({ message: 'Review today' }),
   ).rejects.toThrow('without completion')
 })
+it('uses the saved schedule workspace even after the selected workspace changes', async () => {
+  await getChatServerResponse({
+    message: 'Read files and PI',
+    executionContext: {
+      providerId: 'provider',
+      userWorkingDir: '/saved/work',
+      workspaceId: 'saved',
+      bucketId: 'saved-bucket',
+    },
+    useSelectedWorkspace: true,
+  })
+  expect(workspaceRead).not.toHaveBeenCalled()
+  expect(body.userWorkingDir).toBe('/saved/work')
+  expect(body.workspaceId).toBe('saved')
+  expect(body.bucketId).toBe('saved-bucket')
+})
+it('fails explicitly when a saved provider has been removed instead of silently switching providers', async () => {
+  await expect(
+    getChatServerResponse({
+      message: 'Run schedule',
+      executionContext: { providerId: 'removed-provider' },
+    }),
+  ).rejects.toThrow('no longer available')
+})
+it('does not mark an error finish as a successful run', async () => {
+  stream = 'data: {"type":"finish","finishReason":"error"}\n\n'
+  await expect(
+    getChatServerResponse({ message: 'Run schedule' }),
+  ).rejects.toThrow('finished with an error')
+})

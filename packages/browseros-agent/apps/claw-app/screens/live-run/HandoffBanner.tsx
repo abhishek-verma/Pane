@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { PendingHandoff } from '@/modules/api/run.hooks'
 
-interface HandoffBannerProps {
+export interface HandoffBannerProps {
   handoff: PendingHandoff
   onContinue: () => void
   onCancel: () => void

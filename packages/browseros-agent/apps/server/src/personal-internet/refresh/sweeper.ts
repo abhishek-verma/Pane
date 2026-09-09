@@ -11,7 +11,7 @@
  */
 
 import { getDbHandle } from '../../lib/db'
-import { dispatchTrigger, enqueueRefresh, type PiRefreshJob } from './bus'
+import { dispatchTrigger, enqueueRefresh } from './bus'
 import {
   maybeDispatchNewDay,
   maybeDispatchPreEventFromActiveMeetings,
@@ -28,7 +28,7 @@ function sqlite() {
 }
 
 /** Marks active temps whose TTL has passed as `expired`. Returns their ids. */
-export function expireTemps(nowMs: number = Date.now()): string[] {
+function expireTemps(nowMs: number = Date.now()): string[] {
   const rows = sqlite()
     .prepare(
       `SELECT id FROM pi_temps WHERE status = 'active' AND expires_at < ?`,
@@ -96,15 +96,3 @@ export async function runBrowserStartedCatchUp(): Promise<SweepResult> {
   const refreshed = await runRefreshJobs()
   return { expired, refreshed }
 }
-
-/** Convenience re-export so callers can trigger a manual refresh + drain. */
-export async function manualRefresh(siteId?: string): Promise<{
-  jobIds: string[]
-  refreshed: RefreshRunResult
-}> {
-  const jobs = dispatchTrigger({ triggerName: 'manual-refresh', siteId })
-  const refreshed = await runRefreshJobs()
-  return { jobIds: jobs.map((j) => j.id), refreshed }
-}
-
-export type { PiRefreshJob }

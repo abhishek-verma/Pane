@@ -22,7 +22,7 @@ import {
 } from './new-agent.helpers'
 import type { NewAgentValues } from './new-agent.schemas'
 
-interface ConnectorPreviewRailProps {
+export interface ConnectorPreviewRailProps {
   mode: 'create' | 'edit'
   createdAgent: CreatedAgent | undefined
   isMutating: boolean

@@ -11,22 +11,6 @@ export type PiSiteStatus =
   | 'archived'
   | 'deleted'
 
-export type PiPageKind = 'index' | 'entity' | 'home_region'
-
-export type PiPageStatus =
-  | 'active'
-  | 'stale'
-  | 'refreshing'
-  | 'error-stale'
-  | 'archived'
-
-export type PiTempStatus =
-  | 'active'
-  | 'refreshing'
-  | 'kept-pending'
-  | 'expired'
-  | 'discarded'
-
 export type PiRefreshKind = 'A' | 'B' | 'C' | 'D' | 'E'
 
 export type PiAction =

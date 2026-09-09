@@ -66,7 +66,16 @@ export interface CompletedStep {
   fingerprint: string
 }
 
+export interface ScheduledExecutionContext {
+  providerId?: string
+  userWorkingDir?: string
+  workspaceId?: string
+  bucketId?: string
+}
+
 export interface ScheduledRunRecord {
+  executionContext?: ScheduledExecutionContext
+
   id: string
   source: RunSource
   sourceId: string | null
@@ -84,6 +93,8 @@ export interface ScheduledRunRecord {
 }
 
 export interface StartRunInput {
+  executionContext?: ScheduledExecutionContext
+
   source: RunSource
   sourceId?: string
   prompt: string

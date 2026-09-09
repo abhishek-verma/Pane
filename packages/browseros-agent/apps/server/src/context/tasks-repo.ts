@@ -144,7 +144,7 @@ export function markTaskDone(id: string): Task | null {
   return updateTask(id, { status: 'done' })
 }
 
-export function linkTaskNode(taskId: string, nodeId: string): void {
+function linkTaskNode(taskId: string, nodeId: string): void {
   const id = newId('tlink')
   sqlite()
     .prepare(

@@ -17,13 +17,3 @@ export function agentTraceClass(
 export function agentPeekClass(className?: string) {
   return cn('agent-peek', className)
 }
-
-/** User message tint — soft radius, no shadow. */
-export function agentUserBubbleClass(className?: string) {
-  return cn('agent-user-bubble', className)
-}
-
-/** Composer field shell. */
-export function agentComposerFieldClass(className?: string) {
-  return cn('agent-composer-field', className)
-}

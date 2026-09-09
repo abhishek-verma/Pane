@@ -23,7 +23,12 @@ describe('drainPendingRunsOnce', () => {
                   prompt: 'do the thing',
                   idempotencyKey: 'trigger:r1:e1',
                   status: 'pending',
-                  source: 'trigger',
+                  source: 'schedule',
+                  executionContext: {
+                    providerId: 'codex',
+                    userWorkingDir: '/saved/work',
+                    bucketId: 'saved',
+                  },
                 },
               ],
             }),
@@ -73,8 +78,18 @@ describe('drainPendingRunsOnce', () => {
         message: string
         scheduledRunId: string
         idempotencyKey: string
+        executionContext?: {
+          providerId?: string
+          userWorkingDir?: string
+          bucketId?: string
+        }
       }) => {
         calls.push('chat')
+        expect(input.executionContext).toEqual({
+          providerId: 'codex',
+          userWorkingDir: '/saved/work',
+          bucketId: 'saved',
+        })
         expect(input.message).toBe('do the thing')
         expect(input.scheduledRunId).toBe('run_1')
         expect(input.idempotencyKey).toBe('trigger:r1:e1')

@@ -22,7 +22,7 @@ import {
 } from './store'
 import type { PiNode, PiPageDoc } from './types'
 
-export const JOB_SEARCH_STAGES = [
+const JOB_SEARCH_STAGES = [
   'applied',
   'interviewing',
   'offer',
@@ -53,7 +53,7 @@ function slugifyEntityKey(company: string): string {
   return base || 'company'
 }
 
-export function isJobSearchStage(value: string): value is JobSearchStage {
+function isJobSearchStage(value: string): value is JobSearchStage {
   return (JOB_SEARCH_STAGES as readonly string[]).includes(value)
 }
 

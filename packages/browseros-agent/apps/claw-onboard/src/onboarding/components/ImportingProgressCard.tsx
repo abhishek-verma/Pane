@@ -1,6 +1,6 @@
 import { RefreshCw } from 'lucide-react'
 
-interface ImportingProgressCardProps {
+export interface ImportingProgressCardProps {
   currentItemLabel?: string
   progress: number
   total: number

@@ -25,7 +25,7 @@ export type CaptureStreamEvent =
   | { type: 'gap'; segment: TranscriptSegment }
   | { type: 'heartbeat'; ts: number }
 
-type Listener = (event: CaptureStreamEvent & { cursor: number }) => void
+export type Listener = (event: CaptureStreamEvent & { cursor: number }) => void
 
 const listeners = new Map<string, Set<Listener>>()
 const cursors = new Map<string, number>()

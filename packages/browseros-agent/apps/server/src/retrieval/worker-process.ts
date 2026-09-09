@@ -49,15 +49,3 @@ export async function startEmbedWorkerProcess(
     setEmbedWorkerUrl(null)
   }
 }
-
-export function stopEmbedWorkerProcess(): void {
-  if (child) {
-    try {
-      child.kill()
-    } catch {
-      /* ignore */
-    }
-    child = null
-  }
-  setEmbedWorkerUrl(null)
-}

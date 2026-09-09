@@ -237,7 +237,7 @@ async function syncSchedulesToBackend(
   }
 }
 
-export async function syncScheduledJobs(): Promise<void> {
+async function syncScheduledJobs(): Promise<void> {
   if (!productFeatures.cloudSync) return
 
   const jobs = await scheduledJobStorage.getValue()

@@ -7,6 +7,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { SessionStore } from '../../agent/session-store'
+import { optionalLayerAuthorization } from '../../layers/auth-middleware'
+import { createLayerRoutes } from '../../layers/routes'
 import type { TurnRegistry } from '../../lib/agents/turns/active-turn-registry'
 import type { OAuthTokenManager } from '../../lib/clients/oauth/token-manager'
 import { logger } from '../../lib/logger'
@@ -113,8 +115,13 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
   }
   app.use('/mcp/*', optionalProfile())
   app.use('/mcp', optionalProfile())
+  for (const prefix of ['/chat', '/mcp', '/agents']) {
+    app.use(prefix, optionalLayerAuthorization())
+    app.use(`${prefix}/*`, optionalLayerAuthorization())
+  }
 
   return app
+    .route('/layers', createLayerRoutes())
     .route('/health', createHealthRoute({ browser }))
     .route('/shutdown', createShutdownRoute({ onShutdown: deps.onShutdown }))
     .route('/status', createStatusRoute({ browser }))

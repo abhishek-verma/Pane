@@ -8,7 +8,7 @@ import { UI_CHAT_LIMITS } from '@browseros/shared/constants/limits'
 import type { UIMessage } from 'ai'
 
 export const CHAT_PAGE_SIZE = UI_CHAT_LIMITS.PAGE_SIZE
-export const CHAT_MAX_RESIDENT = UI_CHAT_LIMITS.MAX_RESIDENT_MESSAGES
+const CHAT_MAX_RESIDENT = UI_CHAT_LIMITS.MAX_RESIDENT_MESSAGES
 
 /**
  * Prepend older messages and drop from the newest end when over the resident

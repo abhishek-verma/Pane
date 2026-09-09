@@ -3,7 +3,7 @@ import { useFocusAgent } from '@/modules/api/focus.hooks'
 import type { AgentActivityRecord } from '@/screens/cockpit/cockpit.helpers'
 import { AgentRunningCard } from './AgentRunningCard'
 
-interface RunningGridProps {
+export interface RunningGridProps {
   agents: AgentActivityRecord[]
 }
 

@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 
-interface SkipLaterButtonProps {
+export interface SkipLaterButtonProps {
   onClick: () => void
   label?: string
 }

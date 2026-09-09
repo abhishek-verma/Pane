@@ -56,6 +56,7 @@ describe('buildSidepanelPreparedSendMessagesRequest', () => {
       conversationId,
       agentSessionId: conversationId,
       message: 'Inspect the current tab',
+      attachments: undefined,
       browserContext: {
         activeTab: { id: 10, url: 'https://example.com', title: 'Example' },
         enabledMcpServers: ['slack'],

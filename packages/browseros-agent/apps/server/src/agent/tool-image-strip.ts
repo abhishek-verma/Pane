@@ -17,7 +17,7 @@ export type StripAndStoreOptions = {
 }
 
 /** True when a content block is an image carrying inline base64 `data`. */
-export function isInlineImageBlock(item: unknown): item is {
+function isInlineImageBlock(item: unknown): item is {
   type: 'image'
   data: string
   mimeType?: string
@@ -34,7 +34,7 @@ export function isInlineImageBlock(item: unknown): item is {
 }
 
 /** True when a content block is a stripped image placeholder. */
-export function isStrippedImageBlock(item: unknown): item is {
+function isStrippedImageBlock(item: unknown): item is {
   type: 'image'
   stripped: true
   mimeType?: string

@@ -31,7 +31,7 @@ export const PINNABLE_CLASSES = [
 
 export type PinnableClass = (typeof PINNABLE_CLASSES)[number]
 
-export type ConversationTrustMap = Record<
+type ConversationTrustMap = Record<
   string,
   Partial<Record<ConsequenceClass, boolean>>
 >

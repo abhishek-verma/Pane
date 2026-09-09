@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { StepDots } from './StepDots'
 import { VisualRail } from './VisualRail'
 
-interface OnboardingShellProps {
+export interface OnboardingShellProps {
   step: number
   totalSteps: number
   children: ReactNode

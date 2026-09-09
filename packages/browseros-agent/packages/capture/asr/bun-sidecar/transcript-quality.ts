@@ -7,11 +7,11 @@ export const SAMPLE_RATE = 16_000
 /** Wait for this much *new* audio before running Whisper (unless forced). */
 export const MIN_WINDOW_SAMPLES = 10 * SAMPLE_RATE
 /** Cap a single decode window so latency stays bounded. */
-export const MAX_WINDOW_SAMPLES = 24 * SAMPLE_RATE
+const MAX_WINDOW_SAMPLES = 24 * SAMPLE_RATE
 /** Overlap with prior audio for word-boundary context. */
 export const OVERLAP_SAMPLES = Math.floor(1.0 * SAMPLE_RATE)
 /** Minimum audio even when force=true (skip tiny tail noise). */
-export const MIN_FORCE_SAMPLES = Math.floor(1.2 * SAMPLE_RATE)
+const MIN_FORCE_SAMPLES = Math.floor(1.2 * SAMPLE_RATE)
 
 /** Normal SRT crumbs and whisper.cpp glitches like `00:-16:-47,-260`. */
 const TIMESTAMP_TOKEN = /^-?\d{1,3}:-?\d{1,3}:-?\d{1,3}[,.]-?\d{1,3}$/

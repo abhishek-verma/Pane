@@ -16,8 +16,8 @@ import { defaultWorkspace } from '../../tools/filesystem/workspace'
 import { createMcpServer } from '../services/mcp/mcp-server'
 import type { Env } from '../types'
 
-export const MANAGED_MCP_SERVERS_HEADER = 'X-BrowserOS-Managed-Mcp-Servers'
-export const REMOTE_AGENT_HARNESS_MCP_SOURCE = 'remote-agent-harness'
+const MANAGED_MCP_SERVERS_HEADER = 'X-BrowserOS-Managed-Mcp-Servers'
+const REMOTE_AGENT_HARNESS_MCP_SOURCE = 'remote-agent-harness'
 
 type CreateMcpServerFn = typeof createMcpServer
 type CreateMcpTransportFn = (

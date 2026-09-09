@@ -1,7 +1,7 @@
 import { storage } from '@wxt-dev/storage'
 import type { UIMessage } from 'ai'
 
-export interface Conversation {
+interface Conversation {
   id: string
   messages: UIMessage[]
   lastMessagedAt: number

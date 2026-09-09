@@ -1,3 +1,5 @@
+import { attachmentParts, withReadableTextFiles } from '../chat-attachments'
+import { revisionPrefix } from '../chat-revision'
 /**
  * @license
  * Copyright 2025 BrowserOS
@@ -201,6 +203,20 @@ export class ChatService {
       !request.message.trim() &&
       Array.isArray(request.toolApprovalResponses) &&
       request.toolApprovalResponses.length > 0
+    if (
+      request.composer &&
+      !isApprovalResume &&
+      (this.conversationLocks.has(request.conversationId) ||
+        conversationTurnRegistry.getActiveFor(request.conversationId))
+    ) {
+      return Response.json(
+        {
+          error:
+            'A response is already running. Your follow-up remains on this device.',
+        },
+        { status: 409 },
+      )
+    }
     if (!isApprovalResume) {
       this.cancelTurn(request.conversationId, 'superseded-by-new-message')
     }
@@ -374,11 +390,13 @@ export class ChatService {
             defaultWindowId: request.browserContext?.windowId,
             enabledMcpServers: request.browserContext?.enabledMcpServers,
             customMcpServers: request.browserContext?.customMcpServers,
-            workspacePath: resolveAcpWorkspacePath(
-              llmConfig.provider,
-              llmConfig.providerId,
-              request.acpFixedWorkspacePath,
-            ),
+            workspacePath:
+              request.userWorkingDir ??
+              resolveAcpWorkspacePath(
+                llmConfig.provider,
+                llmConfig.providerId,
+                request.acpFixedWorkspacePath,
+              ),
           })
         : undefined,
       isNewConversation: isFirstTurn,
@@ -387,6 +405,8 @@ export class ChatService {
     }
 
     setConversationContext(request.conversationId, gateContext, {
+      providerId: request.providerId,
+      workspaceId: request.workspaceId,
       bucketId: request.bucketId,
       workingDir: agentConfig.workingDir,
       chatMode: agentConfig.chatMode,
@@ -626,8 +646,29 @@ export class ChatService {
       }
     }
 
+    if (request.revision && isAcpProvider(agentConfig.provider))
+      throw new Error(
+        'This agent does not support history revisions. Use the message as a new draft instead.',
+      )
+    if (
+      request.revision &&
+      request.revision.conversationId === request.conversationId
+    )
+      throw new Error('A revision must use a new conversation.')
+    if (request.revision && session.agent.messages.length === 0) {
+      // Load the complete source from this profile's store, never a paged client window.
+      const source =
+        sessionStore.get(request.revision.conversationId)?.agent.messages ??
+        (await sessionStore.loadMessages(request.revision.conversationId))
+      session.agent.messages = prepareMessagesForAgentTurn(
+        revisionPrefix(source, request.revision.messageId),
+        { settleApprovals: true, settleIncomplete: true },
+      ).messages
+    }
+
     if (
       isNewSession &&
+      !request.revision &&
       session.agent.messages.length === 0 &&
       request.previousConversation?.length
     ) {
@@ -758,7 +799,31 @@ export class ChatService {
     // <selected_text> + <USER_QUERY>) is built as a transient prompt
     // copy below — the LLM sees it, the user-visible state never
     // does.
+    if (
+      request.supportsImages === false &&
+      request.attachments?.some((item) => item.kind !== 'file')
+    ) {
+      throw new Error(
+        'This model does not support visual attachments. Choose a compatible model or remove the attachment.',
+      )
+    }
+    const inputAttachments = attachmentParts(request.attachments)
+    const rawUserParts: UIMessage['parts'] = [
+      { type: 'text', text: request.message },
+      ...inputAttachments,
+    ]
     session.agent.appendUserMessage(request.message)
+    const appendedUser =
+      session.agent.messages[session.agent.messages.length - 1]
+    appendedUser.parts = rawUserParts
+    if (
+      request.clientMessageId &&
+      !session.agent.messages
+        .slice(0, -1)
+        .some((message) => message.id === request.clientMessageId)
+    )
+      appendedUser.id = request.clientMessageId
+    if (request.composer) appendedUser.metadata = { composer: request.composer }
     await this.checkpointMessages(
       request.conversationId,
       session.agent.messages,
@@ -805,14 +870,20 @@ export class ChatService {
           {
             id: wrappedUserMessageId ?? crypto.randomUUID(),
             role: 'user',
-            parts: [{ type: 'text', text: promptUserText }],
+            parts: [
+              { type: 'text', text: promptUserText },
+              ...inputAttachments,
+            ],
           },
         ]
       : filterValidMessages(session.agent.messages).map((msg) =>
           msg.id === wrappedUserMessageId && msg.role === 'user'
             ? {
                 ...msg,
-                parts: [{ type: 'text' as const, text: promptUserText }],
+                parts: [
+                  { type: 'text' as const, text: promptUserText },
+                  ...inputAttachments,
+                ],
               }
             : msg,
         )
@@ -821,6 +892,11 @@ export class ChatService {
     gateContext.runId = runId
     runTracker.startRun(runId)
 
+    const originalUsers = new Map(
+      session.agent.messages
+        .filter((message) => message.role === 'user')
+        .map((message) => [message.id, message]),
+    )
     const applyStreamMessages = (messages: UIMessage[]) => {
       if (isAcp) {
         // Stream originalMessages are only this turn's user prompt. Keep
@@ -838,7 +914,7 @@ export class ChatService {
         const userMsg: UIMessage = {
           id: wrappedUserMessageId ?? crypto.randomUUID(),
           role: 'user',
-          parts: [{ type: 'text', text: request.message }],
+          parts: rawUserParts,
         }
         const afterUser = messages.filter((m) => m.id !== wrappedUserMessageId)
         session.agent.messages = filterValidMessages([
@@ -848,11 +924,8 @@ export class ChatService {
         ])
       } else {
         const restored = messages.map((msg) =>
-          msg.id === wrappedUserMessageId && msg.role === 'user'
-            ? {
-                ...msg,
-                parts: [{ type: 'text' as const, text: request.message }],
-              }
+          msg.role === 'user' && originalUsers.has(msg.id)
+            ? (originalUsers.get(msg.id) ?? msg)
             : msg,
         )
         session.agent.messages = filterValidMessages(restored)
@@ -866,7 +939,7 @@ export class ChatService {
       release,
       httpSignal: abortSignal,
       prompt: request.message,
-      uiMessages: promptUiMessages,
+      uiMessages: withReadableTextFiles(promptUiMessages),
       applyStreamMessages,
       onComplete: () => {
         if (session.hiddenPageId) {

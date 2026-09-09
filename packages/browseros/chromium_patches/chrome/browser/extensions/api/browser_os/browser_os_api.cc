@@ -1,9 +1,8 @@
 diff --git a/chrome/browser/extensions/api/browser_os/browser_os_api.cc b/chrome/browser/extensions/api/browser_os/browser_os_api.cc
 new file mode 100644
-index 0000000000000..ea477521a09d7
 --- /dev/null
 +++ b/chrome/browser/extensions/api/browser_os/browser_os_api.cc
-@@ -0,0 +1,403 @@
+@@ -0,0 +1,432 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -11,6 +10,12 @@ index 0000000000000..ea477521a09d7
 +#include "chrome/browser/extensions/api/browser_os/browser_os_api.h"
 +
 +#include "chrome/browser/extensions/api/browser_os/browser_os_capture.h"
++
++#include "chrome/browser/browseros/server/layer_authority.h"
++#include "chrome/common/pref_names.h"
++#include "extensions/browser/extension_prefs.h"
++#include "extensions/browser/extension_system.h"
++#include "extensions/browser/user_script_manager.h"
 +
 +#include <algorithm>
 +#include <memory>
@@ -83,6 +88,29 @@ index 0000000000000..ea477521a09d7
 +}
 +
 +}  // namespace
++
++ExtensionFunction::ResponseAction BrowserOSGetLayerCredentialFunction::Run() {
++  Profile* profile = Profile::FromBrowserContext(browser_context());
++  if (extension_id() != browseros::kLayerExtensionId || profile->IsOffTheRecord())
++    return RespondNow(Error("Layers credentials are unavailable in this context."));
++  // Provision the bundled userscript engine only. Individual saved programs
++  // still require a verified version and explicit site grant in Layers.
++  auto* scripts = ExtensionSystem::Get(profile)->user_script_manager();
++  bool recorded_choice = false;
++  const bool has_choice = ExtensionPrefs::Get(profile)->ReadPrefAsBoolean(
++      extension_id(), UserScriptManager::kUserScriptsAllowedPref,
++      &recorded_choice);
++  // Provision once; credential refresh must respect a later explicit opt-out.
++  if (scripts && !has_choice)
++    scripts->SetUserScriptPrefEnabled(extension_id(), true);
++  const std::string profile_id = profile->GetPrefs()->GetString(prefs::kBrowserOSMetricsClientId);
++  auto token = browseros::MintLayerCredential(profile_id);
++  if (!token) return RespondNow(Error("The Layers server is not ready."));
++  base::DictValue result;
++  result.Set("profileId", profile_id);
++  result.Set("token", *token);
++  return RespondNow(WithArguments(std::move(result)));
++}
 +
 +ExtensionFunction::ResponseAction BrowserOSGetPrefFunction::Run() {
 +  std::optional<browser_os::GetPref::Params> params =

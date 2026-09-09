@@ -52,12 +52,9 @@ export function sanitizePiSvg(markup: string, path = 'svg'): string {
 
   return cleaned
 }
-
-export const PI_MAX_SVG_CHARS = PI_LIMITS.MAX_SVG_CHARS
 export const PI_MAX_MERMAID_CHARS = PI_LIMITS.MAX_MERMAID_CHARS
 export const PI_MAX_CHART_POINTS = PI_LIMITS.MAX_CHART_POINTS
 export const PI_MAX_MERMAID_EDGES = PI_LIMITS.MAX_MERMAID_EDGES
-export const PI_MAX_MERMAID_SVG_CHARS = PI_LIMITS.MAX_MERMAID_SVG_CHARS
 export const PI_MAX_NODES = PI_LIMITS.MAX_NODES
 export const PI_MAX_NESTING_DEPTH = PI_LIMITS.MAX_NESTING_DEPTH
 export const PI_MAX_MERMAID_NODES_PER_PAGE =

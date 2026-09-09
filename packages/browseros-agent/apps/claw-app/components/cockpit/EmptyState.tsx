@@ -1,7 +1,7 @@
 import { Activity } from 'lucide-react'
 import type { ReactNode } from 'react'
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   title: string
   hint: ReactNode
   icon?: ReactNode

@@ -7,7 +7,7 @@ import {
 import type { TabActivityRecord } from '@/modules/api/tabs.hooks'
 import { siteOf } from '@/screens/cockpit/cockpit.helpers'
 
-interface TabCountChipProps {
+export interface TabCountChipProps {
   tabs: TabActivityRecord[]
   /** Target id of the focus tab so the popover can highlight it. */
   focusTargetId: string

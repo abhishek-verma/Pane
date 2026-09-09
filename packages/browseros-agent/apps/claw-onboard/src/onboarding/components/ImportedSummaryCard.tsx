@@ -1,6 +1,6 @@
 import { Check, CreditCard, Lock } from 'lucide-react'
 
-interface ImportedSummaryCardProps {
+export interface ImportedSummaryCardProps {
   importedItemCount: number
   itemSummary: string
   sourceName: string

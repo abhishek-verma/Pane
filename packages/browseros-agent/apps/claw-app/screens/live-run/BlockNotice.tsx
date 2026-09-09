@@ -2,7 +2,7 @@ import { Lock, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { PendingBlock } from '@/modules/api/run.hooks'
 
-interface BlockNoticeProps {
+export interface BlockNoticeProps {
   block: PendingBlock
   onManage: () => void
 }

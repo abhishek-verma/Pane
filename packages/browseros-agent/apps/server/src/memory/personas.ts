@@ -9,11 +9,8 @@
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import {
-  ensureMemoriesLayout,
-  readPromptFiles,
-  writePromptFileAndReindex,
-} from './files'
+import { ensureMemoriesLayout, readPromptFiles } from './files'
+import { writePromptFileAndReindex } from './prompt-file-service'
 
 export type PersonaId =
   | 'default'
@@ -36,7 +33,7 @@ export interface PersonaMap {
 
 const PERSONA_MAP_FILE = 'persona-map.json'
 
-export const PERSONA_TEMPLATES: PersonaTemplate[] = [
+const PERSONA_TEMPLATES: PersonaTemplate[] = [
   {
     id: 'default',
     label: 'Default',

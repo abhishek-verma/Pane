@@ -46,7 +46,7 @@ export const NewTabChat: FC = () => {
     status,
     agentUrlError,
     chatError,
-    canSend,
+    composer,
     getActionForMessage,
     liked,
     onClickLike,
@@ -92,6 +92,26 @@ export const NewTabChat: FC = () => {
       voiceError: NEWTAB_VOICE_ERROR_EVENT,
     },
   })
+
+  useEffect(() => {
+    if (
+      hasSentInitialRef.current ||
+      !composer.ready ||
+      searchParams.get('sendDraft') !== selectedProvider?.id
+    )
+      return
+    hasSentInitialRef.current = true
+    void composer
+      .submit()
+      .then(() => setSearchParams({ conversationId }, { replace: true }))
+  }, [
+    composer.ready,
+    composer.submit,
+    selectedProvider?.id,
+    searchParams,
+    setSearchParams,
+    conversationId,
+  ])
 
   const channelApprovals = useConversationPendingApprovals(conversationId)
   const { isBackground, backgroundSource } =
@@ -274,6 +294,7 @@ export const NewTabChat: FC = () => {
 
       <div className="mx-auto w-full max-w-3xl flex-shrink-0 px-4 pb-2">
         <ChatFooter
+          composer={composer}
           mode={mode}
           onModeChange={handleModeChange}
           input={input}
@@ -281,7 +302,7 @@ export const NewTabChat: FC = () => {
           onSubmit={handleSubmit}
           status={status}
           onStop={handleStop}
-          sendDisabled={!canSend}
+          sendDisabled={!composer.ready || isRestoringConversation}
           isTurnActive={isTurnActive}
           attachedTabs={attachedTabs}
           onToggleTab={toggleTabSelection}

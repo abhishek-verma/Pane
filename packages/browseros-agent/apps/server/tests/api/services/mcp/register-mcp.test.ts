@@ -125,6 +125,11 @@ describe('registerTools', () => {
     'pi_page_archive',
     'pi_preserve_temp',
     'pi_home_regions_patch',
+    'schedule_create',
+    'schedule_list',
+    'schedule_update',
+    'schedule_delete',
+    'schedule_run',
     'trigger_list',
     'trigger_delete',
     'agenda_list',
@@ -132,6 +137,16 @@ describe('registerTools', () => {
     'agenda_update',
     'agenda_review_finish',
     'suggest_schedule',
+    'layer_tabs',
+    'layer_list',
+    'layer_inspect',
+    'layer_draft',
+    'layer_preview',
+    'layer_verify',
+    'layer_clear_preview',
+    'layer_data_sources',
+    'layer_assess',
+    'layer_validate',
   ]
   let infoMessages: unknown[] = []
 

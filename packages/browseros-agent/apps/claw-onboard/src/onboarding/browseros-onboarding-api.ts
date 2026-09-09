@@ -67,7 +67,7 @@ export interface BrowserOSStartImportRequest {
   items?: BrowserOSImportItem[]
 }
 
-export interface BrowserOSOnboardingClient {
+interface BrowserOSOnboardingClient {
   receiveState(state: BrowserOSOnboardingState): void
 }
 

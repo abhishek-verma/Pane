@@ -25,7 +25,7 @@ function sqlite() {
   return getDbHandle().sqlite
 }
 
-export function normalizeCaptureDomain(value: string): string {
+function normalizeCaptureDomain(value: string): string {
   try {
     return new URL(value).hostname.toLowerCase()
   } catch {

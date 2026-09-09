@@ -10,8 +10,8 @@
 import type { PiSiteRow } from '../lib/db/schema/personal-internet'
 import type { PiRefreshPolicy, PiTemplateId } from './types'
 
-export const MIN_HARVEST_CADENCE_DAYS = 1
-export const MAX_HARVEST_CADENCE_DAYS = 30
+const MIN_HARVEST_CADENCE_DAYS = 1
+const MAX_HARVEST_CADENCE_DAYS = 30
 
 export type HarvestConfig = {
   enabled: boolean
@@ -58,9 +58,7 @@ export function normalizeHarvestSources(sources: unknown): string[] {
   return out
 }
 
-export function parseHarvestSourcesJson(
-  json: string | null | undefined,
-): string[] {
+function parseHarvestSourcesJson(json: string | null | undefined): string[] {
   if (!json) return []
   try {
     return normalizeHarvestSources(JSON.parse(json))

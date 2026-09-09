@@ -6,7 +6,7 @@ import {
   selectableItemsForSource,
 } from '../onboarding-v2.helpers'
 
-interface ImportSourceTileProps {
+export interface ImportSourceTileProps {
   source: BrowserOSImportSource
   selected: boolean
   onSelect: () => void

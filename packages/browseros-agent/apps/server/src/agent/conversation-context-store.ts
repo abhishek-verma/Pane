@@ -6,9 +6,9 @@ import type {
 import { tryGetProfileKey } from '../lib/profile-context'
 import type { PaneToolContext } from './pane-toolset'
 
-type PinsMap = Partial<Record<ConsequenceClass, TrustPin>>
+export type PinsMap = Partial<Record<ConsequenceClass, TrustPin>>
 
-export interface ConversationContext {
+interface ConversationContext {
   pins: PinsMap
   gateContext?: GateContext
   tools?: PaneToolContext

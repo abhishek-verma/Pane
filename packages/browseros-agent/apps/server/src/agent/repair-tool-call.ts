@@ -19,7 +19,7 @@ import {
 } from 'ai'
 import { logger } from '../lib/logger'
 
-type GenerateTextFn = (options: {
+export type GenerateTextFn = (options: {
   model: unknown
   system?: unknown
   prompt: string

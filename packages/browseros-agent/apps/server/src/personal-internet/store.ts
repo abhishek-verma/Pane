@@ -711,12 +711,6 @@ export async function markHomeVisited(): Promise<void> {
   await writeHomePrefs({ ...prefs, lastViewedAt: Date.now() })
 }
 
-export async function clearDismissedContinuity(): Promise<void> {
-  const prefs = await readHomePrefs()
-  if (prefs.dismissedContinuityIds.length === 0) return
-  await writeHomePrefs({ ...prefs, dismissedContinuityIds: [] })
-}
-
 export type HomeRegionsFile = {
   continuity: PiContinuityBlock[]
 }
@@ -834,7 +828,7 @@ export function insertRefreshJob(input: {
   return getRefreshJob(id)!
 }
 
-export function getRefreshJob(id: string): PiRefreshJobRow | null {
+function getRefreshJob(id: string): PiRefreshJobRow | null {
   const row = sqlite()
     .prepare(`SELECT * FROM pi_refresh_jobs WHERE id = ?`)
     .get(id) as Record<string, unknown> | null
@@ -849,18 +843,6 @@ export function listPendingRefreshJobs(limit = 20): PiRefreshJobRow[] {
     )
     .all(limit) as Array<Record<string, unknown>>
   return rows.map(rowToJob)
-}
-
-export function updateRefreshJobStatus(
-  id: string,
-  status: 'pending' | 'running' | 'done' | 'failed' | 'skipped',
-  errorText?: string | null,
-): void {
-  sqlite()
-    .prepare(
-      `UPDATE pi_refresh_jobs SET status = ?, error_text = ?, updated_at = ? WHERE id = ?`,
-    )
-    .run(status, errorText ?? null, now(), id)
 }
 
 export function cancelPendingJobsForTarget(
@@ -925,23 +907,6 @@ export async function hardDeleteSite(siteId: string): Promise<void> {
     .run(siteId)
   cancelPendingJobsForTarget('site', siteId)
   sqlite().prepare(`DELETE FROM pi_sites WHERE id = ?`).run(siteId)
-}
-
-export function listExpiredTemps(nowMs = Date.now()): PiTempRow[] {
-  const rows = sqlite()
-    .prepare(
-      `SELECT * FROM pi_temps WHERE status = 'active' AND expires_at <= ?`,
-    )
-    .all(nowMs) as Array<Record<string, unknown>>
-  return rows.map(rowToTemp)
-}
-
-export function markTempExpired(id: string): void {
-  sqlite()
-    .prepare(
-      `UPDATE pi_temps SET status = 'expired', updated_at = ? WHERE id = ?`,
-    )
-    .run(now(), id)
 }
 
 export function touchSite(siteId: string): void {

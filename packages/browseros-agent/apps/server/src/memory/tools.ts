@@ -7,8 +7,8 @@
 import { PROMOTED_ARG } from '@browseros/shared/trust/consequence-class'
 import { type ToolSet, tool } from 'ai'
 import { z } from 'zod'
-import { writePromptFileAndReindex } from './files'
 import { PromptBudgetExceededError } from './prompt-budget'
+import { writePromptFileAndReindex } from './prompt-file-service'
 import { noteSkillLoaded } from './skill-outcomes'
 import {
   archiveSkill,
@@ -21,7 +21,6 @@ import {
 } from './skills'
 import {
   forgetMemoryEntry,
-  listEntries,
   listSkills,
   MemoryWriteRejectedError,
   recordSkillOutcome,
@@ -266,9 +265,4 @@ export function buildMemoryToolSet(
   }
 }
 
-/** Debug helper for tests — list entries without a tool. */
-export function debugListMemory(bucketId = 'default') {
-  return listEntries({ bucketId })
-}
-
-export { finalizeSkillOutcomesForRun } from './skill-outcomes'
+import './skill-outcomes'

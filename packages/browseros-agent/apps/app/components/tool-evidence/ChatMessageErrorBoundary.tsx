@@ -1,12 +1,12 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 
-type Props = {
+export type Props = {
   children: ReactNode
   /** Cleared automatically when this changes (e.g. streamed text growing). */
   resetKey: string | number
 }
 
-type State = {
+export type State = {
   error: Error | null
 }
 

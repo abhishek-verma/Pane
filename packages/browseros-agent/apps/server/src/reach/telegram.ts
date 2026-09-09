@@ -30,7 +30,7 @@ export function getTelegramPairingCode(): string | null {
   return getReachSecret('telegram', 'pairingCode')
 }
 
-export function getTelegramAllowlist(): string[] {
+function getTelegramAllowlist(): string[] {
   const raw = getReachSecret('telegram', 'allowlist')
   if (!raw) return []
   try {

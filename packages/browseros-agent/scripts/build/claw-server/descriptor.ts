@@ -1,6 +1,6 @@
 import type { BuildProductDescriptor } from '@browseros/build-server-tools'
 
-export const CLAW_SERVER_BUNDLE_ENTRYPOINT = 'apps/claw-server/src/main.ts'
+const CLAW_SERVER_BUNDLE_ENTRYPOINT = 'apps/claw-server/src/main.ts'
 
 export const clawServerBuildProduct: BuildProductDescriptor = {
   label: 'BrowserOS Claw server',

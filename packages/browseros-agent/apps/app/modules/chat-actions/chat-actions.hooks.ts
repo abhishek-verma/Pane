@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { createBrowserOSAction } from '@/lib/chat-actions/types'
 import { track } from '@/lib/metrics/track'
 import { isAttachableTabUrl } from '@/lib/personal-internet/attachable-tab-url'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import type { ChatMode } from '@/modules/chat/chat-types'
+import { useChatComposer } from '@/modules/chat/use-chat-composer'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
 import {
   type ChatSessionLike,
@@ -41,8 +41,36 @@ export function useChatActions(config: ChatActionsConfig) {
   chatSessionRef.current = { sendMessage, stop, status, messages }
   const voiceLoop = useVoiceLoop({ chatSessionRef })
 
-  const [input, setInput] = useState('')
-  const [attachedTabs, setAttachedTabs] = useState<chrome.tabs.Tab[]>([])
+  const composer = useChatComposer()
+  const input = composer.state.draft.text
+  const attachedTabs = composer.state.draft.tabs
+  const setInput = (value: React.SetStateAction<string>) =>
+    composer.setDraft((draft) => {
+      const text = typeof value === 'function' ? value(draft.text) : value
+      const priorIds = new Set(
+        [...draft.text.matchAll(/@\[[^\]]+\]\(tab:(\d+)\)/g)].map((match) =>
+          Number(match[1]),
+        ),
+      )
+      const nextIds = new Set(
+        [...text.matchAll(/@\[[^\]]+\]\(tab:(\d+)\)/g)].map((match) =>
+          Number(match[1]),
+        ),
+      )
+      return {
+        ...draft,
+        text,
+        tabs: draft.tabs.filter(
+          (tab) => !priorIds.has(tab.id ?? -1) || nextIds.has(tab.id ?? -1),
+        ),
+      }
+    })
+  const setAttachedTabs = (value: React.SetStateAction<chrome.tabs.Tab[]>) =>
+    composer.setDraft((draft) => ({
+      ...draft,
+      tabs: typeof value === 'function' ? value(draft.tabs) : value,
+    }))
+  const autoAttached = useRef(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -50,15 +78,22 @@ export function useChatActions(config: ChatActionsConfig) {
   }, [])
 
   // Auto-attach current tab on mount (sidepanel)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: One initial attachment after draft hydration; adding the controller would rerun on every token.
   useEffect(() => {
-    if (!config.autoAttachActiveTab) return
+    if (!config.autoAttachActiveTab || !composer.ready || autoAttached.current)
+      return
+    autoAttached.current = true
     ;(async () => {
       const currentTab = (
         await chrome.tabs.query({ active: true, currentWindow: true })
       ).filter((tab) => isAttachableTabUrl(tab.url))
-      setAttachedTabs(currentTab)
+      composer.setDraft((draft) =>
+        draft.text || draft.tabs.length || draft.attachments.length
+          ? draft
+          : { ...draft, tabs: currentTab },
+      )
     })()
-  }, [config.autoAttachActiveTab])
+  }, [config.autoAttachActiveTab, composer.ready])
 
   // Voice transcript → input
   // biome-ignore lint/correctness/useExhaustiveDependencies: only trigger on transcript/transcribing change
@@ -87,6 +122,7 @@ export function useChatActions(config: ChatActionsConfig) {
 
   const handleStop = () => {
     track(config.events.stopClicked)
+    void composer.pause()
     stop()
   }
 
@@ -105,25 +141,21 @@ export function useChatActions(config: ChatActionsConfig) {
 
   const removeTab = (tabId?: number) => {
     track(config.events.tabRemoved)
-    setAttachedTabs((prev) => prev.filter((t) => t.id !== tabId))
+    composer.setDraft((draft) => ({
+      ...draft,
+      tabs: draft.tabs.filter((tab) => tab.id !== tabId),
+      text: draft.text.replace(/@\[[^\]]+\]\(tab:(\d+)\)/g, (token, id) =>
+        Number(id) === tabId ? '' : token,
+      ),
+    }))
   }
 
   const executeMessage = (customMessageText?: string) => {
-    const messageText = customMessageText ? customMessageText : input.trim()
-    if (!messageText) return
-
-    if (attachedTabs.length) {
-      const action = createBrowserOSAction({
-        mode,
-        message: messageText,
-        tabs: attachedTabs,
-      })
-      sendMessage({ text: messageText, action })
-    } else {
-      sendMessage({ text: messageText })
+    if (customMessageText) {
+      setInput(customMessageText)
+      return
     }
-    setInput('')
-    setAttachedTabs([])
+    void composer.submit()
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -139,7 +171,7 @@ export function useChatActions(config: ChatActionsConfig) {
 
   const handleSuggestionClick = (suggestion: string) => {
     track(config.events.suggestionClicked, { mode })
-    executeMessage(suggestion)
+    setInput(suggestion)
   }
 
   const handleStartRecording = async () => {
@@ -170,6 +202,7 @@ export function useChatActions(config: ChatActionsConfig) {
 
   return {
     ...restSession,
+    composer,
     input,
     setInput,
     attachedTabs,

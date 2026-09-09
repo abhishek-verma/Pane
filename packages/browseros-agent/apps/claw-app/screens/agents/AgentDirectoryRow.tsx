@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import type { AgentProfile } from '@/modules/api/agents.hooks'
 import { scopeSummaryFor, statusMetaFor } from './agents.helpers'
 
-interface AgentDirectoryRowProps {
+export interface AgentDirectoryRowProps {
   profile: AgentProfile
   onEdit: (profile: AgentProfile) => void
   onRevoke: (profile: AgentProfile) => void

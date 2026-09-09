@@ -28,7 +28,7 @@ import {
   siteRuleActionLabel,
 } from './site-rules.helpers'
 
-interface AddSiteRuleFormProps {
+export interface AddSiteRuleFormProps {
   isSubmitting: boolean
   /**
    * Receives validated form values plus optional mutation callbacks
