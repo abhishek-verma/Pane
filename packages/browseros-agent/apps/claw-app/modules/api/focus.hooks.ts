@@ -24,7 +24,7 @@
 
 import { createMutation } from 'react-query-kit'
 
-export interface FocusAgentResult {
+interface FocusAgentResult {
   ok: boolean
   tabId?: number
   windowId?: number

@@ -72,6 +72,25 @@
     "./schemas/agenda": {
       "types": "./src/schemas/agenda.ts",
       "default": "./src/schemas/agenda.ts"
-    }
+    },
+    "./layers/manifest": {
+      "types": "./src/layers/manifest.ts",
+      "default": "./src/layers/manifest.ts"
+    },
+    "./layers/matching": {
+      "types": "./src/layers/matching.ts",
+      "default": "./src/layers/matching.ts"
+    },
+    "./layers/capabilities": {
+      "types": "./src/layers/capabilities.ts",
+      "default": "./src/layers/capabilities.ts"
+    },
+    "./layers/action-protocol": {
+      "types": "./src/layers/action-protocol.ts",
+      "default": "./src/layers/action-protocol.ts"
+    },
+    "./layers/data": "./src/layers/data.ts",
+    "./layers/digest": "./src/layers/digest.ts",
+    "./layers/script-task": "./src/layers/script-task.ts"
   }
 }

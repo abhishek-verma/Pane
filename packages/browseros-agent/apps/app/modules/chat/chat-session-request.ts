@@ -37,6 +37,7 @@ export function buildSidepanelPreparedSendMessagesRequest({
         conversationId: common.conversationId,
         agentSessionId: agentSessionId ?? common.conversationId,
         message: message ?? '',
+        attachments: common.attachments,
         browserContext: common.browserContext,
         userSystemPrompt: common.userSystemPrompt,
         userWorkingDir: common.userWorkingDir,

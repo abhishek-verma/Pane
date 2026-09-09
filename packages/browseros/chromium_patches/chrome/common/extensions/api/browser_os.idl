@@ -1,9 +1,8 @@
 diff --git a/chrome/common/extensions/api/browser_os.idl b/chrome/common/extensions/api/browser_os.idl
 new file mode 100644
-index 0000000000000..baeb98959b39a
 --- /dev/null
 +++ b/chrome/common/extensions/api/browser_os.idl
-@@ -0,0 +1,187 @@
+@@ -0,0 +1,191 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -102,7 +101,11 @@ index 0000000000000..baeb98959b39a
 +  callback StopCaptureTabAudioCallback = void(boolean stopped);
 +  callback GetCaptureStatusCallback = void(CaptureStatus status);
 +
++  callback GetLayerCredentialCallback = void(any credential);
++
 +  interface Functions {
++    // Only the bundled Pane extension, bound to its own regular profile.
++    static void getLayerCredential(GetLayerCredentialCallback callback);
 +    // Settings API functions - compatible with chrome.settingsPrivate
 +    // Gets a specific preference value
 +    // |name|: The preference name (e.g., "nxtscape.default_provider").

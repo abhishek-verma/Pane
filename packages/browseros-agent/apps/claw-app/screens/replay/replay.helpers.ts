@@ -31,7 +31,7 @@ export const VERB_META: Record<ReplayVerb, VerbMeta> = {
   done: { label: 'Done', Icon: CheckCircle2, iconClass: 'text-green' },
 }
 
-interface KindStyle {
+export interface KindStyle {
   /** Solid color for scrubber bookmarks and the caption overlay glyph. */
   dotClass: string
   /** Tinted background for the timeline-row icon tile. */

@@ -11,7 +11,7 @@ import type { BundledLanguage, ThemeInput } from 'streamdown'
 
 export const SHIKI_PROTOCOL_VERSION = 1 as const
 
-export const SHIKI_SANDBOX_PAGE = 'shiki-sandbox.html'
+const SHIKI_SANDBOX_PAGE = 'shiki-sandbox.html'
 
 /** Matches Streamdown's `HighlightToken` — see `CodeHighlighterPlugin`. */
 export type ShikiToken = {

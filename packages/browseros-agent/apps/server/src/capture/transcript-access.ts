@@ -80,7 +80,7 @@ export function formatTranscriptPlainText(
   }
 }
 
-export function formatCaptureDurationMs(
+function formatCaptureDurationMs(
   startedAt: number,
   endedAt: number | null,
 ): string {

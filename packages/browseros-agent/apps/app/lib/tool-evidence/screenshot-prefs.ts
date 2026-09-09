@@ -2,18 +2,17 @@ import { storage } from '@wxt-dev/storage'
 import { useEffect, useState } from 'react'
 
 /** chrome.storage.local key (via wxt `local:` prefix) */
-export const SHOW_BROWSER_SCREENSHOTS_KEY =
-  'local:toolEvidence.showBrowserScreenshots'
+const SHOW_BROWSER_SCREENSHOTS_KEY = 'local:toolEvidence.showBrowserScreenshots'
 /** chrome.storage.local key (via wxt `local:` prefix) */
-export const BLUR_SCREENSHOTS_UNTIL_CLICK_KEY =
+const BLUR_SCREENSHOTS_UNTIL_CLICK_KEY =
   'local:toolEvidence.blurScreenshotsUntilClick'
 
-export const showBrowserScreenshotsStorage = storage.defineItem<boolean>(
+const showBrowserScreenshotsStorage = storage.defineItem<boolean>(
   SHOW_BROWSER_SCREENSHOTS_KEY,
   { fallback: true },
 )
 
-export const blurScreenshotsUntilClickStorage = storage.defineItem<boolean>(
+const blurScreenshotsUntilClickStorage = storage.defineItem<boolean>(
   BLUR_SCREENSHOTS_UNTIL_CLICK_KEY,
   { fallback: false },
 )

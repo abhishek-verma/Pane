@@ -5,6 +5,7 @@
  */
 
 import { BROWSEROS_PROFILE_ID_HEADER } from '@browseros/shared/constants/headers'
+import { getLayerAuthorAuthorization } from '../../../layers/broker-auth'
 import type { McpServerSpec } from './buildAcpxProvider'
 
 const BROWSEROS_SELF_MCP_NAME = 'browseros'
@@ -59,6 +60,9 @@ export function buildBrowserOsSelfMcpEntry(
     { name: 'X-BrowserOS-Scope-Id', value: opts.conversationId },
     { name: 'X-BrowserOS-Agent-Id', value: opts.providerId },
   ]
+  const layerAuthorization = getLayerAuthorAuthorization(opts.conversationId)
+  if (layerAuthorization)
+    headers.push({ name: 'Authorization', value: layerAuthorization })
   if (opts.profileId) {
     headers.push({
       name: BROWSEROS_PROFILE_ID_HEADER,

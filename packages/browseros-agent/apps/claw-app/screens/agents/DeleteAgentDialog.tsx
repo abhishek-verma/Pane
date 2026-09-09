@@ -12,7 +12,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { AgentProfile } from '@/modules/api/agents.hooks'
 
-interface DeleteAgentDialogProps {
+export interface DeleteAgentDialogProps {
   /** Profile whose row triggered the delete; `null` when the dialog is closed. */
   profile: AgentProfile | null
   isDeleting: boolean

@@ -14,7 +14,7 @@ import {
   navigateOwnedRoute,
 } from '@/lib/personal-internet/pi-document'
 
-type QueryClientLike = {
+export type QueryClientLike = {
   invalidateQueries: (opts: { queryKey: string[] }) => unknown
 }
 

@@ -32,13 +32,14 @@ index 43fd1559ee..403c61b703 100644
        "api/chrome_device_permissions_prompt.h",
        "api/enterprise_reporting_private/conversion_utils.cc",
        "api/enterprise_reporting_private/conversion_utils.h",
-@@ -987,6 +1001,9 @@ source_set("extensions") {
+@@ -987,6 +1001,10 @@ source_set("extensions") {
        "//components/language/core/common",
        "//components/language/core/language_model",
        "//components/live_caption:constants",
 +      "//chrome/browser/browseros/core",
 +      "//chrome/browser/browseros/core:prefs",
 +      "//chrome/browser/browseros/metrics",
++      "//chrome/browser/browseros/server",
        "//components/media_device_salt",
        "//components/navigation_interception",
        "//components/net_log",

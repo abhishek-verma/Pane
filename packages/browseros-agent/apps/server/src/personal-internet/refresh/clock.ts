@@ -46,7 +46,7 @@ export function readNewDayMarker(browserosDir?: string): string | null {
   }
 }
 
-export function writeNewDayMarker(day: string, browserosDir?: string): void {
+function writeNewDayMarker(day: string, browserosDir?: string): void {
   const path = markerPath(browserosDir)
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, day, 'utf-8')

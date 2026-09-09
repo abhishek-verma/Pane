@@ -123,11 +123,6 @@ export function recordingSessionIds(): string[] {
   return Array.from(activeSessions.keys())
 }
 
-/** Local recorder tab binding — used to hard-stop when a tab closes. */
-export function recordingTabId(sessionId: string): number | undefined {
-  return activeSessions.get(sessionId)
-}
-
 export function sessionIdsForTab(tabId: number): string[] {
   const out: string[] = []
   for (const [sessionId, boundTabId] of activeSessions) {

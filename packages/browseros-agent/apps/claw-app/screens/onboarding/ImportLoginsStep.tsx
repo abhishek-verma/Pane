@@ -18,7 +18,7 @@ import {
 } from '@/modules/api/onboarding.hooks'
 import { summariseProfileSelection } from './onboarding.helpers'
 
-interface ImportLoginsStepProps {
+export interface ImportLoginsStepProps {
   pickedIds: string[]
   onPickedChange: (next: string[]) => void
   onContinue: (result: ImportResult) => void

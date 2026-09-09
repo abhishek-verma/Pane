@@ -66,7 +66,7 @@ export type EnqueueRefreshInput = {
   filterValue?: string | null
 }
 
-export function coalesceKeyFor(input: {
+function coalesceKeyFor(input: {
   targetType: RefreshTargetType
   targetId: string
   kind: PiRefreshKind
@@ -372,7 +372,7 @@ export function wireRefreshBus(): void {
   })
 }
 
-export function unwireRefreshBus(): void {
+function unwireRefreshBus(): void {
   if (!hookInstalled) return
   hookInstalled = false
   setAfterMutationHook(null)

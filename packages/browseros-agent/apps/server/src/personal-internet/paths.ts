@@ -11,13 +11,9 @@ export {
   entityHref,
   entityRoute,
   hrefToRoute,
-  libraryHref,
-  libraryRoute,
-  PI_HREF_RE,
   pageHref,
   pageRoute,
   parsePiHref,
-  parsePiRoute,
   routeToHref,
   siteHref,
   siteRoute,
@@ -25,11 +21,11 @@ export {
   tempRoute,
 } from './pi-href'
 
-export function piRoot(browserosDir?: string): string {
+function piRoot(browserosDir?: string): string {
   return join(browserosDir ?? getBrowserosDir(), 'personal-internet')
 }
 
-export function siteDir(siteId: string, browserosDir?: string): string {
+function siteDir(siteId: string, browserosDir?: string): string {
   return join(piRoot(browserosDir), 'sites', siteId)
 }
 

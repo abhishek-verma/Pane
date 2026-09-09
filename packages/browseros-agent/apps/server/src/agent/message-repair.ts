@@ -152,7 +152,7 @@ export type PrepareMessagesResult = PrepareMessagesSummary & {
  *
  * Returns the count of messages removed.
  */
-export function stripMessagesWithNullContent(messages: UIMessage[]): {
+function stripMessagesWithNullContent(messages: UIMessage[]): {
   messages: UIMessage[]
   removed: number
 } {

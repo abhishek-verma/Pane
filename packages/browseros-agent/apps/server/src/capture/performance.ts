@@ -15,10 +15,9 @@ import { detectOnBattery, getPauseOnBatteryPref } from '../context/battery'
 import { getCaptureDir } from '../lib/browseros-dir'
 import { registeredAsrSessionCount } from './shared-asr-worker'
 
-export const DEFAULT_RAW_RETENTION_DAYS = 7
-export const DEFAULT_TRANSCRIPT_RETENTION_DAYS = 90
+const DEFAULT_RAW_RETENTION_DAYS = 7
 export const DEFAULT_DISK_PAUSE_BYTES = 5 * 1024 * 1024 * 1024
-export const MAX_CONCURRENT_MEETINGS = 2
+const MAX_CONCURRENT_MEETINGS = 2
 
 let refuseNewReason: 'battery' | 'disk' | 'load' | null = null
 let asrDeferred = false
@@ -34,14 +33,6 @@ export function getCapturePausedReason(): 'battery' | 'disk' | 'load' | null {
   return refuseNewReason
 }
 
-export function getRefuseNewSessionsReason():
-  | 'battery'
-  | 'disk'
-  | 'load'
-  | null {
-  return refuseNewReason
-}
-
 export function isAsrDeferredGlobally(): boolean {
   return asrDeferred
 }
@@ -51,11 +42,6 @@ export function assertCanStartNewCapture(): void {
   if (refuseNewReason) {
     throw new Error(`Capture paused (${refuseNewReason})`)
   }
-}
-
-/** @deprecated Do not use on chunk persist path. */
-export function assertCaptureNotPaused(): void {
-  assertCanStartNewCapture()
 }
 
 export async function refreshCapturePauseState(): Promise<void> {

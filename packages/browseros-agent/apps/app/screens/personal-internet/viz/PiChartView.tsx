@@ -7,7 +7,7 @@
 import type { FC } from 'react'
 import type { PiNode } from '../types'
 
-type ChartNode = Extract<PiNode, { type: 'chart' }>
+export type ChartNode = Extract<PiNode, { type: 'chart' }>
 
 const COLORS = [
   'var(--chart-1)',

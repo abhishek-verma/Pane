@@ -14,9 +14,4 @@ import { createIdentityService } from './identity'
 export const identityService = createIdentityService()
 
 export type { ClientIdentity, IdentityService } from './identity'
-export {
-  agentIdentityFromClient,
-  createIdentityService,
-  fallbackSlugForSession,
-  slugifyClientName,
-} from './identity'
+export { agentIdentityFromClient } from './identity'

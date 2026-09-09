@@ -350,4 +350,3 @@ async function uploadCliRelease(
 }
 
 // Re-exported for callers that historically imported it alongside the runner.
-export { GITHUB_RELEASES_BASE, GITHUB_REPO }

@@ -68,7 +68,9 @@ const BrowserOSActionCard: FC<{ action: BrowserOSAction }> = ({ action }) => {
   // Do not show Bot/Agent chrome — that reads as agent authorship.
   return (
     <div className="flex flex-col gap-2">
-      <div className="text-foreground text-sm">{action.message}</div>
+      <div className="text-foreground text-sm">
+        {action.message.replace(/@\[([^\]]+)\]\(tab:\d+\)/g, '@$1')}
+      </div>
       {action.tabs ? <AttachedTabs tabs={action.tabs} /> : null}
     </div>
   )

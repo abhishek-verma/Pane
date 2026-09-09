@@ -12,6 +12,8 @@ import { type BunSQLiteDatabase, drizzle } from 'drizzle-orm/bun-sqlite'
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { logger } from '../logger'
 import * as schema from './schema'
+import { LAYER_ACTIVITY_SCHEMA_SQL } from './schema/layer-activity'
+import { LAYERS_SCHEMA_SQL } from './schema/layers'
 
 export type BrowserOsDatabase = BunSQLiteDatabase<typeof schema>
 
@@ -101,7 +103,7 @@ export function openBrowserOsDatabase(
 }
 
 /** Resolves migrations from explicit test paths, packaged resources, or the source tree. */
-export function resolveMigrationsDir(
+function resolveMigrationsDir(
   options: Pick<OpenDbOptions, 'migrationsDir' | 'resourcesDir'> = {},
 ): string | null {
   if (options.migrationsDir) {
@@ -407,10 +409,28 @@ export const currentMigrationHistory = [
     hash: 'b78d471f869fe5d66b4c00d54d23618406b510df2bbc9d2669607315971415fd',
     createdAt: 1786300000000,
   },
+  {
+    tag: '0019_scheduled_jobs',
+    hash: '5b7f263076f69adcd753a174d1868a12cc32ae56dcb8ed185b59b1cec948f622',
+    createdAt: 1786400000000,
+  },
+  {
+    tag: '0020_layers',
+    hash: '5c4436f9a9824f8426ec7492a97b79eec5bc2dbb891766aa0f14291faa72f1cf',
+    createdAt: 1786500000000,
+  },
+  {
+    tag: '0021_layer_activity',
+    hash: 'fd108adaf897bd5402f9dc35b50b1649ba597fc23121dc462ef1ac4e4f35c305',
+    createdAt: 1786600000000,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
 const currentSchemaStatements = [
+  LAYERS_SCHEMA_SQL,
+  LAYER_ACTIVITY_SCHEMA_SQL,
+  `CREATE TABLE IF NOT EXISTS scheduled_jobs (id TEXT PRIMARY KEY NOT NULL, definition_json TEXT NOT NULL, next_run_at INTEGER NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS agenda_changes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   item_id TEXT NOT NULL,
@@ -797,6 +817,7 @@ const currentSchemaStatements = [
       bucket_id text,
       status text DEFAULT 'pending' NOT NULL,
       completed_steps_json text DEFAULT '[]' NOT NULL,
+      execution_context_json text,
       conversation_id text,
       result text,
       error text,

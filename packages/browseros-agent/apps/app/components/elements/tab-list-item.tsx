@@ -7,12 +7,14 @@ export interface TabListItemProps {
   tab: chrome.tabs.Tab
   isSelected: boolean
   className?: string
+  checkbox?: boolean
 }
 
 export const TabListItem: FC<TabListItemProps> = ({
   tab,
   isSelected,
   className,
+  checkbox = true,
 }) => {
   return (
     <div
@@ -21,22 +23,24 @@ export const TabListItem: FC<TabListItemProps> = ({
         className,
       )}
     >
-      <div
-        className={cn(
-          'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border transition-colors',
-          isSelected
-            ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]'
-            : 'border-border bg-background',
-        )}
-      >
-        {isSelected && <Check className="h-3 w-3 text-white" />}
-      </div>
+      {checkbox && (
+        <div
+          className={cn(
+            'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border transition-colors',
+            isSelected
+              ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]'
+              : 'border-border bg-background',
+          )}
+        >
+          {isSelected && <Check className="h-3 w-3 text-white" />}
+        </div>
+      )}
       <TabFavicon url={tab.favIconUrl} />
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-foreground text-xs">
+        <div className="truncate font-medium text-foreground text-sm">
           {tab.title}
         </div>
-        <div className="truncate text-[10px] text-muted-foreground">
+        <div className="truncate text-muted-foreground text-xs">
           {displayTabUrl(tab.url)}
         </div>
       </div>

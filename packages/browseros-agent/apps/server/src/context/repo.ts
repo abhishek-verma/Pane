@@ -13,7 +13,6 @@ import {
   addEvent,
   currentWork,
   deleteNodes,
-  ensureDefaultBucket,
   listNodesByKind,
   search,
   upsertNode,
@@ -35,10 +34,6 @@ import { getDbHandle } from '../lib/db'
 
 function sqlite(): GraphSqlDatabase {
   return getDbHandle().sqlite as unknown as GraphSqlDatabase
-}
-
-export function ensureGraphReady(): void {
-  ensureDefaultBucket(sqlite())
 }
 
 export function graphUpsertNode(input: UpsertNodeInput): GraphNode {

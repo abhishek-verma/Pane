@@ -8,14 +8,6 @@ export interface AuditFilters {
   sort: { id: string; desc: boolean } | null
 }
 
-export const DEFAULT_FILTERS: AuditFilters = {
-  agentId: null,
-  status: null,
-  site: null,
-  search: '',
-  sort: null,
-}
-
 const KEYS = {
   agent: 'agent',
   status: 'status',

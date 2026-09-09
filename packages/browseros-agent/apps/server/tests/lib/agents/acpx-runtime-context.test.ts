@@ -158,6 +158,9 @@ describe('acpx runtime context helpers', () => {
     expect(skills).toEqual([
       'app-connections',
       'browseros',
+      'layers',
+      'layers-javascript',
+      'layers-managed',
       'meetings',
       'memory',
       'soul',

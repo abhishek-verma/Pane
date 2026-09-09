@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 
-interface StepDotsProps {
+export interface StepDotsProps {
   step: number
   total: number
 }

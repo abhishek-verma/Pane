@@ -19,7 +19,7 @@ export interface TerminalSessionEvent {
   exitCode: number
 }
 
-type TerminalSessionListener = (event: TerminalSessionEvent) => void
+export type TerminalSessionListener = (event: TerminalSessionEvent) => void
 
 const listeners = new Set<TerminalSessionListener>()
 
@@ -134,19 +134,6 @@ export async function updateTerminalSessionCwd(
   const session = await readSession(workspace, sessionId)
   if (!session) return
   await writeSession(workspace, { ...session, cwd })
-}
-
-export async function closeTerminalSession(
-  workspace: Workspace,
-  sessionId: string,
-): Promise<boolean> {
-  try {
-    const { unlink } = await import('node:fs/promises')
-    await unlink(sessionFilePath(workspace, sessionId))
-    return true
-  } catch {
-    return false
-  }
 }
 
 /** Resolves cwd after a `cd` command, keeping it inside the workspace root. */

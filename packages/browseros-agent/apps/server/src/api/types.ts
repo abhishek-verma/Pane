@@ -12,6 +12,7 @@ import {
 } from '@browseros/shared/schemas/browser-context'
 import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
+import { ChatAttachmentsSchema } from './chat-attachments'
 
 // Re-export browser context types for consumers
 export type { BrowserContext }
@@ -24,6 +25,12 @@ export const AgentLLMConfigSchema = LLMConfigSchema.extend({
 export const ChatRequestSchema = AgentLLMConfigSchema.extend({
   conversationId: z.string().uuid(),
   message: z.string().optional().default(''),
+  attachments: ChatAttachmentsSchema.optional(),
+  clientMessageId: z.string().min(1).max(128).optional(),
+  composer: z.record(z.unknown()).optional(),
+  revision: z
+    .object({ conversationId: z.string().uuid(), messageId: z.string().min(1) })
+    .optional(),
   contextWindowSize: z.number().optional(),
   browserContext: BrowserContextSchema.optional(),
   userSystemPrompt: z.string().optional(),

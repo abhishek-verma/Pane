@@ -18,6 +18,7 @@ export const scheduledRuns = sqliteTable('scheduled_runs', {
   status: text('status').notNull().default('pending'),
   /** JSON: Array<{ toolCallId, toolName, class, fingerprint }> */
   completedStepsJson: text('completed_steps_json').notNull().default('[]'),
+  executionContextJson: text('execution_context_json'),
   conversationId: text('conversation_id'),
   result: text('result'),
   error: text('error'),

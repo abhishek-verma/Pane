@@ -21,7 +21,7 @@ export interface ParsedCliReleaseTag {
   version: string
 }
 
-export interface CliReleaseValidation {
+interface CliReleaseValidation {
   tag: string
   version: string
   latestVersion: string
@@ -126,7 +126,7 @@ export function selectPreviousCliReleaseTag(
 }
 
 /** Runs the release gate used by the GitHub Actions workflow before publishing starts. */
-export async function validateCliRelease(
+async function validateCliRelease(
   options: ValidateOptions,
 ): Promise<CliReleaseValidation> {
   const parsed = parseCliReleaseTag(options.tag)

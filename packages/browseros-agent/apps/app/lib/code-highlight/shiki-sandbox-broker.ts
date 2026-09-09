@@ -47,7 +47,7 @@ let sandboxIframe: HTMLIFrameElement | null = null
 let sandboxReady: Promise<Window> | null = null
 
 /** Test seam: reset broker + sandbox state between unit tests. */
-export function __resetShikiBrokerForTests(): void {
+function __resetShikiBrokerForTests(): void {
   queue = []
   draining = false
   sandboxIframe?.remove()

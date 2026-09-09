@@ -5,7 +5,7 @@ import { StarterPromptTile } from '../components/StarterPromptTile'
 import { StepWrap } from '../components/StepWrap'
 import { STARTER_PROMPTS } from '../onboarding-v2.helpers'
 
-interface ReadyStepProps {
+export interface ReadyStepProps {
   onDone: () => void
 }
 

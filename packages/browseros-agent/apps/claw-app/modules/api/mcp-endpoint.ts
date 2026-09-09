@@ -73,17 +73,6 @@ export function buildMcpEndpointUrl(slug: string): string {
 }
 
 /**
- * Pulls the slug segment out of an MCP URL. Tolerates both the
- * removed prefixed shape and the current direct shape. Returns an
- * empty string when neither matches so callers can fall back to a
- * known id.
- */
-export function slugFromMcpEndpointUrl(url: string): string {
-  const match = url.match(/\/mcp\/([^/?#]+)/)
-  return match?.[1] ?? ''
-}
-
-/**
  * CLI snippet shown next to the URL widgets and copied as the
  * "add to host agent" command. Lives here so the directory and the
  * wizard render identical text from a single source.

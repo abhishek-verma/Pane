@@ -8,7 +8,7 @@ import { importChatConversations } from './server-chat-history'
  * One-time flag: local chrome.storage transcripts have been imported into
  * server SQLite (or there was nothing to import).
  */
-export const conversationsMigratedStorage = storage.defineItem<boolean>(
+const conversationsMigratedStorage = storage.defineItem<boolean>(
   'local:conversationsMigratedToServer',
   { fallback: false },
 )

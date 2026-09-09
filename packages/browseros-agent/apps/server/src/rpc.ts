@@ -5,5 +5,5 @@ import type { createApiRoutes } from './api/routes'
  * `Awaited<ReturnType<typeof createHttpServer>>['app']` hits TS2589
  * (excessively deep instantiation) once the route graph is large.
  */
-type ApiApp = ReturnType<typeof createApiRoutes>
+export type ApiApp = ReturnType<typeof createApiRoutes>
 export interface AppType extends ApiApp {}

@@ -56,12 +56,3 @@ export const HarnessIcon: FC<HarnessIconProps> = ({ harness, className }) => {
     }
   }
 }
-
-/**
- * True when the harness corresponds to a third-party CLI/IDE we will
- * write a real MCP config entry for. False for BrowserOS-internal
- * harnesses (Hermes, OpenClaw).
- */
-export function isExternalHarness(harness: Harness): boolean {
-  return harness !== 'Hermes' && harness !== 'OpenClaw'
-}

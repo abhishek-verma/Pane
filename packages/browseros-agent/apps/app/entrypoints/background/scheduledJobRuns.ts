@@ -157,6 +157,12 @@ export const scheduledJobRuns = async () => {
         conversationId,
         signal: abortController.signal,
         providerId: job.providerId,
+        executionContext: {
+          providerId: job.providerId,
+          userWorkingDir: job.userWorkingDir,
+          workspaceId: job.workspaceId,
+          bucketId: job.bucketId,
+        },
         idempotencyKey: jobRun.idempotencyKey,
       })
 

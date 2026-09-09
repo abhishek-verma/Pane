@@ -1,9 +1,8 @@
 diff --git a/chrome/browser/extensions/api/browser_os/browser_os_api.h b/chrome/browser/extensions/api/browser_os/browser_os_api.h
 new file mode 100644
-index 0000000000000..0da7f357c6730
 --- /dev/null
 +++ b/chrome/browser/extensions/api/browser_os/browser_os_api.h
-@@ -0,0 +1,163 @@
+@@ -0,0 +1,171 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -15,6 +14,14 @@ index 0000000000000..0da7f357c6730
 +#include "ui/shell_dialogs/select_file_dialog.h"
 +
 +namespace extensions::api {
++
++class BrowserOSGetLayerCredentialFunction : public ExtensionFunction {
++ public:
++  DECLARE_EXTENSION_FUNCTION("browserOS.getLayerCredential", BROWSER_OS_GETLAYERCREDENTIAL)
++ protected:
++  ~BrowserOSGetLayerCredentialFunction() override = default;
++  ResponseAction Run() override;
++};
 +
 +class BrowserOSGetPrefFunction : public ExtensionFunction {
 + public:

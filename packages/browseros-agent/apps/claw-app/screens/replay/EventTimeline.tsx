@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import type { ReplayFrame } from '@/modules/api/replay.hooks'
 import { formatTime, KIND_STYLE, VERB_META } from './replay.helpers'
 
-interface EventTimelineProps {
+export interface EventTimelineProps {
   frames: readonly ReplayFrame[]
   currentFrameIndex: number
   /** Seconds elapsed, used to dim frames that have not played yet. */

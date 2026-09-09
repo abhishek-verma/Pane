@@ -1,21 +1,6 @@
 import type { LoginMode, NewAgentValues } from './new-agent.schemas'
 
-export const IMPORTED_SITES = [
-  'concur.com',
-  'stripe.com',
-  'ramp.com',
-  'mail.google.com',
-  'docs.google.com',
-  'linkedin.com',
-  'x.com',
-  'app.hubspot.com',
-  'salesforce.com',
-  'amazon.com',
-  'github.com',
-  'notion.so',
-] as const
-
-export const TOTAL_PROFILE_LOGINS = 47
+const TOTAL_PROFILE_LOGINS = 47
 
 export interface AclRule {
   id: string

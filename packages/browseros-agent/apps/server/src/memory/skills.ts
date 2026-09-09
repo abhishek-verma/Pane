@@ -80,7 +80,7 @@ export async function removeSkill(
 }
 
 /** Author and install a new skill from a full SKILL.md body (agent- or user-written). */
-export async function installSkillFromAuthoredBody(
+async function installSkillFromAuthoredBody(
   body: string,
   options: {
     id?: string
@@ -163,15 +163,6 @@ export async function activateStagedSkill(
   })
   await rm(stagedPath, { force: true }).catch(() => {})
   return { ok: true }
-}
-
-export async function rejectStagedSkill(
-  id: string,
-  options: { memoriesRoot?: string } = {},
-): Promise<void> {
-  setSkillStatus(id, 'archived')
-  const base = memoriesRoot(options.memoriesRoot)
-  await rm(join(base, 'staging', `${id}.md`), { force: true }).catch(() => {})
 }
 
 export async function archiveSkill(id: string): Promise<void> {
@@ -291,7 +282,7 @@ function isPathInside(root: string, candidate: string): boolean {
 }
 
 /** Agent path installs are jailed; REST/UI may pass allowAnyLocalPath. */
-export async function assertSkillInstallPathAllowed(
+async function assertSkillInstallPathAllowed(
   filePath: string,
   options: { memoriesRoot?: string; allowAnyLocalPath?: boolean } = {},
 ): Promise<void> {

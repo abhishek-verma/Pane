@@ -49,7 +49,7 @@ const WINDOWS_TOOL: ToolDefinition = (() => {
   return t
 })()
 
-interface EnsureInput {
+export interface EnsureInput {
   agentId: string
   slug: string
   pageId: number
@@ -57,13 +57,13 @@ interface EnsureInput {
   signal?: AbortSignal
 }
 
-interface FocusInput {
+export interface FocusInput {
   agentId: string
   session: BrowserSession
   signal?: AbortSignal
 }
 
-interface CloseInput {
+export interface CloseInput {
   agentId: string
   session: BrowserSession
 }

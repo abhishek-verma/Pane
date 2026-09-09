@@ -26,7 +26,7 @@ export interface ReplayFrame {
   note?: string
 }
 
-export interface ReplayDetail {
+interface ReplayDetail {
   id: string
   agentLabel: string
   /** One-line task description shown in the top bar. */

@@ -41,6 +41,10 @@ export interface ChatRequestBodyParams {
   conversationId: string
   provider: LlmProviderConfig
   message?: string
+  attachments?: import('@/lib/attachments').ServerAttachmentPayload[]
+  revision?: { conversationId: string; messageId: string }
+  clientMessageId?: string
+  composer?: import('@/modules/chat/composer-message').ComposerMetadata
   mode?: ChatMode
   browserContext?: ChatRequestBrowserContext
   userSystemPrompt?: string
@@ -70,6 +74,10 @@ export const buildChatRequestBody = ({
   conversationId,
   provider,
   message = '',
+  attachments,
+  revision,
+  clientMessageId,
+  composer,
   mode,
   browserContext,
   userSystemPrompt,
@@ -89,6 +97,10 @@ export const buildChatRequestBody = ({
   idempotencyKey,
 }: ChatRequestBodyParams) => ({
   message,
+  attachments,
+  revision,
+  clientMessageId,
+  composer,
   provider: provider.type,
   providerId: provider.id,
   providerType: provider.type,

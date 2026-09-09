@@ -16,7 +16,7 @@ import { nudgeDrainServerRuns } from '@/lib/schedules/nudgeDrainServerRuns'
 const ALARM_NAME = 'drain-server-runs'
 const PERIOD_MINUTES = 1
 
-export { drainPendingRunsOnce } from '@/lib/schedules/drainPendingRuns'
+import '@/lib/schedules/drainPendingRuns'
 
 export function drainServerRuns(): void {
   let draining = false
@@ -42,6 +42,7 @@ export function drainServerRuns(): void {
           idempotencyKey,
           conversationId,
           useSelectedWorkspace,
+          executionContext,
         }) => {
           const response = await getChatServerResponse({
             message,
@@ -49,6 +50,7 @@ export function drainServerRuns(): void {
             idempotencyKey,
             conversationId,
             useSelectedWorkspace,
+            executionContext,
           })
           return {
             text: response.text,

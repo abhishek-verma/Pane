@@ -23,7 +23,7 @@ import { logger } from './logger'
 import { tryGetProfileKey } from './profile-context'
 
 export const TOOL_OUTPUT_DIR_MODE = 0o700
-export const TOOL_OUTPUT_FILE_MODE = 0o600
+const TOOL_OUTPUT_FILE_MODE = 0o600
 
 /** Install-wide BrowserOS root (ports, lock, identity, profiles/). */
 export function getInstallBrowserosDir(): string {
@@ -53,7 +53,7 @@ export function getBrowserosDir(): string {
 }
 
 /** Per-profile data directory for an explicit profile key. */
-export function getProfileDataDir(profileKey: string): string {
+function getProfileDataDir(profileKey: string): string {
   return join(getInstallBrowserosDir(), PATHS.PROFILES_DIR_NAME, profileKey)
 }
 
@@ -104,18 +104,6 @@ export async function writeToolOutputFile(
 ): Promise<void> {
   await writeFile(filePath, content, {
     encoding: 'utf-8',
-    flag: 'wx',
-    mode: TOOL_OUTPUT_FILE_MODE,
-  })
-  await chmod(filePath, TOOL_OUTPUT_FILE_MODE)
-}
-
-/** Writes binary tool output (PDFs, downloads) with the same owner-only permissions. */
-export async function writeToolOutputBinaryFile(
-  filePath: string,
-  content: Uint8Array,
-): Promise<void> {
-  await writeFile(filePath, content, {
     flag: 'wx',
     mode: TOOL_OUTPUT_FILE_MODE,
   })

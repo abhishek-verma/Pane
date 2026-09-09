@@ -12,7 +12,7 @@
 import { getPolicy } from '../store'
 import type { PiRefreshKind, PiRefreshPolicy } from '../types'
 
-export const DEFAULT_COOLDOWN_MS = 60_000
+const DEFAULT_COOLDOWN_MS = 60_000
 
 /** Stable id for the single per-profile home projection target. */
 export const HOME_TARGET_ID = 'home'
@@ -39,7 +39,7 @@ export function triggerPriority(
 }
 
 /** Home reprojects cheaply on lifecycle/site signals; it never harvests. */
-export const HOME_DEFAULT_POLICY: PiRefreshPolicy = {
+const HOME_DEFAULT_POLICY: PiRefreshPolicy = {
   triggers: [
     { name: 'browser-started', kind: 'A' },
     { name: 'new-day', kind: 'D' },

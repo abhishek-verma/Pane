@@ -15,7 +15,7 @@ import {
 } from '@/modules/api/onboarding.hooks'
 import { CLAUDE_MCP_CLI } from './onboarding.helpers'
 
-interface ConnectStepProps {
+export interface ConnectStepProps {
   onContinue: (result: ConnectResult) => void
 }
 

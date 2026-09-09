@@ -65,7 +65,7 @@ export function enqueueEmbed(input: {
 }
 
 /** Reclaim rows stuck in processing after a crash (older than 2 minutes). */
-export function reclaimStaleProcessing(staleMs = 120_000): number {
+function reclaimStaleProcessing(staleMs = 120_000): number {
   const cutoff = now() - staleMs
   const result = getDbHandle()
     .sqlite.prepare(

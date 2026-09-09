@@ -60,7 +60,11 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
   anchorRef,
   side,
 }) => {
-  const { tabs, allTabs, isLoading } = useAvailableTabs({
+  const {
+    tabs: matchedTabs,
+    allTabs,
+    isLoading,
+  } = useAvailableTabs({
     enabled: isOpen,
     filterText,
   })
@@ -68,6 +72,7 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
     () => new Set(selectedTabs.map((t) => t.id)),
     [selectedTabs],
   )
+  const tabs = matchedTabs.filter((tab) => !selectedTabIds.has(tab.id))
   const [focusedIndex, setFocusedIndex] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -80,6 +85,7 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
     if (!isOpen) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.isComposing) return
       const isNavKey =
         e.key === 'ArrowDown' ||
         e.key === 'ArrowUp' ||
@@ -101,16 +107,13 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
           setFocusedIndex((prev) => (prev > 0 ? prev - 1 : prev))
           break
         case 'Enter':
+        case 'Tab':
           e.preventDefault()
           if (tabs[focusedIndex]) {
             onToggleTab(tabs[focusedIndex])
           }
           break
         case 'Escape':
-          e.preventDefault()
-          onClose()
-          break
-        case 'Tab':
           e.preventDefault()
           onClose()
           break
@@ -147,28 +150,12 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
           className="[&_svg:not([class*='text-'])]:text-muted-foreground"
           shouldFilter={false}
         >
-          <div className="border-border/50 border-b px-3 py-2">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-                Attach Tabs
-              </span>
-              <span className="text-muted-foreground text-xs">
-                {filterText ? `Filtering: "${filterText}"` : 'Type to filter'}
-              </span>
-            </div>
-            {selectedTabs.length > 0 && (
-              <span className="mt-1 block text-[var(--accent-orange)] text-xs">
-                {selectedTabs.length} tab{selectedTabs.length !== 1 ? 's' : ''}{' '}
-                selected
-              </span>
-            )}
-          </div>
           <CommandList
             ref={listRef}
             className="max-h-64 overflow-auto"
             role="listbox"
             aria-label="Available tabs"
-            aria-multiselectable="true"
+            aria-multiselectable="false"
           >
             <CommandEmpty className="py-6 text-center">
               {isLoading ? (
@@ -179,7 +166,7 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
                 <>
                   <div className="text-muted-foreground text-sm">
                     {allTabs.length === 0
-                      ? 'No active tabs'
+                      ? 'No eligible web pages'
                       : `No tabs matching "${filterText}"`}
                   </div>
                   <div className="mt-1 text-muted-foreground/70 text-xs">
@@ -202,6 +189,7 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
                 >
                   <TabListItem
                     tab={tab}
+                    checkbox={false}
                     isSelected={selectedTabIds.has(tab.id)}
                     className={index === focusedIndex ? 'bg-accent' : undefined}
                   />
@@ -261,9 +249,7 @@ const TabPickerSelectorPopover: FC<TabPickerSelectorPopoverProps> = ({
           >
             <div className="border-border/50 border-b px-3 py-2">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-                  Tabs
-                </span>
+                <span className="text-muted-foreground text-xs">Tabs</span>
                 {selectedTabs.length > 0 && (
                   <span className="text-[var(--accent-orange)] text-xs">
                     {selectedTabs.length} selected
@@ -281,7 +267,7 @@ const TabPickerSelectorPopover: FC<TabPickerSelectorPopoverProps> = ({
                 <>
                   <div className="text-muted-foreground text-sm">
                     {allTabs.length === 0
-                      ? 'No active tabs'
+                      ? 'No eligible web pages'
                       : `No tabs matching "${filterText}"`}
                   </div>
                   <div className="mt-1 text-muted-foreground/70 text-xs">
@@ -309,6 +295,15 @@ const TabPickerSelectorPopover: FC<TabPickerSelectorPopoverProps> = ({
               ))}
             </CommandGroup>
           </CommandList>
+          <div className="flex justify-end border-t p-2">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-lg bg-foreground px-3 py-1.5 text-background text-xs"
+            >
+              Done{selectedTabs.length ? ` · ${selectedTabs.length} tabs` : ''}
+            </button>
+          </div>
         </Command>
       </PopoverContent>
     </Popover>

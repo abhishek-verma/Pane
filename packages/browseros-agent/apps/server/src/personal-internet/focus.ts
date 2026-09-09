@@ -71,10 +71,7 @@ export function cancelMaterializeRun(runId: string, reason: string): void {
 }
 
 /** Cancel active/pending pi-materialize runs for a site except optional keepPageId. */
-export function cancelSiteMaterializeRuns(
-  siteId: string,
-  keepPageId?: string,
-): void {
+function cancelSiteMaterializeRuns(siteId: string, keepPageId?: string): void {
   const rows = getDbHandle()
     .sqlite.prepare(
       `SELECT id, source_id, status FROM scheduled_runs

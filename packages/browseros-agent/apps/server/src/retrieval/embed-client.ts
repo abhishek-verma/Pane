@@ -20,10 +20,6 @@ export function setEmbedWorkerUrl(url: string | null): void {
   workerHealthy = !!url
 }
 
-export function getEmbedWorkerUrl(): string | null {
-  return workerBaseUrl
-}
-
 async function embedViaWorker(
   text: string,
   timeoutMs: number,

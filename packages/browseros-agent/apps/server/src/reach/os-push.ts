@@ -26,10 +26,6 @@ export function drainOsNotificationQueue(): QueuedOsNotification[] {
   return queue.splice(0, queue.length)
 }
 
-export function peekOsNotificationQueue(): QueuedOsNotification[] {
-  return [...queue]
-}
-
 export function createOsPushTransport(options?: {
   /** Injected for tests / platform notifiers */
   deliver?: (msg: ReachMessage) => Promise<void>

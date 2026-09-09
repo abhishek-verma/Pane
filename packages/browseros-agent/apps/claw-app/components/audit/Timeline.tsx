@@ -17,7 +17,7 @@ import {
 } from '@/modules/api/audit.hooks'
 import { parseResultMeta } from '@/screens/audit/audit.helpers'
 
-interface TimelineProps {
+export interface TimelineProps {
   dispatches: ToolDispatchRow[]
   startedAt: number
   endEvent: {

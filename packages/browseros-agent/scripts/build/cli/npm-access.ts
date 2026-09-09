@@ -9,7 +9,7 @@ export interface NpmPublishAccess {
   access: string
 }
 
-type NpmRunner = (args: string[]) => string
+export type NpmRunner = (args: string[]) => string
 
 /** Confirms the configured npm token belongs to a package owner before release side effects. */
 export function verifyNpmPublishAccess(

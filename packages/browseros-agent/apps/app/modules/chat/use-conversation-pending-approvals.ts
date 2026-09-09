@@ -29,7 +29,7 @@ export type ConversationPendingApproval = {
   denyToken: string
 }
 
-export type ResolveChannelApprovalResult = {
+type ResolveChannelApprovalResult = {
   ok: boolean
   resumed: boolean
   detail: string
@@ -57,7 +57,7 @@ async function fetchPendingForConversation(
   return matchPendingForConversation(body.approvals ?? [], conversationId)
 }
 
-export async function resolveChannelApproval(
+async function resolveChannelApproval(
   token: string,
   options?: { pin?: boolean },
 ): Promise<ResolveChannelApprovalResult> {

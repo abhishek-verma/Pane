@@ -28,6 +28,6 @@ export function getLastUsedModel(): LanguageModel | null {
 }
 
 /** Test helper — reset between test cases. */
-export function _resetLastUsedModelForTests(): void {
+function _resetLastUsedModelForTests(): void {
   _lastModel = null
 }

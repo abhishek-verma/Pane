@@ -19,7 +19,7 @@ const CAPTURE_FETCH_TIMEOUT_MS = 8_000
 
 export type CaptureClass = 'meeting' | 'browsing' | 'research'
 
-export interface CaptureConsent {
+interface CaptureConsent {
   domain: string
   class: CaptureClass
   bucketId: string
@@ -45,7 +45,7 @@ export interface CaptureSession {
   roomKey?: string | null
 }
 
-export interface CaptureStatus {
+interface CaptureStatus {
   paused: boolean
   reason: 'battery' | 'disk' | 'load' | null
   refuseNewSessions?: boolean
@@ -168,7 +168,7 @@ export function useCaptureConsents(bucketId: string) {
   }
 }
 
-export interface TranscriptSegment {
+interface TranscriptSegment {
   id: string
   sessionId: string
   kind: 'partial' | 'final' | 'gap'
@@ -318,20 +318,14 @@ export function useDeleteMeeting() {
   })
 }
 
-// ---------------------------------------------------------------------------
-// ASR model status + download
-// ---------------------------------------------------------------------------
-
-export type AsrModelStatusKind = 'ready' | 'not_downloaded' | 'loading'
-
-export interface AsrModelInfo {
+interface AsrModelInfo {
   modelName: string
   status: 'ready' | 'not_downloaded'
   modelPath: string
   fileSizeBytes?: number
 }
 
-export interface AsrDownloadState {
+interface AsrDownloadState {
   inProgress: boolean
   percent: number
   error: string | null

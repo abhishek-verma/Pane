@@ -57,12 +57,3 @@ export function deleteReachSecret(
     )
     .run()
 }
-
-export function listReachSecretKeys(transport: ReachTransportId): string[] {
-  return getDb()
-    .select({ key: reachSecrets.key })
-    .from(reachSecrets)
-    .where(eq(reachSecrets.transport, transport))
-    .all()
-    .map((r) => r.key)
-}

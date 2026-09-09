@@ -12,6 +12,7 @@
 import { DEFAULT_BUCKET_ID } from '@browseros/context-graph/constants'
 import { logger } from '../lib/logger'
 import { enqueueEmbed } from '../retrieval/queue'
+import { isIngestPaused } from './ingest-state'
 import { graphAddEdge, graphAddEvent, graphUpsertNode } from './repo'
 
 function enqueueNodeEmbed(node: {
@@ -62,22 +63,6 @@ type QueuedWrite = () => void
 
 let queue: QueuedWrite[] = []
 let flushTimer: ReturnType<typeof setTimeout> | null = null
-let ingestPaused = false
-let pauseReason: string | null = null
-
-/** Test / M3.7 hook: pause non-critical ingest (e.g. on battery). */
-export function setIngestPaused(paused: boolean, reason?: string): void {
-  ingestPaused = paused
-  pauseReason = paused ? (reason ?? 'paused') : null
-}
-
-export function isIngestPaused(): boolean {
-  return ingestPaused
-}
-
-export function getIngestPauseReason(): string | null {
-  return pauseReason
-}
 
 /** Flush pending writes immediately (tests / shutdown). */
 export function flushIngestQueue(): void {
@@ -178,7 +163,7 @@ function resolvePath(input: IngestToolResultInput): string | undefined {
  */
 export function ingestToolResult(input: IngestToolResultInput): void {
   try {
-    if (ingestPaused) return
+    if (isIngestPaused()) return
     if (input.browserContext?.isPrivate === true) return
 
     const bucketId = input.bucketId || DEFAULT_BUCKET_ID
@@ -380,7 +365,7 @@ export interface TerminalIngestEvent {
 }
 
 export function ingestTerminalSession(event: TerminalIngestEvent): void {
-  if (ingestPaused) return
+  if (isIngestPaused()) return
   enqueue(() => {
     const node = graphUpsertNode({
       bucketId: event.bucketId,

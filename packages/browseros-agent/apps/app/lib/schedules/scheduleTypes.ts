@@ -7,6 +7,10 @@ export interface ScheduledJob {
   scheduleInterval?: number
   enabled: boolean
   providerId?: string
+  userWorkingDir?: string
+  workspaceId?: string
+  bucketId?: string
+  serverManaged?: boolean
   createdAt: string
   updatedAt: string
   lastRunAt?: string

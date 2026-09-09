@@ -36,37 +36,6 @@ export interface ToolDispatchRow {
   durationMs: number | null
 }
 
-export interface ListDispatchesResponse {
-  rows: ToolDispatchRow[]
-  nextCursor: number | null
-}
-
-export interface UseDispatchesVars {
-  agentId?: string
-}
-
-export const useDispatches = createInfiniteQuery<
-  ListDispatchesResponse,
-  UseDispatchesVars,
-  Error,
-  number | undefined
->({
-  queryKey: ['audit', 'dispatches'],
-  fetcher: async (vars, { pageParam }) => {
-    const response = await api.audit.dispatches.$get({
-      query: {
-        ...(vars?.agentId ? { agentId: vars.agentId } : {}),
-        ...(pageParam !== undefined ? { cursor: String(pageParam) } : {}),
-        limit: '100',
-      },
-    })
-    return parseResponse<ListDispatchesResponse>(response)
-  },
-  initialPageParam: undefined,
-  getNextPageParam: (last) => last.nextCursor ?? undefined,
-  refetchInterval: 3000,
-})
-
 export type TaskStatus = 'live' | 'done' | 'failed'
 
 export interface TaskSummary {
@@ -87,12 +56,12 @@ export interface TaskSummary {
   cursorId: number
 }
 
-export interface ListTasksResponse {
+interface ListTasksResponse {
   tasks: TaskSummary[]
   nextCursor: number | null
 }
 
-export interface UseTasksVars {
+interface UseTasksVars {
   agentId?: string
   status?: TaskStatus
   site?: string

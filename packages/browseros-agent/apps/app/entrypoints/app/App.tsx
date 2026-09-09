@@ -23,6 +23,7 @@ import { ContextPage } from '@/screens/context/ContextPage'
 import { CustomizationPage } from '@/screens/customization/CustomizationPage'
 import { ToolEvidenceDemoPage } from '@/screens/dev/ToolEvidenceDemoPage'
 import { DiagnosticsPage } from '@/screens/diagnostics/DiagnosticsPage'
+import { LayersPage } from '@/screens/layers/LayersPage'
 import { MCPSettingsPage } from '@/screens/mcp-settings/MCPSettingsPage'
 import { MemoryPage } from '@/screens/memory/MemoryPage'
 import { NewTabChat } from '@/screens/newtab/index/NewTabChat'
@@ -101,6 +102,7 @@ export const App: FC = () => {
                 <Route path="personalize" element={<Personalize />} />
               </Route>
 
+              <Route path="layers" element={<LayersPage />} />
               <Route path="meetings" element={<CapturePage />} />
               <Route path="tasks" element={<TasksPage />} />
               <Route

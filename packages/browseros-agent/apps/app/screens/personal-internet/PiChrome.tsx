@@ -116,20 +116,6 @@ export const PiStatusDot: FC<{ label: string; live?: boolean }> = ({
   </span>
 )
 
-export const PiSectionLabel: FC<{
-  children: ReactNode
-  className?: string
-}> = ({ children, className }) => (
-  <div
-    className={cn(
-      'font-mono text-[11px] text-muted-foreground uppercase tracking-[0.06em]',
-      className,
-    )}
-  >
-    {children}
-  </div>
-)
-
 /** Copy pi:// and bookmark the same address (Pane Chromium resolves it). */
 export const PiLinkActions: FC<{
   href: string

@@ -33,7 +33,7 @@ export function saveEmailConfig(config: EmailConfig): void {
   setReachSecret('email', 'secure', config.secure ? '1' : '0')
 }
 
-export function loadEmailConfig(): EmailConfig | null {
+function loadEmailConfig(): EmailConfig | null {
   const host = getReachSecret('email', 'host')
   const port = getReachSecret('email', 'port')
   const user = getReachSecret('email', 'user')

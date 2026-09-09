@@ -62,7 +62,7 @@ export function resolveChatProvider(
  * Pane's local agent server, which supports ACP-backed providers just like
  * interactive chat, so local CLI providers must remain eligible.
  */
-export function findCloudChatProviderById(
+function findCloudChatProviderById(
   providers: LlmProviderConfig[],
   providerId?: string | null,
 ): LlmProviderConfig | null {

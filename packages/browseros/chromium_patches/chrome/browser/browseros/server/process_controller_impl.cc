@@ -1,9 +1,8 @@
 diff --git a/chrome/browser/browseros/server/process_controller_impl.cc b/chrome/browser/browseros/server/process_controller_impl.cc
 new file mode 100644
-index 0000000000..d1bb340ae3
 --- /dev/null
 +++ b/chrome/browser/browseros/server/process_controller_impl.cc
-@@ -0,0 +1,211 @@
+@@ -0,0 +1,228 @@
 +// Copyright 2024 The Chromium Authors
 +// Use of this source code is governed by a BSD-style license that can be
 +// found in the LICENSE file.
@@ -11,6 +10,8 @@ index 0000000000..d1bb340ae3
 +#include "chrome/browser/browseros/server/process_controller_impl.h"
 +
 +#include <optional>
++#include "chrome/browser/browseros/server/layer_authority.h"
++#include "base/files/scoped_file.h"
 +
 +#include "chrome/browser/browseros/server/browseros_server_utils.h"
 +
@@ -142,8 +143,23 @@ index 0000000000..d1bb340ae3
 +  options.start_hidden = true;
 +#endif
 +
++#if BUILDFLAG(IS_POSIX)
++  // Secrets never enter command lines, config files, preferences or the DOM.
++  base::ScopedFD layer_read;
++  base::ScopedFD layer_write;
++  if (!base::CreatePipe(&layer_read, &layer_write) ||
++      !base::WriteFileDescriptor(layer_write.get(), RotateLayerLaunchSecret())) {
++    ClearLayerLaunchSecret();
++    return result;
++  }
++  layer_write.reset();
++  options.fds_to_remap.emplace_back(layer_read.get(), 3);
++  options.environment["PANE_LAYERS_BOOTSTRAP_FD"] = "3";
++#endif
++
 +  // Launch the process (blocking I/O)
 +  result.process = base::LaunchProcess(cmd, options);
++  if (!result.process.IsValid()) ClearLayerLaunchSecret();
 +  return result;
 +}
 +

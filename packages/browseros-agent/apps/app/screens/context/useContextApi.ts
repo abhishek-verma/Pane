@@ -62,14 +62,14 @@ export interface CurrentWorkResponse {
   pauseReason: string | null
 }
 
-export interface DomainGrant {
+interface DomainGrant {
   domain: string
   bucketId: string
   allowed: boolean
   updatedAt: number
 }
 
-export interface Bucket {
+interface Bucket {
   id: string
   name: string
   kind: string
@@ -271,7 +271,7 @@ export function useContextGrants(
   }
 }
 
-export interface ContextSettings {
+interface ContextSettings {
   pauseOnBattery: boolean
 }
 

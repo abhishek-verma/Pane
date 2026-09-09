@@ -28,8 +28,3 @@ export function finalizeSkillOutcomesForRun(
     recordSkillOutcome(skillId, success)
   }
 }
-
-/** Test helper — clear pending map between cases. */
-export function clearPendingSkillOutcomes(): void {
-  pendingByRun.clear()
-}

@@ -25,7 +25,7 @@ export type AsrJob = {
   force?: boolean
 }
 
-type SessionCallbacks = {
+export type SessionCallbacks = {
   onPartial: (segment: TranscriptSegment) => void
   onFinal: (segment: TranscriptSegment) => void
   onGap?: (segment: TranscriptSegment) => void
@@ -392,11 +392,6 @@ export function registeredAsrSessionCount(): number {
   let n = 0
   for (const s of sessions.values()) if (s.registered) n++
   return n
-}
-
-export function isAsrBacklogged(sessionId: string): boolean {
-  const state = sessions.get(sessionId)
-  return Boolean(state && state.backlog.length > 0)
 }
 
 /** Test helper: clear in-memory worker state between cases. */

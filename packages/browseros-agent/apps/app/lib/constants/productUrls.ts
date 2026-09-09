@@ -10,15 +10,6 @@ export const PANE_GITHUB_REPO = 'abhishek-verma/Pane'
 /** Raw content on the default branch — stable URLs for update manifests. */
 export const PANE_GITHUB_RAW_BASE = `https://raw.githubusercontent.com/${PANE_GITHUB_REPO}/main`
 
-/** GitHub Releases download base (per-tag assets). */
-export const PANE_GITHUB_RELEASES_BASE = `${PANE_GITHUB_URL}/releases`
-
-/** Latest-release asset prefix (`…/latest/download/<asset>`). */
-export const PANE_GITHUB_RELEASES_LATEST = `${PANE_GITHUB_RELEASES_BASE}/latest/download`
-
-/** Bundled extension versions used when building the Chromium browser. */
-export const PANE_EXTENSION_BUNDLED_MANIFEST_URL = `${PANE_GITHUB_RAW_BASE}/updates/extensions/bundled-manifest.xml`
-
 /**
  * @public
  */

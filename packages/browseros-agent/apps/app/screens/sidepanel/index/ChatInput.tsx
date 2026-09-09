@@ -1,445 +1,202 @@
 import {
+  ArrowUp,
   AudioLines,
+  ListPlus,
   Loader2,
   Mic,
-  Send,
   Square,
-  SquareStop,
 } from 'lucide-react'
-import type { FormEvent, KeyboardEvent } from 'react'
 import {
+  type FormEvent,
   forwardRef,
-  useCallback,
-  useEffect,
+  type ReactNode,
   useImperativeHandle,
   useRef,
   useState,
 } from 'react'
+import {
+  MentionEditor,
+  type MentionEditorHandle,
+} from '@/components/chat/composer/MentionEditor'
 import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
-import { cn } from '@/lib/utils'
 import { VOICE_SUPPORTED } from '@/lib/voice/voice-supported'
 import type { ChatMode } from '@/modules/chat/chat-types'
 import type { VoiceInputState } from '@/modules/voice/voice.hooks'
-
-interface MentionState {
-  isOpen: boolean
-  filterText: string
-  startPosition: number
-}
 
 interface ChatInputProps {
   input: string
   status: 'streaming' | 'submitted' | 'ready' | 'error'
   mode: ChatMode
   onInputChange: (value: string) => void
-  onSubmit: (e: FormEvent) => void
+  onSubmit: (event: FormEvent) => void
   onStop: () => void
-  /** True while useChat is busy OR a detached server turn is still running. */
   isTurnActive?: boolean
   sendDisabled?: boolean
   selectedTabs: chrome.tabs.Tab[]
   onToggleTab: (tab: chrome.tabs.Tab) => void
-  onTabMentionOpenChange?: (isOpen: boolean) => void
+  onTabMentionOpenChange?: (open: boolean) => void
   voice?: VoiceInputState
   onOpenVoiceMode?: () => void
+  controls?: ReactNode
+  hasAttachments?: boolean
+  onFiles?: (files: File[]) => void
+  preparing?: boolean
 }
-
 export interface ChatInputHandle {
   openTabMention: () => void
   closeTabMention: () => void
   toggleTabMention: () => void
   focus: () => void
 }
-
 export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
-  (
-    {
-      input,
-      status,
-      mode,
-      onInputChange,
-      onSubmit: onSubmitProp,
-      onStop,
-      isTurnActive = false,
-      sendDisabled,
-      selectedTabs,
-      onToggleTab,
-      onTabMentionOpenChange,
-      voice,
-      onOpenVoiceMode,
-    },
-    ref,
-  ) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null)
-    const [mentionState, setMentionState] = useState<MentionState>({
-      isOpen: false,
-      filterText: '',
-      startPosition: 0,
-    })
-
-    const inputRef = useRef(input)
-    const mentionStateRef = useRef(mentionState)
-
-    useEffect(() => {
-      inputRef.current = input
-      mentionStateRef.current = mentionState
-    })
-
-    useEffect(() => {
-      onTabMentionOpenChange?.(mentionState.isOpen)
-    }, [mentionState.isOpen, onTabMentionOpenChange])
-
-    const closeMention = useCallback(() => {
-      const state = mentionStateRef.current
-      if (state.isOpen) {
-        const currentInput = inputRef.current
-        const beforeMention = currentInput.slice(0, state.startPosition)
-        const afterMention = currentInput.slice(
-          state.startPosition + 1 + state.filterText.length,
-        )
-        const nextInput = beforeMention + afterMention
-        inputRef.current = nextInput
-        onInputChange(nextInput)
-        const nextMentionState = {
-          isOpen: false,
-          filterText: '',
-          startPosition: 0,
-        }
-        mentionStateRef.current = nextMentionState
-        setMentionState(nextMentionState)
-
-        requestAnimationFrame(() => {
-          textareaRef.current?.focus()
-          const newPosition = beforeMention.length
-          textareaRef.current?.setSelectionRange(newPosition, newPosition)
-        })
-      }
-    }, [onInputChange])
-
-    const openMentionAtCursor = useCallback(() => {
-      const textarea = textareaRef.current
-      if (!textarea) return
-
-      textarea.focus()
-      if (mentionStateRef.current.isOpen) return
-
-      const currentInput = inputRef.current
-      const cursorPosition = textarea.selectionStart ?? currentInput.length
-      const beforeCursor = currentInput.slice(0, cursorPosition)
-      const afterCursor = currentInput.slice(cursorPosition)
-
-      const nextInput = `${beforeCursor}@${afterCursor}`
-      inputRef.current = nextInput
-      onInputChange(nextInput)
-      const nextMentionState = {
-        isOpen: true,
-        filterText: '',
-        startPosition: cursorPosition,
-      }
-      mentionStateRef.current = nextMentionState
-      setMentionState(nextMentionState)
-
-      requestAnimationFrame(() => {
-        textarea.focus()
-        const newPosition = cursorPosition + 1
-        textarea.setSelectionRange(newPosition, newPosition)
-      })
-    }, [onInputChange])
-
-    const toggleMentionAtCursor = useCallback(() => {
-      if (mentionStateRef.current.isOpen) {
-        closeMention()
-        return
-      }
-      openMentionAtCursor()
-    }, [closeMention, openMentionAtCursor])
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        openTabMention: openMentionAtCursor,
-        closeTabMention: closeMention,
-        toggleTabMention: toggleMentionAtCursor,
-        focus: () => textareaRef.current?.focus(),
-      }),
-      [closeMention, openMentionAtCursor, toggleMentionAtCursor],
-    )
-
-    // After starter SSE ends (or on restore/reattach), status is ready/error
-    // while the server turn may still be running — Stop must still show.
-    const isBusy = isTurnActive || (status !== 'ready' && status !== 'error')
-    const isSubmitDisabled = isBusy || sendDisabled
-
-    const handleSubmit = (e: FormEvent) => {
-      if (mentionStateRef.current.isOpen) {
-        e.preventDefault()
-        closeMention()
-        return
-      }
-      if (isSubmitDisabled) {
-        e.preventDefault()
-        return
-      }
-      onSubmitProp(e)
+  (props, ref) => {
+    const editor = useRef<MentionEditorHandle>(null)
+    const seenTabs = useRef(new Map<number, chrome.tabs.Tab>())
+    for (const tab of props.selectedTabs)
+      if (tab.id != null) seenTabs.current.set(tab.id, tab)
+    const anchor = useRef<HTMLDivElement>(null)
+    const form = useRef<HTMLFormElement>(null)
+    const [query, setQuery] = useState<string | null>(null)
+    const busy =
+      props.isTurnActive ||
+      props.status === 'submitted' ||
+      props.status === 'streaming'
+    const canSubmit =
+      !props.sendDisabled &&
+      !props.preparing &&
+      !props.voice?.isRecording &&
+      !props.voice?.isTranscribing &&
+      (!!props.input.trim() || props.hasAttachments)
+    function closeMention() {
+      setQuery(null)
+      props.onTabMentionOpenChange?.(false)
     }
-
-    const handleInputChange = (value: string) => {
-      const textarea = textareaRef.current
-      const cursorPosition = textarea?.selectionStart ?? value.length
-
-      const state = mentionStateRef.current
-
-      if (state.isOpen) {
-        const textAfterAt = value.slice(state.startPosition + 1)
-        const spaceIndex = textAfterAt.search(/\s/)
-        const filterText =
-          spaceIndex === -1 ? textAfterAt : textAfterAt.slice(0, spaceIndex)
-
-        if (
-          cursorPosition <= state.startPosition ||
-          value[state.startPosition] !== '@'
-        ) {
-          const nextMentionState = {
-            isOpen: false,
-            filterText: '',
-            startPosition: 0,
-          }
-          mentionStateRef.current = nextMentionState
-          setMentionState(nextMentionState)
-        } else {
-          const nextMentionState = { ...state, filterText }
-          mentionStateRef.current = nextMentionState
-          setMentionState(nextMentionState)
-        }
-      } else {
-        const charBeforeCursor = value[cursorPosition - 1]
-        const textBeforeAt = value.slice(0, cursorPosition - 1)
-        const isAtWordBoundary = /(?:^|[\s\n])$/.test(textBeforeAt)
-
-        if (charBeforeCursor === '@' && isAtWordBoundary) {
-          const nextMentionState = {
-            isOpen: true,
-            filterText: '',
-            startPosition: cursorPosition - 1,
-          }
-          mentionStateRef.current = nextMentionState
-          setMentionState(nextMentionState)
-        }
-      }
-
-      inputRef.current = value
-      onInputChange(value)
-    }
-
-    const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (mentionState.isOpen) {
-        if (
-          e.key === 'ArrowDown' ||
-          e.key === 'ArrowUp' ||
-          e.key === 'Enter' ||
-          e.key === 'Escape'
-        ) {
-          return
-        }
-        if (e.key === 'Tab') {
-          e.preventDefault()
-          closeMention()
-          return
-        }
-      }
-
-      if (
-        e.key === 'Enter' &&
-        !e.shiftKey &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.nativeEvent.isComposing
-      ) {
-        e.preventDefault()
-        if (input.trim() && !isSubmitDisabled) {
-          e.currentTarget.form?.requestSubmit()
-        }
-      }
-    }
-
-    useEffect(() => {
-      if (!mentionState.isOpen) return
-
-      const handleClickOutside = (e: MouseEvent) => {
-        const target = e.target as HTMLElement
-        if (target.closest('[data-tab-mention-trigger]')) return
-        if (
-          !textareaRef.current?.contains(target) &&
-          !target.closest('[data-slot="popover-content"]')
-        ) {
-          closeMention()
-        }
-      }
-
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [mentionState.isOpen, closeMention])
-
-    const renderVoiceButton = () => {
-      if (!voice) return null
-
-      if (voice.isRecording) {
-        return (
-          <button
-            type="button"
-            onClick={voice.onStopRecording}
-            className="cursor-pointer rounded-full bg-destructive p-2 text-destructive-foreground transition-colors duration-200 hover:bg-destructive/80"
-          >
-            <Square className="h-3.5 w-3.5" />
-            <span className="sr-only">Stop recording</span>
-          </button>
-        )
-      }
-
-      if (voice.isTranscribing) {
-        return (
-          <button
-            type="button"
-            disabled
-            className="rounded-md p-2 text-muted-foreground"
-          >
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            <span className="sr-only">Transcribing</span>
-          </button>
-        )
-      }
-
-      return (
-        <button
-          type="button"
-          onClick={voice.onStartRecording}
-          disabled={isSubmitDisabled}
-          className="cursor-pointer rounded-md p-2 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Mic className="h-3.5 w-3.5" />
-          <span className="sr-only">Voice input</span>
-        </button>
-      )
-    }
-
-    const renderSendButton = () => {
-      if (isBusy) {
-        return (
-          <button
-            type="button"
-            onClick={onStop}
-            className="cursor-pointer rounded-full bg-destructive p-2 text-destructive-foreground transition-colors duration-200 hover:bg-destructive/80"
-          >
-            <SquareStop className="h-3.5 w-3.5" />
-            <span className="sr-only">Stop</span>
-          </button>
-        )
-      }
-
-      return (
-        <button
-          type="submit"
-          disabled={
-            isSubmitDisabled ||
-            !input.trim() ||
-            voice?.isRecording ||
-            voice?.isTranscribing
-          }
-          className="cursor-pointer rounded-full bg-signal p-2 text-signal-foreground transition-colors duration-200 hover:bg-signal-bright disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Send className="h-3.5 w-3.5" />
-          <span className="sr-only">Send</span>
-        </button>
-      )
-    }
-
-    // The floating button cluster (voice mode + dictation + send) sits
-    // absolutely on top of the input, so its width has to be reserved as
-    // padding on the input or text slides under the icons. Derive the
-    // padding from the count of buttons that will actually render — the
-    // cluster grows/shrinks with props and recording state.
-    const showVoiceMode =
-      VOICE_SUPPORTED && !!onOpenVoiceMode && !voice?.isRecording
-    const showDictation = VOICE_SUPPORTED && !!voice
-    const visibleButtonCount =
-      1 + (showVoiceMode ? 1 : 0) + (showDictation ? 1 : 0)
-    const inputPaddingRight =
-      visibleButtonCount === 3
-        ? 'pr-32'
-        : visibleButtonCount === 2
-          ? 'pr-20'
-          : 'pr-11'
-
+    useImperativeHandle(ref, () => ({
+      openTabMention: () => editor.current?.openMention(),
+      closeTabMention: closeMention,
+      toggleTabMention: () =>
+        query === null ? editor.current?.openMention() : closeMention(),
+      focus: () => editor.current?.focus(),
+    }))
     return (
       <form
-        onSubmit={handleSubmit}
-        className="relative mt-1.5 flex w-full items-end gap-2"
+        ref={form}
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (canSubmit && query === null) props.onSubmit(event)
+        }}
       >
-        <TabPickerPopover
-          variant="mention"
-          isOpen={mentionState.isOpen}
-          filterText={mentionState.filterText}
-          selectedTabs={selectedTabs}
-          onToggleTab={onToggleTab}
-          onClose={closeMention}
-          anchorRef={textareaRef}
-        />
-        {voice?.isRecording ? (
-          <div
-            className={cn(
-              'agent-composer-field flex min-h-[42px] flex-1 items-center justify-center gap-1 border-destructive/50 px-4 py-2.5',
-              inputPaddingRight,
-            )}
-          >
-            {voice.audioLevels.map((level, i) => (
-              <div
-                key={i.toString()}
-                className="w-1 rounded-full bg-destructive transition-all duration-75"
-                style={{
-                  height: `${Math.max(4, Math.min(20, level * 0.6))}px`,
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          <textarea
-            ref={textareaRef}
-            className={cn(
-              'agent-composer-field field-sizing-content max-h-60 min-h-[38px] flex-1 resize-none overflow-hidden px-3 py-2 text-[14px] placeholder:text-muted-foreground/70',
-              inputPaddingRight,
-            )}
-            value={input}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              voice?.isTranscribing
-                ? 'Transcribing...'
-                : mode === 'chat'
-                  ? 'Ask about this page...'
-                  : 'What should I do?'
-            }
-            disabled={voice?.isTranscribing}
-            rows={1}
+        <div ref={anchor}>
+          <TabPickerPopover
+            variant="mention"
+            isOpen={query !== null}
+            filterText={query ?? ''}
+            selectedTabs={props.selectedTabs}
+            onToggleTab={(tab) => {
+              if (!props.selectedTabs.some((item) => item.id === tab.id))
+                props.onToggleTab(tab)
+              editor.current?.commit(tab)
+              closeMention()
+            }}
+            onClose={closeMention}
+            anchorRef={anchor}
           />
-        )}
-        <div className="absolute right-1.5 bottom-1.5 flex items-center gap-1">
-          {onOpenVoiceMode && !voice?.isRecording && (
+          <MentionEditor
+            ref={editor}
+            value={props.input}
+            onChange={(value) => {
+              const ids = new Set(
+                [...value.matchAll(/@\[[^\]]+\]\(tab:(\d+)\)/g)].map((match) =>
+                  Number(match[1]),
+                ),
+              )
+              for (const id of ids) {
+                const tab = seenTabs.current.get(id)
+                if (
+                  tab &&
+                  !props.selectedTabs.some((selected) => selected.id === id)
+                )
+                  props.onToggleTab(tab)
+              }
+              props.onInputChange(value)
+            }}
+            onMention={(value) => {
+              setQuery(value)
+              props.onTabMentionOpenChange?.(value !== null)
+            }}
+            onSubmit={() => {
+              if (query === null) form.current?.requestSubmit()
+            }}
+            onFiles={props.onFiles ?? (() => {})}
+            placeholder={busy ? 'Add a follow-up…' : 'Ask anything, or @ a tab'}
+            disabled={props.voice?.isTranscribing}
+          />
+        </div>
+        <div className="flex items-center gap-1 pt-1">
+          {props.controls}
+          <div className="flex-1" />
+          {busy && (
             <button
               type="button"
-              onClick={onOpenVoiceMode}
-              title="Voice mode"
-              aria-label="Voice mode"
-              className="cursor-pointer rounded-md p-2 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground"
+              onClick={props.onStop}
+              aria-label="Stop response"
+              title="Stop response"
+              className="rounded-full border border-border p-2 hover:bg-muted"
             >
-              <AudioLines className="h-3.5 w-3.5" />
+              <Square className="size-3.5 fill-current" />
             </button>
           )}
-          {renderVoiceButton()}
-          {renderSendButton()}
+          {VOICE_SUPPORTED && props.onOpenVoiceMode && (
+            <button
+              type="button"
+              onClick={props.onOpenVoiceMode}
+              aria-label="Voice mode"
+              className="rounded-full p-2 text-muted-foreground hover:bg-muted"
+            >
+              <AudioLines className="size-4" />
+            </button>
+          )}
+          {VOICE_SUPPORTED && props.voice && (
+            <button
+              type="button"
+              disabled={props.voice.isTranscribing}
+              onClick={
+                props.voice.isRecording
+                  ? props.voice.onStopRecording
+                  : props.voice.onStartRecording
+              }
+              aria-label={
+                props.voice.isRecording ? 'Stop recording' : 'Dictate message'
+              }
+              className="rounded-full p-2 text-muted-foreground hover:bg-muted"
+            >
+              {props.voice.isTranscribing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : props.voice.isRecording ? (
+                <Square className="size-4 text-destructive" />
+              ) : (
+                <Mic className="size-4" />
+              )}
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            aria-label={busy ? 'Queue message' : 'Send message'}
+            title={busy ? 'Queue message · Enter' : 'Send message · Enter'}
+            className="rounded-full bg-foreground p-2 text-background transition-opacity hover:opacity-80 disabled:opacity-25"
+          >
+            {props.preparing ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : busy ? (
+              <ListPlus className="size-4" />
+            ) : (
+              <ArrowUp className="size-4" />
+            )}
+          </button>
         </div>
       </form>
     )
   },
 )
-
 ChatInput.displayName = 'ChatInput'

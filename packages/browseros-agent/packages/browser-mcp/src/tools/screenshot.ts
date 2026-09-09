@@ -14,7 +14,7 @@ const screenshotSize = z.object({
 })
 
 type ScreenshotFormat = z.infer<typeof screenshotFormat>
-type ScreenshotSize = z.infer<typeof screenshotSize>
+export type ScreenshotSize = z.infer<typeof screenshotSize>
 
 function screenshotQuality(format: ScreenshotFormat, quality?: number) {
   if (format !== 'jpeg') return undefined

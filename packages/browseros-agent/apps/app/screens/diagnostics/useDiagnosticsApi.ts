@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
-export interface DiagnosticsData {
+interface DiagnosticsData {
   serverHealth: {
     running: boolean
     port: number
@@ -88,20 +88,5 @@ export function useWipeContextIndex() {
     },
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: DIAGNOSTICS_KEY }),
-  })
-}
-
-export function useTestProvider() {
-  const { baseUrl } = useAgentServerUrl()
-  return useMutation({
-    mutationFn: async (providerId: string) => {
-      const res = await agentFetch(`${baseUrl}/diagnostics/test-provider`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerId }),
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      return res.json() as Promise<{ ok: boolean; error?: string }>
-    },
   })
 }

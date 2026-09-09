@@ -19,7 +19,6 @@ import {
 import type { PiAction } from '@/screens/personal-internet/types'
 
 export type { PiPageRefreshOpts }
-export { buildPiPageRefreshAction }
 
 export async function refreshPiPageWithAgent(
   opts: PiPageRefreshOpts,

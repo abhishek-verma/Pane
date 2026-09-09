@@ -25,23 +25,23 @@ export const CHAT_SUGGESTIONS: Suggestion[] = [
   },
 ]
 
-import { PANE_GITHUB_URL } from '@/lib/constants/productUrls'
-
 export const AGENT_SUGGESTIONS: Suggestion[] = [
   {
-    display: 'Read about our vision and upvote',
-    prompt: `Go to ${PANE_GITHUB_URL} in current tab. Find and click the star button`,
-    icon: '❤️',
-  },
-  {
-    display: 'Support Pane on Github',
-    prompt: `Go to ${PANE_GITHUB_URL} in current tab and star the repository`,
-    icon: '⭐',
-  },
-  {
-    display: 'Open amazon.com and order Sensodyne toothpaste',
+    display: 'Compare my open tabs',
     prompt:
-      'Open amazon.com in current tab and add sensodyne toothpaste to cart',
-    icon: '🛒',
+      'Compare the pages I attach. Explain the key differences and cite your sources.',
+    icon: '↗',
+  },
+  {
+    display: 'Turn this page into a plan',
+    prompt:
+      'Read this page and turn it into a practical plan with clear next steps.',
+    icon: '↗',
+  },
+  {
+    display: 'Review a screenshot or file',
+    prompt:
+      'Review the attachment and help me improve it. Start with the most important issues.',
+    icon: '↗',
   },
 ]

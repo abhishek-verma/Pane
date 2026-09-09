@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import type { TaskStatus } from '@/modules/api/audit.hooks'
 
-interface StatusBadgeProps {
+export interface StatusBadgeProps {
   status: TaskStatus
   className?: string
 }

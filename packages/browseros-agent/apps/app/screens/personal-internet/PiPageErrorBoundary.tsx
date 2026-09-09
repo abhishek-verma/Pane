@@ -8,7 +8,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { PiBrokenPagePanel } from './PiBrokenPagePanel'
 import type { PiRepairFindingClient } from './piPageRepair'
 
-type Props = {
+export type Props = {
   children: ReactNode
   siteId: string
   pageId: string
@@ -29,7 +29,7 @@ type Props = {
   }
 }
 
-type State = {
+export type State = {
   error: Error | null
 }
 

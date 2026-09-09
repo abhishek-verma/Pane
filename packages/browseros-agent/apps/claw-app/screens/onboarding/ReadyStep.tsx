@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { STARTER_PROMPTS } from '@/modules/api/onboarding.hooks'
 
-interface ReadyStepProps {
+export interface ReadyStepProps {
   onDone: () => void
 }
 

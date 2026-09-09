@@ -14,6 +14,16 @@ export * from './domain-grants'
 export * from './graph-edges'
 export * from './graph-events'
 export * from './graph-nodes'
+export { layerActivity } from './layer-activity'
+export {
+  layerGrants,
+  layerSiteOverrides,
+  layerState,
+  layers,
+  layerTrash,
+  layerVerifications,
+  layerVersions,
+} from './layers'
 export * from './memory-entries'
 export * from './oauth'
 export * from './pending-approvals'

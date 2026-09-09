@@ -5,9 +5,9 @@
  */
 
 /** Quiet hours for reach outbound. Defaults: 22:00–08:00 local. */
-export const DEFAULT_QUIET_START_HOUR = 22
-export const DEFAULT_QUIET_END_HOUR = 8
-export const DEFAULT_REACH_MAX_PER_DAY = 20
+const DEFAULT_QUIET_START_HOUR = 22
+const DEFAULT_QUIET_END_HOUR = 8
+const DEFAULT_REACH_MAX_PER_DAY = 20
 
 export interface QuietHoursConfig {
   startHour: number

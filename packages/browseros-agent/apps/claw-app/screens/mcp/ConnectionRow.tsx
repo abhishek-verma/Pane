@@ -2,7 +2,7 @@ import { Check, Loader2 } from 'lucide-react'
 import { HarnessIcon } from '@/components/harness/HarnessIcon'
 import type { ConnectionState } from '@/modules/api/connections.hooks'
 
-interface ConnectionRowProps {
+export interface ConnectionRowProps {
   state: ConnectionState
   isPending: boolean
   errorMessage: string | null

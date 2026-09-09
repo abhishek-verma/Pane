@@ -15,7 +15,7 @@ import type {
   TranscriptSegment,
 } from './types'
 
-interface LocalFasterWhisperOptions {
+export interface LocalFasterWhisperOptions {
   command?: string
   args?: string[]
 }

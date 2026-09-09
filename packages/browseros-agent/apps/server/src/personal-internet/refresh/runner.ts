@@ -206,7 +206,7 @@ function loadMeetingTranscript(sessionId: string | null | undefined): {
 }
 
 /** Exported for tests — builds the structured harvest prompt. */
-export function buildHarvestPromptForJob(
+function buildHarvestPromptForJob(
   site: NonNullable<ReturnType<typeof getSite>>,
   job: PiRefreshJob,
   openHosts?: string[],

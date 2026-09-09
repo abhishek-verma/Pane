@@ -54,7 +54,7 @@ export function buildActCaption(input: Record<string, unknown>): string {
   return verb
 }
 
-export function buildNavigateCaption(input: Record<string, unknown>): string {
+function buildNavigateCaption(input: Record<string, unknown>): string {
   const action = typeof input.action === 'string' ? input.action : 'url'
   if (action === 'url' && typeof input.url === 'string') {
     return `Navigated to ${input.url}`

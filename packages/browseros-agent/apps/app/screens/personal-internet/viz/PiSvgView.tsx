@@ -7,7 +7,7 @@
 import type { FC } from 'react'
 import type { PiNode } from '../types'
 
-type SvgNode = Extract<PiNode, { type: 'svg' }>
+export type SvgNode = Extract<PiNode, { type: 'svg' }>
 
 /**
  * Client-side belt-and-suspenders check mirroring server sanitizePiSvg.

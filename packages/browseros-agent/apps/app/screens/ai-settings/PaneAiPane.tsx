@@ -506,6 +506,3 @@ export const PaneAiPane: FC = () => {
     </div>
   )
 }
-
-/** @deprecated Use `PaneAiPane` instead. */
-export const BrowserOsAiPane = PaneAiPane

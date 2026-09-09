@@ -17,7 +17,7 @@ import {
 import type { LlmProviderConfig, LlmProvidersBackup } from './types'
 import { uploadLlmProvidersToGraphql } from './uploadLlmProvidersToGraphql'
 
-export { DEFAULT_PROVIDER_ID } from './provider-selection'
+import './provider-selection'
 
 export const providersStorage = storage.defineItem<LlmProviderConfig[]>(
   'local:llm-providers',
@@ -74,7 +74,7 @@ export function setupLlmProvidersBackupToBrowserOS(): () => void {
 }
 
 /** Uploads provider metadata for signed-in users when cloud sync is enabled. */
-export async function syncLlmProviders(): Promise<void> {
+async function syncLlmProviders(): Promise<void> {
   if (!productFeatures.cloudSync) return
 
   const providers = await providersStorage.getValue()
@@ -127,7 +127,7 @@ export async function loadProviders(): Promise<LlmProviderConfig[]> {
 }
 
 /** Creates the default BrowserOS provider configuration */
-export function createDefaultBrowserOSProvider(): LlmProviderConfig {
+function createDefaultBrowserOSProvider(): LlmProviderConfig {
   const timestamp = Date.now()
   return {
     id: DEFAULT_PROVIDER_ID,

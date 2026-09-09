@@ -33,7 +33,7 @@ export type PiPageInspection = {
   contentSummary: ReturnType<typeof summarizeRawPage> | null
 }
 
-export const PI_PAGE_FIX_HINT = [
+const PI_PAGE_FIX_HINT = [
   'Follow diagnosis.agentBrief — tool-level steps, not raw validator text.',
   'Call pi_read(pageId) for diagnosis (+ contentSummary). Use raw only when diagnosis.needsRaw is true.',
   BOARD_SHAPE_HINT,

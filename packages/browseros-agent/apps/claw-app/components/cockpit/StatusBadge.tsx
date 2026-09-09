@@ -1,7 +1,7 @@
 import { type RunStatus, STATUS_META } from '@/lib/status'
 import { cn } from '@/lib/utils'
 
-interface StatusBadgeProps {
+export interface StatusBadgeProps {
   status: RunStatus
   className?: string
 }

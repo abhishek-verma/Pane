@@ -2,13 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 
-export interface WorkspaceBrowseEntry {
+interface WorkspaceBrowseEntry {
   name: string
   type: 'dir' | 'file'
   size?: number
 }
 
-export interface WorkspaceBrowseResult {
+interface WorkspaceBrowseResult {
   path: string
   entries: WorkspaceBrowseEntry[]
 }

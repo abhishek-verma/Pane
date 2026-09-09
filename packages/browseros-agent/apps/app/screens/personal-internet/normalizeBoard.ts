@@ -6,7 +6,7 @@
 
 import type { PiNode } from './types'
 
-type BoardNode = Extract<PiNode, { type: 'board' }>
+export type BoardNode = Extract<PiNode, { type: 'board' }>
 
 function slugCardId(title: string, index: number): string {
   const base =

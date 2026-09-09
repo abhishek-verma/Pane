@@ -24,7 +24,7 @@ export const BROWSEROS_MCP_SERVER_NAME = 'pane'
 /** Legacy slug kept so existing `claude mcp add browseros …` configs keep working. */
 export const BROWSEROS_MCP_COMPAT_ALIASES = ['browseros'] as const
 
-export function browserosMcpHttpServerNames(): readonly string[] {
+function browserosMcpHttpServerNames(): readonly string[] {
   return [BROWSEROS_MCP_SERVER_NAME, ...BROWSEROS_MCP_COMPAT_ALIASES]
 }
 

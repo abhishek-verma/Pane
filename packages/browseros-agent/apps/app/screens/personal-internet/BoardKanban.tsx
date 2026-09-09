@@ -11,7 +11,7 @@ import { PiRailAction } from './PiChrome'
 import { PiMarkdown } from './PiMarkdown'
 import type { PiAction, PiCardAction, PiNode } from './types'
 
-type BoardNode = Extract<PiNode, { type: 'board' }>
+export type BoardNode = Extract<PiNode, { type: 'board' }>
 
 function normalizeCardAction(entry: PiCardAction): {
   label: string

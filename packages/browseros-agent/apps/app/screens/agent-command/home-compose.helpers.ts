@@ -62,7 +62,7 @@ export function harnessHomeText(
   hasAttachments = false,
 ): string {
   const prompt =
-    text.trim() ||
+    text.trim().replace(/@\[([^\]]+)\]\(tab:\d+\)/g, '@$1') ||
     (hasAttachments ? 'Please help me with the attached files.' : '')
   const references = tabs.flatMap((tab) => {
     const url = displayTabUrl(tab.url)

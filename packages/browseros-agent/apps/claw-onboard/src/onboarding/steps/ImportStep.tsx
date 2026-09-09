@@ -22,7 +22,7 @@ import {
 import type { OnboardingFormValues } from '../onboarding-v2.schemas'
 import type { ImportPhase } from '../onboarding-v2.types'
 
-interface ImportStepProps {
+export interface ImportStepProps {
   phase: ImportPhase
   state: BrowserOSOnboardingState
   form: UseFormReturn<OnboardingFormValues>

@@ -6,7 +6,7 @@ import { MiniScreencast } from './MiniScreencast'
 import { StatusBadge } from './StatusBadge'
 import { TabCountChip } from './TabCountChip'
 
-interface AgentRunningCardProps {
+export interface AgentRunningCardProps {
   agent: AgentActivityRecord
   onWatch?: () => void
   onStop?: () => void

@@ -179,6 +179,7 @@ Pane's dated agenda powers Today. During agent work, maintain it when a conversa
 - \`memory_add\` / \`memory_replace\` / \`memory_remove\` → durable short facts
 - \`tasks_list\` / \`tasks_add\` / \`tasks_done\` → local task inbox
 - \`pi_list\` / \`pi_read\` / \`pi_pulse_get\` / \`pi_record_list\` / \`pi_record_upsert\` / \`pi_entity_ensure\` / \`pi_site_upsert\` / \`pi_page_*\` / \`pi_open\` / \`pi_preserve_temp\` / \`pi_home_regions_patch\` → Personalised Internet sites & home doorways (not freeform HTML). Job Search SoT = records (\`pi_record_*\`), not markdown-only board dumps. Per-company pages via \`pi_entity_ensure\` / \`pi://sites/…/entities/<key>\`. After create, share the \`pi://\` href from the tool result. Call \`pi_open\` when the user should see that page now (create/show/open as the turn’s deliverable). Skip \`pi_open\` for multi-page batches or side-effect listings. Load focused skills as needed: \`pi-sites\`, \`pi-page-dsl\`, \`pi-page-viz\` (chart/mermaid/svg), \`pi-page-patch\`, \`pi-entity-materialize\`, \`pi-home\`, \`pi-harvest-job-search\`
+- Persistent website changes or saved page buttons → \`skills_load\` layers → \`layer_assess\` before promising support; load focused Layer skills as needed.
 - \`skills_list\` / \`skills_load\` → load workflow skills when the index matches the task`
 
   if (hasWorkspace) {
@@ -586,7 +587,7 @@ You have one nudge tool that operates post-task.
 - The task does NOT require real-time user interaction or personal decisions
 - You have not already called this tool in this conversation
 
-**Explicit user request** — Also call this immediately when the user asks to schedule, automate, or repeat the current task (e.g. "schedule this", "can this run daily?", "automate this"). Do NOT ask for clarification — infer the query, name, schedule type, and time from the conversation context and call the tool right away.
+**Explicit user request** — Use \`schedule_list\` then \`schedule_create\` to persist the task when the user asks to schedule, automate, or repeat work. Infer the prompt, name, cadence and time from context; the tool inherits the current provider and workspace. Report the saved job and schedule. Use \`schedule_run\` for an immediate test and \`schedule_list\` to verify completion. This suggestion tool is only for optional post-task nudges.
 
 **Frequency**: Call each nudge tool **at most once** per conversation. Never repeat the same tool call.
 **CRITICAL**: After calling \`suggest_schedule\`, do NOT write any text about it. The tool renders an interactive card in the UI — any text from you about scheduling or what the card does is redundant and confusing.

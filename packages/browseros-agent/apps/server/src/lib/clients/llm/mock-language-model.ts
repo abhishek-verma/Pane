@@ -6,9 +6,6 @@ import type {
 import { LLM_PROVIDERS, type LLMConfig } from '@browseros/shared/schemas/llm'
 import { type LanguageModel, simulateReadableStream } from 'ai'
 import { MockLanguageModelV3 } from 'ai/test'
-import type { ResolvedLLMConfig } from './types'
-
-const MOCK_BROWSEROS_MODEL_ID = 'browseros-test-mock'
 export const MOCK_BROWSEROS_RESPONSE_TEXT = 'Mock BrowserOS test response.'
 
 const MOCK_USAGE: LanguageModelV3Usage = {
@@ -44,18 +41,6 @@ export function shouldUseMockBrowserOSLLM(
   return (
     config.provider === LLM_PROVIDERS.BROWSEROS && isMockBrowserOSLLMEnabled()
   )
-}
-
-export function resolveMockBrowserOSConfig(
-  config: LLMConfig,
-  browserosId?: string,
-): ResolvedLLMConfig {
-  return {
-    ...config,
-    model: config.model ?? MOCK_BROWSEROS_MODEL_ID,
-    browserosId,
-    upstreamProvider: LLM_PROVIDERS.OPENAI,
-  }
 }
 
 export function createMockBrowserOSLanguageModel(): LanguageModel {

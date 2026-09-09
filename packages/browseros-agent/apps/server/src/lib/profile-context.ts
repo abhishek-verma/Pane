@@ -45,12 +45,3 @@ export async function runWithProfileAsync<T>(
 export function tryGetProfileKey(): string | null {
   return als.getStore()?.profileKey ?? null
 }
-
-/** Returns the active profile key or throws. */
-export function getRequiredProfileKey(): string {
-  const key = tryGetProfileKey()
-  if (!key) {
-    throw new Error('Profile context required but not set')
-  }
-  return key
-}

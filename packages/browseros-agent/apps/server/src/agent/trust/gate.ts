@@ -42,7 +42,7 @@ import {
 import { logGateDecision } from './action-log'
 
 /** Prefer run idempotency key so retries with a new chat runId still dedupe. */
-export function resolveStepIdempotencyKey(ctx: GateContext): string {
+function resolveStepIdempotencyKey(ctx: GateContext): string {
   if (ctx.idempotencyKey) return ctx.idempotencyKey
   if (ctx.scheduledRunId) {
     const run = getScheduledRun(ctx.scheduledRunId)
@@ -59,7 +59,7 @@ export function resolveStepIdempotencyKey(ctx: GateContext): string {
  * create/ensure/cross-page patch. Page create/patch/ensure are also
  * response-surface (`read`) so they never pause the loop for approval.
  */
-export function isPiMaterializeScheduledRun(ctx: GateContext): boolean {
+function isPiMaterializeScheduledRun(ctx: GateContext): boolean {
   if (!ctx.scheduledRunId) return false
   const run = getScheduledRun(ctx.scheduledRunId)
   return run?.source === 'pi-materialize'
@@ -108,7 +108,7 @@ function recordCompletedStep(
   })
 }
 
-export type { ConsequenceClass, GateContext }
+export type { GateContext }
 
 export type GateToolResult =
   | { text: string; isError?: boolean }

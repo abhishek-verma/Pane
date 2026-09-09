@@ -16,7 +16,23 @@
     "scripts/dev/inspect-ui.ts",
     "scripts/patch-windows-exe.ts",
     "apps/eval/scripts/generate-report.ts",
-    "apps/eval/scripts/weekly-report.ts"
+    "apps/eval/scripts/weekly-report.ts",
+    "apps/server/src/retrieval/embed-worker.ts",
+    "packages/capture/asr/bun-sidecar/sidecar.ts",
+    "packages/capture/asr/bun-sidecar/offline-replay.ts",
+    "scripts/build/acp-runtime/extract-native.cjs",
+    "apps/server/scripts/smoke-host-provider.ts",
+    "scripts/release/generate-extension-update-manifest.ts",
+    "scripts/release/pack-extension-crx.ts",
+    "scripts/dev/layers-runtime-probe.ts",
+    "apps/app/lib/layers/runtime.ts",
+    "apps/app/lib/layers/translation.ts",
+    "test-id.cjs",
+    "scripts/dev/layers-integration-probe.ts",
+    "scripts/dev/layers-native-probe.ts",
+    "scripts/dev/layers-claude-probe.ts",
+    "scripts/dev/layers-codex-probe.ts",
+    "scripts/dev/layers-performance-probe.ts"
   ],
   "ignoreDependencies": [
     "tailwind-scrollbar-hide",
@@ -26,12 +42,14 @@
     "dotenv",
     "picocolors",
     "@browseros/cdp-protocol",
-    "@graphql-typed-document-node/core"
+    "@graphql-typed-document-node/core",
+    "@kutalia/whisper-node-addon"
   ],
   "ignoreUnresolvedImports": [
     "@/assets/**",
     "@/generated/graphql/**",
-    "@/styles/global.css"
+    "@/styles/global.css",
+    "/set-favicon.js"
   ],
   "ignorePatterns": [
     "**/*.d.ts",
@@ -87,7 +105,10 @@
     {
       "files": [
         "apps/app/components/ui/**",
-        "apps/app/components/ai-elements/**"
+        "apps/app/components/ai-elements/**",
+        "apps/claw-app/components/ui/**",
+        "apps/claw-app/components/ai-elements/**",
+        "apps/claw-onboard/src/components/ui/**"
       ],
       "rules": {
         "unused-exports": "off",

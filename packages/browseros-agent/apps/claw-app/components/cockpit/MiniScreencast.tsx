@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { ScreencastFrame } from '@/modules/api/tabs.hooks'
 
-interface MiniScreencastProps {
+export interface MiniScreencastProps {
   site: string
   live?: boolean
   /**

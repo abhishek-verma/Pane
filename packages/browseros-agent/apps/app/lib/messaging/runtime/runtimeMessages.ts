@@ -28,11 +28,11 @@ export interface RuntimeStopAgentData {
   conversationId: string
 }
 
-export interface RuntimeStopCaptureData {
+interface RuntimeStopCaptureData {
   sessionId: string
 }
 
-export interface RuntimeCaptureSessionStoppedData {
+interface RuntimeCaptureSessionStoppedData {
   sessionId: string
 }
 
@@ -40,12 +40,12 @@ export interface RuntimeSidePanelScopeChangedData {
   perWindow: boolean
 }
 
-export interface RuntimeCaptureServerUrlResponse {
+interface RuntimeCaptureServerUrlResponse {
   serverUrl?: string
   error?: string
 }
 
-export interface RuntimeCaptureAudioStartData {
+interface RuntimeCaptureAudioStartData {
   sessionId: string
   tabId: number
   streamId: string
@@ -54,23 +54,23 @@ export interface RuntimeCaptureAudioStartData {
   profileKey: string
 }
 
-export interface RuntimeCaptureAudioStartResponse {
+interface RuntimeCaptureAudioStartResponse {
   ok: boolean
   includeMic?: boolean
   chunksUploaded?: number
   error?: string
 }
 
-export interface RuntimeCaptureAudioStopData {
+interface RuntimeCaptureAudioStopData {
   sessionId: string
 }
 
-export interface RuntimeCaptureAudioStopResponse {
+interface RuntimeCaptureAudioStopResponse {
   ok: boolean
   error?: string
 }
 
-export interface RuntimeCaptureAudioStatusResponse {
+interface RuntimeCaptureAudioStatusResponse {
   sessionIds: string[]
   sessions: Array<{
     sessionId: string
@@ -79,20 +79,20 @@ export interface RuntimeCaptureAudioStatusResponse {
   }>
 }
 
-export interface RuntimeCaptureMicSpeakingData {
+interface RuntimeCaptureMicSpeakingData {
   sessionId: string
 }
 
-export interface RuntimeCaptureMicSpeakingResponse {
+interface RuntimeCaptureMicSpeakingResponse {
   localSpeaking: boolean
 }
 
-export interface RuntimeCaptureMicMuteData {
+interface RuntimeCaptureMicMuteData {
   sessionId: string
   muted: boolean
 }
 
-export interface RuntimeCaptureMicMuteResponse {
+interface RuntimeCaptureMicMuteResponse {
   ok: boolean
 }
 

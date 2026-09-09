@@ -38,45 +38,6 @@ export interface AgentRow {
   trail?: string
 }
 
-const MOCK_AGENTS: AgentRow[] = [
-  {
-    id: 'cld-concur',
-    label: 'Cowork . File expenses',
-    harness: 'Claude Code',
-    site: 'concur.com',
-    task: 'See my May invoices and file expenses on SAP Concur',
-    status: 'needs-ok',
-    liveLine: 'Filling 4 expense lines',
-    color: '#F26B2A',
-  },
-  {
-    id: 'cld-li',
-    label: 'Cowork . LinkedIn posts',
-    harness: 'Claude Code',
-    site: 'linkedin.com',
-    task: 'Draft and queue 3 LinkedIn posts about the launch',
-    status: 'running',
-    liveLine: 'Typing the 2nd post in the composer',
-    color: '#2F6FE0',
-  },
-  {
-    id: 'cdx-sheet',
-    label: 'Codex . Pricing research',
-    harness: 'Codex',
-    site: 'docs.google.com',
-    task: 'Compile competitor pricing into a Google Sheet',
-    status: 'running',
-    liveLine: 'Pasting row 9 of 12 into the sheet',
-    color: '#1F8A4C',
-  },
-]
-
-export const useAgents = createQuery<AgentRow[]>({
-  queryKey: ['agents'],
-  fetcher: () =>
-    new Promise((resolve) => setTimeout(() => resolve(MOCK_AGENTS), 60)),
-})
-
 /**
  * Result of the harness-install side-effect that runs on `POST /agents`.
  * `installed: false` means the profile was saved but the harness's
@@ -149,27 +110,6 @@ export const useDeleteAgent = createMutation<
   mutationFn: async ({ id }) => {
     const response = await api.agents[':id'].$delete({ param: { id } })
     return parseResponse<DeleteAgentVariables>(response)
-  },
-})
-
-interface RegenerateMcpVariables {
-  id: string
-}
-
-interface RegenerateMcpResult {
-  id: string
-  mcpUrl: string
-}
-
-export const useRegenerateMcpUrl = createMutation<
-  RegenerateMcpResult,
-  RegenerateMcpVariables
->({
-  mutationFn: async ({ id }) => {
-    const response = await api.agents[':id']['mcp-url:regenerate'].$post({
-      param: { id },
-    })
-    return parseResponse<RegenerateMcpResult>(response)
   },
 })
 

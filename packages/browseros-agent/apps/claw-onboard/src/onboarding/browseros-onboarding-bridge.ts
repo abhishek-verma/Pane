@@ -25,7 +25,7 @@ export interface BrowserOSOnboardingBridge {
   startImport(request: BrowserOSStartImportRequest): void
 }
 
-interface BrowserOSOnboardingBridgeOptions {
+export interface BrowserOSOnboardingBridgeOptions {
   chrome?: BrowserOSOnboardingChrome | null
   mockTiming?: 'delayed' | 'sync'
 }

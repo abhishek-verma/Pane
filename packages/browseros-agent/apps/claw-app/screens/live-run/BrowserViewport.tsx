@@ -2,7 +2,7 @@ import { Globe, StopCircle } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-interface BrowserViewportProps {
+export interface BrowserViewportProps {
   /** Site host shown in the chrome and center placeholder. */
   site: string
   /** Harness label shown in the agent badge. */

@@ -13,6 +13,12 @@ export interface PendingScheduledRun {
   status: string
   source?: string
   sourceId?: string | null
+  executionContext?: {
+    providerId?: string
+    userWorkingDir?: string
+    workspaceId?: string
+    bucketId?: string
+  }
 }
 
 export interface DrainServerRunsDeps {
@@ -24,6 +30,7 @@ export interface DrainServerRunsDeps {
     idempotencyKey: string
     conversationId?: string
     useSelectedWorkspace?: boolean
+    executionContext?: PendingScheduledRun['executionContext']
   }) => Promise<{ text: string; conversationId: string }>
   /** If set, only claim these run ids. */
   runIds?: string[]
@@ -90,6 +97,7 @@ export async function drainPendingRunsOnce(
       }
       const chat = await deps.runChat({
         message: run.prompt,
+        executionContext: run.executionContext,
         scheduledRunId: run.id,
         idempotencyKey: run.idempotencyKey,
         conversationId,

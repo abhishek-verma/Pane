@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { useMermaidRender } from '@/lib/personal-internet/useMermaidRender'
 import type { PiNode } from '../types'
 
-type MermaidNode = Extract<PiNode, { type: 'mermaid' }>
+export type MermaidNode = Extract<PiNode, { type: 'mermaid' }>
 
 export const PiMermaidView: FC<{ node: MermaidNode }> = ({ node }) => {
   const { svg, error, retryable, retry } = useMermaidRender(node.source)

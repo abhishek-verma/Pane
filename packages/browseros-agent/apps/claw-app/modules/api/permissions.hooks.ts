@@ -6,8 +6,6 @@ import {
 import { api } from './client'
 import { parseResponse } from './parseResponse'
 
-export type { ApprovalCategory } from '@/screens/new-agent/new-agent.schemas'
-
 /**
  * System-wide approval catalog. The backend ships the source of truth
  * baked into `lib/approval-catalog.ts`; the local constant stays as a

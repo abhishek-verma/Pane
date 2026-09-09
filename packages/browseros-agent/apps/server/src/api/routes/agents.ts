@@ -1,3 +1,4 @@
+import { ChatAttachmentsSchema, harnessAttachments } from '../chat-attachments'
 /**
  * @license
  * Copyright 2025 BrowserOS
@@ -119,6 +120,7 @@ type SidepanelAgentChatRequest = {
   conversationId: string
   agentSessionId: AgentSessionId
   message: string
+  attachments: InboundImageAttachment[]
   browserContext?: BrowserContext
   selectedText?: string
   selectedTextSource?: { url: string; title: string }
@@ -211,6 +213,7 @@ export function createAgentRoutes(deps: AgentRouteDeps = {}) {
             agentId: agent.id,
             sessionId: parsed.agentSessionId,
             message,
+            attachments: parsed.attachments,
             cwd: parsed.userWorkingDir,
           })
         } catch (err) {
@@ -687,24 +690,6 @@ interface InboundImageAttachment {
   data: string
 }
 
-// Defense-in-depth caps on chat-body image attachments. The composer
-// already enforces these client-side (see `lib/attachments.ts`) but
-// `/agents/:id/chat` accepts direct curl/script callers too, so the
-// server has to validate independently.
-const MAX_CHAT_ATTACHMENTS = 10
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024 // 5 MB raw, post-decode
-// data: URLs encode bytes as base64 (~4/3 inflation) plus the
-// `data:<mime>;base64,` prefix; cap the encoded string against that
-// rather than 2× the raw budget.
-const MAX_IMAGE_DATA_URL_LENGTH = Math.ceil(MAX_IMAGE_BYTES * (4 / 3)) + 100
-const ALLOWED_IMAGE_MEDIA_TYPES = new Set([
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-  'image/webp',
-  'image/gif',
-])
-
 /**
  * Body parser for `POST /agents/:id/queue`. Mirrors `parseChatBody`'s
  * shape (message + attachments) but adds an upper bound on the
@@ -746,51 +731,23 @@ async function parseChatBody(
 function parseChatBodyRecord(
   record: Record<string, unknown>,
 ): ParsedChatBody | { error: string } {
-  const message =
-    typeof record.message === 'string' ? record.message.trim() : ''
-  const attachmentsRaw = Array.isArray(record.attachments)
-    ? record.attachments
-    : []
-  if (attachmentsRaw.length > MAX_CHAT_ATTACHMENTS) {
+  const parsed = ChatAttachmentsSchema.safeParse(record.attachments ?? [])
+  if (!parsed.success)
+    return { error: parsed.error.issues[0]?.message ?? 'Invalid attachments' }
+  let prepared: ReturnType<typeof harnessAttachments>
+  try {
+    prepared = harnessAttachments(parsed.data)
+  } catch (error) {
     return {
-      error: `at most ${MAX_CHAT_ATTACHMENTS} attachments are allowed per message`,
+      error: error instanceof Error ? error.message : 'Unsupported attachment',
     }
   }
-  const attachments: InboundImageAttachment[] = []
-  for (const entry of attachmentsRaw) {
-    if (!entry || typeof entry !== 'object') {
-      return { error: 'invalid attachment entry' }
-    }
-    const record = entry as Record<string, unknown>
-    if (record.kind !== 'image') {
-      return { error: 'attachment kind must be "image"' }
-    }
-    const mediaType =
-      typeof record.mediaType === 'string' ? record.mediaType : ''
-    const dataUrl = typeof record.dataUrl === 'string' ? record.dataUrl : ''
-    if (!ALLOWED_IMAGE_MEDIA_TYPES.has(mediaType)) {
-      return {
-        error: `unsupported image type: ${mediaType || 'unknown'}`,
-      }
-    }
-    if (!dataUrl.startsWith('data:')) {
-      return { error: 'image attachment must include a data: URL' }
-    }
-    if (dataUrl.length > MAX_IMAGE_DATA_URL_LENGTH) {
-      return { error: `image exceeds ${MAX_IMAGE_BYTES} bytes` }
-    }
-    // Strip the `data:<mime>;base64,` prefix — ACP image blocks carry
-    // raw base64 plus the mime type as separate fields.
-    const commaIdx = dataUrl.indexOf(',')
-    const data = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl
-    if (!data) {
-      return { error: 'image attachment payload is empty' }
-    }
-    attachments.push({ mediaType, data })
-  }
-  if (!message && attachments.length === 0) {
+  const message =
+    (typeof record.message === 'string' ? record.message.trim() : '') +
+    prepared.text
+  const attachments = prepared.images
+  if (!message && attachments.length === 0)
     return { error: 'Message is required' }
-  }
   return {
     message,
     attachments,
@@ -818,7 +775,9 @@ async function parseSidepanelAgentChatBody(
     return { error: 'agentSessionId must be "main" or a UUID' }
   }
 
-  const message = readOptionalTrimmedString(record, 'message')
+  const chat = parseChatBodyRecord(record)
+  if ('error' in chat) return chat
+  const message = chat.message || 'Describe the attached image.'
   if (hasToolApprovalResponses(record.toolApprovalResponses)) {
     return {
       error:
@@ -838,6 +797,7 @@ async function parseSidepanelAgentChatBody(
     conversationId,
     agentSessionId,
     message,
+    attachments: chat.attachments,
     browserContext: browserContext.value,
     selectedText,
     selectedTextSource: selectedTextSource.value,

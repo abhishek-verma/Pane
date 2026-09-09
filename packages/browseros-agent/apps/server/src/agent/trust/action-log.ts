@@ -9,7 +9,7 @@ import { logger } from '../../lib/logger'
 
 const OUTPUT_SUMMARY_MAX = 500
 
-export interface ActionLogWriteParams {
+interface ActionLogWriteParams {
   runId: string
   conversationId: string
   toolName: string
@@ -19,7 +19,7 @@ export interface ActionLogWriteParams {
   outputSummary?: string
 }
 
-export async function writeActionLogEntry(
+async function writeActionLogEntry(
   params: ActionLogWriteParams,
 ): Promise<void> {
   const argsForLog = { ...params.args }

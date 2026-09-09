@@ -33,7 +33,10 @@ import {
   PROVIDER_SELECTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
 import { productFeatures } from '@/lib/constants/product-features'
-import { fetchActiveChatTurn } from '@/lib/conversations/chat-turn-api'
+import {
+  attachChatTurnStream,
+  fetchActiveChatTurn,
+} from '@/lib/conversations/chat-turn-api'
 import {
   excludeInFlightUserMessage,
   formatConversationHistory,
@@ -93,6 +96,12 @@ import {
   hasPendingToolApprovals,
   hasPendingToolApprovalsExcluding,
 } from './collect-tool-approval-responses'
+import {
+  type ComposerMessage,
+  composerFileParts,
+  composerMetadata,
+  messageAttachments,
+} from './composer-message'
 import { addContentFilterNotice } from './content-filter-notice'
 import { useExecutionHistoryTracker } from './execution-history-tracker.hooks'
 import { useNotifyActiveTab } from './notify-active-tab.hooks'
@@ -288,6 +297,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const tabIdRef = useRef<number | null>(null)
   const turnControllerRef = useRef(new ChatTurnController())
   const [isTurnActive, setIsTurnActive] = useState(false)
+  const composerDeliveryRef = useRef<{
+    outcome: 'done' | 'paused'
+    started?: { turnId: string; conversationId: string }
+  } | null>(null)
+  const [lastTurnSucceeded, setLastTurnSucceeded] = useState(false)
 
   useEffect(() => {
     conversationIdRef.current = conversationId
@@ -469,9 +483,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     },
     transport: new DefaultChatTransport({
       fetch: (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const delivery = composerDeliveryRef.current
+        const requestConversationId = conversationIdRef.current
         const response = await agentFetch(input, init)
         const turnId = response.headers.get('X-Turn-Id')
         if (turnId) {
+          if (delivery)
+            delivery.started = { turnId, conversationId: requestConversationId }
+          if (requestConversationId !== conversationIdRef.current)
+            return response
+          setLastTurnSucceeded(false)
           turnControllerRef.current.noteStartedTurn(
             turnId,
             conversationIdRef.current,
@@ -513,13 +534,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             // Window may have closed between query and get; omit the flag.
           }
         }
-        const currentMode = modeRef.current
+        const lastUser = messages.findLast((message) => message.role === 'user')
+        const composer = composerMetadata(lastUser)
+        const currentMode = composer?.mode ?? modeRef.current
         const enabledMcpServers = enabledMcpServersRef.current
         const customMcpServers = enabledCustomServersRef.current
         const lastUserMessage = getLastUserMessageText(messages)
-        const action = textToActionRef.current.get(lastUserMessage)
+        const action =
+          composer?.action ?? textToActionRef.current.get(lastUserMessage)
         const requestBrowserContext = buildRequestBrowserContext({
-          activeTab,
+          activeTab: composer ? action?.tabs?.[0] : activeTab,
           action,
           enabledMcpServers,
           customMcpServers,
@@ -607,13 +631,28 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           fallbackProvider,
           message,
           ...commonRequest,
-          selectedText: activeTabSelection?.text,
-          selectedTextSource: activeTabSelection
-            ? {
-                url: activeTabSelection.url,
-                title: activeTabSelection.title,
-              }
-            : undefined,
+          attachments: isApprovalResume
+            ? undefined
+            : messageAttachments(lastUser).map((item) => item.payload),
+          revision: composer?.revision,
+          clientMessageId: lastUser?.id,
+          composer: composer,
+          selectedText: composer
+            ? composer.selection?.text
+            : activeTabSelection?.text,
+          selectedTextSource: composer
+            ? composer.selection
+              ? {
+                  url: composer.selection.pageUrl,
+                  title: composer.selection.pageTitle,
+                }
+              : undefined
+            : activeTabSelection
+              ? {
+                  url: activeTabSelection.url,
+                  title: activeTabSelection.title,
+                }
+              : undefined,
         })
 
         // Track which tab's selection was sent so we can clear it on success
@@ -639,6 +678,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       })
     },
     onFinish: async ({ message, messages, isAbort, isError, finishReason }) => {
+      const outcome =
+        !isAbort && !isError && finishReason === 'stop' ? 'done' : 'paused'
+      if (composerDeliveryRef.current)
+        composerDeliveryRef.current.outcome = outcome
+      setLastTurnSucceeded(outcome === 'done')
       setVmStatus(null)
       // Capture before any await — a conversation switch must not let this
       // finish handler mutate the destination chat or reattach the old turn.
@@ -1436,14 +1480,20 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }, [mode, selectedChatTargetRef, selectedLlmProvider])
 
   const dispatchMessage = useCallback(
-    (text: string) => {
+    (text: string, composer?: ComposerMessage) => {
+      const delivery: NonNullable<typeof composerDeliveryRef.current> = {
+        outcome: 'paused',
+      }
+      composerDeliveryRef.current = delivery
+      setLastTurnSucceeded(false)
       trackMessageSent()
       startExecutionTask({
         conversationId: conversationIdRef.current,
         promptText: text,
       })
       // Supersede any live server turn, then detach local SSE before sending.
-      void turnControllerRef.current.cancel('superseded-by-new-message')
+      if (!composer)
+        void turnControllerRef.current.cancel('superseded-by-new-message')
       if (status === 'submitted' || status === 'streaming') {
         void stop()
       }
@@ -1453,7 +1503,23 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       // MissingToolResultsError. Do not use addToolApprovalResponse here — that
       // would trigger an empty approval-resume via sendAutomaticallyWhen.
       setMessages((current) => prepareMessagesForClientTurn(current))
-      baseSendMessage({ text })
+      return baseSendMessage({
+        role: 'user',
+        parts: [
+          { type: 'text', text },
+          ...composerFileParts(composer?.attachments),
+        ],
+        metadata: composer
+          ? {
+              composer: {
+                action: composer.action,
+                mode: composer.mode,
+                selection: composer.selection ?? null,
+                revision: composer.revision,
+              },
+            }
+          : undefined,
+      }).then(() => delivery)
     },
     [
       baseSendMessage,
@@ -1500,6 +1566,54 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       })
     }
     dispatchMessage(params.text)
+  }
+
+  const sendComposerMessage = async (
+    draft: ComposerMessage,
+  ): Promise<'done' | 'paused'> => {
+    if (!canSend || !isIntegrationsSyncedRef.current)
+      throw new Error('Chat is not ready. Your message is kept in the queue.')
+    if (draft.revision) {
+      if (
+        selectedChatTargetRef.current?.kind === 'acp' ||
+        ['codex', 'claude-code', 'acp-custom'].includes(
+          selectedChatTargetRef.current?.type ?? '',
+        )
+      )
+        throw new Error(
+          'This agent does not support history revisions. Use the message as a new draft instead.',
+        )
+      resetConversationState()
+    }
+    const acp = selectedChatTargetRef.current?.kind === 'acp'
+    const dispatchConversationId = conversationIdRef.current
+    const delivery = await dispatchMessage(
+      draft.text || 'Please review the attached files.',
+      draft,
+    )
+    if (acp)
+      return composerDeliveryRef.current === delivery &&
+        conversationIdRef.current === dispatchConversationId
+        ? delivery.outcome
+        : 'paused'
+    const started = delivery.started
+    if (!started) return 'paused'
+    // SDK readiness or a closed HTTP stream is not a completion receipt.
+    // Replay the specific server turn's terminal event before advancing FIFO.
+    let confirmed: 'done' | 'paused' = 'paused'
+    try {
+      await attachChatTurnStream({
+        ...started,
+        signal: AbortSignal.timeout(30_000),
+        onEvent: (event) => {
+          if (event.type === 'done')
+            confirmed = event.status === 'done' ? 'done' : 'paused'
+        },
+      })
+    } catch {
+      return 'paused'
+    }
+    return confirmed
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
@@ -1626,7 +1740,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       .filter((part) => part.type === 'text')
       .map((part) => part.text)
       .join('')
-    return textToAction.get(text)
+    return composerMetadata(message)?.action ?? textToAction.get(text)
   }
 
   const resetConversation = () => {
@@ -1867,6 +1981,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     setMode,
     messages,
     sendMessage,
+    sendComposerMessage,
+    lastTurnSucceeded,
     status,
     isStreaming,
     isTurnActive,

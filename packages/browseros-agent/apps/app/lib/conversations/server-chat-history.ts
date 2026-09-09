@@ -17,18 +17,6 @@ export interface ChatHistoryListItem {
   backgroundSource?: string | null
 }
 
-export interface ChatConversationDetail {
-  id: string
-  messages: UIMessage[]
-  activeTurn?: {
-    turnId: string
-    status: string
-    startedAt: number
-  } | null
-  isBackground?: boolean
-  backgroundSource?: string | null
-}
-
 async function resolveBaseUrl(baseUrl?: string): Promise<string> {
   return baseUrl ?? (await getAgentServerUrl())
 }
@@ -42,22 +30,6 @@ export async function fetchChatHistoryList(
     throw new Error(`Failed to fetch chat history (${response.status})`)
   }
   return (await response.json()) as ChatHistoryListItem[]
-}
-
-export async function fetchChatConversation(
-  conversationId: string,
-  baseUrl?: string,
-): Promise<ChatConversationDetail> {
-  const url = await resolveBaseUrl(baseUrl)
-  const response = await agentFetch(
-    `${url}/chat/${encodeURIComponent(conversationId)}`,
-  )
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch conversation ${conversationId} (${response.status})`,
-    )
-  }
-  return (await response.json()) as ChatConversationDetail
 }
 
 export interface ChatMessagePage {

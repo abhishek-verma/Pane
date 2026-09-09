@@ -134,8 +134,8 @@ export function createScreencastCache(
   }
 }
 
-export const SCREENCAST_CACHE_MAX_ENTRIES = 50
-export const SCREENCAST_CACHE_MAX_CONSECUTIVE_FAILURES = 3
+const SCREENCAST_CACHE_MAX_ENTRIES = 50
+const SCREENCAST_CACHE_MAX_CONSECUTIVE_FAILURES = 3
 
 /** Process-wide singleton consumed by the poller + the route. */
 export const screencastCache = createScreencastCache({

@@ -1,4 +1,4 @@
-import { CheckSquare, Home, Mic } from 'lucide-react'
+import { CheckSquare, Home, Layers, Mic } from 'lucide-react'
 import type { FC, MouseEvent } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import {
@@ -27,6 +27,7 @@ type NavItem = {
 const primaryNavItems: NavItem[] = [
   { name: 'Home', to: '/home', icon: Home },
   { name: 'Tasks', to: '/tasks', icon: CheckSquare },
+  { name: 'Layers', to: '/layers', icon: Layers },
   { name: 'Meetings', to: '/meetings', icon: Mic },
 ]
 

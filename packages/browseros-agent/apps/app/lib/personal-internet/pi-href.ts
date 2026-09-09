@@ -1,13 +1,3 @@
-/**
- * @license
- * Copyright 2025 BrowserOS
- * SPDX-License-Identifier: AGPL-3.0-or-later
- *
- * Canonical PI addresses for the extension UI (mirrors server pi-href).
- */
-
-export type PiHrefKind = 'site' | 'page' | 'entity' | 'temp' | 'library'
-
 export type PiHrefParts =
   | { kind: 'library' }
   | { kind: 'site'; siteId: string }
@@ -15,23 +5,23 @@ export type PiHrefParts =
   | { kind: 'entity'; siteId: string; entityKey: string }
   | { kind: 'temp'; tempId: string }
 
-export function siteRoute(siteId: string): string {
+function siteRoute(siteId: string): string {
   return `#/pi/sites/${siteId}`
 }
 
-export function pageRoute(siteId: string, pageId: string): string {
+function pageRoute(siteId: string, pageId: string): string {
   return `#/pi/sites/${siteId}/pages/${pageId}`
 }
 
-export function entityRoute(siteId: string, entityKey: string): string {
+function entityRoute(siteId: string, entityKey: string): string {
   return `#/pi/sites/${siteId}/entities/${encodeURIComponent(entityKey)}`
 }
 
-export function tempRoute(tempId: string): string {
+function tempRoute(tempId: string): string {
   return `#/pi/temp/${tempId}`
 }
 
-export function libraryRoute(): string {
+function libraryRoute(): string {
   return '#/pi/library'
 }
 
@@ -67,7 +57,7 @@ export function hrefToRoute(href: string): string | null {
   return partsToRoute(parts)
 }
 
-export function partsToHref(parts: PiHrefParts): string {
+function partsToHref(parts: PiHrefParts): string {
   switch (parts.kind) {
     case 'library':
       return libraryHref()
@@ -82,7 +72,7 @@ export function partsToHref(parts: PiHrefParts): string {
   }
 }
 
-export function partsToRoute(parts: PiHrefParts): string {
+function partsToRoute(parts: PiHrefParts): string {
   switch (parts.kind) {
     case 'library':
       return libraryRoute()
@@ -97,7 +87,7 @@ export function partsToRoute(parts: PiHrefParts): string {
   }
 }
 
-export function parsePiRoute(route: string): PiHrefParts | null {
+function parsePiRoute(route: string): PiHrefParts | null {
   let s = route.trim()
   if (s.startsWith('#')) s = s.slice(1)
   if (!s.startsWith('/')) s = `/${s}`

@@ -62,7 +62,7 @@ function requireItem(id: string): AgendaItem {
   if (!item) throw new Error('Agenda item was not saved')
   return item
 }
-export function getAgendaItem(id: string): AgendaItem | null {
+function getAgendaItem(id: string): AgendaItem | null {
   const row = db()
     .prepare('SELECT * FROM agenda_items WHERE id = ?')
     .get(id) as ItemRow | null

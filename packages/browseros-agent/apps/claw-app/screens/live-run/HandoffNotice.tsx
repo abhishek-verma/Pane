@@ -2,7 +2,7 @@ import { Check, StopCircle, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { PendingHandoff } from '@/modules/api/run.hooks'
 
-interface HandoffNoticeProps {
+export interface HandoffNoticeProps {
   handoff: PendingHandoff
   onContinue: () => void
   onCancel: () => void

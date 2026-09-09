@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { taskScreenshotUrl } from '@/modules/api/audit.hooks'
 
-interface ScreenshotLightboxProps {
+export interface ScreenshotLightboxProps {
   dispatchId: number | null
   onClose: () => void
 }

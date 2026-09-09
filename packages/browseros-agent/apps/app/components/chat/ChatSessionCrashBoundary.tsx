@@ -2,8 +2,8 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { clearLastActiveConversation } from '@/lib/browseros/lastActiveConversationStorage'
 
-type Props = { children: ReactNode }
-type State = { error: Error | null }
+export type Props = { children: ReactNode }
+export type State = { error: Error | null }
 
 /**
  * Top-of-tree safety net for the chat session. ChatMessageErrorBoundary

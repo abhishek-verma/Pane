@@ -16,10 +16,10 @@
 
 import { z } from 'zod'
 
-export const approvalVerdictEnum = z.enum(['Auto', 'Ask', 'Block'])
+const approvalVerdictEnum = z.enum(['Auto', 'Ask', 'Block'])
 export type ApprovalVerdict = z.infer<typeof approvalVerdictEnum>
 
-export const approvalCategorySchema = z.object({
+const approvalCategorySchema = z.object({
   id: z.string(),
   name: z.string(),
   defaultVerdict: approvalVerdictEnum,

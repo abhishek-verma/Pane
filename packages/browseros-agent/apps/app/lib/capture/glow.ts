@@ -6,7 +6,7 @@
 
 import type { GlowMessage } from '@/entrypoints/glow.content/GlowMessage'
 
-export function sendTabGlow(tabId: number, message: GlowMessage): void {
+function sendTabGlow(tabId: number, message: GlowMessage): void {
   chrome.tabs.sendMessage(tabId, message).catch(() => {})
 }
 

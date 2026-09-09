@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { DisplayHeading, Em, StepCopy } from '../components/DisplayHeading'
 import { StepWrap } from '../components/StepWrap'
 
-interface WelcomeStepProps {
+export interface WelcomeStepProps {
   onPrimary: () => void
   onSkip: () => void
 }

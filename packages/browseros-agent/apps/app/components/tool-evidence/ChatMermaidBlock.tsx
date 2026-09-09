@@ -24,7 +24,7 @@ const MermaidRenderingPlaceholder: FC<{ sandboxed?: boolean }> = ({
   </div>
 )
 
-export const ChatMermaidBlock: FC<{ source: string }> = ({ source }) => {
+const ChatMermaidBlock: FC<{ source: string }> = ({ source }) => {
   const { svg, error, retryable, retry } = useMermaidRender(source)
 
   return (

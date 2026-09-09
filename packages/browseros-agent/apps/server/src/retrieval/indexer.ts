@@ -23,11 +23,9 @@ import {
   pendingCount,
 } from './queue'
 
-export { extractChatPlainText }
-
 let timer: ReturnType<typeof setInterval> | null = null
 let draining = false
-let paused = false
+const paused = false
 
 /** Detect on-battery via existing ingest pause preference path. */
 async function shouldPauseForBudget(): Promise<boolean> {
@@ -35,15 +33,11 @@ async function shouldPauseForBudget(): Promise<boolean> {
   if (!getPauseOnBatteryPref()) return false
   // Reuse pmset indirectly: if ingest was paused for battery, skip embeds too.
   try {
-    const { isIngestPaused } = await import('../context/ingest')
+    const { isIngestPaused } = await import('../context/ingest-state')
     return isIngestPaused()
   } catch {
     return false
   }
-}
-
-export function setEmbedIndexerPaused(value: boolean): void {
-  paused = value
 }
 
 export async function drainEmbedQueue(batchSize = 8): Promise<number> {
@@ -100,7 +94,7 @@ export async function drainEmbedQueue(batchSize = 8): Promise<number> {
 }
 
 /** Enqueue existing graph nodes + memory + chats that lack chunks. */
-export function backfillEmbedQueue(limit = 200): number {
+function backfillEmbedQueue(limit = 200): number {
   const db = getDbHandle().sqlite
   let enqueued = 0
 
@@ -237,11 +231,4 @@ export function startEmbedIndexer(): void {
   }, 15_000)
   // Don't keep process alive solely for indexer in tests
   timer.unref?.()
-}
-
-export function stopEmbedIndexer(): void {
-  if (timer) {
-    clearInterval(timer)
-    timer = null
-  }
 }

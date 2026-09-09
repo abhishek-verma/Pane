@@ -232,6 +232,8 @@ export class AiSdkAgent {
       ...externalMcpTools,
       ...filesystemTools,
       ...buildPaneToolSet({
+        providerId: config.resolvedConfig.providerId,
+        workspaceId: workspace?.workspaceId,
         bucketId: workspace?.bucketId,
         workingDir: config.resolvedConfig.workingDir ?? workspace?.root,
         runId: gateCtx?.runId ?? config.resolvedConfig.conversationId,

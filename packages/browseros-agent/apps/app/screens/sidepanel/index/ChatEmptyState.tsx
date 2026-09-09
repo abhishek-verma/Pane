@@ -1,4 +1,3 @@
-import { Sparkles } from 'lucide-react'
 import type { FC } from 'react'
 import { cn } from '@/lib/utils'
 import {
@@ -27,15 +26,12 @@ export const ChatEmptyState: FC<ChatEmptyStateProps> = ({
         mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
       )}
     >
-      <Sparkles className="mb-1 h-5 w-5 text-[var(--accent-orange)]" />
       <div>
-        <h2 className="mb-1 font-semibold text-base tracking-tight">
-          {mode === 'chat' ? 'Chat with this page' : 'Agent at your service'}
+        <h2 className="mb-2 font-medium text-2xl tracking-tight">
+          What can I help with?
         </h2>
-        <p className="max-w-[220px] text-muted-foreground text-xs">
-          {mode === 'chat'
-            ? 'Ask questions about the current page or any topic'
-            : 'Let AI automate tasks and browse for you'}
+        <p className="max-w-[300px] text-muted-foreground text-sm">
+          Ask a question, add a file, or bring in a page.
         </p>
       </div>
 

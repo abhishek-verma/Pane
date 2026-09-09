@@ -1,7 +1,7 @@
 import { Check, Copy, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 
-interface StarterPromptTileProps {
+export interface StarterPromptTileProps {
   prompt: string
 }
 

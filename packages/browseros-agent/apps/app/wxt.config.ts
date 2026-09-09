@@ -58,6 +58,7 @@ export default defineConfig({
       'storage',
       'unlimitedStorage',
       'scripting',
+      'userScripts',
       'tabs',
       'tabGroups',
       'sidePanel',

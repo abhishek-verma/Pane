@@ -59,6 +59,12 @@ const READ_CONTEXT_TOOLS = new Set([
   'session_search',
   'tasks_list',
   'skills_load',
+  'layer_assess',
+  'layer_data_sources',
+  'layer_validate',
+  'layer_tabs',
+  'layer_list',
+  'layer_inspect',
   'skills_list',
   'pi_list',
   'pi_read',
@@ -71,6 +77,7 @@ const READ_CONTEXT_TOOLS = new Set([
   'pi_page_patch',
   'pi_entity_ensure',
   'trigger_list',
+  'schedule_list',
   // Agenda is a reversible local response surface, like PI page content.
   // Its store protects user choices; these tools cannot write external apps.
   'agenda_list',
@@ -80,6 +87,14 @@ const READ_CONTEXT_TOOLS = new Set([
 ])
 
 const WRITE_LOCAL_TASK_TOOLS = new Set([
+  'layer_draft',
+  'layer_preview',
+  'layer_verify',
+  'layer_clear_preview',
+  'schedule_create',
+  'schedule_update',
+  'schedule_delete',
+  'schedule_run',
   'tasks_add',
   'tasks_done',
   'memory_add',

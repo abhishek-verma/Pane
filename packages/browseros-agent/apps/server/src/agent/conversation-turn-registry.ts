@@ -36,7 +36,7 @@ export interface ChatTurnInfo {
   truncated: boolean
 }
 
-interface Subscriber {
+export interface Subscriber {
   push(frame: ChatTurnFrame): void
   end(): void
 }
@@ -395,3 +395,5 @@ export class ConversationTurnAlreadyActiveError extends Error {
 
 /** Shared process-local registry for ChatService. */
 export const conversationTurnRegistry = new ConversationTurnRegistry()
+
+export type { SnapshotRingBuffer }

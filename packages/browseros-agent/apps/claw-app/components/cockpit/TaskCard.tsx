@@ -11,7 +11,7 @@ import {
   formatRelative,
 } from '@/screens/audit/audit.helpers'
 
-interface TaskCardProps {
+export interface TaskCardProps {
   task: TaskSummary
   now: number
 }

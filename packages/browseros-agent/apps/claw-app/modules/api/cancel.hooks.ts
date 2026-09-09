@@ -15,7 +15,7 @@ import { createMutation } from 'react-query-kit'
 import { api } from './client'
 import { parseResponse } from './parseResponse'
 
-export interface CancelAgentResult {
+interface CancelAgentResult {
   ok: boolean
   cancelled: number
   reason?: string

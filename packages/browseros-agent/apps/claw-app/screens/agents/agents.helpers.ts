@@ -3,7 +3,7 @@ import type {
   AgentProfileStatus,
 } from '@/modules/api/agents.hooks'
 
-interface ProfileStatusMeta {
+export interface ProfileStatusMeta {
   label: string
   /** Tailwind classes for the Badge variant. */
   className: string

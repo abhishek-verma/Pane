@@ -6,11 +6,7 @@
 
 import { Hono } from 'hono'
 import { z } from 'zod'
-import {
-  readPromptFiles,
-  seedPromptFilesIfMissing,
-  writePromptFileAndReindex,
-} from '../../memory/files'
+import { readPromptFiles, seedPromptFilesIfMissing } from '../../memory/files'
 import {
   applyPersonaTemplate,
   listPersonas,
@@ -18,6 +14,7 @@ import {
   resolveSoulForBucket,
   writePersonaMap,
 } from '../../memory/personas'
+import { writePromptFileAndReindex } from '../../memory/prompt-file-service'
 import { runSkillReviewJob } from '../../memory/review-job'
 import {
   archiveSkill,

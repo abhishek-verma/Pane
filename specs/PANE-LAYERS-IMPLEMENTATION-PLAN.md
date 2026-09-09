@@ -1,7 +1,8 @@
 # Pane Layers — implementation plan
 
-**Status:** ready for implementation planning review; no production code implemented by this document.  
-**Updated:** 2026-09-08.  
+**Status:** implementation in progress; managed persistence, translation, bounded adaptive actions, public data badges, activity and version recovery are integrated. Native popup interaction has been verified. Full delivery and release remain gated. See [implementation status and evidence](./layers/IMPLEMENTATION-STATUS.md); LP completion checkboxes below remain open.
+**Updated:** 2026-09-09.
+
 **Scope:** persistent website customizations, agent-created buttons, structured transformations, adaptive on-demand page tasks, data enrichment, and advanced stored/generated JavaScript. Native, Claude Code and Codex are supported release paths, not optional follow-up integrations.
 
 This is the authoritative work breakdown for Layers. [Product/UX](./21-pane-layers.md), [runtime contracts](./21-pane-layers-runtime-contract.md), and [capabilities/skills/provider parity](./21-pane-layers-capabilities-and-skills.md) remain the design references. Their L0–L7 labels group capabilities; use the LP work packages below for execution. Historical Phase 9 reshaping tasks are superseded for this feature's implementation detail, without asserting that previous browser release gates have passed.

@@ -28,7 +28,7 @@ import {
   newAgentSchema,
 } from './new-agent.schemas'
 
-interface NewAgentProps {
+export interface NewAgentProps {
   /** Defaults to 'create'. Use 'edit' on the `/agents/:id/edit` route. */
   mode?: AgentWizardMode
 }

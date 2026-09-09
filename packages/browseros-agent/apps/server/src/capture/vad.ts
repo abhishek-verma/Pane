@@ -71,7 +71,3 @@ export function noteAsrText(sessionId: string, now = Date.now()): void {
   state.since = now
   energyWithoutText.set(sessionId, state)
 }
-
-export function resetVadForTests(): void {
-  energyWithoutText.clear()
-}

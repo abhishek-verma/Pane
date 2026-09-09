@@ -4,10 +4,10 @@ import type { UIMessage } from 'ai'
  * @deprecated Prefer stripping all tool images for UI. Kept for callers that
  * pass an explicit threshold; default strip uses 0 (all inline image data).
  */
-export const INLINE_IMAGE_STRIP_THRESHOLD_BYTES = 0
+const INLINE_IMAGE_STRIP_THRESHOLD_BYTES = 0
 
 /** Conversations larger than this after strip are quarantined (safe open). */
-export const POISON_SESSION_BYTES = 2_000_000
+const POISON_SESSION_BYTES = 2_000_000
 
 /**
  * Client-side defense: never put tool screenshot `data` into React / useChat.
@@ -91,7 +91,20 @@ export function estimateUiMessagesBytes(messages: UIMessage[]): number {
   let total = 2 // []
   for (let i = 0; i < messages.length; i++) {
     if (i > 0) total += 1
-    total += estimateValueBytes(messages[i], 0)
+    const message = messages[i]
+    // Validated user attachments are intentionally retained for preview/retry.
+    // Their bounded binary payload is not a runaway tool transcript.
+    total += estimateValueBytes(
+      message.role === 'user'
+        ? {
+            ...message,
+            parts: message.parts.map((part) =>
+              part.type === 'file' ? { ...part, url: '[attachment]' } : part,
+            ),
+          }
+        : message,
+      0,
+    )
     if (total > POISON_SESSION_BYTES * 2) return total
   }
   return total

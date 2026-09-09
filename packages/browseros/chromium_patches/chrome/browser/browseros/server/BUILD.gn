@@ -1,9 +1,8 @@
 diff --git a/chrome/browser/browseros/server/BUILD.gn b/chrome/browser/browseros/server/BUILD.gn
 new file mode 100644
-index 0000000000..85e9eaaba0
 --- /dev/null
 +++ b/chrome/browser/browseros/server/BUILD.gn
-@@ -0,0 +1,131 @@
+@@ -0,0 +1,133 @@
 +# Copyright 2024 The Chromium Authors
 +# Use of this source code is governed by a BSD-style license that can be
 +# found in the LICENSE file.
@@ -40,6 +39,8 @@ index 0000000000..85e9eaaba0
 +    "browseros_server_updater.h",
 +    "browseros_server_utils.cc",
 +    "browseros_server_utils.h",
++    "layer_authority.cc",
++    "layer_authority.h",
 +    "health_checker.h",
 +    "health_checker_impl.cc",
 +    "health_checker_impl.h",

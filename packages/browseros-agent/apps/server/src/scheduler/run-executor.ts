@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { eq, inArray } from 'drizzle-orm'
+import { desc, eq, inArray } from 'drizzle-orm'
 import { conversationTurnRegistry } from '../agent/conversation-turn-registry'
 import { getDb, getDbHandle } from '../lib/db'
 import {
@@ -38,6 +38,9 @@ function parseSteps(json: string): CompletedStep[] {
 function rowToRecord(row: ScheduledRunRow): ScheduledRunRecord {
   return {
     id: row.id,
+    executionContext: row.executionContextJson
+      ? JSON.parse(row.executionContextJson)
+      : undefined,
     source: row.source as ScheduledRunRecord['source'],
     sourceId: row.sourceId,
     idempotencyKey: row.idempotencyKey,
@@ -112,14 +115,18 @@ export function listScheduledRuns(options?: {
       .select()
       .from(scheduledRuns)
       .where(inArray(scheduledRuns.status, statuses))
-      .orderBy(scheduledRuns.createdAt)
+      .orderBy(
+        statuses.includes('pending')
+          ? scheduledRuns.createdAt
+          : desc(scheduledRuns.createdAt),
+      )
       .limit(limit)
       .all()
   } else {
     rows = getDb()
       .select()
       .from(scheduledRuns)
-      .orderBy(scheduledRuns.createdAt)
+      .orderBy(desc(scheduledRuns.createdAt))
       .limit(limit)
       .all()
   }
@@ -229,7 +236,7 @@ export function completeScheduledRun(
       }
     }
     if (pageId) {
-      void import('../personal-internet/materialize')
+      void import('../personal-internet/materialize-state')
         .then(({ finalizeMaterializePageStatus }) =>
           finalizeMaterializePageStatus(pageId, outcome.status === 'completed'),
         )
@@ -367,6 +374,9 @@ export function createRunRecord(input: StartRunInput): ScheduledRunRecord {
     bucketId: input.bucketId ?? null,
     status: 'pending',
     completedStepsJson: '[]',
+    executionContextJson: input.executionContext
+      ? JSON.stringify(input.executionContext)
+      : null,
     conversationId: null,
     result: null,
     error: null,
@@ -391,7 +401,7 @@ export function setRunExecutor(executor: RunExecutor | null): void {
  * or by keep-alive callers that POST /chat with the run's prompt.
  * Trigger engine uses this so graph events never block ingest.
  */
-export const defaultRunExecutor: RunExecutor = async (input) => {
+const defaultRunExecutor: RunExecutor = async (input) => {
   const record = createRunRecord(input)
   logger.info('scheduler run enqueued', {
     runId: record.id,

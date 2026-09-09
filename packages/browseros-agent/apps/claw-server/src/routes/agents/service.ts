@@ -63,7 +63,7 @@ const slugMutex = new AsyncMutex()
 const ID_PATTERN = /^[A-Za-z0-9_-]+$/
 const MAX_ID_LENGTH = 64
 
-export function isValidId(id: string): boolean {
+function isValidId(id: string): boolean {
   return id.length > 0 && id.length <= MAX_ID_LENGTH && ID_PATTERN.test(id)
 }
 

@@ -13,11 +13,13 @@ import { resetPiFocusForTests } from '../../src/personal-internet/focus'
 import {
   ensureAndMaterialize,
   ensureEntityPage,
+} from '../../src/personal-internet/materialize'
+import {
   finalizeMaterializePageStatus,
   isAtfReady,
   isBtfComplete,
   isEntityStubDoc,
-} from '../../src/personal-internet/materialize'
+} from '../../src/personal-internet/materialize-state'
 import { getPage, readPageDoc } from '../../src/personal-internet/store'
 import { applyPiMutation } from '../../src/personal-internet/write-path'
 

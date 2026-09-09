@@ -59,9 +59,3 @@ export function useServerChatHistory(enabled = true) {
     },
   }
 }
-
-export function invalidateServerChatHistory(
-  queryClient: ReturnType<typeof useQueryClient>,
-) {
-  return queryClient.invalidateQueries({ queryKey: [HISTORY_QUERY_KEY] })
-}

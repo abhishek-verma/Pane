@@ -678,5 +678,3 @@ export function createCaptureRoutes() {
       })
   )
 }
-
-export type CaptureRoutes = ReturnType<typeof createCaptureRoutes>

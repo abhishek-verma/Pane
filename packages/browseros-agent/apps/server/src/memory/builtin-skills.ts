@@ -7,6 +7,7 @@
  * index is not empty on a fresh install.
  */
 
+import { LAYER_SKILLS } from '../layers/skills'
 import { getSkill, installSkillFromBody, setSkillStatus } from './store'
 
 export const BUILTIN_MEETINGS_SKILL_ID = 'builtin-meetings'
@@ -23,14 +24,12 @@ export const BUILTIN_PI_PAGE_DSL_SKILL_ID = 'builtin-pi-page-dsl'
 export const BUILTIN_PI_PAGE_PATCH_SKILL_ID = 'builtin-pi-page-patch'
 export const BUILTIN_PI_PAGE_VIZ_SKILL_ID = 'builtin-pi-page-viz'
 export const BUILTIN_PI_HOME_SKILL_ID = 'builtin-pi-home'
-export const BUILTIN_PI_HARVEST_SKILL_ID = 'builtin-pi-harvest'
-export const BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_ID =
-  'builtin-pi-harvest-job-search'
-export const BUILTIN_PI_PIPELINE_UPDATE_SKILL_ID = 'builtin-pi-pipeline-update'
-export const BUILTIN_PI_ENTITY_MATERIALIZE_SKILL_ID =
-  'builtin-pi-entity-materialize'
+const BUILTIN_PI_HARVEST_SKILL_ID = 'builtin-pi-harvest'
+const BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_ID = 'builtin-pi-harvest-job-search'
+const BUILTIN_PI_PIPELINE_UPDATE_SKILL_ID = 'builtin-pi-pipeline-update'
+const BUILTIN_PI_ENTITY_MATERIALIZE_SKILL_ID = 'builtin-pi-entity-materialize'
 
-export const BUILTIN_MEETINGS_SKILL_BODY = `---
+const BUILTIN_MEETINGS_SKILL_BODY = `---
 name: meetings
 description: Retrieve Pane-captured meeting transcripts and notes via capture_list / capture_read. Use for meetings, calls, standups, or "what did we discuss".
 ---
@@ -61,7 +60,7 @@ Pane records consented Meet/Zoom/Teams (and similar) calls locally. Transcripts 
 After transcripts are indexed, \`context_search\` can find topics inside meeting text. Still start with \`capture_list\` for "recent meetings" style asks.
 `
 
-export const BUILTIN_BROWSER_AUTOMATE_SKILL_BODY = `---
+const BUILTIN_BROWSER_AUTOMATE_SKILL_BODY = `---
 name: browser-automate
 description: Browse, navigate, click, fill forms, extract page content, and multi-tab automate with Pane browser tools. Load before webpage automation.
 ---
@@ -133,7 +132,7 @@ Hand off immediately for:
 - Delegate routine agent-capable clicks — only hand off human-only gates.
 `
 
-export const BUILTIN_MEMORY_SKILL_BODY = `---
+const BUILTIN_MEMORY_SKILL_BODY = `---
 name: memory
 description: Store and recall durable user facts via memory_* and context_search. Use when the user asks to remember something, or when preferences/facts should stick across chats.
 ---
@@ -157,7 +156,7 @@ description: Store and recall durable user facts via memory_* and context_search
 - Do not invent remembered facts that were never stored.
 `
 
-export const BUILTIN_RESEARCH_SKILL_BODY = `---
+const BUILTIN_RESEARCH_SKILL_BODY = `---
 name: research
 description: Multi-source web research pipeline — search, visit, note, synthesize, cite. Use when the user asks to research, investigate, compare, dig into, find sources, or do company/person/market deep-dives.
 ---
@@ -199,7 +198,7 @@ Skip until \`context_search\` is exhausted when the question is about the user's
 - Paste a wall of findings into chat when a temp PI page would be clearer.
 `
 
-export const BUILTIN_PI_SITES_SKILL_BODY = `---
+const BUILTIN_PI_SITES_SKILL_BODY = `---
 name: pi-sites
 description: Create and manage Personalised Internet sites (templates, list/upsert/archive, temp preserve, doorways, harvest config). Use for living pipelines like Job Search / Research / Sales / outreach / news — before pi_site_upsert or pi_preserve_temp.
 ---
@@ -250,7 +249,7 @@ P0 template sites are doorway-eligible; pulse lines surface on home. Do not rebu
 - Assume LinkedIn / job-search is the only harvest shape.
 `
 
-export const BUILTIN_PI_PAGE_DSL_SKILL_BODY = `---
+const BUILTIN_PI_PAGE_DSL_SKILL_BODY = `---
 name: pi-page-dsl
 description: Compose Personalised Internet page documents (element DSL, layout, actions). Use before pi_page_create when authoring freeform durable or temp pages — not for site templates alone. Prefer for long agent deliverables.
 ---
@@ -363,7 +362,7 @@ For Job Search / Research / Sales, create the site with \`pi-sites\` + \`templat
 - Dump the same long content into chat after opening the page.
 `
 
-export const BUILTIN_PI_PAGE_PATCH_SKILL_BODY = `---
+const BUILTIN_PI_PAGE_PATCH_SKILL_BODY = `---
 name: pi-page-patch
 description: Incrementally update Personalised Internet pages (patch ops, board/table mutations). Use before pi_page_patch when changing rows, cells, cards, or titles on an existing page.
 ---
@@ -414,7 +413,7 @@ Entity BTF protocol → load \`pi-entity-materialize\`.
 - Trust the op call succeeding as proof the page looks right — check \`renderPreview\`.
 `
 
-export const BUILTIN_PI_PAGE_VIZ_SKILL_BODY = `---
+const BUILTIN_PI_PAGE_VIZ_SKILL_BODY = `---
 name: pi-page-viz
 description: Add charts, Mermaid diagrams, and sanitized SVG visuals to Personalised Internet pages. Use with pi_page_create / pi_page_patch any time page content has real shape (counts, stages, a process, a structure) — not only when the user explicitly asks for a graph.
 ---
@@ -503,7 +502,7 @@ Prefer inline shapes/paths/text. If a chart or Mermaid can say it, use those ins
 - Rely on external image hosts inside SVG.
 `
 
-export const BUILTIN_PI_HOME_SKILL_BODY = `---
+const BUILTIN_PI_HOME_SKILL_BODY = `---
 name: pi-home
 description: Shape Personalised Internet regions on the new-tab home (doorways, Today continuity, hide/pin). Use when the user wants home to surface or hide living sites.
 ---
@@ -543,7 +542,7 @@ Creating a P0 site is usually enough. Prefer that over hand-editing home.
 - Put the full board on home — home is the front door; depth stays on the site.
 `
 
-export const BUILTIN_PI_HARVEST_SKILL_BODY = `---
+const BUILTIN_PI_HARVEST_SKILL_BODY = `---
 name: pi-harvest
 description: Background Personalised Internet sync agent. Use when a pi-harvest scheduled run prompt asks you to update pi_records from configured sources or a meeting transcript.
 ---
@@ -569,7 +568,7 @@ Follow the **run prompt** exactly. It lists user-confirmed config, trigger, sour
 - Ignore \`mayOpenOrNavigateSources=no\`.
 `
 
-export const BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_BODY = `---
+const BUILTIN_PI_HARVEST_JOB_SEARCH_SKILL_BODY = `---
 name: pi-harvest-job-search
 description: Optional Job Search overlay for pi-harvest runs when templateId/JTBD is job search. Prefer the generic pi-harvest skill first; follow the run prompt config.
 ---
@@ -589,7 +588,7 @@ Use only when the run prompt's site is Job Search / applications. Still obey the
 - Bypass \`pi_record_*\` by only rewriting board JSON.
 `
 
-export const BUILTIN_PI_PIPELINE_UPDATE_SKILL_BODY = `---
+const BUILTIN_PI_PIPELINE_UPDATE_SKILL_BODY = `---
 name: pi-pipeline-update
 description: Dual-write Job Search applications from vault/markdown into Personalised Internet records. Use when importing a pipeline, syncing Job Prep Vault, or updating application stages — never hardcode site/page IDs.
 ---
@@ -618,7 +617,7 @@ Job Search **source of truth** is \`pi_records\`, not markdown alone and not boa
 - Call \`pi_entity_ensure\` with \`materialize:true\` for every company on the board.
 `
 
-export const BUILTIN_PI_ENTITY_MATERIALIZE_SKILL_BODY = `---
+const BUILTIN_PI_ENTITY_MATERIALIZE_SKILL_BODY = `---
 name: pi-entity-materialize
 description: Progressive BTF fill for a Personalised Internet company entity page after ATF is already written. Load when a pi-materialize scheduled run asks you to continue entity BTF.
 ---
@@ -653,6 +652,7 @@ Skip section ids listed in \`filledSections\`. Continue from the first \`shell\`
 `
 
 const BUILTIN_SKILLS: ReadonlyArray<{ id: string; body: string }> = [
+  ...LAYER_SKILLS,
   { id: BUILTIN_MEETINGS_SKILL_ID, body: BUILTIN_MEETINGS_SKILL_BODY },
   {
     id: BUILTIN_BROWSER_AUTOMATE_SKILL_ID,

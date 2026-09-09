@@ -56,3 +56,54 @@ it('exposes the entire API workspace inventory through the ACP MCP protocol', as
     await server.close()
   }
 })
+
+it('uses the scheduled conversation workspace for filesystem tools even when ACP sends its internal cwd', async () => {
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs')
+  const { join } = await import('node:path')
+  const { tmpdir } = await import('node:os')
+  const { initializeDb, closeDb } = await import('../../../../src/lib/db')
+  const { setConversationContext } = await import(
+    '../../../../src/agent/conversation-context-store'
+  )
+  const { createDefaultMcpGateContext } = await import(
+    '@browseros/browser-mcp/trust/mcp-gate'
+  )
+  const root = mkdtempSync(join(tmpdir(), 'pane-schedule-workspace-'))
+  initializeDb({ dbPath: join(root, 'test.sqlite') })
+  writeFileSync(join(root, 'input.txt'), 'SCHEDULED_WORKSPACE_PROOF')
+  const scopeId = crypto.randomUUID()
+  setConversationContext(
+    scopeId,
+    createDefaultMcpGateContext({ unattended: true }),
+    { workingDir: root, isScheduledTask: true, providerId: 'codex-test' },
+  )
+  const server = createMcpServer({
+    version: 'test',
+    browserSession: { pages: {} } as unknown as BrowserSession,
+    workspace: defaultWorkspace('/tmp/acp-internal-cwd'),
+    executionDir: '/tmp/acp-internal-cwd',
+    scopeId,
+  })
+  const client = new Client({
+    name: 'schedule-workspace-test',
+    version: 'test',
+  })
+  const [ct, st] = InMemoryTransport.createLinkedPair()
+  try {
+    await server.connect(st)
+    await client.connect(ct)
+    const result = await client.callTool({
+      name: 'filesystem_read',
+      arguments: { path: 'input.txt' },
+    })
+    expect(result.isError).not.toBe(true)
+    expect(JSON.stringify(result.content)).toContain(
+      'SCHEDULED_WORKSPACE_PROOF',
+    )
+  } finally {
+    await client.close()
+    await server.close()
+    closeDb()
+    rmSync(root, { recursive: true, force: true })
+  }
+})
