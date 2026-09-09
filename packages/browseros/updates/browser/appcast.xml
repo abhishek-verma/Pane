@@ -7,16 +7,16 @@
     <language>en</language>
 
 <item>
-  <title>Pane - 0.47.0.88</title>
-  <description sparkle:format="plain-text">Provider reliability, shared tools and skills, persistent approvals, and signed packaged runtimes.</description>
-  <sparkle:version>7975.97</sparkle:version>
-  <sparkle:shortVersionString>0.47.0.88</sparkle:shortVersionString>
-  <pubDate>Tue, 08 Sep 2026 05:18:04 +0000</pubDate>
+  <title>Pane - 0.47.0.89</title>
+  <description sparkle:format="plain-text">Persistent Layers, redesigned chat composition, scheduler integration, and provider-parity runtime updates.</description>
+  <sparkle:version>7976.97</sparkle:version>
+  <sparkle:shortVersionString>0.47.0.89</sparkle:shortVersionString>
+  <pubDate>Wed, 09 Sep 2026 07:00:50 +0000</pubDate>
   <link>https://github.com/abhishek-verma/Pane/releases</link>
   <enclosure
-    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.88/Pane_v0.47.0.88_arm64.dmg"
-    sparkle:edSignature="1dWEg82SNked04hfHsppcTxdx2V8Npt1RcB2rZS57UxNi60UlTQ1w1P9XZeZHKgDeop4jYl3snLjoy2h2QS2AA=="
-    length="410891306"
+    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.89/Pane_v0.47.0.89_arm64.dmg"
+    sparkle:edSignature="2EW0eEd36M4a6Qt6sNVBbndFC+SHspsSBiUcZoMZ4EJ79LQIJnz6gvFElbaTQty8kWTXMQtYme1yCTCIXov5Dg=="
+    length="411353034"
     type="application/octet-stream" />
   <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
 </item>
