@@ -27,7 +27,7 @@
     },
     "apps/app": {
       "name": "@browseros/app",
-      "version": "0.0.179",
+      "version": "0.0.180",
       "dependencies": {
         "@ai-sdk/react": "^3.0.210",
         "@browseros/capture": "workspace:*",
