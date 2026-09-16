@@ -1,15 +1,13 @@
-import { DATA_OPERATIONS } from '@browseros/shared/layers/data'
 import type {
   LayerDefinition,
   LayerManifest,
 } from '@browseros/shared/layers/manifest'
-import { Layers, Pause, Play, Plus, RefreshCw } from 'lucide-react'
+import { Layers, Pause, Play, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { openSidePanel } from '@/lib/browseros/toggleSidePanel'
 import { LAYER_CHANNEL } from '@/lib/layers/messages'
 import { LayerActivity, type LayerRunView } from './LayerActivity'
-import { LayerVersionHistory } from './LayerVersionHistory'
 
 interface RecordView {
   id: string
@@ -300,10 +298,6 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
             {visible.map((record) => {
               const disabled =
                 !record.enabled || state.local?.disabledIds.includes(record.id)
-              const needsKeep = record.activeVersion !== record.latestVersion
-              const verified =
-                record.verification &&
-                record.verification.expiresAt > Date.now()
               return (
                 <article
                   key={record.id}
@@ -325,28 +319,41 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
                         </p>
                       )}
                     </div>
-                    {record.activeVersion && (
+                    <div className="flex shrink-0 items-center gap-1">
+                      {record.activeVersion && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={
+                            pending || Boolean(disabled && !state.online)
+                          }
+                          aria-label={`${disabled ? 'Enable' : 'Disable'} ${record.definition.name}`}
+                          onClick={() =>
+                            void mutate(disabled ? 'enable' : 'disable', {
+                              id: record.id,
+                            })
+                          }
+                        >
+                          {disabled ? 'Enable' : 'Disable'}
+                        </Button>
+                      )}
                       <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={pending || Boolean(disabled && !state.online)}
-                        aria-label={`${disabled ? 'Enable' : 'Disable'} ${record.definition.name}`}
-                        onClick={() =>
-                          void mutate(disabled ? 'enable' : 'disable', {
-                            id: record.id,
-                          })
-                        }
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete ${record.definition.name}`}
+                        disabled={pending}
+                        onClick={() => void mutate('delete', { id: record.id })}
                       >
-                        {disabled ? 'Enable' : 'Disable'}
+                        <Trash2 className="size-4" />
                       </Button>
-                    )}
+                    </div>
                   </div>
                   <p className="mt-2 line-clamp-2 text-muted-foreground text-sm">
                     {record.definition.intent}
                   </p>
                   <p className="mt-2 text-muted-foreground text-xs">
-                    {needsKeep
-                      ? 'Draft'
+                    {!record.activeVersion
+                      ? 'Setup incomplete'
                       : disabled
                         ? 'Disabled'
                         : paused ||
@@ -355,131 +362,6 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
                           ? 'Paused'
                           : 'Enabled'}
                   </p>
-                  {!compact && (
-                    <details className="mt-3 text-sm">
-                      <summary className="cursor-pointer">Details</summary>
-                      <div className="mt-2 space-y-2 text-muted-foreground">
-                        <p>
-                          Applies to paths:{' '}
-                          {record.definition.scope.paths.join(', ')}
-                        </p>
-                        {record.definition.scope.excludePaths.length > 0 && (
-                          <p>
-                            Except:{' '}
-                            {record.definition.scope.excludePaths.join(', ')}
-                          </p>
-                        )}
-                        {record.definition.actions.length > 0 &&
-                          record.definition.actions.map((action) => (
-                            <p key={action.id}>
-                              {action.kind} ·{' '}
-                              {action.trigger === 'click'
-                                ? 'When clicked'
-                                : 'When the page loads'}{' '}
-                              {action.kind === 'data' &&
-                              action.dataOperationId ? (
-                                DATA_OPERATIONS[action.dataOperationId]
-                                  .disclosure
-                              ) : (
-                                <>
-                                  · Provider:{' '}
-                                  {action.providerId ?? 'Not configured'} · Up
-                                  to {action.limits.maxSteps} steps,{' '}
-                                  {action.limits.maxOutputTokens.toLocaleString()}{' '}
-                                  {record.outputBudget === 'accepted-output'
-                                    ? 'accepted output tokens'
-                                    : 'output tokens'}{' '}
-                                  · {action.limits.deadlineMs / 1000} seconds.
-                                  Provider usage may apply.
-                                  {record.outputBudget === 'accepted-output' &&
-                                    ' Codex account usage has no hard token-spend ceiling and may exceed the accepted-output limit.'}
-                                </>
-                              )}
-                            </p>
-                          ))}
-                        {record.definition.mode === 'javascript' && (
-                          <p>
-                            This script can read and change the matching page
-                            and make network requests. Disabling stops future
-                            injection and agent requests. Reload the page to
-                            remove existing script effects.
-                          </p>
-                        )}
-                        <pre className="max-h-64 overflow-auto rounded bg-muted p-3 text-xs">
-                          {record.definition.source ??
-                            JSON.stringify(
-                              record.definition.operations,
-                              null,
-                              2,
-                            )}
-                        </pre>
-                      </div>
-                    </details>
-                  )}
-                  {!compact && (
-                    <LayerVersionHistory
-                      id={record.id}
-                      latestVersion={record.latestVersion}
-                      activeVersion={record.activeVersion}
-                      disabled={pending || !state.online}
-                      restore={(version) =>
-                        mutate('restore-version', { id: record.id, version })
-                      }
-                    />
-                  )}
-                  {needsKeep && (
-                    <div className="mt-4 flex flex-wrap items-center gap-3">
-                      {record.definition.mode === 'javascript' &&
-                        !record.previewAllowed && (
-                          <Button
-                            variant="outline"
-                            disabled={
-                              pending ||
-                              !state.online ||
-                              !state.capabilities?.javascript
-                            }
-                            onClick={() =>
-                              void mutate('grant-preview', {
-                                id: record.id,
-                                version: record.latestVersion,
-                              })
-                            }
-                          >
-                            Allow script preview
-                          </Button>
-                        )}
-                      <Button
-                        disabled={pending || !verified || !state.online}
-                        onClick={() =>
-                          void mutate('keep', {
-                            id: record.id,
-                            version: record.latestVersion,
-                            receiptId: record.verification?.receiptId,
-                          })
-                        }
-                      >
-                        Keep for this site
-                      </Button>
-                      {!compact && (
-                        <span className="text-muted-foreground text-xs">
-                          {verified
-                            ? 'Verified'
-                            : record.definition.mode === 'javascript' &&
-                                !record.previewAllowed
-                              ? 'Preview required'
-                              : 'Verification required'}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {!compact &&
-                    record.definition.actions.some(
-                      (action) => action.execution === 'javascript',
-                    ) && (
-                      <p className="mt-3 text-muted-foreground text-sm">
-                        Runs agent-generated scripts when its action is clicked.
-                      </p>
-                    )}
                   {!compact &&
                     record.definition.mode === 'javascript' &&
                     !state.capabilities?.javascript && (
@@ -517,17 +399,6 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
                         </Button>
                       </div>
                     )}
-                  {!compact && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-3 text-foreground hover:text-foreground"
-                      disabled={pending}
-                      onClick={() => void mutate('delete', { id: record.id })}
-                    >
-                      Delete
-                    </Button>
-                  )}
                 </article>
               )
             })}

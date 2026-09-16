@@ -43,18 +43,22 @@ export async function checkLayersAccessibility(ui: Page, name: string) {
       {},
       name,
     )
-    await ui.keyboard.press('Tab')
-    if (
-      !(await ui.evaluate(() => document.activeElement?.tagName === 'SUMMARY'))
-    )
-      throw new Error('Draft disclosure is not next in the keyboard order')
-    await ui.keyboard.press('Enter')
-    if (
-      !(await ui.evaluate(() =>
-        document.querySelector('article details')?.hasAttribute('open'),
-      ))
-    )
-      throw new Error('Scope disclosure did not open from the keyboard')
+    let reachedDelete = false
+    for (let i = 0; i < 5; i++) {
+      await ui.keyboard.press('Tab')
+      if (
+        await ui.evaluate(() =>
+          document.activeElement
+            ?.getAttribute('aria-label')
+            ?.startsWith('Delete '),
+        )
+      ) {
+        reachedDelete = true
+        break
+      }
+    }
+    if (!reachedDelete)
+      throw new Error('Layer delete control is not reachable by keyboard')
     for (const layout of [
       { width: 360, zoom: 1, direction: 'ltr', theme: 'light' },
       { width: 720, zoom: 2, direction: 'rtl', theme: 'light' },
@@ -228,7 +232,7 @@ export async function checkLayersAccessibility(ui: Page, name: string) {
     })
     return {
       passed: [
-        'library search and scope disclosure work from the keyboard',
+        'library search and delete controls work from the keyboard',
         'long Layer names and scopes reflow at narrow width and actual 200% browser zoom',
         'library RTL layout and light/dark themes avoid horizontal overflow',
         'Chromium accessibility tree exposes named controls and Layer cards',

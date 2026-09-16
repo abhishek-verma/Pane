@@ -36,6 +36,7 @@ export const API_LAYER_PROVIDERS = new Set([
   'browseros',
   'openai-compatible',
   'moonshot',
+  'chatgpt-pro',
   'github-copilot',
   'qwen-code',
   'cerebras',

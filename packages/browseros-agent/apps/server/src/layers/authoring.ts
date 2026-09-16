@@ -34,6 +34,12 @@ const versionSchema = targetSchema.extend({
   id: layerIdSchema,
   version: z.string().regex(/^[a-f0-9]{64}$/),
 })
+const recordSchema = z
+  .object({
+    id: layerIdSchema,
+    revision: z.number().int().nonnegative(),
+  })
+  .strict()
 const evidenceSchema = z
   .object({
     id: layerIdSchema,
@@ -150,7 +156,7 @@ export function buildLayerAuthoringTools(
     }),
     layer_preview: tool({
       description:
-        'Temporarily mount an exact saved draft on its matching originating document for five minutes. Does not keep or grant it. Returns actual runtime status; unmatched/ambiguous anchors are not successes.',
+        'Temporarily mount an exact saved draft on its matching originating document for five minutes. Script permission is granted as part of this approved tool call. Returns actual runtime status; unmatched/ambiguous anchors are not successes.',
       inputSchema: versionSchema,
       execute: async ({ tabId, id, version }) => {
         const profileId = authorizedProfile()
@@ -161,13 +167,7 @@ export function buildLayerAuthoringTools(
           layer.definition.mode === 'javascript' &&
           !repository().hasGrant(id, version)
         )
-          return text({
-            previewed: false,
-            needsApproval: true,
-            id,
-            version,
-            next: 'Review the exact source in Layers and choose Allow script preview. Then retry layer_preview.',
-          })
+          repository().grant(id, version, repository().revision())
         if (!layerMatchesUrl(layer.definition.scope, target.url))
           throw new Error('The Layer scope does not match this page.')
         const caps = broker.capabilities(
@@ -192,7 +192,7 @@ export function buildLayerAuthoringTools(
     }),
     layer_verify: tool({
       description:
-        'Run trusted mount, cleanup and remount checks on an existing preview. A receipt is issued only from observed browser evidence for this document and version. Reports reload and action checks separately; never claim unperformed checks passed.',
+        'Run trusted mount, cleanup and remount checks on an existing preview. When every observed check passes, atomically save and enable this exact version. Reports checks separately; never claim unperformed checks passed.',
       inputSchema: versionSchema,
       execute: async ({ tabId, id, version }) => {
         const profileId = authorizedProfile()
@@ -246,16 +246,72 @@ export function buildLayerAuthoringTools(
         const receiptId = passed
           ? repository().recordVerification(id, version, capabilities, checks)
           : undefined
+        if (receiptId) {
+          repository().keep(
+            id,
+            version,
+            receiptId,
+            capabilities,
+            repository().revision(),
+          )
+          broker.wake(profileId)
+        }
         return text({
           ...evidence,
           checks,
           passed,
           receiptId,
-          kept: false,
+          kept: passed,
+          enabled: passed,
+          revision: repository().revision(),
           next: passed
-            ? 'Review this exact version in Layers and choose Keep to enable it on later visits.'
+            ? 'The Layer is saved and enabled.'
             : 'Repair the failing checks and preview again.',
         })
+      },
+    }),
+    layer_enable: tool({
+      description:
+        'Enable a saved Layer. Use the current revision from layer_list.',
+      inputSchema: recordSchema,
+      execute: async ({ id, revision }) => {
+        const profileId = authorizedProfile()
+        const store = repository()
+        const record = store.read(id)
+        if (!record.activeVersion)
+          throw new Error('This Layer has not completed verification.')
+        const layer = store.version(id, record.activeVersion)
+        store.enable(
+          id,
+          broker.capabilities(profileId, layerProviderId(layer.definition)),
+          revision,
+        )
+        broker.wake(profileId)
+        return text({ id, enabled: true, revision: store.revision() })
+      },
+    }),
+    layer_disable: tool({
+      description:
+        'Disable a saved Layer. Use the current revision from layer_list.',
+      inputSchema: recordSchema,
+      execute: async ({ id, revision }) => {
+        const profileId = authorizedProfile()
+        const store = repository()
+        store.disable(id, revision)
+        broker.wake(profileId)
+        return text({ id, enabled: false, revision: store.revision() })
+      },
+    }),
+    layer_delete: tool({
+      description:
+        'Delete a saved Layer. It remains recoverable for 30 days. Use the current revision from layer_list.',
+      inputSchema: recordSchema,
+      execute: async ({ id, revision }) => {
+        const profileId = authorizedProfile()
+        const store = repository()
+        store.remove(id, revision)
+        broker.wake(profileId)
+        return text({ id, deleted: true, revision: store.revision() })
       },
     }),
     layer_clear_preview: tool({
