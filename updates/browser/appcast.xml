@@ -7,16 +7,16 @@
     <language>en</language>
 
 <item>
-  <title>Pane - 0.47.0.91</title>
-  <description sparkle:format="plain-text">Durable cross-view chat recovery, reliable queued turns, targeted search handoffs, and simpler Layers management.</description>
-  <sparkle:version>7978.97</sparkle:version>
-  <sparkle:shortVersionString>0.47.0.91</sparkle:shortVersionString>
-  <pubDate>Wed, 16 Sep 2026 08:07:05 +0000</pubDate>
+  <title>Pane - 0.47.0.92</title>
+  <description sparkle:format="plain-text">Agent-run Layers now verify, save, and enable automatically, with provider-wide lifecycle controls and a simpler management UI.</description>
+  <sparkle:version>7979.97</sparkle:version>
+  <sparkle:shortVersionString>0.47.0.92</sparkle:shortVersionString>
+  <pubDate>Wed, 16 Sep 2026 18:06:14 +0000</pubDate>
   <link>https://github.com/abhishek-verma/Pane/releases</link>
   <enclosure
-    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.91/Pane_v0.47.0.91_arm64.dmg"
-    sparkle:edSignature="VIhZGOGDQWyFo2u3S2pUpUa+2he+YYzBWE6psmTGVaUQ2svjEBCMX548feiRq3tDvvoCDV0mJyj+Yf0Qd+TGDw=="
-    length="411498371"
+    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.92/Pane_v0.47.0.92_arm64.dmg"
+    sparkle:edSignature="nTSnz4HPE5OD5SKhmEFCLv+dfXPqEK6VFe+fm//PONIIKmM8UU/0424dvV9/uGrWrr4Keupmv494kW+s6QKgBw=="
+    length="411347335"
     type="application/octet-stream" />
   <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
 </item>
