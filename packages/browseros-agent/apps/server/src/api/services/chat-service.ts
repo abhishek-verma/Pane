@@ -405,7 +405,10 @@ export class ChatService {
     }
 
     setConversationContext(request.conversationId, gateContext, {
-      providerId: request.providerId,
+      // Pin authored Layer actions to the provider config that actually won
+      // request resolution. This matters when a request omitted/staled its
+      // preferred id and resolution selected a configured fallback.
+      providerId: llmConfig.providerId,
       workspaceId: request.workspaceId,
       bucketId: request.bucketId,
       workingDir: agentConfig.workingDir,

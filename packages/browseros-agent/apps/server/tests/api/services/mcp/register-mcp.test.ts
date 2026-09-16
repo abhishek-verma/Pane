@@ -143,6 +143,9 @@ describe('registerTools', () => {
     'layer_draft',
     'layer_preview',
     'layer_verify',
+    'layer_enable',
+    'layer_disable',
+    'layer_delete',
     'layer_clear_preview',
     'layer_data_sources',
     'layer_assess',
@@ -180,6 +183,12 @@ describe('registerTools', () => {
     expect(fake.handlers.size).toBe(
       BROWSER_TOOLS.length + contextToolNames.length,
     )
+    expect(fake.configs.get('skills_install')?.inputSchema).toMatchObject({
+      path: expect.anything(),
+      url: expect.anything(),
+      body: expect.anything(),
+      id: expect.anything(),
+    })
   })
 
   it('registers filesystem tools for remote agent harness requests', () => {

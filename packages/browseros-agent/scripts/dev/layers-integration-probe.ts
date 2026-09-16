@@ -635,13 +635,7 @@ try {
     proof.passed && proof.checks.reloaded,
     'Production authoring verification failed',
   )
-  const receiptId = proof.receiptId
-  const keep = await mutate('keep', {
-    id: layer.id,
-    version: layer.version,
-    receiptId,
-  })
-  assert(keep.ok, `Keep failed: ${JSON.stringify(keep)}`)
+  assert(proof.kept && proof.enabled, 'Verification did not enable the Layer')
   await page.reload()
   await until(hidden, 'saved mount after reload')
   assert(modelCalls === 0, 'Local Layer caused model work')
@@ -906,6 +900,7 @@ try {
     'library-stop provider start',
   )
   await ui.bringToFront()
+  await ui.waitForSelector('button[aria-label="Refresh Layers"]')
   await ui.click('button[aria-label="Refresh Layers"]')
   await clickUiText(ui, 'Recent activity')
   await ui.waitForFunction(() =>
@@ -1069,12 +1064,10 @@ try {
     dataProof.passed,
     `Data verification failed: ${JSON.stringify(dataProof)}`,
   )
-  const dataKeep = await mutate('keep', {
-    id: dataTarget.id,
-    version: dataTarget.version,
-    receiptId: dataProof.receiptId,
-  })
-  assert(dataKeep.ok, `Data keep failed: ${JSON.stringify(dataKeep)}`)
+  assert(
+    dataProof.kept && dataProof.enabled,
+    'Data verification did not enable the Layer',
+  )
   await page.reload()
   await page.bringToFront()
   await until(
@@ -1140,6 +1133,7 @@ try {
   assert(modelCalls === beforeDataModels, 'Data lifecycle invoked a model')
   console.log('Testing production library UI')
   await ui.bringToFront()
+  await ui.waitForSelector('button[aria-label="Refresh Layers"]')
   await ui.click('button[aria-label="Refresh Layers"]')
   await ui.waitForFunction(() =>
     document.body.textContent?.includes('Repository stars'),
@@ -1171,19 +1165,6 @@ try {
       ),
     'Data activity missing',
   )
-  await clickUiText(ui, 'Version history', 'Quiet article')
-  await ui.waitForFunction(() =>
-    Array.from(document.querySelectorAll('article'))
-      .find((node) => node.querySelector('h2')?.textContent === 'Quiet article')
-      ?.textContent?.includes('Inspect'),
-  )
-  await clickUiText(ui, 'Inspect', 'Quiet article')
-  await ui.waitForFunction(() =>
-    Array.from(document.querySelectorAll('article'))
-      .find((node) => node.querySelector('h2')?.textContent === 'Quiet article')
-      ?.textContent?.includes('pane.layers.v1'),
-  )
-
   if (testScripts) {
     console.log('Managed checks passed; testing complete script authoring flow')
     await until(
@@ -1227,31 +1208,6 @@ try {
     })
     assert(saved.saved, `Script draft failed: ${JSON.stringify(saved)}`)
     const script = { id: saved.record.id, version: saved.record.latestVersion }
-    const blocked = await author('layer_preview', {
-      ...script,
-      tabId: target().tabId,
-    })
-    assert(
-      blocked.needsApproval && !blocked.previewed,
-      'Unapproved source preview was not blocked',
-    )
-    assert(!(await page.$('#script-translate')), 'Unapproved source executed')
-    await ui.reload()
-    await ui.waitForFunction(() =>
-      Array.from(document.querySelectorAll('button')).some(
-        (button) => button.textContent === 'Allow script preview',
-      ),
-    )
-    console.log('Script test: granting source')
-    await clickUiText(ui, 'Allow script preview', 'Script translation')
-    await until(
-      () => store.hasGrant(script.id, script.version),
-      'exact source approval',
-    )
-    assert(!store.read(script.id).enabled, 'Preview consent activated a Layer')
-    scriptChecks.push(
-      'script preview blocked until exact source approval through library',
-    )
     console.log('Script test: previewing source')
     const preview = await author('layer_preview', {
       ...script,
@@ -1313,9 +1269,7 @@ try {
       },
       rendered,
     )
-    scriptChecks.push(
-      'incorrect script DOM result cannot receive a Keep receipt',
-    )
+    scriptChecks.push('incorrect script DOM result cannot activate a Layer')
     const proof = await author('layer_verify', {
       ...script,
       tabId: target().tabId,
@@ -1334,17 +1288,10 @@ try {
     scriptChecks.push(
       'script DOM assertions and temporary reload verification without model calls',
     )
-    await ui.reload()
-    await ui.waitForFunction(() =>
-      Array.from(document.querySelectorAll('article'))
-        .find(
-          (a) => a.querySelector('h2')?.textContent === 'Script translation',
-        )
-        ?.textContent?.includes('Keep for this site'),
+    assert(
+      proof.kept && proof.enabled,
+      'Script verification did not enable the Layer',
     )
-    console.log('Script test: keeping source')
-    await clickUiText(ui, 'Keep for this site', 'Script translation')
-    await until(() => store.read(script.id).enabled, 'script Keep')
     await page.reload()
     await page.waitForSelector('#script-translate')
     assert(modelCalls === before + 1, 'Persistent script mount invoked model')
@@ -1353,7 +1300,7 @@ try {
         'unsaved draft',
       'Script modified form',
     )
-    scriptChecks.push('script library Keep and reload persistence')
+    scriptChecks.push('script automatic save and reload persistence')
     const disabled = await mutate('disable', { id: script.id })
     assert(disabled.ok, `Script disable failed: ${JSON.stringify(disabled)}`)
     await until(
@@ -1407,17 +1354,6 @@ try {
       id: savedData.record.id,
       version: savedData.record.latestVersion,
     }
-    await ui.reload()
-    await ui.waitForFunction(() =>
-      Array.from(document.querySelectorAll('button')).some(
-        (button) => button.textContent === 'Allow script preview',
-      ),
-    )
-    await clickUiText(ui, 'Allow script preview', 'Script data')
-    await until(
-      () => store.hasGrant(dataScript.id, dataScript.version),
-      'data script grant',
-    )
     await until(
       () => broker.documents(profileId).some((doc) => doc.url === page.url()),
       'data script document',
@@ -1438,6 +1374,10 @@ try {
     scriptChecks.push(
       'script document-load data action works during preview and temporary reload',
     )
+    await author('layer_disable', {
+      id: dataScript.id,
+      revision: store.revision(),
+    })
     await author('layer_clear_preview', { tabId: target().tabId })
     await until(
       async () => !(await page.$('#script-data')),
@@ -1487,10 +1427,6 @@ try {
       id: generated.record.id,
       version: generated.record.latestVersion,
     }
-    assert(
-      (await mutate('grant-preview', generatedLayer)).ok,
-      'Generated script permission failed',
-    )
     await author('layer_preview', { ...generatedLayer, tabId: target().tabId })
     await page.waitForSelector('#generated-button')
     const generatedModels = modelCalls
@@ -1522,11 +1458,10 @@ try {
       generatedProof.passed,
       `Generated script verification failed: ${JSON.stringify(generatedProof)}`,
     )
-    const generatedKeep = await mutate('keep', {
-      ...generatedLayer,
-      receiptId: generatedProof.receiptId,
-    })
-    assert(generatedKeep.ok, 'Generated button Keep failed')
+    assert(
+      generatedProof.kept && generatedProof.enabled,
+      'Generated verification did not enable the Layer',
+    )
     const beforeGeneratedReload = modelCalls
     await page.reload()
     await page.waitForSelector('#generated-button')
@@ -1555,7 +1490,7 @@ try {
       'Generated task disable failed',
     )
     scriptChecks.push(
-      'kept generated button rebinds after reload without automatic inference and preserves forms',
+      'saved generated button rebinds after reload without automatic inference and preserves forms',
     )
     await author('layer_clear_preview', { tabId: target().tabId })
     await until(
@@ -1590,8 +1525,6 @@ try {
       id: hung.record.id,
       version: hung.record.latestVersion,
     }
-    const grant = await mutate('grant-preview', hungScript)
-    assert(grant.ok, 'Hung fixture grant failed')
     let timedOut = false
     const startedAt = Date.now()
     try {
@@ -1656,7 +1589,7 @@ try {
         userScriptsAvailable: broker.capabilities(profileId).javascript,
         passed: [
           'production background/content connection',
-          'authenticated keep',
+          'verified automatic activation',
           'mount-cleanup verification',
           'automatic reload verification in a temporary tab',
           'reload persistence without model work',
@@ -1686,7 +1619,7 @@ try {
           'production library enable-disable controls',
           'durable activity disclosure',
           'library Stop cancels provider work',
-          'version history and source inspection',
+          'minimal Layer controls',
           ...scriptChecks,
           ...accessibility.passed,
         ],

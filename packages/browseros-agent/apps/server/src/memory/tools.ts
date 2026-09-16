@@ -179,31 +179,29 @@ export function buildMemoryToolSet(
     skills_install: tool({
       description:
         'Add or update a skill: from a local SKILL.md path, an https URL (agentskills.io), or by authoring one yourself with a full SKILL.md body (YAML frontmatter name/description, then Markdown instructions). Provide exactly one of path, url, or body. Use body — not path/url — to turn a workflow you just did for the user into something reusable next time, without waiting to be asked: when you notice yourself repeating the same multi-step workflow in a way that generalizes (not a one-off task), draft it and call this. To fix or improve an existing skill instead of creating a near-duplicate, call skills_list to get its exact id, then call this again with body + that same id — it overwrites the skill in place. Goes live immediately in the skill index once approved.',
-      inputSchema: z
-        .object({
-          path: z.string().min(1).optional(),
-          url: z.string().url().optional(),
-          body: z
-            .string()
-            .min(1)
-            .optional()
-            .describe(
-              'Full SKILL.md content to author directly, starting with --- frontmatter',
-            ),
-          id: z
-            .string()
-            .optional()
-            .describe(
-              'kebab-case id. Derived from the frontmatter name if omitted. Pass an existing skill id (from skills_list) with body to update that skill in place instead of creating a new one.',
-            ),
-          bucketId: z.string().optional(),
-          ...promotedField,
-        })
-        .refine((v) => [v.path, v.url, v.body].filter(Boolean).length === 1, {
-          message: 'Provide exactly one of path, url, or body',
-        }),
+      inputSchema: z.object({
+        path: z.string().min(1).optional(),
+        url: z.string().url().optional(),
+        body: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            'Full SKILL.md content to author directly, starting with --- frontmatter',
+          ),
+        id: z
+          .string()
+          .optional()
+          .describe(
+            'kebab-case id. Derived from the frontmatter name if omitted. Pass an existing skill id (from skills_list) with body to update that skill in place instead of creating a new one.',
+          ),
+        bucketId: z.string().optional(),
+        ...promotedField,
+      }),
       execute: async ({ path, url, body, id, bucketId }) => {
         try {
+          if ([path, url, body].filter(Boolean).length !== 1)
+            throw new Error('Provide exactly one of path, url, or body')
           const installedId = await installSkillFromSource(
             { path, url, body },
             {
