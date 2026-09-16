@@ -24,11 +24,6 @@ export function LayerActivity({
   return (
     <details className="rounded-xl border p-4 text-sm">
       <summary className="cursor-pointer">Recent activity</summary>
-      <p className="mt-2 text-muted-foreground">
-        Run metadata is kept for up to seven days (at most 1,000 runs). Page
-        text and responses are not saved here. Completed means the action result
-        was accepted; the page may subsequently change or close.
-      </p>
       <ol className="mt-3 max-h-72 space-y-3 overflow-auto">
         {runs.map((run) => (
           <li
