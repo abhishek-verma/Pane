@@ -7,16 +7,16 @@
     <language>en</language>
 
 <item>
-  <title>Pane - 0.47.0.90</title>
-  <description sparkle:format="plain-text">Layers popup sizing and stricter typed-message isolation.</description>
-  <sparkle:version>7977.97</sparkle:version>
-  <sparkle:shortVersionString>0.47.0.90</sparkle:shortVersionString>
-  <pubDate>Wed, 09 Sep 2026 08:29:58 +0000</pubDate>
+  <title>Pane - 0.47.0.91</title>
+  <description sparkle:format="plain-text">Durable cross-view chat recovery, reliable queued turns, targeted search handoffs, and simpler Layers management.</description>
+  <sparkle:version>7978.97</sparkle:version>
+  <sparkle:shortVersionString>0.47.0.91</sparkle:shortVersionString>
+  <pubDate>Wed, 16 Sep 2026 08:07:05 +0000</pubDate>
   <link>https://github.com/abhishek-verma/Pane/releases</link>
   <enclosure
-    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.90/Pane_v0.47.0.90_arm64.dmg"
-    sparkle:edSignature="7NIlC1JcRimkS6UDpcPL+oyjjTbH+Mn75/wTI4qJ1MCCJxFdEE5nU/ygglbGaCXFBn6Ck2zNPCZM8rypE6Q+DA=="
-    length="411481805"
+    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.91/Pane_v0.47.0.91_arm64.dmg"
+    sparkle:edSignature="VIhZGOGDQWyFo2u3S2pUpUa+2he+YYzBWE6psmTGVaUQ2svjEBCMX548feiRq3tDvvoCDV0mJyj+Yf0Qd+TGDw=="
+    length="411498371"
     type="application/octet-stream" />
   <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
 </item>
