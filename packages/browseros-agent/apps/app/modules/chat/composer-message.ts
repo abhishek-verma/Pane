@@ -8,6 +8,7 @@ import type { SelectedTextData } from '@/lib/selected-text/selectedTextStorage'
 import type { ChatMode } from './chat-types'
 
 export interface ComposerMessage {
+  target?: { id: string; kind: 'llm' | 'acp' }
   text: string
   action?: ChatAction
   attachments?: StagedAttachment[]
@@ -17,6 +18,7 @@ export interface ComposerMessage {
 }
 
 export interface ComposerMetadata {
+  target?: ComposerMessage['target']
   action?: ChatAction
   mode?: ChatMode
   selection?: SelectedTextData | null

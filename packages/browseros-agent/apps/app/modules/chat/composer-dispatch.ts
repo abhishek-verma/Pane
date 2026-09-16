@@ -1,3 +1,7 @@
+import {
+  attachChatTurnStream,
+  fetchActiveChatTurn,
+} from '@/lib/conversations/chat-turn-api'
 import { displayTabUrl } from '@/lib/personal-internet/attachable-tab-url'
 import type { ComposerMessage } from './composer-message'
 import {
@@ -10,12 +14,19 @@ export interface DispatchSession {
   canSend: boolean
   isRestoringConversation: boolean
   lastTurnSucceeded: boolean
-  sendComposerMessage: (message: ComposerMessage) => Promise<'done' | 'paused'>
+  sendComposerMessage: (
+    message: ComposerMessage,
+    onAccepted?: (started: {
+      turnId: string
+      conversationId: string
+    }) => Promise<void>,
+  ) => Promise<'done' | 'paused' | 'pending'>
 }
 
 export async function dispatchNextComposerMessage(options: {
   key: string
   dispatchKey: string
+  conversationId?: string
   signal: AbortSignal
   isCurrent: () => boolean
   getSession: () => DispatchSession
@@ -27,21 +38,21 @@ export async function dispatchNextComposerMessage(options: {
     await navigator.locks.request(dispatchKey, { signal }, async () => {
       if (signal.aborted || !isCurrent()) return
       const session = getSession()
-      if (!session.canSend || session.isRestoringConversation) return
+      if (session.isRestoringConversation) return
+      // Another view may have started a turn since this view last rendered.
+      const active = options.conversationId
+        ? await fetchActiveChatTurn(options.conversationId)
+        : null
+      if (signal.aborted || !isCurrent()) return
       let candidate: ComposerState['queue'][number] | undefined
       await updateComposer(key, (value) => {
         if (value.paused || !value.queue.length) return value
         const first = value.queue[0]
-        if (first.waitsForSuccess && !session.lastTurnSucceeded)
-          return {
-            ...value,
-            paused: true,
-            note: 'The previous response stopped or could not be confirmed. Resume when you are ready.',
-            queue: value.queue.map((item) => ({
-              ...item,
-              waitsForSuccess: false,
-            })),
-          }
+        if (first.state === 'sending' && first.started) {
+          candidate = first
+          return value
+        }
+        if (!session.canSend || active?.status === 'running') return value
         if (first.state !== 'queued')
           return {
             ...value,
@@ -62,6 +73,27 @@ export async function dispatchNextComposerMessage(options: {
       if (!candidate) return
       const messageId = candidate.id
       try {
+        if (candidate.started) {
+          let outcome: 'done' | 'paused' | 'pending' = 'pending'
+          try {
+            await attachChatTurnStream({
+              ...candidate.started,
+              signal: AbortSignal.timeout(30_000),
+              onEvent: (event) => {
+                if (event.type === 'done')
+                  outcome = event.status === 'done' ? 'done' : 'paused'
+              },
+            })
+          } catch {
+            // Keep the receipt across temporary outages; never resend it.
+            return
+          }
+          if (outcome !== 'pending')
+            await updateComposer(key, (value) =>
+              settleQueuedMessage(value, messageId, outcome === 'done'),
+            )
+          return
+        }
         for (const tab of candidate.message.action?.tabs ?? []) {
           if (tab.id == null) continue
           const current = await chrome.tabs.get(tab.id)
@@ -75,7 +107,18 @@ export async function dispatchNextComposerMessage(options: {
             'Conversation changed. Resume this queue when you return.',
           )
         // Effect cleanup cancels waiting owners, never an already dispatched turn.
-        const outcome = await session.sendComposerMessage(candidate.message)
+        const outcome = await session.sendComposerMessage(
+          candidate.message,
+          async (started) => {
+            await updateComposer(key, (value) => ({
+              ...value,
+              queue: value.queue.map((item) =>
+                item.id === messageId ? { ...item, started } : item,
+              ),
+            }))
+          },
+        )
+        if (outcome === 'pending') return
         await updateComposer(key, (value) =>
           settleQueuedMessage(value, messageId, outcome === 'done'),
         )

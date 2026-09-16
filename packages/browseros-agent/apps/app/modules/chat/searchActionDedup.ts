@@ -14,3 +14,16 @@ export function shouldApplySearchAction(input: {
 }): boolean {
   return input.requestId !== input.lastAppliedRequestId
 }
+
+/** Only the requested sidepanel may consume a profile-wide handoff. */
+export function isSearchActionForReceiver(
+  action: { targetTabId?: number; targetWindowId?: number },
+  receiver: { tabId?: number; windowId?: number; perWindow: boolean },
+): boolean {
+  if (
+    action.targetWindowId == null ||
+    action.targetWindowId !== receiver.windowId
+  )
+    return false
+  return receiver.perWindow || action.targetTabId === receiver.tabId
+}

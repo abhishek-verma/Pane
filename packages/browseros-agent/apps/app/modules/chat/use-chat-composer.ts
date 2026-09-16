@@ -11,6 +11,7 @@ import {
   composerKey,
   emptyComposer,
   emptyDraft,
+  migrateComposer,
   readComposer,
   recoverComposer,
   updateComposer,
@@ -27,7 +28,7 @@ export function useChatComposer() {
   const [state, setState] = useState<ComposerState>(emptyComposer)
   const [error, setError] = useState<string>()
   const [preparing, setPreparing] = useState(false)
-  const pendingWrites = useRef(0)
+  const pendingWrites = useRef(new Map<string, number>())
   const stagingCount = useRef(0)
   const staging = useRef(Promise.resolve())
   const currentKey = useRef(key)
@@ -37,6 +38,11 @@ export function useChatComposer() {
   const draftRef = useRef(state.draft)
   draftRef.current = state.draft
   const ready = loaded === key
+  const [dispatchTick, setDispatchTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => setDispatchTick((value) => value + 1), 2000)
+    return () => clearInterval(timer)
+  }, [])
 
   const report = useCallback((error: unknown) => {
     setError(
@@ -48,16 +54,23 @@ export function useChatComposer() {
   }, [])
   useEffect(() => {
     let live = true
+    let observed: ComposerState | undefined
     setLoaded('')
     void navigator.locks
       .request(dispatchKey, { ifAvailable: true }, async (lock) => {
+        await migrateComposer(session.conversationId)
         if (lock) await updateComposer(key, recoverComposer)
         return readComposer(key)
       })
       .then(async (next) => {
         const resolved = await next
         if (!live) return
-        setState(resolved)
+        const latest =
+          observed && (observed.revision ?? 0) >= (resolved.revision ?? 0)
+            ? observed
+            : resolved
+        observed = latest
+        setState(latest)
         setLoaded(key)
       })
       .catch(report)
@@ -65,21 +78,25 @@ export function useChatComposer() {
       changes: Record<string, chrome.storage.StorageChange>,
       area: string,
     ) => {
-      if (area === 'local' && changes[key]?.newValue && live)
-        setState((value) => ({
-          ...(changes[key].newValue as ComposerState),
-          draft:
-            pendingWrites.current > 0
-              ? value.draft
-              : (changes[key].newValue as ComposerState).draft,
-        }))
+      if (area !== 'local' || !changes[key]?.newValue || !live) return
+      const incoming = changes[key].newValue as ComposerState
+      if (observed && (incoming.revision ?? 0) < (observed.revision ?? 0))
+        return
+      observed = incoming
+      setState((value) => ({
+        ...incoming,
+        draft:
+          (pendingWrites.current.get(key) ?? 0) > 0
+            ? value.draft
+            : incoming.draft,
+      }))
     }
     chrome.storage.onChanged.addListener(listener)
     return () => {
       live = false
       chrome.storage.onChanged.removeListener(listener)
     }
-  }, [key, dispatchKey, report])
+  }, [key, dispatchKey, report, session.conversationId])
 
   useEffect(() => {
     const listener = (event: Event) => {
@@ -121,14 +138,16 @@ export function useChatComposer() {
     const next = update(draftRef.current)
     draftRef.current = next
     setState((value) => ({ ...value, draft: next }))
-    pendingWrites.current += 1
+    pendingWrites.current.set(key, (pendingWrites.current.get(key) ?? 0) + 1)
     void updateComposer(key, (value) => ({
       ...value,
       draft: update(value.draft),
     }))
       .catch(report)
       .finally(() => {
-        pendingWrites.current -= 1
+        const remaining = (pendingWrites.current.get(key) ?? 1) - 1
+        if (remaining) pendingWrites.current.set(key, remaining)
+        else pendingWrites.current.delete(key)
       })
   }
 
@@ -180,6 +199,12 @@ export function useChatComposer() {
         const draft = value.draft
         if (!draft.text.trim() && !draft.attachments.length) return value
         const message = {
+          target: session.selectedProvider
+            ? {
+                id: session.selectedProvider.id,
+                kind: session.selectedProvider.kind,
+              }
+            : undefined,
           text: draft.text.trim(),
           attachments: draft.attachments,
           mode: session.mode,
@@ -193,7 +218,7 @@ export function useChatComposer() {
         return {
           ...value,
           draft: emptyDraft(),
-          paused: value.queue.length ? value.paused : false,
+          paused: value.queue.some((item) => item.state === 'review'),
           note: undefined,
           queue: [
             ...value.queue,
@@ -214,11 +239,12 @@ export function useChatComposer() {
   // The dispatch lock spans the complete turn. A second panel can manage the
   // queue but cannot send it. Recovered 'sending' items are never auto-retried.
   useEffect(() => {
+    void dispatchTick
     if (
       !ready ||
       state.paused ||
       !state.queue.length ||
-      !session.canSend ||
+      (!session.canSend && state.queue[0]?.state !== 'sending') ||
       session.isRestoringConversation
     )
       return
@@ -226,6 +252,7 @@ export function useChatComposer() {
     void dispatchNextComposerMessage({
       key,
       dispatchKey,
+      conversationId: session.conversationId,
       signal: controller.signal,
       isCurrent: () => currentKey.current === key,
       getSession: () => sessionRef.current,
@@ -237,6 +264,8 @@ export function useChatComposer() {
     ready,
     state.paused,
     state.queue,
+    dispatchTick,
+    session.conversationId,
     session.canSend,
     session.isRestoringConversation,
     report,
@@ -252,7 +281,12 @@ export function useChatComposer() {
     addFiles,
     submit,
     dismissError: () => setError(undefined),
-    pause: () => change((value) => ({ ...value, paused: true })),
+    pause: () =>
+      change((value) => ({
+        ...value,
+        paused: true,
+        note: 'Stopped. Send the remaining messages when you are ready.',
+      })),
     resume: () =>
       change((value) => ({
         ...value,

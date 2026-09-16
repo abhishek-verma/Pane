@@ -10,6 +10,7 @@ import { zValidator } from '@hono/zod-validator'
 import type { UIMessage } from 'ai'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { getChatTurnTerminalStatus } from '../../agent/chat-turns-store'
 import type { SessionStore } from '../../agent/session-store'
 import { logger } from '../../lib/logger'
 import { metrics } from '../../lib/metrics'
@@ -155,6 +156,19 @@ export function createChatRoutes(deps: ChatRouteDeps) {
           signal: c.req.raw.signal,
         })
         if (!response) {
+          const status = turnId
+            ? await getChatTurnTerminalStatus(conversationId, turnId)
+            : null
+          if (status)
+            return new Response(
+              `data: ${JSON.stringify({ type: 'done', status })}\n\n`,
+              {
+                headers: {
+                  'Content-Type': 'text/event-stream',
+                  'Cache-Control': 'no-cache',
+                },
+              },
+            )
           return c.json({ error: 'No active turn for this conversation' }, 404)
         }
         return response

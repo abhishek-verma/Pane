@@ -30,6 +30,7 @@ export class ChatTurnController {
   private lastAppliedSeq = Number.NEGATIVE_INFINITY
   private listeners = new Set<ChatTurnControllerListener>()
   private conversationId: string | null = null
+  private generation = 0
 
   get isTurnActive(): boolean {
     return this.activeTurn?.status === 'running'
@@ -68,6 +69,7 @@ export class ChatTurnController {
   setConversationId(conversationId: string | null): void {
     if (this.conversationId === conversationId) return
     this.detachAttachOnly()
+    this.generation += 1
     this.conversationId = conversationId
     this.activeTurn = null
     this.lastSeq = -1
@@ -79,6 +81,7 @@ export class ChatTurnController {
   noteStartedTurn(turnId: string, conversationId: string): void {
     // Abort any prior attach (e.g. approval-resume after restore/reattach).
     this.detachAttachOnly()
+    this.generation += 1
     this.conversationId = conversationId
     this.activeTurn = {
       turnId,
@@ -96,6 +99,7 @@ export class ChatTurnController {
 
   /** Local detach only — does not cancel the server turn. */
   detachAttachOnly(): void {
+    this.generation += 1
     this.attachAbort?.abort()
     this.attachAbort = null
   }
@@ -116,11 +120,7 @@ export class ChatTurnController {
     // A newer noteStartedTurn (supersede → send) must not be wiped by this
     // cancel's completion. Same if the user already switched conversations.
     if (this.conversationId !== conversationId) return cancelled
-    if (
-      this.activeTurn != null &&
-      turnIdAtStart != null &&
-      this.activeTurn.turnId !== turnIdAtStart
-    ) {
+    if (this.activeTurn != null && this.activeTurn.turnId !== turnIdAtStart) {
       return cancelled
     }
     this.activeTurn = null
@@ -147,15 +147,18 @@ export class ChatTurnController {
     onMessages: (messages: UIMessage[]) => void
   }): Promise<boolean> {
     this.setConversationId(input.conversationId)
+    const generation = this.generation
     const active = await fetchActiveChatTurn(input.conversationId)
-    if (this.conversationId !== input.conversationId) return false
+    if (this.generation !== generation) return false
     if (active?.status !== 'running') {
       this.activeTurn = null
       this.emit()
       return false
     }
     this.activeTurn = active
-    this.lastSeq = active.lastSeq
+    // /active is metadata, not a snapshot the UI has consumed.
+    this.lastSeq = -1
+    this.lastAppliedSeq = Number.NEGATIVE_INFINITY
     this.emit()
     this.beginAttach(input.onMessages)
     return true
@@ -165,6 +168,10 @@ export class ChatTurnController {
   attachToCurrent(onMessages: (messages: UIMessage[]) => void): void {
     if (this.activeTurn?.status !== 'running') return
     this.beginAttach(onMessages)
+  }
+
+  ensureAttached(onMessages: (messages: UIMessage[]) => void): void {
+    if (!this.attachAbort && this.isTurnActive) this.beginAttach(onMessages)
   }
 
   private beginAttach(onMessages: (messages: UIMessage[]) => void): void {
@@ -191,7 +198,10 @@ export class ChatTurnController {
     const applySnapshot = (messages: UIMessage[], seq: number) => {
       if (!stillCurrent()) return
       if (seq >= 0 && seq <= this.lastAppliedSeq) return
-      if (seq >= 0) this.lastAppliedSeq = seq
+      if (seq >= 0) {
+        this.lastAppliedSeq = seq
+        this.lastSeq = seq
+      }
       onMessages(messages)
     }
     const flush = () => {
@@ -218,7 +228,6 @@ export class ChatTurnController {
       signal: ac.signal,
       onEvent: async (event, seq) => {
         if (!stillCurrent()) return
-        if (seq >= 0) this.lastSeq = seq
         if (event.type === 'snapshot') {
           queueSnapshot(event.messages, seq)
         } else if (event.type === 'done') {
@@ -264,13 +273,20 @@ export class ChatTurnController {
     const conversationId = this.conversationId
     if (!conversationId) return false
     try {
+      const generation = this.generation
       const active = await fetchActiveChatTurn(conversationId)
       // User may have switched chats while the probe was in flight.
-      if (this.conversationId !== conversationId) return false
+      if (this.generation !== generation)
+        return this.conversationId === conversationId && this.isTurnActive
       if (active?.status !== 'running') {
         this.activeTurn = null
         this.emit()
         return false
+      }
+      if (this.activeTurn?.turnId !== active.turnId) {
+        this.detachAttachOnly()
+        this.lastSeq = -1
+        this.lastAppliedSeq = Number.NEGATIVE_INFINITY
       }
       this.activeTurn = active
       // emit() no-ops when turnId + isTurnActive are unchanged (watchdog poll).
