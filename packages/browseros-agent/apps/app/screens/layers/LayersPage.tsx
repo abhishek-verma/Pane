@@ -3,7 +3,7 @@ import type {
   LayerDefinition,
   LayerManifest,
 } from '@browseros/shared/layers/manifest'
-import { Layers, Pause, Play, RefreshCw } from 'lucide-react'
+import { Layers, Pause, Play, Plus, RefreshCw } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { openSidePanel } from '@/lib/browseros/toggleSidePanel'
@@ -174,19 +174,30 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
         .toLowerCase()
         .includes(filter.toLowerCase()),
   )
+  const siteLabel = (() => {
+    try {
+      return origin ? new URL(origin).hostname : undefined
+    } catch {
+      return undefined
+    }
+  })()
   return (
     <div
-      className={`${compact ? 'space-y-4 p-4' : 'space-y-6'} min-w-0 [overflow-wrap:anywhere]`}
+      className={`${compact ? 'space-y-3 p-4' : 'space-y-5'} min-w-0 [overflow-wrap:anywhere]`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 font-semibold text-2xl">
-            <Layers className="size-6" />
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1
+            className={`flex items-center gap-2 font-semibold ${compact ? 'text-lg' : 'text-2xl'}`}
+          >
+            <Layers className={compact ? 'size-5' : 'size-6'} />
             Layers
           </h1>
-          <p className="mt-2 text-muted-foreground text-sm">
-            Your changes, remembered on every visit.
-          </p>
+          {compact && siteLabel && (
+            <p className="mt-0.5 truncate text-muted-foreground text-xs">
+              {siteLabel}
+            </p>
+          )}
         </div>
         <Button
           variant="ghost"
@@ -206,15 +217,17 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
       ) : (
         <>
           {!state.online && (
-            <p role="status" className="rounded-lg bg-muted p-3 text-sm">
-              The agent server is offline. Saved local changes and pause
-              controls still work. Reconnect to create or enable Layers.
+            <p role="status" className="rounded-md bg-muted px-3 py-2 text-sm">
+              Offline
             </p>
           )}
-          <div className="flex flex-wrap gap-2">
-            {compact && (
+          <div className={`flex gap-2 ${compact ? '' : 'flex-wrap'}`}>
+            {origin && (
               <Button
-                disabled={!origin}
+                className={compact ? 'flex-1' : undefined}
+                disabled={
+                  activeTabId === undefined || activeWindowId === undefined
+                }
                 onClick={() => {
                   if (activeTabId === undefined || activeWindowId === undefined)
                     return
@@ -230,51 +243,60 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
                   )
                 }}
               >
-                Ask Pane to add a Layer
+                <Plus />
+                Add Layer
               </Button>
             )}
-            <Button
-              variant="outline"
-              disabled={pending || Boolean(paused && !state.online)}
-              onClick={() => void mutate('pause', { paused: !paused })}
-            >
-              {paused ? <Play /> : <Pause />}
-              {paused ? 'Resume Layers' : 'Pause all'}
-            </Button>
+            {!compact && (
+              <Button
+                variant="outline"
+                disabled={pending || Boolean(paused && !state.online)}
+                onClick={() => void mutate('pause', { paused: !paused })}
+              >
+                {paused ? <Play /> : <Pause />}
+                {paused ? 'Resume all' : 'Pause all'}
+              </Button>
+            )}
             {origin && (
               <Button
                 variant="outline"
+                className={compact ? 'shrink-0' : undefined}
                 disabled={pending || Boolean(sitePaused && !state.online)}
                 onClick={() =>
                   void mutate('site-pause', { origin, paused: !sitePaused })
                 }
               >
-                {sitePaused ? 'Resume this site' : 'Pause this site'}
+                {sitePaused ? <Play /> : <Pause />}
+                {sitePaused ? 'Resume' : 'Pause'}
               </Button>
             )}
           </div>
-          {compact && origin && (
-            <p className="break-all text-muted-foreground text-xs">{origin}</p>
+          {(!compact || records.length > 4) && (
+            <input
+              aria-label="Search Layers"
+              type="search"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder={compact ? 'Search' : 'Search Layers'}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            />
           )}
-          <input
-            aria-label="Search Layers"
-            type="search"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder="Search by name or site"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-          />
           {visible.length === 0 && (
-            <div className="rounded-xl border border-dashed p-6">
-              <p>No Layers here yet.</p>
-              <p className="mt-2 text-muted-foreground text-sm">
-                Open a website and ask Pane to remember a change, such as “Hide
-                this recommendations panel whenever I visit.” Pane will check
-                what is possible and show a preview first.
-              </p>
+            <div className="py-8 text-center text-muted-foreground text-sm">
+              {filter
+                ? 'No matching Layers'
+                : compact
+                  ? 'No Layers on this site'
+                  : 'No Layers yet'}
             </div>
           )}
-          <div className="space-y-3">
+          <div
+            className={
+              compact
+                ? 'divide-y rounded-lg border'
+                : 'grid gap-3 lg:grid-cols-2'
+            }
+          >
             {visible.map((record) => {
               const disabled =
                 !record.enabled || state.local?.disabledIds.includes(record.id)
@@ -286,7 +308,7 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
                 <article
                   key={record.id}
                   aria-labelledby={`layer-name-${record.id}`}
-                  className="min-w-0 rounded-xl border p-4"
+                  className={`min-w-0 p-4 ${compact ? '' : 'rounded-xl border'}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -297,9 +319,11 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
                       >
                         {record.definition.name}
                       </h2>
-                      <p className="mt-1 break-all text-muted-foreground text-xs">
-                        {record.definition.scope.origin}
-                      </p>
+                      {!compact && (
+                        <p className="mt-1 break-all text-muted-foreground text-xs">
+                          {record.definition.scope.origin}
+                        </p>
+                      )}
                     </div>
                     {record.activeVersion && (
                       <Button
@@ -317,99 +341,92 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
                       </Button>
                     )}
                   </div>
-                  <p className="mt-3 text-sm">{record.definition.intent}</p>
-                  {needsKeep && record.activeName && (
-                    <p className="mt-2 text-muted-foreground text-xs">
-                      Working version: {record.activeName} ·{' '}
-                      {record.activeScope?.origin}. The details below describe
-                      the draft.
-                    </p>
-                  )}
+                  <p className="mt-2 line-clamp-2 text-muted-foreground text-sm">
+                    {record.definition.intent}
+                  </p>
                   <p className="mt-2 text-muted-foreground text-xs">
                     {needsKeep
-                      ? record.activeVersion
-                        ? 'Draft changes · previous version is still saved'
-                        : 'Draft changes'
+                      ? 'Draft'
                       : disabled
                         ? 'Disabled'
                         : paused ||
                             (sitePaused &&
                               origin === record.definition.scope.origin)
                           ? 'Paused'
-                          : 'Enabled'}{' '}
-                    ·{' '}
-                    {record.definition.mode === 'managed'
-                      ? 'Managed changes'
-                      : 'Advanced JavaScript'}
+                          : 'Enabled'}
                   </p>
-                  <details className="mt-3 text-sm">
-                    <summary className="cursor-pointer">
-                      Scope and behavior
-                    </summary>
-                    <div className="mt-2 space-y-2 text-muted-foreground">
-                      <p>
-                        Applies to paths:{' '}
-                        {record.definition.scope.paths.join(', ')}
-                      </p>
-                      {record.definition.scope.excludePaths.length > 0 && (
+                  {!compact && (
+                    <details className="mt-3 text-sm">
+                      <summary className="cursor-pointer">Details</summary>
+                      <div className="mt-2 space-y-2 text-muted-foreground">
                         <p>
-                          Except:{' '}
-                          {record.definition.scope.excludePaths.join(', ')}
+                          Applies to paths:{' '}
+                          {record.definition.scope.paths.join(', ')}
                         </p>
-                      )}
-                      {record.definition.actions.length === 0 ? (
-                        <p>Runs locally. No agent call when the page loads.</p>
-                      ) : (
-                        record.definition.actions.map((action) => (
-                          <p key={action.id}>
-                            {action.kind} ·{' '}
-                            {action.trigger === 'click'
-                              ? 'When clicked'
-                              : 'When the page loads'}{' '}
-                            {action.kind === 'data' &&
-                            action.dataOperationId ? (
-                              DATA_OPERATIONS[action.dataOperationId].disclosure
-                            ) : (
-                              <>
-                                · Provider:{' '}
-                                {action.providerId ?? 'Not configured'} · Up to{' '}
-                                {action.limits.maxSteps} steps,{' '}
-                                {action.limits.maxOutputTokens.toLocaleString()}{' '}
-                                {record.outputBudget === 'accepted-output'
-                                  ? 'accepted output tokens'
-                                  : 'output tokens'}{' '}
-                                · {action.limits.deadlineMs / 1000} seconds.
-                                Provider usage may apply.
-                                {record.outputBudget === 'accepted-output' &&
-                                  ' Codex account usage has no hard token-spend ceiling and may exceed the accepted-output limit.'}
-                              </>
-                            )}
+                        {record.definition.scope.excludePaths.length > 0 && (
+                          <p>
+                            Except:{' '}
+                            {record.definition.scope.excludePaths.join(', ')}
                           </p>
-                        ))
-                      )}
-                      {record.definition.mode === 'javascript' && (
-                        <p>
-                          This script can read and change the matching page and
-                          make network requests. Disabling stops future
-                          injection and agent requests. Reload the page to
-                          remove existing script effects.
-                        </p>
-                      )}
-                      <pre className="max-h-64 overflow-auto rounded bg-muted p-3 text-xs">
-                        {record.definition.source ??
-                          JSON.stringify(record.definition.operations, null, 2)}
-                      </pre>
-                    </div>
-                  </details>
-                  <LayerVersionHistory
-                    id={record.id}
-                    latestVersion={record.latestVersion}
-                    activeVersion={record.activeVersion}
-                    disabled={pending || !state.online}
-                    restore={(version) =>
-                      mutate('restore-version', { id: record.id, version })
-                    }
-                  />
+                        )}
+                        {record.definition.actions.length > 0 &&
+                          record.definition.actions.map((action) => (
+                            <p key={action.id}>
+                              {action.kind} ·{' '}
+                              {action.trigger === 'click'
+                                ? 'When clicked'
+                                : 'When the page loads'}{' '}
+                              {action.kind === 'data' &&
+                              action.dataOperationId ? (
+                                DATA_OPERATIONS[action.dataOperationId]
+                                  .disclosure
+                              ) : (
+                                <>
+                                  · Provider:{' '}
+                                  {action.providerId ?? 'Not configured'} · Up
+                                  to {action.limits.maxSteps} steps,{' '}
+                                  {action.limits.maxOutputTokens.toLocaleString()}{' '}
+                                  {record.outputBudget === 'accepted-output'
+                                    ? 'accepted output tokens'
+                                    : 'output tokens'}{' '}
+                                  · {action.limits.deadlineMs / 1000} seconds.
+                                  Provider usage may apply.
+                                  {record.outputBudget === 'accepted-output' &&
+                                    ' Codex account usage has no hard token-spend ceiling and may exceed the accepted-output limit.'}
+                                </>
+                              )}
+                            </p>
+                          ))}
+                        {record.definition.mode === 'javascript' && (
+                          <p>
+                            This script can read and change the matching page
+                            and make network requests. Disabling stops future
+                            injection and agent requests. Reload the page to
+                            remove existing script effects.
+                          </p>
+                        )}
+                        <pre className="max-h-64 overflow-auto rounded bg-muted p-3 text-xs">
+                          {record.definition.source ??
+                            JSON.stringify(
+                              record.definition.operations,
+                              null,
+                              2,
+                            )}
+                        </pre>
+                      </div>
+                    </details>
+                  )}
+                  {!compact && (
+                    <LayerVersionHistory
+                      id={record.id}
+                      latestVersion={record.latestVersion}
+                      activeVersion={record.activeVersion}
+                      disabled={pending || !state.online}
+                      restore={(version) =>
+                        mutate('restore-version', { id: record.id, version })
+                      }
+                    />
+                  )}
                   {needsKeep && (
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                       {record.definition.mode === 'javascript' &&
@@ -443,29 +460,28 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
                       >
                         Keep for this site
                       </Button>
-                      <span className="text-muted-foreground text-xs">
-                        {verified
-                          ? record.definition.mode === 'javascript'
-                            ? 'Declared page outcomes and reload checked. Script cleanup may require a reload.'
-                            : 'Preview, cleanup and reload verified.'
-                          : record.definition.mode === 'javascript' &&
-                              !record.previewAllowed
-                            ? 'Review the source and allow a preview before Pane can test this script.'
-                            : 'Ask Pane to preview and verify this version first.'}
-                      </span>
+                      {!compact && (
+                        <span className="text-muted-foreground text-xs">
+                          {verified
+                            ? 'Verified'
+                            : record.definition.mode === 'javascript' &&
+                                !record.previewAllowed
+                              ? 'Preview required'
+                              : 'Verification required'}
+                        </span>
+                      )}
                     </div>
                   )}
-                  {record.definition.actions.some(
-                    (action) => action.execution === 'javascript',
-                  ) && (
-                    <p className="mt-3 text-muted-foreground text-sm">
-                      This Layer lets the agent write and run new page scripts
-                      when you click its action button. Approval includes those
-                      generated changes on this site. Reload may be needed to
-                      remove them.
-                    </p>
-                  )}
-                  {record.definition.mode === 'javascript' &&
+                  {!compact &&
+                    record.definition.actions.some(
+                      (action) => action.execution === 'javascript',
+                    ) && (
+                      <p className="mt-3 text-muted-foreground text-sm">
+                        Runs agent-generated scripts when its action is clicked.
+                      </p>
+                    )}
+                  {!compact &&
+                    record.definition.mode === 'javascript' &&
                     !state.capabilities?.javascript && (
                       <Button
                         variant="link"
@@ -487,9 +503,11 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
                           script.status === 'failed' ||
                           script.url !== activeUrl),
                     ) && (
-                      <p className="mt-3 text-sm" role="status">
-                        This page needs a reload to apply or remove script
-                        changes.{' '}
+                      <div
+                        className="mt-3 flex items-center justify-between gap-2 text-sm"
+                        role="status"
+                      >
+                        <span>Reload required</span>
                         <Button
                           size="sm"
                           variant="outline"
@@ -497,60 +515,51 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
                         >
                           Reload page
                         </Button>
-                      </p>
+                      </div>
                     )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="mt-3 text-foreground hover:text-foreground"
-                    disabled={pending}
-                    onClick={() => void mutate('delete', { id: record.id })}
-                  >
-                    Delete Layer
-                  </Button>
+                  {!compact && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-3 text-foreground hover:text-foreground"
+                      disabled={pending}
+                      onClick={() => void mutate('delete', { id: record.id })}
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </article>
               )
             })}
           </div>
         </>
       )}
-      <LayerActivity
-        runs={(state?.activity ?? []).filter(
-          (run) =>
-            !compact || visible.some((record) => record.id === run.layerId),
-        )}
-        disabled={pending || !state?.online}
-        stop={(invocationId) => mutate('stop', { invocationId })}
-      />
-      {Boolean(state?.deleted?.length) && (
+      {!compact && (
+        <LayerActivity
+          runs={state?.activity ?? []}
+          disabled={pending || !state?.online}
+          stop={(invocationId) => mutate('stop', { invocationId })}
+        />
+      )}
+      {!compact && Boolean(state?.deleted?.length) && (
         <details className="rounded-xl border p-4 text-sm">
           <summary className="cursor-pointer">Recently deleted</summary>
-          <p className="mt-2 text-muted-foreground text-sm">
-            Deleted Layers and their saved versions are recoverable for 30 days.
-          </p>
-          <p className="mt-2 text-muted-foreground">
-            Restored Layers stay disabled until you enable them.
-          </p>
-          {state?.deleted
-            ?.filter(
-              (record) => !compact || record.definition.scope.origin === origin,
-            )
-            .map((record) => (
-              <div
-                key={record.id}
-                className="mt-3 flex items-center justify-between gap-3"
+          {state?.deleted?.map((record) => (
+            <div
+              key={record.id}
+              className="mt-3 flex items-center justify-between gap-3"
+            >
+              <span>{record.definition.name}</span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending || !state.online}
+                onClick={() => void mutate('restore', { id: record.id })}
               >
-                <span>{record.definition.name}</span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={pending || !state.online}
-                  onClick={() => void mutate('restore', { id: record.id })}
-                >
-                  Restore
-                </Button>
-              </div>
-            ))}
+                Restore
+              </Button>
+            </div>
+          ))}
         </details>
       )}
       {error && (
@@ -566,9 +575,9 @@ export function LayersPage({ compact = false }: { compact?: boolean }) {
           href={chrome.runtime.getURL('/app.html#/layers')}
           target="_blank"
           rel="noreferrer"
-          className="inline-block text-sm underline"
+          className="block text-center text-muted-foreground text-xs hover:text-foreground"
         >
-          Open all Layers
+          Manage all Layers
         </a>
       )}
     </div>

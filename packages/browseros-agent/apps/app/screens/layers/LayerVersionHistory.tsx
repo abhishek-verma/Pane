@@ -58,10 +58,6 @@ export function LayerVersionHistory({
       }}
     >
       <summary className="cursor-pointer">Version history</summary>
-      <p className="mt-2 text-muted-foreground">
-        Choosing an older version creates a draft. Preview and verify it before
-        keeping it; the working version stays active.
-      </p>
       {loading && <p role="status">Loading versions…</p>}
       <ol className="mt-2 max-h-48 space-y-2 overflow-auto">
         {versions.map((item) => (
