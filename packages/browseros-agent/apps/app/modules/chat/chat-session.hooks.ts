@@ -112,7 +112,10 @@ import {
   hydrateClientMessagesFromServer,
 } from './reconcile-tool-states'
 import { useRemoteConversationSave } from './remote-conversation-save.hooks'
-import { shouldApplySearchAction } from './searchActionDedup'
+import {
+  isSearchActionForReceiver,
+  shouldApplySearchAction,
+} from './searchActionDedup'
 import { shouldResumeLastActiveConversation } from './shouldResumeLastActiveConversation'
 import { toLlmProviderConfig } from './sidepanel-chat-targets'
 
@@ -246,6 +249,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     selectedLlmProvider,
     isLoadingProviders,
   } = useChatRefs()
+  const chatTargetsRef = useRef(chatTargets)
+  chatTargetsRef.current = chatTargets
   const invalidateCredits = useInvalidateCredits()
   const [vmStatus, setVmStatus] = useState<{
     status: 'booting' | 'error'
@@ -268,6 +273,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const useCloudHistory = productFeatures.cloudSync && isLoggedIn
   const [searchParams, setSearchParams] = useSearchParams()
   const conversationIdParam = searchParams.get('conversationId')
+  const explicitNavigationRef = useRef(
+    !!conversationIdParam || !!searchParams.get('q'),
+  )
+  if (conversationIdParam) explicitNavigationRef.current = true
 
   const agentUrlRef = useRef(agentServerUrl)
   const agentUrlErrorRef = useRef(agentUrlError)
@@ -288,17 +297,27 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   )
   const [liked, setLiked] = useState<Record<string, boolean>>({})
   const [disliked, setDisliked] = useState<Record<string, boolean>>({})
-  const [conversationId, setConversationId] = useState(crypto.randomUUID())
+  const [conversationId, setConversationId] = useState(
+    () =>
+      (conversationIdParam || crypto.randomUUID()) as ReturnType<
+        typeof crypto.randomUUID
+      >,
+  )
   const [hasMoreAbove, setHasMoreAbove] = useState(false)
   const conversationIdRef = useRef(conversationId)
   // The window this panel belongs to, resolved on mount in per-window scope.
   const windowIdRef = useRef<number | null>(null)
   // The tab this panel belongs to, resolved on mount in per-tab scope.
   const tabIdRef = useRef<number | null>(null)
+  const sessionMountedRef = useRef(true)
   const turnControllerRef = useRef(new ChatTurnController())
   const [isTurnActive, setIsTurnActive] = useState(false)
   const composerDeliveryRef = useRef<{
     outcome: 'done' | 'paused'
+    onAccepted?: (started: {
+      turnId: string
+      conversationId: string
+    }) => Promise<void>
     started?: { turnId: string; conversationId: string }
   } | null>(null)
   const [lastTurnSucceeded, setLastTurnSucceeded] = useState(false)
@@ -325,7 +344,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     // turn) stay alive until the server-side turn finishes, however long
     // that takes, retained by nothing the unmounted React tree can reach.
     const controller = turnControllerRef.current
-    return () => controller.detachAttachOnly()
+    sessionMountedRef.current = true
+    return () => {
+      sessionMountedRef.current = false
+      controller.detachAttachOnly()
+    }
   }, [])
 
   const {
@@ -484,12 +507,18 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     transport: new DefaultChatTransport({
       fetch: (async (input: RequestInfo | URL, init?: RequestInit) => {
         const delivery = composerDeliveryRef.current
-        const requestConversationId = conversationIdRef.current
+        const requestConversationId =
+          typeof init?.body === 'string'
+            ? ((JSON.parse(init.body) as { conversationId?: string })
+                .conversationId ?? conversationIdRef.current)
+            : conversationIdRef.current
         const response = await agentFetch(input, init)
         const turnId = response.headers.get('X-Turn-Id')
         if (turnId) {
-          if (delivery)
+          if (delivery) {
             delivery.started = { turnId, conversationId: requestConversationId }
+            await delivery.onAccepted?.(delivery.started)
+          }
           if (requestConversationId !== conversationIdRef.current)
             return response
           setLastTurnSucceeded(false)
@@ -505,13 +534,33 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         return response
       }) as typeof fetch,
       prepareSendMessagesRequest: async ({ messages }) => {
-        const target = selectedChatTargetRef.current
+        const requestConversationId =
+          (
+            messages.findLast((item) => item.role === 'user')?.metadata as
+              | { conversationId?: string }
+              | undefined
+          )?.conversationId ?? conversationIdRef.current
+        const lastUser = messages.findLast((message) => message.role === 'user')
+        const composer = composerMetadata(lastUser)
+        const target = composer?.target
+          ? chatTargetsRef.current.find(
+              (item) =>
+                item.id === composer.target?.id &&
+                item.kind === composer.target?.kind,
+            )
+          : selectedChatTargetRef.current
+        if (composer?.target && !target)
+          throw new Error(
+            'The queued model or agent is no longer available. Restore this message and choose another model.',
+          )
         const fallbackProvider =
+          (target?.kind === 'llm' ? target.provider : undefined) ??
           resolveChatProvider(
             selectedLlmProviderRef.current
               ? [selectedLlmProviderRef.current]
               : [],
-          ) ?? (await resolveStoredChatProvider())
+          ) ??
+          (await resolveStoredChatProvider())
         if (!fallbackProvider) {
           throw new Error(
             'No AI provider configured. Add one in Settings → AI & Agents.',
@@ -534,8 +583,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
             // Window may have closed between query and get; omit the flag.
           }
         }
-        const lastUser = messages.findLast((message) => message.role === 'user')
-        const composer = composerMetadata(lastUser)
         const currentMode = composer?.mode ?? modeRef.current
         const enabledMcpServers = enabledMcpServersRef.current
         const customMcpServers = enabledCustomServersRef.current
@@ -581,13 +628,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         const agentSessionStrategy =
           options?.agentSessionStrategy ?? 'conversation'
         const agentSessionId =
-          agentSessionStrategy === 'main' ? 'main' : conversationIdRef.current
+          agentSessionStrategy === 'main' ? 'main' : requestConversationId
 
         // Read pins from storage (not only the ref) so "Allow always" that
         // just wrote to storage is included in this same approval-resume
         // request. The ref can lag one tick behind storage.watch.
         const convoPins = await conversationTrustStorage.getValue()
-        const activeConvoPins = convoPins[conversationIdRef.current] ?? {}
+        const activeConvoPins = convoPins[requestConversationId] ?? {}
         const storedPins = await trustPinsStorage.getValue()
         trustPinsRef.current = storedPins ?? {}
         const mergedPins = { ...trustPinsRef.current }
@@ -600,7 +647,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           (await requireBrowserInputApprovalStorage.getValue()) ?? false
 
         const commonRequest = {
-          conversationId: conversationIdRef.current,
+          conversationId: requestConversationId,
           agentSessionId,
           mode: currentMode,
           browserContext: requestBrowserContext,
@@ -678,6 +725,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       })
     },
     onFinish: async ({ message, messages, isAbort, isError, finishReason }) => {
+      const sourceId = (
+        messages.findLast((item) => item.role === 'user')?.metadata as
+          | { conversationId?: string }
+          | undefined
+      )?.conversationId
+      if (
+        !sessionMountedRef.current ||
+        (sourceId && sourceId !== conversationIdRef.current)
+      )
+        return
       const outcome =
         !isAbort && !isError && finishReason === 'stop' ? 'done' : 'paused'
       if (composerDeliveryRef.current)
@@ -688,6 +745,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       // finish handler mutate the destination chat or reattach the old turn.
       const finishedConversationId = conversationIdRef.current
       const stillSameConversation = () =>
+        sessionMountedRef.current &&
         conversationIdRef.current === finishedConversationId
 
       const nextMessages = addContentFilterNotice(
@@ -779,6 +837,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         baseUrl,
       })
         .then((page) => {
+          if (conversationIdRef.current !== conversationId) return
           const safe = slimMessagesForClientUi(
             stripFatInlineImagesFromMessages(page.messages),
           )
@@ -795,6 +854,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           )
         })
         .catch(() => {
+          if (conversationIdRef.current !== conversationId) return
           setMessages([])
           setHasMoreAbove(false)
         })
@@ -870,7 +930,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       baseUrl,
     })
       .then((page) => {
-        if (cancelled) return
+        if (cancelled || conversationIdRef.current !== conversationId) return
         setHasMoreAbove((prev) => prev || page.hasMore)
         setMessages((current) => {
           const { messages: next } = hydrateClientMessagesFromServer(
@@ -952,7 +1012,19 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           const stillActive = await turnControllerRef.current.refreshActive()
           if (cancelled) return
           if (stillActive) {
-            // Live turn — never stop()/cancel from the watchdog.
+            // Reconnect a lost snapshot stream in restored views.
+            if (status !== 'submitted' && status !== 'streaming')
+              turnControllerRef.current.ensureAttached((next) => {
+                if (!cancelled && conversationIdRef.current === conversationId)
+                  setMessages(
+                    prepareMessagesForClientTurn(
+                      slimMessagesForClientUi(
+                        stripFatInlineImagesFromMessages(next),
+                      ),
+                      { settleApprovals: false, settleIncomplete: false },
+                    ),
+                  )
+              })
             lastMessageGrowthAtRef.current = Date.now()
             return
           }
@@ -1107,17 +1179,42 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     },
   )
 
+  const [restoreAttempt, setRestoreAttempt] = useState(0)
   const [restoredConversationId, setRestoredConversationId] = useState<
     string | null
   >(null)
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: restore should only run when query data arrives or conversationIdParam changes
   useEffect(() => {
+    void restoreAttempt
     if (!conversationIdParam) return
     if (restoredConversationId === conversationIdParam) return
     // Home composer handoff (`?q=`) always starts a new chat. Do not restore
     // a prior conversationId over that prompt (e.g. stale per-window resume).
     if (searchParams.get('q')) return
+    if (searchParams.get('sendDraft')) {
+      setRestoredConversationId(conversationIdParam)
+      return
+    }
+    let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
+    const retry = () => {
+      if (!cancelled)
+        retryTimer = setTimeout(
+          () => setRestoreAttempt((value) => value + 1),
+          2500,
+        )
+    }
+    const cleanup = () => {
+      cancelled = true
+      clearTimeout(retryTimer)
+      turnControllerRef.current.detachAttachOnly()
+    }
+    // Invalidate the previous chat before detaching its subscriber.
+    conversationIdRef.current = conversationIdParam as ReturnType<
+      typeof crypto.randomUUID
+    >
+    turnControllerRef.current.setConversationId(conversationIdParam)
 
     // Detach the local SSE subscriber only — do not cancel the server turn.
     // The previous conversation keeps running; we reattach when returning.
@@ -1125,6 +1222,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     stop()
 
     const quarantineAndOpenBlank = (reason: string) => {
+      if (cancelled) return
       sentry.captureMessage(reason, {
         level: 'warning',
         extra: { conversationId: conversationIdParam },
@@ -1154,9 +1252,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         try {
           active = await fetchActiveChatTurn(restoredId, baseUrl)
         } catch {
-          // Probe failed — never treat as inactive for cloud fallthrough.
+          // Probe failed — retry without discarding the conversation link.
+          retry()
           return 'unknown'
         }
+        if (cancelled) return 'unknown'
         const running = active?.status === 'running'
         if (options?.preferLiveOnly && !running) {
           return 'inactive'
@@ -1166,6 +1266,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           limit: CHAT_PAGE_SIZE,
           baseUrl,
         })
+        if (cancelled) return 'unknown'
         // Running turns need the live attach path; still start from a page
         // and let attach replace with projected snapshots.
         const safeMessages = stripFatInlineImagesFromMessages(page.messages)
@@ -1187,11 +1288,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           }),
         )
         setRestoredConversationId(conversationIdParam)
-        setSearchParams({}, { replace: true })
         if (running) {
           await turnControllerRef.current.restoreAndAttach({
             conversationId: restoredId,
             onMessages: (next) => {
+              if (cancelled || conversationIdRef.current !== restoredId) return
               const projected = slimMessagesForClientUi(
                 stripFatInlineImagesFromMessages(next),
               )
@@ -1208,17 +1309,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         }
         return 'restored'
       } catch (error) {
-        if (options?.preferLiveOnly) {
-          return 'unknown'
-        }
+        if (cancelled) return 'unknown'
         sentry.captureException(error)
-        // Safe open: clear the deep-link so we do not crash-loop the same id.
-        setRestoredConversationId(conversationIdParam)
-        setSearchParams({}, { replace: true })
-        setMessages([])
-        setHasMoreAbove(false)
-        setConversationId(crypto.randomUUID())
-        return 'restored'
+        retry()
+        return 'unknown'
       }
     }
 
@@ -1227,7 +1321,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       if (!agentServerUrl) return
       // Never clobber a live turn with stale GraphQL history.
       void restoreFromServer({ preferLiveOnly: true }).then((result) => {
-        if (result === 'restored' || result === 'unknown') return
+        if (cancelled || result === 'restored' || result === 'unknown') return
         if (!isRemoteConversationFetched) return
 
         if (remoteConversationData?.conversation) {
@@ -1262,18 +1356,103 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           markMessagesAsSaved(conversationIdParam, preparedMessages)
         }
         setRestoredConversationId(conversationIdParam)
-        setSearchParams({}, { replace: true })
       })
-      return
+      return cleanup
     }
 
     void restoreFromServer()
+    return cleanup
   }, [
     conversationIdParam,
+    restoreAttempt,
     remoteConversationData,
     useCloudHistory,
     isRemoteConversationFetched,
     agentServerUrl,
+  ])
+
+  // Every open view follows the conversation, including turns started in
+  // another window. Poll only when the SDK is not already streaming locally.
+  useEffect(() => {
+    if (
+      !agentServerUrl ||
+      (conversationIdParam && restoredConversationId !== conversationIdParam)
+    )
+      return
+    let cancelled = false
+    let checking = false
+    let lastHistoryCheck = 0
+    let lastHistorySnapshot = ''
+    const controller = turnControllerRef.current
+    const apply = (next: UIMessage[]) => {
+      if (cancelled || conversationIdRef.current !== conversationId) return
+      setMessages(
+        prepareMessagesForClientTurn(
+          slimMessagesForClientUi(stripFatInlineImagesFromMessages(next)),
+          { settleApprovals: false, settleIncomplete: false },
+        ),
+      )
+    }
+    const check = async () => {
+      if (
+        checking ||
+        cancelled ||
+        status === 'submitted' ||
+        status === 'streaming'
+      )
+        return
+      checking = true
+      try {
+        const wasActive = controller.isTurnActive
+        const active = await controller.refreshActive()
+        if (cancelled || conversationIdRef.current !== conversationId) return
+        if (active) controller.ensureAttached(apply)
+        else if (wasActive || Date.now() - lastHistoryCheck > 10_000) {
+          const page = await fetchChatMessagePage(conversationId, {
+            limit: CHAT_PAGE_SIZE,
+            baseUrl: agentServerUrl,
+          })
+          lastHistoryCheck = Date.now()
+          if (cancelled || conversationIdRef.current !== conversationId) return
+          const projected = slimMessagesForClientUi(
+            stripFatInlineImagesFromMessages(page.messages),
+          )
+          const snapshot = JSON.stringify(projected)
+          if (snapshot === lastHistorySnapshot) return
+          lastHistorySnapshot = snapshot
+          if (!projected.length) return
+          setHasMoreAbove((previous) => previous || page.hasMore)
+          setMessages((current) => {
+            const first = current.findIndex(
+              (item) => item.id === projected[0].id,
+            )
+            const merged =
+              first >= 0
+                ? [...current.slice(0, first), ...projected]
+                : projected
+            return prepareMessagesForClientTurn(merged, {
+              settleApprovals: false,
+            })
+          })
+        }
+      } finally {
+        checking = false
+      }
+    }
+    const timer = setInterval(() => {
+      void check().catch(() => {})
+    }, 2000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [
+    conversationId,
+    conversationIdParam,
+    restoredConversationId,
+    agentServerUrl,
+    status,
+    setMessages,
   ])
 
   // Per-window scope: resume this window's conversation when the side panel
@@ -1297,7 +1476,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       windowIdRef.current = windowId
       const stored = await getWindowConversation(windowId)
       if (cancelled) return
-      if (stored && stored !== conversationIdRef.current) {
+      if (
+        stored &&
+        stored !== conversationIdRef.current &&
+        !explicitNavigationRef.current &&
+        !searchParams.get('q')
+      ) {
         setSearchParams({ conversationId: stored })
       } else if (!stored) {
         await setWindowConversation(windowId, conversationIdRef.current)
@@ -1341,6 +1525,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           if (cancelled) return
           if (
             storedTabConversation &&
+            !explicitNavigationRef.current &&
             shouldResumeLastActiveConversation({
               origin: options?.origin,
               conversationIdParam,
@@ -1374,7 +1559,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         currentTabId,
         storedTabId: stored?.tabId ?? null,
       })
-      if (!resume || !stored) return
+      if (!resume || !stored || explicitNavigationRef.current) return
       setSearchParams({ conversationId: stored.conversationId })
     })()
     return () => {
@@ -1480,11 +1665,26 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }, [mode, selectedChatTargetRef, selectedLlmProvider])
 
   const dispatchMessage = useCallback(
-    (text: string, composer?: ComposerMessage) => {
+    async (
+      text: string,
+      composer?: ComposerMessage,
+      onAccepted?: NonNullable<
+        typeof composerDeliveryRef.current
+      >['onAccepted'],
+    ) => {
+      const dispatchConversationId = conversationIdRef.current
       const delivery: NonNullable<typeof composerDeliveryRef.current> = {
         outcome: 'paused',
+        onAccepted,
       }
       composerDeliveryRef.current = delivery
+      if (options?.origin === 'newtab') {
+        setRestoredConversationId(conversationIdRef.current)
+        setSearchParams(
+          { conversationId: conversationIdRef.current },
+          { replace: true },
+        )
+      }
       setLastTurnSucceeded(false)
       trackMessageSent()
       startExecutionTask({
@@ -1493,7 +1693,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       })
       // Supersede any live server turn, then detach local SSE before sending.
       if (!composer)
-        void turnControllerRef.current.cancel('superseded-by-new-message')
+        await turnControllerRef.current.cancel('superseded-by-new-message')
+      if (conversationIdRef.current !== dispatchConversationId)
+        throw new Error('Conversation changed before the message was sent.')
       if (status === 'submitted' || status === 'streaming') {
         void stop()
       }
@@ -1509,16 +1711,20 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           { type: 'text', text },
           ...composerFileParts(composer?.attachments),
         ],
-        metadata: composer
-          ? {
-              composer: {
-                action: composer.action,
-                mode: composer.mode,
-                selection: composer.selection ?? null,
-                revision: composer.revision,
-              },
-            }
-          : undefined,
+        metadata: {
+          conversationId: conversationIdRef.current,
+          ...(composer
+            ? {
+                composer: {
+                  target: composer.target,
+                  action: composer.action,
+                  mode: composer.mode,
+                  selection: composer.selection ?? null,
+                  revision: composer.revision,
+                },
+              }
+            : {}),
+        },
       }).then(() => delivery)
     },
     [
@@ -1528,6 +1734,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       status,
       stop,
       trackMessageSent,
+      options?.origin,
+      setSearchParams,
     ],
   )
 
@@ -1570,26 +1778,36 @@ export const useChatSession = (options?: ChatSessionOptions) => {
 
   const sendComposerMessage = async (
     draft: ComposerMessage,
-  ): Promise<'done' | 'paused'> => {
+    onAccepted?: NonNullable<typeof composerDeliveryRef.current>['onAccepted'],
+  ): Promise<'done' | 'paused' | 'pending'> => {
     if (!canSend || !isIntegrationsSyncedRef.current)
       throw new Error('Chat is not ready. Your message is kept in the queue.')
+    const target = draft.target
+      ? chatTargetsRef.current.find(
+          (item) =>
+            item.id === draft.target?.id && item.kind === draft.target?.kind,
+        )
+      : selectedChatTargetRef.current
+    if (draft.target && !target)
+      throw new Error(
+        'The queued model or agent is no longer available. Restore the message to choose another.',
+      )
     if (draft.revision) {
       if (
-        selectedChatTargetRef.current?.kind === 'acp' ||
-        ['codex', 'claude-code', 'acp-custom'].includes(
-          selectedChatTargetRef.current?.type ?? '',
-        )
+        target?.kind === 'acp' ||
+        ['codex', 'claude-code', 'acp-custom'].includes(target?.type ?? '')
       )
         throw new Error(
           'This agent does not support history revisions. Use the message as a new draft instead.',
         )
       resetConversationState()
     }
-    const acp = selectedChatTargetRef.current?.kind === 'acp'
+    const acp = target?.kind === 'acp'
     const dispatchConversationId = conversationIdRef.current
     const delivery = await dispatchMessage(
       draft.text || 'Please review the attached files.',
       draft,
+      onAccepted,
     )
     if (acp)
       return composerDeliveryRef.current === delivery &&
@@ -1600,7 +1818,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     if (!started) return 'paused'
     // SDK readiness or a closed HTTP stream is not a completion receipt.
     // Replay the specific server turn's terminal event before advancing FIFO.
-    let confirmed: 'done' | 'paused' = 'paused'
+    let confirmed: 'done' | 'paused' | 'pending' = 'pending'
     try {
       await attachChatTurnStream({
         ...started,
@@ -1611,16 +1829,27 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         },
       })
     } catch {
-      return 'paused'
+      return 'pending'
     }
     return confirmed
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
   useEffect(() => {
+    if (options?.origin === 'newtab') return
+    let disposed = false
     let lastAppliedRequestId: string | null = null
-
-    const applySearchAction = (storageAction: SearchActionStorage) => {
+    const receiver = Promise.all([
+      chrome.tabs.query({ active: true, currentWindow: true }),
+      sidePanelPerWindowStorage.getValue(),
+    ]).then(([tabs, perWindow]) => ({
+      tabId: tabs[0]?.id,
+      windowId: tabs[0]?.windowId,
+      perWindow,
+    }))
+    const applySearchAction = async (storageAction: SearchActionStorage) => {
+      const scope = await receiver
+      if (disposed || !isSearchActionForReceiver(storageAction, scope)) return
       if (
         !shouldApplySearchAction({
           requestId: storageAction.requestId,
@@ -1634,6 +1863,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       // deliberate double-write) must stay suppressed for this mount's
       // lifetime. A genuinely new dispatch always carries a fresh requestId.
       lastAppliedRequestId = storageAction.requestId
+      explicitNavigationRef.current = true
 
       if (storageAction.conversationId) {
         setMode(storageAction.mode)
@@ -1663,7 +1893,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const unwatch = searchActionsStorage.watch((storageAction) => {
       if (storageAction) applySearchAction(storageAction)
     })
-    return () => unwatch()
+    return () => {
+      disposed = true
+      unwatch()
+    }
   }, [])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
@@ -1688,6 +1921,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       crypto.randomUUID()) as ReturnType<typeof crypto.randomUUID>
     setConversationId(nextConvoId)
     conversationIdRef.current = nextConvoId
+    turnControllerRef.current.setConversationId(nextConvoId)
     // Clear before the next send — prepareSendMessagesRequest reads this ref
     // synchronously, and setMessages([]) alone leaves stale history until the
     // sync effect runs (home→sidepanel handoff was seeding previousConversation).
@@ -1955,6 +2189,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       limit: CHAT_PAGE_SIZE,
       baseUrl,
     })
+    if (conversationIdRef.current !== conversationId) return
     setHasMoreAbove(page.hasMore)
     if (page.messages.length === 0) return
     setMessages((current) => {

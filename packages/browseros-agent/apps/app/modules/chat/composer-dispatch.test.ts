@@ -1,5 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
-import { dispatchNextComposerMessage } from './composer-dispatch'
+import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
+
+const fetchActiveChatTurn = mock(
+  async (): Promise<{ status: string } | null> => null,
+)
+const attachChatTurnStream = mock(
+  async (_input: {
+    onEvent: (event: { type: 'done'; status: 'done' | 'error' }) => void
+  }) => {},
+)
+mock.module('@/lib/conversations/chat-turn-api', () => ({
+  fetchActiveChatTurn,
+  cancelChatTurn: mock(async () => ({ cancelled: true })),
+  attachChatTurnStream,
+}))
+const { dispatchNextComposerMessage } = await import('./composer-dispatch')
+
 import { type ComposerState, emptyComposer } from './composer-store'
 
 function deferred() {
@@ -62,6 +77,10 @@ const options = () => ({
 })
 
 beforeEach(() => {
+  fetchActiveChatTurn.mockReset()
+  fetchActiveChatTurn.mockImplementation(async () => null)
+  attachChatTurnStream.mockReset()
+  attachChatTurnStream.mockImplementation(async () => {})
   sent.length = 0
   stored = {
     [key]: {
@@ -202,4 +221,86 @@ describe('frontend dispatch ownership', () => {
     expect(stored[key].queue[0].state).toBe('review')
     expect(stored[key].note).toContain('reattach')
   })
+})
+
+describe('cross-view recovery', () => {
+  it('does not send while another view has a live server turn', async () => {
+    fetchActiveChatTurn.mockImplementation(async () => ({ status: 'running' }))
+    await dispatchNextComposerMessage({ ...options(), conversationId: 'chat' })
+    expect(sent).toEqual([])
+    expect(stored[key].queue[0].state).toBe('queued')
+  })
+  it('persists acceptance before the response finishes', async () => {
+    const base = options()
+    await dispatchNextComposerMessage({
+      ...base,
+      getSession: () => ({
+        ...base.getSession(),
+        sendComposerMessage: async (_message, accepted) => {
+          await accepted?.({ turnId: 'turn', conversationId: 'chat' })
+          expect(stored[key].queue[0].started?.turnId).toBe('turn')
+          return 'pending'
+        },
+      }),
+    })
+    expect(stored[key].queue[0].state).toBe('sending')
+    expect(stored[key].paused).toBe(false)
+  })
+  it('replays a receipt after the sending view closes without sending the prompt twice', async () => {
+    stored[key].queue[0] = {
+      ...stored[key].queue[0],
+      state: 'sending',
+      started: { turnId: 'turn', conversationId: 'chat' },
+    }
+    attachChatTurnStream.mockImplementation(async ({ onEvent }) => {
+      onEvent({ type: 'done', status: 'done' })
+    })
+    await dispatchNextComposerMessage(options())
+    expect(sent).toEqual([])
+    expect(stored[key].queue.map((item) => item.id)).toEqual(['second'])
+    await dispatchNextComposerMessage(options())
+    expect(sent).toEqual(['second'])
+  })
+  it('keeps an accepted receipt on a temporary disconnect', async () => {
+    stored[key].queue[0] = {
+      ...stored[key].queue[0],
+      state: 'sending',
+      started: { turnId: 'turn', conversationId: 'chat' },
+    }
+    attachChatTurnStream.mockImplementation(async () => {
+      throw new Error('offline')
+    })
+    await dispatchNextComposerMessage(options())
+    expect(sent).toEqual([])
+    expect(stored[key].queue[0].state).toBe('sending')
+  })
+})
+
+it('does not serialize unrelated conversations behind a long-running turn', async () => {
+  const started = deferred()
+  const finish = deferred()
+  const first = options()
+  stored.other = structuredClone(stored[key])
+  const pending = dispatchNextComposerMessage({
+    ...first,
+    getSession: () => ({
+      ...first.getSession(),
+      sendComposerMessage: async () => {
+        started.resolve()
+        await finish.promise
+        return 'done'
+      },
+    }),
+  })
+  await started.promise
+  await dispatchNextComposerMessage({
+    ...options(),
+    key: 'other',
+    dispatchKey: 'other-conversation',
+  })
+  expect(sent).toEqual(['first'])
+  expect(stored.other.queue[0].id).toBe('second')
+  expect(stored[key].queue[0].state).toBe('sending')
+  finish.resolve()
+  await pending
 })

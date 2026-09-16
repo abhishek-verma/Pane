@@ -8,6 +8,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { UIMessage } from 'ai'
 import { Hono } from 'hono'
+import {
+  insertRunningChatTurn,
+  markChatTurnTerminal,
+} from '../../../src/agent/chat-turns-store'
 import { SessionStore } from '../../../src/agent/session-store'
 import { createChatRoutes } from '../../../src/api/routes/chat'
 import { closeDb, initializeDb } from '../../../src/lib/db'
@@ -41,6 +45,32 @@ describe('chat HTTP e2e (paging + tool-outputs)', () => {
   afterEach(() => {
     closeDb()
     rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('replays durable completion after the live stream has expired', async () => {
+    const conversationId = crypto.randomUUID()
+    await sessionStore.persistMessages(
+      conversationId,
+      [{ id: 'user', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      { syncIndexes: false },
+    )
+    const turnId = crypto.randomUUID()
+    await insertRunningChatTurn({
+      turnId,
+      sessionId: conversationId,
+      startedAt: Date.now(),
+    })
+    await markChatTurnTerminal({ turnId, status: 'done' })
+    const response = await app.request(
+      `/chat/${conversationId}/stream?turnId=${turnId}`,
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('text/event-stream')
+    expect(await response.text()).toContain('"status":"done"')
+    const wrongChat = await app.request(
+      `/chat/${crypto.randomUUID()}/stream?turnId=${turnId}`,
+    )
+    expect(wrongChat.status).toBe(404)
   })
 
   it('GET messages pages and tool-outputs returns spilled body', async () => {

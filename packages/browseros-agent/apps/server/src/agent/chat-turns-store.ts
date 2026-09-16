@@ -124,3 +124,21 @@ export async function interruptDbRunningChatTurn(
     stopReason: reason,
   })
 }
+
+/** Completion receipts remain available after the in-memory stream expires. */
+export async function getChatTurnTerminalStatus(
+  sessionId: string,
+  turnId: string,
+): Promise<'done' | 'error' | 'cancelled' | null> {
+  const row = await getDb()
+    .select({ status: chatTurns.status })
+    .from(chatTurns)
+    .where(and(eq(chatTurns.id, turnId), eq(chatTurns.sessionId, sessionId)))
+    .get()
+  if (!row || row.status === 'running') return null
+  return row.status === 'done'
+    ? 'done'
+    : row.status === 'cancelled'
+      ? 'cancelled'
+      : 'error'
+}

@@ -11,8 +11,10 @@ export interface QueuedMessage {
   message: ComposerMessage
   state: 'queued' | 'sending' | 'review'
   waitsForSuccess?: boolean
+  started?: { turnId: string; conversationId: string }
 }
 export interface ComposerState {
+  revision?: number
   draft: ChatDraft
   queue: QueuedMessage[]
   paused: boolean
@@ -26,10 +28,35 @@ export const emptyDraft = (): ChatDraft => ({
 export const emptyComposer = (): ComposerState => ({
   draft: emptyDraft(),
   queue: [],
-  paused: true,
+  paused: false,
 })
-export const composerKey = (conversationId: string, targetId: string) =>
-  `chat-composer-v1:${conversationId}:${targetId}`
+export const composerKey = (conversationId: string, _targetId?: string) =>
+  `chat-composer-v2:${conversationId}`
+
+/** Merge provider-scoped drafts/queues once, under the same write lock. */
+export async function migrateComposer(conversationId: string): Promise<void> {
+  const key = composerKey(conversationId)
+  await navigator.locks.request(`${key}:write`, async () => {
+    if ((await chrome.storage.local.get(key))[key]) return
+    const keys = (await chrome.storage.local.getKeys()).filter((name) =>
+      name.startsWith(`chat-composer-v1:${conversationId}:`),
+    )
+    const legacy = Object.entries(await chrome.storage.local.get(keys))
+    if (!legacy.length) return
+    const merged = emptyComposer()
+    for (const [, raw] of legacy) {
+      const value = raw as ComposerState
+      if (!merged.draft.text && !merged.draft.attachments.length)
+        merged.draft = value.draft
+      merged.queue.push(
+        ...value.queue.filter(
+          (item) => !merged.queue.some((existing) => existing.id === item.id),
+        ),
+      )
+    }
+    await chrome.storage.local.set({ [key]: recoverComposer(merged) })
+  })
+}
 export async function readComposer(key: string): Promise<ComposerState> {
   return (
     ((await chrome.storage.local.get(key))[key] as ComposerState | undefined) ??
@@ -42,9 +69,12 @@ export async function updateComposer(
   update: (state: ComposerState) => ComposerState,
 ) {
   return navigator.locks.request(`${key}:write`, async () => {
-    const next = update(await readComposer(key))
-    await chrome.storage.local.set({ [key]: next })
-    return next
+    const current = await readComposer(key)
+    const next = update(current)
+    if (next === current) return current
+    const saved = { ...next, revision: (current.revision ?? 0) + 1 }
+    await chrome.storage.local.set({ [key]: saved })
+    return saved
   })
 }
 
@@ -59,27 +89,38 @@ export function settleQueuedMessage(
       ? state.queue
           .filter((item) => item.id !== id)
           .map((item) => ({ ...item, waitsForSuccess: false }))
-      : state.queue.map((item) =>
-          item.id === id ? { ...item, state: 'review' } : item,
+      : state.queue.flatMap((item) =>
+          item.id !== id
+            ? [item]
+            : item.started
+              ? []
+              : [{ ...item, state: 'review' as const }],
         ),
     paused: success ? state.paused : true,
     note: success
       ? undefined
-      : 'Delivery did not finish successfully. Review the last message before continuing.',
+      : 'The response stopped. Send the remaining messages when you are ready.',
   }
 }
 
 export function recoverComposer(state: ComposerState): ComposerState {
   if (!state.queue.length) return state
-  const interrupted = state.queue.some((item) => item.state === 'sending')
+  const interrupted = state.queue.some(
+    (item) => item.state === 'sending' && !item.started,
+  )
   return {
     ...state,
-    paused: true,
+    paused:
+      (state.paused && !!state.note) ||
+      interrupted ||
+      state.queue.some((item) => item.state === 'review'),
     note: interrupted
-      ? 'Delivery was interrupted. Review the last message before sending it again.'
+      ? 'Delivery could not be confirmed. Restore the message to retry.'
       : state.note,
     queue: state.queue.map((item) =>
-      item.state === 'sending' ? { ...item, state: 'review' } : item,
+      item.state === 'sending' && !item.started
+        ? { ...item, state: 'review' }
+        : item,
     ),
   }
 }

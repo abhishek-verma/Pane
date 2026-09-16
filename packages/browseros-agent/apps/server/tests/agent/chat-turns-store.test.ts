@@ -3,8 +3,10 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  getChatTurnTerminalStatus,
   getDbRunningChatTurn,
   insertRunningChatTurn,
+  markChatTurnTerminal,
   reconcileStaleChatTurns,
 } from '../../src/agent/chat-turns-store'
 import { closeDb, getDb, initializeDb } from '../../src/lib/db'
@@ -21,6 +23,21 @@ describe('chat_turns durable mirror', () => {
   afterEach(() => {
     closeDb()
     rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('retains completion receipts and scopes them to their conversation', async () => {
+    const sessionId = crypto.randomUUID()
+    await getDb()
+      .insert(chatSessions)
+      .values({ id: sessionId, createdAt: Date.now(), updatedAt: Date.now() })
+    const turnId = crypto.randomUUID()
+    await insertRunningChatTurn({ turnId, sessionId, startedAt: Date.now() })
+    expect(await getChatTurnTerminalStatus(sessionId, turnId)).toBeNull()
+    await markChatTurnTerminal({ turnId, status: 'done' })
+    expect(await getChatTurnTerminalStatus(sessionId, turnId)).toBe('done')
+    expect(await getChatTurnTerminalStatus('different-chat', turnId)).toBeNull()
+    await markChatTurnTerminal({ turnId, status: 'interrupted' })
+    expect(await getChatTurnTerminalStatus(sessionId, turnId)).toBe('error')
   })
 
   it('boot reconcile marks running rows interrupted', async () => {

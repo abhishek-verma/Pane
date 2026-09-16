@@ -82,17 +82,22 @@ export default defineBackground(() => {
       typeof currentTab?.id === 'number' &&
       typeof currentTab.windowId === 'number'
     ) {
+      const handoff = {
+        ...messageData.data,
+        targetTabId: currentTab.id,
+        targetWindowId: currentTab.windowId,
+      }
       // Write handoff BEFORE open so a cold sidepanel mount can read it via
       // getValue(). watch() alone misses values set before the listener attaches
       // (first Open owner agent click looked like a no-op).
-      await searchActionsStorage.setValue(messageData.data)
+      await searchActionsStorage.setValue(handoff)
       const { opened } = await openSidePanel({
         tabId: currentTab.id,
         windowId: currentTab.windowId,
       })
       if (opened) {
         // Re-write so an already-mounted panel's watch() fires.
-        await searchActionsStorage.setValue(messageData.data)
+        await searchActionsStorage.setValue(handoff)
       }
     }
   })

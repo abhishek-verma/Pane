@@ -7,6 +7,8 @@ import type { ChatAction } from '@/lib/chat-actions/types'
 export interface SearchActionStorage {
   /** Unique per dispatch — the dedup key for a possibly-doubled delivery. */
   requestId: string
+  targetTabId?: number
+  targetWindowId?: number
   query: string
   mode: 'chat' | 'agent'
   action?: ChatAction

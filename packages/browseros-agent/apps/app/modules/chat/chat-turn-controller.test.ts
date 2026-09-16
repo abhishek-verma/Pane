@@ -5,7 +5,13 @@ const fetchActiveChatTurn = mock(
   async (): Promise<ChatActiveTurnInfo | null> => null,
 )
 const cancelChatTurn = mock(async () => ({ cancelled: true }))
-const attachChatTurnStream = mock(async () => {})
+const attachChatTurnStream = mock(
+  async (
+    _input: Parameters<
+      typeof import('@/lib/conversations/chat-turn-api').attachChatTurnStream
+    >[0],
+  ) => {},
+)
 
 // Do not import the real chat-turn-api module here — it pulls
 // agent-fetch → profile-key → @wxt-dev/storage (needs browser.runtime).
@@ -170,4 +176,123 @@ describe('ChatTurnController', () => {
     expect(controller.isTurnActive).toBe(true)
     expect(controller.turn?.turnId).toBe('turn-new')
   })
+})
+
+describe('snapshot recovery races', () => {
+  const running = (turnId = 'turn') => ({
+    turnId,
+    conversationId: 'chat',
+    status: 'running' as const,
+    lastSeq: 12,
+    startedAt: Date.now(),
+    prompt: null,
+    truncated: false,
+  })
+  it('cold attaches without skipping the server snapshot', async () => {
+    fetchActiveChatTurn.mockImplementation(async () => running())
+    const controller = new ChatTurnController()
+    attachChatTurnStream.mockReset()
+    attachChatTurnStream.mockImplementation(async () => {})
+    await controller.restoreAndAttach({
+      conversationId: 'chat',
+      onMessages: () => {},
+    })
+    expect(attachChatTurnStream.mock.calls[0][0].lastSeq).toBeUndefined()
+  })
+  it('ignores a discovery completed after closing the view', async () => {
+    let resolve!: (value: ChatActiveTurnInfo) => void
+    fetchActiveChatTurn.mockImplementation(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        }),
+    )
+    const controller = new ChatTurnController()
+    const pending = controller.restoreAndAttach({
+      conversationId: 'chat',
+      onMessages: () => {},
+    })
+    controller.detachAttachOnly()
+    resolve(running())
+    expect(await pending).toBe(false)
+    expect(controller.isTurnActive).toBe(false)
+  })
+  it('ignores old discovery after switching away and back to the same chat', async () => {
+    let resolve!: (value: ChatActiveTurnInfo) => void
+    fetchActiveChatTurn.mockImplementation(
+      () =>
+        new Promise((done) => {
+          resolve = done
+        }),
+    )
+    const controller = new ChatTurnController()
+    const pending = controller.restoreAndAttach({
+      conversationId: 'chat',
+      onMessages: () => {},
+    })
+    controller.setConversationId('other')
+    controller.setConversationId('chat')
+    controller.noteStartedTurn('new', 'chat')
+    resolve(running('old'))
+    expect(await pending).toBe(false)
+    expect(controller.turn?.turnId).toBe('new')
+  })
+  it('reconnects a dropped attach but leaves an existing subscriber alone', async () => {
+    fetchActiveChatTurn.mockImplementation(async () => running())
+    let finish!: () => void
+    attachChatTurnStream.mockReset()
+    attachChatTurnStream.mockImplementation(
+      () =>
+        new Promise<void>((done) => {
+          finish = done
+        }),
+    )
+    const controller = new ChatTurnController()
+    await controller.restoreAndAttach({
+      conversationId: 'chat',
+      onMessages: () => {},
+    })
+    controller.ensureAttached(() => {})
+    expect(attachChatTurnStream).toHaveBeenCalledTimes(1)
+    finish()
+    await new Promise((done) => setTimeout(done, 0))
+    controller.ensureAttached(() => {})
+    expect(attachChatTurnStream).toHaveBeenCalledTimes(2)
+    controller.detachAttachOnly()
+    finish()
+  })
+})
+
+it('does not let an old inactive probe clear a newer turn in the same chat', async () => {
+  let resolve!: (value: ChatActiveTurnInfo | null) => void
+  fetchActiveChatTurn.mockImplementation(
+    () =>
+      new Promise((done) => {
+        resolve = done
+      }),
+  )
+  const controller = new ChatTurnController()
+  controller.noteStartedTurn('old', 'chat')
+  const pending = controller.refreshActive()
+  controller.noteStartedTurn('new', 'chat')
+  resolve(null)
+  expect(await pending).toBe(true)
+  expect(controller.turn?.turnId).toBe('new')
+})
+
+it('does not let a cancel begun while idle clear a newly started turn', async () => {
+  let resolve!: (value: { cancelled: boolean }) => void
+  cancelChatTurn.mockImplementation(
+    () =>
+      new Promise((done) => {
+        resolve = done
+      }),
+  )
+  const controller = new ChatTurnController()
+  controller.setConversationId('chat')
+  const pending = controller.cancel()
+  controller.noteStartedTurn('new', 'chat')
+  resolve({ cancelled: false })
+  await pending
+  expect(controller.turn?.turnId).toBe('new')
 })

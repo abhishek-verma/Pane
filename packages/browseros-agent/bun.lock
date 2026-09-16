@@ -27,7 +27,7 @@
     },
     "apps/app": {
       "name": "@browseros/app",
-      "version": "0.0.180",
+      "version": "0.0.181",
       "dependencies": {
         "@ai-sdk/react": "^3.0.210",
         "@browseros/capture": "workspace:*",
@@ -250,7 +250,7 @@
     },
     "apps/server": {
       "name": "@browseros/server",
-      "version": "0.0.127",
+      "version": "0.0.128",
       "bin": {
         "browseros-server": "./src/index.ts",
       },
