@@ -14,6 +14,12 @@ const layerSchema = z.unknown().transform((value, ctx): InstalledLayer => {
 })
 
 export const LAYER_CHANNEL = 'pane.layers.v1'
+export const documentIdentityRequestSchema = z
+  .object({
+    channel: z.literal(LAYER_CHANNEL),
+    kind: z.literal('document-identity'),
+  })
+  .strict()
 export const documentHelloSchema = z
   .object({
     channel: z.literal(LAYER_CHANNEL),

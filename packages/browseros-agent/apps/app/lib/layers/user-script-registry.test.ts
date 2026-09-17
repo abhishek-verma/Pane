@@ -476,7 +476,10 @@ describe('private userscript registry', () => {
     await registry.synchronize([layer])
     await f.send()
     await f.settled()
-    expect((await f.action({ userGesture: false })).ok).toBe(false)
+    expect(await f.action({ userGesture: false })).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('click handler'),
+    })
     expect(
       (await f.action({ payload: { actionId: 'undeclared', input: {} } })).ok,
     ).toBe(false)

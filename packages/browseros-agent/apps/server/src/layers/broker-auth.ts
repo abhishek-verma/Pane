@@ -1,10 +1,11 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { closeSync, fstatSync, readSync } from 'node:fs'
 import { z } from 'zod'
 
 export const LAYER_EXTENSION_ID = 'biedncddmddkpapdplhcnkhhplnfgbif'
 const PREFIX = 'pane.layers.auth.v1.'
+export const LAYER_AUTHOR_SESSION_PREFIX = 'Bearer pane.layers.session.v1.'
 const claimsSchema = z
   .object({
     profileId: z.string().uuid(),
@@ -26,6 +27,11 @@ const context = new AsyncLocalStorage<{
 }>()
 
 export class LayerAuthority {
+  private readonly authorSessions = new Map<
+    string,
+    { profileId: string; scopeId: string }
+  >()
+
   constructor(
     private readonly secret: string,
     private readonly now: () => number = Date.now,
@@ -85,6 +91,43 @@ export class LayerAuthority {
     const message =
       PREFIX + Buffer.from(JSON.stringify(claims)).toString('base64url')
     return `Bearer ${message}.${createHmac('sha256', this.secret).update(message).digest('base64url')}`
+  }
+
+  /** Exchange a current delegation for a capability owned by one live ACP
+   * provider. MCP headers are immutable for that provider's lifetime, which
+   * may span many turns. Unlike browser credentials this capability works only
+   * on /mcp, cannot mint other credentials, and is revoked on provider close.
+   * Nothing is restored from disk: a server restart invalidates every session.
+   */
+  openAuthorSession(
+    authorization: string,
+    profileId: string,
+    scopeId: string,
+  ): { authorization: string; close: () => void } {
+    const access = this.verify(authorization)
+    if (
+      access?.role !== 'author' ||
+      access.profileId !== profileId ||
+      access.scopeId !== scopeId
+    )
+      throw new Error(
+        'A current, matching Layer author delegation is required.',
+      )
+    const token = LAYER_AUTHOR_SESSION_PREFIX + randomBytes(32).toString('hex')
+    this.authorSessions.set(token, { profileId, scopeId })
+    return {
+      authorization: token,
+      close: () => {
+        this.authorSessions.delete(token)
+      },
+    }
+  }
+
+  verifyAuthorSession(authorization: string): LayerAccess | null {
+    const session = this.authorSessions.get(authorization)
+    return session
+      ? { ...session, role: 'author', expiresAt: this.now() + 30 * 60_000 }
+      : null
   }
 }
 

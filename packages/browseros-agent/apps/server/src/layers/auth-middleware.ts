@@ -1,15 +1,31 @@
 import { BROWSEROS_PROFILE_ID_HEADER } from '@browseros/shared/constants/headers'
 import { createMiddleware } from 'hono/factory'
 import { tryGetProfileKey } from '../lib/profile-context'
-import { layerAuthority, withLayerAccess } from './broker-auth'
+import {
+  LAYER_AUTHOR_SESSION_PREFIX,
+  type LayerAuthority,
+  layerAuthority,
+  withLayerAccess,
+} from './broker-auth'
 
 /** General chat remains backwards compatible, but Layer mutations require a
  * native-authenticated request or an explicitly delegated author MCP session. */
-export function optionalLayerAuthorization() {
+export function optionalLayerAuthorization(
+  authority: LayerAuthority | null = layerAuthority,
+) {
   return createMiddleware(async (c, next) => {
     const authorization = c.req.header('Authorization')
-    if (!authorization?.startsWith('Bearer pane.layers.auth.v1.')) return next()
-    const access = layerAuthority?.verify(authorization)
+    const isSession = authorization?.startsWith(LAYER_AUTHOR_SESSION_PREFIX)
+    if (
+      !authorization ||
+      (!isSession && !authorization.startsWith('Bearer pane.layers.auth.v1.'))
+    )
+      return next()
+    const access = isSession
+      ? c.req.path === '/mcp'
+        ? authority?.verifyAuthorSession(authorization)
+        : null
+      : authority?.verify(authorization)
     const profileId =
       tryGetProfileKey() ?? c.req.header(BROWSEROS_PROFILE_ID_HEADER)
     if (

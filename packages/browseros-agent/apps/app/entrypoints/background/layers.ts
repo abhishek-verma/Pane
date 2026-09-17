@@ -18,8 +18,14 @@ import { LayerActionEvents } from '@/lib/layers/action-events'
 import { LayerRuntimeCache } from '@/lib/layers/cache'
 import { documentHelloSchema, LAYER_CHANNEL } from '@/lib/layers/messages'
 import { getLayerCredential, layerFetch } from '@/lib/layers/native'
+import {
+  LayerScriptRequestError,
+  scriptActionFailureMessage,
+  scriptRequestErrorMessage,
+} from '@/lib/layers/script-errors'
 import { loadProviders } from '@/lib/llm-providers/storage'
 import { verifyLayerReload } from './layer-verification'
+import { readActionDocument } from './layers/action-document'
 import {
   LayerUserScriptRegistry,
   type ScriptDocument,
@@ -310,6 +316,16 @@ export function layersBridge(): void {
           'The saved provider is missing. Configure it in Settings; no fallback was used.',
         )
       if (invocation.cancelled) throw new Error('Translation cancelled.')
+      // The worker/server may have restarted since the last heartbeat. Publish
+      // the native-validated document and provider before binding model work.
+      await syncBroker()
+      if (
+        invocation.cancelled ||
+        documents.get(tabId)?.documentId !== doc.documentId ||
+        documents.get(tabId)?.instanceId !== doc.instanceId ||
+        documents.get(tabId)?.routeEpoch !== doc.routeEpoch
+      )
+        throw new Error('The originating Layer changed.')
       const result = await jsonRequest('/actions/run', {
         binding,
         input: source,
@@ -399,13 +415,8 @@ export function layersBridge(): void {
         listen: false,
         authorized: scriptAllowed,
         action: async (layer, target, actionId, input, signal) => {
-          const doc = documents.get(target.tabId)
-          if (
-            !doc ||
-            doc.documentId !== target.documentId ||
-            doc.url !== target.url
-          )
-            throw new Error('The script document changed.')
+          const doc = await readActionDocument(target)
+          documents.set(doc.tabId, doc)
           const reply = await runAction(
             {
               channel: LAYER_CHANNEL,
@@ -431,7 +442,13 @@ export function layersBridge(): void {
                 received.status,
               )
             )
-              throw new Error('The script action failed or was cancelled.')
+              throw new LayerScriptRequestError(
+                received.status === 'failed'
+                  ? scriptActionFailureMessage(received.code)
+                  : received.status === 'cancelled'
+                    ? 'The Layer action was cancelled.'
+                    : 'The Layer action returned an incomplete response. Retry the action.',
+              )
           }
           throw new Error('No complete structured script result was received.')
         },
@@ -478,10 +495,7 @@ export function layersBridge(): void {
       ].map((layer) => scripts!.mount(layer, doc)),
     )
   }
-  const registerPreviewContext = async (
-    layer: InstalledLayer,
-    target: DocumentRegistration,
-  ) => {
+  async function syncBroker() {
     const providers = (await loadProviders()).map(
       ({ id, type, modelId, updatedAt }) => ({
         id,
@@ -499,6 +513,12 @@ export function layersBridge(): void {
       revision: cache?.serialize().manifest?.revision ?? -1,
       wait: false,
     })
+  }
+  const registerPreviewContext = async (
+    layer: InstalledLayer,
+    target: DocumentRegistration,
+  ) => {
+    await syncBroker()
     await jsonRequest('/preview-context', {
       id: layer.id,
       version: layer.version,
@@ -625,12 +645,8 @@ export function layersBridge(): void {
         })
         .then(
           (value) => respond({ ok: true, value }),
-          () =>
-            respond({
-              ok: false,
-              error:
-                'This script request is unavailable or no longer authorized.',
-            }),
+          (error) =>
+            respond({ ok: false, error: scriptRequestErrorMessage(error) }),
         )
       return true
     },
