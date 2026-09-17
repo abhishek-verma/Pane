@@ -159,7 +159,7 @@ export function buildLayerAuthoringTools(
         'List actual browser tabs registered with Layers. These tabId values are Layer tab IDs, not browser pageId values. Unsupported pages are absent. Load the layers skill first.',
       inputSchema: z.object({}).strict(),
       execute: async () =>
-        text({ documents: broker.documents(authorizedProfile()) }),
+        text({ documents: await broker.refreshDocuments(authorizedProfile()) }),
     }),
     layer_list: tool({
       description:
@@ -186,7 +186,7 @@ export function buildLayerAuthoringTools(
             profileId,
             'inspect',
             undefined,
-            broker.document(profileId, tabId),
+            await broker.refreshDocument(profileId, tabId),
           ),
         )
       },
@@ -237,7 +237,7 @@ export function buildLayerAuthoringTools(
       inputSchema: versionSchema,
       execute: async ({ tabId, id, version }) => {
         const profileId = authorizedProfile()
-        const target = broker.document(profileId, tabId)
+        const target = await broker.refreshDocument(profileId, tabId)
         repository().read(id)
         const layer = repository().version(id, version)
         if (
@@ -273,8 +273,11 @@ export function buildLayerAuthoringTools(
               !error.message.startsWith('The originating document changed.')
             )
               throw error
-            const replacement = broker.document(profileId, tabId)
-            if (!layerMatchesUrl(layer.definition.scope, replacement.url))
+            const replacement = await broker.refreshDocument(profileId, tabId)
+            if (
+              replacement.url !== target.url ||
+              !layerMatchesUrl(layer.definition.scope, replacement.url)
+            )
               throw error
             currentTarget = replacement
           }
@@ -288,7 +291,7 @@ export function buildLayerAuthoringTools(
       inputSchema: versionSchema,
       execute: async ({ tabId, id, version }) => {
         const profileId = authorizedProfile()
-        const target = broker.document(profileId, tabId)
+        const target = await broker.refreshDocument(profileId, tabId)
         repository().read(id)
         const layer = repository().version(id, version)
         const evidence = evidenceSchema.parse(
@@ -418,7 +421,7 @@ export function buildLayerAuthoringTools(
             profileId,
             'clear',
             undefined,
-            broker.document(profileId, tabId),
+            await broker.refreshDocument(profileId, tabId),
           ),
         )
       },
