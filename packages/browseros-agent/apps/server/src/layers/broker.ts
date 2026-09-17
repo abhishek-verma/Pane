@@ -125,6 +125,30 @@ export class LayerBroker {
       ? structuredClone(this.profiles.get(profileId)?.documents ?? [])
       : []
   }
+  /** Ask the live worker before binding a new page operation. Poll snapshots
+   * may predate the most recent reload, even after a lifecycle command returns. */
+  async refreshDocuments(profileId: string): Promise<LayerDocument[]> {
+    const sessionId = this.session(profileId)
+    const documents = z
+      .array(layerDocumentSchema)
+      .max(500)
+      .parse(await this.command(profileId, 'documents', undefined))
+    const connection = this.profiles.get(profileId)
+    if (!connection || connection.sessionId !== sessionId)
+      throw new Error('Layer browser connection restarted.')
+    if (new Set(documents.map((doc) => doc.tabId)).size !== documents.length)
+      throw new Error('Duplicate document registration.')
+    connection.documents = documents
+    for (const listener of this.listeners) listener(profileId)
+    return this.documents(profileId)
+  }
+  async refreshDocument(
+    profileId: string,
+    tabId: number,
+  ): Promise<LayerDocument> {
+    await this.refreshDocuments(profileId)
+    return this.document(profileId, tabId)
+  }
   document(profileId: string, tabId: number): LayerDocument {
     const document = this.documents(profileId).find(
       (item) => item.tabId === tabId,

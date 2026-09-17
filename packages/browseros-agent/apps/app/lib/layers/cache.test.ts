@@ -40,9 +40,80 @@ describe('Layer offline cache', () => {
     const restarted = new LayerRuntimeCache(profileId, first.serialize())
     expect(restarted.accept({ ...manifest, revision: 2 })).toBe('accepted')
     expect(restarted.effective(origin)).toEqual([])
-    expect(restarted.acknowledgeEnable('quiet', 1)).toBe(false)
-    expect(restarted.acknowledgeEnable('quiet', 2)).toBe(true)
+    expect(
+      restarted.acknowledgeEnable(
+        'quiet',
+        1,
+        restarted.disableGeneration('quiet'),
+      ),
+    ).toBe(false)
+    expect(
+      restarted.acknowledgeEnable(
+        'quiet',
+        2,
+        restarted.disableGeneration('quiet'),
+      ),
+    ).toBe(true)
     expect(restarted.effective(origin)).toHaveLength(1)
+  })
+  it('does not let a delayed enable clear a newer local disable, even at the same server revision', () => {
+    const cache = new LayerRuntimeCache(profileId)
+    cache.accept(manifest)
+    cache.disable('quiet')
+    const generation = cache.disableGeneration('quiet')
+    cache.disable('quiet')
+    cache.accept({ ...manifest, revision: 2 })
+    expect(cache.acknowledgeEnable('quiet', 2, generation)).toBe(false)
+    expect(cache.effective(origin)).toEqual([])
+    expect(
+      cache.acknowledgeEnable('quiet', 2, cache.disableGeneration('quiet')),
+    ).toBe(true)
+    expect(cache.effective(origin)).toHaveLength(1)
+  })
+  it('retains newer site and global pauses when an older resume completes', () => {
+    for (const site of [undefined, origin]) {
+      const cache = new LayerRuntimeCache(profileId)
+      cache.accept(manifest)
+      cache.pause(true, site)
+      const generation = cache.pauseGeneration(site)
+      cache.pause(true, site)
+      cache.accept({ ...manifest, revision: 2 })
+      expect(cache.acknowledgeResume(2, generation, site)).toBe(false)
+      expect(cache.effective(origin)).toEqual([])
+      expect(
+        cache.acknowledgeResume(1, cache.pauseGeneration(site), site),
+      ).toBe(false)
+      expect(
+        cache.acknowledgeResume(2, cache.pauseGeneration(site), site),
+      ).toBe(true)
+      expect(cache.effective(origin)).toHaveLength(1)
+    }
+  })
+  it('can resume a draft preview without installing it and rejects a superseded preview grant', () => {
+    const cache = new LayerRuntimeCache(profileId)
+    cache.accept({ ...manifest, layers: [] })
+    cache.disable('quiet')
+    const generation = cache.disableGeneration('quiet')
+    cache.disable('quiet')
+    expect(cache.acknowledgeDraftPreview('quiet', 1, generation)).toBe(false)
+    expect(
+      cache.acknowledgeDraftPreview(
+        'quiet',
+        1,
+        cache.disableGeneration('quiet'),
+      ),
+    ).toBe(true)
+    expect(cache.serialize().disabledIds).toEqual([])
+    expect(cache.effective(origin)).toEqual([])
+    cache.accept({ ...manifest, revision: 2 })
+    cache.disable('quiet')
+    expect(
+      cache.acknowledgeDraftPreview(
+        'quiet',
+        2,
+        cache.disableGeneration('quiet'),
+      ),
+    ).toBe(false)
   })
   it('rejects stale, foreign-profile and conflicting same-revision manifests', () => {
     const cache = new LayerRuntimeCache(profileId)

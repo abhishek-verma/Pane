@@ -23,6 +23,7 @@ export class LayerRuntimeCache {
   private disabledIds = new Set<string>()
   private pausedOrigins = new Set<string>()
   private paused = false
+  private readonly revocations = new Map<string, number>()
 
   constructor(
     readonly profileId: string,
@@ -53,13 +54,23 @@ export class LayerRuntimeCache {
     return 'accepted'
   }
 
+  disableGeneration(id: string): number {
+    return this.revocations.get(`layer:${id}`) ?? 0
+  }
+
+  pauseGeneration(origin?: string): number {
+    return this.revocations.get(`pause:${origin ?? '*'}`) ?? 0
+  }
+
   disable(id: string): void {
+    this.revocations.set(`layer:${id}`, this.disableGeneration(id) + 1)
     this.disabledIds.add(id)
   }
 
   /** Requires the UI/broker to have completed authenticated enable first. */
-  acknowledgeEnable(id: string, revision: number): boolean {
+  acknowledgeEnable(id: string, revision: number, generation: number): boolean {
     if (
+      generation !== this.disableGeneration(id) ||
       !this.manifest ||
       this.manifest.revision !== revision ||
       !this.manifest.layers.some((layer) => layer.id === id)
@@ -69,7 +80,48 @@ export class LayerRuntimeCache {
     return true
   }
 
+  /** Caller has authenticated that this record has no active version. Clearing
+   * a draft's local stop permits preview only; it cannot install a Layer. */
+  acknowledgeDraftPreview(
+    id: string,
+    revision: number,
+    generation: number,
+  ): boolean {
+    if (
+      generation !== this.disableGeneration(id) ||
+      !this.manifest ||
+      this.manifest.revision !== revision ||
+      this.manifest.layers.some((layer) => layer.id === id)
+    )
+      return false
+    this.disabledIds.delete(id)
+    return true
+  }
+
+  acknowledgeResume(
+    revision: number,
+    generation: number,
+    origin?: string,
+  ): boolean {
+    if (
+      generation !== this.pauseGeneration(origin) ||
+      !this.manifest ||
+      this.manifest.revision !== revision ||
+      (origin
+        ? this.manifest.pausedOrigins.includes(origin)
+        : this.manifest.paused)
+    )
+      return false
+    this.pause(false, origin)
+    return true
+  }
+
   pause(paused: boolean, origin?: string): void {
+    if (paused)
+      this.revocations.set(
+        `pause:${origin ?? '*'}`,
+        this.pauseGeneration(origin) + 1,
+      )
     if (!origin) this.paused = paused
     else if (paused) this.pausedOrigins.add(origin)
     else this.pausedOrigins.delete(origin)

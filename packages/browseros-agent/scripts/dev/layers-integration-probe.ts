@@ -90,6 +90,9 @@ let delayNext = false
 let brokerOffline = false
 let dropNextActionResponse = true
 let resultReplays = 0
+let holdEnableResponse = false
+let enableResponseHeld = false
+let releaseEnableResponse: (() => void) | undefined
 const server = Bun.serve({
   hostname: '127.0.0.1',
   port: 0,
@@ -104,7 +107,18 @@ const server = Bun.serve({
       const url = new URL(request.url)
       url.pathname = path.slice('/layers'.length)
       if (url.pathname === '/actions/replay') resultReplays++
+      const mutation =
+        url.pathname === '/mutate'
+          ? ((await request.clone().json()) as { action: string })
+          : undefined
       const response = await app.fetch(new Request(url, request))
+      if (holdEnableResponse && mutation?.action === 'enable' && response.ok) {
+        enableResponseHeld = true
+        await new Promise<void>((resolve) => {
+          releaseEnableResponse = resolve
+        })
+      }
+
       if (
         url.pathname === '/actions/run' &&
         response.ok &&
@@ -633,7 +647,16 @@ try {
     incompleteError.includes('layer_verify') && !store.read(layer.id).enabled,
     'Incomplete draft enable did not explain verification',
   )
-  await broker.command(profileId, 'preview', layer, target())
+  await author('layer_disable', { id: layer.id, revision: store.revision() })
+  await author('layer_preview', {
+    id: layer.id,
+    version: layer.version,
+    tabId: target().tabId,
+  })
+  assert(
+    !store.read(layer.id).enabled && !store.read(layer.id).activeVersion,
+    'Draft preview installed an unverified Layer',
+  )
   broker.registerPreview(profileId, target(), layer.id, layer.version)
   const hidden = () =>
     page.evaluate(
@@ -652,6 +675,42 @@ try {
     'Production authoring verification failed',
   )
   assert(proof.kept && proof.enabled, 'Verification did not enable the Layer')
+  await author('layer_clear_preview', { tabId: target().tabId })
+  await mutate('disable', { id: layer.id })
+  const enableRevision = store.revision()
+  holdEnableResponse = true
+  const enabling = author('layer_enable', {
+    id: layer.id,
+    revision: enableRevision,
+  })
+  await until(() => enableResponseHeld, 'delayed enable response')
+  const newerDisable = await mutate('disable', {
+    id: layer.id,
+    revision: enableRevision,
+  })
+  assert(
+    newerDisable.disabledLocally,
+    'Conflicting newer disable was not retained locally',
+  )
+  releaseEnableResponse?.()
+  const supersededEnable = await enabling
+  holdEnableResponse = false
+  assert(
+    !supersededEnable.enabled && supersededEnable.record.disabledLocally,
+    'Older agent enable overrode newer UI disable',
+  )
+  const afterLateReply = await mutate('state')
+  assert(
+    afterLateReply.local.disabledIds.includes(layer.id),
+    'UI lost newer local disable',
+  )
+  await until(
+    async () => !(await hidden()),
+    'newer disable still removes effects',
+  )
+  await author('layer_enable', { id: layer.id, revision: store.revision() })
+  await until(hidden, 'explicit enable after racing disable')
+
   await page.reload()
   await until(hidden, 'saved mount after reload')
   assert(modelCalls === 0, 'Local Layer caused model work')
@@ -1274,6 +1333,8 @@ try {
     assert(saved.saved, `Script draft failed: ${JSON.stringify(saved)}`)
     const script = { id: saved.record.id, version: saved.record.latestVersion }
     console.log('Script test: previewing source')
+    await author('layer_disable', { id: script.id, revision: store.revision() })
+
     const preview = await author('layer_preview', {
       ...script,
       tabId: target().tabId,
@@ -1281,6 +1342,10 @@ try {
     assert(
       preview.preview?.version === script.version,
       `Script preview failed: ${JSON.stringify(preview)}`,
+    )
+    assert(
+      !store.read(script.id).enabled && !store.read(script.id).activeVersion,
+      'Disabled script draft preview installed itself',
     )
     await page.waitForSelector('#script-translate')
     console.log('Script test: rejecting synthetic click')

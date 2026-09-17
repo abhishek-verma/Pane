@@ -59,7 +59,7 @@ const commandSchema = z.union([
   z
     .object({
       id: z.string().uuid(),
-      kind: z.enum(['state', 'mutate']),
+      kind: z.enum(['state', 'mutate', 'documents']),
       payload: z.unknown().optional(),
       expiresAt: z.number(),
     })
@@ -525,6 +525,12 @@ export function layersBridge(): void {
   }
   // Agent lifecycle tools and extension controls share the same local overrides.
   const mutate = async (input: z.infer<typeof uiSchema>) => {
+    const mutationCache = cache
+    const disableGeneration = input.id
+      ? cache?.disableGeneration(input.id)
+      : undefined
+    const pauseOrigin = input.action === 'site-pause' ? input.origin : undefined
+    const pauseGeneration = cache?.pauseGeneration(pauseOrigin)
     // Offline revocation is durable and immediate, before any network call.
     if (input.action === 'disable' || input.action === 'delete') {
       if (!input.id) throw new Error('Choose a Layer first.')
@@ -549,17 +555,29 @@ export function layersBridge(): void {
     const { channel: _channel, kind: _kind, ...mutation } = input
     try {
       const result = await jsonRequest('/mutate', mutation)
-      if (cache?.accept(result.manifest) === 'invalid')
+      if (!cache || cache !== mutationCache)
+        throw new Error('The browser profile changed.')
+      if (cache.accept(result.manifest) === 'invalid')
         throw new Error('Invalid Layer manifest.')
-      if ((input.action === 'enable' || input.action === 'keep') && input.id)
-        cache?.acknowledgeEnable(input.id, result.manifest.revision)
+      if (
+        (input.action === 'enable' || input.action === 'keep') &&
+        input.id &&
+        disableGeneration !== undefined
+      )
+        cache.acknowledgeEnable(
+          input.id,
+          result.manifest.revision,
+          disableGeneration,
+        )
       if (
         (input.action === 'pause' || input.action === 'site-pause') &&
-        input.paused === false
+        input.paused === false &&
+        pauseGeneration !== undefined
       )
-        cache?.pause(
-          false,
-          input.action === 'site-pause' ? input.origin : undefined,
+        cache.acknowledgeResume(
+          result.manifest.revision,
+          pauseGeneration,
+          pauseOrigin,
         )
       await persist()
       await broadcast()
@@ -805,7 +823,9 @@ export function layersBridge(): void {
           throw new Error(
             'The Layer operation expired. Inspect layer_list before retrying.',
           )
-        if (command.kind === 'state') {
+        if (command.kind === 'documents') {
+          completion = { result: [...documents.values()] }
+        } else if (command.kind === 'state') {
           completion = { result: await readState() }
         } else if (command.kind === 'mutate') {
           const input = uiSchema.parse({
@@ -914,9 +934,51 @@ export function layersBridge(): void {
               layer &&
               ['preview', 'probe-reload'].includes(command.kind) &&
               cache?.serialize().disabledIds.includes(layer.id)
+            ) {
+              // An explicit preview can resume an unfinished draft, which has
+              // no active version to enable. Saved Layers still require enable.
+              const previewCache = cache
+              const generation = cache.disableGeneration(layer.id)
+              const state = await jsonRequest('/state')
+              const record = state.records.find(
+                (item: { id: string }) => item.id === layer.id,
+              )
+              const accepted =
+                cache === previewCache
+                  ? cache.accept({
+                      protocol: state.protocol,
+                      profileId: state.profileId,
+                      revision: state.revision,
+                      paused: state.paused,
+                      pausedOrigins: state.pausedOrigins,
+                      layers: state.layers,
+                    })
+                  : 'invalid'
+              if (
+                command.kind !== 'preview' ||
+                !record ||
+                record.activeVersion !== null ||
+                accepted === 'invalid' ||
+                accepted === 'stale' ||
+                !cache.acknowledgeDraftPreview(
+                  layer.id,
+                  state.revision,
+                  generation,
+                )
+              )
+                throw new Error(
+                  'This Layer is disabled in this browser. Use layer_list, then layer_enable with its current revision before previewing.',
+                )
+              await persist()
+            }
+            if (
+              layer &&
+              ['preview', 'probe-reload'].includes(command.kind) &&
+              (updateFor(doc).paused ||
+                cache?.serialize().disabledIds.includes(layer.id))
             )
               throw new Error(
-                'This Layer is disabled in this browser. Use layer_list, then layer_enable with its current revision before previewing.',
+                'Layer state changed during preview setup. Inspect layer_list before retrying.',
               )
             if (
               layer?.definition.mode === 'javascript' &&
