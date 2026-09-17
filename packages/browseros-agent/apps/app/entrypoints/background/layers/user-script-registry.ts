@@ -5,6 +5,10 @@ import {
 } from '@browseros/shared/layers/manifest'
 import { layerMatchesUrl } from '@browseros/shared/layers/matching'
 import { z } from 'zod'
+import {
+  LayerScriptRequestError,
+  scriptRequestErrorMessage,
+} from '@/lib/layers/script-errors'
 import { userScriptBootstrap } from './user-script-bootstrap'
 
 const PREFIX = 'pane-layer-'
@@ -305,11 +309,8 @@ export class LayerUserScriptRegistry {
     if (!parsed.success) return false
     void this.handle(parsed.data, sender).then(
       (value) => respond({ ok: true, value }),
-      () =>
-        respond({
-          ok: false,
-          error: 'This Layer request is unavailable or no longer authorized.',
-        }),
+      (error) =>
+        respond({ ok: false, error: scriptRequestErrorMessage(error) }),
     )
     return true
   }
@@ -439,11 +440,12 @@ export class LayerUserScriptRegistry {
       !sender.documentId ||
       sender.tab.incognito
     )
-      throw new Error('Untrusted script sender.')
+      throw new LayerScriptRequestError('Untrusted script sender.')
     const record = [...this.records.values()].find(
       (item) => item.token === message.token,
     )
-    if (!record) throw new Error('Unknown script registration.')
+    if (!record)
+      throw new LayerScriptRequestError('Unknown script registration.')
     const frame = await this.browser.webNavigation.getFrame({
       tabId: sender.tab.id,
       frameId: 0,
@@ -454,7 +456,7 @@ export class LayerUserScriptRegistry {
       frame.url !== sender.url ||
       frame.documentLifecycle !== 'active'
     )
-      throw new Error('Originating document changed.')
+      throw new LayerScriptRequestError('Originating document changed.')
     const doc: ScriptDocument = {
       tabId: sender.tab.id,
       documentId: sender.documentId,
@@ -462,13 +464,13 @@ export class LayerUserScriptRegistry {
       instanceId: message.instanceId,
     }
     if (!this.allowed(record, doc))
-      throw new Error('Layer revoked or out of scope.')
+      throw new LayerScriptRequestError('Layer revoked or out of scope.')
     const key = `${doc.documentId}:${record.layer.id}`
     if (message.kind === 'hello' || message.kind === 'resume') {
       const previous = this.states.get(key)
       if (message.kind === 'resume') {
         if (!previous && this.states.size >= 1000)
-          throw new Error('Too many active scripts.')
+          throw new LayerScriptRequestError('Too many active scripts.')
         const { previousInstanceId } = z
           .object({ previousInstanceId: z.string().uuid() })
           .strict()
@@ -479,7 +481,9 @@ export class LayerUserScriptRegistry {
             previous.instanceId !== previousInstanceId ||
             previous.status !== 'executed')
         )
-          throw new Error('The cached script is no longer authorized.')
+          throw new LayerScriptRequestError(
+            'The cached script is no longer authorized.',
+          )
         // A BFCache restore retains source and lexical bindings. Prove the
         // live bootstrap changed its instance before adopting that state.
         const control = await this.evaluate(
@@ -500,7 +504,9 @@ export class LayerUserScriptRegistry {
           restored.data.instanceId !== doc.instanceId ||
           !this.allowed(record, doc)
         )
-          throw new Error('The cached script bootstrap changed.')
+          throw new LayerScriptRequestError(
+            'The cached script bootstrap changed.',
+          )
         for (const [controller, run] of this.running)
           if (
             run.document.documentId === doc.documentId &&
@@ -522,10 +528,12 @@ export class LayerUserScriptRegistry {
           previous.instanceId !== doc.instanceId ||
           !['starting', 'executed'].includes(previous.status))
       )
-        throw new Error('Reload this page before starting the changed Layer.')
+        throw new LayerScriptRequestError(
+          'Reload this page before starting the changed Layer.',
+        )
       if (!this.states.has(key)) {
         if (this.states.size >= 1000)
-          throw new Error('Too many active scripts.')
+          throw new LayerScriptRequestError('Too many active scripts.')
         const state: ScriptRunState = {
           ...doc,
           layerId: record.layer.id,
@@ -548,25 +556,32 @@ export class LayerUserScriptRegistry {
       state.version !== record.layer.version ||
       !['starting', 'executed'].includes(state.status)
     )
-      throw new Error('Script instance unavailable; reload this page.')
+      throw new LayerScriptRequestError(
+        'Script instance unavailable; reload this page.',
+      )
     const request = actionSchema.parse(message.payload)
     const action = record.layer.definition.actions.find(
       (action) => action.id === request.actionId,
     )
+    if (!action || !this.options.action)
+      throw new LayerScriptRequestError(
+        'This action is not declared by the saved Layer. Ask the agent to repair the Layer.',
+      )
     if (
-      !action ||
-      (action.kind !== 'data' &&
-        (action.trigger !== 'click' || !message.userGesture)) ||
-      !this.options.action
+      action.kind !== 'data' &&
+      (action.trigger !== 'click' || !message.userGesture)
     )
-      throw new Error('Action is not declared or requires a trusted click.')
+      throw new LayerScriptRequestError(
+        'This action requires a direct click or Enter/Space keypress. If that fails, ask the agent to repair the Layer’s click handler.',
+      )
     if (this.running.size >= 4)
-      throw new Error('Too many active script actions.')
+      throw new LayerScriptRequestError('Too many active script actions.')
     const controller = new AbortController()
     this.running.set(controller, { record, document: doc })
     let aborted!: () => void
     const cancelled = new Promise<never>((_, reject) => {
-      aborted = () => reject(new Error('Layer action cancelled.'))
+      aborted = () =>
+        reject(new LayerScriptRequestError('Layer action cancelled.'))
       controller.signal.addEventListener('abort', aborted, { once: true })
     })
     const timer = setTimeout(() => controller.abort(), action.limits.deadlineMs)
@@ -593,7 +608,7 @@ export class LayerUserScriptRegistry {
       this.states.get(key) !== state ||
       state.status === 'reload-required'
     )
-      throw new Error('Layer changed while the action ran.')
+      throw new LayerScriptRequestError('Layer changed while the action ran.')
     const current = await this.browser.webNavigation.getFrame({
       tabId: doc.tabId,
       frameId: 0,
@@ -603,7 +618,9 @@ export class LayerUserScriptRegistry {
       current.url !== doc.url ||
       current.documentLifecycle !== 'active'
     )
-      throw new Error('Originating page changed while the action ran.')
+      throw new LayerScriptRequestError(
+        'Originating page changed while the action ran.',
+      )
     return result
   }
 

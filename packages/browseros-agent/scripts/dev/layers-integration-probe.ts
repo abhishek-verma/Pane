@@ -1431,6 +1431,34 @@ try {
       'Script modified form',
     )
     scriptChecks.push('script automatic save and reload persistence')
+    console.log(
+      'Script test: clicking immediately after background worker loss',
+    )
+    const scriptWorkerTarget = await browser.waitForTarget(
+      (candidate) => candidate.type() === 'service_worker',
+    )
+    const scriptWorker = await scriptWorkerTarget.worker()
+    assert(scriptWorker, 'Missing script worker')
+    await scriptWorker!.close()
+    const beforeRecovery = modelCalls
+    await page.bringToFront()
+    await page.click('#script-translate')
+    await until(
+      () =>
+        page.$eval(
+          '#script-output',
+          (node) => node.textContent?.includes('English fixture:') ?? false,
+        ),
+      'script action recovery before the 15-second document heartbeat',
+      10_000,
+    )
+    assert(
+      modelCalls === beforeRecovery + 1,
+      'Recovered script action did not invoke the model exactly once',
+    )
+    scriptChecks.push(
+      'script action recovers page identity immediately after service-worker loss',
+    )
     const disabled = await mutate('disable', { id: script.id })
     assert(disabled.ok, `Script disable failed: ${JSON.stringify(disabled)}`)
     await until(
@@ -1583,7 +1611,7 @@ try {
       dataProof.passed && dataProof.checks.reloaded,
       `Data script reload failed: ${JSON.stringify(dataProof)}`,
     )
-    assert(modelCalls === before + 1, 'Data script invoked model')
+    assert(modelCalls === beforeRecovery + 1, 'Data script invoked model')
     scriptChecks.push(
       'script document-load data action works during preview and temporary reload',
     )

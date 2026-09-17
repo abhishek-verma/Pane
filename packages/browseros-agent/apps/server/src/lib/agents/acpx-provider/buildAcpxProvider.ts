@@ -6,6 +6,7 @@
 
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { BROWSEROS_PROFILE_ID_HEADER } from '@browseros/shared/constants/headers'
 import {
   type AcpPermissionDecision,
   type AcpPermissionRequest,
@@ -15,6 +16,7 @@ import {
   type AcpxProvider,
   createAcpxProvider,
 } from 'acpx-ai-provider'
+import { layerAuthority } from '../../../layers/broker-auth'
 import { getBrowserosDir } from '../../browseros-dir'
 
 /**
@@ -150,20 +152,66 @@ function toProviderShape(server: McpServerSpec): AcpxMcpServerConfig {
 export async function buildAcpxProvider(
   opts: BuildAcpxProviderOptions,
 ): Promise<AcpxProvider> {
-  return createAcpxProvider({
-    agent: opts.agentId,
-    cwd: opts.workspacePath ?? homedir(),
-    sessionKey: opts.sessionKey ?? opts.conversationId,
-    sessionMode: 'persistent',
-    stateDir: opts.stateDir ?? defaultStateDir(),
-    resumeSessionId: opts.resumeSessionId ?? undefined,
-    agentRegistryOverrides: opts.agentRegistryOverrides ?? {},
-    permissionMode: opts.permissionMode ?? DEFAULT_PERMISSION_MODE,
-    nonInteractivePermissions:
-      opts.nonInteractivePermissions ?? DEFAULT_NON_INTERACTIVE_PERMISSIONS,
-    onPermissionRequest: opts.onPermissionRequest,
-    mcpServers: opts.mcpServers?.map(toProviderShape),
-  })
+  const mcpServers = opts.mcpServers?.map(toProviderShape)
+  // Only exchange the browser-owned self entry, never attach authority to a
+  // remote/custom connector. Allocate here (once per provider), not while chat
+  // builds a candidate config on every turn.
+  const self = mcpServers?.find((server) => server.name === 'browseros')
+  let authorSession:
+    | ReturnType<NonNullable<typeof layerAuthority>['openAuthorSession']>
+    | undefined
+  if (
+    self?.type === 'http' &&
+    /^http:\/\/127\.0\.0\.1:\d+\/mcp$/.test(self.url)
+  ) {
+    const authorization = self.headers?.Authorization
+    const profileId = self.headers?.[BROWSEROS_PROFILE_ID_HEADER]
+    const scopeId = self.headers?.['X-BrowserOS-Scope-Id']
+    if (
+      layerAuthority &&
+      authorization &&
+      profileId &&
+      scopeId === opts.conversationId
+    ) {
+      authorSession = layerAuthority.openAuthorSession(
+        authorization,
+        profileId,
+        scopeId,
+      )
+      self.headers = {
+        ...self.headers,
+        Authorization: authorSession.authorization,
+      }
+    }
+  }
+  try {
+    const provider = createAcpxProvider({
+      agent: opts.agentId,
+      cwd: opts.workspacePath ?? homedir(),
+      sessionKey: opts.sessionKey ?? opts.conversationId,
+      sessionMode: 'persistent',
+      stateDir: opts.stateDir ?? defaultStateDir(),
+      resumeSessionId: opts.resumeSessionId ?? undefined,
+      agentRegistryOverrides: opts.agentRegistryOverrides ?? {},
+      permissionMode: opts.permissionMode ?? DEFAULT_PERMISSION_MODE,
+      nonInteractivePermissions:
+        opts.nonInteractivePermissions ?? DEFAULT_NON_INTERACTIVE_PERMISSIONS,
+      onPermissionRequest: opts.onPermissionRequest,
+      mcpServers,
+    })
+    if (authorSession) {
+      const close = provider.close.bind(provider)
+      const session = authorSession
+      provider.close = async (reason) => {
+        session.close()
+        await close(reason)
+      }
+    }
+    return provider
+  } catch (error) {
+    authorSession?.close()
+    throw error
+  }
 }
 
 export const __internal__ = {

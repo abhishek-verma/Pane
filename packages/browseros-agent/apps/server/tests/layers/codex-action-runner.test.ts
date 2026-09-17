@@ -145,7 +145,10 @@ it('kills a cancelled child, revokes endpoints and removes the workspace', async
 })
 it('enforces the deadline even when the provider never returns', async () => {
   const f = await fixture('wait')
-  f.run.action.limits.deadlineMs = 200
+  // Leave time for the fixture process to start on a loaded CI host, while
+  // still expiring far before its 30-second wait. A 200ms budget can expire
+  // before it writes the workspace report, testing startup speed instead.
+  f.run.action.limits.deadlineMs = 1500
   await expect(runCodexLayerAction(f.run, f.options)).rejects.toThrow(
     'within its limits',
   )

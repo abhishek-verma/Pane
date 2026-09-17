@@ -6,6 +6,7 @@ import { layerMatchesUrl } from '@browseros/shared/layers/matching'
 import { scriptTaskExecutionSchema } from '@browseros/shared/layers/script-task'
 import { LayerDataEnrichment } from '@/lib/layers/enrichment'
 import {
+  documentIdentityRequestSchema,
   LAYER_CHANNEL,
   pageCommandSchema,
   pageUpdateSchema,
@@ -124,6 +125,22 @@ export default defineContentScript({
       respond: (value: unknown) => void,
     ) => {
       if (sender.id !== chrome.runtime.id) return false
+      if (documentIdentityRequestSchema.safeParse(message).success) {
+        route()
+        respond(
+          suspended
+            ? { error: 'Page suspended.' }
+            : {
+                channel: LAYER_CHANNEL,
+                kind: 'hello',
+                instanceId,
+                routeEpoch,
+                url: location.href,
+                title: document.title.slice(0, 300),
+              },
+        )
+        return false
+      }
       const replacement = pageUpdateSchema.safeParse(message)
       if (replacement.success) {
         if (
