@@ -34,7 +34,7 @@ interface DocumentRegistration {
   title: string
   active: boolean
 }
-const commandSchema = z
+const pageCommandSchema = z
   .object({
     id: z.string().uuid(),
     kind: z.enum([
@@ -54,6 +54,17 @@ const commandSchema = z
     expiresAt: z.number(),
   })
   .strict()
+const commandSchema = z.union([
+  pageCommandSchema,
+  z
+    .object({
+      id: z.string().uuid(),
+      kind: z.enum(['state', 'mutate']),
+      payload: z.unknown().optional(),
+      expiresAt: z.number(),
+    })
+    .strict(),
+])
 const actionSchema = z
   .object({
     channel: z.literal(LAYER_CHANNEL),
@@ -512,6 +523,75 @@ export function layersBridge(): void {
       }, 5 * 60_000),
     )
   }
+  // Agent lifecycle tools and extension controls share the same local overrides.
+  const mutate = async (input: z.infer<typeof uiSchema>) => {
+    // Offline revocation is durable and immediate, before any network call.
+    if (input.action === 'disable' || input.action === 'delete') {
+      if (!input.id) throw new Error('Choose a Layer first.')
+      cache?.disable(input.id)
+      for (const [tabId, preview] of previews) {
+        if (preview.layer.id !== input.id) continue
+        previews.delete(tabId)
+        clearTimeout(previewTimers.get(tabId))
+        previewTimers.delete(tabId)
+      }
+    } else if (
+      (input.action === 'pause' || input.action === 'site-pause') &&
+      input.paused !== false
+    ) {
+      cache?.pause(
+        true,
+        input.action === 'site-pause' ? input.origin : undefined,
+      )
+    }
+    await persist()
+    await broadcast()
+    const { channel: _channel, kind: _kind, ...mutation } = input
+    try {
+      const result = await jsonRequest('/mutate', mutation)
+      if (cache?.accept(result.manifest) === 'invalid')
+        throw new Error('Invalid Layer manifest.')
+      if ((input.action === 'enable' || input.action === 'keep') && input.id)
+        cache?.acknowledgeEnable(input.id, result.manifest.revision)
+      if (
+        (input.action === 'pause' || input.action === 'site-pause') &&
+        input.paused === false
+      )
+        cache?.pause(
+          false,
+          input.action === 'site-pause' ? input.origin : undefined,
+        )
+      await persist()
+      await broadcast()
+      pollAbort?.abort()
+      return { ok: true, manifest: result.manifest }
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : 'Layer change failed.',
+        disabledLocally:
+          input.action === 'disable' ||
+          input.action === 'delete' ||
+          (input.paused !== false &&
+            ['pause', 'site-pause'].includes(input.action)),
+      }
+    }
+  }
+  const readState = async () => {
+    const state = await jsonRequest('/state')
+    lastState = state
+    online = true
+    return {
+      ...state,
+      online,
+      local: cache?.serialize(),
+      documents: [...documents.values()].map((doc) => ({
+        ...doc,
+        effectiveLayerIds:
+          cache?.effective(doc.url).map((layer) => layer.id) ?? [],
+      })),
+      scripts: scripts?.status() ?? [],
+    }
+  }
   chrome.runtime.onUserScriptMessage?.addListener(
     (message: unknown, sender, respond) => {
       if (
@@ -682,51 +762,7 @@ export function layersBridge(): void {
         })
         return
       }
-      // Offline revocation is durable and immediate, before any network call.
-      if (input.action === 'disable' || input.action === 'delete') {
-        if (!input.id) throw new Error('Choose a Layer first.')
-        cache?.disable(input.id)
-      } else if (
-        (input.action === 'pause' || input.action === 'site-pause') &&
-        input.paused !== false
-      ) {
-        cache?.pause(
-          true,
-          input.action === 'site-pause' ? input.origin : undefined,
-        )
-      }
-      await persist()
-      await broadcast()
-      const { channel: _channel, kind: _kind, ...mutation } = input
-      try {
-        const result = await jsonRequest('/mutate', mutation)
-        if (cache?.accept(result.manifest) === 'invalid')
-          throw new Error('Invalid Layer manifest.')
-        if ((input.action === 'enable' || input.action === 'keep') && input.id)
-          cache?.acknowledgeEnable(input.id, result.manifest.revision)
-        if (
-          (input.action === 'pause' || input.action === 'site-pause') &&
-          input.paused === false
-        )
-          cache?.pause(
-            false,
-            input.action === 'site-pause' ? input.origin : undefined,
-          )
-        await persist()
-        await broadcast()
-        pollAbort?.abort()
-        respond({ ok: true, manifest: result.manifest })
-      } catch (error) {
-        respond({
-          error:
-            error instanceof Error ? error.message : 'Layer change failed.',
-          disabledLocally:
-            input.action === 'disable' ||
-            input.action === 'delete' ||
-            (input.paused !== false &&
-              ['pause', 'site-pause'].includes(input.action)),
-        })
-      }
+      respond(await mutate(input))
     })().catch((error) =>
       respond({
         error: error instanceof Error ? error.message : 'Layer request failed.',
@@ -765,163 +801,203 @@ export function layersBridge(): void {
     let completion = completions.get(command.id)
     if (!completion) {
       try {
-        const doc = documents.get(command.tabId)
-        if (
-          command.expiresAt <= Date.now() ||
-          !doc ||
-          doc.documentId !== command.documentId ||
-          doc.instanceId !== command.instanceId ||
-          doc.routeEpoch !== command.routeEpoch
-        )
-          throw new Error('The originating document changed.')
-        if (
-          command.kind === 'script-inspect' ||
-          command.kind === 'script-execute'
-        ) {
-          const payload = command.payload as {
-            binding: unknown
-            layer: unknown
-            execution?: unknown
-          }
-          const binding = layerActionBindingSchema.parse(payload.binding)
-          const layer = installedLayerSchema.parse(payload.layer)
-          const invocation = invocations.get(binding.invocationId)
+        if (command.expiresAt <= Date.now())
+          throw new Error(
+            'The Layer operation expired. Inspect layer_list before retrying.',
+          )
+        if (command.kind === 'state') {
+          completion = { result: await readState() }
+        } else if (command.kind === 'mutate') {
+          const input = uiSchema.parse({
+            ...(command.payload as object),
+            channel: LAYER_CHANNEL,
+            kind: 'ui',
+          })
           if (
-            !scripts ||
-            !invocation ||
-            invocation.cancelled ||
-            !sameLayerActionBinding(invocation.binding, binding) ||
-            binding.layerId !== layer.id ||
-            binding.layerVersion !== layer.version ||
-            binding.documentId !== doc.documentId ||
-            binding.routeEpoch !== doc.routeEpoch ||
-            binding.instanceId !== doc.instanceId ||
-            !scriptAllowed(layer, doc) ||
-            !layer.definition.actions.some(
-              (action) =>
-                action.id === binding.actionId &&
-                action.execution === 'javascript',
-            )
+            ![
+              'enable',
+              'disable',
+              'delete',
+              'keep',
+              'pause',
+              'site-pause',
+            ].includes(input.action)
           )
-            throw new Error('Generated page task is no longer authorized.')
-          const execution =
-            command.kind === 'script-execute'
-              ? scriptTaskExecutionSchema.parse(payload.execution)
-              : undefined
-          if (execution)
-            await scripts.executeGenerated(
-              layer,
-              doc,
-              execution.source,
-              binding.actionId,
-              () => !invocation.cancelled && documents.get(doc.tabId) === doc,
-            )
-          if (
-            invocation.cancelled ||
-            documents.get(doc.tabId) !== doc ||
-            !scriptAllowed(layer, doc)
-          )
-            throw new Error('Generated page task was revoked.')
-          const result = await chrome.tabs.sendMessage(
-            doc.tabId,
-            {
-              channel: LAYER_CHANNEL,
-              kind: 'command',
-              command: execution ? 'script-check' : 'inspect',
-              instanceId: doc.instanceId,
-              routeEpoch: doc.routeEpoch,
-              ...(execution ? { layer, execution } : {}),
-            },
-            { documentId: doc.documentId },
-          )
-          if (result?.error) throw new Error(result.error)
-          completion = { result }
+            throw new Error('Unsupported agent Layer mutation.')
+          const result = await mutate(input)
+          if ('error' in result) throw new Error(result.error)
+          completion = { result: { ...result, state: await readState() } }
         } else {
-          const layer = command.payload as InstalledLayer | undefined
+          if (!('tabId' in command))
+            throw new Error('A document target is required.')
+          const doc = documents.get(command.tabId)
           if (
-            ['preview', 'probe-reload'].includes(command.kind) &&
-            updateFor(doc).paused
+            command.expiresAt <= Date.now() ||
+            !doc ||
+            doc.documentId !== command.documentId ||
+            doc.instanceId !== command.instanceId ||
+            doc.routeEpoch !== command.routeEpoch
           )
-            throw new Error('Resume Layers on this site before previewing.')
+            throw new Error('The originating document changed.')
           if (
-            layer?.definition.mode === 'javascript' &&
-            command.kind === 'preview'
+            command.kind === 'script-inspect' ||
+            command.kind === 'script-execute'
           ) {
-            await registerPreviewContext(layer, doc)
-            setPreview(doc, layer)
-            try {
-              await syncScripts()
-              if (!scripts?.available)
-                throw new Error('Native script access is unavailable.')
-              await scripts.mount(layer, doc)
+            const payload = command.payload as {
+              binding: unknown
+              layer: unknown
+              execution?: unknown
+            }
+            const binding = layerActionBindingSchema.parse(payload.binding)
+            const layer = installedLayerSchema.parse(payload.layer)
+            const invocation = invocations.get(binding.invocationId)
+            if (
+              !scripts ||
+              !invocation ||
+              invocation.cancelled ||
+              !sameLayerActionBinding(invocation.binding, binding) ||
+              binding.layerId !== layer.id ||
+              binding.layerVersion !== layer.version ||
+              binding.documentId !== doc.documentId ||
+              binding.routeEpoch !== doc.routeEpoch ||
+              binding.instanceId !== doc.instanceId ||
+              !scriptAllowed(layer, doc) ||
+              !layer.definition.actions.some(
+                (action) =>
+                  action.id === binding.actionId &&
+                  action.execution === 'javascript',
+              )
+            )
+              throw new Error('Generated page task is no longer authorized.')
+            const execution =
+              command.kind === 'script-execute'
+                ? scriptTaskExecutionSchema.parse(payload.execution)
+                : undefined
+            if (execution)
+              await scripts.executeGenerated(
+                layer,
+                doc,
+                execution.source,
+                binding.actionId,
+                () => !invocation.cancelled && documents.get(doc.tabId) === doc,
+              )
+            if (
+              invocation.cancelled ||
+              documents.get(doc.tabId) !== doc ||
+              !scriptAllowed(layer, doc)
+            )
+              throw new Error('Generated page task was revoked.')
+            const result = await chrome.tabs.sendMessage(
+              doc.tabId,
+              {
+                channel: LAYER_CHANNEL,
+                kind: 'command',
+                command: execution ? 'script-check' : 'inspect',
+                instanceId: doc.instanceId,
+                routeEpoch: doc.routeEpoch,
+                ...(execution ? { layer, execution } : {}),
+              },
+              { documentId: doc.documentId },
+            )
+            if (result?.error) throw new Error(result.error)
+            completion = { result }
+          } else {
+            const layer = command.payload as InstalledLayer | undefined
+            if (
+              ['preview', 'probe-reload'].includes(command.kind) &&
+              updateFor(doc).paused
+            )
+              throw new Error(
+                'Layers are paused. Use layer_list to inspect the global/site pause, then layer_set_paused before previewing.',
+              )
+            if (
+              layer &&
+              ['preview', 'probe-reload'].includes(command.kind) &&
+              cache?.serialize().disabledIds.includes(layer.id)
+            )
+              throw new Error(
+                'This Layer is disabled in this browser. Use layer_list, then layer_enable with its current revision before previewing.',
+              )
+            if (
+              layer?.definition.mode === 'javascript' &&
+              command.kind === 'preview'
+            ) {
+              await registerPreviewContext(layer, doc)
+              setPreview(doc, layer)
+              try {
+                await syncScripts()
+                if (!scripts?.available)
+                  throw new Error('Native script access is unavailable.')
+                await scripts.mount(layer, doc)
+                await scripts.waitUntilExecuted(layer, doc)
+              } catch (error) {
+                previews.delete(doc.tabId)
+                clearTimeout(previewTimers.get(doc.tabId))
+                previewTimers.delete(doc.tabId)
+                await syncScripts().catch(() => undefined)
+                throw error
+              }
+            }
+            if (
+              layer?.definition.mode === 'javascript' &&
+              command.kind === 'verify'
+            ) {
+              if (!scripts) throw new Error('Script runtime unavailable.')
               await scripts.waitUntilExecuted(layer, doc)
-            } catch (error) {
+            }
+            const result =
+              command.kind === 'probe-reload'
+                ? await verifyLayerReload({
+                    original: doc,
+                    layer: layer as InstalledLayer,
+                    documents,
+                    probes: reloadProbes,
+                    prepare:
+                      layer?.definition.mode === 'javascript'
+                        ? syncScripts
+                        : undefined,
+                    scriptReady: async (target, layer) => {
+                      if (layer.definition.mode !== 'javascript') return
+                      const current = documents.get(target.tabId)
+                      if (
+                        !current ||
+                        current.documentId !== target.documentId ||
+                        !scripts
+                      )
+                        throw new Error('Verification document changed.')
+                      if (
+                        readyProbeDocuments.get(target.tabId) !==
+                        target.documentId
+                      ) {
+                        await registerPreviewContext(layer, current)
+                        readyProbeDocuments.set(target.tabId, target.documentId)
+                        await scripts.mount(layer, current)
+                      }
+                      await scripts.waitUntilExecuted(layer, current)
+                    },
+                  })
+                : await chrome.tabs.sendMessage(
+                    doc.tabId,
+                    {
+                      channel: LAYER_CHANNEL,
+                      kind: 'command',
+                      command: command.kind,
+                      instanceId: doc.instanceId,
+                      routeEpoch: doc.routeEpoch,
+                      ...(layer ? { layer } : {}),
+                    },
+                    { documentId: doc.documentId },
+                  )
+            if (result?.error) throw new Error(result.error)
+            if (command.kind === 'preview' && layer) setPreview(doc, layer)
+            if (command.kind === 'clear') {
               previews.delete(doc.tabId)
               clearTimeout(previewTimers.get(doc.tabId))
               previewTimers.delete(doc.tabId)
               await syncScripts().catch(() => undefined)
-              throw error
             }
+            completion = { result }
           }
-          if (
-            layer?.definition.mode === 'javascript' &&
-            command.kind === 'verify'
-          ) {
-            if (!scripts) throw new Error('Script runtime unavailable.')
-            await scripts.waitUntilExecuted(layer, doc)
-          }
-          const result =
-            command.kind === 'probe-reload'
-              ? await verifyLayerReload({
-                  original: doc,
-                  layer: layer as InstalledLayer,
-                  documents,
-                  probes: reloadProbes,
-                  prepare:
-                    layer?.definition.mode === 'javascript'
-                      ? syncScripts
-                      : undefined,
-                  scriptReady: async (target, layer) => {
-                    if (layer.definition.mode !== 'javascript') return
-                    const current = documents.get(target.tabId)
-                    if (
-                      !current ||
-                      current.documentId !== target.documentId ||
-                      !scripts
-                    )
-                      throw new Error('Verification document changed.')
-                    if (
-                      readyProbeDocuments.get(target.tabId) !==
-                      target.documentId
-                    ) {
-                      await registerPreviewContext(layer, current)
-                      readyProbeDocuments.set(target.tabId, target.documentId)
-                      await scripts.mount(layer, current)
-                    }
-                    await scripts.waitUntilExecuted(layer, current)
-                  },
-                })
-              : await chrome.tabs.sendMessage(
-                  doc.tabId,
-                  {
-                    channel: LAYER_CHANNEL,
-                    kind: 'command',
-                    command: command.kind,
-                    instanceId: doc.instanceId,
-                    routeEpoch: doc.routeEpoch,
-                    ...(layer ? { layer } : {}),
-                  },
-                  { documentId: doc.documentId },
-                )
-          if (result?.error) throw new Error(result.error)
-          if (command.kind === 'preview' && layer) setPreview(doc, layer)
-          if (command.kind === 'clear') {
-            previews.delete(doc.tabId)
-            clearTimeout(previewTimers.get(doc.tabId))
-            previewTimers.delete(doc.tabId)
-            await syncScripts().catch(() => undefined)
-          }
-          completion = { result }
         }
       } catch (error) {
         completion = {

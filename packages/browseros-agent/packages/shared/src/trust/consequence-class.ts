@@ -94,6 +94,7 @@ const WRITE_LOCAL_TASK_TOOLS = new Set([
   'layer_enable',
   'layer_disable',
   'layer_delete',
+  'layer_set_paused',
   'schedule_create',
   'schedule_update',
   'schedule_delete',

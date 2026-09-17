@@ -310,7 +310,14 @@ export class LayerBroker {
     ) {
       clearTimeout(pending.timer)
       c.pending.delete(id)
-      pending.reject(new Error('The originating document changed.'))
+      const current = c.documents.find(
+        (doc) => doc.tabId === pending.command.tabId,
+      )
+      pending.reject(
+        new Error(
+          `The originating document changed. Expected ${pending.command.documentId}/${pending.command.instanceId}/${pending.command.routeEpoch}; current ${current?.documentId ?? 'missing'}/${current?.instanceId ?? 'missing'}/${current?.routeEpoch ?? 'missing'}.`,
+        ),
+      )
       return false
     }
     clearTimeout(pending.timer)

@@ -15,6 +15,7 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { LAYER_SKILLS } from '../../../src/layers/skills'
 import {
   buildAcpxRuntimePromptPrefix,
   ensureAgentHome,
@@ -235,6 +236,44 @@ describe('acpx runtime context helpers', () => {
         'utf8',
       ),
     ).toContain('BrowserOS MCP')
+  })
+
+  it('overwrites stale Layer instructions in shared runtime and Codex skill copies', async () => {
+    const browserosDir = await mkdtemp(
+      join(tmpdir(), 'browseros-layer-upgrade-'),
+    )
+    const sourceCodexHome = await mkdtemp(
+      join(tmpdir(), 'browseros-layer-source-'),
+    )
+    tempDirs.push(browserosDir, sourceCodexHome)
+    const paths = resolveAgentRuntimePaths({ browserosDir, agentId: 'agent-1' })
+    for (const skill of LAYER_SKILLS) {
+      const name = skill.id.replace('builtin-', '')
+      for (const root of [
+        paths.runtimeSkillsDir,
+        join(paths.codexHome, 'skills'),
+      ]) {
+        await mkdir(join(root, name), { recursive: true })
+        await writeFile(
+          join(root, name, 'SKILL.md'),
+          'Obsolete manual toggle and Keep guidance',
+        )
+        await chmod(join(root, name, 'SKILL.md'), 0o444)
+      }
+    }
+    const skillNames = await ensureRuntimeSkills(paths.runtimeSkillsDir)
+    await materializeCodexHome({ paths, skillNames, sourceCodexHome })
+    for (const skill of LAYER_SKILLS) {
+      const name = skill.id.replace('builtin-', '')
+      for (const root of [
+        paths.runtimeSkillsDir,
+        join(paths.codexHome, 'skills'),
+      ]) {
+        expect(await readFile(join(root, name, 'SKILL.md'), 'utf8')).toBe(
+          skill.body,
+        )
+      }
+    }
   })
 
   it('rejects non-file Codex auth sources instead of silently skipping auth', async () => {

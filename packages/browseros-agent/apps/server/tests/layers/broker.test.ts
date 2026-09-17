@@ -87,6 +87,33 @@ describe('Native Layer authority', () => {
 })
 
 describe('Authenticated document command channel', () => {
+  it('supports browser state and mutations without an open page, scoped to the owning session', async () => {
+    const broker = new LayerBroker()
+    const session = randomUUID()
+    broker.connect(profileId, session, [], false, [])
+    for (const kind of ['state', 'mutate']) {
+      const result = broker.command(profileId, kind, {
+        action: 'enable',
+        id: 'quiet',
+        revision: 1,
+      })
+      const [command] = await broker.poll(
+        profileId,
+        new AbortController().signal,
+        false,
+      )
+      expect(command.tabId).toBeUndefined()
+      expect(broker.complete(profileId, randomUUID(), command.id, {})).toBe(
+        false,
+      )
+      expect(broker.complete(randomUUID(), session, command.id, {})).toBe(false)
+      expect(
+        broker.complete(profileId, session, command.id, { confirmed: true }),
+      ).toBe(true)
+      expect(await result).toEqual({ confirmed: true })
+    }
+  })
+
   it('binds commands to all document fields and accepts one completion', async () => {
     const broker = new LayerBroker()
     const doc = document()

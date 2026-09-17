@@ -2,7 +2,9 @@ import { definitionCapabilityErrors } from '@browseros/shared/layers/capabilitie
 import {
   layerDefinitionSchema,
   layerIdSchema,
+  layerOriginSchema,
   layerProviderId,
+  layerScopeSchema,
 } from '@browseros/shared/layers/manifest'
 import { layerMatchesUrl } from '@browseros/shared/layers/matching'
 import { type ToolSet, tool } from 'ai'
@@ -70,6 +72,65 @@ const evidenceSchema = z
   })
   .strict()
 
+const browserStateSchema = z.object({
+  revision: z.number().int(),
+  records: z.array(
+    z
+      .object({
+        id: layerIdSchema,
+        enabled: z.boolean(),
+        activeVersion: z.string().nullable(),
+        definition: layerDefinitionSchema,
+        activeScope: layerScopeSchema.nullable().optional(),
+      })
+      .passthrough(),
+  ),
+  paused: z.boolean(),
+  pausedOrigins: z.array(z.string()),
+  local: z.object({
+    disabledIds: z.array(z.string()),
+    paused: z.boolean(),
+    pausedOrigins: z.array(z.string()),
+  }),
+  documents: z.array(z.unknown()),
+  scripts: z.array(z.unknown()),
+})
+function effectiveState(value: unknown) {
+  const state = browserStateSchema.parse(value)
+  const paused = state.paused || state.local.paused
+  const pausedOrigins = [
+    ...new Set([...state.pausedOrigins, ...state.local.pausedOrigins]),
+  ]
+  return {
+    revision: state.revision,
+    runtimeAvailable: true,
+    paused,
+    pausedOrigins,
+    records: state.records.map((record) => {
+      const disabledLocally = state.local.disabledIds.includes(record.id)
+      const enabled = record.enabled && !disabledLocally
+      const sitePaused = pausedOrigins.includes(
+        (record.activeScope ?? record.definition.scope).origin,
+      )
+      return {
+        ...record,
+        savedEnabled: record.enabled,
+        enabled,
+        disabledLocally,
+        status: !record.activeVersion
+          ? 'setup-incomplete'
+          : !enabled
+            ? 'disabled'
+            : paused || sitePaused
+              ? 'paused'
+              : 'enabled',
+      }
+    }),
+    documents: state.documents,
+    scripts: state.scripts,
+  }
+}
+
 export function buildLayerAuthoringTools(
   providerId?: string,
   dependencies: { broker?: LayerBroker; store?: () => LayerStore } = {},
@@ -77,6 +138,21 @@ export function buildLayerAuthoringTools(
   const broker = dependencies.broker ?? layerBroker
   const repository =
     dependencies.store ?? (() => new LayerStore(getDbHandle().sqlite))
+  const mutate = async (input: Record<string, unknown>) => {
+    const profileId = authorizedProfile()
+    const response = z
+      .object({ state: z.unknown() })
+      .parse(await broker.command(profileId, 'mutate', input))
+    const state = effectiveState(response.state)
+    const record = state.records.find((record) => record.id === input.id)
+    return {
+      ...state,
+      ...(input.id
+        ? { id: input.id, record, enabled: record?.enabled ?? false }
+        : {}),
+      ...(input.action === 'delete' ? { deleted: !record } : {}),
+    }
+  }
   return {
     layer_tabs: tool({
       description:
@@ -87,13 +163,14 @@ export function buildLayerAuthoringTools(
     }),
     layer_list: tool({
       description:
-        'Read saved Layers and drafts with the current revision for subsequent edits. Requires the browser profile that owns them.',
+        'Read actual Layer enabled/disabled state from this browser, including local disable overrides, global/site pauses, script status and the current revision. Use this to diagnose or toggle Layers yourself; do not ask the user to check the UI. enabled is the effective toggle; status also distinguishes paused and setup-incomplete.',
       inputSchema: z.object({}).strict(),
       execute: async () => {
         const profileId = authorizedProfile()
         return text({
-          revision: repository().revision(),
-          records: repository().list(),
+          ...effectiveState(
+            await broker.command(profileId, 'state', undefined),
+          ),
           capabilities: broker.capabilities(profileId, providerId),
         })
       },
@@ -181,13 +258,28 @@ export function buildLayerAuthoringTools(
             : caps,
         )
         if (errors.length) throw new Error(errors.join(' '))
-        broker.registerPreview(profileId, target, id, version)
-        try {
-          return text(await broker.command(profileId, 'preview', layer, target))
-        } catch (error) {
-          broker.clearPreview(profileId, tabId)
-          throw error
+        let currentTarget = target
+        for (let attempt = 0; attempt < 2; attempt++) {
+          broker.registerPreview(profileId, currentTarget, id, version)
+          try {
+            return text(
+              await broker.command(profileId, 'preview', layer, currentTarget),
+            )
+          } catch (error) {
+            broker.clearPreview(profileId, tabId)
+            if (
+              attempt > 0 ||
+              !(error instanceof Error) ||
+              !error.message.startsWith('The originating document changed.')
+            )
+              throw error
+            const replacement = broker.document(profileId, tabId)
+            if (!layerMatchesUrl(layer.definition.scope, replacement.url))
+              throw error
+            currentTarget = replacement
+          }
         }
+        throw new Error('The Layer preview could not reach a stable document.')
       },
     }),
     layer_verify: tool({
@@ -246,73 +338,73 @@ export function buildLayerAuthoringTools(
         const receiptId = passed
           ? repository().recordVerification(id, version, capabilities, checks)
           : undefined
-        if (receiptId) {
-          repository().keep(
-            id,
-            version,
-            receiptId,
-            capabilities,
-            repository().revision(),
-          )
-          broker.wake(profileId)
-        }
+        const activation = receiptId
+          ? await mutate({
+              action: 'keep',
+              id,
+              version,
+              receiptId,
+              revision: repository().revision(),
+            })
+          : undefined
         return text({
           ...evidence,
           checks,
           passed,
           receiptId,
-          kept: passed,
-          enabled: passed,
+          kept: Boolean(activation),
+          enabled: activation?.enabled ?? false,
+          status: activation?.record?.status,
           revision: repository().revision(),
-          next: passed
-            ? 'The Layer is saved and enabled.'
-            : 'Repair the failing checks and preview again.',
+          next:
+            activation?.record?.status === 'enabled'
+              ? 'The Layer is saved and enabled.'
+              : activation
+                ? 'The Layer is saved. Check layer_list for the current toggle and pause state.'
+                : 'Repair the failing checks and preview again.',
         })
       },
     }),
     layer_enable: tool({
       description:
-        'Enable a saved Layer. Use the current revision from layer_list.',
+        'Enable a verified saved Layer in the browser and clear its local disabled flag. Use the current revision from layer_list. Returns confirmed toggle and pause state; does not resume global/site pauses or verify an incomplete draft.',
       inputSchema: recordSchema,
-      execute: async ({ id, revision }) => {
-        const profileId = authorizedProfile()
-        const store = repository()
-        const record = store.read(id)
-        if (!record.activeVersion)
-          throw new Error('This Layer has not completed verification.')
-        const layer = store.version(id, record.activeVersion)
-        store.enable(
-          id,
-          broker.capabilities(profileId, layerProviderId(layer.definition)),
-          revision,
-        )
-        broker.wake(profileId)
-        return text({ id, enabled: true, revision: store.revision() })
-      },
+      execute: async ({ id, revision }) =>
+        text(await mutate({ action: 'enable', id, revision })),
     }),
     layer_disable: tool({
       description:
-        'Disable a saved Layer. Use the current revision from layer_list.',
+        'Disable a Layer in the browser, stop its preview and persist the disabled state. Use the current revision from layer_list. Script changes may require a page reload.',
       inputSchema: recordSchema,
-      execute: async ({ id, revision }) => {
-        const profileId = authorizedProfile()
-        const store = repository()
-        store.disable(id, revision)
-        broker.wake(profileId)
-        return text({ id, enabled: false, revision: store.revision() })
-      },
+      execute: async ({ id, revision }) =>
+        text(await mutate({ action: 'disable', id, revision })),
     }),
     layer_delete: tool({
       description:
-        'Delete a saved Layer. It remains recoverable for 30 days. Use the current revision from layer_list.',
+        'Delete a saved Layer in the browser. It remains recoverable for 30 days. Use the current revision from layer_list.',
       inputSchema: recordSchema,
-      execute: async ({ id, revision }) => {
-        const profileId = authorizedProfile()
-        const store = repository()
-        store.remove(id, revision)
-        broker.wake(profileId)
-        return text({ id, deleted: true, revision: store.revision() })
-      },
+      execute: async ({ id, revision }) =>
+        text(await mutate({ action: 'delete', id, revision })),
+    }),
+    layer_set_paused: tool({
+      description:
+        'Pause or resume all Layers, or one site when origin is supplied. Inspect layer_list first and use its current revision. This does not change individual Layer toggles.',
+      inputSchema: z
+        .object({
+          paused: z.boolean(),
+          origin: layerOriginSchema.optional(),
+          revision: z.number().int().nonnegative(),
+        })
+        .strict(),
+      execute: async ({ paused, origin, revision }) =>
+        text(
+          await mutate({
+            action: origin ? 'site-pause' : 'pause',
+            paused,
+            revision,
+            ...(origin ? { origin } : {}),
+          }),
+        ),
     }),
     layer_clear_preview: tool({
       description:
