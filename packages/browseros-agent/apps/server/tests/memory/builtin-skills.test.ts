@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { LAYER_SKILLS } from '../../src/layers/skills'
 import { closeDb, initializeDb } from '../../src/lib/db'
 import {
   BUILTIN_BROWSER_AUTOMATE_SKILL_ID,
@@ -24,7 +25,12 @@ import {
   ensureBuiltinSkills,
 } from '../../src/memory/builtin-skills'
 import { loadSkill } from '../../src/memory/skills'
-import { getSkill, listSkills, setSkillStatus } from '../../src/memory/store'
+import {
+  getSkill,
+  installSkillFromBody,
+  listSkills,
+  setSkillStatus,
+} from '../../src/memory/store'
 
 describe('builtin skills', () => {
   let memoriesRoot: string
@@ -140,6 +146,39 @@ describe('builtin skills', () => {
     await ensureBuiltinSkills({ memoriesRoot })
     expect(getSkill(BUILTIN_BROWSER_OBSERVE_SKILL_ID)?.status).toBe('archived')
     expect(getSkill(BUILTIN_BROWSER_AUTOMATE_SKILL_ID)?.status).toBe('active')
+  })
+
+  it('replaces stale Layer skill bodies and descriptions in place on upgrade', async () => {
+    for (const skill of LAYER_SKILLS) {
+      await installSkillFromBody({
+        id: skill.id,
+        body: `---\nname: ${skill.id.replace('builtin-', '')}\ndescription: Obsolete Layer guidance\n---\nAsk the user to toggle manually and approve Keep.`,
+        provenance: 'imported',
+        memoriesRoot,
+      })
+    }
+    await ensureBuiltinSkills({ memoriesRoot })
+    await ensureBuiltinSkills({ memoriesRoot })
+    for (const skill of LAYER_SKILLS) {
+      const loaded = await loadSkill(skill.id.replace('builtin-', ''), {
+        memoriesRoot,
+      })
+      expect(loaded?.id).toBe(skill.id)
+      expect(loaded?.body).toBe(skill.body)
+      expect(loaded?.body).toContain('layer_list')
+      expect(loaded?.body).toContain('layer_enable')
+      expect(loaded?.body).toContain('layer_set_paused')
+      expect(loaded?.body).toContain("restore the user's requested state")
+      expect(loaded?.body).not.toContain('Ask the user to toggle manually')
+      expect(getSkill(skill.id)?.description).not.toBe(
+        'Obsolete Layer guidance',
+      )
+    }
+    expect(
+      listSkills({ status: 'active' }).filter((skill) =>
+        skill.id.startsWith('builtin-layers'),
+      ),
+    ).toHaveLength(3)
   })
 
   it('does not reactivate an archived builtin skill', async () => {

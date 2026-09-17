@@ -57,6 +57,7 @@ function fixture() {
   const started = new Set<string>()
   let bootstrapInstanceId = instanceId
   const frame = { documentId: 'document-one', url, documentLifecycle: 'active' }
+  const tab = { id: 7, url, incognito: false }
   let gate: Promise<void> = Promise.resolve()
   const browser = {
     runtime: {
@@ -75,7 +76,10 @@ function fixture() {
       },
     },
     webNavigation: { getFrame: async () => ({ ...frame }) },
-    tabs: { query: async () => [{ id: 7, url: frame.url }] },
+    tabs: {
+      query: async () => [{ ...tab, url: frame.url }],
+      get: async () => ({ ...tab }),
+    },
     userScripts: {
       getScripts: async () => {
         await gate
@@ -174,6 +178,7 @@ function fixture() {
     options,
     browser,
     frame,
+    tab,
     scripts,
     worlds,
     stored,
@@ -190,6 +195,36 @@ function fixture() {
 }
 
 describe('private userscript registry', () => {
+  it('reports why a preview target is unavailable without relaxing document or policy checks', async () => {
+    const f = fixture(),
+      registry = f.create()
+    await registry.synchronize([layer])
+    const target = { tabId: 7, documentId: f.frame.documentId, url }
+    await registry.mount(layer, target)
+    const executions = f.executions.length
+    f.options.authorized = () => false
+    await expect(registry.mount(layer, target)).rejects.toThrow(
+      'Inspect layer_list',
+    )
+    f.options.authorized = () => true
+    f.frame.documentId = 'replacement-document'
+    await expect(registry.mount(layer, target)).rejects.toThrow(
+      'Refresh layer_tabs',
+    )
+    f.frame.documentId = target.documentId
+    f.frame.documentLifecycle = 'cached'
+    await expect(registry.mount(layer, target)).rejects.toThrow('inactive')
+    f.frame.documentLifecycle = 'active'
+    f.tab.incognito = true
+    await expect(registry.mount(layer, target)).rejects.toThrow('incognito')
+    f.tab.incognito = false
+    expect(f.executions).toHaveLength(executions)
+    await registry.synchronize([])
+    await expect(registry.mount(layer, target)).rejects.toThrow(
+      'not authorized',
+    )
+  })
+
   it('refreshes an older registered bootstrap without rotating identity or replaying mounted source', async () => {
     const f = fixture(),
       registry = f.create()

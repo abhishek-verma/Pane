@@ -568,6 +568,12 @@ try {
     )
     await worker!.evaluate(() => chrome.userScripts.getScripts())
   }
+  await until(() => broker.ready(profileId), 'browser profile connection')
+  const emptyState = await author('layer_list', {})
+  assert(
+    emptyState.runtimeAvailable && emptyState.documents.length === 0,
+    'Layer state required an open website',
+  )
   console.log('Browser launched; testing document registration')
   const page = await browser.newPage()
   await page.goto(`${origin}/articles/one`)
@@ -617,6 +623,16 @@ try {
     store.revision(),
   )
   const layer = store.version(draft.id, draft.latestVersion)
+  let incompleteError = ''
+  try {
+    await author('layer_enable', { id: layer.id, revision: store.revision() })
+  } catch (error) {
+    incompleteError = String(error)
+  }
+  assert(
+    incompleteError.includes('layer_verify') && !store.read(layer.id).enabled,
+    'Incomplete draft enable did not explain verification',
+  )
   await broker.command(profileId, 'preview', layer, target())
   broker.registerPreview(profileId, target(), layer.id, layer.version)
   const hidden = () =>
@@ -648,8 +664,57 @@ try {
   )
   await mutate('disable', { id: layer.id })
   await until(async () => !(await hidden()), 'disable cleanup')
-  await mutate('enable', { id: layer.id })
-  await until(hidden, 're-enable mount')
+  // Simulate the old agent path: server enabled, browser override still disabled.
+  store.enable(layer.id, broker.capabilities(profileId), store.revision())
+  broker.wake(profileId)
+  const disabledState = await author('layer_list', {})
+  assert(
+    disabledState.records.some(
+      (record: any) =>
+        record.id === layer.id &&
+        record.savedEnabled &&
+        !record.enabled &&
+        record.disabledLocally &&
+        record.status === 'disabled',
+    ),
+    'Agent did not see the durable browser disable override',
+  )
+  const enabled = await author('layer_enable', {
+    id: layer.id,
+    revision: disabledState.revision,
+  })
+  assert(
+    enabled.enabled && !enabled.record.disabledLocally,
+    'Agent enable did not acknowledge the browser override',
+  )
+  await until(hidden, 'agent re-enable mount')
+  const uiState = await mutate('state')
+  assert(
+    !uiState.local.disabledIds.includes(layer.id),
+    'Agent enable left UI disabled',
+  )
+  await author('layer_set_paused', {
+    paused: true,
+    origin,
+    revision: store.revision(),
+  })
+  const pausedState = await author('layer_list', {})
+  assert(
+    pausedState.records.find((record: any) => record.id === layer.id)
+      ?.status === 'paused',
+    'Agent missed the site pause',
+  )
+  await until(async () => !(await hidden()), 'agent site pause cleanup')
+  await author('layer_set_paused', {
+    paused: false,
+    origin,
+    revision: pausedState.revision,
+  })
+  await until(hidden, 'agent site resume')
+  await author('layer_disable', { id: layer.id, revision: store.revision() })
+  await until(async () => !(await hidden()), 'agent disable cleanup')
+  await author('layer_enable', { id: layer.id, revision: store.revision() })
+  await until(hidden, 'agent enable after agent disable')
   await page.evaluate(() => {
     const state = window as any
     state.layerCacheRestores = 0
@@ -1307,10 +1372,93 @@ try {
       async () => !(await page.$('#script-translate')),
       'script cleanup',
     )
+    const warmEnable = await author('layer_enable', {
+      id: script.id,
+      revision: store.revision(),
+    })
+    assert(
+      warmEnable.enabled &&
+        warmEnable.scripts.some(
+          (state: any) =>
+            state.layerId === script.id && state.status === 'reload-required',
+        ),
+      'Agent did not receive script reload-required state',
+    )
+    let reloadError = ''
+    try {
+      await author('layer_preview', { ...script, tabId: target().tabId })
+    } catch (error) {
+      reloadError = String(error)
+    }
+    assert(
+      reloadError.includes('Reload'),
+      `Warm script preview did not request reload: ${reloadError}`,
+    )
+    await author('layer_disable', { id: script.id, revision: store.revision() })
+    const disabledDocumentId = target().documentId
     await page.reload()
     await page.waitForSelector('article')
     assert(!(await page.$('#script-translate')), 'Disabled script reapplied')
     scriptChecks.push('script disable cleanup and future injection revocation')
+    console.log('Script test: UI disable followed by agent enable and preview')
+    await until(
+      () =>
+        broker
+          .documents(profileId)
+          .some(
+            (doc) =>
+              doc.url === page.url() && doc.documentId !== disabledDocumentId,
+          ),
+      'script document after disabled reload',
+    )
+    const scriptState = await author('layer_list', {})
+    assert(
+      scriptState.records.find((record: any) => record.id === script.id)
+        ?.status === 'disabled',
+      'Agent did not see disabled script',
+    )
+    let previewError = ''
+    try {
+      await author('layer_preview', { ...script, tabId: target().tabId })
+    } catch (error) {
+      previewError = String(error)
+    }
+    assert(
+      previewError.includes('layer_enable'),
+      `Disabled preview lacked recovery instructions: ${previewError}`,
+    )
+    const scriptEnabled = await author('layer_enable', {
+      id: script.id,
+      revision: store.revision(),
+    })
+    assert(
+      scriptEnabled.enabled && !scriptEnabled.record.disabledLocally,
+      'Agent script enable left browser disabled',
+    )
+    const retried = await author('layer_preview', {
+      ...script,
+      tabId: target().tabId,
+    })
+    assert(
+      retried.preview?.version === script.version,
+      'Preview failed after agent enable',
+    )
+    await page.waitForSelector('#script-translate')
+    const scriptUi = await mutate('state')
+    assert(
+      !scriptUi.local.disabledIds.includes(script.id),
+      'Script UI still showed disabled',
+    )
+    await author('layer_disable', { id: script.id, revision: store.revision() })
+    await until(
+      async () => !(await page.$('#script-translate')),
+      'agent script disable cleanup',
+    )
+    await page.reload()
+    scriptChecks.push(
+      'agent observes browser disable, enables it, and previews successfully',
+    )
+
     const savedData = await author('layer_draft', {
       revision: store.revision(),
       definition: {

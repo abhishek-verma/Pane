@@ -333,16 +333,23 @@ export class LayerUserScriptRegistry {
       tabId: target.tabId,
       frameId: 0,
     })
+    if (!this.available || this.disposed)
+      throw new Error(
+        'Native script access is unavailable. Check layer_list capabilities.',
+      )
+    if (tab.incognito)
+      throw new Error('Layers cannot preview scripts in an incognito tab.')
     if (
-      !record ||
-      tab.incognito ||
       frame?.documentId !== target.documentId ||
       frame.url !== target.url ||
-      frame.documentLifecycle !== 'active' ||
-      !this.allowed(record, document)
+      frame.documentLifecycle !== 'active'
     )
       throw new Error(
-        'The script target is unavailable or no longer authorized.',
+        'The script document changed or is inactive. Refresh layer_tabs and inspect the current page before previewing again.',
+      )
+    if (!record || !this.allowed(record, document))
+      throw new Error(
+        'This script version is not authorized in the current browser state. Inspect layer_list for disabled Layers or pauses, then preview the current draft on its matching page.',
       )
     await this.evaluate(
       record,

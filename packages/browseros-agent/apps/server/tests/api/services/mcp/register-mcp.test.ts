@@ -146,6 +146,7 @@ describe('registerTools', () => {
     'layer_enable',
     'layer_disable',
     'layer_delete',
+    'layer_set_paused',
     'layer_clear_preview',
     'layer_data_sources',
     'layer_assess',

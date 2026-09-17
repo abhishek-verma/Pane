@@ -283,21 +283,23 @@ export function createLayerRoutes(
         if (!input.id) throw new Error('A Layer id is required.')
         if (input.action === 'disable')
           repository.disable(input.id, input.revision)
-        else if (input.action === 'enable')
+        else if (input.action === 'enable') {
+          const record = repository.read(input.id)
+          if (!record.activeVersion)
+            throw new Error(
+              'This Layer has not completed setup. Use layer_preview and layer_verify before enabling it.',
+            )
           repository.enable(
             input.id,
             broker.capabilities(
               profileId,
               layerProviderId(
-                repository.version(
-                  input.id,
-                  repository.read(input.id).activeVersion ?? '',
-                ).definition,
+                repository.version(input.id, record.activeVersion).definition,
               ),
             ),
             input.revision,
           )
-        else if (input.action === 'restore')
+        } else if (input.action === 'restore')
           repository.restore(input.id, input.revision)
         else if (input.action === 'delete')
           repository.remove(input.id, input.revision)
@@ -321,8 +323,9 @@ export function createLayerRoutes(
             profileId,
             layerProviderId(layer.definition),
           )
-          // The trusted extension UI is the grant surface. Author tools cannot
-          // issue this request with their narrower delegated credentials.
+          // Only the trusted extension can commit this mutation, either from
+          // its UI or an authenticated authoring command. Both acknowledge the
+          // same local disable override after successful activation.
           repository.keep(
             input.id,
             input.version,
