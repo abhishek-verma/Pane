@@ -10,6 +10,7 @@ export interface LayerRunView {
   startedAt: number
   finishedAt: number | null
   name: string
+  failureReason?: string | null
 }
 export function LayerActivity({
   runs,
@@ -38,6 +39,11 @@ export function LayerActivity({
                 {run.status} · {new Date(run.startedAt).toLocaleString()} ·{' '}
                 {run.provider}
               </p>
+              {run.status === 'failed' && run.failureReason && (
+                <p className="mt-1 text-destructive text-xs">
+                  {run.failureReason}
+                </p>
+              )}
             </div>
             {run.status === 'running' && (
               <Button

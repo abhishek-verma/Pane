@@ -18,6 +18,7 @@ import {
   LayerAuthority,
   withLayerAccess,
 } from '../../apps/server/src/layers/broker-auth'
+import { runClaudeLayerAction } from '../../apps/server/src/layers/claude-action-runner'
 import { LayerDataBroker } from '../../apps/server/src/layers/data-broker'
 import { createLayerRoutes } from '../../apps/server/src/layers/routes'
 import { LayerStore } from '../../apps/server/src/layers/store'
@@ -38,6 +39,7 @@ const testScripts =
   process.argv.includes('--scripts') || testClaude || testCodex
 const generatedRequestCount = testClaude ? 6 : 5
 const scriptChecks: string[] = []
+const claudeInitModels = new Set<string>()
 let recoveryTiming: { initializationMs: number; pauseMs: number } | undefined
 const root = resolve(import.meta.dir, '../..')
 const dir = await mkdtemp(join(tmpdir(), 'pane-layers-integration-'))
@@ -78,7 +80,16 @@ const app = createLayerRoutes({
               codexFixtureResponse(origin, body, signal),
           },
         })
-    : undefined,
+    : testClaude
+      ? (run) =>
+          runClaudeLayerAction(run, {
+            binary: process.env.PANE_LAYER_TEST_CLAUDE_BINARY,
+            observeInit: (event) => {
+              if (typeof event.model === 'string')
+                claudeInitModels.add(event.model)
+            },
+          })
+      : undefined,
   authority: new LayerAuthority(secret),
   broker,
   store: () => store,
@@ -87,6 +98,7 @@ let browser: Browser | undefined
 let modelCalls = 0
 let delayed: (() => void) | undefined
 let delayNext = false
+let denyClaudeAccount = false
 let brokerOffline = false
 let dropNextActionResponse = true
 let resultReplays = 0
@@ -132,6 +144,19 @@ const server = Bun.serve({
       return response
     }
     if (path === '/v1/messages') {
+      if (denyClaudeAccount)
+        return Response.json(
+          {
+            type: 'error',
+            error: {
+              type: 'permission_error',
+              message:
+                'Your organization has disabled Claude subscription access for Claude Code private-fixture-detail',
+            },
+          },
+          { status: 403 },
+        )
+
       const body = (await request.json()) as {
         model: string
         tools?: Array<{ name: string }>
@@ -481,7 +506,7 @@ try {
                   ? `export const getBrowserProfileKey = async () => ${JSON.stringify(profileId)};`
                   : path.endsWith('/native')
                     ? `export const getLayerCredential = async () => ({profileId:${JSON.stringify(profileId)}}); export const layerFetch = (path, init={}) => fetch(${JSON.stringify(origin)}+'/layers'+path, {...init,headers:{...init.headers,'Content-Type':'application/json',Authorization:${JSON.stringify(authorization)}}});`
-                    : `export const loadProviders = async () => ['fixture-provider','unverified-provider'].map(id=>({id,type:${JSON.stringify(testCodex ? 'codex' : testClaude ? 'claude-code' : 'openai-compatible')},modelId:${JSON.stringify(testCodex ? 'gpt-5.5' : testClaude ? 'claude-sonnet-4-6' : 'fixture')},updatedAt:1,baseUrl:${JSON.stringify(`${origin}/v1`)}}));`,
+                    : `export const loadProviders = async () => ['fixture-provider','unverified-provider'].map(id=>({id,type:${JSON.stringify(testCodex ? 'codex' : testClaude ? 'claude-code' : 'openai-compatible')},modelId:${JSON.stringify(testCodex ? 'gpt-5.5' : testClaude ? 'sonnet' : 'fixture')},updatedAt:1,baseUrl:${JSON.stringify(`${origin}/v1`)}}));`,
               }),
             )
           },
@@ -1849,6 +1874,60 @@ try {
       )) === 'unsaved draft',
       'Generated task modified form contents',
     )
+    if (testClaude) {
+      console.log(
+        'Testing persisted Claude failure diagnostics in the production UI',
+      )
+      await page.reload()
+      await page.waitForSelector('#generated-button')
+      denyClaudeAccount = true
+      await page.bringToFront()
+      await page.click('#generated-button')
+      await page.waitForSelector('#generated-button[data-status="failed"]', {
+        timeout: 20000,
+      })
+      denyClaudeAccount = false
+      const failed = store
+        .activity()
+        .find(
+          (run) => run.layerId === generatedLayer.id && run.status === 'failed',
+        )
+      assert(
+        failed?.failureCode === 'PROVIDER_ACCESS_DENIED',
+        'Runner reason was not persisted',
+      )
+      await ui.bringToFront()
+      await ui.click('button[aria-label="Refresh Layers"]')
+      await ui.waitForFunction(() =>
+        document.body.textContent?.includes(
+          'Your organization has disabled Claude subscription access',
+        ),
+      )
+      const disclosure = await ui.$$('summary')
+      for (const summary of disclosure)
+        if (
+          (await summary.evaluate((node) => node.textContent)) ===
+            'Recent activity' &&
+          !(await summary.evaluate((node) =>
+            node.parentElement?.hasAttribute('open'),
+          ))
+        )
+          await summary.click()
+      assert(
+        await ui.evaluate(() =>
+          Array.from(document.querySelectorAll('p')).some(
+            (node) =>
+              node.textContent?.includes(
+                'Your organization has disabled Claude subscription access',
+              ) && node.getBoundingClientRect().height > 0,
+          ),
+        ),
+        'Failure reason is not visible in Recent activity',
+      )
+      scriptChecks.push(
+        'Claude Settings alias completes private page loop; provider failures have visible persisted diagnostics',
+      )
+    }
     assert(
       (await mutate('disable', { id: generatedLayer.id })).ok,
       'Generated task disable failed',
@@ -1994,6 +2073,7 @@ try {
           : testClaude
             ? 'installed Claude CLI with local deterministic API'
             : 'local deterministic API fixture',
+        claudeInitModels: [...claudeInitModels],
         recoveryTiming,
         accessibility: {
           layouts: accessibility.layouts,

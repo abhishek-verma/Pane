@@ -91,6 +91,7 @@
     },
     "./layers/data": "./src/layers/data.ts",
     "./layers/digest": "./src/layers/digest.ts",
-    "./layers/script-task": "./src/layers/script-task.ts"
+    "./layers/script-task": "./src/layers/script-task.ts",
+    "./layers/action-failure": "./src/layers/action-failure.ts"
   }
 }

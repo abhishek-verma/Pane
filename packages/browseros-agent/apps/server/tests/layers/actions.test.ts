@@ -3,6 +3,7 @@ import { afterEach, expect, it } from 'bun:test'
 import { randomUUID } from 'node:crypto'
 import type { TranslationResult } from '@browseros/shared/layers/action-protocol'
 import { layerDefinitionSchema } from '@browseros/shared/layers/manifest'
+import { LayerActionError } from '../../src/layers/action-error'
 import { LayerActions } from '../../src/layers/actions'
 import { LayerBroker } from '../../src/layers/broker'
 import { LayerProviderError } from '../../src/layers/provider-error'
@@ -330,5 +331,35 @@ it('delivers actionable account-denied codes without automatically retrying', as
     retryable: false,
   })
   expect(JSON.stringify(events)).not.toContain('private error detail')
+  expect(f.store.activity()[0]?.failureReason).toContain(
+    'organization has disabled',
+  )
+  expect(JSON.stringify(f.store.activity())).not.toContain(
+    'private error detail',
+  )
   expect(calls).toBe(1)
+})
+
+it('persists a safe runner reason and never persists raw provider output', async () => {
+  for (const error of [
+    new LayerActionError('CLAUDE_MODEL_MISMATCH'),
+    new Error('secret-page-body-and-provider-token'),
+  ]) {
+    const f = setup()
+    const service = new LayerActions(f.broker, async () => {
+      throw error
+    })
+    const events = await service.run(f.profileId, f.request, f.store)
+    const code =
+      error instanceof LayerActionError ? error.code : 'PROVIDER_RESULT_FAILED'
+    expect(events.at(-1)?.payload).toMatchObject({ type: 'failed', code })
+    expect(f.store.activity()[0]).toMatchObject({
+      status: 'failed',
+      failureCode: code,
+      failureReason: expect.any(String),
+    })
+    expect(JSON.stringify(f.store.activity())).not.toContain(
+      'secret-page-body-and-provider-token',
+    )
+  }
 })

@@ -1,3 +1,4 @@
+import { layerActionFailureMessage } from '@browseros/shared/layers/action-failure'
 import {
   actionAcceptsInput,
   isDataInput,
@@ -16,6 +17,8 @@ import { layerMatchesUrl } from '@browseros/shared/layers/matching'
 import type { ScriptTaskExecution } from '@browseros/shared/layers/script-task'
 import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
+import { logger } from '../lib/logger'
+import { LayerActionError } from './action-error'
 import { runLayerTranslation, type TranslationRun } from './action-runner'
 import type { LayerBroker } from './broker'
 import { LayerProviderError } from './provider-error'
@@ -252,6 +255,7 @@ export class LayerActions {
           store.finishRun(
             binding.invocationId,
             timedOut ? 'failed' : 'cancelled',
+            timedOut ? 'DEADLINE_EXCEEDED' : undefined,
           )
           return [
             event(1, { type: 'accepted' }),
@@ -311,9 +315,25 @@ export class LayerActions {
           event(3, { type: 'completed' }),
         ]
       } catch (error) {
+        const failureCode = timedOut
+          ? 'DEADLINE_EXCEEDED'
+          : error instanceof LayerActionError ||
+              error instanceof LayerProviderError
+            ? error.code
+            : 'PROVIDER_RESULT_FAILED'
+        const cancelled = controller.signal.aborted && !timedOut
+        if (!cancelled)
+          logger.warn('Layer action failed', {
+            invocationId: binding.invocationId,
+            layerId: binding.layerId,
+            provider: config.provider,
+            code: failureCode,
+            reason: layerActionFailureMessage(failureCode),
+          })
         store.finishRun(
           binding.invocationId,
-          controller.signal.aborted && !timedOut ? 'cancelled' : 'failed',
+          cancelled ? 'cancelled' : 'failed',
+          cancelled ? undefined : failureCode,
         )
         return [
           event(1, { type: 'accepted' }),
@@ -325,10 +345,7 @@ export class LayerActions {
                 ? { type: 'cancelled' }
                 : {
                     type: 'failed',
-                    code:
-                      error instanceof LayerProviderError
-                        ? error.code
-                        : 'PROVIDER_RESULT_FAILED',
+                    code: failureCode,
                     retryable:
                       error instanceof LayerProviderError
                         ? error.retryable

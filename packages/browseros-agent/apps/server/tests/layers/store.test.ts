@@ -433,15 +433,22 @@ it('retains immutable version history and restores a draft without replacing the
 })
 
 it('installs the same activity schema through migration and fallback, bounds retention, and reports interrupted runs', () => {
-  expect(
-    readFileSync(
-      join(
-        import.meta.dir,
-        '../../src/lib/db/migrations/0021_layer_activity.sql',
+  const migrated = new Database(':memory:')
+  databases.push(migrated)
+  migrated.exec(LAYERS_SCHEMA_SQL)
+  for (const file of ['0021_layer_activity', '0022_layer_action_failures'])
+    migrated.exec(
+      readFileSync(
+        join(import.meta.dir, `../../src/lib/db/migrations/${file}.sql`),
+        'utf8',
       ),
-      'utf8',
-    ),
-  ).toBe(LAYER_ACTIVITY_SCHEMA_SQL)
+    )
+  const fresh = new Database(':memory:')
+  databases.push(fresh)
+  fresh.exec(LAYERS_SCHEMA_SQL + LAYER_ACTIVITY_SCHEMA_SQL)
+  expect(migrated.query('PRAGMA table_info(layer_activity)').all()).toEqual(
+    fresh.query('PRAGMA table_info(layer_activity)').all(),
+  )
   const db = new Database(':memory:')
   db.exec(LAYERS_SCHEMA_SQL + LAYER_ACTIVITY_SCHEMA_SQL)
   let now = 1_000_000
@@ -494,3 +501,47 @@ it('purges deleted definitions after thirty days while preserving restored Layer
   expect(store.read(second.id).enabled).toBe(false)
   expect(store.version(second.id, second.latestVersion)).toBeDefined()
 })
+
+for (const fallback of [false, true]) {
+  it(`preserves pre-upgrade activity and persists diagnostics after ${fallback ? 'fallback' : 'migrated'} upgrade`, () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pane-layer-upgrade-'))
+    dirs.push(dir)
+    const dbPath = join(dir, 'profile.sqlite')
+    const first = openBrowserOsDatabase({ dbPath })
+    const store = new LayerStore(first.sqlite)
+    const layer = store.draft(definition, 0)
+    store.beginRun({
+      invocationId: 'old',
+      layerId: layer.id,
+      version: layer.latestVersion,
+      actionId: 'test',
+      fingerprint: 'hash',
+      provider: 'claude-code',
+      deadlineAt: Date.now() + 10000,
+    })
+    store.finishRun('old', 'failed')
+    // Recreate the released 0021 schema and migration watermark.
+    first.sqlite.exec(
+      'ALTER TABLE layer_activity DROP COLUMN failure_code; DELETE FROM __drizzle_migrations WHERE created_at=1786700000000',
+    )
+    first.sqlite.close()
+    const upgraded = openBrowserOsDatabase({
+      dbPath,
+      ...(fallback ? { migrationsDir: join(dir, 'missing') } : {}),
+    })
+    const current = new LayerStore(upgraded.sqlite)
+    expect(current.activity()[0]).toMatchObject({
+      invocationId: 'old',
+      status: 'failed',
+      failureCode: null,
+    })
+    current.finishRun('old', 'failed', 'CLAUDE_MODEL_MISMATCH')
+    upgraded.sqlite.close()
+    const reopened = openBrowserOsDatabase({ dbPath })
+    databases.push(reopened.sqlite)
+    expect(new LayerStore(reopened.sqlite).activity()[0]).toMatchObject({
+      failureCode: 'CLAUDE_MODEL_MISMATCH',
+      failureReason: expect.stringContaining('saved selection'),
+    })
+  })
+}
