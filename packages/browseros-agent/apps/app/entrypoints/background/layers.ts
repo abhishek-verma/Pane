@@ -1,10 +1,8 @@
 import {
-  actionAcceptsInput,
   isPageTaskInput,
   isScriptTaskInput,
   type LayerActionBinding,
   layerActionBindingSchema,
-  layerActionInputSchema,
   sameLayerActionBinding,
 } from '@browseros/shared/layers/action-protocol'
 import {
@@ -15,6 +13,7 @@ import { scriptTaskExecutionSchema } from '@browseros/shared/layers/script-task'
 import { z } from 'zod'
 import { getBrowserProfileKey } from '@/lib/browseros/profile-key'
 import { LayerActionEvents } from '@/lib/layers/action-events'
+import { parseLayerActionInput } from '@/lib/layers/action-input'
 import { LayerRuntimeCache } from '@/lib/layers/cache'
 import { documentHelloSchema, LAYER_CHANNEL } from '@/lib/layers/messages'
 import { getLayerCredential, layerFetch } from '@/lib/layers/native'
@@ -271,9 +270,9 @@ export function layersBridge(): void {
     const action = layer.definition.actions.find(
       (action) => action.id === input.actionId,
     )
-    const source = layerActionInputSchema.parse(input.input)
-    if (!action || !actionAcceptsInput(action, source))
-      throw new Error('The supplied input does not match the saved action.')
+    const source = parseLayerActionInput(action, input.input)
+    if (!action)
+      throw new LayerScriptRequestError('The saved action is missing.')
     const mutatesPage = isPageTaskInput(source) || isScriptTaskInput(source)
     if (
       mutatesPage &&
@@ -1006,7 +1005,7 @@ export function layersBridge(): void {
                 await syncScripts()
                 if (!scripts?.available)
                   throw new Error('Native script access is unavailable.')
-                await scripts.mount(layer, doc)
+                await scripts.mount(layer, doc, { replaceVersion: true })
                 await scripts.waitUntilExecuted(layer, doc)
               } catch (error) {
                 previews.delete(doc.tabId)

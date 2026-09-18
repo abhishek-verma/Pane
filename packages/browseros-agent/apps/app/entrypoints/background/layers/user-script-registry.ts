@@ -117,6 +117,7 @@ export class LayerUserScriptRegistry {
   private records = new Map<string, Registration>()
   private desired = new Map<string, InstalledLayer>()
   private states = new Map<string, ScriptRunState>()
+  private cleanups = new WeakMap<ScriptRunState, Promise<void>>()
   private running = new Map<
     AbortController,
     { record: Registration; document: ScriptDocument }
@@ -325,6 +326,7 @@ export class LayerUserScriptRegistry {
   async mount(
     layer: InstalledLayer,
     target: Pick<ScriptDocument, 'tabId' | 'documentId' | 'url'>,
+    options: { replaceVersion?: boolean } = {},
   ): Promise<void> {
     await this.queue
     const record = this.records.get(versionKey(layer))
@@ -352,6 +354,47 @@ export class LayerUserScriptRegistry {
       throw new Error(
         'This script version is not authorized in the current browser state. Inspect layer_list for disabled Layers or pauses, then preview the current draft on its matching page.',
       )
+    if (options.replaceVersion) {
+      // A requested draft may replace the active version on this document.
+      // Keep its registration/world for other tabs and future navigations.
+      // Probe every known version: a worker restart can lose the live states
+      // while those private worlds and their tracked DOM remain alive.
+      const key = `${target.documentId}:${layer.id}`
+      const previous = this.states.get(key)
+      if (previous && previous.version !== layer.version) {
+        // synchronize may already have retired the preceding draft's
+        // registration. Wait for its cleanup before replacing the tombstone.
+        const cleanup = this.cleanups.get(previous)
+        if (cleanup) await cleanup
+        else if (!this.records.has(`${layer.id}:${previous.version}`))
+          throw new Error('Reload this page before replacing the prior script.')
+      }
+      for (const old of this.records.values()) {
+        if (old.layer.id !== layer.id || old.layer.version === layer.version)
+          continue
+        if (previous?.version === old.layer.version)
+          previous.status = 'reload-required'
+        for (const [controller, run] of this.running)
+          if (
+            run.document.documentId === target.documentId &&
+            run.record === old
+          )
+            controller.abort()
+        await this.evaluate(
+          old,
+          document,
+          `globalThis[${JSON.stringify(old.instanceKey)}]?.cleanup()`,
+        )
+      }
+      if (!this.allowed(record, document))
+        throw new Error('Layer state changed while replacing the preview.')
+      if (
+        previous &&
+        previous.version !== layer.version &&
+        this.states.get(key) === previous
+      )
+        this.states.delete(key)
+    }
     await this.evaluate(
       record,
       document,
@@ -695,11 +738,15 @@ export class LayerUserScriptRegistry {
       )
         continue
       state.status = 'reload-required'
-      void this.evaluate(
-        record,
-        state,
-        `globalThis[${JSON.stringify(record.instanceKey)}]?.cleanup()`,
-      ).catch(() => undefined)
+      const cleanup =
+        this.cleanups.get(state) ??
+        this.evaluate(
+          record,
+          state,
+          `globalThis[${JSON.stringify(record.instanceKey)}]?.cleanup()`,
+        ).then(() => undefined)
+      this.cleanups.set(state, cleanup)
+      void cleanup.catch(() => undefined)
     }
     // Worker restart may have lost its list of live instances. Attempt cleanup
     // in every existing tab's private world without waiting for its renderer.
