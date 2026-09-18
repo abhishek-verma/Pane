@@ -481,7 +481,7 @@ try {
                   ? `export const getBrowserProfileKey = async () => ${JSON.stringify(profileId)};`
                   : path.endsWith('/native')
                     ? `export const getLayerCredential = async () => ({profileId:${JSON.stringify(profileId)}}); export const layerFetch = (path, init={}) => fetch(${JSON.stringify(origin)}+'/layers'+path, {...init,headers:{...init.headers,'Content-Type':'application/json',Authorization:${JSON.stringify(authorization)}}});`
-                    : `export const loadProviders = async () => [{id:'fixture-provider',type:${JSON.stringify(testCodex ? 'codex' : testClaude ? 'claude-code' : 'openai-compatible')},modelId:${JSON.stringify(testCodex ? 'gpt-5.5' : testClaude ? 'claude-sonnet-4-6' : 'fixture')},updatedAt:1,baseUrl:${JSON.stringify(`${origin}/v1`)}}];`,
+                    : `export const loadProviders = async () => ['fixture-provider','unverified-provider'].map(id=>({id,type:${JSON.stringify(testCodex ? 'codex' : testClaude ? 'claude-code' : 'openai-compatible')},modelId:${JSON.stringify(testCodex ? 'gpt-5.5' : testClaude ? 'claude-sonnet-4-6' : 'fixture')},updatedAt:1,baseUrl:${JSON.stringify(`${origin}/v1`)}}));`,
               }),
             )
           },
@@ -1459,6 +1459,97 @@ try {
     scriptChecks.push(
       'script action recovers page identity immediately after service-worker loss',
     )
+    console.log(
+      'Script test: previewing a new version of an already active Layer',
+    )
+    const otherScriptTab = await browser.newPage()
+    await otherScriptTab.goto(`${origin}/articles/other-version-tab`)
+    await otherScriptTab.waitForSelector('#script-translate')
+    await page.bringToFront()
+    const draftVersion = await author('layer_draft', {
+      id: script.id,
+      revision: store.revision(),
+      definition: {
+        ...store.version(script.id, script.version).definition,
+        name: 'Preview revised translation UI',
+        source: `(() => { const panel = document.createElement('p'); panel.id='script-revision-preview'; panel.textContent='Revised panel'; document.body.append(paneLayer.own(panel)); })();`,
+        actions: [],
+        assertions: [
+          {
+            id: 'revised',
+            selector: '#script-revision-preview',
+            state: 'visible',
+          },
+        ],
+      },
+    })
+    assert(draftVersion.saved, 'Existing-layer draft did not save')
+    await author('layer_preview', {
+      id: script.id,
+      version: draftVersion.record.latestVersion,
+      tabId: target().tabId,
+    })
+    await page.waitForSelector('#script-revision-preview')
+    assert(
+      !(await page.$('#script-translate')),
+      'Active panel was not cleaned up before draft preview',
+    )
+    assert(
+      Boolean(await otherScriptTab.$('#script-translate')),
+      'Draft preview stopped active source in another tab',
+    )
+    assert(
+      store.read(script.id).activeVersion === script.version,
+      'Preview replaced the saved active version',
+    )
+    const versionState = await author('layer_list', {})
+    assert(
+      versionState.scripts.some(
+        (state: any) =>
+          state.tabId === target().tabId &&
+          state.version === draftVersion.record.latestVersion &&
+          state.status === 'executed',
+      ),
+      'Draft version was not reported as executed',
+    )
+    const secondDraft = await author('layer_draft', {
+      id: script.id,
+      revision: store.revision(),
+      definition: {
+        ...store.version(script.id, draftVersion.record.latestVersion)
+          .definition,
+        source: `(() => { const panel = document.createElement('p'); panel.id='script-revision-preview'; panel.textContent='Revised again'; document.body.append(paneLayer.own(panel)); })();`,
+      },
+    })
+    await author('layer_preview', {
+      id: script.id,
+      version: secondDraft.record.latestVersion,
+      tabId: target().tabId,
+    })
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#script-revision-preview')?.textContent ===
+        'Revised again',
+    )
+    assert(
+      (await page.$$eval(
+        '#script-revision-preview',
+        (nodes) => nodes.length,
+      )) === 1,
+      'Previous preview panel was left mounted',
+    )
+    await author('layer_clear_preview', { tabId: target().tabId })
+    await until(
+      async () => !(await page.$('#script-revision-preview')),
+      'rejected draft cleanup',
+    )
+    await otherScriptTab.close()
+    await page.reload()
+    await page.waitForSelector('#script-translate')
+    await author('layer_tabs', {})
+    scriptChecks.push(
+      'existing-layer draft replaces only its target document; clearing and reloading restores active version',
+    )
     const disabled = await mutate('disable', { id: script.id })
     assert(disabled.ok, `Script disable failed: ${JSON.stringify(disabled)}`)
     await until(
@@ -1634,7 +1725,7 @@ try {
         mode: 'javascript',
         scope: { origin, paths: ['/articles/*'] },
         operations: [],
-        source: `(() => {const button=document.createElement('button');button.id='generated-button';button.textContent='Adapt page';document.body.append(paneLayer.own(button));paneLayer.listen(button,'click',()=>{button.dataset.status='running';paneLayer.request('adapt',{schema:'pane.script-task-input.v1'}).then(result=>{button.dataset.status='done';button.dataset.executions=String(result.executions.length);}).catch(error=>{button.dataset.status='failed';button.textContent=error.message;});});})();`,
+        source: `(() => {const button=document.createElement('button');button.id='generated-button';button.textContent='Adapt page';document.body.append(paneLayer.own(button));paneLayer.listen(button,'click',()=>{button.dataset.status='running';paneLayer.request('adapt',button.dataset.invalid==='true'?{schema:'pane.script-task-input.v1',briefSelector:'#brief',briefBytes:42}:{schema:'pane.script-task-input.v1'}).then(result=>{button.dataset.status='done';button.dataset.executions=String(result.executions.length);}).catch(error=>{button.dataset.status='failed';button.textContent=error.message;});});})();`,
         actions: [
           {
             id: 'adapt',
@@ -1644,7 +1735,7 @@ try {
             instruction:
               'Add a visible custom paragraph saying Adapted by agent; verify and repair if needed.',
             outputSchema: 'pane.script-task-receipt.v1',
-            providerId: 'fixture-provider',
+            providerId: 'unverified-provider',
             limits: { maxSteps: 8, maxOutputTokens: 8192, deadlineMs: 30000 },
           },
         ],
@@ -1671,6 +1762,30 @@ try {
     await author('layer_preview', { ...generatedLayer, tabId: target().tabId })
     await page.waitForSelector('#generated-button')
     const generatedModels = modelCalls
+    assert(
+      broker.capabilities(profileId, 'unverified-provider').provider ===
+        'unverified',
+      'Generated provider was already verified',
+    )
+    await page.$eval('#generated-button', (node) => {
+      ;(node as HTMLElement).dataset.invalid = 'true'
+    })
+    await page.bringToFront()
+    await page.click('#generated-button')
+    await page.waitForSelector('#generated-button[data-status="failed"]')
+    assert(
+      (
+        await page.$eval('#generated-button', (node) => node.textContent)
+      )?.includes('Invalid generated-script action input'),
+      'Unsupported brief payload did not report an input-contract error',
+    )
+    assert(
+      modelCalls === generatedModels,
+      'Invalid brief payload reached the provider',
+    )
+    await page.$eval('#generated-button', (node) => {
+      delete (node as HTMLElement).dataset.invalid
+    })
     await page.bringToFront()
     await page.click('#generated-button')
     await page.waitForSelector('#generated-button[data-status="done"]', {
@@ -1690,6 +1805,14 @@ try {
     assert(
       modelCalls === generatedModels + generatedRequestCount,
       'Generated task did not use the inspect/execute/inspect/execute/complete loop',
+    )
+    assert(
+      broker.capabilities(profileId, 'unverified-provider').provider ===
+        'ready',
+      'Successful generated action did not verify its provider',
+    )
+    scriptChecks.push(
+      'unverified provider runs generated-script action; unsupported brief fields fail before any model call',
     )
     const generatedProof = await author('layer_verify', {
       ...generatedLayer,

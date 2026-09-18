@@ -409,6 +409,137 @@ describe('private userscript registry', () => {
     expect((await f.action()).ok).toBe(true)
     registry.dispose()
   })
+  it('explicitly previews a new version over the active instance only in the target document', async () => {
+    const f = fixture(),
+      registry = f.create()
+    await registry.synchronize([layer])
+    await f.send()
+    await f.settled()
+    f.frame.documentId = 'other-document'
+    await f.send()
+    await f.settled()
+    f.frame.documentId = 'document-one'
+    const next = {
+      ...layer,
+      definition: {
+        ...layer.definition,
+        source: 'document.body.dataset.preview = "yes";',
+      },
+    }
+    next.version = digest(next.definition)
+    f.options.authorized = (item, doc) =>
+      item.version ===
+      (doc.documentId === 'document-one' ? next.version : layer.version)
+    await registry.synchronize([layer, next])
+    const preview = f.stored[`pane.layers.scripts.${profileId}`].find(
+      (item: any) => item.layer.version === next.version,
+    )
+    // Merely registering a new version must not implicitly replace live code.
+    expect(
+      (await f.send(f.message('hello', { token: preview.token }))).ok,
+    ).toBe(false)
+    const start = f.executions.length
+    await registry.mount(
+      next,
+      { tabId: 7, documentId: f.frame.documentId, url },
+      { replaceVersion: true },
+    )
+    expect(
+      (await f.send(f.message('hello', { token: preview.token }))).ok,
+    ).toBe(true)
+    await f.settled()
+    await registry.waitUntilExecuted(next, {
+      tabId: 7,
+      documentId: f.frame.documentId,
+      url,
+    })
+    expect(
+      registry.status().find((state) => state.documentId === 'document-one'),
+    ).toMatchObject({ version: next.version, status: 'executed' })
+    const cleanup = f.executions
+      .slice(start)
+      .filter((args) => args.js[0].code.includes('?.cleanup()'))
+    expect(cleanup).toHaveLength(1)
+    expect(cleanup[0].target.documentIds).toEqual(['document-one'])
+    expect((await f.action()).ok).toBe(false)
+    f.frame.documentId = 'other-document'
+    expect((await f.action()).ok).toBe(true)
+    expect(
+      f.sources.filter((source) => source === next.definition.source),
+    ).toHaveLength(1)
+    expect(f.scripts.size).toBe(2)
+    // A second draft retires the first preview's registration. Its completed
+    // cleanup still has to allow replacement in the same live document.
+    f.frame.documentId = 'document-one'
+    const third = {
+      ...next,
+      definition: { ...next.definition, source: 'void 2;' },
+    }
+    third.version = digest(third.definition)
+    f.options.authorized = (item, doc) =>
+      item.version ===
+      (doc.documentId === 'document-one' ? third.version : layer.version)
+    await registry.synchronize([layer, third])
+    await registry.mount(
+      third,
+      { tabId: 7, documentId: f.frame.documentId, url },
+      { replaceVersion: true },
+    )
+    const thirdRecord = f.stored[`pane.layers.scripts.${profileId}`].find(
+      (item: any) => item.layer.version === third.version,
+    )
+    expect(
+      (await f.send(f.message('hello', { token: thirdRecord.token }))).ok,
+    ).toBe(true)
+    await f.settled()
+    expect(
+      registry.status().find((state) => state.documentId === 'document-one'),
+    ).toMatchObject({ version: third.version, status: 'executed' })
+    registry.dispose()
+  })
+
+  it('does not mount a replacement revoked while the prior version is cleaning up', async () => {
+    const f = fixture(),
+      registry = f.create()
+    await registry.synchronize([layer])
+    await f.send()
+    await f.settled()
+    const next = {
+      ...layer,
+      definition: { ...layer.definition, source: 'void 1;' },
+    }
+    next.version = digest(next.definition)
+    f.options.authorized = (item) => item.version === next.version
+    await registry.synchronize([layer, next])
+    let release!: () => void
+    let entered!: () => void
+    const began = new Promise<void>((resolve) => {
+      entered = resolve
+    })
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const execute = f.browser.userScripts.execute
+    f.browser.userScripts.execute = async (args) => {
+      if (args.js[0].code.includes('?.cleanup()')) {
+        entered()
+        await gate
+      }
+      return execute(args)
+    }
+    const replacement = registry.mount(
+      next,
+      { tabId: 7, documentId: f.frame.documentId, url },
+      { replaceVersion: true },
+    )
+    await began
+    f.options.authorized = () => false
+    release()
+    await expect(replacement).rejects.toThrow('state changed')
+    expect(f.sources).not.toContain(next.definition.source)
+    registry.dispose()
+  })
+
   it('registers only trusted bootstrap source and separately executes in the exact native document', async () => {
     const f = fixture(),
       registry = f.create()
