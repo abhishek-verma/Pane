@@ -11,6 +11,7 @@ export const layerActivity = sqliteTable('layer_activity', {
   fingerprint: text('fingerprint').notNull(),
   provider: text('provider').notNull(),
   status: text('status').notNull(),
+  failureCode: text('failure_code'),
   startedAt: integer('started_at').notNull(),
   finishedAt: integer('finished_at'),
   deadlineAt: integer('deadline_at').notNull(),
@@ -28,7 +29,8 @@ CREATE TABLE IF NOT EXISTS layer_activity (
   status TEXT NOT NULL CHECK(status IN ('running','completed','failed','cancelled','interrupted')),
   started_at INTEGER NOT NULL,
   finished_at INTEGER,
-  deadline_at INTEGER NOT NULL
+  deadline_at INTEGER NOT NULL,
+  failure_code TEXT
 );
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS layer_activity_recent_idx ON layer_activity(started_at DESC);

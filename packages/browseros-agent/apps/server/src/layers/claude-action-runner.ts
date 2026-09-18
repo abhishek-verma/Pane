@@ -12,7 +12,9 @@ import {
 } from '@browseros/shared/layers/action-protocol'
 import { asSchema } from 'ai'
 import { resolveHostBinary } from '../lib/agents/host-acp/binary-resolver'
+import { LayerActionError } from './action-error'
 import type { TranslationRun } from './action-runner'
+import { claudeModelId, matchesSavedClaudeModel } from './claude-model'
 import { startPrivateLayerMcp } from './private-mcp'
 import { claudeAccountError } from './provider-error'
 import { PageTaskResultSink, TranslationResultSink } from './result-acceptance'
@@ -95,15 +97,12 @@ export async function runClaudeLayerAction(
   if (isDataInput(run.input))
     throw new Error('Data operations do not use a model.')
   const model = run.config.model?.trim()
-  if (!model)
-    throw new Error(
-      'The saved Claude model is missing. Select a model in provider settings.',
-    )
+  if (!model) throw new LayerActionError('CLAUDE_MODEL_MISSING')
   run.signal.throwIfAborted()
   const resolved = dependencies.binary
     ? { path: dependencies.binary, env: dependencies.env ?? process.env }
     : await resolveHostBinary('claude')
-  if (!resolved) throw new Error('Claude Code is unavailable on this computer.')
+  if (!resolved) throw new LayerActionError('CLAUDE_UNAVAILABLE')
   const dir = await mkdtemp(join(tmpdir(), 'pane-layer-action-'))
   const deadline = Date.now() + run.action.limits.deadlineMs
   const sink = isScriptTaskInput(run.input)
@@ -146,6 +145,7 @@ export async function runClaudeLayerAction(
   let child: ReturnType<typeof Bun.spawn> | undefined
   let failure: Error | undefined
   let initialized = false
+  let resolvedModel: string | undefined
   let result: LayerActionResult | undefined
   let sawTerminal = false
   const stop = () => {
@@ -208,20 +208,23 @@ export async function runClaudeLayerAction(
         if (
           !Array.isArray(names) ||
           names.length !== expected.length ||
-          names.some((name) => !expected.includes(name)) ||
+          expected.some((name) => !names.includes(name)) ||
           !Array.isArray(servers) ||
           (generated
             ? servers.length !== 1 ||
               servers[0]?.name !== 'pane_layer' ||
               servers[0]?.status !== 'connected'
             : servers.length !== 0) ||
-          event.model !== model
+          initialized
         ) {
-          fail(
-            'Claude could not enforce the saved model and action-only tool boundary.',
-          )
+          fail(new LayerActionError('CLAUDE_TOOL_BOUNDARY'))
           return
         }
+        if (!matchesSavedClaudeModel(model, event.model, env)) {
+          fail(new LayerActionError('CLAUDE_MODEL_MISMATCH'))
+          return
+        }
+        resolvedModel = claudeModelId(event.model)
         initialized = true
       }
       if (event.type === 'result') {
@@ -239,9 +242,7 @@ export async function runClaudeLayerAction(
           event.subtype !== 'success' ||
           !run.current()
         ) {
-          fail(
-            'Claude did not complete a valid action in the originating page.',
-          )
+          fail(new LayerActionError('CLAUDE_RESULT_FAILED'))
           return
         }
         const usage = event.modelUsage
@@ -249,9 +250,12 @@ export async function runClaudeLayerAction(
           !usage ||
           typeof usage !== 'object' ||
           Array.isArray(usage) ||
-          Object.keys(usage).some((name) => name !== model)
+          Object.keys(usage).length === 0 ||
+          Object.keys(usage).some(
+            (name) => claudeModelId(name) !== resolvedModel,
+          )
         ) {
-          fail('Claude reported work on a different model.')
+          fail(new LayerActionError('CLAUDE_MODEL_CHANGED'))
           return
         }
         const outputTokens = (
@@ -262,13 +266,13 @@ export async function runClaudeLayerAction(
           !Number.isFinite(outputTokens) ||
           outputTokens > run.action.limits.maxOutputTokens
         ) {
-          fail('Claude exceeded the saved output-token budget.')
+          fail(new LayerActionError('CLAUDE_OUTPUT_BUDGET'))
           return
         }
         sawTerminal = true
         if (generated) {
           if (!generatedResult) {
-            fail('Claude completed without browser-verified page effects.')
+            fail(new LayerActionError('CLAUDE_PAGE_UNVERIFIED'))
             return
           }
           result = generatedResult
@@ -280,7 +284,7 @@ export async function runClaudeLayerAction(
         }
         const accepted = sink.submit(event.structured_output, run.binding)
         if (!accepted.accepted) {
-          fail('Claude returned invalid structured Layer data.')
+          fail(new LayerActionError('CLAUDE_INVALID_RESULT'))
           return
         }
         result = accepted.data
@@ -303,7 +307,7 @@ export async function runClaudeLayerAction(
       !run.current() ||
       !result
     )
-      throw new Error('Claude did not complete this action within its limits.')
+      throw new LayerActionError('CLAUDE_RUN_INCOMPLETE')
     return result
   } finally {
     clearTimeout(timer)
@@ -319,7 +323,7 @@ export async function runClaudeLayerAction(
 async function consumeClaudeStream(
   stream: ReadableStream<Uint8Array>,
   onEvent: ((event: Record<string, unknown>) => void) | undefined,
-  fail: (message: string) => void,
+  fail: (message: string | Error) => void,
 ): Promise<void> {
   const reader = stream.getReader()
   const decoder = new TextDecoder()
@@ -330,7 +334,7 @@ async function consumeClaudeStream(
     if (done) break
     bytes += value.byteLength
     if (bytes > 2 * 1024 * 1024) {
-      fail('Claude exceeded the action output limit.')
+      fail(new LayerActionError('CLAUDE_STREAM_LIMIT'))
       break
     }
     if (!onEvent) continue // Never log or surface stderr, which can contain page/provider details.
@@ -347,7 +351,7 @@ async function consumeClaudeStream(
           throw new Error('Invalid event')
         onEvent(event as Record<string, unknown>)
       } catch {
-        fail('Claude returned an invalid action stream.')
+        fail(new LayerActionError('CLAUDE_INVALID_STREAM'))
         return
       }
     }

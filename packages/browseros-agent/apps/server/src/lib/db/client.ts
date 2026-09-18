@@ -291,6 +291,12 @@ function bootstrapCurrentSchema(sqlite: BunDatabase): void {
     for (const statement of currentSchemaStatements) {
       sqlite.exec(statement)
     }
+    // A fallback bootstrap can reopen an existing pre-diagnostics database.
+    const activityColumns = sqlite
+      .query<{ name: string }, []>('PRAGMA table_info(layer_activity)')
+      .all()
+    if (!activityColumns.some((column) => column.name === 'failure_code'))
+      sqlite.exec('ALTER TABLE layer_activity ADD COLUMN failure_code TEXT')
     const insertMigration = sqlite.prepare(`
       INSERT INTO __drizzle_migrations ("hash", "created_at")
       SELECT ?, ?
@@ -423,6 +429,11 @@ export const currentMigrationHistory = [
     tag: '0021_layer_activity',
     hash: 'fd108adaf897bd5402f9dc35b50b1649ba597fc23121dc462ef1ac4e4f35c305',
     createdAt: 1786600000000,
+  },
+  {
+    tag: '0022_layer_action_failures',
+    hash: '226e283bd831fe980e6f350b2b4cf8211a292fb38da7941cef2e7b2d4397dfe6',
+    createdAt: 1786700000000,
   },
 ]
 

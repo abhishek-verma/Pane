@@ -1,6 +1,10 @@
 import type { Database } from 'bun:sqlite'
 import { createHash, randomUUID } from 'node:crypto'
 import {
+  type LayerActionFailureCode,
+  layerActionFailureMessage,
+} from '@browseros/shared/layers/action-failure'
+import {
   definitionCapabilityErrors,
   type LayerCapabilities,
 } from '@browseros/shared/layers/capabilities'
@@ -219,12 +223,18 @@ export class LayerStore {
   finishRun(
     invocationId: string,
     status: 'completed' | 'failed' | 'cancelled',
+    failureCode?: LayerActionFailureCode,
   ): void {
     this.db
       .query(
-        'UPDATE layer_activity SET status=?,finished_at=? WHERE invocation_id=?',
+        'UPDATE layer_activity SET status=?,finished_at=?,failure_code=? WHERE invocation_id=?',
       )
-      .run(status, this.now(), invocationId)
+      .run(
+        status,
+        this.now(),
+        status === 'failed' ? (failureCode ?? 'PROVIDER_RESULT_FAILED') : null,
+        invocationId,
+      )
   }
 
   activity() {
@@ -242,18 +252,28 @@ export class LayerStore {
           status: string
           startedAt: number
           finishedAt: number | null
+          failureCode: string | null
           deadlineAt: number
           name: string
         },
         [number, number]
       >(`SELECT a.invocation_id AS invocationId,a.layer_id AS layerId,a.version,a.action_id AS actionId,a.provider,
       CASE WHEN a.status='running' AND a.deadline_at<=? THEN 'interrupted' ELSE a.status END AS status,
-      a.started_at AS startedAt,a.finished_at AS finishedAt,a.deadline_at AS deadlineAt,
+      a.started_at AS startedAt,a.finished_at AS finishedAt,a.deadline_at AS deadlineAt,a.failure_code AS failureCode,
       json_extract(v.definition_json,'$.name') AS name
       FROM layer_activity a JOIN layer_versions v ON v.layer_id=a.layer_id AND v.version=a.version
       WHERE a.layer_id NOT IN (SELECT layer_id FROM layer_trash) AND a.started_at>?
       ORDER BY a.started_at DESC,a.invocation_id LIMIT 100`)
       .all(this.now(), this.now() - 7 * 24 * 60 * 60_000)
+      .map((run) => ({
+        ...run,
+        failureReason:
+          run.status === 'failed'
+            ? layerActionFailureMessage(
+                run.failureCode ?? 'PROVIDER_RESULT_FAILED',
+              )
+            : null,
+      }))
   }
 
   draft(
