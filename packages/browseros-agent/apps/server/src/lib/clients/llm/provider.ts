@@ -235,6 +235,11 @@ const PROVIDER_FACTORIES: Record<string, ProviderFactory> = {
   [LLM_PROVIDERS.DEEPSEEK]: createDeepSeekModel,
 }
 
+/** Adapter coverage is defined by the actual factory registry. */
+export function supportsLLMProvider(provider: string): boolean {
+  return Object.hasOwn(PROVIDER_FACTORIES, provider)
+}
+
 export function createLLMProvider(config: ResolvedLLMConfig): LanguageModel {
   if (shouldUseMockBrowserOSLLM(config)) {
     return createMockBrowserOSLanguageModel()

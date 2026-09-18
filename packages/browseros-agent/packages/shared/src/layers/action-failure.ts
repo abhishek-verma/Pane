@@ -1,8 +1,24 @@
 /** Only fixed diagnostics cross the provider boundary or enter persistent history. */
 export const LAYER_ACTION_FAILURES = {
+  PROVIDER_ADAPTER_UNAVAILABLE:
+    'This provider does not expose a constrained Layer action adapter. General chat support alone does not provide private Layer tools.',
+  PROVIDER_NO_ACTION_RESULT:
+    'The selected model did not complete the required private tool calls. Check that it supports tool calling and can complete the action within its limits.',
+  PROVIDER_OUTPUT_BUDGET:
+    'The provider exceeded the saved output budget or did not report the usage required to validate it.',
+  API_AUTH_REQUIRED:
+    'Sign in or update credentials for the saved provider before retrying the Layer action.',
+  API_RATE_LIMITED:
+    'The saved provider has reached its request or usage limit. Retry when access resets.',
+  API_REQUEST_REJECTED:
+    'The saved provider rejected the Layer request. Check model availability, access, and tool-calling support for this endpoint.',
+  API_UNAVAILABLE:
+    'The saved provider could not complete the Layer request. Check its availability and retry.',
+
   CLAUDE_MODEL_MISSING:
     'The saved Claude model is missing. Select a model in provider settings.',
   CLAUDE_UNAVAILABLE: 'Claude Code is unavailable on this computer.',
+  // Retained for diagnostic codes persisted by earlier releases.
   CLAUDE_MODEL_MISMATCH:
     'Claude resolved a model that does not match the saved selection. Check the saved model and host model overrides.',
   CLAUDE_TOOL_BOUNDARY:

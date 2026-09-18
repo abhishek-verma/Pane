@@ -28,8 +28,9 @@ async function fixture(mode = 'valid') {
       `
 import { writeFileSync } from 'node:fs';
 writeFileSync(process.env.REPORT_PATH, process.cwd());
+writeFileSync(process.env.REPORT_PATH + '.args', JSON.stringify(process.argv.slice(2)));
 const mode = process.env.MODE;
-console.log(JSON.stringify({type:'system',subtype:'init',tools:mode === 'tools' ? ['StructuredOutput','Bash'] : ['StructuredOutput'],mcp_servers:[],model:mode === 'model' ? 'different' : (process.env.INIT_MODEL ?? 'fixture')}));
+console.log(JSON.stringify({type:'system',subtype:'init',tools:mode === 'tools' ? ['StructuredOutput','Bash'] : ['StructuredOutput'],mcp_servers:[],model:mode === 'model' ? null : (process.env.INIT_MODEL ?? 'fixture')}));
 if (mode === 'wait') await new Promise(resolve => setTimeout(resolve,30000));
 else console.log(JSON.stringify({type:'result',subtype:'success',is_error:mode === 'blocked',result:mode === 'blocked' ? 'Your organization has disabled Claude subscription access for Claude Code private-account-detail' : undefined,modelUsage:{[process.env.USAGE_MODEL ?? process.env.INIT_MODEL ?? 'fixture']:{}},usage:{output_tokens:40},structured_output:mode === 'invalid' ? {html:'<script>no</script>'} : {schema:'pane.translation.v1',targetLanguage:'en',blocks:[{blockId:'first',translatedText:'Hello'}]}}));
 `,
@@ -91,7 +92,7 @@ it('accepts typed results and removes its temporary workspace', async () => {
   })
   await expectWorkspaceRemoved(f.report)
 })
-it('rejects a widened tool inventory, provider model fallback and invalid results', async () => {
+it('rejects a widened tool inventory, missing init model and invalid results', async () => {
   for (const mode of ['tools', 'model', 'invalid']) {
     const f = await fixture(mode)
     await expect(runClaudeLayerAction(f.run, f.options)).rejects.toThrow()
@@ -156,49 +157,26 @@ for (const [saved, resolved] of [
   })
 }
 
-it('honors a host-pinned alias without broadening arbitrary full model names', async () => {
-  const f = await fixture()
-  f.run.config.model = 'sonnet'
-  expect(
-    await runClaudeLayerAction(f.run, {
-      ...f.options,
-      env: {
-        ...f.options.env,
-        INIT_MODEL: 'deployment-42',
-        ANTHROPIC_DEFAULT_SONNET_MODEL: 'deployment-42',
-      },
-    }),
-  ).toMatchObject({ schema: 'pane.translation.v1' })
-  f.run.config.model = 'deployment-43'
-  await expect(
-    runClaudeLayerAction(f.run, {
-      ...f.options,
-      env: { ...f.options.env, INIT_MODEL: 'deployment-42' },
-    }),
-  ).rejects.toMatchObject({ code: 'CLAUDE_MODEL_MISMATCH' })
-})
-
-it('rejects wrong-family resolution and a model switch after a valid alias initialization', async () => {
-  for (const [saved, init, usage, code] of [
-    ['sonnet', 'claude-opus-5', 'claude-opus-5', 'CLAUDE_MODEL_MISMATCH'],
-    ['sonnet', 'claude-sonnet-5', 'claude-sonnet-4-6', 'CLAUDE_MODEL_CHANGED'],
-    ['sonnet', 'claude-sonnet-5', 'claude-opus-5', 'CLAUDE_MODEL_CHANGED'],
-    ['default', 'claude-sonnet-5', 'claude-opus-5', 'CLAUDE_MODEL_CHANGED'],
-    [
-      'claude-sonnet-4-6',
-      'claude-sonnet-5',
-      'claude-sonnet-5',
-      'CLAUDE_MODEL_MISMATCH',
-    ],
+it('passes any saved alias or deployment verbatim and lets the host resolve its response labels', async () => {
+  for (const [saved, init, usage] of [
+    ['new-family', 'vendor/deployment-42', 'billing-snapshot-2099'],
+    ['sonnet', 'customer-override', 'custom-version'],
+    ['tenant/full-model-id', 'canonical-model-7', 'canonical-model-7'],
+    ['default', 'host-default-42', 'host-default-42'],
   ]) {
     const f = await fixture()
     f.run.config.model = saved
-    await expect(
-      runClaudeLayerAction(f.run, {
+    expect(
+      await runClaudeLayerAction(f.run, {
         ...f.options,
         env: { ...f.options.env, INIT_MODEL: init, USAGE_MODEL: usage },
       }),
-    ).rejects.toMatchObject({ code })
+    ).toMatchObject({ schema: 'pane.translation.v1' })
+    const args = JSON.parse(
+      await readFile(f.report + '.args', 'utf8'),
+    ) as string[]
+    expect(args[args.indexOf('--model') + 1]).toBe(saved)
+    expect(args[args.indexOf('--fallback-model') + 1]).toBe(saved)
     await expectWorkspaceRemoved(f.report)
   }
 })

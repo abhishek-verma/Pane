@@ -25,6 +25,7 @@ export function codexLayerArguments(
   transportUrl: string,
   mcpUrl: string,
   nativeAuth: boolean,
+  reasoningEffort?: TranslationRun['config']['reasoningEffort'],
 ): string[] {
   const args = [
     'exec',
@@ -51,8 +52,9 @@ export function codexLayerArguments(
     'project_doc_max_bytes=0',
     '-c',
     'approval_policy="never"',
-    '-c',
-    'model_reasoning_effort="low"',
+    ...(reasoningEffort
+      ? ['-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`]
+      : []),
   ]
   for (const name of [
     'shell_tool',
@@ -252,7 +254,13 @@ export async function runCodexLayerAction(
     child = Bun.spawn(
       [
         resolved.path,
-        ...codexLayerArguments(model, transport.url, mcp.url, nativeAuth),
+        ...codexLayerArguments(
+          model,
+          transport.url,
+          mcp.url,
+          nativeAuth,
+          run.config.reasoningEffort,
+        ),
       ],
       {
         cwd: dir,

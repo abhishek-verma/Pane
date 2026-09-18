@@ -59,7 +59,8 @@ export async function codexFixtureResponse(
     id: `resp_${id}`,
     object: 'response',
     created_at: 1,
-    model: body.model,
+    // The provider may return a canonical snapshot instead of the requested alias.
+    model: `${body.model}-resolved-2099`,
     status: 'completed',
     output: [item],
     usage: { input_tokens: 10, output_tokens: 20, total_tokens: 30 },
