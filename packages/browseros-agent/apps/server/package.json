@@ -1,6 +1,6 @@
 {
   "name": "@browseros/server",
-  "version": "0.0.130",
+  "version": "0.0.131",
   "description": "Pane server",
   "type": "module",
   "main": "./src/index.ts",
