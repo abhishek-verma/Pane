@@ -7,16 +7,16 @@
     <language>en</language>
 
 <item>
-  <title>Pane - 0.47.0.93</title>
-  <description sparkle:format="plain-text">Layers lifecycle controls now reflect effective browser state across all providers, recover safely from document replacement, and preserve newer local disables and pauses.</description>
-  <sparkle:version>7980.97</sparkle:version>
-  <sparkle:shortVersionString>0.47.0.93</sparkle:shortVersionString>
-  <pubDate>Thu, 17 Sep 2026 05:07:36 +0000</pubDate>
+  <title>Pane - 0.47.0.94</title>
+  <description sparkle:format="plain-text">Layers now preserve provider authority across authoring sessions, recover page actions after worker loss, preview revised scripts safely, and explain invalid action inputs without exposing private values.</description>
+  <sparkle:version>7981.97</sparkle:version>
+  <sparkle:shortVersionString>0.47.0.94</sparkle:shortVersionString>
+  <pubDate>Fri, 18 Sep 2026 09:23:22 +0000</pubDate>
   <link>https://github.com/abhishek-verma/Pane/releases</link>
   <enclosure
-    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.93/Pane_v0.47.0.93_arm64.dmg"
-    sparkle:edSignature="ZGM/u6gMnFw1V5lm7w+Pw+U7JgQz3kg+fzp5uG0znCjTKaSDp46cK9xG4zxKRJCMbE1dU8xSeR8QXUUNAyrQCQ=="
-    length="411331568"
+    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.94/Pane_v0.47.0.94_arm64.dmg"
+    sparkle:edSignature="5Hz7uvcT7aIaTUyh1bpQVFe/BKdV2ZtlaXCsGL3nVvQmmC8TJacgbwnNcFecBoOgUAQ2ukra1WkYyaSfYawBDA=="
+    length="411435680"
     type="application/octet-stream" />
   <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
 </item>
