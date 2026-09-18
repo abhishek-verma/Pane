@@ -7,16 +7,16 @@
     <language>en</language>
 
 <item>
-  <title>Pane - 0.47.0.94</title>
-  <description sparkle:format="plain-text">Layers now preserve provider authority across authoring sessions, recover page actions after worker loss, preview revised scripts safely, and explain invalid action inputs without exposing private values.</description>
-  <sparkle:version>7981.97</sparkle:version>
-  <sparkle:shortVersionString>0.47.0.94</sparkle:shortVersionString>
-  <pubDate>Fri, 18 Sep 2026 09:23:22 +0000</pubDate>
+  <title>Pane - 0.47.0.95</title>
+  <description sparkle:format="plain-text">Claude Code and Codex now accept provider-owned model IDs, resolve current Claude aliases, and surface safe action failure diagnostics instead of silently stalling.</description>
+  <sparkle:version>7982.97</sparkle:version>
+  <sparkle:shortVersionString>0.47.0.95</sparkle:shortVersionString>
+  <pubDate>Fri, 18 Sep 2026 12:46:36 +0000</pubDate>
   <link>https://github.com/abhishek-verma/Pane/releases</link>
   <enclosure
-    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.94/Pane_v0.47.0.94_arm64.dmg"
-    sparkle:edSignature="5Hz7uvcT7aIaTUyh1bpQVFe/BKdV2ZtlaXCsGL3nVvQmmC8TJacgbwnNcFecBoOgUAQ2ukra1WkYyaSfYawBDA=="
-    length="411435680"
+    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.95/Pane_v0.47.0.95_arm64.dmg"
+    sparkle:edSignature="J76gq1I9Ewmeuz2VEMHYQGrNMzaDMgJypqyLi1NUeE+wqUQYOplbujHX4uMjT0LGyMA68gaqgeaRJmt924CBBw=="
+    length="411240602"
     type="application/octet-stream" />
   <sparkle:minimumSystemVersion>10.15</sparkle:minimumSystemVersion>
 </item>
