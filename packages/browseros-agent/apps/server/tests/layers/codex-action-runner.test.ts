@@ -172,3 +172,27 @@ it('configures only the private MCP grant, contains user context and keeps crede
   expect(args.join(' ')).not.toContain('danger-full-access')
   expect(args.join(' ')).not.toContain('Bearer ')
 })
+
+it('uses model defaults unless a reasoning setting was actually saved', () => {
+  for (const model of ['custom-model', 'fast-alias', 'future/model-v99']) {
+    const args = codexLayerArguments(
+      model,
+      'http://fixture/v1',
+      'http://fixture/mcp',
+      false,
+    )
+    expect(args[args.indexOf('--model') + 1]).toBe(model)
+    expect(args.some((arg) => arg.startsWith('model_reasoning_effort='))).toBe(
+      false,
+    )
+    expect(
+      codexLayerArguments(
+        model,
+        'http://fixture/v1',
+        'http://fixture/mcp',
+        false,
+        'high',
+      ),
+    ).toContain('model_reasoning_effort="high"')
+  }
+})

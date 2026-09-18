@@ -197,8 +197,8 @@ export function validateCodexEventStream(
         usage > Math.floor(policy.maxOutputTokens / policy.maxRequests)
       )
         throw new Error('The model output exceeded its action budget')
-      if (event.response?.model && event.response.model !== policy.model)
-        throw new Error('The response model changed')
+      // The outbound model is pinned by restrictCodexRequest. Providers may
+      // return a snapshot, deployment ID, or router-selected model here.
       completed = true
     }
   }
@@ -359,7 +359,6 @@ export function startCodexActionTransport(
         const message = error instanceof Error ? error.message : ''
         const known = [
           'The saved model changed',
-          'The response model changed',
           'Unsupported response event',
           'The model output exceeded its action budget',
           'No complete bounded model response',

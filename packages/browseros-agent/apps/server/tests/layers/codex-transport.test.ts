@@ -188,3 +188,26 @@ it('rejects argument events not bound to an allowed tool item and unknown event 
     'Unsupported',
   )
 })
+
+for (const resolved of [
+  'snapshot-2099-12-31',
+  'vendor/custom-deployment',
+  'router-selected-model',
+]) {
+  it(`accepts provider-owned response model ${resolved} while enforcing the saved request selection`, () => {
+    const stream = events([
+      {
+        id: 'tool',
+        type: 'function_call',
+        name: 'mcp__pane_layer__page_inspect',
+      },
+    ]).replace(
+      '"model":"saved"',
+      JSON.stringify({ model: resolved }).slice(1, -1),
+    )
+    expect(() => validateCodexEventStream(stream, policy)).not.toThrow()
+    expect(() =>
+      restrictCodexRequest({ model: resolved, stream: true }, policy),
+    ).toThrow('saved model')
+  })
+}

@@ -3,7 +3,7 @@ import type { LayerActionBinding } from '@browseros/shared/layers/action-protoco
 import type { LayerCapabilities } from '@browseros/shared/layers/capabilities'
 import type { LLMConfig } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
-import { API_LAYER_PROVIDERS } from './action-runner'
+import { supportsLLMProvider } from '../lib/clients/llm/provider'
 
 export const layerDocumentSchema = z
   .object({
@@ -245,14 +245,14 @@ export class LayerBroker {
       transform: Boolean(
         ready &&
           provider &&
-          (API_LAYER_PROVIDERS.has(provider.type) ||
+          (supportsLLMProvider(provider.type) ||
             provider.type === 'claude-code' ||
             provider.type === 'codex'),
       ),
       pageTask: Boolean(
         ready &&
           provider &&
-          (API_LAYER_PROVIDERS.has(provider.type) ||
+          (supportsLLMProvider(provider.type) ||
             provider.type === 'claude-code' ||
             provider.type === 'codex'),
       ),
@@ -263,13 +263,15 @@ export class LayerBroker {
           c?.javascript &&
           c.generatedScript &&
           provider &&
-          (API_LAYER_PROVIDERS.has(provider.type) ||
+          (supportsLLMProvider(provider.type) ||
             provider.type === 'claude-code' ||
             provider.type === 'codex'),
       ),
       automaticInference: false,
       outputBudget:
-        provider?.type === 'codex' ? 'accepted-output' : 'provider-ceiling',
+        provider?.type === 'codex' || provider?.type === 'chatgpt-pro'
+          ? 'accepted-output'
+          : 'provider-ceiling',
       provider: provider
         ? this.verifiedProviders.has(this.providerKey(profileId, provider))
           ? 'ready'

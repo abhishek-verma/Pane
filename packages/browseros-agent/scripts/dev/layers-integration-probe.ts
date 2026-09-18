@@ -506,7 +506,7 @@ try {
                   ? `export const getBrowserProfileKey = async () => ${JSON.stringify(profileId)};`
                   : path.endsWith('/native')
                     ? `export const getLayerCredential = async () => ({profileId:${JSON.stringify(profileId)}}); export const layerFetch = (path, init={}) => fetch(${JSON.stringify(origin)}+'/layers'+path, {...init,headers:{...init.headers,'Content-Type':'application/json',Authorization:${JSON.stringify(authorization)}}});`
-                    : `export const loadProviders = async () => ['fixture-provider','unverified-provider'].map(id=>({id,type:${JSON.stringify(testCodex ? 'codex' : testClaude ? 'claude-code' : 'openai-compatible')},modelId:${JSON.stringify(testCodex ? 'gpt-5.5' : testClaude ? 'sonnet' : 'fixture')},updatedAt:1,baseUrl:${JSON.stringify(`${origin}/v1`)}}));`,
+                    : `export const loadProviders = async () => ['fixture-provider','unverified-provider'].map(id=>({id,type:${JSON.stringify(testCodex ? 'codex' : testClaude ? 'claude-code' : 'openai-compatible')},modelId:${JSON.stringify(process.env.PANE_LAYER_TEST_MODEL ?? (testCodex ? 'gpt-5.5' : testClaude ? 'sonnet' : 'fixture'))},updatedAt:1,baseUrl:${JSON.stringify(`${origin}/v1`)}}));`,
               }),
             )
           },

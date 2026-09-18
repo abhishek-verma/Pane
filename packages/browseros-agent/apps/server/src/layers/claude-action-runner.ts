@@ -14,7 +14,6 @@ import { asSchema } from 'ai'
 import { resolveHostBinary } from '../lib/agents/host-acp/binary-resolver'
 import { LayerActionError } from './action-error'
 import type { TranslationRun } from './action-runner'
-import { claudeModelId, matchesSavedClaudeModel } from './claude-model'
 import { startPrivateLayerMcp } from './private-mcp'
 import { claudeAccountError } from './provider-error'
 import { PageTaskResultSink, TranslationResultSink } from './result-acceptance'
@@ -145,7 +144,6 @@ export async function runClaudeLayerAction(
   let child: ReturnType<typeof Bun.spawn> | undefined
   let failure: Error | undefined
   let initialized = false
-  let resolvedModel: string | undefined
   let result: LayerActionResult | undefined
   let sawTerminal = false
   const stop = () => {
@@ -220,11 +218,12 @@ export async function runClaudeLayerAction(
           fail(new LayerActionError('CLAUDE_TOOL_BOUNDARY'))
           return
         }
-        if (!matchesSavedClaudeModel(model, event.model, env)) {
-          fail(new LayerActionError('CLAUDE_MODEL_MISMATCH'))
+        // --model and --fallback-model carry the saved selection. The host CLI
+        // owns alias/deployment resolution; response labels are not authority.
+        if (typeof event.model !== 'string' || !event.model.trim()) {
+          fail(new LayerActionError('CLAUDE_INVALID_STREAM'))
           return
         }
-        resolvedModel = claudeModelId(event.model)
         initialized = true
       }
       if (event.type === 'result') {
@@ -243,19 +242,6 @@ export async function runClaudeLayerAction(
           !run.current()
         ) {
           fail(new LayerActionError('CLAUDE_RESULT_FAILED'))
-          return
-        }
-        const usage = event.modelUsage
-        if (
-          !usage ||
-          typeof usage !== 'object' ||
-          Array.isArray(usage) ||
-          Object.keys(usage).length === 0 ||
-          Object.keys(usage).some(
-            (name) => claudeModelId(name) !== resolvedModel,
-          )
-        ) {
-          fail(new LayerActionError('CLAUDE_MODEL_CHANGED'))
           return
         }
         const outputTokens = (

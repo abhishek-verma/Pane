@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { createHmac, randomUUID } from 'node:crypto'
+import { LLM_PROVIDERS } from '@browseros/shared/schemas/llm'
 import { LayerBroker, type LayerDocument } from '../../src/layers/broker'
 import {
   getLayerAccess,
@@ -244,4 +245,29 @@ it('reports Codex private adapters with honest account budgets and verification 
     model: provider.model,
   })
   expect(broker.capabilities(profileId, provider.id).provider).toBe('ready')
+})
+
+it('reports adapter support and account budget limitations for every configured provider', () => {
+  for (const type of Object.values(LLM_PROVIDERS)) {
+    const broker = new LayerBroker()
+    const provider = { id: 'saved', type, model: 'custom-alias', updatedAt: 1 }
+    broker.connect(
+      profileId,
+      randomUUID(),
+      [document()],
+      true,
+      [provider],
+      true,
+    )
+    const supported = !['acp-custom', 'remote-hermes'].includes(type)
+    expect(broker.capabilities(profileId, 'saved')).toMatchObject({
+      transform: supported,
+      pageTask: supported,
+      generatedScript: supported,
+      provider: 'unverified',
+      outputBudget: ['codex', 'chatgpt-pro'].includes(type)
+        ? 'accepted-output'
+        : 'provider-ceiling',
+    })
+  }
 })
