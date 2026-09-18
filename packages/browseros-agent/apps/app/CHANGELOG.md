@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.185 (2026-09-18)
+
+## What's Changed
+
+- chore(release): prepare Pane 0.47.0.95 (#279)
+- fix(layers): resolve Claude model aliases and expose action failures (#277)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
