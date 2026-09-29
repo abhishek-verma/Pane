@@ -2,6 +2,7 @@ import type { ToolSet } from 'ai'
 import { buildAgendaToolSet } from '../agenda/tools'
 import { buildCaptureToolSet } from '../capture/tools'
 import { buildContextToolSet, buildTasksToolSet } from '../context/tools'
+import { getLayerChatTools } from '../layers/chat-tools'
 import { buildLayerToolSet } from '../layers/tools'
 import { buildMemoryToolSet } from '../memory/tools'
 import { buildPersonalInternetToolSet } from '../personal-internet/tools'
@@ -10,6 +11,7 @@ import { buildNudgeToolSet } from './nudge-tools'
 import { buildSchedulerToolSet } from './scheduler-tools'
 
 export interface PaneToolContext {
+  conversationId?: string
   providerId?: string
   workspaceId?: string
   bucketId?: string
@@ -32,7 +34,8 @@ export function buildPaneToolSet(context: PaneToolContext = {}): ToolSet {
     ...buildSchedulerToolSet(context),
     ...buildAgendaToolSet(),
     ...buildNudgeToolSet(),
-    ...buildLayerToolSet(undefined, context.providerId),
+    ...buildLayerToolSet(undefined, context.providerId, context.conversationId),
+    ...getLayerChatTools(context.conversationId),
   }
   if (context.isScheduledTask) delete tools.suggest_schedule
   return context.chatMode ? filterToolsForChatMode(tools) : tools

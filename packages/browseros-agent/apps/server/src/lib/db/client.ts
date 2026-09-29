@@ -94,6 +94,14 @@ export function openBrowserOsDatabase(
     }
   }
 
+  if (options.runMigrations !== false) {
+    sqlite
+      .query(
+        "UPDATE layer_activity SET status='interrupted', finished_at=? WHERE status='running'",
+      )
+      .run(Date.now())
+  }
+
   return {
     path: options.dbPath,
     migrationsDir,

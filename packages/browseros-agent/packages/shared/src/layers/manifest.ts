@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AGENT_LIMITS } from '../constants/limits'
 import { dataOperationIdSchema } from './data'
 
 export const LAYER_PROTOCOL = 'pane.layers.v1' as const
@@ -120,7 +121,7 @@ export const layerActionSchema = z
     providerId: z.string().min(1).max(128).optional(),
     limits: z
       .object({
-        maxSteps: z.number().int().min(1).max(16),
+        maxSteps: z.number().int().min(1).max(AGENT_LIMITS.MAX_TURNS),
         maxOutputTokens: z.number().int().min(128).max(32_000),
         deadlineMs: z.number().int().min(1000).max(120_000),
       })

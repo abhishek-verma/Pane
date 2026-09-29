@@ -129,6 +129,8 @@ function resolveAcpAgentId(config: ResolvedAgentConfig): string {
  * The 2 s grace window lets the adapter handle the session/close message
  * before we terminate the process.
  */
+const liveAcpWorkspaces = new Map<string, number>()
+
 async function terminateAcpProvider(
   provider: AcpxProvider,
   agentId: string,
@@ -144,10 +146,16 @@ async function terminateAcpProvider(
   // Only terminate built-in adapters — we know their process names.
   if (!isHostAcpAdapter(agentId)) return
 
+  const workspaceKey = JSON.stringify([agentId, workspacePath])
   const adapterBin = HOST_ACP_ADAPTER_CONFIG[agentId].acpBin
   if (!adapterBin) return
 
   await new Promise<void>((resolve) => setTimeout(resolve, 2_000))
+
+  // A Layer execution and its authoring chat deliberately share a workspace.
+  // Never kill adapters belonging to another live conversation. Recheck after
+  // the grace period so a newly started conversation is protected too.
+  if (liveAcpWorkspaces.get(workspaceKey)) return
 
   // Use `pkill` (macOS/Linux) to SIGTERM any surviving process that:
   //  1. Has the adapter binary name in its command line
@@ -207,11 +215,13 @@ async function createAcpLanguageModel(
   config: ResolvedAgentConfig,
 ): Promise<LanguageModelWithCleanup> {
   const agentId = resolveAcpAgentId(config)
-  const workspacePath = resolveAcpWorkspacePath(
-    config.provider,
-    config.providerId,
-    config.acpFixedWorkspacePath,
-  )
+  const workspacePath =
+    config.workingDir ??
+    resolveAcpWorkspacePath(
+      config.provider,
+      config.providerId,
+      config.acpFixedWorkspacePath,
+    )
   await mkdir(workspacePath, { recursive: true }).catch((err: unknown) => {
     logger.warn('Failed to ensure ACP workspace exists; spawn may fail', {
       workspacePath,
@@ -289,15 +299,44 @@ async function createAcpLanguageModel(
     agentRegistryOverrides,
     mcpServers: config.acpMcpServers,
   })
-  // Only built-in claude/codex providers resolving to their default
-  // agent id get a danger mode. A user-overridden acpAgentId or an
-  // acp-custom agent (even one named 'claude') has unknown mode ids.
-  if (BUILT_IN_ACP_AGENT_BY_PROVIDER[config.provider] === agentId) {
-    await applyDangerouslyAllowMode(provider, agentId, config.conversationId)
+  const workspaceKey = JSON.stringify([agentId, workspacePath])
+  liveAcpWorkspaces.set(
+    workspaceKey,
+    (liveAcpWorkspaces.get(workspaceKey) ?? 0) + 1,
+  )
+  let closed = false
+  const close = async () => {
+    if (closed) return
+    closed = true
+    const remaining = (liveAcpWorkspaces.get(workspaceKey) ?? 1) - 1
+    if (remaining) liveAcpWorkspaces.set(workspaceKey, remaining)
+    else liveAcpWorkspaces.delete(workspaceKey)
+    await terminateAcpProvider(provider, agentId, workspacePath)
   }
-  return {
-    model: new PaneAcpLanguageModel(provider),
-    close: () => terminateAcpProvider(provider, agentId, workspacePath),
+  try {
+    if (BUILT_IN_ACP_AGENT_BY_PROVIDER[config.provider] === agentId) {
+      await applyDangerouslyAllowMode(provider, agentId, config.conversationId)
+    }
+    // Models and aliases are adapter-owned. Forward the saved value through
+    // public ACP controls; never compare it with a resolved display/model ID.
+    if (config.model && config.model !== 'default') {
+      if (typeof provider.runtime.setConfigOption !== 'function')
+        throw new Error(
+          'This ACP adapter cannot apply the selected model. Update the adapter or select its default model.',
+        )
+      await provider.setConfigOption('model', config.model)
+    }
+    if (config.reasoningEffort) {
+      if (typeof provider.runtime.setConfigOption !== 'function')
+        throw new Error(
+          'This ACP adapter cannot apply the selected reasoning effort.',
+        )
+      await provider.setConfigOption('reasoning_effort', config.reasoningEffort)
+    }
+    return { model: new PaneAcpLanguageModel(provider), close }
+  } catch (error) {
+    await close()
+    throw error
   }
 }
 

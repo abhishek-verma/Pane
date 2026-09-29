@@ -30,6 +30,7 @@ const CURRENT_LAYER_CAPABILITIES: Readonly<LayerCapabilities> = Object.freeze({
 export function buildLayerToolSet(
   getCapabilities?: () => LayerCapabilities,
   providerId?: string,
+  conversationId?: string,
 ): ToolSet {
   const capabilities =
     getCapabilities ??
@@ -40,7 +41,7 @@ export function buildLayerToolSet(
         : CURRENT_LAYER_CAPABILITIES
     })
   return {
-    ...buildLayerAuthoringTools(providerId),
+    ...buildLayerAuthoringTools(providerId, {}, conversationId),
     layer_data_sources: tool({
       description:
         'List registered Layer data operations and their exact destination, available fields and disclosure. Only these named sources can run; never invent a third-party API.',

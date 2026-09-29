@@ -15,8 +15,10 @@ let closeCalls = 0
 let prepareCalls = 0
 let prepareError: Error | null = null
 const setModeCalls: string[] = []
+const configCalls: Array<[string, string]> = []
 let rejectModes: string[] = []
 let omitRuntimeSetMode = false
+const killCalls: unknown[] = []
 const fakeProvider = {
   settings: { agent: 'test' },
   languageModel: () => fakeLanguageModel,
@@ -27,6 +29,9 @@ const fakeProvider = {
     prepareCalls += 1
     if (prepareError) throw prepareError
   },
+  setConfigOption: async (key: string, value: string) => {
+    configCalls.push([key, value])
+  },
   setMode: async (mode: string) => {
     setModeCalls.push(mode)
     if (rejectModes.includes(mode)) {
@@ -34,7 +39,10 @@ const fakeProvider = {
     }
   },
   get runtime() {
-    return omitRuntimeSetMode ? {} : { setMode: async () => {} }
+    return {
+      setConfigOption: async () => {},
+      ...(omitRuntimeSetMode ? {} : { setMode: async () => {} }),
+    }
   },
 }
 
@@ -104,6 +112,11 @@ mock.module('node:child_process', () => ({
     ...args: Parameters<typeof realChildProcess.execFile>
   ): ReturnType<typeof realChildProcess.execFile> => {
     const [cmd, cmdArgs, callback] = args
+    if (cmd === 'pkill' && typeof callback === 'function') {
+      killCalls.push(cmdArgs)
+      callback(null, '', '')
+      return undefined as never
+    }
     const isWhich = cmd === 'which' || cmd === 'where'
     if (isWhich && typeof callback === 'function') {
       callback(null, `/usr/bin/${(cmdArgs as string[])[0]}`, '')
@@ -163,6 +176,7 @@ beforeEach(() => {
   prepareCalls = 0
   prepareError = null
   setModeCalls.length = 0
+  configCalls.length = 0
   rejectModes = []
   omitRuntimeSetMode = false
   mkdirShouldThrow = false
@@ -502,6 +516,33 @@ describe('createLanguageModel — ACP dangerously-allow mode', () => {
 })
 
 describe('createLanguageModel — ACP mcpServers forwarding', () => {
+  it('forwards arbitrary saved models and effort without alias-name comparisons', async () => {
+    configCalls.length = 0
+    await createLanguageModel({
+      conversationId: 'model-fixture',
+      provider: 'acp-custom',
+      acpAgentId: 'custom',
+      model: 'private-deployment-vNext',
+      reasoningEffort: 'high',
+    })
+    expect(configCalls).toEqual([
+      ['model', 'private-deployment-vNext'],
+      ['reasoning_effort', 'high'],
+    ])
+  })
+
+  it('uses the selected chat workspace for native ACP tools as well as MCP', async () => {
+    await createLanguageModel({
+      conversationId: 'workspace-fixture',
+      provider: 'acp-custom',
+      acpAgentId: 'custom',
+      model: 'default',
+      workingDir: '/tmp/selected-chat-workspace',
+      acpFixedWorkspacePath: '/tmp/provider-default',
+    })
+    expect(lastBuildArgs?.workspacePath).toBe('/tmp/selected-chat-workspace')
+  })
+
   it('forwards acpMcpServers from ResolvedAgentConfig into buildAcpxProvider', async () => {
     const servers = [
       {
@@ -550,3 +591,24 @@ describe('createLanguageModel — non-ACP providers still work', () => {
     ).rejects.toThrow('Unknown provider')
   })
 })
+
+it('closing a Layer ACP session does not kill another conversation sharing its workspace', async () => {
+  const config = {
+    provider: 'codex' as const,
+    model: 'default',
+    acpFixedWorkspacePath: '/tmp/pane-shared-layer-fixture',
+  }
+  const first = await createLanguageModel({
+    ...config,
+    conversationId: 'layer',
+  })
+  const second = await createLanguageModel({
+    ...config,
+    conversationId: 'authoring-chat',
+  })
+  killCalls.length = 0
+  await first.close?.()
+  expect(killCalls).toHaveLength(0)
+  await second.close?.()
+  expect(killCalls).toHaveLength(1)
+}, 10000)

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AGENT_LIMITS } from '../constants/limits'
 import { type DataInput, dataInputSchema, dataResultSchema } from './data'
 import { LAYER_LIMITS, type LayerAction, layerIdSchema } from './manifest'
 
@@ -171,7 +172,7 @@ export const scriptTaskResultSchema = z
           .strict(),
       )
       .min(1)
-      .max(3),
+      .max(AGENT_LIMITS.MAX_TURNS),
   })
   .strict()
 export type ScriptTaskResult = z.infer<typeof scriptTaskResultSchema>
