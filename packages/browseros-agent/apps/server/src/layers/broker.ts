@@ -3,6 +3,7 @@ import type { LayerActionBinding } from '@browseros/shared/layers/action-protoco
 import type { LayerCapabilities } from '@browseros/shared/layers/capabilities'
 import type { LLMConfig } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
+import { isAcpProvider } from '../agent/acp-providers'
 import { supportsLLMProvider } from '../lib/clients/llm/provider'
 
 export const layerDocumentSchema = z
@@ -173,6 +174,18 @@ export class LayerBroker {
       actions: new Set(),
     })
   }
+  /** Hold only this exact preview while its normal chat turn is running. */
+  holdPreview(profileId: string, binding: LayerActionBinding): () => void {
+    if (!this.isPreview(profileId, binding, binding.layerVersion))
+      return () => {}
+    const key = `${profileId}:${binding.tabId}`
+    const preview = this.previews.get(key)!
+    preview.expiresAt = Number.MAX_SAFE_INTEGER
+    return () => {
+      if (this.previews.get(key) === preview)
+        preview.expiresAt = Date.now() + 5 * 60_000
+    }
+  }
   clearPreview(profileId: string, tabId: number): void {
     this.previews.delete(`${profileId}:${tabId}`)
   }
@@ -239,22 +252,18 @@ export class LayerBroker {
     const ready = this.ready(profileId)
     const provider = c?.providers.find((p) => p.id === providerId)
     return {
-      revision: `layers-v8:${ready}:${c?.javascript ?? false}:${c?.generatedScript ?? false}:${provider ? this.providerKey(profileId, provider) : 'local'}`,
+      revision: `layers-v9:${ready}:${c?.javascript ?? false}:${c?.generatedScript ?? false}:${provider ? this.providerKey(profileId, provider) : 'local'}`,
       managed: ready,
       authenticatedBroker: ready,
       transform: Boolean(
         ready &&
           provider &&
-          (supportsLLMProvider(provider.type) ||
-            provider.type === 'claude-code' ||
-            provider.type === 'codex'),
+          (supportsLLMProvider(provider.type) || isAcpProvider(provider.type)),
       ),
       pageTask: Boolean(
         ready &&
           provider &&
-          (supportsLLMProvider(provider.type) ||
-            provider.type === 'claude-code' ||
-            provider.type === 'codex'),
+          (supportsLLMProvider(provider.type) || isAcpProvider(provider.type)),
       ),
       data: ready,
       javascript: ready && Boolean(c?.javascript),
@@ -263,15 +272,10 @@ export class LayerBroker {
           c?.javascript &&
           c.generatedScript &&
           provider &&
-          (supportsLLMProvider(provider.type) ||
-            provider.type === 'claude-code' ||
-            provider.type === 'codex'),
+          (supportsLLMProvider(provider.type) || isAcpProvider(provider.type)),
       ),
       automaticInference: false,
-      outputBudget:
-        provider?.type === 'codex' || provider?.type === 'chatgpt-pro'
-          ? 'accepted-output'
-          : 'provider-ceiling',
+      outputBudget: 'accepted-output',
       provider: provider
         ? this.verifiedProviders.has(this.providerKey(profileId, provider))
           ? 'ready'

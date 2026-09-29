@@ -259,15 +259,85 @@ it('reports adapter support and account budget limitations for every configured 
       [provider],
       true,
     )
-    const supported = !['acp-custom', 'remote-hermes'].includes(type)
+    const supported = type !== 'remote-hermes'
     expect(broker.capabilities(profileId, 'saved')).toMatchObject({
       transform: supported,
       pageTask: supported,
       generatedScript: supported,
       provider: 'unverified',
-      outputBudget: ['codex', 'chatgpt-pro'].includes(type)
-        ? 'accepted-output'
-        : 'provider-ceiling',
+      outputBudget: 'accepted-output',
     })
   }
+})
+
+it('holds a running preview past its old expiry and never resurrects a cleared preview', () => {
+  const broker = new LayerBroker()
+  const profileId = randomUUID()
+  const doc = {
+    tabId: 9,
+    documentId: 'doc',
+    instanceId: randomUUID(),
+    routeEpoch: 0,
+    url: 'https://example.com/',
+    title: 'Fixture',
+    active: true,
+  }
+  const binding = {
+    ...doc,
+    profileId,
+    invocationId: randomUUID(),
+    layerId: 'layer',
+    layerVersion: 'a'.repeat(64),
+    actionId: 'action',
+    snapshotId: randomUUID(),
+    revocationGeneration: 0,
+    frameId: 0 as const,
+  }
+  const realNow = Date.now
+  let now = realNow()
+  Date.now = () => now
+  try {
+    broker.registerPreview(
+      profileId,
+      doc,
+      binding.layerId,
+      binding.layerVersion,
+    )
+    const release = broker.holdPreview(profileId, binding)
+    now += 6 * 60_000
+    expect(broker.isPreview(profileId, binding, binding.layerVersion)).toBe(
+      true,
+    )
+    broker.clearPreview(profileId, doc.tabId)
+    release()
+    expect(broker.isPreview(profileId, binding, binding.layerVersion)).toBe(
+      false,
+    )
+  } finally {
+    Date.now = realNow
+  }
+})
+
+it('keeps a live execution author scope valid past credential expiry and revokes it on close', async () => {
+  let now = 1000
+  const authority = new LayerAuthority(secret, () => now)
+  const scopeId = randomUUID()
+  const delegated = authority.delegateAuthor(
+    { profileId, extensionId: LAYER_EXTENSION_ID, expiresAt: now + 1000 },
+    scopeId,
+  )
+  const session = authority.openAuthorSession(delegated, profileId, scopeId)
+  const access = authority.verifyAuthorSession(session.authorization)!
+  await withLayerAccess(
+    access,
+    session.authorization,
+    async () => {
+      now += 60 * 60_000
+      expect(getLayerAccess()?.expiresAt).toBeGreaterThan(now)
+      expect(getLayerAccess()?.scopeId).toBe(scopeId)
+      session.close()
+      expect(getLayerAccess()).toBeNull()
+    },
+    () => authority.verifyAuthorSession(session.authorization),
+  )
 })

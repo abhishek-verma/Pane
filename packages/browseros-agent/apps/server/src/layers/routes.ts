@@ -1,5 +1,6 @@
 import {
   isDataInput,
+  type LayerActionResult,
   layerActionBindingSchema,
 } from '@browseros/shared/layers/action-protocol'
 import { layerProviderId } from '@browseros/shared/layers/manifest'
@@ -9,7 +10,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 import { getDbHandle } from '../lib/db'
 import { runWithProfileAsync } from '../lib/profile-context'
-import { runLayerTranslation } from './action-runner'
+import type { TranslationRun } from './action-runner'
 import { LayerActions } from './actions'
 import {
   type LayerBroker,
@@ -17,8 +18,12 @@ import {
   layerDocumentSchema,
   layerProviderSchema,
 } from './broker'
-import { type LayerAuthority, layerAuthority } from './broker-auth'
-import type { LayerDataBroker } from './data-broker'
+import {
+  type LayerAuthority,
+  layerAuthority,
+  withLayerAccess,
+} from './broker-auth'
+import { type LayerDataBroker, layerDataBroker } from './data-broker'
 import { LayerStore, LayerStoreError } from './store'
 
 const pollSchema = z
@@ -60,22 +65,24 @@ export function createLayerRoutes(
     broker?: LayerBroker
     store?: () => LayerStore
     dataBroker?: LayerDataBroker
-    actionRunner?: typeof runLayerTranslation
+    actionRunner?: (run: TranslationRun) => Promise<LayerActionResult>
   } = {},
 ) {
   const authority =
     deps.authority === undefined ? layerAuthority : deps.authority
   const broker = deps.broker ?? layerBroker
   const store = deps.store ?? (() => new LayerStore(getDbHandle().sqlite))
-  const actions = new LayerActions(broker, (run) =>
-    deps.dataBroker && isDataInput(run.input)
-      ? deps.dataBroker.read(
-          run.binding.profileId,
-          run.input,
-          () => !run.signal.aborted && run.current(),
-        )
-      : (deps.actionRunner ?? runLayerTranslation)(run),
-  )
+  const actions = new LayerActions(broker, async (run) => {
+    if (isDataInput(run.input))
+      return (deps.dataBroker ?? layerDataBroker).read(
+        run.binding.profileId,
+        run.input,
+        () => !run.signal.aborted && run.current(),
+      )
+    if (!deps.actionRunner)
+      throw new Error('The normal Layer chat runtime is unavailable.')
+    return deps.actionRunner(run)
+  })
   const app = new Hono<{ Variables: { layerProfileId: string } }>()
     .use('*', bodyLimit({ maxSize: 2 * 1024 * 1024 }))
     .use('*', async (c, next) => {
@@ -87,7 +94,9 @@ export function createLayerRoutes(
         )
       c.set('layerProfileId', access.profileId)
       c.header('Cache-Control', 'no-store')
-      return runWithProfileAsync(access.profileId, next)
+      return withLayerAccess(access, c.req.header('Authorization')!, () =>
+        runWithProfileAsync(access.profileId, next),
+      )
     })
     .onError((error, c) => {
       if (error instanceof z.ZodError)
@@ -162,23 +171,30 @@ export function createLayerRoutes(
       broker.registerPreview(profileId, target, layer.id, layer.version)
       return c.json({ accepted: true })
     })
-    .post('/actions/run', async (c) =>
-      c.json({
-        events: await actions.run(
-          c.get('layerProfileId'),
-          await c.req.json(),
-          store(),
-        ),
-      }),
-    )
+    .post('/actions/run', async (c) => {
+      const profileId = c.get('layerProfileId')
+      const input = await c.req.json()
+      return c.req.query('wait') === 'false'
+        ? c.json(await actions.start(profileId, input, store()))
+        : c.json({ events: await actions.run(profileId, input, store()) })
+    })
     .post('/actions/replay', async (c) => {
       const input = z
         .object({
           binding: layerActionBindingSchema,
           after: z.number().int().min(0).max(100).default(0),
+          wait: z.boolean().default(true),
         })
         .strict()
         .parse(await c.req.json())
+      if (!input.wait)
+        return c.json(
+          await actions.poll(
+            c.get('layerProfileId'),
+            input.binding,
+            input.after,
+          ),
+        )
       return c.json({
         events: await actions.replay(
           c.get('layerProfileId'),

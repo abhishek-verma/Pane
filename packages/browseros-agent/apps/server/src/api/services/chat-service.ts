@@ -52,6 +52,7 @@ import type { AgentSession, SessionStore } from '../../agent/session-store'
 import { clearSessionTabGroup } from '../../agent/session-tab-groups'
 import { applyToolApprovalDecisions } from '../../agent/tool-approval-resolve'
 import type { ResolvedAgentConfig } from '../../agent/types'
+import { rememberLayerChatContext } from '../../layers/chat-context'
 import { buildAcpMcpServers } from '../../lib/agents/acpx-provider/buildAcpMcpServers'
 import { resolveLLMConfig } from '../../lib/clients/llm/config'
 import { logger } from '../../lib/logger'
@@ -404,7 +405,9 @@ export class ChatService {
       gateContext,
     }
 
+    rememberLayerChatContext({ ...request, providerId: llmConfig.providerId })
     setConversationContext(request.conversationId, gateContext, {
+      conversationId: request.conversationId,
       // Pin authored Layer actions to the provider config that actually won
       // request resolution. This matters when a request omitted/staled its
       // preferred id and resolution selected a configured fallback.

@@ -99,7 +99,7 @@ it('rejects stale identity, expired grants and cancellation independently of res
   ).toMatchObject({ accepted: false, code: 'EXPIRED' })
 })
 
-it('bounds repair attempts and publishes a private page plan only once', async () => {
+it('permits repairs within the normal turn budget and publishes a private page plan only once', async () => {
   let deliveries = 0
   const tools = createPageTaskResultTool({
     sink: new PageTaskResultSink(binding, input, Date.now() + 10000),
@@ -124,7 +124,7 @@ it('bounds repair attempts and publishes a private page plan only once', async (
     sink: new PageTaskResultSink(binding, input, Date.now() + 10000),
     currentBinding: () => binding,
     accepted: () => {
-      throw new Error('Invalid plan published')
+      deliveries += 1
     },
   }).submit_layer_result.execute
   if (!bad) throw new Error('Missing terminal tool')
@@ -133,6 +133,8 @@ it('bounds repair attempts and publishes a private page plan only once', async (
     operations: [{ ...output.operations[0], nodeId: 'outside' }],
   }
   expect(await bad(forged, options)).toMatchObject({ repairRemaining: true })
-  expect(await bad(forged, options)).toMatchObject({ repairRemaining: false })
-  expect(await bad(output, options)).toMatchObject({ accepted: false })
+  expect(await bad(forged, options)).toMatchObject({ repairRemaining: true })
+  expect(deliveries).toBe(1)
+  expect(await bad(output, options)).toMatchObject({ accepted: true })
+  expect(deliveries).toBe(2)
 })

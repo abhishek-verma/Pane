@@ -23,6 +23,7 @@ import {
   scriptRequestErrorMessage,
 } from '@/lib/layers/script-errors'
 import { loadProviders } from '@/lib/llm-providers/storage'
+import { buildChatRequestBody } from '@/lib/messaging/server/buildChatRequestBody'
 import { verifyLayerReload } from './layer-verification'
 import { readActionDocument } from './layers/action-document'
 import {
@@ -325,28 +326,37 @@ export function layersBridge(): void {
         documents.get(tabId)?.routeEpoch !== doc.routeEpoch
       )
         throw new Error('The originating Layer changed.')
-      const result = await jsonRequest('/actions/run', {
+      if (preview && previews.get(tabId) === preview) {
+        clearTimeout(previewTimers.get(tabId))
+        preview.expiresAt = Number.MAX_SAFE_INTEGER
+      }
+      let result = await jsonRequest('/actions/run?wait=false', {
         binding,
         input: source,
         config: provider
-          ? {
-              provider: provider.type,
-              providerId: provider.id,
-              model: provider.modelId,
-              apiKey: provider.apiKey,
-              baseUrl: provider.baseUrl,
-              resourceName: provider.resourceName,
-              region: provider.region,
-              accessKeyId: provider.accessKeyId,
-              secretAccessKey: provider.secretAccessKey,
-              sessionToken: provider.sessionToken,
-              reasoningEffort: provider.reasoningEffort,
-            }
+          ? buildChatRequestBody({
+              provider,
+              conversationId: binding.invocationId,
+            })
           : { provider: 'browseros', model: 'none' },
       }).catch((error) => {
         if (error instanceof Error && 'status' in error) throw error
-        return jsonRequest('/actions/replay', { binding, after: 0 })
+        return jsonRequest('/actions/replay', {
+          binding,
+          after: 0,
+          wait: false,
+        })
       })
+      while (result.pending === true) {
+        if (invocation.cancelled) throw new Error('Layer action cancelled.')
+        await new Promise<void>((resolve) => setTimeout(resolve, 1000))
+        if (invocation.cancelled) throw new Error('Layer action cancelled.')
+        result = await jsonRequest('/actions/replay', {
+          binding,
+          after: 0,
+          wait: false,
+        })
+      }
       if (
         invocation.cancelled ||
         documents.get(tabId)?.documentId !== doc.documentId ||
@@ -362,6 +372,18 @@ export function layersBridge(): void {
         throw new Error('The originating Layer changed.')
       return { binding, events: result.events as unknown[] }
     } finally {
+      if (preview && previews.get(tabId) === preview) {
+        preview.expiresAt = Date.now() + 5 * 60_000
+        previewTimers.set(
+          tabId,
+          setTimeout(() => {
+            if (previews.get(tabId) !== preview) return
+            previews.delete(tabId)
+            previewTimers.delete(tabId)
+            void broadcast()
+          }, 5 * 60_000),
+        )
+      }
       signal?.removeEventListener('abort', cancel)
       invocations.delete(input.invocationId)
     }
@@ -1066,7 +1088,15 @@ export function layersBridge(): void {
                     { documentId: doc.documentId },
                   )
             if (result?.error) throw new Error(result.error)
-            if (command.kind === 'preview' && layer) setPreview(doc, layer)
+            // JavaScript previews are registered before mount so automatic
+            // actions can bind to them. Keep that same object while a request
+            // is running; replacing it here revokes its pending result.
+            if (
+              command.kind === 'preview' &&
+              layer &&
+              layer.definition.mode !== 'javascript'
+            )
+              setPreview(doc, layer)
             if (command.kind === 'clear') {
               previews.delete(doc.tabId)
               clearTimeout(previewTimers.get(doc.tabId))

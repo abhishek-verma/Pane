@@ -21,6 +21,7 @@ import {
   wrapLanguageModel,
 } from 'ai'
 import { buildIngestGateHooks } from '../context/wire-ingest'
+import { isLayerChatComplete } from '../layers/chat-tools'
 import { logger } from '../lib/logger'
 import { metrics } from '../lib/metrics'
 import { loadPromptMemorySnapshot } from '../memory/load-prompt'
@@ -232,6 +233,7 @@ export class AiSdkAgent {
       ...externalMcpTools,
       ...filesystemTools,
       ...buildPaneToolSet({
+        conversationId: config.resolvedConfig.conversationId,
         providerId: config.resolvedConfig.providerId,
         workspaceId: workspace?.workspaceId,
         bucketId: workspace?.bucketId,
@@ -371,7 +373,10 @@ export class AiSdkAgent {
       model,
       instructions,
       tools,
-      stopWhen: [stepCountIs(AGENT_LIMITS.MAX_TURNS)],
+      stopWhen: [
+        stepCountIs(AGENT_LIMITS.MAX_TURNS),
+        () => isLayerChatComplete(config.resolvedConfig.conversationId),
+      ],
       prepareStep,
       experimental_repairToolCall: createRepairToolCall({
         generateText: async ({ system, prompt }) => {

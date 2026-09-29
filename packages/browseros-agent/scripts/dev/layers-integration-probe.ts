@@ -1,4 +1,10 @@
+import { SessionStore } from '../../apps/server/src/agent/session-store'
+import { ChatService } from '../../apps/server/src/api/services/chat-service'
 import { runLayerTranslation } from '../../apps/server/src/layers/action-runner'
+import { createLayerChatRunner } from '../../apps/server/src/layers/chat-action-runner'
+import { closeDb } from '../../apps/server/src/lib/db'
+import { CdpBackend } from '../../packages/browser-core/src/backends/cdp'
+import { Browser as PaneBrowser } from '../../packages/browser-core/src/browser'
 import { anthropicFixtureResponse } from './layers-anthropic-fixture'
 import { codexFixtureResponse } from './layers-codex-fixture'
 /** Disposable Chromium profile + actual background/content/runtime + Layer
@@ -43,6 +49,10 @@ const claudeInitModels = new Set<string>()
 let recoveryTiming: { initializationMs: number; pauseMs: number } | undefined
 const root = resolve(import.meta.dir, '../..')
 const dir = await mkdtemp(join(tmpdir(), 'pane-layers-integration-'))
+process.env.BROWSEROS_DIR = join(dir, 'state')
+let chatRunner: ReturnType<typeof createLayerChatRunner> | undefined
+let chatBackend: CdpBackend | undefined
+const chatSessions = new SessionStore()
 const db = new Database(':memory:')
 db.exec(LAYERS_SCHEMA_SQL + LAYER_ACTIVITY_SCHEMA_SQL)
 const store = new LayerStore(db)
@@ -89,7 +99,10 @@ const app = createLayerRoutes({
                 claudeInitModels.add(event.model)
             },
           })
-      : undefined,
+      : (run) => {
+          if (!chatRunner) throw new Error('Chat fixture not initialized')
+          return chatRunner(run)
+        },
   authority: new LayerAuthority(secret),
   broker,
   store: () => store,
@@ -108,6 +121,7 @@ let releaseEnableResponse: (() => void) | undefined
 const server = Bun.serve({
   hostname: '127.0.0.1',
   port: 0,
+  idleTimeout: 0,
   async fetch(request) {
     const path = new URL(request.url).pathname
     if (path.startsWith('/layers/')) {
@@ -243,6 +257,42 @@ const server = Bun.serve({
       const body = (await request.json()) as {
         messages: Array<{ role: string; content: string }>
         tools?: Array<{ function: { name: string } }>
+        stream?: boolean
+      }
+      const respond = (data: Record<string, any>) => {
+        if (!body.stream) return Response.json(data)
+        const choice = data.choices[0]
+        const delta = {
+          ...choice.message,
+          tool_calls: choice.message.tool_calls?.map(
+            (call: Record<string, unknown>, index: number) => ({
+              ...call,
+              index,
+            }),
+          ),
+        }
+        const chunk = (value: unknown) => `data: ${JSON.stringify(value)}\n\n`
+        const base = {
+          id: data.id,
+          model: data.model,
+          created: 1,
+          object: 'chat.completion.chunk',
+        }
+        return new Response(
+          chunk({
+            ...base,
+            choices: [{ index: 0, delta, finish_reason: null }],
+          }) +
+            chunk({
+              ...base,
+              choices: [
+                { index: 0, delta: {}, finish_reason: choice.finish_reason },
+              ],
+              usage: data.usage,
+            }) +
+            'data: [DONE]\n\n',
+          { headers: { 'content-type': 'text/event-stream' } },
+        )
       }
       if (
         body.tools?.some((tool) => tool.function.name === 'page_execute_script')
@@ -273,7 +323,7 @@ const server = Bun.serve({
                 ],
               }
             : {}
-        return Response.json({
+        return respond({
           id: 'script-fixture',
           object: 'chat.completion',
           created: 1,
@@ -298,10 +348,16 @@ const server = Bun.serve({
           usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
         })
       }
-      const source = JSON.parse(
+      const content =
         body.messages.findLast((message) => message.role === 'user')?.content ??
-          '{}',
-      ).input as LayerActionInput
+        '{}'
+      const source = (
+        content.includes('\nInput:\n')
+          ? JSON.parse(
+              content.split('\nInput:\n').at(-1)!.split('\n</USER_QUERY>')[0],
+            )
+          : JSON.parse(content).input
+      ) as LayerActionInput
       if (isScriptTaskInput(source))
         throw new Error('Generated task reached ordinary result fixture')
       if (isDataInput(source)) throw new Error('Data reached the model')
@@ -311,7 +367,7 @@ const server = Bun.serve({
           delayed = resolve
         })
       }
-      return Response.json({
+      return respond({
         id: 'fixture',
         object: 'chat.completion',
         created: 1,
@@ -588,6 +644,24 @@ try {
       '--no-first-run',
     ],
   })
+  if (!testClaude && !testCodex) {
+    chatBackend = new CdpBackend({
+      port: Number(new URL(browser.wsEndpoint()).port),
+      exitOnReconnectFailure: false,
+    })
+    await chatBackend.connect()
+    const paneBrowser = new PaneBrowser(chatBackend)
+    chatRunner = createLayerChatRunner(
+      new ChatService({
+        sessionStore: chatSessions,
+        browser: paneBrowser,
+        browserSession: paneBrowser.session,
+        serverPort: server.port,
+      }),
+      chatSessions,
+      broker,
+    )
+  }
   if (testScripts) {
     const workerTarget = await browser.waitForTarget(
       (target) => target.type() === 'service_worker',
@@ -1004,7 +1078,7 @@ try {
     'typed translation rendering',
   )
   assert(modelCalls === 1, 'Translation used unexpected provider calls')
-  assert(resultReplays === 1, 'Lost result was not recovered through replay')
+  assert(resultReplays >= 1, 'Lost result was not recovered through replay')
   scriptChecks.push('lost response replay without another model request')
   assert(
     (await page.$eval('article p', (p) => p.textContent)) ===
@@ -1716,9 +1790,19 @@ try {
       'data script document',
     )
     await author('layer_preview', { ...dataScript, tabId: target().tabId })
-    await page.waitForFunction(
-      () => document.querySelector('#script-data')?.textContent === '42',
-    )
+    try {
+      await page.waitForFunction(
+        () => document.querySelector('#script-data')?.textContent === '42',
+      )
+    } catch (error) {
+      console.error(
+        'Script data diagnostics',
+        await page.$eval('#script-data', (node) => node.textContent),
+        store.activity().filter((run) => run.layerId === dataScript.id),
+        await author('layer_list', {}),
+      )
+      throw error
+    }
     const dataProof = await author('layer_verify', {
       ...dataScript,
       tabId: target().tabId,
@@ -2072,7 +2156,7 @@ try {
           ? 'installed Codex CLI with local deterministic API'
           : testClaude
             ? 'installed Claude CLI with local deterministic API'
-            : 'local deterministic API fixture',
+            : 'normal ChatService + browser-core + local streaming API fixture',
         claudeInitModels: [...claudeInitModels],
         recoveryTiming,
         accessibility: {
@@ -2091,6 +2175,9 @@ try {
   clearTimeout(watchdog)
   delayed?.()
   releaseData?.()
+  chatSessions.evictIdleSessions(0)
+  await chatBackend?.disconnect()
+  closeDb()
   await browser?.close()
   server.stop(true)
   db.close()

@@ -627,7 +627,10 @@ export class LayerUserScriptRegistry {
         reject(new LayerScriptRequestError('Layer action cancelled.'))
       controller.signal.addEventListener('abort', aborted, { once: true })
     })
-    const timer = setTimeout(() => controller.abort(), action.limits.deadlineMs)
+    const timer =
+      action.kind === 'data'
+        ? setTimeout(() => controller.abort(), action.limits.deadlineMs)
+        : undefined
     let result: unknown
     try {
       result = await Promise.race([

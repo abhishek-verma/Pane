@@ -29,13 +29,15 @@ export interface TranslationRun {
   binding: LayerActionBinding
   input: LayerActionInput
   action: LayerAction
-  config: LLMConfig
+  config: LLMConfig & { contextWindowSize?: number; supportsImages?: boolean }
   signal: AbortSignal
   current: () => boolean
   pageHost?: ScriptPageHost
 }
 
-/** Action-only provider run. No general browser, filesystem, account connectors,
+/** Legacy fixture runner for isolated CLI protocol probes. Production Layer
+ * routes inject createLayerChatRunner and never fall back to this harness.
+ * Action-only provider run. No general browser, filesystem, account connectors,
  * authoring chat history, memory, or public Pane tools enter this harness.
  * Generated tasks receive only their originating document’s private page host. */
 export async function runLayerTranslation(
