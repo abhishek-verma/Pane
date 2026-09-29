@@ -286,31 +286,16 @@ it('recovers ordered results through replay without rerunning and rejects anothe
   expect(calls).toBe(1)
 })
 
-it('reports the deadline separately from cancellation and finishes activity', async () => {
+it('does not cancel model actions at legacy saved deadlines', async () => {
   const f = setup(1000)
-  const service = new LayerActions(
-    f.broker,
-    async (run) =>
-      new Promise((_, reject) => {
-        run.signal.addEventListener(
-          'abort',
-          () => reject(new Error('aborted')),
-          { once: true },
-        )
-      }),
-  )
-  const events = await service.run(f.profileId, f.request, f.store)
-  expect(events.at(-1)?.payload).toEqual({
-    type: 'failed',
-    code: 'DEADLINE_EXCEEDED',
-    retryable: true,
+  const service = new LayerActions(f.broker, async (run) => {
+    await Bun.sleep(1100)
+    expect(run.signal.aborted).toBe(false)
+    return f.output
   })
-  expect(
-    f.store
-      .activity()
-      .find((run) => run.invocationId === f.request.binding.invocationId)
-      ?.status,
-  ).toBe('failed')
+  const events = await service.run(f.profileId, f.request, f.store)
+  expect(events.at(-1)?.payload.type).toBe('completed')
+  expect(f.store.activity()[0].status).toBe('completed')
 })
 
 it('delivers actionable account-denied codes without automatically retrying', async () => {
@@ -362,4 +347,36 @@ it('persists a safe runner reason and never persists raw provider output', async
       'secret-page-body-and-provider-token',
     )
   }
+})
+
+it('acknowledges long runs promptly, polls without waiting, and rejects conflicting retries', async () => {
+  const f = setup()
+  let finish!: () => void
+  const running = new Promise<void>((resolve) => {
+    finish = resolve
+  })
+  const service = new LayerActions(f.broker, async () => {
+    await running
+    return f.output
+  })
+  const start = await service.start(f.profileId, f.request, f.store)
+  expect(start).toEqual({ pending: true, events: [] })
+  expect(await service.poll(f.profileId, f.request.binding, 0)).toEqual(start)
+  await expect(
+    service.start(
+      f.profileId,
+      { ...f.request, input: { ...f.request.input, targetLanguage: 'fr' } },
+      f.store,
+    ),
+  ).rejects.toThrow('Conflicting')
+  await expect(
+    service.poll(f.profileId, { ...f.request.binding, tabId: 999 }, 0),
+  ).rejects.toThrow('changed')
+  finish()
+  const completed = await service.replay(f.profileId, f.request.binding, 0)
+  expect(completed.at(-1)?.payload.type).toBe('completed')
+  expect(await service.poll(f.profileId, f.request.binding, 0)).toEqual({
+    pending: false,
+    events: completed,
+  })
 })

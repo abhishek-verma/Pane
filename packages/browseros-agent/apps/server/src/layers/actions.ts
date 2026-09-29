@@ -5,6 +5,7 @@ import {
   isPageTaskInput,
   isScriptTaskInput,
   type LayerActionBinding,
+  type LayerActionResult,
   type LayerEvent,
   layerActionBindingSchema,
   layerActionInputSchema,
@@ -19,7 +20,7 @@ import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { LayerActionError } from './action-error'
-import { runLayerTranslation, type TranslationRun } from './action-runner'
+import type { TranslationRun } from './action-runner'
 import type { LayerBroker } from './broker'
 import { LayerProviderError } from './provider-error'
 import { PageTaskResultSink, TranslationResultSink } from './result-acceptance'
@@ -29,7 +30,10 @@ const actionRequestSchema = z
   .object({
     binding: layerActionBindingSchema,
     input: layerActionInputSchema,
-    config: LLMConfigSchema,
+    config: LLMConfigSchema.extend({
+      contextWindowSize: z.number().optional(),
+      supportsImages: z.boolean().optional(),
+    }),
   })
   .strict()
 type ActionRequest = z.infer<typeof actionRequestSchema>
@@ -57,11 +61,35 @@ export class LayerActions {
     private readonly broker: LayerBroker,
     private readonly runner: (
       run: TranslationRun,
-    ) => ReturnType<typeof runLayerTranslation> = runLayerTranslation,
+    ) => Promise<LayerActionResult> = async () => {
+      throw new Error('The normal Layer chat runtime is unavailable.')
+    },
     private readonly now: () => number = Date.now,
   ) {}
 
   async run(
+    profileId: string,
+    raw: unknown,
+    store: LayerStore,
+  ): Promise<LayerEvent[]> {
+    return this.begin(profileId, raw, store)
+  }
+
+  /** Acknowledge before model execution finishes. Extension workers must not
+   * wait for an arbitrarily long fetch response just to keep a turn alive. */
+  async start(profileId: string, raw: unknown, store: LayerStore) {
+    const request = actionRequestSchema.parse(raw)
+    const promise = this.begin(profileId, request, store)
+    const invocation = this.invocations.get(
+      `${profileId}:${request.binding.invocationId}`,
+    )!
+    if (invocation.done) return { pending: false, events: await promise }
+    // begin validates synchronously; execution failures become terminal events.
+    void promise.catch(() => undefined)
+    return { pending: true, events: [] as LayerEvent[] }
+  }
+
+  private begin(
     profileId: string,
     raw: unknown,
     store: LayerStore,
@@ -176,6 +204,8 @@ export class LayerActions {
         (kind === 'data' ? 60 : 12)
     )
       throw new Error('Layer action limit reached. Wait before trying again.')
+    const deadlineAt =
+      kind === 'data' ? now + action.limits.deadlineMs : Number.MAX_SAFE_INTEGER
     const controller = new AbortController()
     store.beginRun({
       invocationId: binding.invocationId,
@@ -184,8 +214,9 @@ export class LayerActions {
       actionId: binding.actionId,
       fingerprint,
       provider: isDataInput(input) ? input.operationId : config.provider,
-      deadlineAt: now + action.limits.deadlineMs,
+      deadlineAt,
     })
+    const releasePreview = this.broker.holdPreview(profileId, binding)
     const invocation: Invocation = {
       kind,
       binding,
@@ -206,10 +237,13 @@ export class LayerActions {
       payload,
     })
     let timedOut = false
-    const timeout = setTimeout(() => {
-      timedOut = true
-      controller.abort()
-    }, action.limits.deadlineMs)
+    const timeout =
+      kind === 'data'
+        ? setTimeout(() => {
+            timedOut = true
+            controller.abort()
+          }, action.limits.deadlineMs)
+        : undefined
     const watch = setInterval(() => {
       if (!current()) controller.abort()
     }, 250)
@@ -292,16 +326,8 @@ export class LayerActions {
           acceptedData = { type: 'result', data: parsed }
         } else {
           const sink = isPageTaskInput(input)
-            ? new PageTaskResultSink(
-                binding,
-                input,
-                now + action.limits.deadlineMs,
-              )
-            : new TranslationResultSink(
-                binding,
-                input,
-                now + action.limits.deadlineMs,
-              )
+            ? new PageTaskResultSink(binding, input, deadlineAt)
+            : new TranslationResultSink(binding, input, deadlineAt)
           const accepted = sink.submit(data, binding)
           if (!accepted.accepted) throw new Error('Invalid provider result.')
           acceptedData = { type: 'result', data: accepted.data }
@@ -362,6 +388,7 @@ export class LayerActions {
             this.invocations.delete(key)
         }, 5 * 60_000).unref()
         clearInterval(watch)
+        releasePreview()
         clearTimeout(timeout)
       }
     })()
@@ -374,6 +401,24 @@ export class LayerActions {
     binding: LayerActionBinding,
     after: number,
   ): Promise<LayerEvent[]> {
+    const invocation = this.currentInvocation(profileId, binding)
+    const events = await invocation.promise
+    if (!invocation.current())
+      throw new Error('The originating Layer or page changed.')
+    return events.filter((event) => event.sequence > after)
+  }
+
+  async poll(profileId: string, binding: LayerActionBinding, after: number) {
+    const invocation = this.currentInvocation(profileId, binding)
+    return invocation.done
+      ? { pending: false, events: await this.replay(profileId, binding, after) }
+      : { pending: true, events: [] as LayerEvent[] }
+  }
+
+  private currentInvocation(
+    profileId: string,
+    binding: LayerActionBinding,
+  ): Invocation {
     const key = `${profileId}:${binding.invocationId}`
     const invocation = this.invocations.get(key)
     if (
@@ -392,10 +437,7 @@ export class LayerActions {
       !invocation.current()
     )
       throw new Error('The originating Layer or page changed.')
-    const events = await invocation.promise
-    if (!invocation.current())
-      throw new Error('The originating Layer or page changed.')
-    return events.filter((event) => event.sequence > after)
+    return invocation
   }
 
   cancel(profileId: string, binding: LayerActionBinding): boolean {

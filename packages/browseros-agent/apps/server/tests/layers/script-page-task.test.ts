@@ -96,17 +96,13 @@ it('rejects syntax without host execution and rejects revoked/cancelled work', a
   g.controller.abort()
   await expect(g.execute('page_inspect')).rejects.toThrow()
 })
-it('caps execution attempts and rejects a late receipt after revocation', async () => {
+it('allows long repair loops and rejects a late receipt after revocation', async () => {
   const f = fixture()
-  for (let n = 0; n < 3; n++) {
+  for (let n = 0; n < 25; n++) {
     await f.execute('page_inspect')
     await f.execute('page_execute_script', f.script)
   }
-  await f.execute('page_inspect')
-  await expect(f.execute('page_execute_script', f.script)).rejects.toThrow(
-    'three sequential',
-  )
-  expect(f.calls()).toBe(3)
+  expect(f.calls()).toBe(25)
   const g = fixture()
   if (!g.run.pageHost) throw new Error('Missing page host')
   g.run.pageHost.execute = async () => {

@@ -147,6 +147,7 @@ export function createMcpServer(deps: McpServiceDeps) {
   // Always expose context/tasks on /mcp so CLI + external MCP clients can use them.
   registerContextMcpTools(server, {
     ...conversation?.tools,
+    conversationId: deps.scopeId,
     bucketId,
     workingDir:
       conversation?.tools?.workingDir ??

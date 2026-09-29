@@ -11,6 +11,7 @@ export interface LayerRunView {
   finishedAt: number | null
   name: string
   failureReason?: string | null
+  conversationId?: string | null
 }
 export function LayerActivity({
   runs,
@@ -39,6 +40,18 @@ export function LayerActivity({
                 {run.status} · {new Date(run.startedAt).toLocaleString()} ·{' '}
                 {run.provider}
               </p>
+              {run.conversationId && (
+                <a
+                  className="mt-1 block text-xs underline"
+                  href={chrome.runtime.getURL(
+                    `/app.html#/home/chat?conversationId=${run.conversationId}`,
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open execution chat
+                </a>
+              )}
               {run.status === 'failed' && run.failureReason && (
                 <p className="mt-1 text-destructive text-xs">
                   {run.failureReason}

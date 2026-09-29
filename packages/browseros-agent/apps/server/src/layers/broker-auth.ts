@@ -24,6 +24,7 @@ export type LayerAccess = z.infer<typeof claimsSchema>
 const context = new AsyncLocalStorage<{
   access: LayerAccess
   authorization: string
+  resolveAccess?: () => LayerAccess | null
 }>()
 
 export class LayerAuthority {
@@ -161,11 +162,13 @@ export function withLayerAccess<T>(
   access: LayerAccess,
   authorization: string,
   work: () => T,
+  resolveAccess?: () => LayerAccess | null,
 ): T {
-  return context.run({ access, authorization }, work)
+  return context.run({ access, authorization, resolveAccess }, work)
 }
 export function getLayerAccess(): LayerAccess | null {
-  return context.getStore()?.access ?? null
+  const value = context.getStore()
+  return value?.resolveAccess ? value.resolveAccess() : (value?.access ?? null)
 }
 export function getLayerAuthorAuthorization(
   scopeId: string,

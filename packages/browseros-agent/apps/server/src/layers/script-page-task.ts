@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import {
   type ScriptTaskResult,
   scriptTaskResultSchema,
@@ -32,7 +33,6 @@ export function createScriptPageTools(
   const host = run.pageHost
   if (!host) throw new Error('Generated script host unavailable.')
   let inspected = false,
-    attempts = 0,
     busy = false,
     completed = false,
     lastAttemptPassed = false
@@ -66,11 +66,10 @@ export function createScriptPageTools(
       inputSchema: scriptTaskExecutionSchema.omit({ executionId: true }),
       execute: async (input) => {
         check()
-        if (!inspected || busy || attempts >= 3)
+        if (!inspected || busy)
           throw new Error(
-            'Inspect first; at most three sequential executions are permitted.',
+            'Inspect first and wait for the running page operation.',
           )
-        attempts++
         lastAttemptPassed = false
         busy = true
         inspected = false
@@ -94,6 +93,7 @@ export function createScriptPageTools(
             ],
           }).executions[0]
           executions.push(receipt)
+          if (executions.length > AGENT_LIMITS.MAX_TURNS) executions.shift()
           lastAttemptPassed = receipt.checks.every((check) => check.intact)
           return {
             passed: lastAttemptPassed,

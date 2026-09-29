@@ -8,6 +8,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { SessionStore } from '../../agent/session-store'
 import { optionalLayerAuthorization } from '../../layers/auth-middleware'
+import { createLayerChatRunner } from '../../layers/chat-action-runner'
 import { createLayerRoutes } from '../../layers/routes'
 import type { TurnRegistry } from '../../lib/agents/turns/active-turn-registry'
 import type { OAuthTokenManager } from '../../lib/clients/oauth/token-manager'
@@ -15,6 +16,7 @@ import { logger } from '../../lib/logger'
 import { optionalProfile } from '../middleware/optional-profile'
 import { requireProfile } from '../middleware/require-profile'
 import { requireTrustedOrigin } from '../middleware/require-trusted-origin'
+import { ChatService } from '../services/chat-service'
 import type { Env, HttpServerConfig } from '../types'
 import { defaultCorsConfig } from '../utils/cors'
 import { requireTrustedAppOrigin } from '../utils/request-auth'
@@ -105,6 +107,14 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
     },
   })
 
+  const chatService = new ChatService({
+    browser,
+    browserSession,
+    browserosId,
+    serverPort: port,
+    resourcesDir,
+    sessionStore,
+  })
   const app = new Hono<Env>()
     .use('/*', cors(defaultCorsConfig))
     .use('/*', requireTrustedOrigin())
@@ -121,7 +131,12 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
   }
 
   return app
-    .route('/layers', createLayerRoutes())
+    .route(
+      '/layers',
+      createLayerRoutes({
+        actionRunner: createLayerChatRunner(chatService, sessionStore),
+      }),
+    )
     .route('/health', createHealthRoute({ browser }))
     .route('/shutdown', createShutdownRoute({ onShutdown: deps.onShutdown }))
     .route('/status', createStatusRoute({ browser }))
@@ -172,6 +187,7 @@ export function createApiRoutes(deps: CreateApiRoutesDeps) {
     .route(
       '/chat',
       createChatRoutes({
+        service: chatService,
         browser,
         browserSession,
         browserosId,

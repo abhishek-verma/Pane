@@ -59,25 +59,16 @@ it('publishes structured data once through the private terminal tool', async () 
   expect(run.delivered).toEqual([data])
 })
 
-it('allows one semantic repair and closes after the second invalid submission', async () => {
+it('allows semantic repairs within the ordinary turn budget', async () => {
   const run = setup()
   const invalid = { ...data, targetLanguage: 'fr' }
-  expect(await run.execute(invalid)).toMatchObject({
-    accepted: false,
-    repairRemaining: true,
-  })
-  expect(await run.execute(invalid)).toMatchObject({
-    accepted: false,
-    repairRemaining: false,
-  })
-  expect(await run.execute(data)).toMatchObject({
-    accepted: false,
-    repairRemaining: false,
-  })
-  expect(run.delivered).toEqual([])
-  const repaired = setup()
-  await repaired.execute(invalid)
-  expect(await repaired.execute(data)).toMatchObject({ accepted: true })
+  for (let attempt = 0; attempt < 25; attempt++)
+    expect(await run.execute(invalid)).toMatchObject({
+      accepted: false,
+      repairRemaining: true,
+    })
+  expect(await run.execute(data)).toMatchObject({ accepted: true })
+  expect(run.delivered).toEqual([data])
 })
 
 it('reads current authority from the harness at submission, not model arguments', async () => {

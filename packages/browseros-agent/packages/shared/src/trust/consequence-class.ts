@@ -65,6 +65,12 @@ const READ_CONTEXT_TOOLS = new Set([
   'layer_tabs',
   'layer_list',
   'layer_inspect',
+  'page_inspect',
+  // Invocation-scoped: the saved grant + trusted Layer click already approve
+  // this page operation; its closure verifies revocation before execution.
+  'page_execute_script',
+  'submit_layer_result',
+  'complete_page_task',
   'skills_list',
   'pi_list',
   'pi_read',

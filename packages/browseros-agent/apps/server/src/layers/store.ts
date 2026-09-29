@@ -267,6 +267,8 @@ export class LayerStore {
       .all(this.now(), this.now() - 7 * 24 * 60 * 60_000)
       .map((run) => ({
         ...run,
+        conversationId:
+          run.deadlineAt === Number.MAX_SAFE_INTEGER ? run.invocationId : null,
         failureReason:
           run.status === 'failed'
             ? layerActionFailureMessage(

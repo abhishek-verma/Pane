@@ -13,6 +13,7 @@ import { getDbHandle } from '../lib/db'
 import { tryGetProfileKey } from '../lib/profile-context'
 import { type LayerBroker, layerBroker } from './broker'
 import { getLayerAccess } from './broker-auth'
+import { bindLayerAuthoringChat } from './chat-context'
 import { validateLayerSource } from './script-validation'
 import { LayerStore } from './store'
 
@@ -134,6 +135,7 @@ function effectiveState(value: unknown) {
 export function buildLayerAuthoringTools(
   providerId?: string,
   dependencies: { broker?: LayerBroker; store?: () => LayerStore } = {},
+  conversationId?: string,
 ): ToolSet {
   const broker = dependencies.broker ?? layerBroker
   const repository =
@@ -222,6 +224,12 @@ export function buildLayerAuthoringTools(
         )
         if (errors.length) return text({ saved: false, errors })
         const record = repository().draft(parsed, revision, id)
+        if (conversationId)
+          bindLayerAuthoringChat(
+            record.id,
+            record.latestVersion,
+            conversationId,
+          )
         broker.wake(profileId)
         return text({
           record,

@@ -160,7 +160,7 @@ export function assessLayerRequirements(
       ...layerLimitations(request, usesModel),
       ...(usesModel && capabilities.outputBudget === 'accepted-output'
         ? [
-            'Codex account actions enforce step and time limits and bound accepted output. The account backend has no hard token-spend ceiling; provider usage may exceed the accepted-output limit.',
+            'Layer model actions use normal chat execution budgets. Accepted output is bounded, but provider usage has no fixed token-spend ceiling.',
           ]
         : []),
     ],
@@ -196,8 +196,8 @@ function layerLimitations(
 ): string[] {
   if (usesModel)
     return [
-      'Only the captured, accessible content is processed.',
-      'Provider availability and configured work limits apply.',
+      'Typed page results use captured, accessible content. The agent also has the normal chat tools, workspace, context and MCP connectors.',
+      'Provider availability and normal chat execution limits apply; legacy Layer step/token/deadline fields do not shorten model turns.',
       ...(request.execution === 'generated-script'
         ? [
             'The agent can generate new JavaScript for the approved page on each click. Existing effects may require reload to remove.',

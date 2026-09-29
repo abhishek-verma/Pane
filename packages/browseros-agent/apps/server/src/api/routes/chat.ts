@@ -26,6 +26,7 @@ interface ChatRouteDeps {
   serverPort: number
   /** Shared with trust replay so promote patches the same live transcript. */
   sessionStore: SessionStore
+  service?: ChatService
   /** BrowserOS resources directory. Threaded to ACP providers so the
    *  bundled-Bun launcher under <resourcesDir>/bin/third_party/bun
    *  can be located for built-in adapters (claude / codex). */
@@ -45,14 +46,16 @@ const ImportConversationsSchema = z.object({
 
 export function createChatRoutes(deps: ChatRouteDeps) {
   const sessionStore = deps.sessionStore
-  const service = new ChatService({
-    sessionStore,
-    browser: deps.browser,
-    browserSession: deps.browserSession,
-    browserosId: deps.browserosId,
-    serverPort: deps.serverPort,
-    resourcesDir: deps.resourcesDir,
-  })
+  const service =
+    deps.service ??
+    new ChatService({
+      sessionStore,
+      browser: deps.browser,
+      browserSession: deps.browserSession,
+      browserosId: deps.browserosId,
+      serverPort: deps.serverPort,
+      resourcesDir: deps.resourcesDir,
+    })
 
   return new Hono()
     .post('/', zValidator('json', ChatRequestSchema), async (c) => {
