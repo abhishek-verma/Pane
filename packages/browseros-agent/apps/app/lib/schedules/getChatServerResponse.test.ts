@@ -4,6 +4,8 @@ import type { buildChatRequestBody } from '@/lib/messaging/server/buildChatReque
 let workspace: { id: string; path: string; bucketId: string } | null = null
 let body: ReturnType<typeof buildChatRequestBody>
 let stream = ''
+let trustPins: Record<string, { pinned: boolean; expiresAt?: number }> = {}
+let conversationPins: Record<string, Record<string, boolean>> = {}
 const workspaceRead = mock(async () => workspace)
 mock.module('@/lib/browseros/agent-fetch', () => ({
   agentFetch: async (_url: string, init: RequestInit) => {
@@ -38,6 +40,19 @@ mock.module('@/lib/mcp/mcpServerStorage', () => ({
 }))
 mock.module('@/lib/trust/trust-pins-storage', () => ({
   requireBrowserInputApprovalStorage: { getValue: async () => true },
+  trustPinsStorage: {
+    getValue: async () => trustPins,
+    setValue: async (value: typeof trustPins) => {
+      trustPins = value
+    },
+  },
+  conversationTrustStorage: {
+    getValue: async () => conversationPins,
+    setValue: async (value: typeof conversationPins) => {
+      conversationPins = value
+    },
+  },
+  PINNABLE_CLASSES: ['write-local', 'system', 'write-external', 'spend'],
 }))
 mock.module('@/lib/workspace/workspace-storage', () => ({
   selectedWorkspaceStorage: { getValue: workspaceRead },
@@ -49,6 +64,8 @@ const { getChatServerResponse } = await import('./getChatServerResponse')
 beforeEach(() => {
   workspace = { id: 'work', path: '/selected/work', bucketId: 'work-bucket' }
   workspaceRead.mockClear()
+  trustPins = {}
+  conversationPins = {}
   stream =
     'data: {"type":"text-delta","delta":"Reviewed"}\n\ndata: {"type":"finish","finishReason":"stop"}\n\n'
 })
@@ -119,4 +136,65 @@ it('does not mark an error finish as a successful run', async () => {
   await expect(
     getChatServerResponse({ message: 'Run schedule' }),
   ).rejects.toThrow('finished with an error')
+})
+
+it('loads remembered permissions afresh for each background run and respects revocation', async () => {
+  trustPins = {
+    system: { pinned: true },
+    spend: { pinned: true, expiresAt: 1 },
+  }
+  await getChatServerResponse({ message: 'Run schedule' })
+  expect(body.trustPins).toEqual(trustPins)
+  trustPins = {}
+  await getChatServerResponse({ message: 'Run again' })
+  expect(body.trustPins).toEqual({})
+})
+it('limits chat permissions to their owning background conversation', async () => {
+  trustPins = { 'write-local': { pinned: true } }
+  conversationPins = { owner: { system: true, spend: false } }
+  await getChatServerResponse({ message: 'Continue', conversationId: 'owner' })
+  expect(body.trustPins).toEqual({
+    'write-local': { pinned: true },
+    system: { pinned: true },
+  })
+  await getChatServerResponse({
+    message: 'Another run',
+    conversationId: 'other',
+  })
+  expect(body.trustPins).toEqual({ 'write-local': { pinned: true } })
+})
+
+it('honors Always allow granted in an ordinary chat when a separate scheduled job starts', async () => {
+  const { persistApprovedTrust } = await import(
+    '../trust/persist-approved-trust'
+  )
+  await persistApprovedTrust({
+    result: { ok: true, resumed: true, resolution: 'approved' },
+    scope: 'always',
+    conversationId: 'personal-chat',
+    consequenceClass: 'system',
+  })
+  await getChatServerResponse({
+    message: 'Run my scheduled job',
+    conversationId: 'separate-background-job',
+  })
+  expect(body.trustPins).toEqual({ system: { pinned: true } })
+})
+
+it('does not retain an implicit chat grant after Always allow is revoked', async () => {
+  const { persistApprovedTrust } = await import(
+    '../trust/persist-approved-trust'
+  )
+  await persistApprovedTrust({
+    result: { ok: true, resumed: true, resolution: 'approved' },
+    scope: 'always',
+    conversationId: 'background-job',
+    consequenceClass: 'system',
+  })
+  trustPins = {}
+  await getChatServerResponse({
+    message: 'Retry the job',
+    conversationId: 'background-job',
+  })
+  expect(body.trustPins).toEqual({})
 })

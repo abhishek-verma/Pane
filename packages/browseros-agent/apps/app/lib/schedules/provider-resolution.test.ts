@@ -88,6 +88,9 @@ mock.module('@/lib/mcp/mcpServerStorage', () => ({
 }))
 
 mock.module('@/lib/trust/trust-pins-storage', () => ({
+  trustPinsStorage: { getValue: async () => ({}) },
+  conversationTrustStorage: { getValue: async () => ({}) },
+  PINNABLE_CLASSES: ['write-local', 'system', 'write-external', 'spend'],
   requireBrowserInputApprovalStorage: {
     getValue: async () => false,
   },

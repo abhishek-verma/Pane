@@ -94,28 +94,59 @@ export async function runHostCommand(
     stderr: 'pipe',
     env: options.env,
   })
-  let timedOut = false
-  const timer =
-    options.timeoutMs && options.timeoutMs > 0
-      ? setTimeout(() => {
-          timedOut = true
-          try {
-            proc.kill()
-          } catch {
-            // best effort
-          }
-        }, options.timeoutMs)
-      : null
+  const outputAbort = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_, reject) => {
+    if (!options.timeoutMs || options.timeoutMs <= 0) return
+    timer = setTimeout(() => {
+      // Killing the parent alone does not close pipes inherited by children
+      // from shell startup scripts. Bound the complete read, not just exit.
+      outputAbort.abort()
+      try {
+        proc.kill('SIGKILL')
+      } catch {
+        // The parent may already have exited while a child holds its pipes.
+      }
+      reject(new Error(`Command timed out after ${options.timeoutMs}ms`))
+    }, options.timeoutMs)
+  })
+  try {
+    const [stdout, stderr, exitCode] = await Promise.race([
+      Promise.all([
+        readCommandOutput(proc.stdout, outputAbort.signal),
+        readCommandOutput(proc.stderr, outputAbort.signal),
+        proc.exited,
+      ]),
+      deadline,
+    ])
+    return { exitCode, stdout, stderr }
+  } finally {
+    clearTimeout(timer)
+    outputAbort.abort()
+  }
+}
 
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ])
-  if (timer) clearTimeout(timer)
-  if (timedOut)
-    throw new Error(`Command timed out after ${options.timeoutMs}ms`)
-  return { exitCode, stdout, stderr }
+async function readCommandOutput(
+  stream: ReadableStream<Uint8Array>,
+  signal: AbortSignal,
+): Promise<string> {
+  const reader = stream.getReader()
+  const cancel = () => {
+    void reader.cancel().catch(() => {})
+  }
+  signal.addEventListener('abort', cancel, { once: true })
+  const decoder = new TextDecoder()
+  let output = ''
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) return output + decoder.decode()
+      output += decoder.decode(value, { stream: true })
+    }
+  } finally {
+    signal.removeEventListener('abort', cancel)
+    reader.releaseLock()
+  }
 }
 
 async function resolveUnixBinary(

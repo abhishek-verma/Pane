@@ -35,6 +35,28 @@ describe('database initialization', () => {
     expect(rows).toEqual([])
   })
 
+  it('upgrades an existing chat database without changing its messages or recency', () => {
+    const dir = mkTempDir()
+    const dbPath = join(dir, 'upgrade.sqlite')
+    const first = initializeDb({ dbPath })
+    if (!first) throw new Error('Database did not initialize')
+    first.sqlite.exec(
+      "INSERT INTO chat_sessions (id, created_at, updated_at) VALUES ('legacy', 10, 20)",
+    )
+    first.sqlite.exec('ALTER TABLE chat_sessions DROP COLUMN background_source')
+    first.sqlite
+      .query('DELETE FROM __drizzle_migrations WHERE created_at = ?')
+      .run(1790658000000)
+    closeDb()
+    const upgraded = initializeDb({ dbPath })
+    if (!upgraded) throw new Error('Database did not initialize')
+    expect(
+      upgraded.sqlite
+        .query('SELECT id, updated_at, background_source FROM chat_sessions')
+        .get(),
+    ).toEqual({ id: 'legacy', updated_at: 20, background_source: null })
+  })
+
   it('can re-open the same path after migrations already ran', () => {
     const dir = mkTempDir()
     const dbPath = join(dir, 'browseros.sqlite')

@@ -163,6 +163,7 @@ export class PaneAcpEventTranslator {
 /** ACP owns its reasoning loop; Pane owns transport fidelity and cancellation.
  * Inherited doGenerate consumes this same doStream, so both paths stay identical. */
 export class PaneAcpLanguageModel extends AcpxLanguageModel {
+  private lastSystemContext = new Map<string, string>()
   constructor(private readonly paneProvider: AcpxProvider) {
     super(paneProvider)
   }
@@ -170,11 +171,30 @@ export class PaneAcpLanguageModel extends AcpxLanguageModel {
   override async doStream(options: LanguageModelV2CallOptions) {
     const provider = this.paneProvider
     const { handle, sessionKey } = await provider.ensureHandle()
+    const fresh = provider.markSessionKeyUsed(sessionKey)
+    const systemMessages = options.prompt.filter(
+      (entry) => entry.role === 'system',
+    )
+    const systemContext = systemMessages
+      .map((entry) => entry.content)
+      .join('\n\n')
+    const systemChanged =
+      this.lastSystemContext.get(sessionKey) !== systemContext
+    // convertPrompt's continuation mode drops every system message. Keep
+    // updated Pane memory/instructions without replaying native chat history.
+    const latestUser = options.prompt.findLast((entry) => entry.role === 'user')
     const prompt = convertPrompt({
-      prompt: options.prompt,
+      prompt: fresh
+        ? options.prompt
+        : [
+            ...(systemChanged ? systemMessages : []),
+            ...(latestUser ? [latestUser] : []),
+          ],
       responseFormat: options.responseFormat,
-      mode: provider.markSessionKeyUsed(sessionKey) ? 'fresh' : 'continuation',
+      mode: 'fresh',
     })
+    if (!fresh && systemChanged && systemContext)
+      prompt.text = `Updated Pane context (supersedes the previous Pane context):\n${prompt.text}`
     const turn = provider.runtime.startTurn({
       handle,
       ...prompt,
@@ -186,6 +206,7 @@ export class PaneAcpLanguageModel extends AcpxLanguageModel {
       signal: options.abortSignal,
     })
     const translator = new PaneAcpEventTranslator(provider.generateId)
+    const lastSystemContext = this.lastSystemContext
     let cancelled = false
     let stream = new ReadableStream<LanguageModelV2StreamPart>({
       async start(controller) {
@@ -197,6 +218,8 @@ export class PaneAcpLanguageModel extends AcpxLanguageModel {
               controller.enqueue(part)
           }
           const result = await turn.result
+          if (result.status === 'completed')
+            lastSystemContext.set(sessionKey, systemContext)
           if (!cancelled)
             for (const part of translator.finish(result))
               controller.enqueue(part)

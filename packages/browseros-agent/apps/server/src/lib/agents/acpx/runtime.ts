@@ -30,14 +30,10 @@ import {
   MAIN_AGENT_SESSION_ID,
 } from '../agent-types'
 import {
-  resolveBundledBun,
-  withBundledBunAcpAdapterEnv,
-} from '../host-acp/bundled-bun'
-import { withBundledNativeBinaryPath } from '../host-acp/bundled-native-binary'
-import {
   DANGEROUS_ALLOW_MODE_CANDIDATES,
   HOST_ACP_ADAPTER_CONFIG,
 } from '../host-acp/config'
+import { resolveAcpSpawnCommand } from '../host-acp/launcher'
 import type {
   AgentHistoryPage,
   AgentPromptInput,
@@ -48,11 +44,7 @@ import type {
   AgentStreamEvent,
 } from '../types'
 import { prepareAcpxAgentContext } from './agent-adapter'
-import {
-  resolveAgentRuntimePaths,
-  shellQuote,
-  wrapCommandWithEnv,
-} from './runtime-context'
+import { resolveAgentRuntimePaths, wrapCommandWithEnv } from './runtime-context'
 import {
   type LatestRuntimeState,
   loadLatestRuntimeState,
@@ -65,6 +57,7 @@ export type AcpxRuntimeOptions = {
   stateDir?: string
   browserosServerPort?: number
   runtimeFactory?: (options: AcpRuntimeOptions) => AcpxCoreRuntime
+  resolveSpawnCommand?: typeof resolveAcpSpawnCommand
 }
 
 interface PreparedRuntimeContext {
@@ -86,6 +79,7 @@ export class AcpxRuntime implements AgentRuntime {
   private readonly runtimeFactory: (
     options: AcpRuntimeOptions,
   ) => AcpxCoreRuntime
+  private readonly resolveSpawnCommand: typeof resolveAcpSpawnCommand
   private readonly sessionStore: ReturnType<typeof createRuntimeStore>
   private readonly runtimes = new Map<string, AcpxCoreRuntime>()
 
@@ -101,6 +95,8 @@ export class AcpxRuntime implements AgentRuntime {
       options.browserosServerPort ?? DEFAULT_PORTS.server
     this.sessionStore = createRuntimeStore({ stateDir: this.stateDir })
     this.runtimeFactory = options.runtimeFactory ?? createAcpRuntime
+    this.resolveSpawnCommand =
+      options.resolveSpawnCommand ?? resolveAcpSpawnCommand
   }
 
   async status(): Promise<AgentStatus> {
@@ -198,7 +194,8 @@ export class AcpxRuntime implements AgentRuntime {
       imageAttachmentCount: imageAttachments.length,
     })
 
-    const runtime = this.getRuntime({
+    const runtime = await this.getRuntime({
+      adapter: input.agent.adapter,
       cwd,
       permissionMode: input.permissionMode,
       nonInteractivePermissions: 'fail',
@@ -306,7 +303,8 @@ export class AcpxRuntime implements AgentRuntime {
     }
   }
 
-  private getRuntime(input: {
+  private async getRuntime(input: {
+    adapter: AgentDefinition['adapter']
     cwd: string
     permissionMode: AcpRuntimeOptions['permissionMode']
     nonInteractivePermissions: AcpRuntimeOptions['nonInteractivePermissions']
@@ -319,7 +317,7 @@ export class AcpxRuntime implements AgentRuntime {
     // ReadableStream via TurnRegistry.pushEvent.
     agentId: string
     sessionId: AgentSessionId
-  }): AcpxCoreRuntime {
+  }): Promise<AcpxCoreRuntime> {
     const mcpHost = input.browserosMcpHost ?? '127.0.0.1'
     // agentId + sessionId are part of the key because they're baked
     // into the spawned host's MCP config headers; a different turn
@@ -330,6 +328,7 @@ export class AcpxRuntime implements AgentRuntime {
       permissionMode: input.permissionMode,
       nonInteractivePermissions: input.nonInteractivePermissions,
       commandIdentity: input.commandIdentity,
+      adapter: input.adapter,
       useBrowserosMcp: input.useBrowserosMcp,
       browserosMcpHost: mcpHost,
       agentId: input.agentId,
@@ -338,14 +337,20 @@ export class AcpxRuntime implements AgentRuntime {
     const existing = this.runtimes.get(key)
     if (existing) return existing
 
+    const agentRegistry = await createBrowserosAgentRegistry({
+      adapter: input.adapter,
+      resolveSpawnCommand: this.resolveSpawnCommand,
+      commandEnv: input.commandEnv,
+      resourcesDir: this.resourcesDir,
+      browserosDir: this.browserosDir,
+    })
+    // Another turn may have created the runtime while shell discovery waited.
+    const concurrent = this.runtimes.get(key)
+    if (concurrent) return concurrent
     const runtime = this.runtimeFactory({
       cwd: input.cwd,
       sessionStore: this.sessionStore,
-      agentRegistry: createBrowserosAgentRegistry({
-        commandEnv: input.commandEnv,
-        resourcesDir: this.resourcesDir,
-        browserosDir: this.browserosDir,
-      }),
+      agentRegistry,
       mcpServers: input.useBrowserosMcp
         ? createBrowserosMcpServers(this.browserosServerPort, mcpHost, {
             agentId: input.agentId,
@@ -364,6 +369,7 @@ export class AcpxRuntime implements AgentRuntime {
       browserosServerPort: this.browserosServerPort,
       browserosMcpHost: mcpHost,
       commandIdentity: input.commandIdentity,
+      adapter: input.adapter,
       useBrowserosMcp: input.useBrowserosMcp,
       agentId: input.agentId,
       sessionId: input.sessionId,
@@ -774,70 +780,31 @@ function createBrowserosMcpServers(
   ]
 }
 
-function createBrowserosAgentRegistry(input: {
+async function createBrowserosAgentRegistry(input: {
+  adapter: AgentDefinition['adapter']
   commandEnv: Record<string, string>
   resourcesDir: string | null
   browserosDir: string
-}): AcpRuntimeOptions['agentRegistry'] {
+  resolveSpawnCommand: typeof resolveAcpSpawnCommand
+}): Promise<AcpRuntimeOptions['agentRegistry']> {
   const registry = createAgentRegistry()
+  const launch = await input.resolveSpawnCommand({
+    agentType: input.adapter,
+    resourcesDir: input.resourcesDir,
+    browserosDir: input.browserosDir,
+    env: { ...process.env, ...input.commandEnv },
+  })
 
   return {
     list() {
       return registry.list()
     },
     resolve(agentName) {
-      const lower = agentName.trim().toLowerCase()
-
-      if (lower === 'claude' || lower === 'codex') {
-        const launch = resolveBrowserosHostAcpAdapterCommand({
-          adapter: lower,
-          resourcesDir: input.resourcesDir,
-        })
-        const commandEnv = withBundledNativeBinaryPath({
-          env: input.commandEnv,
-          resourcesDir: input.resourcesDir,
-        })
-        return wrapCommandWithEnv(
-          launch.command,
-          launch.bundledBunPath
-            ? withBundledBunAcpAdapterEnv({
-                bunPath: launch.bundledBunPath,
-                browserosDir: input.browserosDir,
-                env: commandEnv,
-                includeBundledCliPath: false,
-              })
-            : commandEnv,
-        )
+      if (launch && agentName.trim().toLowerCase() === input.adapter) {
+        return wrapCommandWithEnv(launch.command, input.commandEnv)
       }
-
       return registry.resolve(agentName)
     },
-  }
-}
-
-/**
- * Resolve host-spawned Claude/Codex ACP adapters without asking acpx
- * to discover package bins. Packaged macOS builds prefer BrowserOS's
- * bundled Bun so adapter package execution doesn't depend on host
- * `npx` or the app launch environment.
- */
-function resolveBrowserosHostAcpAdapterCommand(input: {
-  adapter: 'claude' | 'codex'
-  resourcesDir: string | null
-}): { command: string; bundledBunPath: string | null } {
-  const bun = resolveBundledBun({ resourcesDir: input.resourcesDir })
-  if (bun) {
-    const config = HOST_ACP_ADAPTER_CONFIG[input.adapter]
-    return {
-      command: `${shellQuote(bun)} x --bun --silent --package ${shellQuote(config.acpPackageSpec)} ${shellQuote(config.acpBin)}`,
-      bundledBunPath: bun,
-    }
-  }
-
-  const config = HOST_ACP_ADAPTER_CONFIG[input.adapter]
-  return {
-    command: config.acpCommand,
-    bundledBunPath: null,
   }
 }
 

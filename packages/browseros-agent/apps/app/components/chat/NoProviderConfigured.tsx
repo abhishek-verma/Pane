@@ -14,7 +14,7 @@ const openSettings = () => {
 /** Shown when chat is opened before the user adds an LLM provider. */
 export const NoProviderConfigured: FC = () => {
   return (
-    <div className="flex h-screen w-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
+    <div className="flex h-full w-full flex-1 flex-col items-center justify-center gap-4 bg-background px-6 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-md bg-muted/50">
         <Bot className="h-7 w-7 text-[var(--accent-orange)]" />
       </div>

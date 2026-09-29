@@ -11,6 +11,10 @@ import {
 import { tool } from 'ai'
 import { z } from 'zod'
 import {
+  addConversationPin,
+  setConversationContext,
+} from '../../src/agent/conversation-context-store'
+import {
   gateExecute,
   hasExistingApprovalResponse,
   wrapToolWithGate,
@@ -631,6 +635,26 @@ describe('wrapToolWithGate loop surface', () => {
     const wrapped = wrapToolWithGate('filesystem_bash', makeTool(), () => ctx)
     const needs = await wrapped.needsApproval?.({ command: 'ls' }, execOptions)
     expect(needs).toBe(false)
+  })
+
+  it('uses a live chat pin for subsequent unattended calls without another channel prompt', async () => {
+    const ctx = makeCtx({
+      unattended: true,
+      conversationId: 'background-pinned',
+    })
+    setConversationContext('background-pinned', ctx, {
+      bucketId: 'default',
+      isScheduledTask: true,
+    })
+    const wrapped = wrapToolWithGate('filesystem_bash', makeTool(), () => ctx)
+    addConversationPin('background-pinned', 'system')
+    expect(await wrapped.needsApproval?.({ command: 'ls' }, execOptions)).toBe(
+      false,
+    )
+    expect(await wrapped.needsApproval?.({ command: 'pwd' }, execOptions)).toBe(
+      false,
+    )
+    expect(isPinActive(ctx, 'spend')).toBe(false)
   })
 
   it('still reports needsApproval=true on pinned resume when ModelMessages already have an approval response', async () => {

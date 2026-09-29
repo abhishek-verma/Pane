@@ -18,14 +18,14 @@ export const ChatAttachedTabs: FC<ChatAttachedTabsProps> = ({
   if (tabs.length === 0) return null
 
   return (
-    <div className="px-3 pt-2">
-      <div className="styled-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
+    <div className="px-1 pt-1 pb-2">
+      <div className="styled-scrollbar flex max-h-24 flex-wrap items-center gap-1.5 overflow-y-auto overscroll-contain">
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className="flex min-w-0 max-w-[200px] flex-shrink-0 items-center gap-1.5 rounded-md border border-border/50 bg-muted/40 px-2 py-1"
+            className="flex min-w-0 max-w-full items-center gap-1.5 rounded-lg bg-muted/60 py-1 pr-1 pl-2"
           >
-            <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border border-border bg-background">
+            <div className="flex size-4 shrink-0 items-center justify-center">
               {tab.favIconUrl ? (
                 <img src={tab.favIconUrl} alt="" className="h-3 w-3" />
               ) : (
@@ -36,14 +36,18 @@ export const ChatAttachedTabs: FC<ChatAttachedTabsProps> = ({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="flex-1 truncate text-left font-medium text-foreground text-xs"
+                  className="min-w-0 max-w-44 flex-1 truncate text-left text-muted-foreground text-xs hover:text-foreground"
                   title={tab.url}
                 >
                   {tab.title}
                 </button>
               </PopoverTrigger>
-              <PopoverContent side="top" className="w-72 space-y-2 p-4">
-                <p className="font-medium text-sm">{tab.title}</p>
+              <PopoverContent
+                side="top"
+                collisionPadding={12}
+                className="max-h-(--radix-popover-content-available-height) w-[min(20rem,calc(100vw-24px))] space-y-2 overflow-y-auto rounded-xl p-4"
+              >
+                <p className="break-words font-medium text-sm">{tab.title}</p>
                 <p className="break-all text-muted-foreground text-xs">
                   {tab.url}
                 </p>
@@ -65,7 +69,8 @@ export const ChatAttachedTabs: FC<ChatAttachedTabsProps> = ({
             <button
               type="button"
               onClick={() => onRemoveTab(tab.id)}
-              className="flex-shrink-0 rounded p-0.5 transition-colors hover:bg-background"
+              className="flex size-6 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Remove ${tab.title || 'tab'}`}
               title="Remove tab"
             >
               <X className="h-3 w-3 text-muted-foreground" />

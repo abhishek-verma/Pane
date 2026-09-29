@@ -1,26 +1,11 @@
-import {
-  Camera,
-  FilePlus2,
-  Folder,
-  Layers,
-  PlugZap,
-  Plus,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react'
+import { X } from 'lucide-react'
 import type { FC, FormEvent } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { AttachmentPreviews } from '@/components/chat/composer/AttachmentPreviews'
+import { ChatComposerControls } from '@/components/chat/composer/ChatComposerControls'
 import { ComposerQueue } from '@/components/chat/composer/ComposerQueue'
 import { ScreenshotCapture } from '@/components/chat/composer/ScreenshotCapture'
-import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
-import { WorkspaceSelector } from '@/components/elements/workspace-selector'
 import { Button } from '@/components/ui/button'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import { LiveCaption } from '@/components/voice/LiveCaption'
 import { ATTACHMENT_ACCEPT } from '@/lib/attachments'
 import {
@@ -32,10 +17,8 @@ import type { ChatMode } from '@/modules/chat/chat-types'
 import type { ChatComposerController } from '@/modules/chat/use-chat-composer'
 import type { VoiceInputState } from '@/modules/voice/voice.hooks'
 import type { VoiceLoopApi } from '@/modules/voice/voice-types'
-import { useWorkspace } from '@/modules/workspace/workspace.hooks'
 import { ChatAttachedTabs } from './ChatAttachedTabs'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
-import { ChatModeToggle } from './ChatModeToggle'
 import { ChatSelectedText } from './ChatSelectedText'
 import { VoiceModeArea } from './VoiceModeArea'
 
@@ -77,10 +60,8 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   voiceLoop,
   onOpenVoiceMode,
 }) => {
-  const { selectedFolder } = useWorkspace()
   const fileInput = useRef<HTMLInputElement>(null)
   const [capture, setCapture] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
   const chatInputRef = useRef<ChatInputHandle>(null)
   const [selectionMap, setSelectionMap] = useState<
@@ -133,12 +114,12 @@ export const ChatFooter: FC<ChatFooterProps> = ({
   }, [])
 
   return (
-    <footer className="shrink-0 px-3 pt-2 pb-3">
+    <footer className="shrink-0 px-3 pt-3 pb-3">
       <ComposerQueue composer={composer} />
       <section
         aria-label="Message composer"
         className={cn(
-          'relative rounded-2xl border border-border/70 bg-background p-3 shadow-sm transition-colors focus-within:border-foreground/25',
+          'relative rounded-3xl border border-border/60 bg-background p-2.5 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.08)] transition-colors focus-within:border-foreground/25',
           dragging && 'border-foreground bg-muted/50',
         )}
         onDragOver={(event) => {
@@ -212,114 +193,14 @@ export const ChatFooter: FC<ChatFooterProps> = ({
               onFiles={composer.addFiles}
               preparing={composer.preparing}
               controls={
-                <>
-                  <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label="Add context"
-                        title="Add files, screenshots or tabs"
-                        className="rounded-full p-2 text-muted-foreground hover:bg-muted"
-                      >
-                        <Plus className="size-5" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      side="top"
-                      align="start"
-                      className="w-64 p-1.5"
-                    >
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
-                        onClick={() => {
-                          setMenuOpen(false)
-                          fileInput.current?.click()
-                        }}
-                      >
-                        <FilePlus2 className="size-4" />
-                        Add files or photos
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
-                        onClick={() => {
-                          setMenuOpen(false)
-                          setCapture(true)
-                        }}
-                      >
-                        <Camera className="size-4" />
-                        Take screenshot
-                      </button>
-                      <TabPickerPopover
-                        variant="selector"
-                        selectedTabs={attachedTabs}
-                        onToggleTab={onToggleTab}
-                        side="right"
-                      >
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
-                        >
-                          <Layers className="size-4" />
-                          Add tabs
-                          <span className="ml-auto text-muted-foreground text-xs">
-                            @
-                          </span>
-                        </button>
-                      </TabPickerPopover>
-                      <div className="my-1 border-t" />
-                      <WorkspaceSelector side="right">
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
-                        >
-                          <Folder className="size-4" />
-                          <span className="truncate">
-                            {selectedFolder?.name ?? 'Workspace folder'}
-                          </span>
-                        </button>
-                      </WorkspaceSelector>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
-                        onClick={() =>
-                          window.open(
-                            chrome.runtime.getURL('/app.html#/settings/mcp'),
-                            '_blank',
-                          )
-                        }
-                      >
-                        <PlugZap className="size-4" />
-                        Connect apps
-                      </button>
-                    </PopoverContent>
-                  </Popover>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        title="Chat settings"
-                        aria-label="Chat settings"
-                        className="rounded-full p-2 text-muted-foreground hover:bg-muted"
-                      >
-                        <SlidersHorizontal className="size-4" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      side="top"
-                      align="start"
-                      className="w-64 space-y-3 p-4"
-                    >
-                      <p className="font-medium text-sm">How Pane responds</p>
-                      <ChatModeToggle mode={mode} onModeChange={onModeChange} />
-                      <p className="text-muted-foreground text-xs">
-                        Chat answers questions. Agent can use browser tools to
-                        carry out your task.
-                      </p>
-                    </PopoverContent>
-                  </Popover>
-                </>
+                <ChatComposerControls
+                  selectedTabs={attachedTabs}
+                  onToggleTab={onToggleTab}
+                  onFiles={() => fileInput.current?.click()}
+                  onScreenshot={() => setCapture(true)}
+                  mode={mode}
+                  onModeChange={onModeChange}
+                />
               }
               status={status}
               mode={mode}

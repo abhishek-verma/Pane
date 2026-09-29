@@ -100,16 +100,26 @@ export async function detectHostAdapter(
   const timeoutMs = options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS
   const now = options.now ?? Date.now
   const runCommand = options.runCommand ?? runHostCommand
-  // Inspect the same immutable executable the chat will launch. Probing a
-  // host CLI here can itself extract unsigned modules and reports the wrong version.
+  const resolveBinary =
+    options.resolveBinary ??
+    ((name: string) => resolveHostBinary(name, { env, platform, timeoutMs }))
+  const hostCli = await resolveBinary(config.nativeBinary).catch(() => null)
+  // Probe exactly the CLI chat selects. Never touch the bundled executable or
+  // its native loader when an installed CLI is available.
   try {
     const packaged = resolvePackagedAcpRuntime({
       ...options,
       agentType: adapter,
+      useHostExecutable: !!hostCli,
     })
-    if (packaged?.executable) {
-      const binary = {
-        path: packaged.executable,
+    const executable = hostCli?.path ?? packaged?.executable
+    if (packaged && executable) {
+      if (!(options.resolveBundledBun ?? resolveBundledBun)(options))
+        throw new Error(
+          'Pane is missing its packaged JavaScript runtime. Reinstall Pane.',
+        )
+      const binary = hostCli ?? {
+        path: executable,
         env: {
           ...env,
           ...(packaged.preload
@@ -142,8 +152,9 @@ export async function detectHostAdapter(
         packageCacheState: 'cached',
         ...(!version.ok
           ? {
-              reason:
-                'Pane packaged runtime failed its version probe. Reinstall Pane.',
+              reason: hostCli
+                ? `${config.displayName} CLI was found but failed its version probe.`
+                : 'Pane packaged runtime failed its version probe. Reinstall Pane.',
             }
           : {}),
       }
@@ -165,9 +176,6 @@ export async function detectHostAdapter(
       packageCacheState: 'unknown',
     }
   }
-  const resolveBinary =
-    options.resolveBinary ??
-    ((name: string) => resolveHostBinary(name, { env, platform, timeoutMs }))
   const probePackageCache =
     options.probePackageCache ??
     ((packageName: string, versionRange?: string) =>
@@ -176,9 +184,9 @@ export async function detectHostAdapter(
   const resolveBundledNative =
     options.resolveBundledNativeBinary ?? resolveBundledNativeBinary
 
-  // Development fallback only; production returned above without probing host CLIs.
+  // Development fallback only. Keep host probes in the user's environment.
   const prewarmOverrides =
-    platform === 'darwin'
+    !hostCli && platform === 'darwin'
       ? prewarmEnvOverrides(
           options.browserosDir
             ? `${options.browserosDir}/bun-tmp`
@@ -187,15 +195,14 @@ export async function detectHostAdapter(
       : {}
   const probeEnv = { ...(env as Record<string, string>), ...prewarmOverrides }
 
-  const nativeCli = await resolveNativeCli({
-    adapter,
-    nativeBinary: config.nativeBinary,
-    resourcesDir: options.resourcesDir,
-    env: probeEnv,
-    platform,
-    resolveBinary,
-    resolveBundledNativeBinary: resolveBundledNative,
-  }).catch(() => null)
+  const nativeCli =
+    hostCli ??
+    resolveBundledNative({
+      adapter,
+      resourcesDir: options.resourcesDir,
+      env: probeEnv,
+      platform,
+    })
   const launch = await detectAdapterLaunch({
     adapter,
     nativeCli,
@@ -256,34 +263,6 @@ export async function detectHostAdapter(
     adapterLaunchSource: launch.source,
     packageCacheState: launch.packageCacheState,
   }
-}
-
-/**
- * Resolves the user's native CLI before Pane's packaged fallback.
- *
- * The host CLI is where the user signs in and receives provider updates, so
- * probing the packaged binary first could report a stale version even while a
- * supported CLI was installed and working normally outside Pane.
- */
-async function resolveNativeCli(input: {
-  adapter: HostAcpAdapter
-  nativeBinary: string
-  resourcesDir?: string | null
-  env: NodeJS.ProcessEnv
-  platform: NodeJS.Platform
-  resolveBinary: (name: string) => Promise<ResolvedHostBinary | null>
-  resolveBundledNativeBinary: typeof resolveBundledNativeBinary
-}): Promise<ResolvedHostBinary | null> {
-  const host = await input.resolveBinary(input.nativeBinary)
-  if (host) return host
-  const bundled = input.resolveBundledNativeBinary({
-    adapter: input.adapter,
-    resourcesDir: input.resourcesDir,
-    env: input.env,
-    platform: input.platform,
-  })
-  if (bundled) return bundled
-  return null
 }
 
 async function detectAdapterLaunch(input: {

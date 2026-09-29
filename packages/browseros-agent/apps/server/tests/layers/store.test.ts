@@ -1,5 +1,6 @@
 import { Database } from 'bun:sqlite'
 import { afterEach, describe, expect, it } from 'bun:test'
+import { createHash } from 'node:crypto'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -507,8 +508,26 @@ for (const fallback of [false, true]) {
     const dir = mkdtempSync(join(tmpdir(), 'pane-layer-upgrade-'))
     dirs.push(dir)
     const dbPath = join(dir, 'profile.sqlite')
-    const first = openBrowserOsDatabase({ dbPath })
-    const store = new LayerStore(first.sqlite)
+    // Build the actual released schema rather than deleting one migration
+    // from a current DB: later watermarks would make Drizzle skip its replay.
+    const old = new Database(dbPath)
+    old.exec(
+      'CREATE TABLE __drizzle_migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, hash TEXT NOT NULL, created_at NUMERIC)',
+    )
+    const migrations = new URL('../../src/lib/db/migrations/', import.meta.url)
+    const journal = JSON.parse(
+      readFileSync(new URL('meta/_journal.json', migrations), 'utf8'),
+    )
+    for (const entry of journal.entries.filter(
+      (entry: { idx: number }) => entry.idx <= 21,
+    )) {
+      const sql = readFileSync(new URL(`${entry.tag}.sql`, migrations), 'utf8')
+      old.exec(sql)
+      old
+        .query('INSERT INTO __drizzle_migrations(hash,created_at) VALUES (?,?)')
+        .run(createHash('sha256').update(sql).digest('hex'), entry.when)
+    }
+    const store = new LayerStore(old)
     const layer = store.draft(definition, 0)
     store.beginRun({
       invocationId: 'old',
@@ -519,12 +538,10 @@ for (const fallback of [false, true]) {
       provider: 'claude-code',
       deadlineAt: Date.now() + 10000,
     })
-    store.finishRun('old', 'failed')
-    // Recreate the released 0021 schema and migration watermark.
-    first.sqlite.exec(
-      'ALTER TABLE layer_activity DROP COLUMN failure_code; DELETE FROM __drizzle_migrations WHERE created_at=1786700000000',
+    old.exec(
+      "UPDATE layer_activity SET status='failed',finished_at=started_at WHERE invocation_id='old'",
     )
-    first.sqlite.close()
+    old.close()
     const upgraded = openBrowserOsDatabase({
       dbPath,
       ...(fallback ? { migrationsDir: join(dir, 'missing') } : {}),

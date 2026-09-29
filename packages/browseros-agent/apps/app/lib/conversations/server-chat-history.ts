@@ -4,9 +4,11 @@
  * holds prefs / scheduled-job specs / execution-history UI state.
  */
 
+import { storage } from '@wxt-dev/storage'
 import type { UIMessage } from 'ai'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { withRequestDeadline } from '@/lib/browseros/request-deadline'
 
 export interface ChatHistoryListItem {
   id: string
@@ -29,7 +31,35 @@ export async function fetchChatHistoryList(
   if (!response.ok) {
     throw new Error(`Failed to fetch chat history (${response.status})`)
   }
-  return (await response.json()) as ChatHistoryListItem[]
+  const history = (await response.json()) as ChatHistoryListItem[]
+  // Older extension schedules kept their run ownership only in local storage.
+  const legacyRuns = await storage
+    .getItem<Array<{ conversationId?: string }>>('local:scheduledJobRuns')
+    .catch(() => null)
+  const scheduledIds = new Set(
+    (legacyRuns ?? []).map((run) => run.conversationId),
+  )
+  const missing = history.filter(
+    (chat) => !chat.isBackground && scheduledIds.has(chat.id),
+  )
+  for (let i = 0; i < missing.length; i += 100) {
+    const conversationIds = missing.slice(i, i + 100).map((chat) => chat.id)
+    // Repair is best-effort; history is already available and must not wait
+    // for a second request to finish before the sidebar can render.
+    void withRequestDeadline((signal) =>
+      agentFetch(`${url}/chat/history/scheduled`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+        body: JSON.stringify({ conversationIds }),
+      }),
+    ).catch(() => undefined)
+  }
+  return history.map((chat) =>
+    scheduledIds.has(chat.id) && !chat.isBackground
+      ? { ...chat, isBackground: true, backgroundSource: 'schedule' }
+      : chat,
+  )
 }
 
 export interface ChatMessagePage {
@@ -40,22 +70,38 @@ export interface ChatMessagePage {
 /** Newest page when `beforeId` omitted; older page when scrolling up. */
 export async function fetchChatMessagePage(
   conversationId: string,
-  options?: { beforeId?: string; limit?: number; baseUrl?: string },
+  options?: {
+    beforeId?: string
+    limit?: number
+    baseUrl?: string
+    signal?: AbortSignal
+    /** A locally created draft may not have a server transcript yet. */
+    allowMissing?: boolean
+  },
 ): Promise<ChatMessagePage> {
-  const url = await resolveBaseUrl(options?.baseUrl)
-  const params = new URLSearchParams()
-  if (options?.beforeId) params.set('beforeId', options.beforeId)
-  if (options?.limit != null) params.set('limit', String(options.limit))
-  const qs = params.toString()
-  const response = await agentFetch(
-    `${url}/chat/${encodeURIComponent(conversationId)}/messages${qs ? `?${qs}` : ''}`,
+  return withRequestDeadline(
+    async (signal) => {
+      const url = await resolveBaseUrl(options?.baseUrl)
+      const params = new URLSearchParams()
+      if (options?.beforeId) params.set('beforeId', options.beforeId)
+      if (options?.limit != null) params.set('limit', String(options.limit))
+      const qs = params.toString()
+      const response = await agentFetch(
+        `${url}/chat/${encodeURIComponent(conversationId)}/messages${qs ? `?${qs}` : ''}`,
+        { signal },
+      )
+      if (response.status === 404 && options?.allowMissing) {
+        return { messages: [], hasMore: false }
+      }
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch messages for ${conversationId} (${response.status})`,
+        )
+      }
+      return (await response.json()) as ChatMessagePage
+    },
+    { signal: options?.signal },
   )
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch messages for ${conversationId} (${response.status})`,
-    )
-  }
-  return (await response.json()) as ChatMessagePage
 }
 
 export async function deleteChatConversation(

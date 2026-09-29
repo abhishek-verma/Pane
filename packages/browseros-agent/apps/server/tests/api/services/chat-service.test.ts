@@ -99,7 +99,7 @@ function createSessionStore(
     persistMessages?: (
       conversationId: string,
       messages: StoredSession['agent']['messages'],
-      options?: { syncIndexes: boolean },
+      options?: { syncIndexes: boolean; backgroundSource?: string },
     ) => Promise<void>
   } = {},
 ) {
@@ -121,7 +121,7 @@ function createSessionStore(
     async persistMessages(
       conversationId: string,
       messages: StoredSession['agent']['messages'],
-      options?: { syncIndexes: boolean },
+      options?: { syncIndexes: boolean; backgroundSource?: string },
     ) {
       await overrides.persistMessages?.(conversationId, messages, options)
     },
@@ -226,7 +226,12 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
       closeWindow: mock(async () => {}),
       resolveTabIds: mock(async () => new Map<number, number>()),
     }
-    const sessionStore = createSessionStore()
+    const persistedSources: Array<string | undefined> = []
+    const sessionStore = createSessionStore({
+      persistMessages: async (_id, _messages, options) => {
+        persistedSources.push(options?.backgroundSource)
+      },
+    })
     const service = new ChatService(
       createChatServiceDeps({ sessionStore, browser }),
     )
@@ -253,6 +258,7 @@ describe('ChatService scheduled task hidden page lifecycle', () => {
       new AbortController().signal,
     )
 
+    expect(persistedSources).toContain('schedule')
     expect(browser.newPage).toHaveBeenCalledWith('about:blank', {
       agentScope: conversationId,
       hidden: true,

@@ -8,6 +8,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple
+from .macos_passkeys import passkey_signing_entitlements
 from ...common.module import CommandModule, ValidationError
 from ...common.context import Context
 from ...common.env import EnvConfig
@@ -1072,16 +1073,19 @@ def sign_all_components(
         requirements,
     ]
 
-    if entitlements:
-        cmd.extend(["--entitlements", str(entitlements)])
-    else:
-        log_warning("No app entitlements file found, signing without entitlements")
-
-    cmd.append(str(app_path))
-
     try:
-        run_command(cmd)
-    except Exception:
+        env = ctx.env if ctx else EnvConfig()
+        with passkey_signing_entitlements(
+            app_path, entitlements, env.macos_passkey_provisioning_profile
+        ) as app_entitlements:
+            if app_entitlements:
+                cmd.extend(["--entitlements", str(app_entitlements)])
+            else:
+                log_warning("No app entitlements file found, signing without entitlements")
+            cmd.append(str(app_path))
+            run_command(cmd)
+    except Exception as exc:
+        log_error(f"Application signing failed: {exc}")
         return False
 
     return True

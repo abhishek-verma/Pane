@@ -20,18 +20,37 @@ as tool arguments.
   There is no implicit five-minute turn deadline. The owning abort signal and
   explicit approval timeout remain in effect.
 
+## Shared memory
+
+Claude Code and Codex use Pane's shared memory through the `browseros` MCP tools,
+with the same profile, bucket, approval, and read-only rules as API providers.
+Chat reloads the budgeted memory/persona/skills snapshot before each ACP turn;
+the transport sends changed system context without replaying native chat history.
+Standalone agent sessions receive the same shared snapshot and tool guidance.
+Legacy per-agent `AGENT_HOME` notes are preserved, but are not the shared memory
+shown in Settings and are not automatically imported into it.
+
 ## Native-code trust
 
-Production does not run npm/bun package installation, self-updates, ad-hoc
-signing, or Gatekeeper exceptions on the user's machine. Provider adapters and
-executables come from the committed `scripts/build/acp-runtime/package-lock.json`.
-This dependency set must be updated and tested as a release unit.
+Production prefers the user's installed `claude` or `codex`, resolved through
+their login shell, and supplies its exact path to the packaged ACP adapter.
+Chat, agent sessions, and health probes use this selection. A discovered CLI's
+launch or authentication failure is reported rather than silently switching it
+to another runtime. User-installed CLI updates remain under the user's control.
+
+When no installed CLI is found, Pane uses its packaged executable. Adapters and
+fallback executables come from `scripts/build/acp-runtime/package-lock.json` and
+must be updated and tested as a release unit. Production does not install adapter
+packages, update bundled executables, perform ad-hoc signing, or add Gatekeeper
+exceptions on the user's machine.
 
 On macOS, the build executes the locked Claude runtime with an extraction preload
 to enumerate all embedded native addons. A release-owned loader redirects virtual
 Bun addon paths to those staged files. Unknown addons or escaping symlinks fail
 explicitly instead of extracting unsigned executable code into a user's temp dir.
-This addresses dialogs naming files such as `.bun-501-….node`.
+This addresses dialogs naming files such as `.bun-501-….node` for the bundled
+fallback. Installed CLIs do not use this loader or require the bundled native
+files; their Node interpreter and temporary-directory settings take precedence.
 
 The app signer discovers native binaries by Mach-O signature, including new
 provider executables without a filename allowlist. Browser CI resources are
@@ -52,6 +71,6 @@ pre-archive signing/notarization hook. Neither path may upload unsigned macOS co
    tool does not prompt. Test persistent global settings separately.
 6. Verify the final signed/notarized app on a quarantined clean installation.
 
-Pinned runtimes prevent untested vendor updates from silently changing the local
-execution closure. They do not guarantee perpetual support for future cloud
-models; model compatibility still requires ongoing release validation.
+Validate both installed-CLI selection and the pinned fallback in release checks.
+Installed versions can change independently of Pane, so adapter and model
+compatibility still require ongoing validation.

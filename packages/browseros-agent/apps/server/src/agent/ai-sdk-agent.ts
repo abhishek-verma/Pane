@@ -314,7 +314,7 @@ export class AiSdkAgent {
       })
     }
 
-    const instructions = buildSystemPrompt({
+    const promptOptions = {
       userSystemPrompt: config.resolvedConfig.userSystemPrompt,
       exclude: excludeSections,
       isScheduledTask: config.resolvedConfig.isScheduledTask,
@@ -334,7 +334,9 @@ export class AiSdkAgent {
         : config.resolvedConfig.declinedApps,
       origin: config.resolvedConfig.origin,
       generatedOutputReadAvailable: 'filesystem_read' in filesystemTools,
-    })
+      acpMode: useMcpBoundaryOnly,
+    }
+    const instructions = buildSystemPrompt(promptOptions)
 
     // Configure compaction for context window management
     const compactionPrepareStep = createCompactionPrepareStep({
@@ -358,10 +360,20 @@ export class AiSdkAgent {
         if ('content' in msg && msg.content == null) return false
         return true
       })
-      return compactionPrepareStep({
+      const prepared = await compactionPrepareStep({
         ...options,
         messages: normalizeMessagesForModel(safeMessages, normalizationOptions),
       })
+      if (!useMcpBoundaryOnly) return prepared
+      // ACP sessions persist independently of this API agent. Refresh shared
+      // memory at each turn, including writes from another provider or Settings.
+      const snapshot = await loadPromptMemorySnapshot({
+        bucketId: config.resolvedConfig.workspace?.bucketId ?? 'default',
+      })
+      return {
+        ...prepared,
+        system: buildSystemPrompt({ ...promptOptions, ...snapshot }),
+      }
     }
 
     // Codex requires store=false — tell the SDK to inline content

@@ -9,7 +9,7 @@ import {
 export async function persistApprovedTrust(input: {
   result: { ok: boolean; resumed: boolean; resolution?: string }
   scope: 'chat' | 'always'
-  conversationId: string
+  conversationId?: string | null
   consequenceClass: string
 }): Promise<boolean> {
   if (
@@ -23,7 +23,11 @@ export async function persistApprovedTrust(input: {
   if (input.scope === 'always') {
     const pins = await trustPinsStorage.getValue()
     await trustPinsStorage.setValue({ ...pins, [cls]: { pinned: true } })
+    // The server pins the live turn. A second durable chat grant would survive
+    // revoking this global permission in Settings.
+    return true
   }
+  if (!input.conversationId) return false
   const conversations = await conversationTrustStorage.getValue()
   await conversationTrustStorage.setValue({
     ...conversations,

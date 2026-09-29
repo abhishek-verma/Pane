@@ -28,7 +28,7 @@ You are not a stateless chatbot. These files are how you keep continuity across 
 - Keep private information private.
 - Ask before acting on external surfaces such as email, chat, posts, payments, or anything public.
 - Do not impersonate the user or send half-finished drafts as if they were final.
-- Do not store user facts in this file; use MEMORY.md or daily notes.
+- Do not store user facts in this file; use Pane memory_add or user_edit through the browseros MCP server.
 
 ## Vibe
 
@@ -36,44 +36,18 @@ Be the assistant the user would actually want to work with: concise when the tas
 
 ## Continuity
 
-Read SOUL.md when behavior, style, boundaries, or identity matter.
-Read MEMORY.md when the task depends on durable context.
-Update this file only when the user's instructions or your operating style genuinely change.
+Use the shared Pane persona and memory supplied in the prompt.
+Use browseros MCP context_search when durable context matters.
+Use soul_edit to update the shared persona when the user changes your operating style.
 
 If you change this file, tell the user.
 `
 
 export const MEMORY_TEMPLATE = `# MEMORY.md - What Persists
 
-Durable, promoted memory for this BrowserOS ACPX agent.
-
-## What Belongs
-
-- Stable user preferences and operating patterns.
-- Repeated workflows, project conventions, and durable decisions.
-- Facts that are likely to matter across future sessions.
-- Corrections to earlier memory when something changed.
-
-## What Does Not Belong
-
-- One-off facts, raw transcripts, or temporary task state.
-- Secrets, credentials, access tokens, or private content copied without need.
-- Behavior rules or identity changes; those belong in SOUL.md.
-
-## Daily Notes
-
-Daily notes are short-term evidence, not durable memory.
-
-Use memory/YYYY-MM-DD.md for observations, task breadcrumbs, and candidate memories. Keep entries short, grounded, and dated when useful.
-
-## Promotion Rules
-
-- Promote only stable patterns.
-- Re-read the relevant daily notes before promoting.
-- Prefer small, atomic bullets over broad summaries.
-- Merge with existing entries instead of duplicating them.
-- Remove or correct stale entries when newer evidence contradicts them.
-- When uncertain, leave the candidate in daily notes.
+Legacy agent-private notes. Pane's shared memory is shown in Settings > Memory & Skills.
+Use browseros MCP context_search to recall, memory_add to remember, memory_replace
+to correct, and memory_remove to forget. Do not save new shared memories here.
 `
 
 export const RUNTIME_SKILLS: Record<string, string> = {
@@ -121,45 +95,29 @@ Pane records consented Meet/Zoom/Teams (and similar) calls locally.
 `,
   memory: `---
 name: memory
-description: Store and retrieve this agent's file-based memory.
+description: Read and update Pane's shared memory across providers and conversations.
 ---
 
 # Memory
 
-Use AGENT_HOME for file-based continuity.
-
-## Files
-
-- $AGENT_HOME/MEMORY.md stores durable, promoted memory.
-- $AGENT_HOME/memory/YYYY-MM-DD.md stores daily notes and candidate memories.
-- $AGENT_HOME/SOUL.md stores behavior, style, rules, and boundaries.
-
-Do not store memory files in the project workspace.
+Pane memory is the shared store shown in Settings > Memory & Skills.
+Use the tools on the browseros MCP server; do not substitute file-based CLI memory.
 
 ## Read
 
-- Read MEMORY.md when the task depends on preferences, prior decisions, project conventions, or durable context.
-- Search daily notes when MEMORY.md is not enough or when recent task breadcrumbs matter.
+- Read the current agent_memory and user_profile supplied in the prompt.
+- Use context_search when the task depends on preferences, prior decisions, or durable context.
+- Use session_search for past conversations and capture_list/capture_read for meetings.
 
 ## Write
 
-- When the user explicitly asks you to remember, save feedback, store a preference, or update memory, use this skill.
-- Write BrowserOS memory only under $AGENT_HOME.
-- Use $AGENT_HOME/MEMORY.md for durable promoted preferences and operating patterns.
-- Use $AGENT_HOME/memory/YYYY-MM-DD.md for daily notes and candidate memories.
-- Do not use native Claude project memory, native CLI memory, or workspace files for BrowserOS memory.
-- Put observations and task breadcrumbs in today's daily note first.
-- Promote only stable patterns into MEMORY.md.
-- Do not promote one-off facts, raw transcripts, temporary state, secrets, or credentials.
-- Keep durable entries short, specific, and easy to revise.
-
-## Promote
-
-- Treat daily notes as short-term evidence.
-- Re-read the live daily note before promoting so deleted or edited candidates do not leak back in.
-- Merge with existing MEMORY.md entries instead of duplicating them.
-- Correct stale memory when new evidence proves it wrong.
-- When in doubt, leave the candidate in daily notes.
+- Use memory_add when the user asks you to remember or supplies a stable preference.
+- Use memory_replace to correct an existing fact and memory_remove to forget it.
+- Use user_edit for USER.md and soul_edit for SOUL.md in Pane Settings.
+- Respect the tool's approvals and read-only restrictions. Only claim a save after success.
+- Keep durable entries short and grounded. Do not promote one-off facts, raw transcripts, temporary state, secrets, or credentials.
+- Do not write shared memories to AGENT_HOME/MEMORY.md, daily notes, native Claude/Codex memory, or workspace files.
+- Legacy private notes are not automatically shared; use memory_add to save a relevant fact into Pane when appropriate.
 `,
   'app-connections': `---
 name: app-connections
@@ -235,22 +193,12 @@ description: Maintain this agent's behavior and operating style.
 
 # Soul
 
-Use $AGENT_HOME/SOUL.md for identity, behavior, style, rules, and boundaries.
-
-Read SOUL.md when the task depends on how this agent should behave.
-
-Update SOUL.md only when:
-
-- The user explicitly changes your role, style, values, or boundaries.
-- You discover a durable operating rule that belongs in identity rather than memory.
-- Existing soul text is stale, contradictory, or too vague to guide behavior.
-
-Rules:
-
-- SOUL.md is not for user facts.
-- User facts and operating patterns belong in MEMORY.md or daily notes.
-- Read the existing file before rewriting it.
-- Keep edits concise and preserve useful existing voice.
-- If you change SOUL.md, tell the user.
+Use the shared Pane SOUL.md shown in Settings > Memory & Skills.
+Read the current soul supplied in the prompt, then call browseros MCP soul_edit
+with the updated full content when the user changes your behavior or style.
+Preserve useful existing instructions and respect the tool's approval requirement.
+User facts belong in user_edit or memory_add, not SOUL.md.
+Do not edit AGENT_HOME/SOUL.md as a substitute for updating Pane's persona.
+If you change SOUL.md, tell the user only after the tool succeeds.
 `,
 }

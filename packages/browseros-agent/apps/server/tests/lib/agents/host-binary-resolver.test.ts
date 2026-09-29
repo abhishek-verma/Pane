@@ -7,9 +7,39 @@ import { describe, expect, it, mock } from 'bun:test'
 import {
   buildResolvedBinaryEnv,
   resolveHostBinary,
+  runHostCommand,
 } from '../../../src/lib/agents/host-acp/binary-resolver'
 
 describe('host binary resolver', () => {
+  it.skipIf(process.platform === 'win32')(
+    'bounds a probe when shell children retain stdout after the parent exits',
+    async () => {
+      const started = performance.now()
+      await expect(
+        runHostCommand('sh', ['-c', '(sleep 2) & printf ready'], {
+          timeoutMs: 50,
+        }),
+      ).rejects.toThrow('timed out')
+      expect(performance.now() - started).toBeLessThan(1500)
+    },
+  )
+
+  it.skipIf(process.platform === 'win32')(
+    'returns complete output for a successful host probe',
+    async () => {
+      expect(
+        await runHostCommand(
+          'sh',
+          ['-c', 'printf version; printf diagnostic >&2'],
+          { timeoutMs: 1000 },
+        ),
+      ).toEqual({
+        stdout: 'version',
+        stderr: 'diagnostic',
+        exitCode: 0,
+      })
+    },
+  )
   it('resolves Unix binaries through the user login shell first', async () => {
     const runCommand = mock(async () => ({
       exitCode: 0,

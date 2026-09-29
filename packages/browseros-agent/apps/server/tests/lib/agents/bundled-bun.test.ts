@@ -145,4 +145,22 @@ describe('bundled Bun helpers', () => {
     ])
     expect(env.BUN_INSTALL_CACHE_DIR).toBeUndefined()
   })
+
+  it('keeps the installed Node and temporary directory ahead of bundled fallbacks', async () => {
+    const browserosDir = await mkdtemp(join(tmpdir(), 'browseros-host-node-'))
+    tempDirs.push(browserosDir)
+    const env = withBundledBunAcpAdapterEnv({
+      bunPath: '/pane/bin/bun',
+      browserosDir,
+      platform: 'darwin',
+      includeBundledCliPath: false,
+      env: { PATH: '/host/node/bin:/usr/bin', TMPDIR: '/host/tmp' },
+    })
+    expect(env.PATH.split(':')).toEqual([
+      '/host/node/bin',
+      '/usr/bin',
+      join(browserosDir, 'cache', 'acp-node-shim'),
+    ])
+    expect(env.TMPDIR).toBe('/host/tmp')
+  })
 })

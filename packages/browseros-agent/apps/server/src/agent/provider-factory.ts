@@ -262,18 +262,16 @@ async function createAcpLanguageModel(
   })
 
   const agentRegistryOverrides: Record<string, string> = {}
-  // Pre-seed the built-in adapters with the resolved launcher command so the
-  // spawned child does not depend on `npx` being on the user's minimal PATH.
-  // Both bundled-bun and host-npx-fallback sources override acpx's registry
-  // so the enriched env prefix (PATH containing npx/node) is always applied.
-  for (const builtIn of ['claude', 'codex'] as const) {
+  // Resolve only the selected adapter. An unrelated provider's broken bundle
+  // must not block the user's installed CLI or a custom adapter.
+  if (isHostAcpAdapter(agentId)) {
     const launcher = await resolveAcpSpawnCommand({
-      agentType: builtIn,
+      agentType: agentId,
       browserosDir: getBrowserosDir(),
       resourcesDir: config.resourcesDir,
     })
     if (launcher) {
-      agentRegistryOverrides[builtIn] = launcher.command
+      agentRegistryOverrides[agentId] = launcher.command
     }
   }
 

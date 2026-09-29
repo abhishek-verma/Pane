@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { libraryHref } from '@/lib/personal-internet/pi-href'
 import { PiAddressChip, PiLinkActions, PiRailAction } from './PiChrome'
+import { PiExportAction, PiImportAction } from './PiSiteTransfer'
 import {
   type PiLibrarySite,
   type PiLibraryTemp,
@@ -44,6 +45,7 @@ const SiteRow: FC<{ site: PiLibrarySite; archived?: boolean }> = ({
     </div>
     <div className="flex shrink-0 flex-wrap items-center gap-2">
       <PiRailAction to={`/pi/sites/${site.id}`}>Open</PiRailAction>
+      <PiExportAction siteId={site.id} name={site.name} />
       {!archived && (
         <PiRailAction
           variant="destructive"
@@ -157,6 +159,23 @@ export const LibraryPage: FC = () => {
           </button>
         ))}
       </nav>
+      {!showTemps && (
+        <div className="mb-5">
+          <div className="flex flex-wrap gap-2">
+            <PiImportAction
+              onImported={() => {
+                void query.refetch()
+                void archivedQuery.refetch()
+              }}
+            />
+            <PiExportAction />
+          </div>
+          <p className="mt-2 text-muted-foreground text-xs">
+            Export includes pages, records, and archived sites. Import creates
+            copies with automatic collection turned off.
+          </p>
+        </div>
+      )}
       {query.isError ? (
         <div
           role="alert"

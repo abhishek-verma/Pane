@@ -14,6 +14,7 @@ import { z } from 'zod'
 import { getBrowserProfileKey } from '@/lib/browseros/profile-key'
 import { LayerActionEvents } from '@/lib/layers/action-events'
 import { parseLayerActionInput } from '@/lib/layers/action-input'
+import { readLayerActionTrust } from '@/lib/layers/action-trust'
 import { LayerRuntimeCache } from '@/lib/layers/cache'
 import { documentHelloSchema, LAYER_CHANNEL } from '@/lib/layers/messages'
 import { getLayerCredential, layerFetch } from '@/lib/layers/native'
@@ -343,6 +344,7 @@ export function layersBridge(): void {
           ? buildChatRequestBody({
               provider,
               conversationId: binding.invocationId,
+              ...(await readLayerActionTrust()),
             })
           : { provider: 'browseros', model: 'none' },
       }).catch((error) => {

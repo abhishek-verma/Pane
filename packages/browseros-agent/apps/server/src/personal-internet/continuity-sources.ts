@@ -80,6 +80,7 @@ export function continuityFromApprovals(): PiContinuityBlock[] {
         metadata: {
           approvalId: a.id,
           toolName: a.toolName,
+          consequenceClass: a.consequenceClass,
           kind: 'approval',
           conversationId: a.conversationId,
           approveToken: a.approveToken,

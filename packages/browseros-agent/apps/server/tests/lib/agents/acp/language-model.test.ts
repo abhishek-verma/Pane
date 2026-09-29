@@ -6,6 +6,60 @@ import {
 } from '../../../../src/lib/agents/acp/language-model'
 
 describe('Pane ACP protocol boundary', () => {
+  it('sends changed system context on continuation without replaying history or unchanged context', async () => {
+    const turns: string[] = []
+    let fresh = true
+    const model = new PaneAcpLanguageModel({
+      settings: { agent: 'test' },
+      generateId: () => 'id',
+      ensureHandle: async () => ({ handle: {}, sessionKey: 'chat' }),
+      markSessionKeyUsed: () => {
+        const first = fresh
+        fresh = false
+        return first
+      },
+      runtime: {
+        startTurn(input: { text: string }) {
+          turns.push(input.text)
+          return {
+            events: (async function* () {
+              yield { type: 'text_delta', text: 'OK' }
+            })(),
+            result: Promise.resolve({
+              status: 'completed',
+              stopReason: 'end_turn',
+            }),
+            cancel: async () => {},
+          }
+        },
+      },
+    } as unknown as AcpxProvider)
+    for (const content of [
+      'Pane memory: tea',
+      'Pane memory: tea',
+      'Pane memory: coffee',
+    ]) {
+      await model.doGenerate({
+        prompt: [
+          { role: 'system', content },
+          {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Old history' }],
+          },
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'Current request' }],
+          },
+        ],
+      })
+    }
+    expect(turns[0]).toContain('Pane memory: tea')
+    expect(turns[1]).toBe('User: Current request')
+    expect(turns[2]).toContain('Pane memory: coffee')
+    expect(turns[2]).not.toContain('Pane memory: tea')
+    expect(turns[2]).not.toContain('Old history')
+  })
+
   it('normalizes the real Codex MCP invocation envelope into the shared tool contract', () => {
     const translator = new PaneAcpEventTranslator(() => 'id')
     const parts = translator.translate({

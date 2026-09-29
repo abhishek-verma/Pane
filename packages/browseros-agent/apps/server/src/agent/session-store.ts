@@ -3,7 +3,7 @@ import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { BrowserContext } from '@browseros/shared/schemas/browser-context'
 import type { GateContext } from '@browseros/shared/trust/consequence-class'
 import type { UIMessage } from 'ai'
-import { and, asc, desc, eq, lt, or } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, lt, or } from 'drizzle-orm'
 import { getDb, getDbHandle } from '../lib/db'
 import { chatMessages, chatSessions } from '../lib/db/schema/chat-sessions'
 import { logger } from '../lib/logger'
@@ -227,6 +227,7 @@ export interface AgentSession {
 }
 
 export interface PersistMessagesOptions {
+  backgroundSource?: string
   /**
    * When false, skip FTS/embed index sync (mid-turn checkpoints).
    * Default true for final writes.
@@ -439,6 +440,31 @@ export class SessionStore {
     return this.sessions.size
   }
 
+  getBackgroundSource(conversationId: string): string | null {
+    return (
+      getDb()
+        .select({ source: chatSessions.backgroundSource })
+        .from(chatSessions)
+        .where(eq(chatSessions.id, conversationId))
+        .get()?.source ?? null
+    )
+  }
+
+  markScheduledConversations(conversationIds: string[]): number {
+    if (!conversationIds.length) return 0
+    return getDb()
+      .update(chatSessions)
+      .set({ backgroundSource: 'schedule' })
+      .where(
+        and(
+          inArray(chatSessions.id, conversationIds),
+          isNull(chatSessions.backgroundSource),
+        ),
+      )
+      .returning({ id: chatSessions.id })
+      .all().length
+  }
+
   async persistMessages(
     sessionId: string,
     messages: UIMessage[],
@@ -458,7 +484,12 @@ export class SessionStore {
     await prev.catch(() => {})
 
     try {
-      await this.persistMessagesUnlocked(sessionId, messages, syncIndexes)
+      await this.persistMessagesUnlocked(
+        sessionId,
+        messages,
+        syncIndexes,
+        options.backgroundSource,
+      )
     } finally {
       release()
     }
@@ -468,6 +499,7 @@ export class SessionStore {
     sessionId: string,
     messages: UIMessage[],
     syncIndexes: boolean,
+    backgroundSource?: string,
   ): Promise<void> {
     if (this.deletedSessions.has(liveSessionKey(sessionId))) {
       logger.info('Skipping persist for deleted session', { sessionId })
@@ -486,13 +518,17 @@ export class SessionStore {
     if (!existingSession) {
       await db.insert(chatSessions).values({
         id: sessionId,
+        backgroundSource,
         createdAt: now,
         updatedAt: now,
       })
     } else {
       await db
         .update(chatSessions)
-        .set({ updatedAt: now })
+        .set({
+          updatedAt: now,
+          ...(backgroundSource ? { backgroundSource } : {}),
+        })
         .where(eq(chatSessions.id, sessionId))
     }
 

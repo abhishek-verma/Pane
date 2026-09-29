@@ -22,6 +22,7 @@ import {
 } from './PiChrome'
 import { PiPageErrorBoundary } from './PiPageErrorBoundary'
 import { PiPageRenderer } from './PiPageRenderer'
+import { PiExportAction } from './PiSiteTransfer'
 import { RecordsPanel } from './RecordsPanel'
 import {
   piPatch,
@@ -153,6 +154,7 @@ export const SitePage: FC = () => {
                   }
                   bookmarkTitle={doc?.title || site.name}
                 />
+                <PiExportAction siteId={siteId} name={site.name} />
               </>
             ) : null}
             <PiRailAction

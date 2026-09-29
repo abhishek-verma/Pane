@@ -82,6 +82,11 @@ class EnvConfig:
         return os.environ.get("MACOS_CERTIFICATE_NAME")
 
     @property
+    def macos_passkey_provisioning_profile(self) -> Optional[str]:
+        """Apple-approved Developer ID profile for Pane's browser-passkey capability."""
+        return os.environ.get("MACOS_PASSKEY_PROVISIONING_PROFILE")
+
+    @property
     def developer_id_p12(self) -> Optional[str]:
         """Base64-encoded Developer ID Application .p12 (CI runners)"""
         return os.environ.get("DEVELOPER_ID_P12")

@@ -16,7 +16,7 @@ beforeEach(() => values.clear())
 afterAll(() => mock.restore())
 const approved = { ok: true, resumed: true, resolution: 'approved' }
 
-it('persists Always allow in the existing global trust store and current chat only for the approved class', async () => {
+it('persists Always allow only in the global trust store so revocation does not leave a chat grant', async () => {
   await persistApprovedTrust({
     result: approved,
     scope: 'always',
@@ -24,9 +24,7 @@ it('persists Always allow in the existing global trust store and current chat on
     consequenceClass: 'system',
   })
   expect(values.get('local:trust-pins')).toEqual({ system: { pinned: true } })
-  expect(values.get('local:conversation-trust-pins')).toEqual({
-    chat: { system: true },
-  })
+  expect(values.has('local:conversation-trust-pins')).toBe(false)
 })
 it('chat-only approval never grants global trust', async () => {
   await persistApprovedTrust({
@@ -61,4 +59,16 @@ it('rejects stale, denied, failed, and unknown-class approvals without persistin
     }),
   ).toBe(false)
   expect(values.size).toBe(0)
+})
+
+it('can remember global trust for a request without a conversation', async () => {
+  expect(
+    await persistApprovedTrust({
+      result: approved,
+      scope: 'always',
+      consequenceClass: 'system',
+    }),
+  ).toBe(true)
+  expect(values.get('local:trust-pins')).toEqual({ system: { pinned: true } })
+  expect(values.has('local:conversation-trust-pins')).toBe(false)
 })

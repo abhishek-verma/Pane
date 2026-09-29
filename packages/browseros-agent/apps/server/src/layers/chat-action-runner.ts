@@ -107,24 +107,27 @@ export function createLayerChatRunner(
     }
     run.signal.addEventListener('abort', cancel, { once: true })
     try {
-      if (context.conversationId) {
-        const messages =
-          sessions.get(context.conversationId)?.agent.messages ??
-          (await sessions.loadMessages(context.conversationId))
-        await sessions.persistMessages(
-          conversationId,
-          structuredClone(messages).map((message) => ({
-            ...message,
-            id: crypto.randomUUID(),
-          })),
-          { syncIndexes: false },
-        )
-      }
+      const messages = context.conversationId
+        ? (sessions.get(context.conversationId)?.agent.messages ??
+          (await sessions.loadMessages(context.conversationId)))
+        : []
+      await sessions.persistMessages(
+        conversationId,
+        structuredClone(messages).map((message) => ({
+          ...message,
+          id: crypto.randomUUID(),
+        })),
+        { syncIndexes: false, backgroundSource: 'layer' },
+      )
       run.signal.throwIfAborted()
       const doc = broker.document(run.binding.profileId, run.binding.tabId)
       const request = ChatRequestSchema.parse({
         ...context.preferences,
         ...run.config,
+        // Trust is fresh invocation policy, never inherited conversation data.
+        trustPins: run.config.trustPins ?? {},
+        requireBrowserInputApproval:
+          run.config.requireBrowserInputApproval ?? false,
         conversationId,
         mode: 'agent',
         browserContext: {

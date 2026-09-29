@@ -68,6 +68,30 @@ describe('ChatTurnController', () => {
     expect(controller.isTurnActive).toBe(false)
   })
 
+  it('keeps a running turn active when the stop request fails', async () => {
+    const controller = new ChatTurnController()
+    controller.noteStartedTurn('turn-1', 'conv-1')
+    cancelChatTurn.mockImplementation(async () => {
+      throw new Error('server unavailable')
+    })
+    expect(await controller.cancel('user-stop')).toBe(false)
+    expect(controller.isTurnActive).toBe(true)
+    expect(controller.hasResolvedActivity).toBe(false)
+    fetchActiveChatTurn.mockImplementation(async () => null)
+    await controller.refreshActive()
+    expect(controller.isTurnActive).toBe(false)
+    expect(controller.hasResolvedActivity).toBe(true)
+  })
+
+  it('accepts a successful stop response when the turn already finished', async () => {
+    const controller = new ChatTurnController()
+    controller.noteStartedTurn('turn-1', 'conv-1')
+    cancelChatTurn.mockImplementation(async () => ({ cancelled: false }))
+    expect(await controller.cancel('user-stop')).toBe(false)
+    expect(controller.isTurnActive).toBe(false)
+    expect(controller.hasResolvedActivity).toBe(true)
+  })
+
   it('restoreAndAttach attaches when /active is running', async () => {
     fetchActiveChatTurn.mockImplementation(async () => ({
       turnId: 'turn-9',
@@ -106,6 +130,59 @@ describe('ChatTurnController', () => {
     const still = await controller.refreshActive()
     expect(still).toBe(true)
     expect(controller.isTurnActive).toBe(true)
+    expect(controller.hasResolvedActivity).toBe(false)
+  })
+
+  it('distinguishes failed discovery from an inactive chat and recovers on the next probe', async () => {
+    const controller = new ChatTurnController()
+    controller.setConversationId('restored')
+    let error: Error | null = null
+    controller.subscribe((state) => {
+      error = state.activityError
+    })
+    fetchActiveChatTurn.mockImplementation(async () => {
+      throw new Error('offline')
+    })
+    await controller.restoreAndAttach({
+      conversationId: 'restored',
+      onMessages: () => {},
+    })
+    expect(controller.hasResolvedActivity).toBe(false)
+    expect(error).not.toBeNull()
+    expect(attachChatTurnStream).not.toHaveBeenCalled()
+    fetchActiveChatTurn.mockImplementation(async () => null)
+    await controller.refreshActive()
+    expect(controller.hasResolvedActivity).toBe(true)
+    expect(error).toBeNull()
+  })
+
+  it('does not attach or publish an old restore after New Chat', async () => {
+    const controller = new ChatTurnController()
+    let finish!: (value: ChatActiveTurnInfo | null) => void
+    fetchActiveChatTurn.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
+    const pending = controller.restoreAndAttach({
+      conversationId: 'old',
+      onMessages: () => {},
+    })
+    controller.setConversationId('new')
+    finish({
+      turnId: 'old-turn',
+      conversationId: 'old',
+      status: 'running',
+      lastSeq: 0,
+      startedAt: 1,
+      prompt: null,
+      truncated: false,
+    })
+    expect(await pending).toBe(false)
+    expect(attachChatTurnStream).not.toHaveBeenCalled()
+    expect(controller.hasResolvedActivity).toBe(false)
+    expect(controller.turn).toBeNull()
   })
 
   it('refreshActive does not re-notify when the same turn is still running', async () => {

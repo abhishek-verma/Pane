@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { Feature } from '@/lib/browseros/capabilities'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { withRequestDeadline } from '@/lib/browseros/request-deadline'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { useCapabilities } from '@/modules/browseros/capabilities.hooks'
 import { buildAgentApiUrl } from './agent-api-url'
@@ -30,6 +31,21 @@ async function agentsFetch<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
+  // Discovery/history are finite reads, unlike turn submission and streams.
+  if (!init?.method || init.method === 'GET') {
+    return withRequestDeadline(
+      (signal) => readAgentsResponse<T>(baseUrl, path, { ...init, signal }),
+      { signal: init?.signal ?? undefined },
+    )
+  }
+  return readAgentsResponse<T>(baseUrl, path, init)
+}
+
+async function readAgentsResponse<T>(
+  baseUrl: string,
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   const res = await agentFetch(buildAgentApiUrl(baseUrl, path), init)
   if (!res.ok) {
     let message = `Request failed with status ${res.status}`
@@ -53,10 +69,11 @@ export function useAgentAdapters(enabled = true) {
 
   const query = useQuery<HarnessAdapterDescriptor[], Error>({
     queryKey: [AGENT_QUERY_KEYS.adapters, baseUrl],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const data = await agentsFetch<{ adapters: HarnessAdapterDescriptor[] }>(
         baseUrl as string,
         '/adapters',
+        { signal },
       )
       return data.adapters ?? []
     },
@@ -84,10 +101,11 @@ export function useHarnessAgents(enabled = true) {
 
   const query = useQuery<HarnessAgentsResponse, Error>({
     queryKey: [AGENT_QUERY_KEYS.agents, baseUrl],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const data = await agentsFetch<HarnessAgentsResponse>(
         baseUrl as string,
         '/',
+        { signal },
       )
       return {
         agents: data.agents ?? [],

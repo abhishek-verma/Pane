@@ -3,7 +3,8 @@
  * Copyright 2025 BrowserOS
  */
 
-import { afterEach, describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdtempSync } from 'node:fs'
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -17,20 +18,54 @@ import type {
 import { createRuntimeStore } from 'acpx/runtime'
 import { formatUserMessage } from '../../../src/agent/format-message'
 import {
-  AcpxRuntime,
+  AcpxRuntime as BaseAcpxRuntime,
   unwrapBrowserosAcpUserMessage,
 } from '../../../src/lib/agents/acpx/runtime'
 import { resolveAgentRuntimePaths } from '../../../src/lib/agents/acpx/runtime-context'
 import { saveLatestRuntimeState } from '../../../src/lib/agents/acpx/runtime-state'
 import type { AgentDefinition } from '../../../src/lib/agents/agent-types'
+import { resolveAcpSpawnCommand } from '../../../src/lib/agents/host-acp/launcher'
 import { resetAgentRuntimeRegistry } from '../../../src/lib/agents/runtime'
 import type { AgentStreamEvent } from '../../../src/lib/agents/types'
+import { closeDb, initializeDb } from '../../../src/lib/db'
 
 describe('AcpxRuntime', () => {
   const tempDirs: string[] = []
+  // Exercise real launcher wiring without depending on this machine's shell,
+  // credentials, provider installs, or persistent BrowserOS profile.
+  class AcpxRuntime extends BaseAcpxRuntime {
+    constructor(
+      options: ConstructorParameters<typeof BaseAcpxRuntime>[0] = {},
+    ) {
+      const browserosDir =
+        options.browserosDir ?? mkdtempSync(join(tmpdir(), 'acpx-profile-'))
+      if (!options.browserosDir) tempDirs.push(browserosDir)
+      super({
+        browserosDir,
+        resolveSpawnCommand: (input) =>
+          resolveAcpSpawnCommand({
+            ...input,
+            env: { PATH: '/usr/bin' },
+            resolveNative: async (name) => ({
+              path: `/host/bin/${name}`,
+              env: { PATH: '/host/bin:/usr/bin' },
+            }),
+            resolveNpx: async () => null,
+          }),
+        ...options,
+      })
+    }
+  }
   const macosIt = process.platform === 'darwin' ? it : it.skip
 
+  beforeEach(async () => {
+    const dbDir = await mkdtemp(join(tmpdir(), 'pane-acp-memory-db-'))
+    tempDirs.push(dbDir)
+    initializeDb({ dbPath: join(dbDir, 'test.sqlite') })
+  })
+
   afterEach(async () => {
+    closeDb()
     await Promise.all(
       tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
     )
@@ -1079,7 +1114,8 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
     expect(command).not.toContain('CODEX_HOME=')
     // Spawn must go through BrowserOS's own npx command for the official
     // claude-agent-acp package, not a bare `claude` binary.
-    expect(command).toContain('npx -y @agentclientprotocol/claude-agent-acp')
+    expect(command).toContain('@agentclientprotocol/claude-agent-acp')
+    expect(command).toContain("CLAUDE_CODE_EXECUTABLE='/host/bin/claude'")
   })
 
   it('injects AGENT_HOME and CODEX_HOME into Codex ACP command resolution', async () => {
@@ -1116,10 +1152,11 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
     expect(command).toContain('/runtime/codex-home')
     // Spawn must go through BrowserOS's own npx command for the official
     // codex-acp package, not a bare `codex` binary.
-    expect(command).toContain('npx -y @agentclientprotocol/codex-acp')
+    expect(command).toContain('@agentclientprotocol/codex-acp')
+    expect(command).toContain("CODEX_PATH='/host/bin/codex'")
   })
 
-  it('prepends the bundled native CLI directory to host ACP adapter commands', async () => {
+  it('uses the shared host CLI selection even when a bundled CLI directory exists', async () => {
     const browserosDir = await mkdtemp(
       join(tmpdir(), 'browseros-acpx-browseros-'),
     )
@@ -1153,11 +1190,8 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
     )
 
     const registry = getCreateRuntimeOptions(calls).agentRegistry
-    const pathEnvKey = process.platform === 'win32' ? 'Path' : 'PATH'
-    expect(registry.resolve('claude')).toContain(
-      `${pathEnvKey}='${bundledDir}'`,
-    )
-    expect(registry.resolve('codex')).toContain(`${pathEnvKey}='${bundledDir}'`)
+    expect(registry.resolve('codex')).toContain("CODEX_PATH='/host/bin/codex'")
+    expect(registry.resolve('codex')).not.toContain(bundledDir)
   })
 
   macosIt(
@@ -1195,17 +1229,13 @@ Use the BrowserOS MCP server for all browser tasks, including browsing the web, 
       )
 
       const registry = getCreateRuntimeOptions(calls).agentRegistry
-      const claudeCommand = registry.resolve('claude')
       const codexCommand = registry.resolve('codex')
-      expect(claudeCommand).toContain(
-        `'${bunPath}' x --bun --silent --package '@agentclientprotocol/claude-agent-acp@^0.64.0' 'claude-agent-acp'`,
-      )
       expect(codexCommand).toContain(
         `'${bunPath}' x --bun --silent --package '@agentclientprotocol/codex-acp@^1.10.0' 'codex-acp'`,
       )
       expect(codexCommand).toContain('BUN_INSTALL_CACHE_DIR=')
       expect(codexCommand).toContain('cache/acp-node-shim')
-      expect(codexCommand).toContain(dirname(bunPath))
+      expect(codexCommand).toContain("CODEX_PATH='/host/bin/codex'")
       expect(codexCommand).not.toContain('npx -y')
     },
   )

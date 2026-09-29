@@ -140,19 +140,20 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
         side={side ?? 'top'}
         align="start"
         sideOffset={8}
-        className="w-[calc(100vw-24px)] max-w-[400px] p-0"
+        collisionPadding={12}
+        className="flex max-h-(--radix-popover-content-available-height) w-[calc(100vw-24px)] max-w-[400px] flex-col overflow-hidden p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
         role="dialog"
         aria-label="Select tabs to attach"
       >
         <Command
-          className="[&_svg:not([class*='text-'])]:text-muted-foreground"
+          className="min-h-0 [&_svg:not([class*='text-'])]:text-muted-foreground"
           shouldFilter={false}
         >
           <CommandList
             ref={listRef}
-            className="max-h-64 overflow-auto"
+            className="max-h-64 min-h-0 overflow-y-auto overscroll-contain"
             role="listbox"
             aria-label="Available tabs"
             aria-multiselectable="false"
@@ -210,9 +211,34 @@ const TabPickerSelectorPopover: FC<TabPickerSelectorPopoverProps> = ({
   side,
 }) => {
   const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent
+        side={side ?? 'bottom'}
+        align="start"
+        collisionPadding={12}
+        className="flex max-h-(--radix-popover-content-available-height) w-[min(24rem,calc(100vw-24px))] flex-col overflow-hidden p-0"
+        role="dialog"
+        aria-label="Select tabs"
+      >
+        <TabPickerContent
+          selectedTabs={selectedTabs}
+          onToggleTab={onToggleTab}
+          onDone={() => setOpen(false)}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** Shared by the standalone picker and the composer's single-panel add menu. */
+export const TabPickerContent: FC<
+  TabPickerCommonProps & { onDone: () => void }
+> = ({ selectedTabs, onToggleTab, onDone }) => {
   const [filterText, setFilterText] = useState('')
   const { tabs, allTabs, isLoading } = useAvailableTabs({
-    enabled: open,
+    enabled: true,
     filterText,
   })
 
@@ -222,90 +248,71 @@ const TabPickerSelectorPopover: FC<TabPickerSelectorPopoverProps> = ({
   )
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent
-        side={side ?? 'bottom'}
-        align="start"
-        className="w-72 p-0"
-        role="dialog"
-        aria-label="Select tabs"
+    <Command
+      className="min-h-0 [&_svg:not([class*='text-'])]:text-muted-foreground"
+      shouldFilter={false}
+    >
+      <CommandInput
+        autoFocus
+        aria-label="Search tabs"
+        placeholder="Search by title or URL…"
+        className="h-9"
+        value={filterText}
+        onValueChange={setFilterText}
+      />
+      <CommandList
+        className="max-h-72 min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        role="listbox"
+        aria-label="Available tabs"
+        aria-multiselectable="true"
       >
-        <Command
-          className="[&_svg:not([class*='text-'])]:text-muted-foreground"
-          shouldFilter={false}
-        >
-          <CommandInput
-            placeholder="Search tabs..."
-            className="h-9"
-            value={filterText}
-            onValueChange={setFilterText}
-          />
-          <CommandList
-            className="max-h-64 overflow-auto"
-            role="listbox"
-            aria-label="Available tabs"
-            aria-multiselectable="true"
-          >
-            <div className="border-border/50 border-b px-3 py-2">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-xs">Tabs</span>
-                {selectedTabs.length > 0 && (
-                  <span className="text-[var(--accent-orange)] text-xs">
-                    {selectedTabs.length} selected
-                  </span>
-                )}
+        <CommandEmpty className="py-6 text-center">
+          {isLoading ? (
+            <div className="text-muted-foreground text-sm">Loading tabs…</div>
+          ) : (
+            <>
+              <div className="text-muted-foreground text-sm">
+                {allTabs.length === 0
+                  ? 'No eligible web pages'
+                  : `No tabs matching "${filterText}"`}
               </div>
-            </div>
-
-            <CommandEmpty className="py-6 text-center">
-              {isLoading ? (
-                <div className="text-muted-foreground text-sm">
-                  Loading tabs…
-                </div>
-              ) : (
-                <>
-                  <div className="text-muted-foreground text-sm">
-                    {allTabs.length === 0
-                      ? 'No eligible web pages'
-                      : `No tabs matching "${filterText}"`}
-                  </div>
-                  <div className="mt-1 text-muted-foreground/70 text-xs">
-                    {allTabs.length === 0
-                      ? 'Open some web pages to attach them'
-                      : 'Try a different search term'}
-                  </div>
-                </>
-              )}
-            </CommandEmpty>
-            <CommandGroup>
-              {tabs.map((tab) => (
-                <CommandItem
-                  key={tab.id}
-                  value={`${tab.id} ${tab.title} ${tab.url}`}
-                  onSelect={() => onToggleTab(tab)}
-                  className="p-0"
-                >
-                  <TabListItem
-                    tab={tab}
-                    isSelected={selectedTabIds.has(tab.id)}
-                    className="p-3"
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-          <div className="flex justify-end border-t p-2">
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="rounded-lg bg-foreground px-3 py-1.5 text-background text-xs"
+              <div className="mt-1 text-muted-foreground/70 text-xs">
+                {allTabs.length === 0
+                  ? 'Open some web pages to attach them'
+                  : 'Try a different search term'}
+              </div>
+            </>
+          )}
+        </CommandEmpty>
+        <CommandGroup>
+          {tabs.map((tab) => (
+            <CommandItem
+              key={tab.id}
+              value={`${tab.id} ${tab.title} ${tab.url}`}
+              onSelect={() => onToggleTab(tab)}
+              className="p-0"
             >
-              Done{selectedTabs.length ? ` · ${selectedTabs.length} tabs` : ''}
-            </button>
-          </div>
-        </Command>
-      </PopoverContent>
-    </Popover>
+              <TabListItem
+                tab={tab}
+                isSelected={selectedTabIds.has(tab.id)}
+                className="p-3"
+              />
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+      <div className="flex shrink-0 items-center justify-between border-t p-2">
+        <span className="px-1 text-muted-foreground text-xs" aria-live="polite">
+          {selectedTabs.length} selected
+        </span>
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded-lg bg-foreground px-3 py-1.5 text-background text-xs"
+        >
+          Done
+        </button>
+      </div>
+    </Command>
   )
 }

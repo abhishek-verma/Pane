@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import { join } from 'node:path'
+import { buildMemoryPrompt } from '../../../agent/prompt'
+import { loadPromptMemorySnapshot } from '../../../memory/load-prompt'
 import type {
   PrepareAcpxAgentContextInput,
   PreparedAcpxAgentContext,
@@ -43,11 +46,21 @@ export async function prepareBrowserosManagedContext(
   await ensureUsableCwd(paths.effectiveCwd, !input.isSelectedCwd)
   await ensureAgentHome(paths)
   const skillNames = await ensureRuntimeSkills(paths.runtimeSkillsDir)
-  const promptPrefix = buildAcpxRuntimePromptPrefix({
-    agent: input.agent,
-    paths,
-    skillNames,
+  const snapshot = await loadPromptMemorySnapshot({
+    memoriesRoot: join(input.browserosDir, 'memories'),
   })
+  const promptPrefix =
+    buildAcpxRuntimePromptPrefix({
+      agent: input.agent,
+      paths,
+      skillNames,
+    }) +
+    '\n\n' +
+    buildMemoryPrompt({
+      ...snapshot,
+      acpMode: true,
+      workspaceDir: paths.effectiveCwd,
+    })
   return { input, paths, skillNames, promptPrefix }
 }
 

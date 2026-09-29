@@ -137,6 +137,28 @@ it('returns ordered typed events and replays retries without another provider ca
   ).rejects.toThrow('Conflicting')
 })
 
+it('preserves current browser trust policy through action request validation', async () => {
+  const f = setup()
+  const policy = {
+    trustPins: { system: { pinned: true, expiresAt: Date.now() + 10000 } },
+    requireBrowserInputApproval: true,
+  }
+  const service = new LayerActions(f.broker, async (run) => {
+    expect(run.config.trustPins).toEqual(policy.trustPins)
+    expect(run.config.requireBrowserInputApproval).toBe(true)
+    return f.output
+  })
+  const events = await service.run(
+    f.profileId,
+    {
+      ...f.request,
+      config: { ...f.request.config, ...policy },
+    },
+    f.store,
+  )
+  expect(events.at(-1)?.payload.type).toBe('completed')
+})
+
 it('rejects forged profiles, document bindings, disabled state and provider fallback before model execution', async () => {
   const f = setup()
   let calls = 0

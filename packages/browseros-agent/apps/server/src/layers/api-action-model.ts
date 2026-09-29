@@ -4,7 +4,7 @@ import { createLLMProvider } from '../lib/clients/llm/provider'
 import { LayerActionError } from './action-error'
 import type { TranslationRun } from './action-runner'
 
-type ActionGenerationOptions = Pick<
+export type ActionGenerationOptions = Pick<
   Parameters<typeof generateText<ToolSet>>[0],
   'system' | 'tools' | 'stopWhen' | 'maxOutputTokens'
 > & { prompt: string }
