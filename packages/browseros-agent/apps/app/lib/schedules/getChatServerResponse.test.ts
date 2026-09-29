@@ -180,3 +180,21 @@ it('honors Always allow granted in an ordinary chat when a separate scheduled jo
   })
   expect(body.trustPins).toEqual({ system: { pinned: true } })
 })
+
+it('does not retain an implicit chat grant after Always allow is revoked', async () => {
+  const { persistApprovedTrust } = await import(
+    '../trust/persist-approved-trust'
+  )
+  await persistApprovedTrust({
+    result: { ok: true, resumed: true, resolution: 'approved' },
+    scope: 'always',
+    conversationId: 'background-job',
+    consequenceClass: 'system',
+  })
+  trustPins = {}
+  await getChatServerResponse({
+    message: 'Retry the job',
+    conversationId: 'background-job',
+  })
+  expect(body.trustPins).toEqual({})
+})

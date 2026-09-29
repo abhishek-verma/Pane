@@ -141,17 +141,22 @@ export class ChatTurnController {
       this.emit()
       return false
     }
-    const { cancelled } = await cancelChatTurn(conversationId, { reason })
+    const generation = this.generation
+    let cancelled: boolean
+    try {
+      ;({ cancelled } = await cancelChatTurn(conversationId, { reason }))
+    } catch (error) {
+      if (this.generation === generation) this.noteProbeError(error)
+      return false
+    }
     // A newer noteStartedTurn (supersede → send) must not be wiped by this
     // cancel's completion. Same if the user already switched conversations.
     if (this.conversationId !== conversationId) return cancelled
     if (this.activeTurn != null && this.activeTurn.turnId !== turnIdAtStart) {
       return cancelled
     }
-    if (cancelled) {
-      this.activityKnown = true
-      this.activityError = null
-    }
+    this.activityKnown = true
+    this.activityError = null
     this.activeTurn = null
     this.lastSeq = -1
     this.lastAppliedSeq = Number.NEGATIVE_INFINITY

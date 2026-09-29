@@ -1,5 +1,5 @@
 import { Check, Folder, FolderOpen, Globe, X } from 'lucide-react'
-import type { FC, PropsWithChildren } from 'react'
+import type { FC } from 'react'
 import { useState } from 'react'
 import {
   Command,
@@ -9,44 +9,10 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import { getBrowserOSAdapter } from '@/lib/browseros/adapter'
 import { cn } from '@/lib/utils'
 import type { WorkspaceFolder } from '@/lib/workspace/workspace-storage'
 import { useWorkspace } from '@/modules/workspace/workspace.hooks'
-
-export interface WorkspaceSelectorProps {
-  contentClassName?: string
-  side?: 'top' | 'bottom' | 'left' | 'right'
-}
-
-export const WorkspaceSelector: FC<
-  PropsWithChildren<WorkspaceSelectorProps>
-> = ({ children, side = 'bottom', contentClassName }) => {
-  const [open, setOpen] = useState(false)
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent
-        side={side}
-        align="start"
-        collisionPadding={12}
-        className={cn(
-          'flex max-h-(--radix-popover-content-available-height) w-[min(24rem,calc(100vw-24px))] flex-col overflow-hidden p-0',
-          contentClassName,
-        )}
-        role="dialog"
-        aria-label="Select workspace folder"
-      >
-        <WorkspacePickerContent onDone={() => setOpen(false)} />
-      </PopoverContent>
-    </Popover>
-  )
-}
 
 export const WorkspacePickerContent: FC<{ onDone: () => void }> = ({
   onDone,

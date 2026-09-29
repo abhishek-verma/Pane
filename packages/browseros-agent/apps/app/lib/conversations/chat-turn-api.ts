@@ -62,7 +62,9 @@ export async function cancelChatTurn(
       }),
     },
   )
-  if (!response.ok) return { cancelled: false }
+  if (!response.ok) {
+    throw new Error(`Failed to cancel chat turn (${response.status})`)
+  }
   return (await response.json()) as { cancelled: boolean }
 }
 

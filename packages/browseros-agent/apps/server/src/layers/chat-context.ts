@@ -3,15 +3,13 @@ import { getDbHandle } from '../lib/db'
 
 // Keep only execution preferences. Credentials, approval responses and user
 // messages stay in their existing provider/transcript stores.
-function layerChatPreferences(request: ChatRequest) {
+function layerChatPreferences(request: Partial<ChatRequest>) {
   return {
     browserContext: request.browserContext,
     userSystemPrompt: request.userSystemPrompt,
     userWorkingDir: request.userWorkingDir,
     workspaceId: request.workspaceId,
     bucketId: request.bucketId,
-    trustPins: request.trustPins,
-    requireBrowserInputApproval: request.requireBrowserInputApproval,
     supportsImages: request.supportsImages,
     declinedApps: request.declinedApps,
     origin: request.origin,
@@ -79,10 +77,10 @@ export function readLayerChatContext(
   // preferences, but never copy an unrelated conversation's transcript.
   return {
     conversationId: parent?.conversation_id,
-    preferences: (row
-      ? (JSON.parse(row.preferences_json) as ReturnType<
-          typeof layerChatPreferences
-        >)
-      : {}) as Partial<ReturnType<typeof layerChatPreferences>>,
+    // Reapply the allowlist to old rows too. Merged global/chat-only trust
+    // snapshots are not transferable grants and may have been revoked.
+    preferences: layerChatPreferences(
+      row ? (JSON.parse(row.preferences_json) as Partial<ChatRequest>) : {},
+    ),
   }
 }

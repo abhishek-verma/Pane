@@ -18,6 +18,7 @@ import { layerMatchesUrl } from '@browseros/shared/layers/matching'
 import type { ScriptTaskExecution } from '@browseros/shared/layers/script-task'
 import { LLMConfigSchema } from '@browseros/shared/schemas/llm'
 import { z } from 'zod'
+import { ChatRequestSchema } from '../api/types'
 import { logger } from '../lib/logger'
 import { LayerActionError } from './action-error'
 import type { TranslationRun } from './action-runner'
@@ -33,6 +34,9 @@ const actionRequestSchema = z
     config: LLMConfigSchema.extend({
       contextWindowSize: z.number().optional(),
       supportsImages: z.boolean().optional(),
+      trustPins: ChatRequestSchema.shape.trustPins,
+      requireBrowserInputApproval:
+        ChatRequestSchema.shape.requireBrowserInputApproval,
     }),
   })
   .strict()

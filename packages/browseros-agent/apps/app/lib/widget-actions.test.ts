@@ -51,9 +51,7 @@ it('remembers Always allow and asks the server to update the live chat before re
   expect(request).toEqual({ token: 'approve-token', pin: true })
   expect(result?.ok).toBe(true)
   expect(values.get('local:trust-pins')).toEqual({ system: { pinned: true } })
-  expect(values.get('local:conversation-trust-pins')).toEqual({
-    chat: { system: true },
-  })
+  expect(values.has('local:conversation-trust-pins')).toBe(false)
 })
 it('keeps chat-only approval out of global permissions', async () => {
   await executeWidgetAction({ ...approve, trustScope: 'chat' })

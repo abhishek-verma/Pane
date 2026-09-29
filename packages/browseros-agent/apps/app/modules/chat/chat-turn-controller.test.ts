@@ -68,6 +68,30 @@ describe('ChatTurnController', () => {
     expect(controller.isTurnActive).toBe(false)
   })
 
+  it('keeps a running turn active when the stop request fails', async () => {
+    const controller = new ChatTurnController()
+    controller.noteStartedTurn('turn-1', 'conv-1')
+    cancelChatTurn.mockImplementation(async () => {
+      throw new Error('server unavailable')
+    })
+    expect(await controller.cancel('user-stop')).toBe(false)
+    expect(controller.isTurnActive).toBe(true)
+    expect(controller.hasResolvedActivity).toBe(false)
+    fetchActiveChatTurn.mockImplementation(async () => null)
+    await controller.refreshActive()
+    expect(controller.isTurnActive).toBe(false)
+    expect(controller.hasResolvedActivity).toBe(true)
+  })
+
+  it('accepts a successful stop response when the turn already finished', async () => {
+    const controller = new ChatTurnController()
+    controller.noteStartedTurn('turn-1', 'conv-1')
+    cancelChatTurn.mockImplementation(async () => ({ cancelled: false }))
+    expect(await controller.cancel('user-stop')).toBe(false)
+    expect(controller.isTurnActive).toBe(false)
+    expect(controller.hasResolvedActivity).toBe(true)
+  })
+
   it('restoreAndAttach attaches when /active is running', async () => {
     fetchActiveChatTurn.mockImplementation(async () => ({
       turnId: 'turn-9',

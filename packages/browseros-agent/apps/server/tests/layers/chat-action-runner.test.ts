@@ -134,6 +134,7 @@ it('runs beyond 20 steps through the actual chat service and SDK loop with inher
     userWorkingDir: root,
     workspaceId: 'project',
     userSystemPrompt: 'Keep project conventions.',
+    trustPins: { system: { pinned: true } },
     browserContext: { enabledMcpServers: ['saved-connector'] },
   })
   rememberLayerChatContext(parent)
@@ -202,6 +203,10 @@ it('runs beyond 20 steps through the actual chat service and SDK loop with inher
       providerId: 'saved',
       model: 'custom-deployment',
       apiKey: 'fixture',
+      trustPins: {
+        'write-local': { pinned: true, expiresAt: Date.now() + 60000 },
+      },
+      requireBrowserInputApproval: true,
     },
     signal: new AbortController().signal,
     current: () => true,
@@ -222,6 +227,14 @@ it('runs beyond 20 steps through the actual chat service and SDK loop with inher
   expect(capturedConfig.workingDir).toBe(root)
   expect(capturedConfig.model).toBe('custom-deployment')
   expect(capturedConfig.userSystemPrompt).toBe('Keep project conventions.')
+  expect((capturedConfig.gateContext as { pins: unknown }).pins).toEqual(
+    run.config.trustPins,
+  )
+  expect(
+    (capturedConfig.gateContext as { requireBrowserInputApproval: boolean })
+      .requireBrowserInputApproval,
+  ).toBe(true)
+  expect(sessions.getBackgroundSource(run.binding.invocationId)).toBe('layer')
   const messages = await sessions.loadMessages(run.binding.invocationId)
   expect(JSON.stringify(messages)).toContain(
     'Use the project design conventions.',
@@ -412,6 +425,8 @@ function waitingFixture() {
       expect(request.model).toBe('custom-alias')
       expect(request.acpCommand).toBe('custom-agent --acp')
       expect(request.acpFixedWorkspacePath).toBe(root)
+      expect(request.trustPins).toEqual({})
+      expect(request.isScheduledTask).toBe(false)
       return new Response('')
     },
     cancelTurn: () => {
@@ -419,7 +434,16 @@ function waitingFixture() {
       return true
     },
   }
-  const store = { get: () => pendingSession }
+  const store = {
+    get: () => pendingSession,
+    persistMessages: async (
+      _id: string,
+      _messages: unknown[],
+      options: { backgroundSource: string },
+    ) => {
+      expect(options.backgroundSource).toBe('layer')
+    },
+  }
   return {
     run,
     controller,

@@ -9,6 +9,7 @@ import {
 import type { LayerAction } from '@browseros/shared/layers/manifest'
 import type { LLMConfig } from '@browseros/shared/schemas/llm'
 import { stepCountIs } from 'ai'
+import type { ChatRequest } from '../api/types'
 import { supportsLLMProvider } from '../lib/clients/llm/provider'
 import { LayerActionError } from './action-error'
 import { runApiActionModel } from './api-action-model'
@@ -29,7 +30,11 @@ export interface TranslationRun {
   binding: LayerActionBinding
   input: LayerActionInput
   action: LayerAction
-  config: LLMConfig & { contextWindowSize?: number; supportsImages?: boolean }
+  config: LLMConfig &
+    Partial<Pick<ChatRequest, 'trustPins' | 'requireBrowserInputApproval'>> & {
+      contextWindowSize?: number
+      supportsImages?: boolean
+    }
   signal: AbortSignal
   current: () => boolean
   pageHost?: ScriptPageHost

@@ -33,9 +33,9 @@ export async function fetchChatHistoryList(
   }
   const history = (await response.json()) as ChatHistoryListItem[]
   // Older extension schedules kept their run ownership only in local storage.
-  const legacyRuns = await storage.getItem<Array<{ conversationId?: string }>>(
-    'local:scheduledJobRuns',
-  )
+  const legacyRuns = await storage
+    .getItem<Array<{ conversationId?: string }>>('local:scheduledJobRuns')
+    .catch(() => null)
   const scheduledIds = new Set(
     (legacyRuns ?? []).map((run) => run.conversationId),
   )
@@ -43,13 +43,17 @@ export async function fetchChatHistoryList(
     (chat) => !chat.isBackground && scheduledIds.has(chat.id),
   )
   for (let i = 0; i < missing.length; i += 100) {
-    await agentFetch(`${url}/chat/history/scheduled`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        conversationIds: missing.slice(i, i + 100).map((chat) => chat.id),
+    const conversationIds = missing.slice(i, i + 100).map((chat) => chat.id)
+    // Repair is best-effort; history is already available and must not wait
+    // for a second request to finish before the sidebar can render.
+    void withRequestDeadline((signal) =>
+      agentFetch(`${url}/chat/history/scheduled`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+        body: JSON.stringify({ conversationIds }),
       }),
-    }).catch(() => undefined)
+    ).catch(() => undefined)
   }
   return history.map((chat) =>
     scheduledIds.has(chat.id) && !chat.isBackground

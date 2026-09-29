@@ -267,7 +267,7 @@ async function sourceFileExists(path: string): Promise<boolean> {
   return true
 }
 
-export function shellQuote(value: string): string {
+function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`
 }
 

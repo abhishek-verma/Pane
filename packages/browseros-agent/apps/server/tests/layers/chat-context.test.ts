@@ -44,12 +44,35 @@ it('persists authoring preferences and the source conversation without persistin
   expect(context.preferences.browserContext?.customMcpServers?.[0].name).toBe(
     'connector',
   )
-  expect(context.preferences.trustPins).toEqual(request.trustPins)
+  expect(context.preferences).not.toHaveProperty('trustPins')
+  expect(context.preferences).not.toHaveProperty('requireBrowserInputApproval')
   const stored = JSON.stringify(
     getDbHandle().sqlite.query('SELECT * FROM layer_chat_context').all(),
   )
   expect(stored).not.toContain('DO_NOT_STORE_THIS_KEY')
   expect(stored).not.toContain('DO_NOT_STORE_THIS_MESSAGE')
+  expect(stored).not.toContain('trustPins')
+})
+
+it('strips stale global and chat-only trust snapshots from old linked and fallback preferences', () => {
+  const id = crypto.randomUUID()
+  const oldPreferences = {
+    userWorkingDir: '/legacy-project',
+    trustPins: { system: { pinned: true }, 'write-external': { pinned: true } },
+    requireBrowserInputApproval: false,
+  }
+  getDbHandle()
+    .sqlite.query('INSERT INTO layer_chat_context VALUES (?,?,?,?)')
+    .run(id, 'old-provider', JSON.stringify(oldPreferences), Date.now())
+  bindLayerAuthoringChat('old-linked', 'version', id)
+  for (const layer of ['old-linked', 'old-unlinked']) {
+    const context = readLayerChatContext(layer, 'version', 'old-provider')
+    expect(context.preferences.userWorkingDir).toBe('/legacy-project')
+    expect(context.preferences).not.toHaveProperty('trustPins')
+    expect(context.preferences).not.toHaveProperty(
+      'requireBrowserInputApproval',
+    )
+  }
 })
 
 it('uses provider preferences for legacy Layers without copying unrelated chat history', () => {

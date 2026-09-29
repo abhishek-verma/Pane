@@ -5,8 +5,15 @@ let history: ChatHistoryListItem[] = []
 let runs: Array<{ conversationId?: string }> | null = []
 let posts: string[][] = []
 let failBackfill = false
+let backfillWait: Promise<void> | undefined
+let failStorage = false
 mock.module('@wxt-dev/storage', () => ({
-  storage: { getItem: async () => runs },
+  storage: {
+    getItem: async () => {
+      if (failStorage) throw new Error('storage unavailable')
+      return runs
+    },
+  },
 }))
 mock.module('@/lib/browseros/helpers', () => ({
   getAgentServerUrl: async () => 'http://localhost',
@@ -16,6 +23,7 @@ mock.module('@/lib/browseros/agent-fetch', () => ({
     if (init?.method === 'POST') {
       posts.push(JSON.parse(String(init.body)).conversationIds)
       if (failBackfill) throw new Error('offline')
+      await backfillWait
       return Response.json({ updated: 1 })
     }
     return Response.json(history)
@@ -27,6 +35,8 @@ beforeEach(() => {
   runs = []
   posts = []
   failBackfill = false
+  backfillWait = undefined
+  failStorage = false
 })
 const chat = (id: string): ChatHistoryListItem => ({
   id,
@@ -65,4 +75,29 @@ it('still separates legacy jobs when backfill fails and batches large histories'
     (await fetchChatHistoryList()).every((item) => item.isBackground),
   ).toBe(true)
   expect(posts.map((batch) => batch.length)).toEqual([100, 5])
+})
+
+it('renders fetched history without waiting for a stalled backfill', async () => {
+  history = [chat('job'), chat('personal')]
+  runs = [{ conversationId: 'job' }]
+  const pending = Promise.withResolvers<void>()
+  backfillWait = pending.promise
+  try {
+    const result = await Promise.race([
+      fetchChatHistoryList(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('history blocked by backfill')), 100),
+      ),
+    ])
+    expect(result[0]?.isBackground).toBe(true)
+    expect(result[1]?.isBackground).toBeUndefined()
+  } finally {
+    pending.resolve()
+  }
+})
+it('still returns server history when legacy storage is unavailable', async () => {
+  history = [chat('personal')]
+  failStorage = true
+  expect(await fetchChatHistoryList()).toEqual(history)
+  expect(posts).toEqual([])
 })

@@ -48,6 +48,7 @@ import {
   exportPiSites,
   InvalidPiArchiveError,
   importPiSites,
+  MAX_PI_ARCHIVE_BYTES,
 } from '../../personal-internet/transfer'
 import type {
   PiPageDoc,
@@ -133,7 +134,7 @@ export function createPersonalInternetRoutes() {
     .post(
       '/import',
       bodyLimit({
-        maxSize: 16 * 1024 * 1024,
+        maxSize: MAX_PI_ARCHIVE_BYTES,
         onError: (c) =>
           c.json({ error: 'PI sites files must be 16 MB or smaller.' }, 413),
       }),

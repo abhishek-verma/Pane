@@ -89,6 +89,7 @@ describe('server build', () => {
   ): NodeJS.ProcessEnv {
     const env: NodeJS.ProcessEnv = {
       ...process.env,
+      NODE_ENV: 'production',
       ...extraEnv,
     }
     for (const key of omitKeys) {
@@ -121,6 +122,7 @@ describe('server build', () => {
         buildScript,
         `--target=${target.id}`,
         '--no-upload',
+        '--ci',
         `--manifest=${emptyManifestPath}`,
       ],
       {

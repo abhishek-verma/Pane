@@ -23,8 +23,11 @@ export async function persistApprovedTrust(input: {
   if (input.scope === 'always') {
     const pins = await trustPinsStorage.getValue()
     await trustPinsStorage.setValue({ ...pins, [cls]: { pinned: true } })
+    // The server pins the live turn. A second durable chat grant would survive
+    // revoking this global permission in Settings.
+    return true
   }
-  if (!input.conversationId) return input.scope === 'always'
+  if (!input.conversationId) return false
   const conversations = await conversationTrustStorage.getValue()
   await conversationTrustStorage.setValue({
     ...conversations,

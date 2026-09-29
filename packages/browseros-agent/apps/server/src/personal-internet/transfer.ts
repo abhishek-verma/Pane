@@ -12,10 +12,14 @@ import { getDbHandle } from '../lib/db'
 import { piPages, piRecords, piSites } from '../lib/db/schema/personal-internet'
 import { validatePageDoc } from './dsl'
 import { emitPiEvent } from './events'
+import { harvestConfigFromSite } from './harvest-config'
 import { indexPiPage, indexPiRecord } from './index-pi'
 import { pageFile, siteManifestFile, siteRoute } from './paths'
 import { recomputePulse } from './pulse'
 import { getSite, listRecords, listSites, newPiId } from './store'
+import type { PiNode, PiPageDoc } from './types'
+
+export const MAX_PI_ARCHIVE_BYTES = 16 * 1024 * 1024
 
 const Id = z
   .string()
@@ -96,7 +100,7 @@ export async function exportPiSites(siteId?: string): Promise<PiSiteArchive> {
       status: site.status,
       templateId: site.templateId,
       doorwayEligible: !!site.doorwayEligible,
-      harvestSources: JSON.parse(site.harvestSourcesJson),
+      harvestSources: harvestConfigFromSite(site).sources,
       harvestCadenceDays: site.harvestCadenceDays,
       harvestInstructions: site.harvestInstructions,
       pages,
@@ -107,18 +111,156 @@ export async function exportPiSites(siteId?: string): Promise<PiSiteArchive> {
       })),
     })
   }
-  return ArchiveSchema.parse({
+  const archive = ArchiveSchema.parse({
     format: 'pane-pi-sites',
     version: 1,
     exportedAt: new Date().toISOString(),
     sites: entries,
   })
+  if (
+    Buffer.byteLength(JSON.stringify(archive), 'utf8') > MAX_PI_ARCHIVE_BYTES
+  ) {
+    throw new Error(
+      'Export exceeds the 16 MB import limit. Export smaller sites individually.',
+    )
+  }
+  return archive
+}
+
+// Check before recursive DSL validation/remapping so malformed JSON returns 400,
+// rather than overflowing the stack partway through an import.
+function validateArchiveDepth(input: unknown): void {
+  const pending: Array<{ value: unknown; depth: number }> = [
+    { value: input, depth: 0 },
+  ]
+  while (pending.length) {
+    const item = pending.pop()
+    if (!item?.value || typeof item.value !== 'object') continue
+    if (item.depth > 100)
+      throw new InvalidPiArchiveError('PI sites file is nested too deeply.')
+    for (const value of Object.values(item.value))
+      pending.push({ value, depth: item.depth + 1 })
+  }
+}
+
+function remapReferences(
+  value: unknown,
+  ids: Map<string, string>,
+  key?: string,
+): unknown {
+  if (typeof value === 'string') {
+    if (key === 'siteId' || key === 'pageId' || key === 'recordId')
+      return ids.get(value) ?? value
+    // Only PI links change inside prose. Never rewrite DSL discriminants, titles,
+    // entity keys, arbitrary record values, or unrelated external URL segments.
+    return value.replace(
+      /(?:pi:\/\/sites\/|#\/pi\/sites\/|(?<![a-zA-Z0-9:/])\/pi\/sites\/)([a-zA-Z0-9_-]+)(?:\/pages\/([a-zA-Z0-9_-]+))?/g,
+      (link, siteId: string, pageId: string | undefined) => {
+        let next = link.replace(
+          `sites/${siteId}`,
+          `sites/${ids.get(siteId) ?? siteId}`,
+        )
+        if (pageId)
+          next = next.replace(
+            `pages/${pageId}`,
+            `pages/${ids.get(pageId) ?? pageId}`,
+          )
+        return next
+      },
+    )
+  }
+  if (Array.isArray(value))
+    return value.map((entry) => remapReferences(entry, ids, key))
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([field, entry]) => [
+        field,
+        remapReferences(entry, ids, field),
+      ]),
+    )
+  }
+  return value
+}
+
+function remapPage(
+  doc: PiPageDoc,
+  ids: Map<string, string>,
+  recordIds: Set<string>,
+): PiPageDoc {
+  // Board dragging derives a record ID from card_<recordId>, even when the
+  // card has no explicit binding. Give unbound cards fresh IDs as well.
+  const visit = (node: PiNode): PiNode => {
+    if (node.type === 'board') {
+      const cardIds = new Map<string, string>()
+      const cards = node.cards.map((card) => {
+        if (card.recordId && !recordIds.has(card.recordId)) {
+          throw new InvalidPiArchiveError(
+            'Page refers to a record outside its imported site.',
+          )
+        }
+        const binding =
+          card.id.startsWith('card_') && recordIds.has(card.id.slice(5))
+            ? card.id.slice(5)
+            : undefined
+        const id = binding
+          ? `card_${ids.get(binding)}`
+          : card.id.startsWith('card_')
+            ? newPiId('card')
+            : card.id
+        cardIds.set(card.id, id)
+        return { ...card, id }
+      })
+      return {
+        ...node,
+        cards,
+        columns: node.columns.map((column) => ({
+          ...column,
+          cardIds: column.cardIds.map((id) => cardIds.get(id) ?? id),
+        })),
+      }
+    }
+    if (node.type === 'stack')
+      return { ...node, children: node.children.map(visit) }
+    if (node.type === 'button' && node.replaceWith)
+      return { ...node, replaceWith: visit(node.replaceWith) }
+    if (node.type === 'table')
+      return {
+        ...node,
+        rows: node.rows.map((row) => {
+          if (row.recordId && !recordIds.has(row.recordId))
+            throw new InvalidPiArchiveError(
+              'Page refers to a record outside its imported site.',
+            )
+          return {
+            ...row,
+            cells: Object.fromEntries(
+              Object.entries(row.cells).map(([key, cell]) => [
+                key,
+                typeof cell === 'string' ? cell : visit(cell),
+              ]),
+            ),
+          }
+        }),
+      }
+    return node
+  }
+  try {
+    return validatePageDoc(
+      remapReferences({ ...doc, nodes: doc.nodes.map(visit) }, ids),
+    )
+  } catch (error) {
+    if (error instanceof InvalidPiArchiveError) throw error
+    throw new InvalidPiArchiveError(
+      'Page references could not be imported. Repair the page and export it again.',
+    )
+  }
 }
 
 /** Always clone IDs; importing a backup must never update an existing site. */
 export async function importPiSites(input: unknown) {
   let archive: PiSiteArchive
   try {
+    validateArchiveDepth(input)
     archive = ArchiveSchema.parse(input)
   } catch {
     throw new InvalidPiArchiveError(
@@ -136,42 +278,29 @@ export async function importPiSites(input: unknown) {
     for (const page of site.pages) addId(page.id, 'page')
     for (const record of site.records) addId(record.id, 'rec')
   }
-  // Board cards use card_<recordId>; remap both cards and column membership.
-  const references = new Map(ids)
-  for (const site of archive.sites) {
-    for (const record of site.records)
-      references.set(`card_${record.id}`, `card_${ids.get(record.id)}`)
-  }
   const mappedId = (id: string): string => {
     const mapped = ids.get(id)
     if (!mapped) throw new Error('Missing imported ID mapping')
     return mapped
   }
-  const remap = (value: unknown): unknown => {
-    if (typeof value === 'string')
-      return value.replace(/[a-zA-Z0-9_-]+/g, (id) => references.get(id) ?? id)
-    if (Array.isArray(value)) return value.map(remap)
-    if (value && typeof value === 'object') {
-      return Object.fromEntries(
-        Object.entries(value).map(([key, entry]) => [key, remap(entry)]),
-      )
-    }
-    return value
-  }
   const copies = archive.sites.map((site) => ({
     ...site,
     id: mappedId(site.id),
     // A unique slug prevents future upserts from selecting the original site.
-    slug: `${site.slug}-import-${mappedId(site.id).slice(-8)}`,
+    slug: `${site.slug.slice(0, 975)}-import-${mappedId(site.id).slice(-8)}`,
     pages: site.pages.map((page) => ({
       ...page,
       id: mappedId(page.id),
-      doc: validatePageDoc(remap(page.doc)),
+      doc: remapPage(
+        page.doc,
+        ids,
+        new Set(site.records.map((record) => record.id)),
+      ),
     })),
     records: site.records.map((record) => ({
       ...record,
       id: mappedId(record.id),
-      data: remap(record.data) as Record<string, unknown>,
+      data: remapReferences(record.data, ids) as Record<string, unknown>,
     })),
   }))
   const directories: string[] = []
@@ -182,8 +311,11 @@ export async function importPiSites(input: unknown) {
     // enter paths; no path or profile/bucket from the archive is trusted.
     for (const site of copies) {
       const manifest = siteManifestFile(site.id)
+      await mkdir(dirname(dirname(manifest)), { recursive: true })
+      // Reserve a new directory exclusively; never overwrite or clean up an
+      // existing directory/symlink if an ID collision occurs.
+      await mkdir(dirname(manifest))
       directories.push(dirname(manifest))
-      await mkdir(dirname(manifest), { recursive: true })
       await writeFile(
         manifest,
         `# ${site.name}\n\nslug: ${site.slug}\nstatus: ${site.status}\njtbd: ${site.jtbd}\n`,
