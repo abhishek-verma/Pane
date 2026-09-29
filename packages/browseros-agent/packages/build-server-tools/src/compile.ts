@@ -51,7 +51,10 @@ async function bundleProduct(
     entrypoints: [product.entrypoint],
     outdir: bundleDir(product),
     target: 'bun',
-    minify: true,
+    // Bun 1.3.6 can give a parser constructor and its argument the same name
+    // in this dependency graph (new $4($4, ...)), crashing the compiled server
+    // before even --version runs. Keep names until that compiler is upgraded.
+    minify: { whitespace: true, syntax: true, identifiers: false },
     define: {
       ...Object.fromEntries(
         Object.entries(envVars).map(([key, value]) => [
