@@ -135,8 +135,8 @@ describe('acpx runtime context helpers', () => {
     expect(seededSoul).toContain('## Continuity')
     expect(seededSoul).toContain('If you change this file, tell the user')
     expect(seededMemory).toContain('# MEMORY.md - What Persists')
-    expect(seededMemory).toContain('Daily notes are short-term evidence')
-    expect(seededMemory).toContain('Promote only stable patterns')
+    expect(seededMemory).toContain('Settings > Memory & Skills')
+    expect(seededMemory).toContain('Do not save new shared memories here')
 
     await writeFile(join(paths.agentHome, 'SOUL.md'), '# Custom soul\n')
     await ensureAgentHome(paths)
@@ -352,7 +352,7 @@ describe('acpx runtime context helpers', () => {
     )
   })
 
-  it('routes explicit memory requests to BrowserOS AGENT_HOME files', () => {
+  it('routes explicit memory requests to the shared Pane MCP store', () => {
     const agent: AgentDefinition = {
       id: 'agent-1',
       name: 'Researcher',
@@ -375,9 +375,10 @@ describe('acpx runtime context helpers', () => {
     })
 
     expect(prompt).toContain('When the user asks you to remember')
-    expect(prompt).toContain('use the BrowserOS memory skill')
+    expect(prompt).toContain('browseros MCP memory_add tool')
     expect(prompt).toContain('AGENT_HOME/MEMORY.md')
-    expect(prompt).toContain('AGENT_HOME/memory/YYYY-MM-DD.md')
+    expect(prompt).toContain('memory_replace')
+    expect(prompt).not.toContain('Write BrowserOS memory only under AGENT_HOME')
     expect(prompt).toContain('Do not use native Claude project memory')
   })
 })

@@ -52,8 +52,11 @@ export const NewTabChat: FC = () => {
     onClickLike,
     disliked,
     onClickDislike,
-    isRestoringConversation,
     isLoading,
+    isRestoringConversation,
+    restoreError,
+    activityError,
+    retryRestoreConversation,
     isTurnActive,
     providers,
     selectedProvider,
@@ -189,22 +192,6 @@ export const NewTabChat: FC = () => {
     resetConversation()
   }
 
-  if (isLoading) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
-
-  if (!selectedProvider) {
-    return (
-      <div className="absolute inset-0">
-        <NoProviderConfigured />
-      </div>
-    )
-  }
-
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden">
       <div className="mx-auto w-full max-w-3xl">
@@ -213,22 +200,29 @@ export const NewTabChat: FC = () => {
           providers={providers}
           onSelectProvider={handleSelectProvider}
           onNewConversation={handleNewConversation}
-          hasMessages={messages.length > 0}
           hideHistory
         />
       </div>
 
       <main className="styled-scrollbar [&_[data-streamdown='code-block']]:!max-w-full [&_[data-streamdown='code-block']]:!w-auto [&_[data-streamdown='table-wrapper']]:!max-w-full [&_[data-streamdown='table-wrapper']]:!w-auto mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col space-y-4 overflow-y-auto overflow-x-hidden px-4 pt-4 [&_[data-streamdown='code-block']]:overflow-x-auto [&_[data-streamdown='table-wrapper']]:overflow-x-auto">
-        {isRestoringConversation ? (
+        {restoreError ? (
+          <ChatError error={restoreError} onRetry={retryRestoreConversation} />
+        ) : isRestoringConversation ? (
           <div className="flex flex-1 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : messages.length === 0 && channelApprovals.approvals.length === 0 ? (
-          <ChatEmptyState
-            mode={mode}
-            mounted={mounted}
-            onSuggestionClick={handleSuggestionClick}
-          />
+          isLoading ? (
+            <div role="status">Loading providers…</div>
+          ) : !selectedProvider ? (
+            <NoProviderConfigured />
+          ) : (
+            <ChatEmptyState
+              mode={mode}
+              mounted={mounted}
+              onSuggestionClick={handleSuggestionClick}
+            />
+          )
         ) : (
           <>
             {isBackground ? (
@@ -277,6 +271,7 @@ export const NewTabChat: FC = () => {
             }}
           />
         ))}
+        {activityError && !restoreError && <ChatError error={activityError} />}
         {agentUrlError && (
           <ChatError
             error={agentUrlError}
@@ -302,7 +297,9 @@ export const NewTabChat: FC = () => {
           onSubmit={handleSubmit}
           status={status}
           onStop={handleStop}
-          sendDisabled={!composer.ready || isRestoringConversation}
+          sendDisabled={
+            !composer.ready || isRestoringConversation || !!restoreError
+          }
           isTurnActive={isTurnActive}
           attachedTabs={attachedTabs}
           onToggleTab={toggleTabSelection}

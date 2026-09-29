@@ -19,7 +19,7 @@ export const TabListItem: FC<TabListItemProps> = ({
   return (
     <div
       className={cn(
-        'flex w-full cursor-pointer items-center gap-3 rounded-lg p-2.5 transition-colors',
+        'flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-lg p-2.5 transition-colors',
         className,
       )}
     >
@@ -28,16 +28,19 @@ export const TabListItem: FC<TabListItemProps> = ({
           className={cn(
             'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border transition-colors',
             isSelected
-              ? 'border-[var(--accent-orange)] bg-[var(--accent-orange)]'
+              ? 'border-foreground bg-foreground'
               : 'border-border bg-background',
           )}
         >
-          {isSelected && <Check className="h-3 w-3 text-white" />}
+          {isSelected && <Check className="h-3 w-3 text-background" />}
         </div>
       )}
       <TabFavicon url={tab.favIconUrl} />
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-foreground text-sm">
+        <div
+          className="truncate font-medium text-foreground text-sm"
+          title={tab.title}
+        >
           {tab.title}
         </div>
         <div className="truncate text-muted-foreground text-xs">

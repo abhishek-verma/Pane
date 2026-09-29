@@ -712,6 +712,8 @@ function getMemoryAndSkillsGuidance(
   let body = `<memory_and_skills_guidance>
 ## Memory & Skills Management
 
+${options?.acpMode ? 'Pane memory is the shared memory shown in Settings > Memory & Skills, across providers and conversations. Use the browseros MCP tools for it: context_search, memory_add, memory_replace, memory_remove, user_edit, and soul_edit. Do not substitute native CLI memory, project memory, or AGENT_HOME files. Tool names below refer to tools on the browseros MCP server. A memory write is complete only after its tool succeeds; respect any approval or read-only restriction.' : ''}
+
 ### ${nextSection()}. Unified Context & Memory Search
 - For **meetings / calls / transcripts**, start with \`capture_list\` then \`capture_read\`. Do not use filesystem tools on capture paths.
 - Use \`context_search\` with the user's natural question (or a short topic). It runs hybrid FTS + local embeddings. Do not hand-craft long AND keyword lists. If it returns suggestions after a miss, follow them (\`filesystem_ls\`, \`capture_list\`, \`session_search\`). For full meeting text, use \`capture_read\`.
@@ -821,6 +823,20 @@ Skills declare ~500 tokens each in their frontmatter.
 - Never load more than 3 skills
 - Check \`tier\` and \`tokens\` in frontmatter before loading full body
 </skill_index>`
+}
+
+/** Shared, budgeted memory context for native agent sessions as well as chat. */
+export function buildMemoryPrompt(options: BuildSystemPromptOptions): string {
+  const exclude = new Set<string>()
+  return [
+    getSoul(exclude, options),
+    getUserProfile(exclude, options),
+    getAgentMemory(exclude, options),
+    getSkillIndex(exclude, options),
+    getMemoryAndSkillsGuidance(exclude, options),
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 // -----------------------------------------------------------------------------

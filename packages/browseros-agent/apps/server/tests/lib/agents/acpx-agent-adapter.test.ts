@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  */
 
-import { afterEach, describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -11,11 +11,19 @@ import { prepareAcpxAgentContext } from '../../../src/lib/agents/acpx/agent-adap
 import { resolveAgentRuntimePaths } from '../../../src/lib/agents/acpx/runtime-context'
 import { loadLatestRuntimeState } from '../../../src/lib/agents/acpx/runtime-state'
 import type { AgentDefinition } from '../../../src/lib/agents/agent-types'
+import { closeDb, initializeDb } from '../../../src/lib/db'
 
 describe('prepareAcpxAgentContext', () => {
   const tempDirs: string[] = []
 
+  beforeEach(async () => {
+    const dbDir = await mkdtemp(join(tmpdir(), 'pane-acp-memory-db-'))
+    tempDirs.push(dbDir)
+    initializeDb({ dbPath: join(dbDir, 'test.sqlite') })
+  })
+
   afterEach(async () => {
+    closeDb()
     await Promise.all(
       tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
     )

@@ -248,6 +248,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     selectChatTarget,
     selectedLlmProvider,
     isLoadingProviders,
+    isLoadingChatTarget,
   } = useChatRefs()
   const chatTargetsRef = useRef(chatTargets)
   chatTargetsRef.current = chatTargets
@@ -303,6 +304,24 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         typeof crypto.randomUUID
       >,
   )
+  const [restoreAttempt, setRestoreAttempt] = useState(0)
+  const [restoredConversationId, setRestoredConversationId] = useState<
+    string | null
+  >(null)
+
+  const [restoreFailure, setRestoreFailure] = useState<{
+    conversationId: string
+    error: Error
+  } | null>(null)
+  const restoreAbortRef = useRef<AbortController | null>(null)
+  const restoreError =
+    restoreFailure?.conversationId === conversationIdParam
+      ? restoreFailure.error
+      : null
+  const retryRestoreConversation = () => {
+    setRestoreFailure(null)
+    setRestoreAttempt((value) => value + 1)
+  }
   const [hasMoreAbove, setHasMoreAbove] = useState(false)
   const conversationIdRef = useRef(conversationId)
   // The window this panel belongs to, resolved on mount in per-window scope.
@@ -312,6 +331,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const sessionMountedRef = useRef(true)
   const turnControllerRef = useRef(new ChatTurnController())
   const [isTurnActive, setIsTurnActive] = useState(false)
+  const [activityKnown, setActivityKnown] = useState(false)
+  const [activityError, setActivityError] = useState<Error | null>(null)
   const composerDeliveryRef = useRef<{
     outcome: 'done' | 'paused'
     onAccepted?: (started: {
@@ -328,9 +349,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }, [conversationId])
 
   useEffect(() => {
-    return turnControllerRef.current.subscribe(({ isTurnActive: active }) => {
-      setIsTurnActive(active)
-    })
+    return turnControllerRef.current.subscribe(
+      ({ isTurnActive: active, activityKnown, activityError }) => {
+        setIsTurnActive(active)
+        setActivityKnown(activityKnown)
+        setActivityError(activityError)
+      },
+    )
   }, [])
 
   useEffect(() => {
@@ -772,6 +797,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       // banners. React #185 is cleared by the benign-render-error effect.
       void turnControllerRef.current.refreshActive().then((stillActive) => {
         if (!stillSameConversation()) return
+        if (!turnControllerRef.current.hasResolvedActivity) return
         if (!stillActive) {
           turnControllerRef.current.markInactive()
           // lastActiveConversationStorage is a single global key shared by
@@ -1011,6 +1037,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         try {
           const stillActive = await turnControllerRef.current.refreshActive()
           if (cancelled) return
+          if (!turnControllerRef.current.hasResolvedActivity) return
           if (stillActive) {
             // Reconnect a lost snapshot stream in restored views.
             if (status !== 'submitted' && status !== 'streaming')
@@ -1084,6 +1111,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const isStreaming = useChatBusy || isTurnActive
 
   const canSend =
+    !!selectedProvider &&
+    !isLoadingChatTarget &&
+    (!conversationIdParam || activityKnown) &&
+    (!conversationIdParam || restoredConversationId === conversationIdParam) &&
     !isLoadingAgentUrl &&
     !agentUrlError &&
     !!agentServerUrl &&
@@ -1179,11 +1210,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     },
   )
 
-  const [restoreAttempt, setRestoreAttempt] = useState(0)
-  const [restoredConversationId, setRestoredConversationId] = useState<
-    string | null
-  >(null)
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: restore should only run when query data arrives or conversationIdParam changes
   useEffect(() => {
     void restoreAttempt
@@ -1197,23 +1223,22 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       return
     }
     let cancelled = false
-    let retryTimer: ReturnType<typeof setTimeout> | undefined
-    const retry = () => {
-      if (!cancelled)
-        retryTimer = setTimeout(
-          () => setRestoreAttempt((value) => value + 1),
-          2500,
-        )
-    }
+    const abortController = new AbortController()
+    restoreAbortRef.current = abortController
+    setRestoreFailure(null)
+    setRestoredConversationId(null)
     const cleanup = () => {
       cancelled = true
-      clearTimeout(retryTimer)
+      abortController.abort()
+      if (restoreAbortRef.current === abortController)
+        restoreAbortRef.current = null
       turnControllerRef.current.detachAttachOnly()
     }
     // Invalidate the previous chat before detaching its subscriber.
     conversationIdRef.current = conversationIdParam as ReturnType<
       typeof crypto.randomUUID
     >
+    setConversationId(conversationIdRef.current)
     turnControllerRef.current.setConversationId(conversationIdParam)
 
     // Detach the local SSE subscriber only — do not cancel the server turn.
@@ -1248,25 +1273,21 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         const restoredId = conversationIdParam as ReturnType<
           typeof crypto.randomUUID
         >
-        let active: Awaited<ReturnType<typeof fetchActiveChatTurn>>
-        try {
-          active = await fetchActiveChatTurn(restoredId, baseUrl)
-        } catch {
-          // Probe failed — retry without discarding the conversation link.
-          retry()
-          return 'unknown'
-        }
-        if (cancelled) return 'unknown'
-        const running = active?.status === 'running'
-        if (options?.preferLiveOnly && !running) {
-          return 'inactive'
+        // Only cloud history needs a live-turn probe to choose its source.
+        // Local transcripts load independently of provider/turn liveness.
+        if (options?.preferLiveOnly) {
+          const active = await fetchActiveChatTurn(restoredId, baseUrl)
+          if (cancelled || abortController.signal.aborted) return 'unknown'
+          if (active?.status !== 'running') return 'inactive'
         }
 
         const page = await fetchChatMessagePage(conversationIdParam, {
           limit: CHAT_PAGE_SIZE,
           baseUrl,
+          signal: abortController.signal,
+          allowMissing: true,
         })
-        if (cancelled) return 'unknown'
+        if (cancelled || abortController.signal.aborted) return 'unknown'
         // Running turns need the live attach path; still start from a page
         // and let attach replace with projected snapshots.
         const safeMessages = stripFatInlineImagesFromMessages(page.messages)
@@ -1284,12 +1305,14 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         setMessages(
           prepareMessagesForClientTurn(slimMessagesForClientUi(safeMessages), {
             settleApprovals: false,
-            settleIncomplete: running ? false : undefined,
+            // Unknown liveness must not turn pending tools into failures.
+            settleIncomplete: false,
           }),
         )
         setRestoredConversationId(conversationIdParam)
-        if (running) {
-          await turnControllerRef.current.restoreAndAttach({
+        // Attaching follows restoration; a stalled probe cannot hide history.
+        void turnControllerRef.current
+          .restoreAndAttach({
             conversationId: restoredId,
             onMessages: (next) => {
               if (cancelled || conversationIdRef.current !== restoredId) return
@@ -1304,21 +1327,25 @@ export const useChatSession = (options?: ChatSessionOptions) => {
               )
             },
           })
-        } else {
-          turnControllerRef.current.markInactive()
-        }
+          .catch((error) => {
+            if (!cancelled) sentry.captureException(error)
+            // The conversation follower retries liveness independently.
+          })
         return 'restored'
       } catch (error) {
-        if (cancelled) return 'unknown'
+        if (cancelled || abortController.signal.aborted) return 'unknown'
         sentry.captureException(error)
-        retry()
+        setRestoreFailure({
+          conversationId: conversationIdParam,
+          error: error instanceof Error ? error : new Error(String(error)),
+        })
         return 'unknown'
       }
     }
 
     if (useCloudHistory) {
       // Wait for agent URL so we can detect a live turn before GraphQL clobbers.
-      if (!agentServerUrl) return
+      if (!agentServerUrl) return cleanup
       // Never clobber a live turn with stale GraphQL history.
       void restoreFromServer({ preferLiveOnly: true }).then((result) => {
         if (cancelled || result === 'restored' || result === 'unknown') return
@@ -1406,6 +1433,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         const wasActive = controller.isTurnActive
         const active = await controller.refreshActive()
         if (cancelled || conversationIdRef.current !== conversationId) return
+        if (!controller.hasResolvedActivity) return
         if (active) controller.ensureAttached(apply)
         else if (wasActive || Date.now() - lastHistoryCheck > 10_000) {
           const page = await fetchChatMessagePage(conversationId, {
@@ -1912,6 +1940,9 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }, [])
 
   const resetConversationState = (nextConvoIdOverride?: string) => {
+    // Invalidate pending history reads synchronously, before React cleanup.
+    restoreAbortRef.current?.abort()
+    setRestoreFailure(null)
     // New chat detaches only — prior conversation turns keep running.
     turnControllerRef.current.detachAttachOnly()
     turnControllerRef.current.markInactive()
@@ -2209,7 +2240,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }, [hasMoreAbove, isTurnActive, setMessages])
 
   const isRestoringConversation =
-    !!conversationIdParam && restoredConversationId !== conversationIdParam
+    !!conversationIdParam &&
+    restoredConversationId !== conversationIdParam &&
+    !restoreError &&
+    !agentUrlError
 
   return {
     mode,
@@ -2225,11 +2259,14 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     retryLastTurn,
     providers,
     selectedProvider,
-    isLoading: isLoadingProviders || isLoadingAgentUrl,
+    isLoading: isLoadingProviders,
     canSend,
     approvalResumeInFlight,
     isSyncing: !isIntegrationsSynced,
     isRestoringConversation,
+    restoreError,
+    retryRestoreConversation,
+    activityError,
     agentUrlError,
     chatError,
     handleSelectProvider,

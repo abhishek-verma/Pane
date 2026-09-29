@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { NoProviderConfigured } from '@/components/chat/NoProviderConfigured'
 import { LiveWatchStrip } from '@/components/tool-evidence/LiveWatchStrip'
 import {
   SIDEPANEL_AI_TRIGGERED_EVENT,
@@ -43,7 +44,11 @@ export const Chat = () => {
     onClickLike,
     disliked,
     onClickDislike,
+    isLoading,
     isRestoringConversation,
+    restoreError,
+    activityError,
+    retryRestoreConversation,
     approveTool,
     denyTool,
     promoteTool,
@@ -95,16 +100,24 @@ export const Chat = () => {
   return (
     <>
       <main className="mt-4 flex h-full min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
-        {isRestoringConversation ? (
+        {restoreError ? (
+          <ChatError error={restoreError} onRetry={retryRestoreConversation} />
+        ) : isRestoringConversation ? (
           <div className="flex flex-1 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : messages.length === 0 && channelApprovals.approvals.length === 0 ? (
-          <ChatEmptyState
-            mode={mode}
-            mounted={mounted}
-            onSuggestionClick={handleSuggestionClick}
-          />
+          isLoading ? (
+            <div role="status">Loading providers…</div>
+          ) : !selectedProvider ? (
+            <NoProviderConfigured />
+          ) : (
+            <ChatEmptyState
+              mode={mode}
+              mounted={mounted}
+              onSuggestionClick={handleSuggestionClick}
+            />
+          )
         ) : (
           <>
             {isBackground ? (
@@ -153,6 +166,7 @@ export const Chat = () => {
             }}
           />
         ))}
+        {activityError && !restoreError && <ChatError error={activityError} />}
         {agentUrlError && (
           <ChatError
             error={agentUrlError}
@@ -179,7 +193,9 @@ export const Chat = () => {
         onSubmit={handleSubmit}
         status={status}
         onStop={handleStop}
-        sendDisabled={!composer.ready || isRestoringConversation}
+        sendDisabled={
+          !composer.ready || isRestoringConversation || !!restoreError
+        }
         isTurnActive={isTurnActive}
         attachedTabs={attachedTabs}
         onToggleTab={toggleTabSelection}

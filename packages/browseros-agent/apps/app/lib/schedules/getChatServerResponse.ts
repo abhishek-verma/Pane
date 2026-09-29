@@ -5,7 +5,12 @@ import { resolveStoredChatProvider } from '@/lib/llm-providers/storage'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { mcpServerStorage } from '@/lib/mcp/mcpServerStorage'
 import { buildChatRequestBody } from '@/lib/messaging/server/buildChatRequestBody'
-import { requireBrowserInputApprovalStorage } from '@/lib/trust/trust-pins-storage'
+import {
+  conversationTrustStorage,
+  PINNABLE_CLASSES,
+  requireBrowserInputApprovalStorage,
+  trustPinsStorage,
+} from '@/lib/trust/trust-pins-storage'
 import { selectedWorkspaceStorage } from '@/lib/workspace/workspace-storage'
 import type { ChatMode } from '@/modules/chat/chat-types'
 import { personalizationStorage } from '../personalization/personalizationStorage'
@@ -123,6 +128,14 @@ export async function getChatServerResponse(
   const requireBrowserInputApproval =
     (await requireBrowserInputApprovalStorage.getValue()) ?? false
 
+  const trustPins = { ...(await trustPinsStorage.getValue()) }
+  const conversationPins = (await conversationTrustStorage.getValue())[
+    conversationId
+  ]
+  for (const cls of PINNABLE_CLASSES) {
+    if (conversationPins?.[cls]) trustPins[cls] = { pinned: true }
+  }
+
   const response = await agentFetch(`${agentServerUrl}/chat`, {
     method: 'POST',
     signal: request.signal,
@@ -157,6 +170,7 @@ export async function getChatServerResponse(
         bucketId: request.executionContext?.bucketId ?? workspace?.bucketId,
         supportsImages: provider.supportsImages,
         requireBrowserInputApproval,
+        trustPins,
         isScheduledTask: true,
         scheduledRunId: request.scheduledRunId,
         idempotencyKey: request.idempotencyKey,

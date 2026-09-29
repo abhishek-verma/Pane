@@ -224,11 +224,8 @@ describe('createLanguageModel — ACP providers', () => {
     const overrides = lastBuildArgs?.agentRegistryOverrides as
       | Record<string, string>
       | undefined
-    // claude/codex are always pre-seeded too (host-npx-fallback source,
-    // since baseConfig() has no resourcesDir) alongside the acp-custom entry.
     expect(overrides?.['my-agent']).toBe('my-bin acp')
-    expect(overrides?.claude).toContain('npx')
-    expect(overrides?.codex).toContain('npx')
+    expect(Object.keys(overrides ?? {})).toEqual(['my-agent'])
   })
 
   it('pre-seeds the host-npx-fallback launcher for built-in agents without a bundled bun', async () => {
@@ -243,8 +240,11 @@ describe('createLanguageModel — ACP providers', () => {
       | undefined
     expect(overrides?.claude).toContain('npx')
     expect(overrides?.claude).toContain('@agentclientprotocol/claude-agent-acp')
-    expect(overrides?.codex).toContain('npx')
-    expect(overrides?.codex).toContain('@agentclientprotocol/codex-acp')
+    expect(overrides?.codex).toBeUndefined()
+    await createLanguageModel({ ...baseConfig(), provider: 'codex' } as never)
+    expect(
+      (lastBuildArgs?.agentRegistryOverrides as Record<string, string>)?.codex,
+    ).toContain("CODEX_PATH='/usr/bin/codex'")
   })
 
   it('pre-seeds the bundled-Bun launcher for claude and codex when resourcesDir points at a real bundled bun', async () => {
@@ -269,13 +269,20 @@ describe('createLanguageModel — ACP providers', () => {
       | undefined
     expect(overrides?.claude).toContain(bunPath)
     expect(overrides?.claude).toContain('@agentclientprotocol/claude-agent-acp')
-    expect(overrides?.codex).toContain(bunPath)
-    expect(overrides?.codex).toContain('@agentclientprotocol/codex-acp')
+    expect(overrides?.codex).toBeUndefined()
+    await createLanguageModel({
+      ...baseConfig(),
+      provider: 'codex',
+      resourcesDir: tmpRoot,
+    } as never)
+    expect(
+      (lastBuildArgs?.agentRegistryOverrides as Record<string, string>)?.codex,
+    ).toContain(bunPath)
 
     fs.rmSync(tmpRoot, { recursive: true, force: true })
   })
 
-  it('still honours acp-custom user command alongside the built-in pre-seeds', async () => {
+  it('does not resolve unrelated bundled providers for acp-custom', async () => {
     const fs = await import('node:fs')
     const os = await import('node:os')
     const path = await import('node:path')
@@ -297,8 +304,7 @@ describe('createLanguageModel — ACP providers', () => {
       | Record<string, string>
       | undefined
     expect(overrides?.['my-agent']).toBe('my-bin acp')
-    expect(overrides?.claude).toContain('@agentclientprotocol/claude-agent-acp')
-    expect(overrides?.codex).toContain('@agentclientprotocol/codex-acp')
+    expect(Object.keys(overrides ?? {})).toEqual(['my-agent'])
 
     fs.rmSync(tmpRoot, { recursive: true, force: true })
   })

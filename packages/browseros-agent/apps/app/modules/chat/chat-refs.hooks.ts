@@ -40,17 +40,25 @@ export const useChatRefs = () => {
     setDefaultProvider,
     isLoading: isLoadingProviders,
   } = useLlmProviders()
-  const { adapters, loading: isLoadingAdapters } = useAgentAdapters()
+  const { adapters } = useAgentAdapters()
   const { harnessAgents, loading: isLoadingAgents } = useHarnessAgents()
   const { personalization } = usePersonalization()
   const [targetSelection, setTargetSelection] =
     useState<SidepanelChatTargetSelection | null>(null)
+  const [selectionLoaded, setSelectionLoaded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    loadSidepanelChatTargetSelection().then((selection) => {
-      if (!cancelled) setTargetSelection(selection)
-    })
+    loadSidepanelChatTargetSelection()
+      .then((selection) => {
+        if (!cancelled) setTargetSelection(selection)
+      })
+      .catch(() => {
+        // A missing preference must not block configured providers.
+      })
+      .finally(() => {
+        if (!cancelled) setSelectionLoaded(true)
+      })
     return () => {
       cancelled = true
     }
@@ -121,7 +129,12 @@ export const useChatRefs = () => {
     selectedChatTarget,
     selectChatTarget,
     selectedLlmProvider,
-    isLoadingProviders:
-      isLoadingProviders || isLoadingAdapters || isLoadingAgents,
+    // Provider discovery enriches the picker; it cannot gate opening history
+    // or navigation on native CLI health probes.
+    isLoadingProviders,
+    isLoadingChatTarget:
+      !selectionLoaded ||
+      isLoadingProviders ||
+      (targetSelection?.kind === 'acp' && isLoadingAgents),
   }
 }

@@ -132,7 +132,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             disabled={props.voice?.isTranscribing}
           />
         </div>
-        <div className="flex items-center gap-1 pt-1">
+        <div className="flex items-center gap-0.5 pt-2">
           {props.controls}
           <div className="flex-1" />
           {busy && (
@@ -141,7 +141,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
               onClick={props.onStop}
               aria-label="Stop response"
               title="Stop response"
-              className="rounded-full border border-border p-2 hover:bg-muted"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Square className="size-3.5 fill-current" />
             </button>
@@ -151,7 +151,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
               type="button"
               onClick={props.onOpenVoiceMode}
               aria-label="Voice mode"
-              className="rounded-full p-2 text-muted-foreground hover:bg-muted"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <AudioLines className="size-4" />
             </button>
@@ -168,7 +168,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
               aria-label={
                 props.voice.isRecording ? 'Stop recording' : 'Dictate message'
               }
-              className="rounded-full p-2 text-muted-foreground hover:bg-muted"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {props.voice.isTranscribing ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -184,7 +184,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             disabled={!canSubmit}
             aria-label={busy ? 'Queue message' : 'Send message'}
             title={busy ? 'Queue message · Enter' : 'Send message · Enter'}
-            className="rounded-full bg-foreground p-2 text-background transition-opacity hover:opacity-80 disabled:opacity-25"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-25"
           >
             {props.preparing ? (
               <Loader2 className="size-4 animate-spin" />

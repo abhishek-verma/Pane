@@ -62,3 +62,15 @@ it('rejects stale, denied, failed, and unknown-class approvals without persistin
   ).toBe(false)
   expect(values.size).toBe(0)
 })
+
+it('can remember global trust for a request without a conversation', async () => {
+  expect(
+    await persistApprovedTrust({
+      result: approved,
+      scope: 'always',
+      consequenceClass: 'system',
+    }),
+  ).toBe(true)
+  expect(values.get('local:trust-pins')).toEqual({ system: { pinned: true } })
+  expect(values.has('local:conversation-trust-pins')).toBe(false)
+})

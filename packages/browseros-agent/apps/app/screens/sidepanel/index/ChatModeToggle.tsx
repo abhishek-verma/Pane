@@ -1,11 +1,5 @@
 import { MessageSquare, MousePointer2 } from 'lucide-react'
 import type { FC } from 'react'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { ChatMode } from '@/modules/chat/chat-types'
 
@@ -17,42 +11,32 @@ export interface ChatModeToggleProps {
 export const ChatModeToggle: FC<ChatModeToggleProps> = ({
   mode,
   onModeChange,
-}) => {
-  const isAgentMode = mode === 'agent'
-
-  return (
-    <TooltipProvider delayDuration={0}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => onModeChange(isAgentMode ? 'chat' : 'agent')}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md px-2 py-1 font-medium text-xs transition-colors',
-              isAgentMode
-                ? 'bg-muted/60 text-muted-foreground hover:text-foreground'
-                : 'bg-[var(--accent-orange)]/10 text-[var(--accent-orange)]',
-            )}
-          >
-            {isAgentMode ? (
-              <>
-                <MousePointer2 className="h-3 w-3" />
-                <span>Agent Mode ON</span>
-              </>
-            ) : (
-              <>
-                <MessageSquare className="h-3 w-3" />
-                <span>Chat Mode ON</span>
-              </>
-            )}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[220px]">
-          {isAgentMode
-            ? 'AI can browse, click, and navigate'
-            : 'AI can only read, cannot click or navigate'}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )
-}
+}) => (
+  <fieldset
+    aria-label="Response mode"
+    className="flex gap-1 rounded-xl bg-muted/60 p-1"
+  >
+    {(
+      [
+        { value: 'chat', label: 'Chat', Icon: MessageSquare },
+        { value: 'agent', label: 'Agent', Icon: MousePointer2 },
+      ] as const
+    ).map(({ value, label, Icon }) => (
+      <button
+        key={value}
+        type="button"
+        aria-pressed={mode === value}
+        onClick={() => onModeChange(value)}
+        className={cn(
+          'flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          mode === value
+            ? 'bg-background font-medium text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground',
+        )}
+      >
+        <Icon className="size-3.5" />
+        {label}
+      </button>
+    ))}
+  </fieldset>
+)

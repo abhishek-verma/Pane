@@ -1,7 +1,6 @@
 import type { FC } from 'react'
 import { Outlet } from 'react-router'
 import { ChatSessionCrashBoundary } from '@/components/chat/ChatSessionCrashBoundary'
-import { NoProviderConfigured } from '@/components/chat/NoProviderConfigured'
 import {
   ChatSessionProvider,
   useChatSessionContext,
@@ -14,21 +13,7 @@ const ChatLayoutContent: FC = () => {
     selectedProvider,
     handleSelectProvider,
     resetConversation,
-    messages,
-    isLoading,
   } = useChatSessionContext()
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-      </div>
-    )
-  }
-
-  if (providers.length === 0 || !selectedProvider) {
-    return <NoProviderConfigured />
-  }
 
   return (
     <div className="mx-auto flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
@@ -37,7 +22,6 @@ const ChatLayoutContent: FC = () => {
         onSelectProvider={handleSelectProvider}
         providers={providers}
         onNewConversation={resetConversation}
-        hasMessages={messages.length > 0}
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <Outlet />

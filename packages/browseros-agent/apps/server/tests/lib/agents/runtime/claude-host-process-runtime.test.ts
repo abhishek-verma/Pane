@@ -3,7 +3,7 @@
  * Copyright 2025 BrowserOS
  */
 
-import { afterEach, describe, expect, it } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -15,6 +15,7 @@ import {
   prepareClaudeCodeContext,
   resetAgentRuntimeRegistry,
 } from '../../../../src/lib/agents/runtime'
+import { closeDb, initializeDb } from '../../../../src/lib/db'
 
 function makeAgent(id = 'agent-1') {
   return {
@@ -38,7 +39,14 @@ function makeAgent(id = 'agent-1') {
 describe('ClaudeRuntime', () => {
   const tempDirs: string[] = []
 
+  beforeEach(async () => {
+    const dbDir = await mkdtemp(join(tmpdir(), 'pane-acp-memory-db-'))
+    tempDirs.push(dbDir)
+    initializeDb({ dbPath: join(dbDir, 'test.sqlite') })
+  })
+
   afterEach(async () => {
+    closeDb()
     await Promise.all(
       tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
     )

@@ -179,4 +179,64 @@ describe('ChatService history source of truth', () => {
     expect(toolPart.state).toBe('approval-requested')
     expect(toolPart.toolCallId).toBe('call-1')
   })
+  it('keeps extension-scheduled conversations out of recents after restart and manual follow-up', async () => {
+    const scheduled = crypto.randomUUID()
+    const manual = crypto.randomUUID()
+    const messages: UIMessage[] = [
+      {
+        id: 'u1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'Daily report' }],
+      },
+    ]
+    await store.persistMessages(scheduled, messages, {
+      backgroundSource: 'schedule',
+    })
+    await store.persistMessages(
+      manual,
+      messages.map((message) => ({ ...message, id: 'manual-u1' })),
+    )
+    await store.persistMessages(scheduled, [
+      ...messages,
+      {
+        id: 'u2',
+        role: 'user',
+        parts: [{ type: 'text', text: 'Explain the results' }],
+      },
+    ])
+    closeDb()
+    initializeDb({ dbPath })
+    const history = await service.getHistory()
+    expect(
+      history.filter((chat) => chat.isBackground).map((chat) => chat.id),
+    ).toEqual([scheduled])
+    expect(
+      history.filter((chat) => !chat.isBackground).map((chat) => chat.id),
+    ).toEqual([manual])
+    expect((await service.getConversation(scheduled))?.backgroundSource).toBe(
+      'schedule',
+    )
+  })
+
+  it('backfills existing schedule ownership without changing recency or overwriting a specific source', async () => {
+    const legacy = crypto.randomUUID()
+    const harvest = crypto.randomUUID()
+    await store.persistMessages(legacy, [])
+    await store.persistMessages(harvest, [], { backgroundSource: 'pi-harvest' })
+    const before = await service.getHistory()
+    expect(
+      store.markScheduledConversations([legacy, harvest, crypto.randomUUID()]),
+    ).toBe(1)
+    expect(store.markScheduledConversations([legacy])).toBe(0)
+    const after = await service.getHistory()
+    expect(after.map((chat) => [chat.id, chat.lastMessagedAt])).toEqual(
+      before.map((chat) => [chat.id, chat.lastMessagedAt]),
+    )
+    expect(after.find((chat) => chat.id === legacy)?.backgroundSource).toBe(
+      'schedule',
+    )
+    expect(after.find((chat) => chat.id === harvest)?.backgroundSource).toBe(
+      'pi-harvest',
+    )
+  })
 })

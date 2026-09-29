@@ -1,12 +1,4 @@
-import {
-  Camera,
-  FilePlus2,
-  Folder,
-  Layers,
-  PlugZap,
-  Plus,
-  SlidersHorizontal,
-} from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import {
   type FC,
   type SetStateAction,
@@ -17,14 +9,8 @@ import {
 import { ChatProviderSelector } from '@/components/chat/ChatProviderSelector'
 import type { Provider } from '@/components/chat/chatComponentTypes'
 import { AttachmentPreviews } from '@/components/chat/composer/AttachmentPreviews'
+import { ChatComposerControls } from '@/components/chat/composer/ChatComposerControls'
 import { ScreenshotCapture } from '@/components/chat/composer/ScreenshotCapture'
-import { TabPickerPopover } from '@/components/elements/tab-picker-popover'
-import { WorkspaceSelector } from '@/components/elements/workspace-selector'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import {
   ATTACHMENT_ACCEPT,
   type StagedAttachment,
@@ -118,7 +104,6 @@ export const ConversationInput: FC<ConversationInputProps> = ({
   const [preparing, setPreparing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [capture, setCapture] = useState(false)
-  const [menu, setMenu] = useState(false)
   const [dragging, setDragging] = useState(false)
   const files = useRef<HTMLInputElement>(null)
   const editor = useRef<ChatInputHandle>(null)
@@ -214,7 +199,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
   return (
     <section
       aria-label="Message composer"
-      className={`relative rounded-2xl border border-border/70 bg-background p-3 shadow-sm focus-within:border-foreground/25 ${dragging ? 'ring-1 ring-foreground/30' : ''}`}
+      className={`relative rounded-3xl border border-border/60 bg-background p-2.5 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.08)] transition-colors focus-within:border-foreground/25 ${dragging ? 'ring-1 ring-foreground/30' : ''}`}
       onDragOver={(event) => {
         if (event.dataTransfer.types.includes('Files')) {
           event.preventDefault()
@@ -289,78 +274,12 @@ export const ConversationInput: FC<ConversationInputProps> = ({
         }}
         controls={
           <>
-            <Popover open={menu} onOpenChange={setMenu}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  aria-label="Add context"
-                  className="rounded-full p-2 text-muted-foreground hover:bg-muted"
-                >
-                  <Plus className="size-5" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent side="top" align="start" className="w-64 p-1.5">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
-                  onClick={() => {
-                    setMenu(false)
-                    files.current?.click()
-                  }}
-                >
-                  <FilePlus2 className="size-4" />
-                  Add files or photos
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
-                  onClick={() => {
-                    setMenu(false)
-                    setCapture(true)
-                  }}
-                >
-                  <Camera className="size-4" />
-                  Take screenshot
-                </button>
-                <TabPickerPopover
-                  variant="selector"
-                  selectedTabs={tabs}
-                  onToggleTab={toggleTab}
-                  side="right"
-                >
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
-                  >
-                    <Layers className="size-4" />
-                    Add tabs
-                  </button>
-                </TabPickerPopover>
-                <div className="my-1 border-t" />
-                <WorkspaceSelector side="right">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
-                  >
-                    <Folder className="size-4" />
-                    Workspace folder
-                  </button>
-                </WorkspaceSelector>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"
-                  onClick={() =>
-                    window.open(
-                      chrome.runtime.getURL('/app.html#/settings/mcp'),
-                      '_blank',
-                    )
-                  }
-                >
-                  <PlugZap className="size-4" />
-                  Connect apps
-                </button>
-              </PopoverContent>
-            </Popover>
+            <ChatComposerControls
+              selectedTabs={tabs}
+              onToggleTab={toggleTab}
+              onFiles={() => files.current?.click()}
+              onScreenshot={() => setCapture(true)}
+            />
             {variant === 'home' &&
               selectedProvider &&
               providers &&
@@ -374,7 +293,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
                     type="button"
                     className="flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1 text-muted-foreground text-xs hover:bg-muted"
                   >
-                    <SlidersHorizontal className="size-3.5" />
+                    <ChevronDown className="size-3.5 shrink-0" />
                     <span className="max-w-32 truncate">
                       {selectedProvider.name}
                     </span>

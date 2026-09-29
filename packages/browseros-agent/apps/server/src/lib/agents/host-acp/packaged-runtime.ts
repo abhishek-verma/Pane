@@ -18,6 +18,8 @@ export function resolvePackagedAcpRuntime(input: {
   agentType: 'claude' | 'codex'
   platform?: NodeJS.Platform
   arch?: string
+  /** Only the adapter is needed when the user's CLI supplies the runtime. */
+  useHostExecutable?: boolean
 }) {
   if (!input.resourcesDir) return null
   const root = join(input.resourcesDir, 'acp-runtime')
@@ -48,10 +50,13 @@ export function resolvePackagedAcpRuntime(input: {
   const adapter = manifest.adapters[input.agentType]
   return {
     entrypoint: resolveFile(adapter.entrypoint),
-    executable: adapter.executable
-      ? resolveFile(adapter.executable)
-      : undefined,
+    executable:
+      !input.useHostExecutable && adapter.executable
+        ? resolveFile(adapter.executable)
+        : undefined,
     preload:
-      platform === 'darwin' ? resolveFile('native-loader.cjs') : undefined,
+      !input.useHostExecutable && platform === 'darwin'
+        ? resolveFile('native-loader.cjs')
+        : undefined,
   }
 }

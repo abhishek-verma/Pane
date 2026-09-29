@@ -22,12 +22,12 @@ export const ChatEmptyState: FC<ChatEmptyStateProps> = ({
   return (
     <div
       className={cn(
-        'm-0! flex h-full flex-col items-center justify-center space-y-4 text-center opacity-0 transition-all duration-700',
-        mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
+        'm-0! flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-6 text-center opacity-0 transition-opacity duration-300 motion-reduce:transition-none',
+        mounted ? 'opacity-100' : 'opacity-0',
       )}
     >
       <div>
-        <h2 className="mb-2 font-medium text-2xl tracking-tight">
+        <h2 className="mb-2 font-medium text-[22px] tracking-tight">
           What can I help with?
         </h2>
         <p className="max-w-[300px] text-muted-foreground text-sm">
@@ -35,16 +35,16 @@ export const ChatEmptyState: FC<ChatEmptyStateProps> = ({
         </p>
       </div>
 
-      <div className="mt-6 grid w-full max-w-[260px] grid-cols-1">
+      <div className="mt-7 grid w-full max-w-[280px] grid-cols-1 gap-1">
         {suggestions.map((suggestion) => (
           <button
             type="button"
             key={suggestion.display}
             onClick={() => onSuggestionClick(suggestion.prompt)}
-            className="agent-suggestion group text-muted-foreground"
+            className="group flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-muted-foreground text-sm transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {suggestion.display}
-            <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <span className="shrink-0 opacity-40 transition-opacity group-hover:opacity-100">
               {suggestion.icon}
             </span>
           </button>

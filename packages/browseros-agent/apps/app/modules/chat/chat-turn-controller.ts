@@ -18,6 +18,8 @@ import {
 export type ChatTurnControllerListener = (state: {
   isTurnActive: boolean
   activeTurn: ChatActiveTurnInfo | null
+  activityKnown: boolean
+  activityError: Error | null
 }) => void
 
 export class ChatTurnController {
@@ -31,6 +33,14 @@ export class ChatTurnController {
   private listeners = new Set<ChatTurnControllerListener>()
   private conversationId: string | null = null
   private generation = 0
+  private activityKnown = false
+  private activityError: Error | null = null
+  private lastEmittedKnown = false
+  private lastEmittedError: string | undefined
+
+  get hasResolvedActivity(): boolean {
+    return this.activityKnown
+  }
 
   get isTurnActive(): boolean {
     return this.activeTurn?.status === 'running'
@@ -42,7 +52,12 @@ export class ChatTurnController {
 
   subscribe(listener: ChatTurnControllerListener): () => void {
     this.listeners.add(listener)
-    listener({ isTurnActive: this.isTurnActive, activeTurn: this.activeTurn })
+    listener({
+      isTurnActive: this.isTurnActive,
+      activeTurn: this.activeTurn,
+      activityKnown: this.activityKnown,
+      activityError: this.activityError,
+    })
     return () => {
       this.listeners.delete(listener)
     }
@@ -53,15 +68,21 @@ export class ChatTurnController {
     const turnId = this.activeTurn?.turnId ?? null
     if (
       isTurnActive === this.lastEmittedActive &&
-      turnId === this.lastEmittedTurnId
+      turnId === this.lastEmittedTurnId &&
+      this.activityKnown === this.lastEmittedKnown &&
+      this.activityError?.message === this.lastEmittedError
     ) {
       return
     }
     this.lastEmittedActive = isTurnActive
     this.lastEmittedTurnId = turnId
+    this.lastEmittedKnown = this.activityKnown
+    this.lastEmittedError = this.activityError?.message
     const snapshot = {
       isTurnActive,
       activeTurn: this.activeTurn,
+      activityKnown: this.activityKnown,
+      activityError: this.activityError,
     }
     for (const listener of this.listeners) listener(snapshot)
   }
@@ -71,6 +92,8 @@ export class ChatTurnController {
     this.detachAttachOnly()
     this.generation += 1
     this.conversationId = conversationId
+    this.activityKnown = false
+    this.activityError = null
     this.activeTurn = null
     this.lastSeq = -1
     this.lastAppliedSeq = Number.NEGATIVE_INFINITY
@@ -83,6 +106,8 @@ export class ChatTurnController {
     this.detachAttachOnly()
     this.generation += 1
     this.conversationId = conversationId
+    this.activityKnown = true
+    this.activityError = null
     this.activeTurn = {
       turnId,
       conversationId,
@@ -123,6 +148,10 @@ export class ChatTurnController {
     if (this.activeTurn != null && this.activeTurn.turnId !== turnIdAtStart) {
       return cancelled
     }
+    if (cancelled) {
+      this.activityKnown = true
+      this.activityError = null
+    }
     this.activeTurn = null
     this.lastSeq = -1
     this.lastAppliedSeq = Number.NEGATIVE_INFINITY
@@ -133,6 +162,8 @@ export class ChatTurnController {
   markInactive(): void {
     this.detachAttachOnly()
     this.activeTurn = null
+    this.activityKnown = true
+    this.activityError = null
     this.lastSeq = -1
     this.lastAppliedSeq = Number.NEGATIVE_INFINITY
     this.emit()
@@ -148,8 +179,16 @@ export class ChatTurnController {
   }): Promise<boolean> {
     this.setConversationId(input.conversationId)
     const generation = this.generation
-    const active = await fetchActiveChatTurn(input.conversationId)
+    let active: ChatActiveTurnInfo | null
+    try {
+      active = await fetchActiveChatTurn(input.conversationId)
+    } catch (error) {
+      if (this.generation === generation) this.noteProbeError(error)
+      return false
+    }
     if (this.generation !== generation) return false
+    this.activityKnown = true
+    this.activityError = null
     if (active?.status !== 'running') {
       this.activeTurn = null
       this.emit()
@@ -242,6 +281,8 @@ export class ChatTurnController {
           }
           if (!stillCurrent()) return
           this.activeTurn = null
+          this.activityKnown = true
+          this.activityError = null
           this.lastAppliedSeq = Number.NEGATIVE_INFINITY
           this.emit()
         }
@@ -272,12 +313,14 @@ export class ChatTurnController {
   async refreshActive(): Promise<boolean> {
     const conversationId = this.conversationId
     if (!conversationId) return false
+    const generation = this.generation
     try {
-      const generation = this.generation
       const active = await fetchActiveChatTurn(conversationId)
       // User may have switched chats while the probe was in flight.
       if (this.generation !== generation)
         return this.conversationId === conversationId && this.isTurnActive
+      this.activityKnown = true
+      this.activityError = null
       if (active?.status !== 'running') {
         this.activeTurn = null
         this.emit()
@@ -292,8 +335,19 @@ export class ChatTurnController {
       // emit() no-ops when turnId + isTurnActive are unchanged (watchdog poll).
       this.emit()
       return true
-    } catch {
+    } catch (error) {
+      if (this.generation === generation) this.noteProbeError(error)
       return this.conversationId === conversationId && this.isTurnActive
     }
+  }
+
+  private noteProbeError(error: unknown): void {
+    // A failed probe says nothing about whether a server turn is running.
+    this.activityKnown = false
+    this.activityError = new Error(
+      'Unable to check whether this chat is still running. Pane will reconnect automatically.',
+      { cause: error },
+    )
+    this.emit()
   }
 }

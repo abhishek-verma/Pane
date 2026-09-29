@@ -85,6 +85,28 @@ function splitCommandLikeAcpx(value: string): {
 }
 
 describe('resolveAcpSpawnCommand', () => {
+  it('inherits the host environment without serializing unchanged values into argv', async () => {
+    const key = 'PANE_TEST_INHERITED_VALUE'
+    const previous = process.env[key]
+    process.env[key] = 'test-sentinel'
+    try {
+      const out = await resolveAcpSpawnCommand({
+        agentType: 'codex',
+        resolveBundledBun: stubBunPresent,
+        resolveNative: async () => ({
+          path: '/host/codex',
+          env: { PATH: '/host/bin', [key]: 'test-sentinel' },
+        }),
+      })
+      expect(out?.command).not.toContain(key)
+      expect(out?.command).not.toContain('test-sentinel')
+      expect(out?.command).toContain("CODEX_PATH='/host/codex'")
+    } finally {
+      if (previous === undefined) delete process.env[key]
+      else process.env[key] = previous
+    }
+  })
+
   it('returns the bundled-bun launcher for claude when the binary exists', async () => {
     const out = await resolveAcpSpawnCommand({
       agentType: 'claude',
@@ -114,7 +136,7 @@ describe('resolveAcpSpawnCommand', () => {
     )
   })
 
-  it('keeps Codex on the adapter-compatible runtime even with an older host CLI', async () => {
+  it('uses the installed Codex CLI with the adapter', async () => {
     const out = await resolveAcpSpawnCommand({
       agentType: 'codex',
       env: { PATH: '/usr/bin' },
@@ -125,7 +147,7 @@ describe('resolveAcpSpawnCommand', () => {
       }),
     })
     expect(out?.command).toContain('@agentclientprotocol/codex-acp@^1.10.0')
-    expect(out?.command).not.toContain('CODEX_PATH=')
+    expect(out?.command).toContain("CODEX_PATH='/Users/dev/.local/bin/codex'")
     expect(out?.command).not.toContain('@zed-industries')
   })
 
@@ -146,18 +168,21 @@ describe('resolveAcpSpawnCommand', () => {
     )
   })
 
-  it('uses the exact Claude executable with the npx fallback too', async () => {
+  it.each([
+    'claude',
+    'codex',
+  ] as const)('uses the exact %s executable with the npx fallback too', async (agentType) => {
     const out = await resolveAcpSpawnCommand({
-      agentType: 'claude',
+      agentType,
       resolveBundledBun: stubBunMissing,
       resolveNpx: stubNpxPresent,
       resolveNative: async () => ({
-        path: '/Users/dev/CLI tools/claude',
+        path: `/Users/dev/CLI tools/${agentType}`,
         env: { PATH: '/usr/bin' },
       }),
     })
-    expect(splitCommandLikeAcpx(out!.command).args).toContain(
-      'CLAUDE_CODE_EXECUTABLE=/Users/dev/CLI tools/claude',
+    expect(splitCommandLikeAcpx(out?.command ?? '').args).toContain(
+      `${agentType === 'claude' ? 'CLAUDE_CODE_EXECUTABLE' : 'CODEX_PATH'}=/Users/dev/CLI tools/${agentType}`,
     )
   })
 

@@ -59,6 +59,7 @@ import { tryGetProfileKey } from '../../lib/profile-context'
 import { getSoulUserFingerprint } from '../../memory/load-prompt'
 import { finalizeSkillOutcomesForRun } from '../../memory/skill-outcomes'
 import { indexWorkspaceFiles } from '../../retrieval/workspace-index'
+import { getScheduledRun } from '../../scheduler/run-executor'
 import { defaultWorkspace } from '../../tools/filesystem/workspace'
 import type { BrowserContext, ChatRequest } from '../types'
 import { resolveBrowserContextPageIds } from '../utils/resolve-browser-context-page-ids'
@@ -827,10 +828,16 @@ export class ChatService {
     )
       appendedUser.id = request.clientMessageId
     if (request.composer) appendedUser.metadata = { composer: request.composer }
+    const backgroundSource = request.isScheduledTask
+      ? ((request.scheduledRunId
+          ? getScheduledRun(request.scheduledRunId)?.source
+          : undefined) ?? 'schedule')
+      : undefined
     await this.checkpointMessages(
       request.conversationId,
       session.agent.messages,
       false,
+      backgroundSource,
     )
 
     // Mega-transcripts (e.g. 100k+ token PI turns) can fail convert/stream
@@ -1100,6 +1107,7 @@ export class ChatService {
     conversationId: string,
     messages: UIMessage[],
     syncIndexes: boolean,
+    backgroundSource?: string,
   ): Promise<void> {
     try {
       // Belt-and-suspenders: tool-adapter strips at execute time, but any
@@ -1113,7 +1121,7 @@ export class ChatService {
       await this.deps.sessionStore.persistMessages(
         conversationId,
         filterValidMessages(messages),
-        { syncIndexes },
+        { syncIndexes, backgroundSource },
       )
     } catch (err: unknown) {
       logger.error('Failed to persist messages', {
@@ -1173,31 +1181,38 @@ export class ChatService {
     ) as Map<string, string>
 
     return Promise.all(
-      sessions.map(async (s: { id: string; updatedAt: number }) => {
-        const msgs = await db
-          .select()
-          .from(chatMessages)
-          .where(eq(chatMessages.sessionId, s.id))
-          .orderBy(asc(chatMessages.createdAt))
-          .all()
+      sessions.map(
+        async (s: {
+          id: string
+          updatedAt: number
+          backgroundSource: string | null
+        }) => {
+          const msgs = await db
+            .select()
+            .from(chatMessages)
+            .where(eq(chatMessages.sessionId, s.id))
+            .orderBy(asc(chatMessages.createdAt))
+            .all()
 
-        let previewText = ''
-        for (let i = msgs.length - 1; i >= 0; i--) {
-          const m = msgs[i] as { role: string; content: string }
-          if (m.role !== 'user') continue
-          previewText = extractPreviewText(m.content)
-          if (previewText) break
-        }
+          let previewText = ''
+          for (let i = msgs.length - 1; i >= 0; i--) {
+            const m = msgs[i] as { role: string; content: string }
+            if (m.role !== 'user') continue
+            previewText = extractPreviewText(m.content)
+            if (previewText) break
+          }
 
-        const backgroundSource = backgroundByConvo.get(s.id) ?? null
-        return {
-          id: s.id,
-          lastMessagedAt: s.updatedAt,
-          previewText,
-          isBackground: backgroundSource != null,
-          backgroundSource,
-        }
-      }),
+          const backgroundSource =
+            s.backgroundSource ?? backgroundByConvo.get(s.id) ?? null
+          return {
+            id: s.id,
+            lastMessagedAt: s.updatedAt,
+            previewText,
+            isBackground: backgroundSource != null,
+            backgroundSource,
+          }
+        },
+      ),
     )
   }
 
@@ -1213,9 +1228,13 @@ export class ChatService {
     const bgRun = findScheduledRunByConversationId(conversationId) as {
       source: string
     } | null
+    const backgroundSource =
+      this.deps.sessionStore.getBackgroundSource(conversationId) ??
+      bgRun?.source ??
+      null
     const backgroundMeta = {
-      isBackground: bgRun != null,
-      backgroundSource: bgRun?.source ?? null,
+      isBackground: backgroundSource != null,
+      backgroundSource,
     }
 
     const exists =

@@ -28,6 +28,29 @@ export const WorkspaceSelector: FC<
   PropsWithChildren<WorkspaceSelectorProps>
 > = ({ children, side = 'bottom', contentClassName }) => {
   const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent
+        side={side}
+        align="start"
+        collisionPadding={12}
+        className={cn(
+          'flex max-h-(--radix-popover-content-available-height) w-[min(24rem,calc(100vw-24px))] flex-col overflow-hidden p-0',
+          contentClassName,
+        )}
+        role="dialog"
+        aria-label="Select workspace folder"
+      >
+        <WorkspacePickerContent onDone={() => setOpen(false)} />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+export const WorkspacePickerContent: FC<{ onDone: () => void }> = ({
+  onDone,
+}) => {
   const [filterText, setFilterText] = useState('')
   const {
     recentFolders,
@@ -62,7 +85,7 @@ export const WorkspaceSelector: FC<
       }
 
       await addFolder(folder)
-      setOpen(false)
+      onDone()
     } catch {
       // User cancelled or API not available - silently ignore
     }
@@ -74,7 +97,7 @@ export const WorkspaceSelector: FC<
     } else {
       await selectFolder(folder)
     }
-    setOpen(false)
+    onDone()
   }
 
   const handleRemoveFolder = async (e: React.MouseEvent, folderId: string) => {
@@ -84,106 +107,97 @@ export const WorkspaceSelector: FC<
 
   const handleUseDefault = async () => {
     await clearSelection()
-    setOpen(false)
+    onDone()
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent
-        side={side}
-        align="start"
-        className={cn('w-72 p-0', contentClassName)}
-        role="dialog"
-        aria-label="Select workspace folder"
-      >
-        <Command
-          className="[&_svg:not([class*='text-'])]:text-muted-foreground"
-          shouldFilter={false}
-        >
-          <CommandInput
-            placeholder="Search folders..."
-            className="h-9"
-            value={filterText}
-            onValueChange={setFilterText}
-          />
-          <CommandList className="max-h-64 overflow-auto">
-            <CommandGroup>
+    <Command
+      className="min-h-0 [&_svg:not([class*='text-'])]:text-muted-foreground"
+      shouldFilter={false}
+    >
+      <CommandInput
+        autoFocus
+        aria-label="Search folders"
+        placeholder="Search folders…"
+        className="h-9"
+        value={filterText}
+        onValueChange={setFilterText}
+      />
+      <CommandList className="max-h-64 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <CommandGroup>
+          <CommandItem
+            value="no-workspace"
+            onSelect={handleUseDefault}
+            className="flex items-center gap-3 px-3 py-2"
+          >
+            <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <span className="block text-sm">No workspace</span>
+              <span className="block text-muted-foreground text-xs">
+                AI works with tabs only
+              </span>
+            </div>
+            {!selectedFolder && (
+              <Check className="h-4 w-4 shrink-0 text-[var(--accent-orange)]" />
+            )}
+          </CommandItem>
+        </CommandGroup>
+
+        {filteredFolders.length > 0 && (
+          <CommandGroup>
+            <div className="my-2 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+              Recent
+            </div>
+            {filteredFolders.map((folder) => (
               <CommandItem
-                value="no-workspace"
-                onSelect={handleUseDefault}
-                className="flex items-center gap-3 px-3 py-2"
+                key={folder.id}
+                value={`${folder.id} ${folder.name} ${folder.path}`}
+                onSelect={() => handleSelectFolder(folder)}
+                className="group flex items-center gap-3 px-3 py-2"
               >
-                <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <span className="block text-sm">No workspace</span>
-                  <span className="block text-muted-foreground text-xs">
-                    AI works with tabs only
+                  <span className="block truncate font-medium text-sm">
+                    {folder.name}
+                  </span>
+                  <span className="block truncate text-muted-foreground text-xs">
+                    {folder.path}
                   </span>
                 </div>
-                {!selectedFolder && (
-                  <Check className="h-4 w-4 shrink-0 text-[var(--accent-orange)]" />
-                )}
-              </CommandItem>
-            </CommandGroup>
-
-            {filteredFolders.length > 0 && (
-              <CommandGroup>
-                <div className="my-2 px-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-                  Recent
-                </div>
-                {filteredFolders.map((folder) => (
-                  <CommandItem
-                    key={folder.id}
-                    value={`${folder.id} ${folder.name} ${folder.path}`}
-                    onSelect={() => handleSelectFolder(folder)}
-                    className="group flex items-center gap-3 px-3 py-2"
+                <div className="flex shrink-0 items-center gap-1">
+                  {selectedFolder?.id === folder.id && (
+                    <Check className="h-4 w-4 text-[var(--accent-orange)]" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => handleRemoveFolder(e, folder.id)}
+                    className={cn(
+                      'rounded p-0.5 transition-opacity hover:bg-muted-foreground/20',
+                      'opacity-0 group-hover:opacity-100',
+                    )}
+                    aria-label={`Remove ${folder.name} from recents`}
                   >
-                    <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-sm">
-                        {folder.name}
-                      </span>
-                      <span className="block truncate text-muted-foreground text-xs">
-                        {folder.path}
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {selectedFolder?.id === folder.id && (
-                        <Check className="h-4 w-4 text-[var(--accent-orange)]" />
-                      )}
-                      <button
-                        type="button"
-                        onClick={(e) => handleRemoveFolder(e, folder.id)}
-                        className={cn(
-                          'rounded p-0.5 transition-opacity hover:bg-muted-foreground/20',
-                          'opacity-0 group-hover:opacity-100',
-                        )}
-                        aria-label={`Remove ${folder.name} from recents`}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
 
-            <CommandEmpty>No folders found</CommandEmpty>
-          </CommandList>
+        <CommandEmpty>No folders found</CommandEmpty>
+      </CommandList>
 
-          <div className="border-border/50 border-t">
-            <button
-              type="button"
-              onClick={handleChooseFolder}
-              className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
-            >
-              <FolderOpen className="h-4 w-4 text-muted-foreground" />
-              <span>Choose a different folder</span>
-            </button>
-          </div>
-        </Command>
-      </PopoverContent>
-    </Popover>
+      <div className="shrink-0 border-border/50 border-t">
+        <button
+          type="button"
+          onClick={handleChooseFolder}
+          className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted"
+        >
+          <FolderOpen className="h-4 w-4 text-muted-foreground" />
+          <span>Choose a different folder</span>
+        </button>
+      </div>
+    </Command>
   )
 }

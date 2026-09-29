@@ -5,6 +5,7 @@
  */
 
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 import { validatePageDoc } from '../../personal-internet/dsl'
 import { getLastPiMutationAt } from '../../personal-internet/events'
@@ -43,6 +44,11 @@ import {
   ALL_TEMPLATE_IDS,
   getSiteTemplate,
 } from '../../personal-internet/templates'
+import {
+  exportPiSites,
+  InvalidPiArchiveError,
+  importPiSites,
+} from '../../personal-internet/transfer'
 import type {
   PiPageDoc,
   PiPatchOp,
@@ -106,6 +112,47 @@ const HostOpenedSchema = z.object({
 
 export function createPersonalInternetRoutes() {
   return new Hono<Env>()
+    .get('/export', async (c) => {
+      const siteId = c.req.query('siteId')
+      if (siteId && !getSite(siteId))
+        return c.json({ error: 'Site not found.' }, 404)
+      try {
+        const archive = await exportPiSites(siteId)
+        c.header(
+          'Content-Disposition',
+          'attachment; filename="pane-pi-sites.json"',
+        )
+        return c.json(archive)
+      } catch (error) {
+        return c.json(
+          { error: error instanceof Error ? error.message : 'Export failed.' },
+          400,
+        )
+      }
+    })
+    .post(
+      '/import',
+      bodyLimit({
+        maxSize: 16 * 1024 * 1024,
+        onError: (c) =>
+          c.json({ error: 'PI sites files must be 16 MB or smaller.' }, 413),
+      }),
+      async (c) => {
+        let body: unknown
+        try {
+          body = await c.req.json()
+        } catch {
+          return c.json({ error: 'Choose a valid PI sites JSON file.' }, 400)
+        }
+        try {
+          return c.json(await importPiSites(body), 201)
+        } catch (error) {
+          if (error instanceof InvalidPiArchiveError)
+            return c.json({ error: error.message }, 400)
+          throw error
+        }
+      },
+    )
     .get('/sites', (c) => {
       const status = c.req.query('status')
       const sites = listSites(

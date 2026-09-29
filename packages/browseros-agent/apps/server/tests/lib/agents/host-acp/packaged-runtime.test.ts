@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from 'bun:test'
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -12,11 +13,15 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { runInNewContext } from 'node:vm'
+import { detectHostAdapter } from '../../../../src/lib/agents/host-acp/detection'
 import { resolveAcpSpawnCommand } from '../../../../src/lib/agents/host-acp/launcher'
 import { resolvePackagedAcpRuntime } from '../../../../src/lib/agents/host-acp/packaged-runtime'
 
 const roots: string[] = []
+const originalNodeEnv = process.env.NODE_ENV
 afterEach(() => {
+  if (originalNodeEnv === undefined) delete process.env.NODE_ENV
+  else process.env.NODE_ENV = originalNodeEnv
   for (const root of roots.splice(0))
     rmSync(root, { recursive: true, force: true })
 })
@@ -47,7 +52,8 @@ function fixture() {
   return { resources, root, manifest }
 }
 
-it('launches only the release-owned runtime, without a host lookup or package runner', async () => {
+it('falls back to the release-owned runtime when no host CLI is installed', async () => {
+  process.env.NODE_ENV = 'production'
   const { resources } = fixture()
   for (const agentType of ['claude', 'codex'] as const) {
     const result = await resolveAcpSpawnCommand({
@@ -55,9 +61,7 @@ it('launches only the release-owned runtime, without a host lookup or package ru
       resourcesDir: resources,
       platform: 'darwin',
       resolveBundledBun: () => '/signed/bun',
-      resolveNative: async () => {
-        throw new Error('must not look up host CLI')
-      },
+      resolveNative: async () => null,
     })
     expect(result?.source).toBe('packaged-runtime')
     expect(result?.command).not.toContain('--package')
@@ -129,4 +133,119 @@ it('redirects every inventoried Bun native module before extraction and fails cl
     'escapes',
   )
   expect(loaded).toHaveLength(2)
+})
+
+for (const agentType of ['claude', 'codex'] as const) {
+  it(`launches installed ${agentType} in production without bundled native resources`, async () => {
+    process.env.NODE_ENV = 'production'
+    const { resources, root } = fixture()
+    const executableKey =
+      agentType === 'claude' ? 'CLAUDE_CODE_EXECUTABLE' : 'CODEX_PATH'
+    const hostPath = join(resources, `host tools/${agentType}`)
+    mkdirSync(join(resources, 'host tools'))
+    writeFileSync(hostPath, `#!/bin/sh\nprintf 'host-${agentType}'\n`)
+    chmodSync(hostPath, 0o755)
+    writeFileSync(
+      join(root, `${agentType}.js`),
+      `
+      if (process.env.BUN_OPTIONS || process.env.DISABLE_AUTOUPDATER)
+        throw new Error('Bundled runtime environment leaked into the host CLI');
+      const child = Bun.spawn([process.env.${executableKey}], { stdout: 'inherit' });
+      process.exit(await child.exited);
+    `,
+    )
+    for (const file of ['claude', 'codex', 'native-loader.cjs'])
+      rmSync(join(root, file))
+    const host = {
+      path: hostPath,
+      env: { PATH: '/usr/bin:/bin', TMPDIR: '/host/tmp' },
+    }
+    const result = await resolveAcpSpawnCommand({
+      agentType,
+      resourcesDir: resources,
+      platform: 'darwin',
+      browserosDir: join(resources, 'profile'),
+      resolveBundledBun: () => process.execPath,
+      resolveNative: async () => host,
+    })
+    expect(result?.source).toBe('packaged-runtime')
+    expect(result?.command).toContain(`${executableKey}='${hostPath}'`)
+    expect(result?.command).not.toContain('BUN_OPTIONS=')
+    expect(result?.command).not.toContain('--package')
+    expect(result?.command).toContain("TMPDIR='/host/tmp'")
+    if (!result) throw new Error('Expected a launcher')
+    // Execute the launch command: the adapter must actually reach the host CLI.
+    const child = Bun.spawn(['sh', '-c', result.command], {
+      env: { PATH: '/usr/bin:/bin' },
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ])
+    expect(stderr).toBe('')
+    expect(exitCode).toBe(0)
+    expect(stdout).toBe(`host-${agentType}`)
+
+    const probes: string[] = []
+    const health = await detectHostAdapter(agentType, {
+      resourcesDir: resources,
+      platform: 'darwin',
+      resolveBinary: async () => host,
+      resolveBundledBun: () => process.execPath,
+      runCommand: async (cmd, args, options) => {
+        probes.push(cmd)
+        expect(options.env).toEqual(host.env)
+        return {
+          exitCode: 0,
+          stdout: args[0] === '--version' ? 'host-version' : '',
+          stderr: '',
+        }
+      },
+    })
+    expect(health).toMatchObject({
+      healthy: true,
+      version: 'host-version',
+      readiness: 'ready',
+    })
+    expect(probes).toEqual([hostPath, hostPath])
+  })
+
+  it(`probes bundled ${agentType} only when no host CLI is available`, async () => {
+    process.env.NODE_ENV = 'production'
+    const { resources, root } = fixture()
+    const probes: string[] = []
+    const health = await detectHostAdapter(agentType, {
+      resourcesDir: resources,
+      platform: 'darwin',
+      resolveBinary: async () => null,
+      resolveBundledBun: () => '/signed/bun',
+      runCommand: async (cmd, args, options) => {
+        probes.push(cmd)
+        expect(options.env?.BUN_OPTIONS).toContain('--preload=file:')
+        return {
+          exitCode: 0,
+          stdout: args[0] === '--version' ? 'bundled-version' : '',
+          stderr: '',
+        }
+      },
+    })
+    expect(health).toMatchObject({ healthy: true, version: 'bundled-version' })
+    expect(probes).toEqual([
+      realpathSync(join(root, agentType)),
+      realpathSync(join(root, agentType)),
+    ])
+  })
+}
+
+it('still requires packaged adapters in production even with an installed CLI', async () => {
+  process.env.NODE_ENV = 'production'
+  await expect(
+    resolveAcpSpawnCommand({
+      agentType: 'claude',
+      resolveNative: async () => ({ path: '/host/claude', env: {} }),
+    }),
+  ).rejects.toThrow('runtime downloads are disabled')
 })

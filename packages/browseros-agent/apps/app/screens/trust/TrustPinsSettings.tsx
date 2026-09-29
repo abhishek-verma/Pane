@@ -54,10 +54,11 @@ export const TrustPinsSettings: FC = () => {
   return (
     <div className="space-y-4 rounded-md border bg-card p-4">
       <div>
-        <h2 className="font-medium text-base">Trust pins</h2>
+        <h2 className="font-medium text-base">Agent permissions</h2>
         <p className="mt-1 text-muted-foreground text-sm">
-          Pin a consequence class to reduce approval prompts. Pins expire after
-          seven days by default.
+          Allow action categories for chats and background tasks in this browser
+          profile. Permissions enabled here last seven days; “Allow always”
+          choices stay enabled until you turn them off.
         </p>
       </div>
       <div className="flex flex-col gap-3 border-t pt-4">
@@ -66,7 +67,7 @@ export const TrustPinsSettings: FC = () => {
             <Label htmlFor="require-browser-input">Clicks and typing</Label>
             <p className="mt-1 text-muted-foreground text-xs">
               On by default — the browser agent can click and type without
-              asking. Payment pages still always require approval.
+              asking. Payment pages use the payments permission below.
             </p>
           </div>
           <Switch

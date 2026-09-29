@@ -9,6 +9,7 @@
 import type { UIMessage } from 'ai'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
+import { withRequestDeadline } from '@/lib/browseros/request-deadline'
 
 export interface ChatActiveTurnInfo {
   turnId: string
@@ -30,17 +31,20 @@ export async function fetchActiveChatTurn(
   conversationId: string,
   baseUrl?: string,
 ): Promise<ChatActiveTurnInfo | null> {
-  const url = baseUrl ?? (await getAgentServerUrl())
-  const response = await agentFetch(
-    `${url}/chat/${encodeURIComponent(conversationId)}/active`,
-  )
-  if (!response.ok) {
-    throw new Error(`Failed to fetch active chat turn (${response.status})`)
-  }
-  const body = (await response.json()) as {
-    active: ChatActiveTurnInfo | null
-  }
-  return body.active
+  return withRequestDeadline(async (signal) => {
+    const url = baseUrl ?? (await getAgentServerUrl())
+    const response = await agentFetch(
+      `${url}/chat/${encodeURIComponent(conversationId)}/active`,
+      { signal },
+    )
+    if (!response.ok) {
+      throw new Error(`Failed to fetch active chat turn (${response.status})`)
+    }
+    const body = (await response.json()) as {
+      active: ChatActiveTurnInfo | null
+    }
+    return body.active
+  })
 }
 
 export async function cancelChatTurn(

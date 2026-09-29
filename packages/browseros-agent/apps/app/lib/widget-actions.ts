@@ -14,6 +14,8 @@ import {
   navigateOwnedRoute,
 } from '@/lib/personal-internet/pi-document'
 
+import { resolveChannelApproval } from '@/lib/trust/resolve-channel-approval'
+
 export type QueryClientLike = {
   invalidateQueries: (opts: { queryKey: string[] }) => unknown
 }
@@ -27,6 +29,7 @@ export type WidgetAction =
       approvalId: string
       token: string
       resolution: 'approve' | 'deny'
+      trustScope?: 'chat' | 'always'
     }
   | { type: 'complete-task'; taskId: string }
   | { type: 'run-skill'; skillId: string }
@@ -86,47 +89,16 @@ export async function executeWidgetAction(
       break
 
     case 'resolve-approval': {
-      let ok = false
-      let detail = 'Could not reach the agent server'
-      let resumed = false
-      try {
-        const res = await agentFetch(`${base}/scheduler/approvals/resolve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: action.token }),
-        })
-        if (res.ok) {
-          ok = true
-          const body = (await res.json().catch(() => null)) as {
-            resolution?: string
-            resumed?: boolean
-            reason?: string
-          } | null
-          resumed = Boolean(body?.resumed)
-          if (action.resolution === 'approve') {
-            detail = resumed
-              ? 'Approved — the agent can continue this step'
-              : 'Approved, but the agent is no longer waiting (timed out or restarted). This step will not run.'
-          } else {
-            detail = resumed
-              ? 'Denied — the agent will skip this step'
-              : 'Denied. The agent was no longer waiting on this approval.'
-          }
-        } else {
-          const body = (await res.json().catch(() => null)) as {
-            error?: string
-          } | null
-          detail = body?.error ?? `Resolve failed (${res.status})`
-        }
-      } catch {
-        /* network blip */
-      }
+      const result = await resolveChannelApproval(
+        action.token,
+        action.resolution === 'approve' ? action.trustScope : undefined,
+      )
       if (queryClient) {
         void queryClient.invalidateQueries({
           queryKey: ['scheduler', 'home'],
         })
       }
-      return { ok, detail, resumed }
+      return result
     }
 
     case 'complete-task':

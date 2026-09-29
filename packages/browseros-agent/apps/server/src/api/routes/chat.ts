@@ -101,6 +101,21 @@ export function createChatRoutes(deps: ChatRouteDeps) {
         return c.json({ error: 'Failed to fetch history' }, 500)
       }
     })
+    .post(
+      '/history/scheduled',
+      zValidator(
+        'json',
+        z.object({
+          conversationIds: z.array(z.string().uuid()).max(100),
+        }),
+      ),
+      (c) => {
+        const { conversationIds } = c.req.valid('json')
+        return c.json({
+          updated: sessionStore.markScheduledConversations(conversationIds),
+        })
+      },
+    )
     .post('/import', async (c) => {
       try {
         const body = ImportConversationsSchema.parse(await c.req.json())

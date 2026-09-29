@@ -297,6 +297,11 @@ function bootstrapCurrentSchema(sqlite: BunDatabase): void {
       .all()
     if (!activityColumns.some((column) => column.name === 'failure_code'))
       sqlite.exec('ALTER TABLE layer_activity ADD COLUMN failure_code TEXT')
+    const chatColumns = sqlite
+      .query<{ name: string }, []>('PRAGMA table_info(chat_sessions)')
+      .all()
+    if (!chatColumns.some((column) => column.name === 'background_source'))
+      sqlite.exec('ALTER TABLE chat_sessions ADD COLUMN background_source TEXT')
     const insertMigration = sqlite.prepare(`
       INSERT INTO __drizzle_migrations ("hash", "created_at")
       SELECT ?, ?
@@ -435,6 +440,11 @@ export const currentMigrationHistory = [
     hash: '226e283bd831fe980e6f350b2b4cf8211a292fb38da7941cef2e7b2d4397dfe6',
     createdAt: 1786700000000,
   },
+  {
+    tag: '0023_chat_background_source',
+    hash: '18961d6f05095bb4cf2735920eb151c3cf34cf77fd1d2f7fb482602742dbb461',
+    createdAt: 1790658000000,
+  },
 ]
 
 // TODO(nikhil): Remove this fallback once Windows/Linux packaging always includes Drizzle migrations.
@@ -561,6 +571,7 @@ const currentSchemaStatements = [
   `
     CREATE TABLE IF NOT EXISTS chat_sessions (
       id text PRIMARY KEY NOT NULL,
+      background_source text,
       created_at integer NOT NULL,
       updated_at integer NOT NULL
     )

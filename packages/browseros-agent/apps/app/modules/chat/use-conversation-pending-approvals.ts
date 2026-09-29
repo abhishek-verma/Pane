@@ -12,7 +12,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
-import { persistApprovedTrust } from '@/lib/trust/persist-approved-trust'
+import {
+  type ResolveChannelApprovalResult,
+  resolveChannelApproval,
+} from '@/lib/trust/resolve-channel-approval'
 import {
   PINNABLE_CLASSES,
   type PinnableClass,
@@ -27,13 +30,6 @@ export type ConversationPendingApproval = {
   preview: string
   approveToken: string
   denyToken: string
-}
-
-type ResolveChannelApprovalResult = {
-  ok: boolean
-  resumed: boolean
-  detail: string
-  resolution?: string
 }
 
 async function fetchPendingForConversation(
@@ -55,66 +51,6 @@ async function fetchPendingForConversation(
     }>
   }
   return matchPendingForConversation(body.approvals ?? [], conversationId)
-}
-
-async function resolveChannelApproval(
-  token: string,
-  options?: { pin?: boolean },
-): Promise<ResolveChannelApprovalResult> {
-  try {
-    const base = await getAgentServerUrl()
-    const res = await agentFetch(`${base}/scheduler/approvals/resolve`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, pin: options?.pin }),
-    })
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as {
-        error?: string
-      } | null
-      return {
-        ok: false,
-        resumed: false,
-        detail: body?.error ?? `Resolve failed (${res.status})`,
-      }
-    }
-    const body = (await res.json()) as {
-      resolution?: string
-      resumed?: boolean
-      reason?: string
-    }
-    const resumed = Boolean(body.resumed)
-    if (body.resolution === 'approved') {
-      return {
-        ok: true,
-        resumed,
-        resolution: 'approved',
-        detail: resumed
-          ? 'Approved — the agent can continue this step'
-          : 'Approved, but the agent is no longer waiting (timed out or restarted). This step will not run.',
-      }
-    }
-    if (body.resolution === 'denied') {
-      return {
-        ok: true,
-        resumed,
-        detail: resumed
-          ? 'Denied — the agent will skip this step'
-          : 'Denied. The agent was no longer waiting on this approval.',
-      }
-    }
-    return {
-      ok: true,
-      resumed,
-      detail: body.reason ?? 'Resolved',
-    }
-  } catch {
-    return {
-      ok: false,
-      resumed: false,
-      detail: 'Could not reach the agent server',
-    }
-  }
 }
 
 export function useConversationPendingApprovals(
@@ -191,32 +127,10 @@ export function useConversationPendingApprovals(
             detail: 'This action cannot be granted persistent trust.',
           }
         }
-        result = await resolveChannelApproval(approval.approveToken, {
-          pin: true,
-        })
-        // Persist client-side only when the server successfully resolved the approval,
-        // so a failed/expired token never grants permanent trust.
-        if (
-          result.ok &&
-          result.resolution === 'approved' &&
-          result.resumed &&
-          conversationId
-        ) {
-          try {
-            await persistApprovedTrust({
-              result,
-              conversationId,
-              consequenceClass: approval.consequenceClass,
-              scope: resolution === 'allowAlways' ? 'always' : 'chat',
-            })
-          } catch {
-            result = {
-              ...result,
-              detail:
-                'Approved for this turn, but the trust preference could not be saved. Please retry from Settings.',
-            }
-          }
-        }
+        result = await resolveChannelApproval(
+          approval.approveToken,
+          resolution === 'allowAlways' ? 'always' : 'chat',
+        )
       } else {
         const token =
           resolution === 'approve' ? approval.approveToken : approval.denyToken
@@ -228,7 +142,7 @@ export function useConversationPendingApprovals(
       void queryClient.invalidateQueries({ queryKey: [...HOME_QUERY_KEY] })
       return result
     },
-    [conversationId, refresh, queryClient],
+    [refresh, queryClient],
   )
 
   return {

@@ -64,14 +64,17 @@ export function withBundledBunAcpAdapterEnv(input: {
   const env = input.env ? stringEnv(input.env) : {}
   const pathKey = pathEnvKey(sourceEnv, platform)
   const delimiter = platform === 'win32' ? ';' : ':'
+  const nodeShim = ensureBundledNodeShim({
+    bunPath: input.bunPath,
+    browserosDir: input.browserosDir,
+    platform,
+  })
   const pathEntries = [
-    ensureBundledNodeShim({
-      bunPath: input.bunPath,
-      browserosDir: input.browserosDir,
-      platform,
-    }),
+    ...(input.includeBundledCliPath === false ? [] : [nodeShim]),
     ...(input.includeBundledCliPath === false ? [] : [dirname(input.bunPath)]),
     ...(sourceEnv[pathKey] ?? '').split(delimiter),
+    // A host CLI's Node interpreter takes precedence over Pane's Bun shim.
+    ...(input.includeBundledCliPath === false ? [nodeShim] : []),
   ].filter((entry): entry is string => Boolean(entry))
 
   env[pathKey] = dedupe(pathEntries).join(delimiter)
@@ -80,7 +83,7 @@ export function withBundledBunAcpAdapterEnv(input: {
     env.BUN_INSTALL_CACHE_DIR = join(browserosDir, 'cache', 'bun-install')
     // Temporary data is profile-local. Production native modules load from
     // the signed runtime via its preload, not from this writable directory.
-    if (platform === 'darwin') {
+    if (platform === 'darwin' && input.includeBundledCliPath !== false) {
       env.TMPDIR = join(browserosDir, 'bun-tmp')
     }
   }

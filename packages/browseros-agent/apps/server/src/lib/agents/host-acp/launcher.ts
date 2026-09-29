@@ -3,9 +3,9 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Production launches only the release-owned, locked adapter/runtime closure.
- * Missing/corrupt resources fail explicitly rather than downloading code during
- * a chat. Package runners and host CLI overrides are development-only fallbacks.
+ * Production uses the release-owned adapter with the user's installed CLI,
+ * falling back to the packaged CLI when none is installed. Missing adapter
+ * resources fail explicitly; package runners are development-only fallbacks.
  */
 
 import { pathToFileURL } from 'node:url'
@@ -57,9 +57,21 @@ export async function resolveAcpSpawnCommand(
   const config = HOST_ACP_ADAPTER_CONFIG[input.agentType as HostAcpAdapter]
   if (!hasAcpPackageConfig(config)) return null
 
+  const resolveNative =
+    input.resolveNative ??
+    ((name: string) =>
+      resolveHostBinary(name, { env: input.env, platform: input.platform }))
+  const native = await resolveNative(config.nativeBinary).catch(() => null)
+  const executableEnvKey =
+    input.agentType === 'claude' ? 'CLAUDE_CODE_EXECUTABLE' : 'CODEX_PATH'
+  const nativeOverrides: Record<string, string> = native
+    ? { [executableEnvKey]: native.path }
+    : {}
+
   const packaged = resolvePackagedAcpRuntime({
     ...input,
     agentType: input.agentType as HostAcpAdapter,
+    useHostExecutable: !!native,
   })
   if (packaged) {
     const bunPath = (input.resolveBundledBun ?? resolveBundledBun)(input)
@@ -75,15 +87,14 @@ export async function resolveAcpSpawnCommand(
           ...withBundledBunAcpAdapterEnv({
             bunPath,
             browserosDir: input.browserosDir,
-            env: input.env,
+            env: native?.env ?? input.env,
             platform: input.platform,
+            includeBundledCliPath: !native,
           }),
-          // Use only the release-tested CLI, not an older SDK copy or host PATH.
-          ...(packaged.executable
+          ...nativeOverrides,
+          ...(!native && packaged.executable
             ? {
-                [input.agentType === 'claude'
-                  ? 'CLAUDE_CODE_EXECUTABLE'
-                  : 'CODEX_PATH']: packaged.executable,
+                [executableEnvKey]: packaged.executable,
               }
             : {}),
           ...(packaged.preload
@@ -91,8 +102,7 @@ export async function resolveAcpSpawnCommand(
                 BUN_OPTIONS: `--preload=${pathToFileURL(packaged.preload).href}`,
               }
             : {}),
-          DISABLE_AUTOUPDATER: '1',
-          BUN_BE_BUN: '0',
+          ...(!native ? { DISABLE_AUTOUPDATER: '1', BUN_BE_BUN: '0' } : {}),
         },
       ),
     }
@@ -103,27 +113,13 @@ export async function resolveAcpSpawnCommand(
     )
   }
 
-  const resolveNative =
-    input.resolveNative ??
-    ((name: string) =>
-      resolveHostBinary(name, { env: input.env, platform: input.platform }))
-  const native = await resolveNative(config.nativeBinary).catch(() => null)
-  // Claude ACP resolves its SDK's private CLI, not `claude` on PATH.
-  // Its documented override must name the exact executable we detected.
-  const nativeOverrides: Record<string, string> =
-    input.agentType === 'claude' && native
-      ? { CLAUDE_CODE_EXECUTABLE: native.path }
-      : {}
-
   const resolve = input.resolveBundledBun ?? resolveBundledBun
   const bunPath = resolve({
     resourcesDir: input.resourcesDir,
     platform: input.platform,
   })
   if (bunPath) {
-    // Claude uses the explicit executable override above. Codex uses the
-    // adapter's compatible runtime by default, not an arbitrary host CLI:
-    // a host CLI can itself be too old for the user's selected model.
+    // Both adapters use the exact executable discovered in the user's shell.
     return {
       command: wrapCommandWithEnv(
         `${quoteAcpCommandToken(bunPath)} x --bun --silent --package ${quoteAcpCommandToken(config.acpPackageSpec)} ${quoteAcpCommandToken(config.acpBin)}`,
@@ -175,6 +171,9 @@ function wrapCommandWithEnv(
   env: Record<string, string>,
 ): string {
   const prefix = Object.entries(env)
+    // Children already inherit these values. Do not copy the entire host
+    // environment (including credentials) into the adapter's command line.
+    .filter(([key, value]) => process.env[key] !== value)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([key, value]) => `${key}=${quoteAcpCommandToken(value)}`)
     .join(' ')

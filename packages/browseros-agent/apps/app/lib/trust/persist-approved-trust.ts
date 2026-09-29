@@ -9,7 +9,7 @@ import {
 export async function persistApprovedTrust(input: {
   result: { ok: boolean; resumed: boolean; resolution?: string }
   scope: 'chat' | 'always'
-  conversationId: string
+  conversationId?: string | null
   consequenceClass: string
 }): Promise<boolean> {
   if (
@@ -24,6 +24,7 @@ export async function persistApprovedTrust(input: {
     const pins = await trustPinsStorage.getValue()
     await trustPinsStorage.setValue({ ...pins, [cls]: { pinned: true } })
   }
+  if (!input.conversationId) return input.scope === 'always'
   const conversations = await conversationTrustStorage.getValue()
   await conversationTrustStorage.setValue({
     ...conversations,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getAgentServerUrl } from '../../lib/browseros/helpers'
+import { withRequestDeadline } from '../../lib/browseros/request-deadline'
 
 const INITIAL_RETRY_DELAY_MS = 500
 const MAX_RETRY_DELAY_MS = 8_000
@@ -64,7 +65,7 @@ export function useAgentServerUrl(): UseAgentServerUrlResult {
     async function loadUrl() {
       attempts += 1
       try {
-        const url = await getAgentServerUrl()
+        const url = await withRequestDeadline(() => getAgentServerUrl())
         const healthy = await waitForAgentHealth(url)
         if (cancelled) return
         if (!healthy) {

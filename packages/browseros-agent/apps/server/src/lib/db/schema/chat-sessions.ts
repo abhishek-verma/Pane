@@ -2,6 +2,7 @@ import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const chatSessions = sqliteTable('chat_sessions', {
   id: text('id').primaryKey(),
+  backgroundSource: text('background_source'),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 })

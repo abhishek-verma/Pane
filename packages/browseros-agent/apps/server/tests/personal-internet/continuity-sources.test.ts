@@ -67,6 +67,7 @@ describe('pi continuity sources', () => {
     expect(fromApprovals[0].metadata?.approveToken).toBeTruthy()
     expect(fromApprovals[0].metadata?.denyToken).toBeTruthy()
     expect(fromApprovals[0].metadata?.expiresAt).toBeTruthy()
+    expect(fromApprovals[0].metadata?.consequenceClass).toBe('write-external')
     expect(fromApprovals[0].route).toBe('#/settings/action-log')
 
     const revised = await reviseHomeContinuityLocal()

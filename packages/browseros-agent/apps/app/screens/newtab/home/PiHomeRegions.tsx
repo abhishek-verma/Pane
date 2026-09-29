@@ -8,6 +8,10 @@ import {
 } from '@/components/ui/popover'
 import { openSidePanelWithSearch } from '@/lib/messaging/sidepanel/openSidepanelWithSearch'
 import { navigatePiDocument } from '@/lib/personal-internet/pi-document'
+import {
+  PINNABLE_CLASSES,
+  type PinnableClass,
+} from '@/lib/trust/trust-pins-storage'
 import { executeWidgetAction } from '@/lib/widget-actions'
 import { piSiteField } from '@/screens/personal-internet/field'
 import { PiRailAction } from '@/screens/personal-internet/PiChrome'
@@ -27,7 +31,13 @@ export function HomeAction(props: ComponentProps<typeof PiRailAction>) {
 
 function approvalTokens(metadata: Record<string, unknown> | undefined) {
   if (metadata?.kind !== 'approval') return null
-  const { approvalId, approveToken, denyToken, conversationId } = metadata
+  const {
+    approvalId,
+    approveToken,
+    denyToken,
+    conversationId,
+    consequenceClass,
+  } = metadata
   if (
     typeof approvalId !== 'string' ||
     !approvalId ||
@@ -38,11 +48,23 @@ function approvalTokens(metadata: Record<string, unknown> | undefined) {
   )
     return null
   return {
+    consequenceClass:
+      typeof consequenceClass === 'string' &&
+      PINNABLE_CLASSES.includes(consequenceClass as PinnableClass)
+        ? (consequenceClass as PinnableClass)
+        : null,
     approvalId,
     approveToken,
     denyToken,
     conversationId: typeof conversationId === 'string' ? conversationId : null,
   }
+}
+
+const TRUST_LABELS: Record<PinnableClass, string> = {
+  'write-local': 'Workspace file writes',
+  system: 'Terminal commands',
+  'write-external': 'External browser actions',
+  spend: 'Payments and purchases',
 }
 
 const routePath = (route: string) =>
@@ -181,6 +203,40 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                         >
                           Approve
                         </HomeAction>
+                        {tokens.consequenceClass
+                          ? (['chat', 'always'] as const)
+                              .filter(
+                                (scope) =>
+                                  scope === 'always' || tokens.conversationId,
+                              )
+                              .map((scope) => (
+                                <HomeAction
+                                  key={scope}
+                                  disabled={!!busy}
+                                  onClick={() =>
+                                    void run(block.id, async () => {
+                                      const result = await executeWidgetAction(
+                                        {
+                                          type: 'resolve-approval',
+                                          approvalId: tokens.approvalId,
+                                          token: tokens.approveToken,
+                                          resolution: 'approve',
+                                          trustScope: scope,
+                                        },
+                                        queryClient,
+                                      )
+                                      if (result && !result.ok)
+                                        throw new Error(result.detail)
+                                      return result?.detail
+                                    })
+                                  }
+                                >
+                                  {scope === 'always'
+                                    ? 'Allow always'
+                                    : 'Allow for this chat'}
+                                </HomeAction>
+                              ))
+                          : null}
                         <HomeAction
                           disabled={!!busy}
                           onClick={() =>
@@ -233,6 +289,13 @@ export const PiHomeRegions: FC<{ data?: PiHomeProjection | null }> = ({
                       </HomeAction>
                     )}
                   </div>
+                  {tokens?.consequenceClass ? (
+                    <p className="mt-2 text-muted-foreground text-xs">
+                      Remembered permissions apply to:{' '}
+                      {TRUST_LABELS[tokens.consequenceClass]}. Manage in
+                      Settings → Privacy & Permissions.
+                    </p>
+                  ) : null}
                 </article>
               )
             })}

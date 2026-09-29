@@ -141,23 +141,20 @@ Agent: ${input.agent.name} (${input.agent.adapter})
 AGENT_HOME=${input.paths.agentHome}
 Current workspace cwd: ${input.paths.effectiveCwd}
 
-Use AGENT_HOME for identity, memory, and agent-private state. Do not write project files into AGENT_HOME.
-Use the current workspace cwd for user-requested project and file work. Do not write memory files into the workspace.
-
-SOUL.md stores identity, behavior, style, rules, and boundaries.
-MEMORY.md stores durable, promoted memory.
-memory/YYYY-MM-DD.md stores daily notes, task breadcrumbs, and candidate memories.
+Use AGENT_HOME only for agent-private scratch state, not Pane's shared memory.
+Use the current workspace cwd for user-requested project and file work.
+The current Pane memory, user profile, and persona are supplied below from Settings > Memory & Skills.
+Legacy AGENT_HOME/MEMORY.md and SOUL.md may contain older private notes; they are not Pane's shared store.
 
 BrowserOS has made runtime skills available for this ACPX session.
 Skill root: ${input.paths.runtimeSkillsDir}
 Available skills: ${input.skillNames.join(', ')}
 When a task calls for one of these skills, read its SKILL.md from that root and follow it.
 
-When the user asks you to remember, save feedback, store a preference, or update memory in this BrowserOS ACPX context, use the BrowserOS memory skill.
-Write BrowserOS memory only under AGENT_HOME:
-- AGENT_HOME/MEMORY.md for durable promoted preferences and operating patterns.
-- AGENT_HOME/memory/YYYY-MM-DD.md for daily notes and candidate memories.
-Do not use native Claude project memory, native CLI memory, or workspace files for BrowserOS memory.
+When the user asks you to remember, use the browseros MCP memory_add tool.
+Use context_search to recall, memory_replace to correct, and memory_remove to forget.
+Use user_edit and soul_edit for the shared profile and persona, preserving approval requirements.
+Do not use native Claude project memory, native CLI memory, or AGENT_HOME files for Pane memory.
 </browseros_acpx_runtime>`
 }
 

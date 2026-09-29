@@ -36,6 +36,8 @@ import {
   useContextSettings,
 } from '@/screens/context/useContextApi'
 
+import { TrustPinsSettings } from '@/screens/trust/TrustPinsSettings'
+
 const MATURE_META = listMatureAdapterMeta()
 
 function adapterPrimaryHost(meta: MatureAdapterMeta): string {
@@ -194,8 +196,8 @@ export const PermissionsPage: FC = () => {
             Privacy & Permissions
           </h1>
           <p className="mt-1 text-muted-foreground text-sm">
-            Manage what local data Pane is allowed to index or capture from your
-            device.
+            Manage agent permissions and what local data Pane can index or
+            capture from your device.
           </p>
         </div>
 
@@ -220,6 +222,8 @@ export const PermissionsPage: FC = () => {
           </Select>
         </div>
       </div>
+
+      <TrustPinsSettings />
 
       {/* Section 1: Context Indexing (Denylist Only) */}
       <section className="space-y-4 rounded-md border border-border/50 bg-card p-5">
