@@ -304,12 +304,35 @@ it('holds a running preview past its old expiry and never resurrects a cleared p
       binding.layerVersion,
     )
     const release = broker.holdPreview(profileId, binding)
+    const releaseSecond = broker.holdPreview(profileId, binding)
     now += 6 * 60_000
     expect(broker.isPreview(profileId, binding, binding.layerVersion)).toBe(
       true,
     )
-    broker.clearPreview(profileId, doc.tabId)
     release()
+    release()
+    now += 6 * 60_000
+    expect(broker.isPreview(profileId, binding, binding.layerVersion)).toBe(
+      true,
+    )
+    releaseSecond()
+    now += 4 * 60_000
+    expect(broker.isPreview(profileId, binding, binding.layerVersion)).toBe(
+      true,
+    )
+    now += 2 * 60_000
+    expect(broker.isPreview(profileId, binding, binding.layerVersion)).toBe(
+      false,
+    )
+    broker.registerPreview(
+      profileId,
+      doc,
+      binding.layerId,
+      binding.layerVersion,
+    )
+    const releaseCleared = broker.holdPreview(profileId, binding)
+    broker.clearPreview(profileId, doc.tabId)
+    releaseCleared()
     expect(broker.isPreview(profileId, binding, binding.layerVersion)).toBe(
       false,
     )

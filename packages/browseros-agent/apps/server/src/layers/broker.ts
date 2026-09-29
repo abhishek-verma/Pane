@@ -49,6 +49,7 @@ interface Preview {
   version: string
   expiresAt: number
   actions: Set<string>
+  holds: number
 }
 interface Connection {
   sessionId: string
@@ -172,6 +173,7 @@ export class LayerBroker {
       version,
       expiresAt: Date.now() + 5 * 60_000,
       actions: new Set(),
+      holds: 0,
     })
   }
   /** Hold only this exact preview while its normal chat turn is running. */
@@ -180,9 +182,14 @@ export class LayerBroker {
       return () => {}
     const key = `${profileId}:${binding.tabId}`
     const preview = this.previews.get(key)!
+    preview.holds++
     preview.expiresAt = Number.MAX_SAFE_INTEGER
+    let released = false
     return () => {
-      if (this.previews.get(key) === preview)
+      if (released) return
+      released = true
+      preview.holds--
+      if (this.previews.get(key) === preview && preview.holds === 0)
         preview.expiresAt = Date.now() + 5 * 60_000
     }
   }

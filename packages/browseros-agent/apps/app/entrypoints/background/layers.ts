@@ -135,6 +135,7 @@ export function layersBridge(): void {
     {
       layer: InstalledLayer
       expiresAt: number
+      holds: number
       documentId: string
       instanceId: string
       routeEpoch: number
@@ -304,6 +305,15 @@ export function layersBridge(): void {
     }
     signal?.addEventListener('abort', cancel, { once: true })
     if (signal?.aborted) cancel()
+    const heldPreview =
+      preview?.layer.id === layer.id && preview.layer.version === layer.version
+        ? preview
+        : undefined
+    if (heldPreview) {
+      heldPreview.holds++
+      clearTimeout(previewTimers.get(tabId))
+      heldPreview.expiresAt = Number.MAX_SAFE_INTEGER
+    }
     try {
       const provider =
         action.kind === 'data'
@@ -326,10 +336,6 @@ export function layersBridge(): void {
         documents.get(tabId)?.routeEpoch !== doc.routeEpoch
       )
         throw new Error('The originating Layer changed.')
-      if (preview && previews.get(tabId) === preview) {
-        clearTimeout(previewTimers.get(tabId))
-        preview.expiresAt = Number.MAX_SAFE_INTEGER
-      }
       let result = await jsonRequest('/actions/run?wait=false', {
         binding,
         input: source,
@@ -372,7 +378,13 @@ export function layersBridge(): void {
         throw new Error('The originating Layer changed.')
       return { binding, events: result.events as unknown[] }
     } finally {
-      if (preview && previews.get(tabId) === preview) {
+      if (heldPreview) heldPreview.holds--
+      if (
+        heldPreview &&
+        previews.get(tabId) === heldPreview &&
+        heldPreview.holds === 0
+      ) {
+        const preview = heldPreview
         preview.expiresAt = Date.now() + 5 * 60_000
         previewTimers.set(
           tabId,
@@ -551,6 +563,7 @@ export function layersBridge(): void {
     previews.set(doc.tabId, {
       layer,
       expiresAt: Date.now() + 5 * 60_000,
+      holds: 0,
       documentId: doc.documentId,
       instanceId: doc.instanceId,
       routeEpoch: doc.routeEpoch,
