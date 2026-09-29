@@ -1,5 +1,16 @@
 # BrowserOS Agent Extension
 
+## v0.0.186 (2026-09-29)
+
+## What's Changed
+
+- fix: address release review findings and prepare Pane 0.47.0.96 (#284)
+- chore: merge latest layer runtime fixes into release review (#284)
+- fix: consolidate chat, provider, permissions, and PI improvements (#284)
+- fix(layers): retain previews until every active action finishes (#283)
+- fix(layers): run actions through the shared chat runtime (#283)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
