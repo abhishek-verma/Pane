@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.179 (2026-09-09)
+
+## What's Changed
+
+- chore: prepare Pane 0.47.0.89 (#247)
+- feat: add persistent Layers and integrate chat and scheduler changes (#246)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
