@@ -6,6 +6,134 @@ import {
 } from '../../../../src/lib/agents/acp/language-model'
 
 describe('Pane ACP protocol boundary', () => {
+  it('preserves a terminal adapter error when no structured output is supplied', () => {
+    const translator = new PaneAcpEventTranslator(() => 'id')
+    const parts = translator.translate({
+      type: 'tool_call',
+      toolCallId: 'memory-first',
+      title: 'memory_add',
+      status: 'failed',
+      text: 'MCP request timed out while waiting for approval',
+      content: [],
+    })
+    expect(parts.at(-1)).toMatchObject({
+      type: 'tool-result',
+      isError: true,
+      result: { error: 'MCP request timed out while waiting for approval' },
+    })
+    expect(translator.finish({ status: 'completed' }).at(-1)).toMatchObject({
+      finishReason: 'stop',
+    })
+  })
+
+  for (const scenario of [
+    'recovered',
+    'still-pending',
+    'runtime-failed',
+    'cancelled',
+  ] as const) {
+    it(`handles an unfinished native tool with bounded continuation: ${scenario}`, async () => {
+      const prompts: string[] = []
+      const abort = new AbortController()
+      let nextId = 0
+      const provider = {
+        settings: { agent: 'test' },
+        generateId: () => `id-${nextId++}`,
+        ensureHandle: async () => ({ handle: {}, sessionKey: 'chat' }),
+        markSessionKeyUsed: () => true,
+        runtime: {
+          startTurn(input: { text: string; signal?: AbortSignal }) {
+            prompts.push(input.text)
+            const number = prompts.length
+            expect(input.signal).toBe(abort.signal)
+            return {
+              events: (async function* () {
+                if (number === 2 && scenario === 'recovered') {
+                  yield {
+                    type: 'text_delta',
+                    text: 'I could not confirm the memory write. I have not repeated it.',
+                  }
+                } else {
+                  yield {
+                    type: 'tool_call',
+                    toolCallId: `memory-${number}`,
+                    title: 'memory_add',
+                    text: '',
+                    status: 'in_progress',
+                    rawInput: { content: 'Remember this' },
+                  }
+                }
+                if (scenario === 'cancelled') abort.abort()
+              })(),
+              result: Promise.resolve(
+                scenario === 'runtime-failed'
+                  ? { status: 'failed', error: { message: 'Process exited' } }
+                  : { status: 'completed', stopReason: 'end_turn' },
+              ),
+              cancel: async () => {},
+            }
+          },
+        },
+      } as unknown as AcpxProvider
+      const { stream } = await new PaneAcpLanguageModel(provider).doStream({
+        prompt: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'Save my preference' }],
+          },
+        ],
+        abortSignal: abort.signal,
+      })
+      const parts = []
+      for await (const part of stream) parts.push(part)
+      const continues = scenario === 'recovered' || scenario === 'still-pending'
+      expect(prompts).toHaveLength(continues ? 2 : 1)
+      if (continues) {
+        expect(prompts[1]).toContain('Their outcomes are unknown')
+        expect(prompts[1]).toContain('do not repeat a write')
+        expect(prompts[1]).not.toContain('Save my preference')
+      }
+      expect(parts.filter((p) => p.type === 'tool-result')).toHaveLength(
+        scenario === 'still-pending' ? 2 : 1,
+      )
+      expect(parts.filter((p) => p.type === 'error')).toHaveLength(
+        scenario === 'runtime-failed' ? 1 : 0,
+      )
+      if (scenario === 'recovered')
+        expect(JSON.stringify(parts)).toContain('I have not repeated it')
+      if (scenario === 'still-pending')
+        expect(JSON.stringify(parts)).toContain(
+          'Some tool calls ended without a confirmed result',
+        )
+    })
+  }
+
+  it('preserves each MCP startup server and exposes its diagnostic as readable output', () => {
+    const translator = new PaneAcpEventTranslator(() => 'id')
+    for (const server of ['node_repl', 'browseros']) {
+      const message = `MCP server \`${server}\` failed to start: connection closed during initialize`
+      const parts = translator.translate({
+        type: 'tool_call',
+        toolCallId: `mcp_startup.${server}`,
+        title: `mcp__${server}__startup`,
+        text: message,
+        status: 'failed',
+        content: [
+          { type: 'content', content: { type: 'text', text: message } },
+        ],
+      })
+      expect(parts.at(-1)).toMatchObject({
+        type: 'tool-result',
+        toolName: `MCP startup: ${server}`,
+        isError: true,
+        result: { content: [{ type: 'text', text: message }] },
+      })
+    }
+    expect(translator.finish({ status: 'completed' }).at(-1)).toMatchObject({
+      finishReason: 'stop',
+    })
+  })
+
   it('sends changed system context on continuation without replaying history or unchanged context', async () => {
     const turns: string[] = []
     let fresh = true
@@ -91,7 +219,39 @@ describe('Pane ACP protocol boundary', () => {
     })
   })
 
-  it('never reports success for a dangling call and emits each fatal error once', () => {
+  it('unwraps ACP images and text while preserving file diffs', () => {
+    const translator = new PaneAcpEventTranslator(() => 'id')
+    const image = {
+      type: 'image' as const,
+      data: 'aW1hZ2U=',
+      mimeType: 'image/png',
+    }
+    const diff = {
+      type: 'diff' as const,
+      path: '/tmp/file',
+      oldText: 'old',
+      newText: 'new',
+    }
+    const parts = translator.translate({
+      type: 'tool_call',
+      toolCallId: 'call',
+      title: 'browseros/startup',
+      text: '',
+      status: 'completed',
+      content: [
+        { type: 'content', content: { type: 'text', text: 'Started' } },
+        { type: 'content', content: image },
+        diff,
+      ],
+    })
+    expect(parts.at(-1)).toMatchObject({
+      toolName: 'startup',
+      isError: false,
+      result: { content: [{ type: 'text', text: 'Started' }, image, diff] },
+    })
+  })
+
+  it('marks dangling tools unknown without turning a completed native turn into a fatal error', () => {
     const translator = new PaneAcpEventTranslator(() => 'id')
     translator.translate({
       type: 'tool_call',
@@ -99,9 +259,13 @@ describe('Pane ACP protocol boundary', () => {
       text: 'working',
       status: 'pending',
     })
-    expect(translator.finish({ status: 'completed' }).at(-1)).toMatchObject({
-      finishReason: 'error',
+    const parts = translator.finish({ status: 'completed' })
+    expect(parts.at(-1)).toMatchObject({ finishReason: 'stop' })
+    expect(parts.find((p) => p.type === 'tool-result')).toMatchObject({
+      isError: true,
     })
+    expect(parts.some((p) => p.type === 'error')).toBe(false)
+    expect(JSON.stringify(parts)).toContain('Outcome unknown')
     const errored = new PaneAcpEventTranslator(() => 'id')
     expect(
       errored.translate({ type: 'error', message: 'Connection lost' }),

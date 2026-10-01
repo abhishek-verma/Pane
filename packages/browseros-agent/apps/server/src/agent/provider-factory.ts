@@ -331,7 +331,10 @@ async function createAcpLanguageModel(
         throw new Error(
           'This ACP adapter cannot apply the selected reasoning effort.',
         )
-      await provider.setConfigOption('reasoning_effort', config.reasoningEffort)
+      // Claude advertises `effort`; Codex uses `reasoning_effort`. Use the
+      // resolved adapter ID so explicit adapter overrides are respected.
+      const effortKey = agentId === 'claude' ? 'effort' : 'reasoning_effort'
+      await provider.setConfigOption(effortKey, config.reasoningEffort)
     }
     return { model: new PaneAcpLanguageModel(provider), close }
   } catch (error) {

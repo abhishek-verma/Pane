@@ -43,6 +43,7 @@ import { createRepairToolCall } from './repair-tool-call'
 import { resolveContextWindowSize } from './resolve-context-window'
 import type { ToolImageStore } from './session-store'
 import { buildBrowserToolSet } from './tool-adapter'
+import { createToolSchemaRecovery } from './tool-schema-recovery'
 import { wrapToolSetWithGate } from './trust/gate'
 import type { ResolvedAgentConfig } from './types'
 
@@ -113,10 +114,19 @@ export class AiSdkAgent {
       'specificationVersion' in rawModel &&
       rawModel.specificationVersion === 'v3'
 
-    let model = rawModel
+    const schemaRecovery =
+      isV3Model && !isAcpProvider(config.resolvedConfig.provider)
+        ? createToolSchemaRecovery()
+        : undefined
+    let model = schemaRecovery
+      ? wrapLanguageModel({
+          model: rawModel as LanguageModelV3,
+          middleware: schemaRecovery.middleware,
+        })
+      : rawModel
     if (isV3Model && config.aiSdkDevtoolsEnabled) {
       model = wrapLanguageModel({
-        model: rawModel as LanguageModelV3,
+        model: model as LanguageModelV3,
         middleware: devToolsMiddleware() as LanguageModelV3Middleware,
       })
       logger.info('AI SDK DevTools middleware enabled', {
@@ -273,7 +283,7 @@ export class AiSdkAgent {
     // fall back to a deny-by-default context (empty pins, new-user cap) so a
     // future caller that forgets to set gateContext can never run ungated.
     const tools = wrapToolSetWithGate(
-      toolsForGate,
+      schemaRecovery ? schemaRecovery.protectTools(toolsForGate) : toolsForGate,
       () => ({
         ...(gateCtx ?? {
           pins: {},
