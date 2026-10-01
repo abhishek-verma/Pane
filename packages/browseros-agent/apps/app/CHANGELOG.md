@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.181 (2026-09-16)
+
+## What's Changed
+
+- chore(release): prepare Pane 0.47.0.91 (#257)
+- fix(layers): simplify management UI (#256)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
