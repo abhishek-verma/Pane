@@ -1,5 +1,14 @@
 # BrowserOS Agent Extension
 
+## v0.0.170 (2026-08-12)
+
+## What's Changed
+
+- chore(release): bump versions for v0.47.0.79 (#194)
+- feat(app,server): agent schedules tasks directly, surface automations, remove triggers (#191)
+- feat(server,app): add archive for PI pages, and archive UI for sites/pages (#190)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
