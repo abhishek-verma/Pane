@@ -16,6 +16,7 @@ let prepareCalls = 0
 let prepareError: Error | null = null
 const setModeCalls: string[] = []
 const configCalls: Array<[string, string]> = []
+let supportedConfigOptions: string[] | null = null
 let rejectModes: string[] = []
 let omitRuntimeSetMode = false
 const killCalls: unknown[] = []
@@ -30,6 +31,11 @@ const fakeProvider = {
     if (prepareError) throw prepareError
   },
   setConfigOption: async (key: string, value: string) => {
+    if (supportedConfigOptions && !supportedConfigOptions.includes(key)) {
+      throw new Error(
+        `acp session test does not advertise config option '${key}'. Supported config options: ${supportedConfigOptions.join(', ')}.`,
+      )
+    }
     configCalls.push([key, value])
   },
   setMode: async (mode: string) => {
@@ -177,6 +183,7 @@ beforeEach(() => {
   prepareError = null
   setModeCalls.length = 0
   configCalls.length = 0
+  supportedConfigOptions = null
   rejectModes = []
   omitRuntimeSetMode = false
   mkdirShouldThrow = false
@@ -516,6 +523,25 @@ describe('createLanguageModel — ACP dangerously-allow mode', () => {
 })
 
 describe('createLanguageModel — ACP mcpServers forwarding', () => {
+  it.each([
+    ['claude-code', undefined, 'effort'],
+    ['codex', undefined, 'reasoning_effort'],
+    ['acp-custom', 'claude', 'effort'],
+    ['claude-code', 'codex', 'reasoning_effort'],
+  ] as const)('applies effort for %s with adapter override %s using %s', async (provider, acpAgentId, effortKey) => {
+    supportedConfigOptions = ['agent', effortKey, 'mode', 'model']
+    const { model } = await createLanguageModel({
+      conversationId: 'effort-fixture',
+      provider,
+      acpAgentId,
+      model: 'default',
+      reasoningEffort: 'high',
+    })
+    expect(model).toBeInstanceOf(PaneAcpLanguageModel)
+    expect(configCalls).toEqual([[effortKey, 'high']])
+    expect(closeCalls).toBe(0)
+  })
+
   it('forwards arbitrary saved models and effort without alias-name comparisons', async () => {
     configCalls.length = 0
     await createLanguageModel({

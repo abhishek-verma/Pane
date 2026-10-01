@@ -20,6 +20,7 @@ type ToolState = {
   output?: unknown
   content?: ToolEvent['content']
   mcp?: boolean
+  failureText?: string
 }
 // V3 consumes this flag after adapting the V2 stream. V2 declarations predate it.
 const dynamic = { dynamic: true }
@@ -31,7 +32,7 @@ export class PaneAcpEventTranslator {
   private readonly completed = new Set<string>()
   private runtimeError?: Extract<AcpRuntimeEvent, { type: 'error' }>
 
-  constructor(generateId: () => string) {
+  constructor(private readonly generateId: () => string) {
     this.text = new EventTranslator({ generateId })
   }
 
@@ -47,7 +48,13 @@ export class PaneAcpEventTranslator {
     let state = this.pending.get(id)
     if (!state) {
       parts.push(...this.text.flush())
-      state = { name: normalizeAcpToolTitle(event.title?.trim() || 'tool') }
+      // Startup diagnostics are synthetic calls, not a tool named "startup".
+      // Keep the server identity instead of stripping its MCP namespace.
+      state = {
+        name: id.startsWith('mcp_startup.')
+          ? `MCP startup: ${event.title?.match(/^mcp__(.+)__startup$/)?.[1] ?? id.slice('mcp_startup.'.length)}`
+          : normalizeAcpToolTitle(event.title?.trim() || 'tool'),
+      }
       this.pending.set(id, state)
       parts.push({
         type: 'tool-input-start',
@@ -76,6 +83,8 @@ export class PaneAcpEventTranslator {
     }
     if (event.rawOutput !== undefined) state.output = event.rawOutput
     if (event.content !== undefined) state.content = event.content
+    if (event.status === 'failed' && event.text?.trim())
+      state.failureText = event.text
     if (event.status === 'completed' || event.status === 'failed') {
       parts.push(...this.complete(id, state, event.status === 'failed'))
     }
@@ -92,7 +101,18 @@ export class PaneAcpEventTranslator {
     // Serialize once, including strings. A raw string is a value, not a JSON fragment.
     const input = JSON.stringify(state.input ?? {})
     let result =
-      state.output ?? (state.content ? { content: state.content } : {})
+      state.output ??
+      (state.content?.length
+        ? {
+            // ACP wraps text/images in ToolCallContent's `content` variant.
+            // The shared transcript consumes MCP ContentBlocks directly.
+            content: state.content.map((part) =>
+              part.type === 'content' ? part.content : part,
+            ),
+          }
+        : failed && state.failureText
+          ? { error: state.failureText }
+          : {})
     if (
       state.mcp &&
       result &&
@@ -127,18 +147,19 @@ export class PaneAcpEventTranslator {
     ]
   }
 
-  finish(result: AcpRuntimeTurnResult): LanguageModelV2StreamPart[] {
+  /** Only a normally ended native turn can be continued. A missing terminal
+   * notification is an unknown tool outcome, not proof of runtime failure. */
+  recoveryPrompt(result: AcpRuntimeTurnResult): string | undefined {
     if (
-      result.status === 'completed' &&
-      (this.runtimeError || this.pending.size > 0)
-    ) {
-      result = {
-        status: 'failed',
-        error: this.runtimeError ?? {
-          message: 'Agent ended its turn with an unfinished tool call.',
-        },
-      }
-    }
+      result.status !== 'completed' ||
+      this.runtimeError ||
+      !this.pending.size
+    )
+      return
+    return `Pane did not receive terminal results for these tool calls: ${[...this.pending].map(([id, state]) => `${state.name} (${id})`).join(', ')}. Their outcomes are unknown. Continue the user's request using available information. Do not assume these calls succeeded or failed, and do not repeat a write or other side effect without first verifying its outcome. If you cannot verify, explain the uncertainty and finish with a useful response instead of waiting indefinitely.`
+  }
+
+  closeIncompleteTools(): LanguageModelV2StreamPart[] {
     const parts = this.text.flush()
     for (const [id, state] of this.pending) {
       parts.push(
@@ -146,10 +167,38 @@ export class PaneAcpEventTranslator {
           id,
           {
             ...state,
-            output: { error: 'Agent turn ended before this tool completed.' },
+            output: {
+              error:
+                'Tool completion was not reported before the agent turn ended. Outcome unknown; verify before retrying any side effect.',
+            },
           },
           true,
         ),
+      )
+    }
+    return parts
+  }
+
+  finish(result: AcpRuntimeTurnResult): LanguageModelV2StreamPart[] {
+    if (result.status === 'completed' && this.runtimeError) {
+      result = {
+        status: 'failed',
+        error: this.runtimeError,
+      }
+    }
+    const unresolved = this.pending.size > 0
+    const parts = this.closeIncompleteTools()
+    if (unresolved && result.status === 'completed') {
+      const id = this.generateId()
+      parts.push(
+        { type: 'text-start', id },
+        {
+          type: 'text-delta',
+          id,
+          delta:
+            '\n\nSome tool calls ended without a confirmed result. Their outcomes are unknown; verify them before repeating any action.',
+        },
+        { type: 'text-end', id },
       )
     }
     parts.push(
@@ -195,7 +244,7 @@ export class PaneAcpLanguageModel extends AcpxLanguageModel {
     })
     if (!fresh && systemChanged && systemContext)
       prompt.text = `Updated Pane context (supersedes the previous Pane context):\n${prompt.text}`
-    const turn = provider.runtime.startTurn({
+    let turn = provider.runtime.startTurn({
       handle,
       ...prompt,
       mode: 'prompt',
@@ -208,30 +257,62 @@ export class PaneAcpLanguageModel extends AcpxLanguageModel {
     const translator = new PaneAcpEventTranslator(provider.generateId)
     const lastSystemContext = this.lastSystemContext
     let cancelled = false
+    const readTurn = async (
+      emit: (parts: LanguageModelV2StreamPart[]) => void,
+    ) => {
+      for await (const event of turn.events) {
+        if (cancelled) return undefined
+        emit(translator.translate(event))
+      }
+      return await turn.result
+    }
     let stream = new ReadableStream<LanguageModelV2StreamPart>({
       async start(controller) {
+        const emit = (parts: LanguageModelV2StreamPart[]) => {
+          if (!cancelled) {
+            for (const part of parts) controller.enqueue(part)
+          }
+        }
         try {
           controller.enqueue({ type: 'stream-start', warnings: [] })
-          for await (const event of turn.events) {
-            if (cancelled) return
-            for (const part of translator.translate(event))
-              controller.enqueue(part)
+          for (let continuation = 0; ; continuation++) {
+            const result = await readTurn(emit)
+            if (cancelled || !result) return
+            const recovery = translator.recoveryPrompt(result)
+            if (
+              recovery &&
+              continuation === 0 &&
+              !options.abortSignal?.aborted
+            ) {
+              emit(translator.closeIncompleteTools())
+              // Continue the native session once; never replay the original
+              // user request or re-execute an unconfirmed tool ourselves.
+              turn = provider.runtime.startTurn({
+                handle,
+                text: recovery,
+                mode: 'prompt',
+                requestId: provider.generateId(),
+                timeoutMs: 0,
+                signal: options.abortSignal,
+              })
+              continue
+            }
+            if (result.status === 'completed')
+              lastSystemContext.set(sessionKey, systemContext)
+            emit(translator.finish(result))
+            break
           }
-          const result = await turn.result
-          if (result.status === 'completed')
-            lastSystemContext.set(sessionKey, systemContext)
-          if (!cancelled)
-            for (const part of translator.finish(result))
-              controller.enqueue(part)
         } catch (error) {
           if (!cancelled) {
-            for (const part of translator.finish({
-              status: 'failed',
-              error: {
-                message: error instanceof Error ? error.message : String(error),
-              },
-            }))
-              controller.enqueue(part)
+            emit(
+              translator.finish({
+                status: 'failed',
+                error: {
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                },
+              }),
+            )
           }
         } finally {
           if (!cancelled) controller.close()
