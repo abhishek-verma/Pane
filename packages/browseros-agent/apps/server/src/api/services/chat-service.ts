@@ -1436,11 +1436,19 @@ export class ChatService {
     this.deps.sessionStore.remove(request.conversationId)
 
     const browserContext = agentConfig.isScheduledTask
-      ? (session.browserContext ??
-        (await resolveBrowserContextPageIds(
-          this.deps.browser,
-          request.browserContext,
-        )))
+      ? session.browserContext
+        ? {
+            ...session.browserContext,
+            // Keep the run's hidden page, but refresh integration access from
+            // the current request. Reusing the whole old context made a
+            // connector-triggered rebuild reconnect the old MCP servers.
+            enabledMcpServers: request.browserContext?.enabledMcpServers,
+            customMcpServers: request.browserContext?.customMcpServers,
+          }
+        : await resolveBrowserContextPageIds(
+            this.deps.browser,
+            request.browserContext,
+          )
       : await resolveBrowserContextPageIds(
           this.deps.browser,
           request.browserContext,

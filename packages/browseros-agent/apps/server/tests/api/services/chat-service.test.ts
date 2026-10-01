@@ -205,6 +205,132 @@ function createFakeAgent() {
 }
 
 describe('ChatService scheduled task hidden page lifecycle', () => {
+  for (const provider of ['claude-code', 'codex']) {
+    it(`forwards scheduled connector access to ${provider}'s MCP boundary`, async () => {
+      resolveLLMConfigSpy.mockImplementation(async () => ({
+        provider,
+        model: 'default',
+        apiKey: 'unused',
+      }))
+      try {
+        const agent = createFakeAgent()
+        agentToReturn = agent
+        streamResponseHandler = async ({ onFinish, uiMessages }) => {
+          await onFinish({ messages: uiMessages ?? agent.messages })
+          return new Response('ok')
+        }
+        const conversationId = crypto.randomUUID()
+        const service = new ChatService(createChatServiceDeps())
+        await service.processMessage(
+          {
+            conversationId,
+            message: 'Check calendar updates',
+            isScheduledTask: true,
+            mode: 'agent',
+            browserContext: {
+              enabledMcpServers: ['calendar'],
+              customMcpServers: [
+                { name: 'Calendar', url: 'https://calendar.test/mcp' },
+              ],
+            },
+          } as never,
+          new AbortController().signal,
+        )
+        const config = createAgentSpy.mock.calls.at(-1)?.[0] as {
+          resolvedConfig: { acpMcpServers: Array<Record<string, unknown>> }
+        }
+        const [pane, calendar] = config.resolvedConfig.acpMcpServers
+        expect(pane).toMatchObject({
+          name: 'browseros',
+          url: 'http://127.0.0.1:9100/mcp',
+        })
+        expect(pane.headers).toContainEqual({
+          name: 'X-BrowserOS-Scope-Id',
+          value: conversationId,
+        })
+        expect(pane.headers).toContainEqual({
+          name: 'X-BrowserOS-Managed-Mcp-Servers',
+          value: 'calendar',
+        })
+        expect(calendar).toEqual({
+          type: 'http',
+          name: 'Calendar',
+          url: 'https://calendar.test/mcp',
+          headers: [],
+        })
+      } finally {
+        resolveLLMConfigSpy.mockImplementation(async () => ({
+          provider: 'openai',
+          model: 'gpt-5',
+          apiKey: 'test-key',
+        }))
+      }
+    })
+  }
+
+  it('refreshes connected apps on background rebuilds while preserving the hidden page', async () => {
+    const conversationId = crypto.randomUUID()
+    const hiddenTab = {
+      id: 77,
+      pageId: 77,
+      url: 'about:blank',
+      title: 'Scheduled Task',
+    }
+    const sessionStore = createSessionStore()
+    sessionStore.set(conversationId, {
+      agent: createFakeAgent(),
+      browserContext: { windowId: 11, activeTab: hiddenTab },
+      mcpServerKey: '',
+      llmKey: 'openai||gpt-5||',
+      chatMode: false,
+    } as never)
+    const resolveTabIds = mock(async () => new Map<number, number>())
+    const service = new ChatService(
+      createChatServiceDeps({ sessionStore, browser: { resolveTabIds } }),
+    )
+
+    // Add, replace, then revoke connectors in the same background conversation.
+    for (const integrations of [
+      {
+        enabledMcpServers: ['calendar'],
+        customMcpServers: [{ name: 'Work', url: 'https://work.test/mcp' }],
+      },
+      {
+        enabledMcpServers: ['tasks'],
+        customMcpServers: [{ name: 'Other', url: 'https://other.test/mcp' }],
+      },
+      undefined,
+    ]) {
+      const agent = createFakeAgent()
+      agentToReturn = agent
+      streamResponseHandler = async ({ onFinish, uiMessages }) => {
+        await onFinish({ messages: uiMessages ?? agent.messages })
+        return new Response('ok')
+      }
+      await service.processMessage(
+        {
+          conversationId,
+          message: 'Continue reviewing today',
+          isScheduledTask: true,
+          mode: 'agent',
+          browserContext: integrations,
+        } as never,
+        new AbortController().signal,
+      )
+      const config = createAgentSpy.mock.calls.at(-1)?.[0] as {
+        browserContext: Record<string, unknown>
+      }
+      expect(config.browserContext).toEqual({
+        windowId: 11,
+        activeTab: hiddenTab,
+        enabledMcpServers: integrations?.enabledMcpServers,
+        customMcpServers: integrations?.customMcpServers,
+      })
+    }
+    // Hidden page IDs are internal IDs, not Chrome tab IDs to resolve again.
+    expect(resolveTabIds).not.toHaveBeenCalled()
+  })
+
   it('creates and cleans up a hidden page without creating a hidden window', async () => {
     const fakeAgent = createFakeAgent()
     agentToReturn = fakeAgent
