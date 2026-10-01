@@ -1,5 +1,14 @@
 # BrowserOS Agent Extension
 
+## v0.0.184 (2026-09-18)
+
+## What's Changed
+
+- chore(release): prepare Pane 0.47.0.94 (#273)
+- fix(layers): preview revised scripts and explain invalid action input (#272)
+- fix(layers): preserve provider authority and recover page actions (#271)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
