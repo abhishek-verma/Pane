@@ -1,5 +1,21 @@
 # BrowserOS Agent Extension
 
+## v0.0.162 (2026-08-07)
+
+## What's Changed
+
+- chore(release): bump versions for v0.47.0.67
+- fix(server): forward custom baseUrl for 5 providers, fix chat/agent mode toggle (#145)
+- fix(capture): Zoom dialog stops transcription, refresh race, and speaker labels (#144)
+- fix: address review findings — data loss, race conditions, edge cases
+- feat: v0.47.0.66 — dual-channel capture, TCC fix, session cleanup, VAD segmentation
+- chore(release): v0.47.0.65 / ext 0.0.160 — fix meeting detection hang
+- fix: replace allFrames:true with per-frame probing for meeting detection
+- chore(release): v0.47.0.64 / ext 0.0.159 — meeting transcription fix
+- fix: pass profileKey from background to offscreen for capture uploads
+- fix: use agentFetch in transcribeAudio to include X-BrowserOS-Profile-Id
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
