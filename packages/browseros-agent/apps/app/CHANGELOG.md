@@ -1,5 +1,14 @@
 # BrowserOS Agent Extension
 
+## v0.0.174 (2026-08-20)
+
+## What's Changed
+
+- chore(release): bump to v0.47.0.84, extension v0.0.174 (#224)
+- fix(app,server): close profile-key fallback race and cut redundant fingerprint I/O (#223)
+- fix(voice,server): live dictation captions + shared ASR worker reliability fix (#222)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
