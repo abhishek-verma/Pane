@@ -1,5 +1,14 @@
 # BrowserOS Agent Extension
 
+## v0.0.172 (2026-08-12)
+
+## What's Changed
+
+- chore(release): bump extension to 0.0.172 for v0.47.0.81 (#207)
+- chore(release): bump versions for v0.47.0.81 (#206)
+- fix(capture): mark untested meeting platforms as WIP in Settings (#203)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
