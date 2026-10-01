@@ -18,11 +18,11 @@ When the user invokes this skill **with no further instructions**, run the entir
 **Local signed production** path end-to-end. Do not stop for confirmation unless a
 hard don't would be violated or the tree needs a full Chromium rebuild.
 
-**Test first.** If the diff touches only server (`packages/browseros-agent/apps/server/**`)
-or extension (`packages/browseros-agent/apps/app/**`) code, verify the changes in the
-installed app with the **`pane-quick-test`** skill before building/shipping here. Only
-proceed to the release when the user confirms the quick test passed. Chromium C++ /
-`chromium_patches/` changes have no quick path — go straight to the incremental build.
+An explicit release request authorizes the signed production workflow through
+publication. Run the appropriate automated checks and artifact smoke tests, then
+release without requiring a separate quick-test build or user test confirmation.
+Use **`pane-quick-test`** only when the user explicitly asks for a quick test; it is
+not a prerequisite for a release.
 
 ## Hard don'ts
 - Do **not** run `git reset --hard`, `git clean`, or `gclient sync` in `/Users/abhishek/chromium/src` without asking.
