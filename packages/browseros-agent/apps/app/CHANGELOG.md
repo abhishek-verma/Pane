@@ -1,5 +1,25 @@
 # BrowserOS Agent Extension
 
+## v0.0.168 (2026-08-11)
+
+## What's Changed
+
+- chore(release): bump to v0.47.0.77, extension 0.0.168, build offset 185 (#178)
+- fix(app): stop mermaid crashing chat and add a session-level crash boundary (#177)
+- fix(app): fix bento tile text overflow and trust toggle polarity (#176)
+- chore(release): bump to v0.47.0.76, extension 0.0.167, build offset 184 (#174)
+- fix(app): stop the chat panel crashing and the side panel losing conversations (#173)
+- feat(home): smart homepage fixes, Continue zone, bento layout, growth visibility (#172)
+- feat(app): context search, browse-all, and multiselect delete (#171)
+- chore(release): bump to v0.47.0.75, extension 0.0.166, build offset 183 (#169)
+- fix(app): stop slimMessagesForClientUi from looping forever (React error #185) (#168)
+- chore(release): bump to v0.47.0.74, extension 0.0.165, build offset 182 (#166)
+- fix: chat-turn crash dedup + reduce PI agent friction (#165)
+- chore(release): bump to v0.47.0.71, extension 0.0.164, build offset 179 (#157)
+- fix(approvals): plumb trust pins into MCP gate for ACP providers (#156)
+- fix(capture): fix meeting transcript live-updates over EventSource (#154)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
