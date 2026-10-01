@@ -1,5 +1,15 @@
 # BrowserOS Agent Extension
 
+## v0.0.177 (2026-09-08)
+
+## What's Changed
+
+- feat: refine home task controls and document Layers contracts (#237)
+- chore: prepare Pane 0.47.0.87 and extension 0.0.177 (#237)
+- fix: use compatible provider runtimes and preserve fatal errors (#237)
+- test: isolate Bun test files (#236)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
