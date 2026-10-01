@@ -1,5 +1,15 @@
 # BrowserOS Agent Extension
 
+## v0.0.183 (2026-09-17)
+
+## What's Changed
+
+- chore(release): merge latest lifecycle fixes (#266)
+- fix(layers): synchronize previews and preserve newer local stops (#267)
+- chore(release): prepare Pane 0.47.0.93 (#266)
+- fix(layers): synchronize lifecycle state with browser (#265)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
