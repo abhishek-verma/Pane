@@ -1,24 +1,19 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <title>Pane (macOS arm64)</title>
     <link>https://raw.githubusercontent.com/abhishek-verma/Pane/main/updates/browser/appcast.xml</link>
     <description>Pane browser updates</description>
     <language>en</language>
-
-<item>
-  <title>Pane - 0.47.0.96</title>
-  <description sparkle:format="plain-text">Improves installed Claude Code and Codex support, chat responsiveness, persistent permissions, PI site transfers, and Layers authorization.</description>
-  <sparkle:version>7983.97</sparkle:version>
-  <sparkle:shortVersionString>0.47.0.96</sparkle:shortVersionString>
-  <pubDate>Tue, 29 Sep 2026 06:52:06 GMT</pubDate>
-  <link>https://github.com/abhishek-verma/Pane/releases</link>
-  <enclosure
-    url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.96/Pane_v0.47.0.96_arm64.dmg"
-    sparkle:edSignature="hwXzX2zmO9bene9dyYVDy7wOjWBb82u8y3X0sIdH+pDEl3/MFgLWSlw9Hi7Yi6UiH4IzpXJP+kHD+yM0q3xWAg=="
-    length="411662362"
-    type="application/octet-stream" />
-  <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
-</item>
+    <item>
+      <title>Pane - 0.47.0.97</title>
+      <description sparkle:format="plain-text">Improves Claude reasoning settings, provider tool recovery, native-provider diagnostics, and scheduled connector refresh.</description>
+      <sparkle:version>7984.97</sparkle:version>
+      <sparkle:shortVersionString>0.47.0.97</sparkle:shortVersionString>
+      <pubDate>Thu, 01 Oct 2026 12:17:37 GMT</pubDate>
+      <link>https://github.com/abhishek-verma/Pane/releases</link>
+      <enclosure url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.97/Pane_v0.47.0.97_arm64.dmg" sparkle:edSignature="X/Hw4//x3RSwUwMy4DCvJWlLlDxBFgQ7M+EBTG5FyyP7138l3VRYwrxS6YUrVjsXRaCgC68SQL/8aVjYXhwZBw==" length="411653222" type="application/octet-stream" />
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+    </item>
   </channel>
 </rss>
