@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import modelCatalog from '@browseros/shared/model-catalog-data.json'
 import type { AgentAdapter, AgentAdapterDescriptor } from '../agent-types'
 
 export const AGENT_ADAPTER_CATALOG: AgentAdapterDescriptor[] = [
@@ -17,18 +18,10 @@ export const AGENT_ADAPTER_CATALOG: AgentAdapterDescriptor[] = [
       { id: 'opus', label: 'Opus (latest)' },
       { id: 'sonnet', label: 'Sonnet (latest)' },
       { id: 'haiku', label: 'Haiku (latest)', recommended: true },
-      { id: 'claude-opus-4-7', label: 'Opus 4.7' },
-      { id: 'claude-opus-4-6', label: 'Opus 4.6' },
-      { id: 'claude-opus-4-5', label: 'Opus 4.5' },
-      { id: 'claude-opus-4-1', label: 'Opus 4.1' },
-      { id: 'claude-opus-4', label: 'Opus 4' },
-      { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
-      { id: 'claude-sonnet-4-5', label: 'Sonnet 4.5' },
-      { id: 'claude-sonnet-4', label: 'Sonnet 4' },
-      { id: 'claude-3-7-sonnet', label: 'Sonnet 3.7' },
-      { id: 'claude-3-5-sonnet', label: 'Sonnet 3.5' },
-      { id: 'claude-haiku-4-5', label: 'Haiku 4.5' },
-      { id: 'claude-3-5-haiku', label: 'Haiku 3.5' },
+      ...modelCatalog.anthropic.models.map((model) => ({
+        id: model.id,
+        label: model.name,
+      })),
     ],
     reasoningEfforts: [
       { id: 'low', label: 'Low' },
@@ -41,22 +34,25 @@ export const AGENT_ADAPTER_CATALOG: AgentAdapterDescriptor[] = [
   {
     id: 'codex',
     name: 'Codex',
-    defaultModelId: 'gpt-5.5',
+    defaultModelId: 'gpt-6-astra',
     defaultReasoningEffort: 'medium',
     modelControl: 'best-effort',
     models: [
-      { id: 'gpt-5.5', label: 'GPT-5.5', recommended: true },
-      { id: 'gpt-5.4', label: 'GPT-5.4' },
-      { id: 'gpt-5.4-mini', label: 'GPT-5.4-Mini' },
-      { id: 'gpt-5.3-codex', label: 'GPT-5.3-Codex' },
-      { id: 'gpt-5.3-codex-spark', label: 'GPT-5.3-Codex-Spark' },
-      { id: 'gpt-5.2', label: 'GPT-5.2' },
+      { id: 'gpt-6-astra', label: 'GPT-6 Astra', recommended: true },
+      { id: 'gpt-6-sol', label: 'GPT-6 Sol' },
+      { id: 'gpt-6-luna', label: 'GPT-6 Luna' },
+      { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol' },
+      { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
+      { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna' },
+      { id: 'gpt-5.5', label: 'GPT-5.5' },
     ],
     reasoningEfforts: [
       { id: 'low', label: 'Low' },
       { id: 'medium', label: 'Medium', recommended: true },
       { id: 'high', label: 'High' },
       { id: 'xhigh', label: 'Extra high' },
+      { id: 'max', label: 'Max' },
+      { id: 'ultra', label: 'Ultra' },
     ],
   },
 ]

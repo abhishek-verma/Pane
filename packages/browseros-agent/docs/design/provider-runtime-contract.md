@@ -74,3 +74,31 @@ pre-archive signing/notarization hook. Neither path may upload unsigned macOS co
 Validate both installed-CLI selection and the pinned fallback in release checks.
 Installed versions can change independently of Pane, so adapter and model
 compatibility still require ongoing validation.
+
+
+## Model catalog refresh
+
+API-provider settings refresh public model metadata from `https://models.dev/api.json`
+when opened, with a six-hour in-memory freshness window. The checked-in snapshot in
+`packages/shared/src/model-catalog-data.json` provides immediate offline choices.
+Both paths use `packages/shared/src/model-catalog.ts`, exclude deprecated and
+non-chat models, and carry context/output limits, image/reasoning/tool support and
+pricing. Refresh the release fallback with `bun run generate:models` from the
+agent workspace. A failed or invalid fetch keeps the last successful query result,
+or the bundled snapshot. No API credentials are sent to the catalog service.
+
+The coding-agent `/agents/adapters` endpoint probes the installed Claude Code and
+Codex adapters for model IDs and effort options. Results are cached for five minutes;
+concurrent probes share one request. Listings return cached or bundled choices immediately
+while discovery refreshes in the background; the active UI polls every 30 seconds.
+Creation resolves omitted model and effort fields through discovery before persistence.
+Failed discovery preserves the last successful
+result (or bundled defaults) and retries after 30 seconds. Creation accepts newly
+discovered IDs as well as bundled choices. Discovery refreshes metadata only; it
+does not install a CLI, change saved provider selections, or upgrade runtime packages.
+
+Public catalog availability does not establish account entitlement. ChatGPT's
+subscription endpoint retains a separate curated fallback, and Qwen's login endpoint
+retains its endpoint-specific aliases. Custom/local model availability and Azure
+deployment names still require explicit configuration. New API protocols or parameters
+require an integration change; catalog refresh cannot add SDK support by itself.

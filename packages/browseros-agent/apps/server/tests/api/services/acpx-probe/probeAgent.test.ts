@@ -233,6 +233,7 @@ describe('probeAcpAgent — normalisation', () => {
       models: [
         { id: 'gpt-5.5/low', name: 'GPT-5.5 (low)' },
         { id: 'gpt-5.5/medium', name: 'GPT-5.5 (medium)' },
+        { id: 'gpt-5.5/ultra', name: 'GPT-5.5 (ultra)' },
         { id: 'gpt-5.3-codex/low', name: 'gpt-5.3-codex (low)' },
       ],
       configOptions: [
@@ -336,11 +337,12 @@ describe('probeAcpAgent — normalisation', () => {
       models: [
         { id: 'gpt-5.5/low', name: 'GPT-5.5 (low)' },
         { id: 'gpt-5.5/medium', name: 'GPT-5.5 (medium)' },
+        { id: 'gpt-5.5/ultra', name: 'GPT-5.5 (ultra)' },
       ],
     })
     const out = await probeAcpAgent({ agentId: 'codex' })
     expect(out.models.map((m) => m.id)).toEqual(['gpt-5.5'])
-    expect(out.reasoning?.values).toEqual(['low', 'medium'])
+    expect(out.reasoning?.values).toEqual(['low', 'medium', 'ultra'])
   })
 
   it('falls back to medium-or-first when there is no obvious default effort', async () => {

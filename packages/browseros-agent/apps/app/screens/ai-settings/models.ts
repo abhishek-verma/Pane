@@ -17,42 +17,27 @@ const CUSTOM_PROVIDER_MODELS: Partial<Record<ProviderType, ModelInfo[]>> = {
   'openai-compatible': [],
   ollama: [],
   'chatgpt-pro': [
-    { modelId: 'gpt-5.5', contextLength: 1050000 },
-    { modelId: 'gpt-5.4', contextLength: 1050000 },
-    { modelId: 'gpt-5.4-mini', contextLength: 400000 },
-    { modelId: 'gpt-5.4-nano', contextLength: 400000 },
-    { modelId: 'gpt-5.3-codex', contextLength: 400000 },
-    { modelId: 'gpt-5.3-codex-spark', contextLength: 128000 },
-    { modelId: 'gpt-5.2-codex', contextLength: 400000 },
-    { modelId: 'gpt-5.2', contextLength: 400000 },
-    { modelId: 'gpt-5.1-codex', contextLength: 400000 },
-    { modelId: 'gpt-5.1-codex-max', contextLength: 400000 },
-    { modelId: 'gpt-5.1-codex-mini', contextLength: 400000 },
-    { modelId: 'gpt-5.1', contextLength: 400000 },
+    ...[
+      'gpt-6-astra',
+      'gpt-6-sol',
+      'gpt-6-luna',
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-5.6-luna',
+      'gpt-5.5',
+    ].map((modelId) => ({
+      modelId,
+      contextLength: 1050000,
+      supportsImages: true,
+      supportsReasoning: true,
+      supportsToolCall: true,
+    })),
   ],
   'qwen-code': [
     { modelId: 'coder-model', contextLength: 1000000 },
     { modelId: 'qwen3-coder-plus', contextLength: 1000000 },
     { modelId: 'qwen3-coder-flash', contextLength: 1000000 },
     { modelId: 'qwen3.5-plus', contextLength: 1000000 },
-  ],
-  cerebras: [
-    { modelId: 'zai-glm-4.7', contextLength: 128000, supportsToolCall: true },
-    { modelId: 'gpt-oss-120b', contextLength: 128000, supportsToolCall: true },
-  ],
-  deepseek: [
-    {
-      modelId: 'deepseek-v4-flash',
-      contextLength: 1000000,
-      supportsToolCall: true,
-      supportsReasoning: true,
-    },
-    {
-      modelId: 'deepseek-v4-pro',
-      contextLength: 1000000,
-      supportsToolCall: true,
-      supportsReasoning: true,
-    },
   ],
 }
 
@@ -66,7 +51,11 @@ function fromModelsDevModel(m: ModelsDevModel): ModelInfo {
   }
 }
 
-export function getModelsForProvider(providerType: ProviderType): ModelInfo[] {
+export function getModelsForProvider(
+  providerType: ProviderType,
+  catalogModels?: ModelsDevModel[],
+): ModelInfo[] {
+  if (catalogModels?.length) return catalogModels.map(fromModelsDevModel)
   const custom = CUSTOM_PROVIDER_MODELS[providerType]
   if (custom !== undefined) return custom
 

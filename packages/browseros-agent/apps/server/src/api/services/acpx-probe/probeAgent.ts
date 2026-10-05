@@ -118,13 +118,24 @@ export async function probeAcpAgent(
 // `model[effort]`; newer builds use `model/effort`. Both forms appear in
 // the wild so we match either.
 const COMPOUND_MODEL_PATTERN =
-  /^(.+?)(?:\[(low|medium|high|xhigh|max)\]|\/(low|medium|high|xhigh|max))$/i
+  /^(.+?)(?:\[(none|minimal|low|medium|high|xhigh|max|ultra)\]|\/(none|minimal|low|medium|high|xhigh|max|ultra))$/i
 
-const EFFORT_ORDER = ['low', 'medium', 'high', 'xhigh', 'max']
+const EFFORT_ORDER = [
+  'none',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultra',
+]
 
 function stripEffortFromName(name: string | undefined): string | undefined {
   if (!name) return name
-  return name.replace(/\s*\((low|medium|high|xhigh|max)\)\s*$/i, '').trim()
+  return name
+    .replace(/\s*\((none|minimal|low|medium|high|xhigh|max|ultra)\)\s*$/i, '')
+    .trim()
 }
 
 function stripEffortFromDescription(

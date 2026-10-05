@@ -70,7 +70,15 @@ export interface LlmProviderConfig {
   sessionToken?: string
 
   // ChatGPT Pro (Codex) fields
-  reasoningEffort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+  reasoningEffort?:
+    | 'none'
+    | 'minimal'
+    | 'low'
+    | 'medium'
+    | 'high'
+    | 'xhigh'
+    | 'max'
+    | 'ultra'
   reasoningSummary?: 'auto' | 'concise' | 'detailed'
 
   // ACP-backed providers (claude-code, codex, acp-custom). agent id

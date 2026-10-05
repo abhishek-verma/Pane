@@ -69,6 +69,10 @@ export function useAgentAdapters(enabled = true) {
 
   const query = useQuery<HarnessAdapterDescriptor[], Error>({
     queryKey: [AGENT_QUERY_KEYS.adapters, baseUrl],
+    // The server returns cached choices while CLI discovery runs in the
+    // background. Pick up its result without requiring a settings reopen.
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
     queryFn: async ({ signal }) => {
       const data = await agentsFetch<{ adapters: HarnessAdapterDescriptor[] }>(
         baseUrl as string,

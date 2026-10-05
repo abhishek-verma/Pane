@@ -59,20 +59,16 @@ export const providerTemplates: ProviderTemplate[] = [
     id: 'chatgpt-pro',
     name: CHATGPT_PROVIDER_DISPLAY_NAME,
     defaultBaseUrl: 'https://chatgpt.com/backend-api',
-    defaultModelId: 'gpt-5.5',
+    defaultModelId: 'gpt-6-astra',
     supportsImages: true,
     contextWindow: 1050000,
     setupGuideUrl: productRepositoryUrl,
   },
-  {
-    id: 'github-copilot',
-    name: 'GitHub Copilot',
+  enrichTemplate('github-copilot', {
+    defaultModelId: 'gpt-6-luna',
     defaultBaseUrl: 'https://api.githubcopilot.com',
-    defaultModelId: 'gpt-5-mini',
-    supportsImages: true,
-    contextWindow: 128000,
     setupGuideUrl: productRepositoryUrl,
-  },
+  }),
   {
     id: 'qwen-code',
     name: 'Qwen Code',
@@ -82,18 +78,13 @@ export const providerTemplates: ProviderTemplate[] = [
     contextWindow: 1000000,
     setupGuideUrl: productRepositoryUrl,
   },
-  {
-    id: 'moonshot',
-    name: 'Moonshot AI',
-    defaultBaseUrl: 'https://api.moonshot.ai/v1',
-    defaultModelId: 'kimi-k2.5',
-    supportsImages: true,
-    contextWindow: 200000,
+  enrichTemplate('moonshot', {
+    defaultModelId: 'kimi-k3',
     apiKeyUrl: 'https://platform.moonshot.ai/console/api-keys',
     setupGuideUrl: 'https://platform.moonshot.ai/console/api-keys',
-  },
+  }),
   enrichTemplate('openai', {
-    defaultModelId: 'gpt-5',
+    defaultModelId: 'gpt-6.1-sol',
     apiKeyUrl: 'https://platform.openai.com/api-keys',
     setupGuideUrl: byokGuideUrl,
   }),
@@ -106,12 +97,12 @@ export const providerTemplates: ProviderTemplate[] = [
     contextWindow: 128000,
   },
   enrichTemplate('anthropic', {
-    defaultModelId: 'claude-sonnet-4-6',
+    defaultModelId: 'claude-sonnet-5-5',
     apiKeyUrl: 'https://console.anthropic.com/settings/keys',
     setupGuideUrl: byokGuideUrl,
   }),
   enrichTemplate('google', {
-    defaultModelId: 'gemini-2.5-flash',
+    defaultModelId: 'gemini-flash-latest',
     apiKeyUrl: 'https://aistudio.google.com/app/apikey',
     setupGuideUrl: byokGuideUrl,
   }),
@@ -125,7 +116,7 @@ export const providerTemplates: ProviderTemplate[] = [
     setupGuideUrl: byokGuideUrl,
   },
   enrichTemplate('openrouter', {
-    defaultModelId: 'anthropic/claude-sonnet-4.5',
+    defaultModelId: 'anthropic/claude-sonnet-5.5',
     apiKeyUrl: 'https://openrouter.ai/keys',
     setupGuideUrl: byokGuideUrl,
   }),
@@ -140,30 +131,22 @@ export const providerTemplates: ProviderTemplate[] = [
       'https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/OpenAI',
   }),
   enrichTemplate('bedrock', {
-    defaultModelId: 'anthropic.claude-sonnet-4-6',
+    defaultModelId: 'anthropic.claude-sonnet-5-5',
     setupGuideUrl:
       'https://docs.aws.amazon.com/bedrock/latest/userguide/getting-started.html',
   }),
-  {
-    id: 'cerebras',
-    name: 'Cerebras',
+  enrichTemplate('cerebras', {
+    defaultModelId: 'gpt-oss-120b',
     defaultBaseUrl: 'https://api.cerebras.ai/v1',
-    defaultModelId: 'zai-glm-4.7',
-    supportsImages: false,
-    contextWindow: 128000,
     apiKeyUrl: 'https://cloud.cerebras.ai/platform/org/api-keys',
     setupGuideUrl: 'https://inference-docs.cerebras.ai/introduction',
-  },
-  {
-    id: 'deepseek',
-    name: 'DeepSeek',
+  }),
+  enrichTemplate('deepseek', {
+    defaultModelId: 'deepseek-flash',
     defaultBaseUrl: 'https://api.deepseek.com/v1',
-    defaultModelId: 'deepseek-v4-flash',
-    supportsImages: false,
-    contextWindow: 1000000,
     apiKeyUrl: 'https://platform.deepseek.com/api_keys',
     setupGuideUrl: 'https://api-docs.deepseek.com/',
-  },
+  }),
 ]
 
 /**

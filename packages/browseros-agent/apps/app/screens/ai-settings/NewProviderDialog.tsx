@@ -84,7 +84,7 @@ import { cn } from '@/lib/utils'
 import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { useCapabilities } from '@/modules/browseros/capabilities.hooks'
 import { useAcpProbe } from '@/modules/llm-providers/acp-probe.hooks'
-import { getModelContextLength, getModelsForProvider } from './models'
+import { useProviderModels } from '@/modules/llm-providers/model-catalog.hooks'
 import {
   isCredentiallessProviderType,
   normalizeProviderFormValues,
@@ -290,7 +290,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     }
   }, [acpProbe.data, watchedType, form])
 
-  const modelInfoList = getModelsForProvider(watchedType as ProviderType)
+  const modelInfoList = useProviderModels(watchedType as ProviderType)
 
   const modelFuse = useMemo(
     () =>
@@ -334,15 +334,16 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     if (initialValues?.id) return
 
     if (watchedModelId) {
-      const contextLength = getModelContextLength(
-        watchedType as ProviderType,
-        watchedModelId,
+      const model = modelInfoList.find(
+        (model) => model.modelId === watchedModelId,
       )
-      if (contextLength) {
-        form.setValue('contextWindow', contextLength)
+      if (model) {
+        form.setValue('contextWindow', model.contextLength)
+        if (model.supportsImages !== undefined)
+          form.setValue('supportsImages', model.supportsImages)
       }
     }
-  }, [watchedModelId, watchedType, form, initialValues?.id])
+  }, [watchedModelId, modelInfoList, form, initialValues?.id])
 
   useEffect(() => {
     if (initialValues) {

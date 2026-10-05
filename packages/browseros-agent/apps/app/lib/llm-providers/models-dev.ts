@@ -1,4 +1,4 @@
-import data from './models-dev-data.json'
+import data from '@browseros/shared/model-catalog-data.json'
 
 export interface ModelsDevModel {
   id: string
