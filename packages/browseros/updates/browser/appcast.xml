@@ -6,13 +6,13 @@
     <description>Pane browser updates</description>
     <language>en</language>
     <item>
-      <title>Pane - 0.47.0.97</title>
-      <description sparkle:format="plain-text">Improves Claude reasoning settings, provider tool recovery, native-provider diagnostics, and scheduled connector refresh.</description>
-      <sparkle:version>7984.97</sparkle:version>
-      <sparkle:shortVersionString>0.47.0.97</sparkle:shortVersionString>
-      <pubDate>Thu, 01 Oct 2026 12:17:37 GMT</pubDate>
+      <title>Pane - 0.47.0.98</title>
+      <description sparkle:format="plain-text">Refreshes provider model choices and runtime discovery, improves agent setup responsiveness, and fixes saved layers after in-page navigation.</description>
+      <sparkle:version>7985.97</sparkle:version>
+      <sparkle:shortVersionString>0.47.0.98</sparkle:shortVersionString>
+      <pubDate>Mon, 05 Oct 2026 13:26:36 GMT</pubDate>
       <link>https://github.com/abhishek-verma/Pane/releases</link>
-      <enclosure url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.97/Pane_v0.47.0.97_arm64.dmg" sparkle:edSignature="X/Hw4//x3RSwUwMy4DCvJWlLlDxBFgQ7M+EBTG5FyyP7138l3VRYwrxS6YUrVjsXRaCgC68SQL/8aVjYXhwZBw==" length="411653222" type="application/octet-stream" />
+      <enclosure url="https://github.com/abhishek-verma/Pane/releases/download/v0.47.0.98/Pane_v0.47.0.98_arm64.dmg" sparkle:edSignature="KJ8s2ek9+VvWRcmwaa5eL5xU9DVbKAbm9S36glQ69DG/iRTF0GXHFs6eNIfvlfO8kcvgTAZO75JIL7n/j7yvDg==" length="411440607" type="application/octet-stream" />
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
     </item>
   </channel>
