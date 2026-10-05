@@ -22,6 +22,7 @@ import {
 } from '@/components/ai-elements/reasoning'
 import { AttachmentPreviews } from '@/components/chat/composer/AttachmentPreviews'
 import { MessageRevision } from '@/components/chat/composer/MessageRevision'
+import { MessageSelection } from '@/components/chat/composer/MessageSelection'
 import { ChatMarkdown } from '@/components/tool-evidence/ChatMarkdown'
 import { ChatMessageErrorBoundary } from '@/components/tool-evidence/ChatMessageErrorBoundary'
 import type { ChatAction } from '@/lib/chat-actions/types'
@@ -132,6 +133,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
     >
       <Message from={message.role}>
         <MessageContent>
+          <MessageSelection message={message} />
           {message.role === 'user' && (
             <AttachmentPreviews attachments={attachments} />
           )}
