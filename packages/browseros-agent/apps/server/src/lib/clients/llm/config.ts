@@ -21,7 +21,7 @@ export async function resolveLLMConfig(
     return resolveOAuthConfig(config, browserosId, {
       providerId: 'chatgpt-pro',
       displayName: CHATGPT_PROVIDER_DISPLAY_NAME,
-      defaultModel: 'gpt-5.5',
+      defaultModel: 'gpt-6-astra',
       useRefresh: true,
       extraFields: (tokens) => ({
         upstreamProvider: 'openai',
@@ -33,7 +33,7 @@ export async function resolveLLMConfig(
     return resolveOAuthConfig(config, browserosId, {
       providerId: 'github-copilot',
       displayName: 'GitHub Copilot',
-      defaultModel: 'gpt-5-mini',
+      defaultModel: 'gpt-6-luna',
       useRefresh: false,
     })
   }

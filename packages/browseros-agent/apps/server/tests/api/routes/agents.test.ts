@@ -7,7 +7,10 @@ import { describe, expect, it } from 'bun:test'
 import { AGENT_HARNESS_LIMITS } from '@browseros/shared/constants/limits'
 import { Hono } from 'hono'
 import { createAgentRoutes } from '../../../src/api/routes/agents'
+import { getAgentAdapterDescriptor } from '../../../src/lib/agents/adapters/catalog'
+import { AgentModelDiscovery } from '../../../src/lib/agents/adapters/model-discovery'
 import {
+  type AgentAdapter,
   type AgentDefinition,
   type AgentSessionId,
   MAIN_AGENT_SESSION_ID,
@@ -18,11 +21,161 @@ import {
 } from '../../../src/lib/agents/turns/active-turn-registry'
 import type { AgentStreamEvent } from '../../../src/lib/agents/types'
 
+const staticModelDiscovery = {
+  async get(adapter: AgentAdapter) {
+    const descriptor = getAgentAdapterDescriptor(adapter)
+    if (!descriptor) throw new Error('Unknown adapter')
+    return descriptor
+  },
+}
+
 describe('createAgentRoutes', () => {
+  it('returns adapters before slow CLI probes finish', async () => {
+    const probe = Promise.withResolvers<void>()
+    const discovery = new AgentModelDiscovery({}, async () => {
+      await probe.promise
+      return {
+        models: [],
+        reasoning: null,
+        supportsConfigOption: false,
+        agentInfo: null,
+        protocolVersion: 1,
+      }
+    })
+    const route = new Hono().route(
+      '/agents',
+      createAgentRoutes({
+        service: createFakeService([]),
+        modelDiscovery: discovery,
+        adapterHealth: {
+          async getHealth() {
+            return {
+              healthy: false,
+              checkedAt: 1,
+              readiness: 'needs-install' as const,
+              installState: 'not-installed' as const,
+              nativeCliState: 'unknown' as const,
+              authState: 'unknown' as const,
+              adapterLaunchSource: 'none' as const,
+              packageCacheState: 'unknown' as const,
+            }
+          },
+        },
+      }),
+    )
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      const response = await Promise.race([
+        route.request('/agents/adapters'),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error('Listing waited for CLI discovery')),
+            1000,
+          )
+        }),
+      ])
+      expect(response.status).toBe(200)
+      expect((await response.json()).adapters).toHaveLength(2)
+    } finally {
+      clearTimeout(timer)
+      probe.resolve()
+      await Promise.all([discovery.get('claude'), discovery.get('codex')])
+    }
+  })
+
+  it.each([
+    { fields: {}, modelId: 'future-model', reasoningEffort: 'future-effort' },
+    {
+      fields: { modelId: 'gpt-5.5' },
+      modelId: 'gpt-5.5',
+      reasoningEffort: 'future-effort',
+    },
+    {
+      fields: { reasoningEffort: 'low' },
+      modelId: 'future-model',
+      reasoningEffort: 'low',
+    },
+  ])('uses discovered defaults for omitted creation fields: $fields', async ({
+    fields,
+    modelId,
+    reasoningEffort,
+  }) => {
+    const route = new Hono().route(
+      '/agents',
+      createAgentRoutes({
+        service: createFakeService([]),
+        modelDiscovery: {
+          async get(adapter) {
+            return {
+              ...(await staticModelDiscovery.get(adapter)),
+              defaultModelId: 'future-model',
+              defaultReasoningEffort: 'future-effort',
+              models: [{ id: 'future-model', label: 'Future model' }],
+              reasoningEfforts: [
+                { id: 'future-effort', label: 'Future effort' },
+              ],
+            }
+          },
+        },
+      }),
+    )
+    const response = await route.request('/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Runtime default agent',
+        adapter: 'codex',
+        ...fields,
+      }),
+    })
+    expect(response.status).toBe(200)
+    const { agent } = await response.json()
+    expect(agent).toMatchObject({ modelId, reasoningEffort })
+    const listed = await (await route.request('/agents')).json()
+    expect(listed.agents[0]).toMatchObject({
+      id: agent.id,
+      modelId,
+      reasoningEffort,
+    })
+  })
+
+  it('accepts a newly discovered model and reasoning setting', async () => {
+    const route = new Hono().route(
+      '/agents',
+      createAgentRoutes({
+        service: createFakeService([]),
+        modelDiscovery: {
+          async get(adapter) {
+            return {
+              ...(await staticModelDiscovery.get(adapter)),
+              models: [{ id: 'future-model', label: 'Future model' }],
+              reasoningEfforts: [
+                { id: 'future-effort', label: 'Future effort' },
+              ],
+            }
+          },
+        },
+      }),
+    )
+    const response = await route.request('/agents', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'New model agent',
+        adapter: 'codex',
+        modelId: 'future-model',
+        reasoningEffort: 'future-effort',
+      }),
+    })
+    expect(response.status).toBe(200)
+    expect((await response.json()).agent.modelId).toBe('future-model')
+  })
+
   it('returns enriched adapter health from /adapters', async () => {
     const route = new Hono().route(
       '/agents',
       createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
         service: createFakeService([]),
         adapterHealth: {
           async getHealth(adapter) {
@@ -166,7 +319,13 @@ describe('createAgentRoutes', () => {
       updatedAt: 1000,
     }
     const service = createFakeService([agent])
-    const route = new Hono().route('/agents', createAgentRoutes({ service }))
+    const route = new Hono().route(
+      '/agents',
+      createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
+        service,
+      }),
+    )
 
     const response = await route.request(
       `/agents/agent-1/sessions/${sessionId}/chat`,
@@ -200,7 +359,13 @@ describe('createAgentRoutes', () => {
       updatedAt: 1000,
     }
     const service = createFakeService([agent])
-    const route = new Hono().route('/agents', createAgentRoutes({ service }))
+    const route = new Hono().route(
+      '/agents',
+      createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
+        service,
+      }),
+    )
 
     const response = await route.request('/agents/agent-1/chat', {
       method: 'POST',
@@ -260,7 +425,10 @@ describe('createAgentRoutes', () => {
     const blocking = createBlockingFakeService([agent])
     const blockingRoute = new Hono().route(
       '/agents',
-      createAgentRoutes({ service: blocking }),
+      createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
+        service: blocking,
+      }),
     )
 
     const first = blockingRoute.request('/agents/agent-1/chat', {
@@ -306,7 +474,10 @@ describe('createAgentRoutes', () => {
     const blocking = createBlockingFakeService([agent])
     const blockingRoute = new Hono().route(
       '/agents',
-      createAgentRoutes({ service: blocking }),
+      createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
+        service: blocking,
+      }),
     )
 
     // Kick off the first turn but don't read its body — that's the
@@ -359,7 +530,10 @@ describe('createAgentRoutes', () => {
     const blocking = createBlockingFakeService([agent])
     const route = new Hono().route(
       '/agents',
-      createAgentRoutes({ service: blocking }),
+      createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
+        service: blocking,
+      }),
     )
 
     const first = route.request(`/agents/agent-1/sessions/${sessionId}/chat`, {
@@ -405,7 +579,10 @@ describe('createAgentRoutes', () => {
     const blocking = createBlockingFakeService([agent])
     const blockingRoute = new Hono().route(
       '/agents',
-      createAgentRoutes({ service: blocking }),
+      createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
+        service: blocking,
+      }),
     )
 
     const first = blockingRoute.request('/agents/agent-1/chat', {
@@ -465,6 +642,7 @@ describe('createAgentRoutes', () => {
     const route = new Hono().route(
       '/agents',
       createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
         service,
         browser: {
           async resolveTabIds(tabIds: number[]) {
@@ -540,7 +718,13 @@ describe('createAgentRoutes', () => {
       updatedAt: 1000,
     }
     const service = createFakeService([agent])
-    const route = new Hono().route('/agents', createAgentRoutes({ service }))
+    const route = new Hono().route(
+      '/agents',
+      createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
+        service,
+      }),
+    )
 
     const response = await route.request('/agents/agent-1/sidepanel/chat', {
       method: 'POST',
@@ -630,7 +814,10 @@ describe('createAgentRoutes', () => {
     const blocking = createBlockingFakeService([agent])
     const route = new Hono().route(
       '/agents',
-      createAgentRoutes({ service: blocking }),
+      createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
+        service: blocking,
+      }),
     )
     const abortController = new AbortController()
 
@@ -664,7 +851,10 @@ describe('createAgentRoutes', () => {
     const blocking = createBlockingFakeService([agent])
     const route = new Hono().route(
       '/agents',
-      createAgentRoutes({ service: blocking }),
+      createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
+        service: blocking,
+      }),
     )
 
     const requestBody = validCreatedAgentSidepanelBody()
@@ -708,7 +898,10 @@ describe('createAgentRoutes', () => {
     const blocking = createBlockingFakeService([agent])
     const route = new Hono().route(
       '/agents',
-      createAgentRoutes({ service: blocking }),
+      createAgentRoutes({
+        modelDiscovery: staticModelDiscovery,
+        service: blocking,
+      }),
     )
 
     const firstSessionId = '00000000-0000-4000-8000-000000000001'
@@ -966,7 +1159,11 @@ function createMountedRoutes(
 ) {
   return new Hono().route(
     '/agents',
-    createAgentRoutes({ service: createFakeService(agents), ...deps }),
+    createAgentRoutes({
+      modelDiscovery: staticModelDiscovery,
+      service: createFakeService(agents),
+      ...deps,
+    }),
   )
 }
 

@@ -20,7 +20,7 @@ function bootstrap(options: { token: string; instanceKey: string }) {
   const removeEvent = EventTarget.prototype.removeEventListener
   const uuid = crypto.randomUUID.bind(crypto)
   let instanceId = uuid()
-  const initialUrl = location.href
+  let startedUrl: string | undefined
   const activation = navigator.userActivation
   const activationGetter = Object.getOwnPropertyDescriptor(
     Object.getPrototypeOf(activation),
@@ -168,6 +168,7 @@ function bootstrap(options: { token: string; instanceKey: string }) {
       },
       begin: () => {
         if (stopped || started) return false
+        startedUrl = location.href
         started = true
         return true
       },
@@ -191,10 +192,13 @@ function bootstrap(options: { token: string; instanceKey: string }) {
   void request('hello').catch(() => {
     if (generation === helloGeneration && started) cleanup()
   })
+  // Origin-wide bootstraps may load before navigation into the saved scope.
+  // Only stop on route changes after source has actually started, using its
+  // activation URL rather than the URL where the bootstrap was injected.
   // Route changes cannot leave tracked work running outside the saved scope.
   // Arbitrary untracked effects still require a reload to remove completely.
   const routeTimer = interval(() => {
-    if (location.href !== initialUrl) cleanup()
+    if (started && location.href !== startedUrl) cleanup()
   }, 250)
   disposers.push(() => clear(routeTimer))
   addEvent.call(globalThis, 'pagehide', (value: Event) => {

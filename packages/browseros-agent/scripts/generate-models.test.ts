@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import modelsDevData from '../apps/app/lib/llm-providers/models-dev-data.json'
+import modelsDevData from '../packages/shared/src/model-catalog-data.json'
 import {
   formatModelsData,
   generateModelsData,
@@ -18,6 +18,8 @@ const REQUIRED_PROVIDER_IDS = [
   'lmstudio',
   'moonshot',
   'github-copilot',
+  'cerebras',
+  'deepseek',
 ]
 
 const NON_CHAT_MODEL_CLASS_PATTERN =
@@ -58,6 +60,7 @@ describe('generateModelsData', () => {
             id: 'current-model',
             name: 'Current Model',
             attachment: true,
+            modalities: { input: ['text', 'image'], output: ['text'] },
             reasoning: true,
             cost: { input: 1, output: 2 },
           }),

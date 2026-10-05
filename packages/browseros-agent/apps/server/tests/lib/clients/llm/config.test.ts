@@ -30,7 +30,7 @@ describe('resolveLLMConfig', () => {
     tempDirs.length = 0
   })
 
-  it('defaults ChatGPT OAuth providers to GPT-5.5', async () => {
+  it('defaults ChatGPT OAuth providers to GPT-6 Astra', async () => {
     const browserosId = 'browseros-id'
     const dir = mkdtempSync(join(tmpdir(), 'browseros-llm-config-test-'))
     tempDirs.push(dir)
@@ -52,7 +52,7 @@ describe('resolveLLMConfig', () => {
 
     expect(resolved).toMatchObject({
       provider: LLM_PROVIDERS.CHATGPT_PRO,
-      model: 'gpt-5.5',
+      model: 'gpt-6-astra',
       apiKey: 'access-token',
       upstreamProvider: 'openai',
       accountId: 'account-id',

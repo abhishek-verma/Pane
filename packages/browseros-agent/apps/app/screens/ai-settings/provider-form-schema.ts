@@ -52,7 +52,16 @@ export const providerFormSchema = z
     region: z.string().optional(),
     sessionToken: z.string().optional(),
     reasoningEffort: z
-      .enum(['none', 'low', 'medium', 'high', 'xhigh', 'max'])
+      .enum([
+        'none',
+        'minimal',
+        'low',
+        'medium',
+        'high',
+        'xhigh',
+        'max',
+        'ultra',
+      ])
       .optional(),
     reasoningSummary: z.enum(['auto', 'concise', 'detailed']).optional(),
     acpAgentId: z.string().optional(),

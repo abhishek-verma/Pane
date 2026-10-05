@@ -102,7 +102,9 @@ export const LLMConfigSchema: z.ZodObject<{
   secretAccessKey: z.ZodOptional<z.ZodString>
   sessionToken: z.ZodOptional<z.ZodString>
   reasoningEffort: z.ZodOptional<
-    z.ZodEnum<['none', 'low', 'medium', 'high', 'xhigh', 'max']>
+    z.ZodEnum<
+      ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']
+    >
   >
   reasoningSummary: z.ZodOptional<z.ZodEnum<['auto', 'concise', 'detailed']>>
   acpAgentId: z.ZodOptional<z.ZodString>
@@ -130,7 +132,7 @@ export const LLMConfigSchema: z.ZodObject<{
   // accepts every value any ACP agent emits so the chat path can pass
   // probe-discovered values through verbatim.
   reasoningEffort: z
-    .enum(['none', 'low', 'medium', 'high', 'xhigh', 'max'])
+    .enum(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
     .optional(),
   reasoningSummary: z.enum(['auto', 'concise', 'detailed']).optional(),
   // ACP-backed providers (claude-code, codex, acp-custom). agent id

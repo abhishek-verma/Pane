@@ -29,7 +29,7 @@ describe('AGENT_ADAPTER_CATALOG', () => {
     expect(getAgentAdapterDescriptor('codex')).toMatchObject({
       id: 'codex',
       name: 'Codex',
-      defaultModelId: 'gpt-5.5',
+      defaultModelId: 'gpt-6-astra',
       defaultReasoningEffort: 'medium',
       modelControl: 'best-effort',
     })
@@ -40,7 +40,7 @@ describe('AGENT_ADAPTER_CATALOG', () => {
     expect(isSupportedAgentModel('claude', 'claude-haiku-4-5')).toBe(true)
     expect(isSupportedAgentModel('claude', 'claude-not-real')).toBe(false)
     expect(isSupportedAgentModel('codex', 'gpt-5.5')).toBe(true)
-    expect(isSupportedAgentModel('codex', 'gpt-5.4-mini')).toBe(true)
+    expect(isSupportedAgentModel('codex', 'gpt-6-luna')).toBe(true)
     expect(isSupportedAgentModel('codex', 'codex-auto-review')).toBe(false)
 
     expect(isSupportedReasoningEffort('codex', 'xhigh')).toBe(true)

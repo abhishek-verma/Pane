@@ -23,6 +23,7 @@ import {
   isSupportedReasoningEffort,
 } from '../../lib/agents/adapters/catalog'
 import { AdapterHealthChecker } from '../../lib/agents/adapters/health'
+import { AgentModelDiscovery } from '../../lib/agents/adapters/model-discovery'
 import {
   type AgentAdapter,
   type AgentDefinition,
@@ -100,6 +101,8 @@ type AgentRouteService = {
 }
 
 type AgentRouteDeps = {
+  modelDiscovery?: Pick<AgentModelDiscovery, 'get'> &
+    Partial<Pick<AgentModelDiscovery, 'getCached'>>
   service?: AgentRouteService
   browser?: Pick<Browser, 'resolveTabIds'>
   browserosServerPort?: number
@@ -153,13 +156,25 @@ export function createAgentRoutes(deps: AgentRouteDeps = {}) {
       },
     })
 
+  const modelDiscovery =
+    deps.modelDiscovery ??
+    new AgentModelDiscovery({
+      resourcesDir: deps.resourcesDir,
+      browserosDir: deps.browserosDir,
+    })
+
   return new Hono<Env>()
     .get('/adapters', async (c) => {
       const adapters = await Promise.all(
-        AGENT_ADAPTER_CATALOG.map(async (descriptor) => ({
-          ...descriptor,
-          health: await adapterHealth.getHealth(descriptor.id),
-        })),
+        AGENT_ADAPTER_CATALOG.map(async (descriptor) => {
+          const [catalog, health] = await Promise.all([
+            modelDiscovery.getCached
+              ? modelDiscovery.getCached(descriptor.id)
+              : modelDiscovery.get(descriptor.id),
+            adapterHealth.getHealth(descriptor.id),
+          ])
+          return { ...catalog, health }
+        }),
       )
       return c.json({ adapters })
     })
@@ -168,7 +183,7 @@ export function createAgentRoutes(deps: AgentRouteDeps = {}) {
       return c.json({ agents })
     })
     .post('/', async (c) => {
-      const parsed = await parseCreateAgentBody(c)
+      const parsed = await parseCreateAgentBody(c, modelDiscovery)
       if ('error' in parsed) return c.json({ error: parsed.error }, 400)
       try {
         return c.json({ agent: await service.createAgent(parsed) })
@@ -632,7 +647,10 @@ function parseLastSeq(value: string | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
-async function parseCreateAgentBody(c: Context<Env>): Promise<
+async function parseCreateAgentBody(
+  c: Context<Env>,
+  modelDiscovery: Pick<AgentModelDiscovery, 'get'>,
+): Promise<
   | {
       name: string
       adapter: AgentAdapter
@@ -664,18 +682,35 @@ async function parseCreateAgentBody(c: Context<Env>): Promise<
       ? record.reasoningEffort.trim()
       : undefined
 
-  if (!isSupportedAgentModel(record.adapter, modelId)) {
+  const discovered =
+    !modelId ||
+    !reasoningEffort ||
+    !isSupportedAgentModel(record.adapter, modelId) ||
+    !isSupportedReasoningEffort(record.adapter, reasoningEffort)
+      ? await modelDiscovery.get(record.adapter)
+      : undefined
+  if (
+    !isSupportedAgentModel(record.adapter, modelId) &&
+    !discovered?.models.some((model) => model.id === modelId)
+  ) {
     return { error: 'Invalid modelId' }
   }
-  if (!isSupportedReasoningEffort(record.adapter, reasoningEffort)) {
+  if (
+    !isSupportedReasoningEffort(record.adapter, reasoningEffort) &&
+    !discovered?.reasoningEfforts.some(
+      (effort) => effort.id === reasoningEffort,
+    )
+  ) {
     return { error: 'Invalid reasoningEffort' }
   }
 
   return {
     name,
     adapter: record.adapter,
-    modelId,
-    reasoningEffort,
+    // Resolve omitted fields before persistence so storage cannot substitute
+    // bundled defaults that differ from those advertised by runtime discovery.
+    modelId: modelId ?? discovered?.defaultModelId,
+    reasoningEffort: reasoningEffort ?? discovered?.defaultReasoningEffort,
   }
 }
 
