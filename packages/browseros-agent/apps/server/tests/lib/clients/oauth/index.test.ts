@@ -41,6 +41,7 @@ describe('OAuth client setup', () => {
     expect(manager.getStatus('qwen-code')).toEqual({
       authenticated: false,
       email: undefined,
+      pending: false,
       provider: 'qwen-code',
     })
 
@@ -53,6 +54,7 @@ describe('OAuth client setup', () => {
     expect(manager.getStatus('qwen-code')).toEqual({
       authenticated: true,
       email: undefined,
+      pending: false,
       provider: 'qwen-code',
     })
   })

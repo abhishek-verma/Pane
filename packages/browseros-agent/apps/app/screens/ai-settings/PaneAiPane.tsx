@@ -264,7 +264,7 @@ export const PaneAiPane: FC = () => {
         'Provider removed, but its saved sign-in could not be cleared',
         {
           description:
-            'The local service is unavailable. Reconnect and sign out when it returns.',
+            'When the local service is available, add this provider again and delete it to clear the saved sign-in.',
         },
       )
     }
