@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.188 (2026-10-06)
+
+## What's Changed
+
+- fix: stabilize chat restore and provider sign-in (#298)
+- fix(chat): show selected text in sent messages (#297)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
