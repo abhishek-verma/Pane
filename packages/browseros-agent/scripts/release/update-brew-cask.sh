@@ -53,7 +53,7 @@ CASK_CONTENT="cask \"pane\" do
   version \"${VERSION}\"
 
   on_arm do
-    url \"https://github.com/abhishek-verma/Pane/releases/download/v\#{version}/Pane_v\#{version}_arm64.dmg\"
+    url \"https://github.com/abhishek-verma/Pane/releases/download/v#{version}/Pane_v#{version}_arm64.dmg\"
     sha256 \"${SHA256}\"
   end
 
