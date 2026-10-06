@@ -373,3 +373,28 @@ it('does not let a cancel begun while idle clear a newly started turn', async ()
   await pending
   expect(controller.turn?.turnId).toBe('new')
 })
+
+it('delivers snapshots to the current view callback without reopening the stream', async () => {
+  let finish!: () => void
+  attachChatTurnStream.mockReset()
+  attachChatTurnStream.mockImplementation(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve
+      }),
+  )
+  const controller = new ChatTurnController()
+  controller.noteStartedTurn('turn', 'chat')
+  const previous = mock(() => {})
+  const current = mock(() => {})
+  controller.ensureAttached(previous)
+  controller.ensureAttached(current)
+  const stream = attachChatTurnStream.mock.calls[0][0]
+  await stream.onEvent({ type: 'snapshot', messages: [] }, 1)
+  await stream.onEvent({ type: 'done', status: 'done' }, 2)
+  expect(previous).not.toHaveBeenCalled()
+  expect(current).toHaveBeenCalledTimes(1)
+  expect(attachChatTurnStream).toHaveBeenCalledTimes(1)
+  controller.detachAttachOnly()
+  finish()
+})

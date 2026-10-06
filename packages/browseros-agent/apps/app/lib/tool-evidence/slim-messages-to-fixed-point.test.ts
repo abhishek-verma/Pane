@@ -64,3 +64,83 @@ describe('slimMessagesToFixedPoint', () => {
     expect(captureException).toHaveBeenCalledTimes(1)
   })
 })
+
+// This is the same pipeline used by restoreFromServer before setMessages.
+for (const type of ['tool-notion', 'dynamic-tool']) {
+  test(`restores a 3 MB ${type} input without losing the chat or retaining the payload`, () => {
+    const body = 'x'.repeat(3_000_000)
+    const restored = [
+      {
+        id: 'question',
+        role: 'user',
+        parts: [{ type: 'text', text: 'Update my document' }],
+      },
+      {
+        id: 'reply',
+        role: 'assistant',
+        metadata: { conversationId: 'existing-chat' },
+        parts: [
+          { type: 'text', text: 'Working on your document.' },
+          {
+            type,
+            toolName: 'notion',
+            toolCallId: 'call',
+            state: 'approval-requested',
+            approval: { id: 'approval' },
+            input: { body },
+          },
+          { type: 'text', text: 'Your conversation remains available.' },
+        ],
+      },
+    ] as UIMessage[]
+    const next = slimMessagesToFixedPoint(restored)
+    expect(JSON.stringify(next).length).toBeLessThan(1_000_000)
+    expect(next.map((message) => message.id)).toEqual(['question', 'reply'])
+    expect(next[0]).toBe(restored[0])
+    expect(next[1].metadata).toEqual({ conversationId: 'existing-chat' })
+    expect(next[1].parts[0]).toBe(restored[1].parts[0])
+    expect(next[1].parts[2]).toBe(restored[1].parts[2])
+    // Never turn a truncated argument preview into an approvable tool call.
+    expect(next[1].parts[1].type).toBe('text')
+    expect(
+      (restored[1].parts[1] as { input: { body: string } }).input.body,
+    ).toBe(body)
+    expect(slimMessagesToFixedPoint(next)).toBe(next)
+  })
+}
+
+test('restore bounds oversized metadata, provider fields, and aggregate tool inputs', () => {
+  const restored = Array.from({ length: 30 }, (_, index) => ({
+    id: `message-${index}`,
+    role: 'assistant',
+    metadata: { raw: 'x'.repeat(3_000_000) },
+    parts: [
+      {
+        type: 'text',
+        text: 'Saved visible reply',
+        providerMetadata: { raw: 'x'.repeat(3_000_000) },
+      },
+      ...Array.from({ length: 200 }, () => ({
+        type: 'tool-notion',
+        toolCallId: 'call',
+        state: 'output-available',
+        input: { body: 'x'.repeat(5000) },
+        output: {},
+      })),
+      { type: 'text', text: 'Final visible reply after tool work.' },
+    ],
+  })) as UIMessage[]
+  const next = slimMessagesToFixedPoint(restored)
+  expect(next.map((message) => message.id)).toEqual(
+    restored.map((message) => message.id),
+  )
+  expect(JSON.stringify(next).length).toBeLessThan(1_000_000)
+  expect(
+    next[0].parts.some(
+      (part) =>
+        part.type === 'text' &&
+        part.text === 'Final visible reply after tool work.',
+    ),
+  ).toBe(true)
+  expect(slimMessagesToFixedPoint(next)).toBe(next)
+})

@@ -10,9 +10,10 @@ import { getModelsForProvider } from '@/screens/ai-settings/models'
 
 // Public metadata only. Never send provider credentials to the catalog service.
 export function useProviderModels(providerType: ProviderType) {
-  const { data } = useQuery({
+  const canRefresh = Object.values(PROVIDER_MAP).includes(providerType)
+  const query = useQuery({
     queryKey: ['provider-model-catalog'],
-    enabled: Object.values(PROVIDER_MAP).includes(providerType),
+    enabled: canRefresh,
     staleTime: 6 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     retry: 1,
@@ -27,8 +28,16 @@ export function useProviderModels(providerType: ProviderType) {
       )
     },
   })
-  return useMemo(
-    () => getModelsForProvider(providerType, data?.[providerType]?.models),
-    [providerType, data],
+  const models = useMemo(
+    () =>
+      getModelsForProvider(providerType, query.data?.[providerType]?.models),
+    [providerType, query.data],
   )
+  return {
+    models,
+    canRefresh,
+    refetch: query.refetch,
+    isFetching: query.isFetching,
+    isError: query.isError,
+  }
 }

@@ -1,5 +1,8 @@
 import { z } from 'zod/v3'
-import { isLocalRuntimeProviderType } from '../../lib/llm-providers/provider-runtime'
+import {
+  isAcpProviderType,
+  PROVIDER_AUTH_KIND,
+} from '../../lib/llm-providers/provider-setup'
 
 const providerTypeEnum = z.enum([
   'moonshot',
@@ -22,18 +25,6 @@ const providerTypeEnum = z.enum([
   'remote-hermes',
   'cerebras',
   'deepseek',
-])
-
-const credentiallessProviderTypes: ReadonlySet<
-  z.infer<typeof providerTypeEnum>
-> = new Set([
-  'chatgpt-pro',
-  'github-copilot',
-  'qwen-code',
-  'codex',
-  'claude-code',
-  'acp-custom',
-  'remote-hermes',
 ])
 
 export const providerFormSchema = z
@@ -69,6 +60,27 @@ export const providerFormSchema = z
     acpFixedWorkspacePath: z.string().optional(),
   })
   .superRefine((data, ctx) => {
+    const kind = PROVIDER_AUTH_KIND[data.type]
+    if (kind === 'api-key' && !data.apiKey?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'API key is required',
+        path: ['apiKey'],
+      })
+    }
+    if (kind === 'custom-agent') {
+      for (const field of ['acpAgentId', 'acpCommand'] as const) {
+        if (!data[field]?.trim())
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              field === 'acpAgentId'
+                ? 'Agent ID is required'
+                : 'Agent command is required',
+            path: [field],
+          })
+      }
+    }
     if (data.type === 'azure') {
       if (!data.resourceName && !data.baseUrl) {
         ctx.addIssue({
@@ -106,7 +118,7 @@ export const providerFormSchema = z
           path: ['region'],
         })
       }
-    } else if (credentiallessProviderTypes.has(data.type)) {
+    } else if (isCredentiallessProviderType(data.type)) {
       return
     } else if (!data.baseUrl) {
       ctx.addIssue({
@@ -126,17 +138,19 @@ export const providerFormSchema = z
 export type ProviderFormValues = z.infer<typeof providerFormSchema>
 
 /** Identifies provider types whose settings form does not collect credentials. */
-export function isCredentiallessProviderType(
+function isCredentiallessProviderType(
   type: z.infer<typeof providerTypeEnum>,
 ): boolean {
-  return credentiallessProviderTypes.has(type)
+  return ['oauth', 'cli', 'custom-agent', 'managed'].includes(
+    PROVIDER_AUTH_KIND[type],
+  )
 }
 
 /** Removes stale endpoint and credential fields from local runtime configs. */
 export function normalizeProviderFormValues(
   values: ProviderFormValues,
 ): ProviderFormValues {
-  if (!isLocalRuntimeProviderType(values.type)) return values
+  if (!isAcpProviderType(values.type)) return values
 
   return {
     ...values,

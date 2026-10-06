@@ -10,6 +10,7 @@
 
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import type { UIMessage } from 'ai'
+import { boundMessagePayload } from './bound-message-payload'
 
 function truncateText(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text
@@ -107,11 +108,27 @@ export function slimMessagesForClientUi(
           )
         return { ...part, text: truncated }
       }
-      if (typeof part.type !== 'string' || !part.type.startsWith('tool-')) {
+      if (
+        typeof part.type !== 'string' ||
+        (part.type !== 'dynamic-tool' && !part.type.startsWith('tool-'))
+      ) {
         return part
       }
       const anyPart = part as Record<string, unknown>
       const output = anyPart.output
+      if (typeof output === 'string' && output.length > previewMaxChars) {
+        anyChanged = true
+        partsChanged = true
+        return {
+          ...part,
+          output: {
+            content: [
+              { type: 'text', text: truncateText(output, previewMaxChars) },
+            ],
+            contentLength: output.length,
+          },
+        } as typeof part
+      }
       if (!output || typeof output !== 'object') return part
       const rec = output as Record<string, unknown>
       // Server already spilled — leave the stub alone (still strip images).
@@ -165,7 +182,8 @@ export function slimMessagesForClientUi(
       // reasoning-part bug, just pre-existing rather than newly introduced.
       const alreadySlimmed = typeof rec.contentLength === 'number'
       if (
-        (bytes <= previewMaxChars * 2 || alreadySlimmed) &&
+        (bytes <= previewMaxChars * 2 ||
+          (alreadySlimmed && bytes <= previewMaxChars * 4)) &&
         !fatSnapshot &&
         !hasInlineImage
       ) {
@@ -213,19 +231,33 @@ export function slimMessagesForClientUi(
         )
       }
 
-      return {
-        ...anyPart,
-        output: {
-          ...rec,
-          content: nextContent,
-          structuredContent,
-          preview,
+      let boundedOutput: Record<string, unknown> = {
+        ...rec,
+        content: nextContent,
+        structuredContent,
+        preview,
+        contentLength: bytes,
+      }
+      // MCP results may contain arbitrary nested JSON, arrays, or hundreds
+      // of text blocks. Trimming each block alone does not bound the result.
+      // Keep a readable preview without copying the large structured body.
+      if (estimateToolOutputBytes(boundedOutput) > previewMaxChars * 4) {
+        const text = truncateText(
+          preview ||
+            firstTextPreview(rec, previewMaxChars) ||
+            '[Large tool result omitted from preview; full result is saved in chat history.]',
+          previewMaxChars,
+        )
+        boundedOutput = {
+          content: [{ type: 'text', text }],
           contentLength: bytes,
-        },
-      } as typeof part
+          ...(rec.isError === true ? { isError: true } : {}),
+        }
+      }
+      return { ...anyPart, output: boundedOutput } as typeof part
     })
     if (!partsChanged) return msg
     return { ...msg, parts }
   })
-  return anyChanged ? next : messages
+  return boundMessagePayload(anyChanged ? next : messages)
 }

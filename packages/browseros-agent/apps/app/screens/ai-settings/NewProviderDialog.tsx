@@ -8,7 +8,14 @@ import {
   Loader2,
   XCircle,
 } from 'lucide-react'
-import { type FC, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type FC,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useForm } from 'react-hook-form'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -63,7 +70,13 @@ import {
   KIMI_API_KEY_GUIDE_CLICKED_EVENT,
   MODEL_SELECTED_EVENT,
 } from '@/lib/constants/analyticsEvents'
-import { isLocalRuntimeProviderType } from '@/lib/llm-providers/provider-runtime'
+import { isOAuthProviderType } from '@/lib/llm-providers/oauth-providers'
+import {
+  isAcpProviderType,
+  isProviderTestable,
+  normalizeReasoningEffort,
+  PROVIDER_AUTH_KIND,
+} from '@/lib/llm-providers/provider-setup'
 import {
   type FeatureSupport,
   visibleProviderTypeOptions,
@@ -85,22 +98,13 @@ import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { useCapabilities } from '@/modules/browseros/capabilities.hooks'
 import { useAcpProbe } from '@/modules/llm-providers/acp-probe.hooks'
 import { useProviderModels } from '@/modules/llm-providers/model-catalog.hooks'
+import { ProviderModelCatalogStatus } from './ProviderModelCatalogStatus'
+import { ProviderSignIn } from './ProviderSignIn'
 import {
-  isCredentiallessProviderType,
   normalizeProviderFormValues,
   type ProviderFormValues,
   providerFormSchema,
 } from './provider-form-schema'
-
-const ACP_PROVIDER_TYPES = new Set<ProviderType>([
-  'claude-code',
-  'codex',
-  'acp-custom',
-])
-
-function isAcpProviderType(type: ProviderType | undefined): boolean {
-  return type !== undefined && ACP_PROVIDER_TYPES.has(type)
-}
 
 function isRemoteHermesType(type: ProviderType | undefined): boolean {
   return type === REMOTE_HERMES_PROVIDER_TYPE
@@ -111,7 +115,7 @@ function showsStandardModelField(type: ProviderType): boolean {
 }
 
 function defaultReasoningEffort(type?: ProviderType) {
-  return type === 'chatgpt-pro' ? 'medium' : 'high'
+  return type === 'chatgpt-pro' ? 'medium' : undefined
 }
 
 const EFFORT_LABEL: Record<string, string> = {
@@ -152,44 +156,6 @@ function getVisibleProviderTypeOptions(supports: FeatureSupport) {
   )
 }
 
-function isProviderTestable(input: {
-  type: ProviderType
-  modelId: string
-  baseUrl?: string
-  apiKey?: string
-  acpCommand?: string
-  resourceName?: string
-  accessKeyId?: string
-  secretAccessKey?: string
-  region?: string
-}): boolean {
-  if (!input.modelId) return false
-
-  if (isAcpProviderType(input.type)) {
-    return input.type !== 'acp-custom' || Boolean(input.acpCommand)
-  }
-
-  if (
-    input.type === 'chatgpt-pro' ||
-    input.type === 'github-copilot' ||
-    input.type === 'qwen-code'
-  ) {
-    return true
-  }
-
-  if (input.type === 'azure') {
-    return Boolean((input.resourceName || input.baseUrl) && input.apiKey)
-  }
-  if (input.type === 'bedrock') {
-    return Boolean(input.accessKeyId && input.secretAccessKey && input.region)
-  }
-  if (!input.baseUrl) return false
-  if (!['ollama', 'lmstudio'].includes(input.type) && !input.apiKey) {
-    return false
-  }
-  return true
-}
-
 export interface NewProviderDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -205,6 +171,11 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
 }) => {
   const [isTesting, setIsTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestResult | null>(null)
+  const testGeneration = useRef(0)
+  const clearTestResult = useCallback(() => {
+    testGeneration.current += 1
+    setTestResult(null)
+  }, [])
   const [modelPickerOpen, setModelPickerOpen] = useState(false)
   const [modelSearch, setModelSearch] = useState('')
   const modelListRef = useRef<HTMLDivElement>(null)
@@ -234,6 +205,9 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
         initialValues?.reasoningEffort ||
         defaultReasoningEffort(initialValues?.type),
       reasoningSummary: initialValues?.reasoningSummary || 'auto',
+      acpAgentId: initialValues?.acpAgentId,
+      acpCommand: initialValues?.acpCommand,
+      acpFixedWorkspacePath: initialValues?.acpFixedWorkspacePath,
     },
   })
 
@@ -246,26 +220,18 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
   const watchedAccessKeyId = form.watch('accessKeyId')
   const watchedSecretAccessKey = form.watch('secretAccessKey')
   const watchedRegion = form.watch('region')
-  const watchedSessionToken = form.watch('sessionToken')
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional - clear result when any credential changes
   useEffect(() => {
-    setTestResult(null)
-  }, [
-    watchedType,
-    watchedModelId,
-    watchedApiKey,
-    watchedBaseUrl,
-    watchedResourceName,
-    watchedAccessKeyId,
-    watchedSecretAccessKey,
-    watchedRegion,
-    watchedSessionToken,
-  ])
+    const subscription = form.watch(clearTestResult)
+    return () => subscription.unsubscribe()
+  }, [form, clearTestResult])
 
   const acpProbe = useAcpProbe({
     providerType: watchedType as ProviderType,
-    enabled: isAcpProviderType(watchedType as ProviderType),
+    enabled: open && isAcpProviderType(watchedType as ProviderType),
+    acpAgentId: form.watch('acpAgentId'),
+    command: form.watch('acpCommand'),
+    cwd: form.watch('acpFixedWorkspacePath'),
   })
 
   // Probe data arrives asynchronously after the dialog mounts; when it
@@ -280,7 +246,9 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     if (firstModel && !form.getValues('modelId')) {
       form.setValue('modelId', firstModel, { shouldDirty: false })
     }
-    const defaultEffort = acpProbe.data.reasoning?.defaultValue
+    const defaultEffort = normalizeReasoningEffort(
+      acpProbe.data.reasoning?.defaultValue,
+    )
     if (defaultEffort && !form.getValues('reasoningEffort')) {
       form.setValue(
         'reasoningEffort',
@@ -290,7 +258,8 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     }
   }, [acpProbe.data, watchedType, form])
 
-  const modelInfoList = useProviderModels(watchedType as ProviderType)
+  const modelCatalog = useProviderModels(watchedType as ProviderType)
+  const modelInfoList = modelCatalog.models
 
   const modelFuse = useMemo(
     () =>
@@ -311,8 +280,13 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
 
   const handleTypeChange = (newType: ProviderType) => {
     form.setValue('type', newType)
+    form.setValue('acpAgentId', undefined)
+    form.setValue('acpCommand', undefined)
+    form.setValue('acpFixedWorkspacePath', undefined)
+    setModelSearch('')
+    setModelPickerOpen(false)
     form.setValue('baseUrl', getDefaultBaseUrlForProviders(newType))
-    if (isLocalRuntimeProviderType(newType)) {
+    if (newType !== watchedType) {
       form.setValue('apiKey', '')
       form.setValue('resourceName', '')
       form.setValue('accessKeyId', '')
@@ -367,6 +341,9 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
           initialValues.reasoningEffort ||
           defaultReasoningEffort(initialValues.type),
         reasoningSummary: initialValues.reasoningSummary || 'auto',
+        acpAgentId: initialValues.acpAgentId,
+        acpCommand: initialValues.acpCommand,
+        acpFixedWorkspacePath: initialValues.acpFixedWorkspacePath,
       })
     }
   }, [initialValues, form])
@@ -433,6 +410,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     baseUrl: watchedBaseUrl,
     apiKey: watchedApiKey,
     acpCommand: form.getValues('acpCommand'),
+    acpAgentId: form.getValues('acpAgentId'),
     resourceName: watchedResourceName,
     accessKeyId: watchedAccessKeyId,
     secretAccessKey: watchedSecretAccessKey,
@@ -450,6 +428,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
 
     setIsTesting(true)
     setTestResult(null)
+    const generation = ++testGeneration.current
 
     try {
       const values = form.getValues()
@@ -472,16 +451,23 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
           secretAccessKey: values.secretAccessKey,
           region: values.region,
           sessionToken: values.sessionToken,
+          reasoningEffort: values.reasoningEffort,
+          reasoningSummary: values.reasoningSummary,
+          acpAgentId: values.acpAgentId,
+          acpCommand: values.acpCommand,
+          acpFixedWorkspacePath: values.acpFixedWorkspacePath,
         },
         agentServerUrl,
       )
 
-      setTestResult(result)
+      if (generation === testGeneration.current) setTestResult(result)
     } catch (error) {
-      setTestResult({
-        success: false,
-        message: error instanceof Error ? error.message : 'Test failed',
-      })
+      if (generation === testGeneration.current) {
+        setTestResult({
+          success: false,
+          message: error instanceof Error ? error.message : 'Test failed',
+        })
+      }
     } finally {
       setIsTesting(false)
     }
@@ -515,139 +501,209 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     if (isAcpProviderType(watchedType as ProviderType)) {
       return renderAcpFields()
     }
-    if (
-      isCredentiallessProviderType(watchedType) &&
-      watchedType !== 'chatgpt-pro'
-    ) {
-      const name =
-        watchedType === 'github-copilot'
-          ? 'GitHub'
-          : watchedType === 'qwen-code'
-            ? 'Qwen Code'
-            : watchedType === 'codex'
-              ? 'Codex'
-              : 'Claude Code'
-      const message =
-        watchedType === 'codex' || watchedType === 'claude-code'
-          ? `Credentials are managed by the local ${name} runtime. No API key needed.`
-          : `Credentials are managed via ${name} OAuth. No API key needed.`
+    if (isOAuthProviderType(watchedType) && watchedType !== 'chatgpt-pro') {
       return (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-700 text-sm dark:border-green-800 dark:bg-green-950 dark:text-green-300">
-          {message}
-        </div>
+        <ProviderSignIn
+          key={watchedType}
+          providerType={watchedType}
+          serverUrl={agentServerUrl}
+          onAuthenticated={clearTestResult}
+        />
+      )
+    }
+    if (watchedType === 'browseros') {
+      return (
+        <p className="text-muted-foreground text-sm">
+          Pane manages this provider through your Pane account.
+        </p>
       )
     }
 
     function renderAcpFields() {
-      const agentLabel = watchedType === 'codex' ? 'Codex' : 'Claude Code'
+      const agentLabel =
+        watchedType === 'codex'
+          ? 'Codex'
+          : watchedType === 'claude-code'
+            ? 'Claude Code'
+            : 'custom agent'
       const banner = (
         <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-700 text-sm dark:border-green-800 dark:bg-green-950 dark:text-green-300">
           Credentials are managed by the local {agentLabel} runtime. No API key
           needed.
+          {watchedType !== 'acp-custom' && (
+            <p className="mt-2">
+              To sign in or reconnect, run{' '}
+              <code>
+                {watchedType === 'codex' ? 'codex login' : 'claude auth login'}
+              </code>{' '}
+              in your terminal, then refresh models here.
+            </p>
+          )}
         </div>
       )
-      if (acpProbe.isPending) {
-        return (
-          <>
-            {banner}
-            <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <Loader2 className="size-4 animate-spin" />
-              Probing local {agentLabel} for available models and effort
-              levels...
-            </div>
-          </>
-        )
-      }
-      if (acpProbe.isError) {
-        return (
-          <>
-            {banner}
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 text-sm dark:border-red-800 dark:bg-red-950 dark:text-red-300">
-              <div>
-                Could not probe {agentLabel}:{' '}
-                {acpProbe.error instanceof Error
-                  ? acpProbe.error.message
-                  : String(acpProbe.error)}
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mt-2 h-7 px-2 text-xs"
-                onClick={() => acpProbe.refetch()}
-              >
-                Retry
-              </Button>
-            </div>
-          </>
-        )
-      }
       const probe = acpProbe.data
-      if (probe?.error) {
-        return (
-          <>
-            {banner}
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-700 text-sm dark:border-red-800 dark:bg-red-950 dark:text-red-300">
-              <div>
-                {agentLabel} responded with{' '}
-                <code className="rounded bg-red-100 px-1 dark:bg-red-900">
-                  {probe.error.code}
-                </code>
-                : {probe.error.message}
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mt-2 h-7 px-2 text-xs"
-                onClick={() => acpProbe.refetch()}
-              >
-                Retry
-              </Button>
-            </div>
-          </>
-        )
-      }
+      const probeError = acpProbe.error?.message ?? probe?.error?.message
       const models = probe?.models ?? []
-      const effortValues = probe?.reasoning?.values ?? []
+      const effortValues = (probe?.reasoning?.values ?? []).filter((value) =>
+        normalizeReasoningEffort(value),
+      )
       return (
         <>
           {banner}
+          {watchedType === 'acp-custom' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="acpAgentId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Agent ID *</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="acpCommand"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Agent command *</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
+          <FormField
+            control={form.control}
+            name="acpFixedWorkspacePath"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Workspace path</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    placeholder="Use the default workspace"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name="modelId"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Model *</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value || ''}
-                  disabled={models.length === 0}
+                <Popover
+                  open={modelPickerOpen}
+                  onOpenChange={setModelPickerOpen}
                 >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue
-                        placeholder={
-                          models.length === 0
-                            ? 'No settable models advertised'
-                            : 'Select a model...'
-                        }
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-between"
+                      >
+                        <span className="truncate">
+                          {field.value || 'Select or enter a model…'}
+                        </span>
+                        <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[var(--radix-popover-trigger-width)] p-0"
+                    align="start"
+                  >
+                    <Command>
+                      <CommandInput
+                        placeholder="Search or enter a model ID…"
+                        value={modelSearch}
+                        onValueChange={setModelSearch}
                       />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {models.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        <span className="font-medium">{m.name ?? m.id}</span>
-                        {m.description ? (
-                          <span className="ml-2 text-muted-foreground text-xs">
-                            {m.description}
-                          </span>
-                        ) : null}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                      <CommandList>
+                        <CommandEmpty>No matching models.</CommandEmpty>
+                        {modelSearch.trim() &&
+                          !models.some(
+                            (model) => model.id === modelSearch.trim(),
+                          ) && (
+                            <CommandGroup>
+                              <CommandItem
+                                value={modelSearch.trim()}
+                                onSelect={() => {
+                                  field.onChange(modelSearch.trim())
+                                  setModelPickerOpen(false)
+                                  setModelSearch('')
+                                }}
+                              >
+                                Use model ID: {modelSearch.trim()}
+                              </CommandItem>
+                            </CommandGroup>
+                          )}
+                        <CommandGroup>
+                          {models.map((model) => (
+                            <CommandItem
+                              key={model.id}
+                              value={model.id}
+                              keywords={[
+                                model.name ?? '',
+                                model.description ?? '',
+                              ]}
+                              onSelect={() => {
+                                field.onChange(model.id)
+                                setModelPickerOpen(false)
+                                setModelSearch('')
+                              }}
+                            >
+                              <span>{model.name ?? model.id}</span>
+                              {model.description && (
+                                <span className="ml-2 text-muted-foreground text-xs">
+                                  {model.description}
+                                </span>
+                              )}
+                              {field.value === model.id && (
+                                <Check className="ml-auto size-4 shrink-0" />
+                              )}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <FormDescription>
+                  Models reported by your local {agentLabel} runtime. You can
+                  enter another model ID; use Test to check local availability.
+                </FormDescription>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={acpProbe.isFetching}
+                  onClick={() => acpProbe.refetch()}
+                >
+                  {acpProbe.isFetching && (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  )}
+                  {acpProbe.isFetching
+                    ? 'Refreshing models…'
+                    : 'Refresh models'}
+                </Button>
+                {probeError && (
+                  <p role="alert" className="text-destructive text-sm">
+                    Could not load models: {probeError}
+                  </p>
+                )}
                 <FormMessage />
               </FormItem>
             )}
@@ -660,8 +716,10 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
                 <FormItem>
                   <FormLabel>Reasoning Effort</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
-                    value={field.value || ''}
+                    onValueChange={(value) =>
+                      field.onChange(normalizeReasoningEffort(value))
+                    }
+                    value={field.value || 'default'}
                   >
                     <FormControl>
                       <SelectTrigger className="w-full">
@@ -669,6 +727,7 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="default">Runtime default</SelectItem>
                       {effortValues.map((value) => (
                         <SelectItem key={value} value={value}>
                           {EFFORT_LABEL[value] ?? value}
@@ -688,9 +747,11 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
     if (watchedType === 'chatgpt-pro') {
       return (
         <>
-          <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-700 text-sm dark:border-green-800 dark:bg-green-950 dark:text-green-300">
-            Credentials are managed via OAuth. No API key needed.
-          </div>
+          <ProviderSignIn
+            providerType="chatgpt-pro"
+            serverUrl={agentServerUrl}
+            onAuthenticated={clearTestResult}
+          />
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               control={form.control}
@@ -909,9 +970,8 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
           control={form.control}
           name="apiKey"
           render={({ field }) => {
-            const isApiKeyOptional = ['ollama', 'lmstudio'].includes(
-              watchedType,
-            )
+            const isApiKeyOptional =
+              PROVIDER_AUTH_KIND[watchedType] === 'optional-api-key'
             return (
               <FormItem>
                 <FormLabel>API Key{isApiKeyOptional ? '' : ' *'}</FormLabel>
@@ -1159,6 +1219,10 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
                   </FormItem>
                 )}
               />
+            )}
+
+            {showsStandardModelField(watchedType) && (
+              <ProviderModelCatalogStatus catalog={modelCatalog} />
             )}
 
             <Collapsible className="space-y-4 border-border border-t pt-4">

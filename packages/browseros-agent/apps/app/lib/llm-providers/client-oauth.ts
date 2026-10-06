@@ -5,6 +5,8 @@
  * TLS fingerprint-based WAF detection.
  */
 
+import { waitForOAuthPoll } from './oauth-polling'
+
 export interface ClientAuthConfig {
   deviceCodeEndpoint: string
   tokenEndpoint: string
@@ -31,6 +33,7 @@ export interface TokenResult {
 
 export async function requestDeviceCode(
   auth: ClientAuthConfig,
+  signal?: AbortSignal,
 ): Promise<{ deviceData: DeviceCodeData; codeVerifier?: string }> {
   let codeVerifier: string | undefined
   const params: Record<string, string> = {
@@ -44,15 +47,20 @@ export async function requestDeviceCode(
     params.code_challenge_method = 'S256'
   }
 
-  const res = await authFetch(auth.deviceCodeEndpoint, params, auth.contentType)
+  const res = await authFetch(
+    auth.deviceCodeEndpoint,
+    params,
+    auth.contentType,
+    signal,
+  )
 
   // WAF captcha detected — open the site for user to solve, then retry
   const ct = res.headers.get('content-type') ?? ''
   if (!ct.includes('application/json')) {
     const baseUrl = new URL(auth.deviceCodeEndpoint).origin
-    window.open(baseUrl, '_blank')
+    await chrome.tabs.create({ url: baseUrl })
     throw new Error(
-      'Please complete the verification in the opened tab, then click USE again.',
+      'Please complete the verification in the opened tab, then try signing in again.',
     )
   }
   if (!res.ok) throw new Error(`Device code request failed: ${res.status}`)
@@ -65,77 +73,75 @@ export async function requestDeviceCode(
   return { deviceData, codeVerifier }
 }
 
-export function startTokenPolling(
+export async function awaitDeviceToken(
   auth: ClientAuthConfig,
   deviceData: DeviceCodeData,
   codeVerifier: string | undefined,
-  onToken: (token: TokenResult) => void,
-): void {
-  let interval = deviceData.interval
+  signal: AbortSignal,
+  wait = waitForOAuthPoll,
+): Promise<TokenResult> {
+  let interval = Math.max(1, deviceData.interval || 5)
   const deadline = Date.now() + deviceData.expires_in * 1000
-  const safetyMargin = 3
-
-  const poll = async () => {
-    if (Date.now() > deadline) return
-
+  while (Date.now() < deadline) {
+    await wait((interval + 3) * 1000, signal)
+    signal.throwIfAborted()
+    if (Date.now() >= deadline) break
     const params: Record<string, string> = {
       client_id: auth.clientId,
       device_code: deviceData.device_code,
       grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
     }
     if (codeVerifier) params.code_verifier = codeVerifier
-
+    let res: Response
     try {
-      const res = await authFetch(auth.tokenEndpoint, params, auth.contentType)
-
-      // WAF returned HTML — retry later
-      const ct = res.headers.get('content-type') ?? ''
-      if (!ct.includes('application/json')) {
-        setTimeout(poll, (interval + safetyMargin) * 1000)
-        return
-      }
-
-      const data = (await res.json()) as {
-        access_token?: string
-        refresh_token?: string
-        expires_in?: number
-        error?: string
-        interval?: number
-      }
-
-      if (data.access_token) {
-        onToken({
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token ?? '',
-          expiresIn: data.expires_in ?? 0,
-        })
-        return
-      }
-
-      if (data.error === 'authorization_pending') {
-        setTimeout(poll, (interval + safetyMargin) * 1000)
-        return
-      }
-      if (data.error === 'slow_down') {
-        interval = (data.interval ?? interval) + 5
-        setTimeout(poll, (interval + safetyMargin) * 1000)
-        return
-      }
+      res = await authFetch(
+        auth.tokenEndpoint,
+        params,
+        auth.contentType,
+        signal,
+      )
     } catch {
-      setTimeout(poll, (interval + safetyMargin) * 1000)
+      signal.throwIfAborted()
+      // A transient network error can be retried while the device code is valid.
+      continue
     }
+    if (!res.headers.get('content-type')?.includes('application/json')) continue
+    const data = (await res.json()) as {
+      access_token?: string
+      refresh_token?: string
+      expires_in?: number
+      error?: string
+      error_description?: string
+      interval?: number
+    }
+    if (res.ok && data.access_token) {
+      return {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token ?? '',
+        expiresIn: data.expires_in ?? 0,
+      }
+    }
+    if (data.error === 'authorization_pending') continue
+    if (data.error === 'slow_down') {
+      interval = Math.max(interval, data.interval ?? interval) + 5
+      continue
+    }
+    throw new Error(
+      data.error_description || data.error || `Sign-in failed (${res.status})`,
+    )
   }
-
-  setTimeout(poll, (interval + safetyMargin) * 1000)
+  throw new Error('Sign-in expired. Please try again.')
 }
 
 function authFetch(
   endpoint: string,
   params: Record<string, string>,
   contentType: 'json' | 'form',
+  signal?: AbortSignal,
 ): Promise<Response> {
   return fetch(endpoint, {
     method: 'POST',
+    signal,
     headers: {
       'Content-Type':
         contentType === 'form'
