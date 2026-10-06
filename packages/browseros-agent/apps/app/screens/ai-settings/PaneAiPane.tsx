@@ -228,11 +228,17 @@ export const PaneAiPane: FC = () => {
   const confirmDeleteProvider = async () => {
     if (!providerToDelete) return
 
-    // Clear OAuth tokens on server for OAuth-based providers
+    // Clear OAuth tokens on server for OAuth-based providers. An unavailable
+    // local server must not prevent removal of the local provider.
     const oauthFlow = oauthFlows[providerToDelete.type]
+    let disconnectFailed = false
     if (oauthFlow) {
-      await oauthFlow.disconnect()
-      track(oauthFlow.disconnectedEvent)
+      try {
+        await oauthFlow.disconnect()
+        track(oauthFlow.disconnectedEvent)
+      } catch {
+        disconnectFailed = true
+      }
     }
 
     const wasLastRemoteHermes =
@@ -253,6 +259,15 @@ export const PaneAiPane: FC = () => {
     }
 
     setProviderToDelete(null)
+    if (disconnectFailed) {
+      toast.warning(
+        'Provider removed, but its saved sign-in could not be cleared',
+        {
+          description:
+            'The local service is unavailable. Reconnect and sign out when it returns.',
+        },
+      )
+    }
   }
 
   const handleAddKeysToIncomplete = (provider: IncompleteProvider) => {
