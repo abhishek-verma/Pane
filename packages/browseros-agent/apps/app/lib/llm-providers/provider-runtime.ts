@@ -1,3 +1,4 @@
+import { isProviderTestable } from './provider-setup'
 import type { LlmProviderConfig, ProviderType } from './types'
 
 const localRuntimeProviderTypes: ReadonlySet<ProviderType> = new Set([
@@ -35,10 +36,7 @@ export function findChatProviderById(
  * agent has no fallback so the probe would fail with spawn_failed.
  */
 export function canTestProvider(provider: LlmProviderConfig): boolean {
-  if (provider.type === 'acp-custom') {
-    return Boolean(provider.acpAgentId && provider.acpCommand)
-  }
-  return true
+  return isProviderTestable(provider)
 }
 
 /** Resolves a provider compatible with Pane's local `/chat` server. */

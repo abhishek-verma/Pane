@@ -49,6 +49,22 @@ function baseProvider(
 }
 
 describe('testProvider — request body', () => {
+  it('forwards the ChatGPT reasoning settings from the draft', async () => {
+    await testProvider(
+      baseProvider({
+        type: 'chatgpt-pro',
+        reasoningEffort: 'high',
+        reasoningSummary: 'detailed',
+      }),
+      'http://127.0.0.1:9000',
+    )
+    expect(lastCall?.body).toMatchObject({
+      provider: 'chatgpt-pro',
+      reasoningEffort: 'high',
+      reasoningSummary: 'detailed',
+    })
+  })
+
   it('forwards model-backed fields for non-ACP providers', async () => {
     await testProvider(baseProvider(), 'http://127.0.0.1:9000')
     expect(lastCall?.url).toBe('http://127.0.0.1:9000/test-provider')

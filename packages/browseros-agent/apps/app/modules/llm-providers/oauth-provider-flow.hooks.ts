@@ -1,32 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { agentFetch } from '@/lib/browseros/agent-fetch'
-import {
-  type ClientAuthConfig,
-  requestDeviceCode,
-  startTokenPolling,
-} from '@/lib/llm-providers/client-oauth'
+import type { PendingDeviceCode } from '@/lib/llm-providers/authenticate-provider'
+import type { OAuthProviderFlowConfig } from '@/lib/llm-providers/oauth-providers'
 import { CHATGPT_PROVIDER_DISPLAY_NAME } from '@/lib/llm-providers/provider-display-names'
 import { getProviderTemplate } from '@/lib/llm-providers/providerTemplates'
-import type { LlmProviderConfig, ProviderType } from '@/lib/llm-providers/types'
+import type { LlmProviderConfig } from '@/lib/llm-providers/types'
 import { track } from '@/lib/metrics/track'
-import { useOAuthStatus } from '@/modules/llm-providers/oauth-status.hooks'
-
-export interface OAuthProviderFlowConfig {
-  providerType: ProviderType
-  displayName: string
-  startedEvent: string
-  completedEvent: string
-  disconnectedEvent: string
-  /** Client-side auth for providers with WAF-protected endpoints */
-  clientAuth?: ClientAuthConfig
-}
-
-export interface PendingDeviceCode {
-  userCode: string
-  providerName: string
-  verificationUri: string
-}
+import { useProviderAuthentication } from './provider-authentication.hooks'
 
 export interface OAuthProviderFlowReturn {
   status: { authenticated: boolean; email?: string } | null
@@ -75,143 +54,40 @@ export async function saveOAuthProviderFromStatus({
   return provider
 }
 
-/** Coordinates OAuth launch, status polling, and local provider creation. */
+/** Quick setup adds a provider only after the shared sign-in flow completes. */
 export function useOAuthProviderFlow(
   config: OAuthProviderFlowConfig,
   _providers: LlmProviderConfig[],
   saveProvider: (provider: LlmProviderConfig) => Promise<void> | void,
 ): OAuthProviderFlowReturn {
-  const { status, startPolling, disconnect } = useOAuthStatus(
-    config.providerType,
-  )
-  const flowStartedRef = useRef(false)
-  const providerSaveRef = useRef<Promise<LlmProviderConfig> | null>(null)
-  const [pendingDeviceCode, setPendingDeviceCode] =
-    useState<PendingDeviceCode | null>(null)
-
-  useEffect(() => {
-    if (!status?.authenticated) return
-    if (!flowStartedRef.current) return
-    if (providerSaveRef.current) return
-
-    providerSaveRef.current = saveOAuthProviderFromStatus({
-      config,
-      status,
-      saveProvider,
-    })
-
-    providerSaveRef.current
-      .then(() => {
-        setPendingDeviceCode(null)
-        track(config.completedEvent, { email: status.email })
-        toast.success(`${config.displayName} Connected`, {
-          description: status.email
-            ? `Authenticated as ${status.email}`
-            : `Successfully authenticated with ${config.displayName}`,
-        })
-        flowStartedRef.current = false
-      })
-      .catch((err) => {
-        toast.error(`Failed to create ${config.displayName} provider`, {
-          description: err instanceof Error ? err.message : 'Unknown error',
-        })
-      })
-      .finally(() => {
-        providerSaveRef.current = null
-      })
-  }, [config, saveProvider, status])
+  const authentication = useProviderAuthentication(config, async (status) => {
+    await saveOAuthProviderFromStatus({ config, status, saveProvider })
+    track(config.completedEvent, { email: status.email })
+    toast.success(`${config.displayName} Connected`)
+  })
 
   async function startOAuthFlow(agentServerUrl: string | undefined) {
     if (!agentServerUrl) {
       toast.error('Server not available', {
-        description: 'Cannot start OAuth flow without server connection.',
+        description: 'Cannot start sign-in without server connection.',
       })
       return
     }
-
-    flowStartedRef.current = true
-
     try {
-      if (config.clientAuth) {
-        await handleClientAuth(config.clientAuth, agentServerUrl)
-      } else {
-        await handleServerAuth(agentServerUrl)
-      }
-    } catch (err) {
-      flowStartedRef.current = false
-      toast.error(`Failed to start ${config.displayName} authentication`, {
-        description: err instanceof Error ? err.message : 'Unknown error',
-      })
-    }
-  }
-
-  async function handleClientAuth(auth: ClientAuthConfig, serverUrl: string) {
-    const { deviceData, codeVerifier } = await requestDeviceCode(auth)
-
-    const verificationUri =
-      deviceData.verification_uri_complete ?? deviceData.verification_uri
-    window.open(verificationUri, '_blank')
-    track(config.startedEvent)
-    setPendingDeviceCode({
-      userCode: deviceData.user_code,
-      providerName: config.displayName,
-      verificationUri,
-    })
-
-    startTokenPolling(auth, deviceData, codeVerifier, async (token) => {
-      await agentFetch(`${serverUrl}/oauth/${config.providerType}/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(token),
-      })
-      startPolling()
-    })
-  }
-
-  async function handleServerAuth(agentServerUrl: string) {
-    const res = await agentFetch(
-      `${agentServerUrl}/oauth/${config.providerType}/start`,
-    )
-
-    if (res.headers.get('content-type')?.includes('application/json')) {
-      const data = (await res.json()) as {
-        userCode?: string
-        verificationUri?: string
-        error?: string
-      }
-
-      if (!res.ok || data.error) {
-        throw new Error(data.error || `Server returned ${res.status}`)
-      }
-      if (!data.userCode || !data.verificationUri) {
-        throw new Error('Invalid response from server')
-      }
-
-      window.open(data.verificationUri, '_blank')
-      startPolling()
       track(config.startedEvent)
-      setPendingDeviceCode({
-        userCode: data.userCode,
-        providerName: config.displayName,
-        verificationUri: data.verificationUri,
+      await authentication.start(agentServerUrl)
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return
+      toast.error(`Failed to connect ${config.displayName}`, {
+        description: error instanceof Error ? error.message : 'Unknown error',
       })
-      return
     }
-
-    if (!res.ok) throw new Error(`Server returned ${res.status}`)
-    window.open(res.url, '_blank')
-    startPolling()
-    track(config.startedEvent)
-    toast.info(`Authenticating with ${config.displayName}`, {
-      description: 'Complete the login in the opened tab.',
-    })
   }
-
   return {
-    status,
-    disconnect,
+    status: authentication.status,
+    disconnect: authentication.disconnect,
     startOAuthFlow,
-    pendingDeviceCode,
-    clearDeviceCode: () => setPendingDeviceCode(null),
+    pendingDeviceCode: authentication.pendingDeviceCode,
+    clearDeviceCode: authentication.cancel,
   }
 }

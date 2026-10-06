@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
 import { getAgentServerUrl } from '@/lib/browseros/helpers'
 
@@ -8,84 +8,40 @@ export interface OAuthStatus {
   provider: string
 }
 
-export interface UseOAuthStatusReturn {
-  status: OAuthStatus | null
-  isPolling: boolean
-  startPolling: () => void
-  stopPolling: () => void
-  refresh: () => Promise<OAuthStatus | null>
-  disconnect: () => Promise<void>
-}
+const oauthStatusKey = (provider: string) => ['provider-oauth-status', provider]
 
-export function useOAuthStatus(provider: string): UseOAuthStatusReturn {
-  const [status, setStatus] = useState<OAuthStatus | null>(null)
-  const [isPolling, setIsPolling] = useState(false)
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  async function fetchStatus(): Promise<OAuthStatus | null> {
-    try {
+export function useOAuthStatus(provider: string) {
+  const queryClient = useQueryClient()
+  const query = useQuery({
+    queryKey: oauthStatusKey(provider),
+    staleTime: 0,
+    retry: 1,
+    queryFn: async ({ signal }): Promise<OAuthStatus> => {
       const serverUrl = await getAgentServerUrl()
-      const res = await agentFetch(`${serverUrl}/oauth/${provider}/status`)
-      if (!res.ok) return null
-      const data = (await res.json()) as OAuthStatus
-      setStatus(data)
-      return data
-    } catch {
-      return null
-    }
-  }
-
-  function stopPolling() {
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
-    if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current)
-    pollIntervalRef.current = null
-    pollTimeoutRef.current = null
-    setIsPolling(false)
-  }
-
-  function startPolling() {
-    stopPolling()
-    setIsPolling(true)
-
-    pollIntervalRef.current = setInterval(async () => {
-      const result = await fetchStatus()
-      if (result?.authenticated) {
-        stopPolling()
-      }
-    }, 2_000)
-
-    pollTimeoutRef.current = setTimeout(stopPolling, 300_000)
-  }
+      const res = await agentFetch(`${serverUrl}/oauth/${provider}/status`, {
+        signal,
+      })
+      if (!res.ok) throw new Error(`Could not check sign-in (${res.status})`)
+      return res.json()
+    },
+  })
 
   async function disconnect() {
-    try {
-      const serverUrl = await getAgentServerUrl()
-      await agentFetch(`${serverUrl}/oauth/${provider}`, { method: 'DELETE' })
-      setStatus({ authenticated: false, provider })
-    } catch {
-      // Best-effort disconnect
-    }
+    const serverUrl = await getAgentServerUrl()
+    const response = await agentFetch(`${serverUrl}/oauth/${provider}`, {
+      method: 'DELETE',
+    })
+    if (!response.ok)
+      throw new Error(`Could not disconnect (${response.status})`)
+    queryClient.setQueryData(oauthStatusKey(provider), {
+      authenticated: false,
+      provider,
+    })
   }
 
-  // Initial status check on mount
-  // biome-ignore lint/correctness/useExhaustiveDependencies: only run on mount
-  useEffect(() => {
-    fetchStatus()
-  }, [])
-
-  // Cleanup on unmount
-  // biome-ignore lint/correctness/useExhaustiveDependencies: cleanup only needs to run on unmount
-  useEffect(() => {
-    return () => stopPolling()
-  }, [])
-
   return {
-    status,
-    isPolling,
-    startPolling,
-    stopPolling,
-    refresh: fetchStatus,
+    status: query.data ?? null,
+    refresh: async () => (await query.refetch()).data ?? null,
     disconnect,
   }
 }

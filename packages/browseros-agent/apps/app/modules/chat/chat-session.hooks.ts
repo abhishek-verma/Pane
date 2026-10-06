@@ -56,10 +56,7 @@ import { sentry } from '@/lib/sentry/sentry'
 import { stopAgentStorage } from '@/lib/stop-agent/stop-agent-storage'
 import { slimMessagesForClientUi } from '@/lib/tool-evidence/slim-messages-for-client-ui'
 import { slimMessagesToFixedPoint } from '@/lib/tool-evidence/slim-messages-to-fixed-point'
-import {
-  isPoisonSessionPayload,
-  stripFatInlineImagesFromMessages,
-} from '@/lib/tool-evidence/strip-inline-images'
+import { stripFatInlineImagesFromMessages } from '@/lib/tool-evidence/strip-inline-images'
 import { releaseMediaForMessages } from '@/lib/tool-evidence/tool-media-cache'
 import {
   formatReplayOutputForTool,
@@ -839,56 +836,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // few extra passes settles here for free instead of re-triggering this
   // effect indefinitely, which is what tripped React error #185 (Maximum
   // update depth exceeded) in production before.
-  const livePoisonInFlightRef = useRef(false)
   useEffect(() => {
     const slimmed = slimMessagesToFixedPoint(messages)
-    if (slimmed !== messages) {
-      setMessages(slimmed)
-      return
-    }
-    // Live poison: if slimmed resident window is still huge, re-page from
-    // server rather than keeping multi-MB strings in the privileged heap.
-    if (
-      messages.length > 0 &&
-      isPoisonSessionPayload(messages) &&
-      status === 'ready' &&
-      !livePoisonInFlightRef.current
-    ) {
-      const conversationId = conversationIdRef.current
-      const baseUrl = agentUrlRef.current
-      if (!conversationId || !baseUrl) return
-      livePoisonInFlightRef.current = true
-      void fetchChatMessagePage(conversationId, {
-        limit: CHAT_PAGE_SIZE,
-        baseUrl,
-      })
-        .then((page) => {
-          if (conversationIdRef.current !== conversationId) return
-          const safe = slimMessagesForClientUi(
-            stripFatInlineImagesFromMessages(page.messages),
-          )
-          if (isPoisonSessionPayload(safe)) {
-            setMessages([])
-            setHasMoreAbove(false)
-            return
-          }
-          setHasMoreAbove(page.hasMore)
-          setMessages(
-            prepareMessagesForClientTurn(takeNewestPage(safe, CHAT_PAGE_SIZE), {
-              settleApprovals: false,
-            }),
-          )
-        })
-        .catch(() => {
-          if (conversationIdRef.current !== conversationId) return
-          setMessages([])
-          setHasMoreAbove(false)
-        })
-        .finally(() => {
-          livePoisonInFlightRef.current = false
-        })
-    }
-  }, [messages, setMessages, status])
+    if (slimmed !== messages) setMessages(slimmed)
+    // Never erase a resident transcript because of its size or a failed
+    // history request. Tool previews are bounded locally; SQLite keeps the
+    // full transcript, and older messages remain available through paging.
+  }, [messages, setMessages])
 
   // `addToolApprovalResponse` flips the tool part to `approval-responded`
   // synchronously but only kicks off the actual resume request (and the
@@ -1246,19 +1200,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     turnControllerRef.current.detachAttachOnly()
     stop()
 
-    const quarantineAndOpenBlank = (reason: string) => {
-      if (cancelled) return
-      sentry.captureMessage(reason, {
-        level: 'warning',
-        extra: { conversationId: conversationIdParam },
-      })
-      setRestoredConversationId(conversationIdParam)
-      setSearchParams({}, { replace: true })
-      setMessages([])
-      setHasMoreAbove(false)
-      setConversationId(crypto.randomUUID())
-    }
-
     const restoreFromServer = async (options?: {
       /** When cloud sync is on but a turn is live, prefer SQLite + attach. */
       preferLiveOnly?: boolean
@@ -1290,15 +1231,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         if (cancelled || abortController.signal.aborted) return 'unknown'
         // Running turns need the live attach path; still start from a page
         // and let attach replace with projected snapshots.
-        const safeMessages = stripFatInlineImagesFromMessages(page.messages)
-        // Poison-session safe open: if the payload is still enormous after
-        // stripping images, start a blank chat instead of crash-looping.
-        if (isPoisonSessionPayload(safeMessages)) {
-          quarantineAndOpenBlank(
-            'chat.restore.quarantined_oversized_conversation',
-          )
-          return 'restored'
-        }
+        const safeMessages = slimMessagesToFixedPoint(page.messages)
         setConversationId(restoredId)
         conversationIdRef.current = restoredId
         setHasMoreAbove(page.hasMore)
@@ -1357,18 +1290,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
               .filter((node): node is NonNullable<typeof node> => node !== null)
               .map((node) => node.message as UIMessage),
           )
-          // Page to newest 30 BEFORE poison estimate — never stringify 100 msgs.
+          // Keep the newest page in the resident UI window.
           const paged = takeNewestPage(
             slimMessagesForClientUi(restoredMessages),
             CHAT_PAGE_SIZE,
           )
-          if (isPoisonSessionPayload(paged)) {
-            quarantineAndOpenBlank(
-              'chat.restore.quarantined_oversized_conversation',
-            )
-            return
-          }
-
           // History restore must not force-deny already-answered approvals.
           // Default settle turns stop-raced `approval-responded` into a false
           // `output-denied` even when the tool side effect already ran.
@@ -1467,12 +1393,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         checking = false
       }
     }
+    void check().catch(() => {})
     const timer = setInterval(() => {
       void check().catch(() => {})
     }, 2000)
     return () => {
       cancelled = true
       clearInterval(timer)
+      // Dispose the stream with its callback so it cannot silently consume
+      // snapshots after this effect stops applying them.
+      controller.detachAttachOnly()
     }
   }, [
     conversationId,

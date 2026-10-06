@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, mock } from 'bun:test'
+import type { OAuthProviderFlowConfig } from '@/lib/llm-providers/oauth-providers'
 import * as realProviderTemplates from '@/lib/llm-providers/providerTemplates'
 import type { LlmProviderConfig } from '@/lib/llm-providers/types'
-import type { OAuthProviderFlowConfig } from './oauth-provider-flow.hooks'
 
 mock.module('sonner', () => ({
   toast: {
@@ -23,7 +23,7 @@ mock.module('@/lib/llm-providers/client-oauth', () => ({
   requestDeviceCode: async () => {
     throw new Error('not used')
   },
-  startTokenPolling: () => {},
+  awaitDeviceToken: async () => ({}),
 }))
 
 mock.module('@/lib/llm-providers/provider-display-names', () => ({

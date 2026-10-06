@@ -101,6 +101,13 @@ export class OAuthTokenManager {
     const provider = getOAuthProvider(providerId)
     if (!provider) throw new Error(`Unknown OAuth provider: ${providerId}`)
 
+    const profileKey = tryGetProfileKey()
+    for (const [state, flow] of this.pendingFlows) {
+      if (flow.provider === providerId && flow.profileKey === profileKey) {
+        this.pendingFlows.delete(state)
+      }
+    }
+
     const codeVerifier = generateCodeVerifier()
     const codeChallenge = await generateCodeChallenge(codeVerifier)
     const state = generateRandomState()
@@ -111,7 +118,7 @@ export class OAuthTokenManager {
       state,
       redirectBackUrl,
       createdAt: Date.now(),
-      profileKey: tryGetProfileKey(),
+      profileKey,
     })
     this.cleanExpiredFlows()
 
@@ -488,7 +495,12 @@ export class OAuthTokenManager {
   }
 
   getStatus(provider: string) {
-    return this.store.getStatus(this.browserosId, provider)
+    this.cleanExpiredFlows()
+    const profileKey = tryGetProfileKey()
+    const pending = [...this.pendingFlows.values()].some(
+      (flow) => flow.provider === provider && flow.profileKey === profileKey,
+    )
+    return { ...this.store.getStatus(this.browserosId, provider), pending }
   }
 
   deleteTokens(provider: string): void {

@@ -25,6 +25,7 @@ export type ChatTurnControllerListener = (state: {
 export class ChatTurnController {
   private activeTurn: ChatActiveTurnInfo | null = null
   private attachAbort: AbortController | null = null
+  private onMessages: ((messages: UIMessage[]) => void) | null = null
   private lastSeq = -1
   private lastEmittedActive = false
   private lastEmittedTurnId: string | null = null
@@ -127,6 +128,7 @@ export class ChatTurnController {
     this.generation += 1
     this.attachAbort?.abort()
     this.attachAbort = null
+    this.onMessages = null
   }
 
   /** Stop button / glow / voice / supersede. */
@@ -215,6 +217,9 @@ export class ChatTurnController {
   }
 
   ensureAttached(onMessages: (messages: UIMessage[]) => void): void {
+    // Effects can replace their callback while the same stream stays open.
+    // Always update the sink; the previous callback may already be disposed.
+    this.onMessages = onMessages
     if (!this.attachAbort && this.isTurnActive) this.beginAttach(onMessages)
   }
 
@@ -226,6 +231,7 @@ export class ChatTurnController {
     this.detachAttachOnly()
     const ac = new AbortController()
     this.attachAbort = ac
+    this.onMessages = onMessages
     const attachedTurnId = turn.turnId
 
     // Coalesce rapid step snapshots to one apply per animation frame so
@@ -246,7 +252,7 @@ export class ChatTurnController {
         this.lastAppliedSeq = seq
         this.lastSeq = seq
       }
-      onMessages(messages)
+      this.onMessages?.(messages)
     }
     const flush = () => {
       rafId = null

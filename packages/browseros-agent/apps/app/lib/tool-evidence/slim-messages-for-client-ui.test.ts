@@ -182,3 +182,52 @@ describe('slimMessagesForClientUi', () => {
     expect(twice).toBe(once)
   })
 })
+
+for (const type of ['dynamic-tool', 'tool-notion']) {
+  for (const output of [
+    'document'.repeat(300_000),
+    { structuredContent: { pages: [{ body: 'document'.repeat(300_000) }] } },
+    {
+      content: Array.from({ length: 1000 }, () => ({
+        type: 'text',
+        text: 'x'.repeat(3000),
+      })),
+    },
+    { contentLength: 3_000_000, data: 'x'.repeat(3_000_000) },
+  ]) {
+    test(`bounds ${type} large results and preserves conversation content`, () => {
+      const messages = [
+        {
+          id: 'user',
+          role: 'user',
+          parts: [{ type: 'text', text: 'Work on my Notion document' }],
+        },
+        {
+          id: 'assistant',
+          role: 'assistant',
+          parts: [
+            {
+              type,
+              toolName: 'notion',
+              toolCallId: 'call',
+              state: 'output-available',
+              input: { page: '123' },
+              output,
+            },
+            { type: 'text', text: 'Updated your document.' },
+          ],
+        },
+      ] as UIMessage[]
+      const next = slimMessagesForClientUi(messages)
+      expect(JSON.stringify(next).length).toBeLessThan(10_000)
+      expect(next.map((message) => message.id)).toEqual(['user', 'assistant'])
+      expect(next[0]).toBe(messages[0])
+      expect(next[1].parts[1]).toBe(messages[1].parts[1])
+      expect((next[1].parts[0] as { input: unknown }).input).toEqual({
+        page: '123',
+      })
+      expect((messages[1].parts[0] as { output: unknown }).output).toBe(output)
+      expect(slimMessagesForClientUi(next)).toBe(next)
+    })
+  }
+}

@@ -44,6 +44,9 @@ export function createOAuthRoutes(deps: OAuthRouteDeps) {
           providerId,
           redirectBackUrl,
         )
+        // Extension clients must open the authorization page in a tab, not
+        // follow its redirect inside fetch (where the auth origin blocks CORS).
+        if (c.req.query('format') === 'json') return c.json({ authUrl })
         return c.redirect(authUrl)
       } catch (error) {
         logger.error('Failed to start OAuth flow', {

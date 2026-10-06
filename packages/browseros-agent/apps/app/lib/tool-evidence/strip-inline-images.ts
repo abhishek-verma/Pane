@@ -26,7 +26,10 @@ export function stripFatInlineImagesFromMessages(
   const next = messages.map((msg) => {
     let partsChanged = false
     const parts = msg.parts.map((part) => {
-      if (typeof part.type !== 'string' || !part.type.startsWith('tool-')) {
+      if (
+        typeof part.type !== 'string' ||
+        (part.type !== 'dynamic-tool' && !part.type.startsWith('tool-'))
+      ) {
         return part
       }
       const anyPart = part as Record<string, unknown>
