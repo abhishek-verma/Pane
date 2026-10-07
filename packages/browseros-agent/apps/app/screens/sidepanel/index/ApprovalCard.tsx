@@ -5,6 +5,7 @@ import {
 import { ChevronDown } from 'lucide-react'
 import type { FC } from 'react'
 import { useEffect, useRef, useState } from 'react'
+import { ToolInputReview } from '@/components/tool-evidence/ToolInputReview'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import {
@@ -97,7 +98,33 @@ const TRUST_SCOPE_LABELS: Record<PinnableClass, string> = {
   spend: 'payments and purchases',
 }
 
-export const ApprovalCard: FC<ApprovalCardProps> = ({
+/** Never offer an approval action against a truncated parameter preview. */
+export const ApprovalCard: FC<ApprovalCardProps> = (props) => {
+  const { conversationId } = useChatSessionContext()
+  const approvalId = props.tool.approval?.id
+  return (
+    <ToolInputReview
+      conversationId={conversationId}
+      toolCallId={props.tool.toolCallId}
+      input={props.tool.input}
+      previewed={props.tool.inputPreviewed}
+      onDeny={
+        approvalId && props.onDeny
+          ? () => props.onDeny?.(approvalId)
+          : undefined
+      }
+    >
+      {(input) => (
+        <LoadedApprovalCard
+          {...props}
+          tool={{ ...props.tool, input, inputPreviewed: false }}
+        />
+      )}
+    </ToolInputReview>
+  )
+}
+
+const LoadedApprovalCard: FC<ApprovalCardProps> = ({
   tool,
   onApprove,
   onDeny,

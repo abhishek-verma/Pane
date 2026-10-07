@@ -1,3 +1,4 @@
+import { previewToolInput } from '@browseros/shared/tool-input-preview'
 import type { UIMessage } from 'ai'
 import type { ToolInvocationInfo } from '@/screens/sidepanel/index/getMessageSegments'
 
@@ -44,7 +45,7 @@ export function patchToolInvocationInput(
       if (toolPart.toolCallId !== toolCallId) return part
 
       changed = true
-      return { ...part, input }
+      return previewToolInput({ ...part, input, inputPreviewed: false })
     })
 
     return changed ? ({ ...message, parts } as UIMessage) : message

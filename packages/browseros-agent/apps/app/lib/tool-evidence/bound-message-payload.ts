@@ -1,97 +1,37 @@
+import {
+  fitsPreviewBudget,
+  previewToolInput,
+} from '@browseros/shared/tool-input-preview'
+import { boundUiTranscript } from '@browseros/shared/ui-transcript-window'
 import type { UIMessage } from 'ai'
 
-const WINDOW_BUDGET = 1_000_000
-const MAX_PARTS = 128
-const OMITTED =
-  '\n[Details omitted from this preview because they are too large. The full message remains saved.]'
-
-// Conservative JSON-size bound (including escaped strings), with early exit.
-// Never stringify or copy the oversized input just to decide whether it fits.
-function fits(value: unknown, budget: number): boolean {
-  let remaining = budget
-  const visit = (item: unknown, depth: number): boolean => {
-    if (depth > 24 || remaining < 0) return false
-    if (typeof item === 'string') remaining -= item.length * 6 + 2
-    else if (item && typeof item === 'object') {
-      remaining -= 2
-      for (const key in item) {
-        if (!Object.hasOwn(item, key)) continue
-        remaining -= key.length * 6 + 4
-        if (!visit((item as Record<string, unknown>)[key], depth + 1))
-          return false
-      }
-    } else remaining -= 24
-    return remaining >= 0
-  }
-  return visit(value, 0)
-}
-
-function withoutAttachmentData(message: UIMessage): UIMessage {
-  if (message.role !== 'user') return message
-  return {
-    ...message,
-    parts: message.parts.map((part) =>
-      part.type === 'file' ? { ...part, url: '[attachment]' } : part,
-    ),
-  }
-}
-
-/** Last-resort UI projection. Never rewrite tool arguments into executable
- * truncated arguments: oversized tool parts become an explanatory text part.
- * The authoritative server message and conversation identity stay untouched.
- * Validated user attachments have their own upload limits and remain usable.
+/** Bound resident state before traversing tool payloads; overflow is paged.
+ * Rendering is windowed within turns; full tool details are loaded on demand.
+ * Previewed approval arguments are never executable; the approval UI loads the
+ * authoritative input first. The server transcript remains untouched.
  */
 export function boundMessagePayload(messages: UIMessage[]): UIMessage[] {
-  const messageBudget = Math.floor(WINDOW_BUDGET / Math.max(1, messages.length))
-  let changed = false
-  const next = messages.map((message) => {
-    if (fits(withoutAttachmentData(message), messageBudget)) return message
-    changed = true
-    const partLimit = Math.max(
-      1,
-      Math.min(MAX_PARTS, Math.floor((messageBudget - 4096) / 1024)),
-    )
-    // Preserve the visible reply even when hundreds of tool parts precede it.
-    const indices = new Set<number>()
-    for (let i = 0; i < message.parts.length && indices.size < partLimit; i++) {
-      if (message.parts[i].type === 'text') indices.add(i)
-    }
-    for (let i = 0; i < message.parts.length && indices.size < partLimit; i++)
-      indices.add(i)
-    const retained = [...indices]
-      .sort((a, b) => a - b)
-      .map((index) => message.parts[index])
-    const partBudget = Math.max(
-      512,
-      Math.floor((messageBudget - 4096) / Math.max(1, retained.length)),
-    )
-    const parts: UIMessage['parts'] = retained.map((part) => {
-      const measured =
-        message.role === 'user' && part.type === 'file'
-          ? { ...part, url: '[attachment]' }
-          : part
-      if (fits(measured, partBudget)) return part
-      const text =
-        part.type === 'text' || part.type === 'reasoning'
-          ? part.text
-          : 'Tool or attachment details are too large to display. Any pending tool approval must be retried with a smaller input.'
-      const maxChars = Math.max(0, Math.floor((partBudget - 256) / 6))
-      const suffix = OMITTED.slice(0, maxChars)
-      return {
-        type: 'text',
-        text: text.slice(0, maxChars - suffix.length) + suffix,
+  const resident = boundUiTranscript(messages)
+  let changed = resident !== messages
+  const next = resident.map((message) => {
+    let partsChanged = false
+    const parts = message.parts.map((part) => {
+      let next = previewToolInput(part)
+      if (
+        'providerMetadata' in next &&
+        !fitsPreviewBudget(next.providerMetadata, 4096)
+      ) {
+        const { providerMetadata: _metadata, ...rest } = next
+        next = rest as typeof part
       }
+      if (next !== part) partsChanged = true
+      return next
     })
-    if (message.parts.length > partLimit)
-      parts.push({ type: 'text', text: OMITTED.trim() })
-    return {
-      id: message.id,
-      role: message.role,
-      parts,
-      ...(message.metadata !== undefined && fits(message.metadata, 1024)
-        ? { metadata: message.metadata }
-        : {}),
-    }
+    const metadataFits = fitsPreviewBudget(message.metadata, 4096)
+    if (!partsChanged && metadataFits) return message
+    changed = true
+    const { metadata, ...rest } = message
+    return { ...rest, parts, ...(metadataFits ? { metadata } : {}) }
   })
   return changed ? next : messages
 }

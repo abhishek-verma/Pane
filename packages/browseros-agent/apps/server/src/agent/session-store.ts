@@ -604,6 +604,59 @@ export class SessionStore {
     }
   }
 
+  /** Read one authoritative tool entry without restoring the entire chat into
+   * the renderer. Session predicate also prevents cross-conversation lookup.
+   */
+  loadToolDetails(
+    sessionId: string,
+    toolCallId: string,
+  ): Record<string, unknown> | null {
+    const live = this.get(sessionId)?.agent.messages
+    if (live) {
+      for (let i = live.length - 1; i >= 0; i--) {
+        const part = live[i].parts.findLast(
+          (part) =>
+            (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) &&
+            'toolCallId' in part &&
+            part.toolCallId === toolCallId,
+        )
+        if (part) return part as Record<string, unknown>
+      }
+    }
+    const row = getDbHandle()
+      .sqlite.query<{ value: string }, [string, string]>(`
+      SELECT part.value AS value
+      FROM chat_messages AS message, json_each(message.content, '$.parts') AS part
+      WHERE message.session_id = ? AND json_extract(part.value, '$.toolCallId') = ?
+        AND (json_extract(part.value, '$.type') LIKE 'tool-%'
+          OR json_extract(part.value, '$.type') = 'dynamic-tool')
+      ORDER BY message.created_at DESC, part.key DESC LIMIT 1
+    `)
+      .get(sessionId, toolCallId)
+    return row ? (JSON.parse(row.value) as Record<string, unknown>) : null
+  }
+
+  async loadMessageContent(
+    sessionId: string,
+    messageId: string,
+  ): Promise<UIMessage | null> {
+    const live = this.get(sessionId)?.agent.messages.find(
+      (message) => message.id === messageId,
+    )
+    if (live) return live
+    const row = await getDb()
+      .select()
+      .from(chatMessages)
+      .where(
+        and(
+          eq(chatMessages.sessionId, sessionId),
+          eq(chatMessages.id, messageId),
+        ),
+      )
+      .get()
+    return row ? rowToUiMessage(row) : null
+  }
+
   async loadMessages(sessionId: string): Promise<UIMessage[]> {
     const db = getDb()
     const rows = await db

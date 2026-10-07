@@ -1,3 +1,8 @@
+import {
+  boundUiTranscript,
+  contentPreview,
+  hasEarlierUiMessages,
+} from '@browseros/shared/ui-transcript-window'
 import type { UIMessage } from 'ai'
 import { Bot } from 'lucide-react'
 import {
@@ -25,6 +30,7 @@ import { MessageRevision } from '@/components/chat/composer/MessageRevision'
 import { MessageSelection } from '@/components/chat/composer/MessageSelection'
 import { ChatMarkdown } from '@/components/tool-evidence/ChatMarkdown'
 import { ChatMessageErrorBoundary } from '@/components/tool-evidence/ChatMessageErrorBoundary'
+import { MessageContentReader } from '@/components/tool-evidence/MessageContentReader'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import { useChatSessionContext } from '@/modules/chat/chat-session-context'
 import { messageAttachments } from '@/modules/chat/composer-message'
@@ -126,10 +132,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
             : '',
         )
       }}
-      style={{
-        contentVisibility: 'auto',
-        containIntrinsicSize: 'auto 120px',
-      }}
     >
       <Message from={message.role}>
         <MessageContent>
@@ -210,6 +212,12 @@ const ChatMessageRow = memo(function ChatMessageRow({
               }
             })
           )}
+          {contentPreview(message) ? (
+            <MessageContentReader
+              conversationId={conversationId}
+              messageId={message.id}
+            />
+          ) : null}
         </MessageContent>
       </Message>
       <MessageRevision message={message} />
@@ -252,7 +260,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
 }, chatMessageRowPropsEqual)
 
 export const ChatMessages: FC<ChatMessagesProps> = ({
-  messages,
+  messages: receivedMessages,
   status,
   getActionForMessage,
   liked,
@@ -265,6 +273,12 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
   hasMoreAbove = false,
   onLoadOlder,
 }) => {
+  // Defense in depth: the SDK may deliver a large legacy frame before its
+  // slimming effect runs. Never hand that unbounded frame to segmentation.
+  const messages = useMemo(
+    () => boundUiTranscript(receivedMessages),
+    [receivedMessages],
+  )
   const { isStreaming: sessionStreaming, conversationId } =
     useChatSessionContext()
   const isStreaming =
@@ -294,7 +308,9 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
     () => (hiddenCount > 0 ? messages.slice(hiddenCount) : messages),
     [messages, hiddenCount],
   )
-  const showTopSentinel = serverPaging ? hasMoreAbove : hiddenCount > 0
+  const showTopSentinel = serverPaging
+    ? hasMoreAbove || hasEarlierUiMessages(messages)
+    : hiddenCount > 0
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: restore scroll after prepend / window grow
   useLayoutEffect(() => {

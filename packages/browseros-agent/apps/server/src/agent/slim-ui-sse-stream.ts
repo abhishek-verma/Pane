@@ -8,6 +8,7 @@
  * fidelity via in-memory message callbacks (not this transform).
  */
 
+import { createLiveUiWindow } from './bound-live-ui-chunks'
 import { projectToolOutputForUi } from './project-messages-for-ui'
 import type { ToolOutputStore } from './session-store'
 
@@ -26,6 +27,23 @@ export function createSlimUiSseTransform(
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
   let pending = ''
+  const boundChunk = createLiveUiWindow()
+  const projectEvent = (event: string) => {
+    const slimmed = slimSseEvent(event, options)
+    if (!slimmed.startsWith('data:')) return slimmed
+    const raw = slimmed.slice(5).trim()
+    if (!raw || raw === '[DONE]') return slimmed
+    let chunk: Record<string, unknown>
+    try {
+      chunk = JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      return slimmed
+    }
+    // A projection failure must not forward the oversized frame unchanged.
+    return boundChunk(chunk)
+      .map((part) => `data: ${JSON.stringify(part)}`)
+      .join('\n\n')
+  }
 
   return new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
@@ -35,15 +53,13 @@ export function createSlimUiSseTransform(
         if (sep < 0) break
         const event = pending.slice(0, sep)
         pending = pending.slice(sep + 2)
-        controller.enqueue(
-          encoder.encode(`${slimSseEvent(event, options)}\n\n`),
-        )
+        controller.enqueue(encoder.encode(`${projectEvent(event)}\n\n`))
       }
     },
     flush(controller) {
       pending += decoder.decode()
       if (pending.length > 0) {
-        controller.enqueue(encoder.encode(slimSseEvent(pending, options)))
+        controller.enqueue(encoder.encode(projectEvent(pending)))
       }
     },
   })

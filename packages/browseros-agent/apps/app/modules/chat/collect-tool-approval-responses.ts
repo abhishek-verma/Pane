@@ -7,6 +7,7 @@ type ToolPartLike = {
   toolName?: string
   state?: string
   input?: Record<string, unknown>
+  inputPreviewed?: boolean
   approval?: { id?: string; approved?: boolean; reason?: string }
 }
 
@@ -48,7 +49,9 @@ function collectRespondedFromMessage(
       toolCallId: part.toolCallId,
       toolName: toolNameOf(part),
       approved: part.approval.approved,
-      input: part.input,
+      // A preview is never an override. Omitting it tells the server to keep
+      // the authoritative input that the user loaded and reviewed.
+      input: part.inputPreviewed ? undefined : part.input,
     })
   }
   return entries
@@ -61,10 +64,14 @@ function collectRespondedFromMessage(
  */
 export function collectToolApprovalResponses(
   messages: UIMessage[],
+  reviewedInputs?: ReadonlyMap<string, Record<string, unknown>>,
 ): ToolApprovalResponseEntry[] {
   const lastMessage = messages[messages.length - 1]
   if (lastMessage?.role !== 'assistant' || !lastMessage.parts) return []
-  return collectRespondedFromMessage(lastMessage)
+  return collectRespondedFromMessage(lastMessage).map((entry) => {
+    const reviewed = reviewedInputs?.get(entry.toolCallId)
+    return reviewed && entry.approved ? { ...entry, input: reviewed } : entry
+  })
 }
 
 /** True when any assistant tool part is still waiting on Approve/Deny. */

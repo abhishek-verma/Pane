@@ -91,7 +91,7 @@ describe('slimMessagesForClientUi', () => {
     expect(content[1]?.data).toBeUndefined()
   })
 
-  test('truncates an oversized reasoning part', () => {
+  test('bounds oversized reasoning and exposes full-turn paging', () => {
     const fatReasoning = 'thinking '.repeat(2_000) // ~18,000 chars
     const messages: UIMessage[] = [
       {
@@ -103,9 +103,12 @@ describe('slimMessagesForClientUi', () => {
       },
     ]
     const next = slimMessagesForClientUi(messages, 100)
-    expect(next).not.toBe(messages)
+    expect(next === messages).toBe(false)
     const out = next[0].parts[0] as { text: string }
-    expect(out.text.length).toBeLessThan(200)
+    expect(out.text.length).toBeLessThanOrEqual(16_000)
+    expect(
+      next[0].parts.some((part) => part.type === 'data-pane-content-preview'),
+    ).toBe(true)
     // Original reference is never mutated.
     const orig = messages[0].parts[0] as { text: string }
     expect(orig.text.length).toBe(fatReasoning.length)
@@ -125,16 +128,8 @@ describe('slimMessagesForClientUi', () => {
     expect(next).toBe(messages)
   })
 
-  // Regression: an earlier reasoning-truncation implementation produced a
-  // result whose length was always > previewMaxChars (a growing "[truncated
-  // N chars]" suffix on top of a full-length slice), so re-running the slim
-  // pass on its own output kept treating it as "changed" forever. Callers
-  // call this from a useEffect that setMessages()s whenever the result
-  // differs by reference from the input — a non-convergent transform there
-  // is an infinite render loop in production (React error #185, shipped in
-  // v0.47.0.74). Any transform this function applies must be idempotent:
-  // running it twice must equal running it once, for every previewMaxChars,
-  // including ones smaller than a truncation marker/suffix.
+  // Reasoning has its own resident-state limit; tool-preview limits must not
+  // reintroduce the state-update loop formerly caused by truncation suffixes.
   test('is idempotent for reasoning parts across a range of previewMaxChars', () => {
     for (const previewMaxChars of [0, 1, 5, 13, 14, 100, 2000]) {
       const messages: UIMessage[] = [
@@ -154,7 +149,7 @@ describe('slimMessagesForClientUi', () => {
       const twice = slimMessagesForClientUi(once, previewMaxChars)
       expect(twice).toBe(once)
       const text = (once[0]?.parts[0] as { text: string }).text
-      expect(text.length).toBeLessThanOrEqual(previewMaxChars)
+      expect(text).toBe('x'.repeat(5_000))
     }
   })
 
