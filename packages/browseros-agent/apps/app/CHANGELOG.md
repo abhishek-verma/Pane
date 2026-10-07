@@ -1,5 +1,12 @@
 # BrowserOS Agent Extension
 
+## v0.0.189 (2026-10-07)
+
+## What's Changed
+
+- feat: bound chat transcript and page full content in Pane 0.47.0.100 (#303)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
