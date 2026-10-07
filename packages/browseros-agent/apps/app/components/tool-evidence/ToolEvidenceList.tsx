@@ -20,6 +20,8 @@ import { FileChangeCard } from './FileChangeCard'
 import { GenericToolRow } from './GenericToolRow'
 import { StepReplayBar } from './StepReplayBar'
 import { TerminalCard } from './TerminalCard'
+import { ToolFullDetails } from './ToolFullDetails'
+import { ViewportBlock } from './ViewportBlock'
 
 export interface ToolEvidenceSource {
   toolCallId: string
@@ -207,21 +209,26 @@ export const ToolEvidenceList: FC<{
       {coalesced.map(({ key, evidence, editCount }) => {
         const highlighted = evidence.toolCallId === highlightToolCallId
         return (
-          <div
-            key={key}
-            ref={highlighted ? highlightRef : undefined}
-            className={cn(
-              'w-full min-w-0',
-              highlighted && 'agent-trace-highlight',
-            )}
-          >
-            <SpecializedCard
-              evidence={evidence}
-              editCount={editCount}
-              conversationId={conversationId}
-              highlighted={highlighted}
-            />
-          </div>
+          <ViewportBlock key={key} pinned={highlighted} estimatedHeight={120}>
+            <div
+              ref={highlighted ? highlightRef : undefined}
+              className={cn(
+                'w-full min-w-0',
+                highlighted && 'agent-trace-highlight',
+              )}
+            >
+              <SpecializedCard
+                evidence={evidence}
+                editCount={editCount}
+                conversationId={conversationId}
+                highlighted={highlighted}
+              />
+              <ToolFullDetails
+                conversationId={conversationId}
+                toolCallId={evidence.toolCallId}
+              />
+            </div>
+          </ViewportBlock>
         )
       })}
 
@@ -234,11 +241,12 @@ export const ToolEvidenceList: FC<{
           <TaskTrigger title={genericsTitle} TriggerIcon={BotIcon} />
           <TaskContent>
             {generics.map(({ evidence }) => (
-              <GenericToolRow
-                key={evidence.toolCallId}
-                evidence={evidence}
-                conversationId={conversationId}
-              />
+              <ViewportBlock key={evidence.toolCallId} estimatedHeight={28}>
+                <GenericToolRow
+                  evidence={evidence}
+                  conversationId={conversationId}
+                />
+              </ViewportBlock>
             ))}
           </TaskContent>
         </Task>

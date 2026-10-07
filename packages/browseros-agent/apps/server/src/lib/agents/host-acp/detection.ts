@@ -13,6 +13,7 @@ import {
 } from './binary-resolver'
 import { resolveBundledBun } from './bundled-bun'
 import { resolveBundledNativeBinary } from './bundled-native-binary'
+import { selectHostCodexRuntime } from './codex-runtime-selection'
 import {
   HOST_ACP_ADAPTER_CONFIG,
   type HostAcpAdapter,
@@ -103,9 +104,13 @@ export async function detectHostAdapter(
   const resolveBinary =
     options.resolveBinary ??
     ((name: string) => resolveHostBinary(name, { env, platform, timeoutMs }))
-  const hostCli = await resolveBinary(config.nativeBinary).catch(() => null)
-  // Probe exactly the CLI chat selects. Never touch the bundled executable or
-  // its native loader when an installed CLI is available.
+  const hostCli = await selectHostCodexRuntime({
+    ...options,
+    agentType: adapter,
+    host: await resolveBinary(config.nativeBinary).catch(() => null),
+  })
+  // Probe exactly the CLI chat selects, including the newer bundled Codex
+  // when the installed CLI predates it.
   try {
     const packaged = resolvePackagedAcpRuntime({
       ...options,

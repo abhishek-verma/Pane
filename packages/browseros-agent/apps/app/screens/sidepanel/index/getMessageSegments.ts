@@ -26,6 +26,7 @@ export interface ToolInvocationInfo {
   toolCallId: string
   toolName: string
   input: Record<string, unknown>
+  inputPreviewed?: boolean
   output: unknown
   approval?: { id: string; approved?: boolean; reason?: string }
 }
@@ -253,6 +254,7 @@ export const getMessageSegments = (
         toolName?: string
         state: ToolInvocationState
         input: Record<string, unknown>
+        inputPreviewed?: boolean
         output: unknown
         approval?: { id: string; approved?: boolean; reason?: string }
       }
@@ -315,6 +317,7 @@ export const getMessageSegments = (
           toolCallId: toolPart.toolCallId,
           toolName,
           input: toolPart?.input ?? {},
+          inputPreviewed: toolPart.inputPreviewed,
           output: toolPart?.output ?? null,
           approval: toolPart?.approval,
         }

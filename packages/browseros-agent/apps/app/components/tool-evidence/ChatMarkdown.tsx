@@ -23,6 +23,7 @@ import {
   normalizeMermaidFenceCase,
   STREAMDOWN_PLUGINS,
 } from '@/components/tool-evidence/ChatMermaidBlock'
+import { ViewportMarkdownBlock } from './ViewportMarkdownBlock'
 
 export const ChatMarkdown: FC<{
   text: string
@@ -32,7 +33,10 @@ export const ChatMarkdown: FC<{
   return (
     <MessageResponse
       key={segmentKey}
-      mode={isStreaming ? 'streaming' : 'static'}
+      // BlockComponent is used by Streamdown's block mode, including completed text.
+      mode="streaming"
+      isAnimating={isStreaming}
+      BlockComponent={ViewportMarkdownBlock}
       parseIncompleteMarkdown={isStreaming}
       plugins={STREAMDOWN_PLUGINS}
     >

@@ -32,13 +32,18 @@ shown in Settings and are not automatically imported into it.
 
 ## Native-code trust
 
-Production prefers the user's installed `claude` or `codex`, resolved through
-their login shell, and supplies its exact path to the packaged ACP adapter.
-Chat, agent sessions, and health probes use this selection. A discovered CLI's
+Production resolves installed CLIs through the user's login shell and supplies
+the selected executable's exact path to the packaged ACP adapter. Claude prefers
+the installed CLI. Codex compares stable CLI versions and uses the bundled runtime
+when it is newer, so an older standalone installation cannot hide bundled model
+support. Equal/newer installed Codex versions, custom/unrecognized versions, and
+failed version comparisons retain the installed CLI. Chat, agent sessions, model
+discovery, and health probes use the same selection. A discovered CLI's
 launch or authentication failure is reported rather than silently switching it
 to another runtime. User-installed CLI updates remain under the user's control.
 
-When no installed CLI is found, Pane uses its packaged executable. Adapters and
+When no installed CLI is found, or the bundled Codex is newer, Pane uses its
+packaged executable. Adapters and
 fallback executables come from `scripts/build/acp-runtime/package-lock.json` and
 must be updated and tested as a release unit. Production does not install adapter
 packages, update bundled executables, perform ad-hoc signing, or add Gatekeeper

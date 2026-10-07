@@ -1,3 +1,4 @@
+import { boundUiTranscript } from '@browseros/shared/ui-transcript-window'
 import type { UIMessage } from 'ai'
 import { sentry } from '@/lib/sentry/sentry'
 import { slimMessagesForClientUi } from './slim-messages-for-client-ui'
@@ -41,7 +42,9 @@ export function slimMessagesToFixedPoint(
   // Injectable for tests that need to prove the cap/report behavior with a
   // deliberately non-convergent stub; production callers use the default.
   applyOnce: (msgs: UIMessage[]) => UIMessage[] = (msgs) =>
-    slimMessagesForClientUi(stripFatInlineImagesFromMessages(msgs)),
+    slimMessagesForClientUi(
+      stripFatInlineImagesFromMessages(boundUiTranscript(msgs)),
+    ),
 ): UIMessage[] {
   let current = messages
   for (let i = 0; i < MAX_CONVERGENCE_ITERATIONS; i++) {

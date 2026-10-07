@@ -67,7 +67,7 @@ describe('slimMessagesToFixedPoint', () => {
 
 // This is the same pipeline used by restoreFromServer before setMessages.
 for (const type of ['tool-notion', 'dynamic-tool']) {
-  test(`restores a 3 MB ${type} input without losing the chat or retaining the payload`, () => {
+  test(`restores a 3 MB ${type} input as a marked preview without losing the approval`, () => {
     const body = 'x'.repeat(3_000_000)
     const restored = [
       {
@@ -94,14 +94,19 @@ for (const type of ['tool-notion', 'dynamic-tool']) {
       },
     ] as UIMessage[]
     const next = slimMessagesToFixedPoint(restored)
-    expect(JSON.stringify(next).length).toBeLessThan(1_000_000)
+    expect(JSON.stringify(next).length).toBeLessThan(16_000)
     expect(next.map((message) => message.id)).toEqual(['question', 'reply'])
     expect(next[0]).toBe(restored[0])
     expect(next[1].metadata).toEqual({ conversationId: 'existing-chat' })
     expect(next[1].parts[0]).toBe(restored[1].parts[0])
     expect(next[1].parts[2]).toBe(restored[1].parts[2])
-    // Never turn a truncated argument preview into an approvable tool call.
-    expect(next[1].parts[1].type).toBe('text')
+    // The approval UI must fetch exact input before offering an action.
+    expect(next[1].parts[1]).toMatchObject({
+      type,
+      inputPreviewed: true,
+      state: 'approval-requested',
+      approval: { id: 'approval' },
+    })
     expect(
       (restored[1].parts[1] as { input: { body: string } }).input.body,
     ).toBe(body)
@@ -109,7 +114,7 @@ for (const type of ['tool-notion', 'dynamic-tool']) {
   })
 }
 
-test('restore bounds oversized metadata, provider fields, and aggregate tool inputs', () => {
+test('restore bounds opaque metadata while preserving every normal input and reply', () => {
   const restored = Array.from({ length: 30 }, (_, index) => ({
     id: `message-${index}`,
     role: 'assistant',
@@ -134,7 +139,9 @@ test('restore bounds oversized metadata, provider fields, and aggregate tool inp
   expect(next.map((message) => message.id)).toEqual(
     restored.map((message) => message.id),
   )
-  expect(JSON.stringify(next).length).toBeLessThan(1_000_000)
+  expect(next[0].metadata).toBeUndefined()
+  expect(next[0].parts.length).toBeLessThanOrEqual(128)
+  expect(Buffer.byteLength(JSON.stringify(next))).toBeLessThan(1_000_000)
   expect(
     next[0].parts.some(
       (part) =>

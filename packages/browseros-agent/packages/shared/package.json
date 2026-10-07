@@ -94,6 +94,9 @@
     "./layers/script-task": "./src/layers/script-task.ts",
     "./layers/action-failure": "./src/layers/action-failure.ts",
     "./model-catalog": "./src/model-catalog.ts",
-    "./model-catalog-data.json": "./src/model-catalog-data.json"
+    "./model-catalog-data.json": "./src/model-catalog-data.json",
+    "./tool-input-preview": "./src/tool-input-preview.ts",
+    "./ui-transcript-window": "./src/ui-transcript-window.ts",
+    "./ui-content-page": "./src/ui-content-page.ts"
   }
 }

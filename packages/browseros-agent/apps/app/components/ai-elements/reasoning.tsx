@@ -9,6 +9,7 @@ import {
   normalizeMermaidFenceCase,
   STREAMDOWN_PLUGINS,
 } from '@/components/tool-evidence/ChatMermaidBlock'
+import { ViewportMarkdownBlock } from '@/components/tool-evidence/ViewportMarkdownBlock'
 import {
   Collapsible,
   CollapsibleContent,
@@ -186,6 +187,7 @@ export const ReasoningContent = memo(
           streamdown@2 narrowed `dir` from `string` to a literal union
           and the spread leaks Radix's incompatible type. */}
       <Streamdown
+        BlockComponent={ViewportMarkdownBlock}
         linkSafety={streamdownLinkSafety}
         plugins={STREAMDOWN_PLUGINS}
       >

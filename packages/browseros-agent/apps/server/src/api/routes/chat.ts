@@ -1,3 +1,4 @@
+import { uiContentPage } from '@browseros/shared/ui-content-page'
 /**
  * @license
  * Copyright 2025 BrowserOS
@@ -316,6 +317,75 @@ export function createChatRoutes(deps: ChatRouteDeps) {
           })
           return c.json({ error: 'Failed to fetch activity' }, 500)
         }
+      },
+    )
+    .get(
+      '/:conversationId/message-content/:messageId',
+      zValidator(
+        'param',
+        z.object({ conversationId: z.string(), messageId: z.string() }),
+      ),
+      zValidator(
+        'query',
+        z.object({
+          part: z.coerce.number().int().nonnegative().max(1_000_000).optional(),
+          offset: z.coerce
+            .number()
+            .int()
+            .nonnegative()
+            .max(1_000_000_000)
+            .default(0),
+        }),
+      ),
+      async (c) => {
+        const { conversationId, messageId } = c.req.valid('param')
+        const { part, offset } = c.req.valid('query')
+        const message = await sessionStore.loadMessageContent(
+          conversationId,
+          messageId,
+        )
+        if (!message) return c.json({ error: 'Message not found' }, 404)
+        if (
+          message.parts.some(
+            (part) => part.type === 'data-pane-content-preview',
+          )
+        )
+          return c.json(
+            { error: 'Only a preview is available in this saved copy.' },
+            409,
+          )
+        const page = uiContentPage(
+          message.parts,
+          part === undefined ? undefined : { part, offset },
+        )
+        if (!page) return c.json({ error: 'Content page not found' }, 404)
+        c.header('Cache-Control', 'no-store')
+        return c.json(page)
+      },
+    )
+    .get(
+      '/:conversationId/tool-details/:toolCallId',
+      zValidator(
+        'param',
+        z.object({ conversationId: z.string(), toolCallId: z.string() }),
+      ),
+      (c) => {
+        const { conversationId, toolCallId } = c.req.valid('param')
+        const part = sessionStore.loadToolDetails(conversationId, toolCallId)
+        if (!part) return c.json({ error: 'Tool details not found' }, 404)
+        // Imported/cloud history may itself contain a preview. Never present
+        // that as authoritative arguments for an approval.
+        if (part.inputPreviewed)
+          return c.json(
+            { error: 'Full parameters are not available in this saved copy.' },
+            409,
+          )
+        c.header('Cache-Control', 'no-store')
+        return c.json({
+          input: part.input,
+          output: part.output,
+          errorText: part.errorText,
+        })
       },
     )
     .get(

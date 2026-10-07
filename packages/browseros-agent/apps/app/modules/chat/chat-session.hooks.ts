@@ -1,6 +1,7 @@
 import { useChat } from '@ai-sdk/react'
 import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { ConsequenceClass } from '@browseros/shared/trust/consequence-class'
+import { hasEarlierUiMessages } from '@browseros/shared/ui-transcript-window'
 import { useQueryClient } from '@tanstack/react-query'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 import { compact } from 'es-toolkit/array'
@@ -321,6 +322,15 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }
   const [hasMoreAbove, setHasMoreAbove] = useState(false)
   const conversationIdRef = useRef(conversationId)
+  // Explicitly reviewed edits belong to the approval request, not resident
+  // transcript state. Keeping them separate lets that state remain bounded.
+  const reviewedApprovalInputsRef = useRef(
+    new Map<string, Record<string, unknown>>(),
+  )
+  // biome-ignore lint/correctness/useExhaustiveDependencies: never carry overrides into another conversation
+  useEffect(() => {
+    reviewedApprovalInputsRef.current.clear()
+  }, [conversationId])
   // The window this panel belongs to, resolved on mount in per-window scope.
   const windowIdRef = useRef<number | null>(null)
   // The tab this panel belongs to, resolved on mount in per-tab scope.
@@ -623,7 +633,10 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         // Approval decisions to replay on the server (see
         // `collectToolApprovalResponses`). Sent on resume turns so the server
         // can update its stored tool parts and re-run the loop.
-        const toolApprovalResponses = collectToolApprovalResponses(messages)
+        const toolApprovalResponses = collectToolApprovalResponses(
+          messages,
+          reviewedApprovalInputsRef.current,
+        )
         const isApprovalResume = toolApprovalResponses.length > 0
 
         // Prefer the prepareSend `messages` snapshot over messagesRef: the ref
@@ -1547,6 +1560,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // Keep messagesRef in sync on every change (cheap ref assignment)
   useEffect(() => {
     messagesRef.current = messages
+    for (const message of messages)
+      for (const part of message.parts) {
+        if (
+          'toolCallId' in part &&
+          'state' in part &&
+          typeof part.state === 'string' &&
+          part.state.startsWith('output-')
+        )
+          reviewedApprovalInputsRef.current.delete(String(part.toolCallId))
+      }
     syncExecutionHistory(messages, status)
   }, [messages, status, syncExecutionHistory])
 
@@ -2081,6 +2104,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       const argsChanged =
         JSON.stringify(args) !== JSON.stringify(tool.input ?? {})
       if (argsChanged) {
+        reviewedApprovalInputsRef.current.set(tool.toolCallId, args)
         // Patch the edited args into the tool invocation before resuming the
         // loop. The server re-executes the tool with the patched input and the
         // model sees the real result — no side-channel replay, so the model's
@@ -2142,7 +2166,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   const loadOlderMessages = useCallback(async () => {
     const conversationId = conversationIdRef.current
     const baseUrl = agentUrlRef.current
-    if (!conversationId || !baseUrl || !hasMoreAbove) return
+    if (
+      !conversationId ||
+      !baseUrl ||
+      (!hasMoreAbove && !hasEarlierUiMessages(messagesRef.current))
+    )
+      return
     const oldestId = messagesRef.current[0]?.id
     if (!oldestId) return
     const page = await fetchChatMessagePage(conversationId, {

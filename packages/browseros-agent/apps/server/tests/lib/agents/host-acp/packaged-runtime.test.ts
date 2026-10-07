@@ -74,6 +74,96 @@ it('falls back to the release-owned runtime when no host CLI is installed', asyn
   }
 })
 
+it.each([
+  {
+    hostVersion: 'codex-cli 0.146.0',
+    bundledVersion: 'codex-cli 0.153.4',
+    bundled: true,
+  },
+  {
+    hostVersion: 'codex-cli 0.153.3',
+    bundledVersion: 'codex-cli 0.153.4',
+    bundled: true,
+  },
+  {
+    hostVersion: 'codex-cli 0.153.4',
+    bundledVersion: 'codex-cli 0.153.4',
+    bundled: false,
+  },
+  {
+    hostVersion: 'codex-cli 0.154.0',
+    bundledVersion: 'codex-cli 0.153.4',
+    bundled: false,
+  },
+  {
+    hostVersion: 'codex-cli 1.0.0',
+    bundledVersion: 'codex-cli 0.153.4',
+    bundled: false,
+  },
+  {
+    hostVersion: 'custom Codex build',
+    bundledVersion: 'codex-cli 0.153.4',
+    bundled: false,
+  },
+  {
+    hostVersion: 'codex-cli 0.146.0',
+    bundledVersion: 'unknown',
+    bundled: false,
+  },
+])('selects consistent Codex launch/auth runtime for $hostVersion vs $bundledVersion', async ({
+  hostVersion,
+  bundledVersion,
+  bundled,
+}) => {
+  const { resources, root } = fixture()
+  const host = { path: '/host/codex', env: { PATH: '/host/bin' } }
+  const bundledPath = realpathSync(join(root, 'codex'))
+  const selectedPath = bundled ? bundledPath : host.path
+  const authProbes: string[] = []
+  const runCommand: import('../../../../src/lib/agents/host-acp/binary-resolver').HostCommandRunner =
+    async (cmd, args) => {
+      if (args[0] !== '--version') authProbes.push(cmd)
+      return {
+        exitCode: 0,
+        stdout: cmd === host.path ? hostVersion : bundledVersion,
+        stderr: '',
+      }
+    }
+  const launch = await resolveAcpSpawnCommand({
+    agentType: 'codex',
+    resourcesDir: resources,
+    platform: 'darwin',
+    resolveBundledBun: () => '/signed/bun',
+    resolveNative: async () => host,
+    runCommand,
+  })
+  expect(launch?.command).toContain(`CODEX_PATH='${selectedPath}'`)
+  const health = await detectHostAdapter('codex', {
+    resourcesDir: resources,
+    platform: 'darwin',
+    resolveBundledBun: () => '/signed/bun',
+    resolveBinary: async () => host,
+    runCommand,
+  })
+  expect(health.version).toBe(bundled ? bundledVersion : hostVersion)
+  expect(authProbes).toEqual([selectedPath])
+})
+
+it('retains installed Codex when a version comparison fails', async () => {
+  const { resources } = fixture()
+  const result = await resolveAcpSpawnCommand({
+    agentType: 'codex',
+    resourcesDir: resources,
+    platform: 'darwin',
+    resolveBundledBun: () => '/signed/bun',
+    resolveNative: async () => ({ path: '/host/codex', env: {} }),
+    runCommand: async () => {
+      throw new Error('version probe timed out')
+    },
+  })
+  expect(result?.command).toContain("CODEX_PATH='/host/codex'")
+})
+
 it('rejects mismatched platforms and manifest paths outside the bundle', () => {
   const { root, resources, manifest } = fixture()
   expect(() =>

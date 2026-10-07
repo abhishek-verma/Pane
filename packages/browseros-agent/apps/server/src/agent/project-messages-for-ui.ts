@@ -8,6 +8,8 @@
  */
 
 import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
+import { previewToolInput } from '@browseros/shared/tool-input-preview'
+import { boundUiTranscript } from '@browseros/shared/ui-transcript-window'
 import type { UIMessage } from 'ai'
 import type { ToolOutputStore } from './session-store'
 
@@ -138,12 +140,21 @@ export function projectMessagesForUi(
   messages: UIMessage[],
   options: ProjectMessagesForUiOptions,
 ): UIMessage[] {
-  let anyChanged = false
+  const resident = boundUiTranscript(messages)
+  let anyChanged = resident !== messages
 
-  const next = messages.map((msg) => {
+  const next = resident.map((msg) => {
     let partsChanged = false
-    const parts = msg.parts.map((part) => {
-      if (typeof part.type !== 'string' || !part.type.startsWith('tool-')) {
+    const parts = msg.parts.map((original) => {
+      const part = previewToolInput(original)
+      if (part !== original) {
+        anyChanged = true
+        partsChanged = true
+      }
+      if (
+        typeof part.type !== 'string' ||
+        (part.type !== 'dynamic-tool' && !part.type.startsWith('tool-'))
+      ) {
         return part
       }
       const anyPart = part as Record<string, unknown>
@@ -177,7 +188,7 @@ export function projectMessagesForUi(
     return { ...msg, parts }
   })
 
-  return anyChanged ? next : messages
+  return boundUiTranscript(anyChanged ? next : messages)
 }
 
 function shrinkOutputForUi(

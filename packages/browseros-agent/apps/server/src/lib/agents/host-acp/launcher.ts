@@ -3,14 +3,19 @@
  * Copyright 2025 BrowserOS
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * Production uses the release-owned adapter with the user's installed CLI,
- * falling back to the packaged CLI when none is installed. Missing adapter
+ * Production uses the release-owned adapter with the selected CLI, preferring
+ * the packaged Codex when newer and using packaged CLIs when none is installed. Missing adapter
  * resources fail explicitly; package runners are development-only fallbacks.
  */
 
 import { pathToFileURL } from 'node:url'
-import { type ResolvedHostBinary, resolveHostBinary } from './binary-resolver'
+import {
+  type HostCommandRunner,
+  type ResolvedHostBinary,
+  resolveHostBinary,
+} from './binary-resolver'
 import { resolveBundledBun, withBundledBunAcpAdapterEnv } from './bundled-bun'
+import { selectHostCodexRuntime } from './codex-runtime-selection'
 import {
   HOST_ACP_ADAPTER_CONFIG,
   type HostAcpAdapter,
@@ -40,6 +45,7 @@ export interface ResolveAcpSpawnCommandInput {
   resolveNpx?: (name: string) => Promise<ResolvedHostBinary | null>
   /** Resolves the user's Claude/Codex CLI so it cannot be shadowed by Pane. */
   resolveNative?: (name: string) => Promise<ResolvedHostBinary | null>
+  runCommand?: HostCommandRunner
 }
 
 /**
@@ -61,7 +67,10 @@ export async function resolveAcpSpawnCommand(
     input.resolveNative ??
     ((name: string) =>
       resolveHostBinary(name, { env: input.env, platform: input.platform }))
-  const native = await resolveNative(config.nativeBinary).catch(() => null)
+  const native = await selectHostCodexRuntime({
+    ...input,
+    host: await resolveNative(config.nativeBinary).catch(() => null),
+  })
   const executableEnvKey =
     input.agentType === 'claude' ? 'CLAUDE_CODE_EXECUTABLE' : 'CODEX_PATH'
   const nativeOverrides: Record<string, string> = native

@@ -17,9 +17,6 @@ function truncateText(text: string, maxChars: number): string {
   return `${text.slice(0, maxChars)}\n…[truncated ${text.length - maxChars} chars]`
 }
 
-/** Fixed-length (unlike truncateText's suffix) so truncation is idempotent. */
-const REASONING_TRUNCATION_SUFFIX = '\n…[truncated]'
-
 /** Size estimate that never JSON.stringify's image `data` fields. */
 function estimateToolOutputBytes(value: unknown): number {
   if (value == null) return 0
@@ -77,37 +74,11 @@ export function slimMessagesForClientUi(
   messages: UIMessage[],
   previewMaxChars: number = AGENT_LIMITS.UI_TOOL_OUTPUT_PREVIEW_MAX_CHARS,
 ): UIMessage[] {
-  let anyChanged = false
-  const next = messages.map((msg) => {
+  const resident = boundMessagePayload(messages)
+  let anyChanged = resident !== messages
+  const next = resident.map((msg) => {
     let partsChanged = false
     const parts = msg.parts.map((part) => {
-      if (part.type === 'reasoning') {
-        const reasoningPart = part as { text?: unknown }
-        const text = reasoningPart.text
-        if (typeof text !== 'string' || text.length <= previewMaxChars) {
-          return part
-        }
-        anyChanged = true
-        partsChanged = true
-        // Unconditionally cap the suffixed result at previewMaxChars — for
-        // ANY previewMaxChars, including one smaller than the suffix — so
-        // the gate above (text.length <= previewMaxChars) is guaranteed to
-        // pass on the very next call. truncateText's own "[truncated N
-        // chars]" suffix always pushes its result *past* maxChars, which
-        // never re-satisfies that gate: this effect runs inside a useEffect
-        // keyed on `messages` that calls setMessages whenever the slimmed
-        // output differs by reference, so a non-convergent truncation here
-        // reruns forever (setMessages -> messages changes -> effect reruns
-        // -> still "changed" -> setMessages again), which is exactly what
-        // tripped React error #185 (Maximum update depth exceeded) in
-        // production — this must never regress back to that shape.
-        const truncated =
-          `${text.slice(0, previewMaxChars)}${REASONING_TRUNCATION_SUFFIX}`.slice(
-            0,
-            previewMaxChars,
-          )
-        return { ...part, text: truncated }
-      }
       if (
         typeof part.type !== 'string' ||
         (part.type !== 'dynamic-tool' && !part.type.startsWith('tool-'))
