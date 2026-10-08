@@ -5,6 +5,7 @@ import {
   migrateComposer,
   recoverComposer,
   removeAcceptedDraft,
+  selectComposerTab,
   settleQueuedMessage,
 } from './composer-store'
 
@@ -52,6 +53,23 @@ describe('frontend queue settlement', () => {
 })
 
 describe('draft recovery', () => {
+  it('refreshes a reattached tab without removing it or changing other attachments', () => {
+    const old = {
+      id: 1,
+      url: 'https://example.com/payments',
+    } as chrome.tabs.Tab
+    const other = { id: 2, url: 'https://example.org/' } as chrome.tabs.Tab
+    const current = {
+      ...old,
+      title: 'Checkout',
+      url: 'https://example.com/checkout',
+    }
+    const selected = selectComposerTab([old, other], current)
+    expect(selected).toEqual([current, other])
+    expect(selectComposerTab(selected, current)).toEqual(selected)
+    expect(selectComposerTab([other], current)).toEqual([other, current])
+    expect(old.url).toBe('https://example.com/payments')
+  })
   it('makes interrupted sends reviewable immediately after reload', () => {
     const state = emptyComposer()
     state.queue = [

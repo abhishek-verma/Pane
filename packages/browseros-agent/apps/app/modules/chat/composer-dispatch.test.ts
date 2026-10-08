@@ -15,7 +15,13 @@ mock.module('@/lib/conversations/chat-turn-api', () => ({
 }))
 const { dispatchNextComposerMessage } = await import('./composer-dispatch')
 
-import { type ComposerState, emptyComposer } from './composer-store'
+import {
+  type ComposerState,
+  emptyComposer,
+  selectComposerTab,
+  updateComposer,
+} from './composer-store'
+import { snapshotComposerDraft } from './snapshot-composer-draft'
 
 function deferred() {
   let resolve!: () => void
@@ -108,7 +114,13 @@ beforeEach(() => {
           },
         },
       },
-      tabs: { get: async () => ({ url: 'https://example.com/changed' }) },
+      tabs: {
+        get: async (id: number) => ({
+          id,
+          title: 'Current Checkout',
+          url: 'https://example.com/changed',
+        }),
+      },
     },
   })
 })
@@ -121,6 +133,85 @@ afterEach(() => {
 })
 
 describe('frontend dispatch ownership', () => {
+  it('requires an explicit reselect before sending a restored draft whose tab navigated', async () => {
+    stored[key].queue = []
+    stored[key].draft = {
+      ...emptyComposer().draft,
+      text: 'same price @[Payments Page](tab:1)',
+      tabs: [
+        {
+          id: 1,
+          title: 'Payments Page',
+          url: 'https://example.com/original',
+        } as chrome.tabs.Tab,
+      ],
+    }
+    const enqueueDraft = () =>
+      updateComposer(key, async (value) => {
+        const draft = await snapshotComposerDraft(value.draft)
+        return {
+          ...value,
+          draft: emptyComposer().draft,
+          queue: [
+            {
+              id: 'restored',
+              state: 'queued',
+              message: {
+                text: draft.text,
+                action: {
+                  id: 'action',
+                  timestamp: Date.now(),
+                  type: 'browseros',
+                  mode: 'agent',
+                  message: draft.text,
+                  tabs: draft.tabs,
+                },
+              },
+            },
+          ],
+        }
+      })
+    const original = structuredClone(stored[key])
+    await expect(enqueueDraft()).rejects.toThrow('Reselect the page')
+    expect(stored[key]).toEqual(original)
+    await updateComposer(key, (value) => ({
+      ...value,
+      draft: {
+        ...value.draft,
+        tabs: selectComposerTab(value.draft.tabs, {
+          id: 1,
+          title: 'Current Checkout',
+          url: 'https://example.com/changed',
+        } as chrome.tabs.Tab),
+      },
+    }))
+    await enqueueDraft()
+    expect(stored[key].queue[0].message.action?.tabs?.[0].url).toBe(
+      'https://example.com/changed',
+    )
+    await dispatchNextComposerMessage(options())
+    expect(sent).toHaveLength(1)
+    expect(stored[key].queue).toEqual([])
+    expect(stored[key].paused).toBe(false)
+  })
+
+  it('keeps the draft intact when a referenced tab is closed before Send', async () => {
+    stored[key].draft.tabs = [
+      { id: 1, title: 'Closed page' } as chrome.tabs.Tab,
+    ]
+    const original = structuredClone(stored[key])
+    chrome.tabs.get = async () => {
+      throw new Error('No tab')
+    }
+    await expect(
+      updateComposer(key, async (value) => ({
+        ...value,
+        draft: await snapshotComposerDraft(value.draft),
+      })),
+    ).rejects.toThrow('no longer open')
+    expect(stored[key]).toEqual(original)
+  })
+
   it('hands off after a full turn even when another panel requests ownership before settlement', async () => {
     const started = deferred()
     const finish = deferred()
@@ -220,6 +311,45 @@ describe('frontend dispatch ownership', () => {
     expect(sent).toEqual([])
     expect(stored[key].queue[0].state).toBe('review')
     expect(stored[key].note).toContain('reattach')
+  })
+
+  it('sends a reselected tab after the previous turn completes using its current URL', async () => {
+    const oldTab = {
+      id: 1,
+      title: 'Payments Page',
+      url: 'https://example.com/original',
+    } as chrome.tabs.Tab
+    const currentTab = {
+      ...oldTab,
+      title: 'Viewcheckout',
+      url: 'https://example.com/changed',
+    }
+    const selected = selectComposerTab([oldTab], currentTab)
+    stored[key].queue[0].message.action = {
+      id: 'action',
+      timestamp: Date.now(),
+      type: 'browseros',
+      mode: 'agent',
+      message: 'first',
+      tabs: selected,
+    }
+    const base = options()
+    await dispatchNextComposerMessage({
+      ...base,
+      conversationId: 'chat',
+      getSession: () => ({
+        ...base.getSession(),
+        sendComposerMessage: async (message) => {
+          expect(message.action?.tabs).toEqual([currentTab])
+          sent.push(message.text)
+          return 'done'
+        },
+      }),
+    })
+    expect(sent).toEqual(['first'])
+    expect(stored[key].paused).toBe(false)
+    expect(stored[key].queue.map((item) => item.id)).toEqual(['second'])
+    expect(oldTab.url).toBe('https://example.com/original')
   })
 })
 

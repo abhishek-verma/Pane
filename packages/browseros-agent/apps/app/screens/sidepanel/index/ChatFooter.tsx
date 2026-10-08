@@ -14,6 +14,7 @@ import {
 } from '@/lib/selected-text/selectedTextStorage'
 import { cn } from '@/lib/utils'
 import type { ChatMode } from '@/modules/chat/chat-types'
+import { selectComposerTab } from '@/modules/chat/composer-store'
 import type { ChatComposerController } from '@/modules/chat/use-chat-composer'
 import type { VoiceInputState } from '@/modules/voice/voice.hooks'
 import type { VoiceLoopApi } from '@/modules/voice/voice-types'
@@ -210,7 +211,12 @@ export const ChatFooter: FC<ChatFooterProps> = ({
               onSubmit={onSubmit}
               onStop={onStop}
               selectedTabs={attachedTabs}
-              onToggleTab={onToggleTab}
+              onSelectTab={(tab) =>
+                composer.setDraft((draft) => ({
+                  ...draft,
+                  tabs: selectComposerTab(draft.tabs, tab),
+                }))
+              }
               voice={voice}
               onOpenVoiceMode={onOpenVoiceMode}
               ref={chatInputRef}

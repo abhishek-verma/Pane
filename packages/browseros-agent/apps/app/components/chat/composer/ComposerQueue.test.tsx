@@ -13,6 +13,14 @@ const render = (queue: ChatComposerController['state']['queue']) =>
     />,
   )
 describe('upcoming messages', () => {
+  it('distinguishes a blocked delivery from a follow-up waiting for completion', () => {
+    const html = render([
+      { id: 'blocked', state: 'review', message: { text: 'Follow-up' } },
+    ])
+    expect(html).toContain('Message needs attention')
+    expect(html).not.toContain('1 queued')
+    expect(html).toContain('Edit queued message')
+  })
   it('never labels the active prompt as queued or sending', () => {
     expect(
       render([

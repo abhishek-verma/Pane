@@ -20,6 +20,7 @@ import {
   type ChatDraft,
   emptyDraft,
   removeAcceptedDraft,
+  selectComposerTab,
 } from '@/modules/chat/composer-store'
 import { useVoiceInput } from '@/modules/voice/voice.hooks'
 import { ChatAttachedTabs } from '@/screens/sidepanel/index/ChatAttachedTabs'
@@ -256,7 +257,7 @@ export const ConversationInput: FC<ConversationInputProps> = ({
         mode="agent"
         sendDisabled={disabled || submitting || (streaming && !onStop)}
         selectedTabs={tabs}
-        onToggleTab={toggleTab}
+        onSelectTab={(tab) => setTabs((value) => selectComposerTab(value, tab))}
         hasAttachments={attachments.length > 0}
         onFiles={addFiles}
         preparing={preparing}

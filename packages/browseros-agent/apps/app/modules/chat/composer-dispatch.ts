@@ -99,7 +99,7 @@ export async function dispatchNextComposerMessage(options: {
           const current = await chrome.tabs.get(tab.id)
           if (displayTabUrl(current.url) !== displayTabUrl(tab.url))
             throw new Error(
-              `“${tab.title}” has moved. Restore the queued message to your draft and reattach the page.`,
+              `“${tab.title}” changed after this message was queued. Edit the message and reattach the page to send it.`,
             )
         }
         if (!isCurrent())

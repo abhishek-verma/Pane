@@ -11,6 +11,7 @@ export function ComposerQueue({
   const [open, setOpen] = useState(true)
   const { queue, paused, note } = composer.state
   const pending = queue.filter((item) => item.state !== 'sending')
+  const needsReview = pending.some((item) => item.state === 'review')
   if (!pending.length) return null
 
   return (
@@ -25,7 +26,11 @@ export function ComposerQueue({
           <ChevronDown
             className={`size-3 shrink-0 ${open ? 'rotate-180' : ''}`}
           />
-          <span className="shrink-0">{pending.length} queued</span>
+          <span className="shrink-0">
+            {needsReview
+              ? 'Message needs attention'
+              : `${pending.length} queued`}
+          </span>
           {!open && (
             <span className="truncate">
               {readableMessageText(pending[0].message.text) || 'Attachments'}
@@ -113,7 +118,7 @@ export function ComposerQueue({
               </div>
             </div>
           ))}
-          {!paused && (
+          {!paused && !needsReview && (
             <p className="text-[11px] text-muted-foreground">
               Sends automatically after the current response.
             </p>
