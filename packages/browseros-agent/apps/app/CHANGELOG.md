@@ -1,5 +1,12 @@
 # BrowserOS Agent Extension
 
+## v0.0.191 (2026-10-08)
+
+## What's Changed
+
+- fix(chat): keep attached tab context safe across draft refresh (#311)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
