@@ -182,6 +182,19 @@ try {
     (await count()) < 120,
     'scrolling back must remount only nearby content',
   )
+  const unmountsBefore = await page.evaluate(() =>
+    Number(document.documentElement.dataset.unmounts ?? 0),
+  )
+  await page.$eval('#tool-500', (element) => element.scrollIntoView())
+  await page.waitForSelector('[data-tool="500"]')
+  await page.waitForFunction(() => !document.querySelector('[data-tool="0"]'))
+  assert((await count()) < 120, 'scrolling down again must keep DOM bounded')
+  assert(
+    (await page.evaluate(() =>
+      Number(document.documentElement.dataset.unmounts ?? 0),
+    )) > unmountsBefore,
+    'revisited older rows must unmount again when scrolling down',
+  )
   assert.equal(errors.length, 0, errors.join('\n'))
   console.log(
     'PASS: 1,000 tool rows + long Markdown, code and table; bounded DOM, reversible scrolling, full answer, on-demand details/retry/close.',

@@ -45,7 +45,7 @@ import {
   sanitizeMessagesForToolset,
   stripUIImageOutputs,
 } from '../../agent/message-validation'
-import { projectMessagesForUi } from '../../agent/project-messages-for-ui'
+import { projectMessagesSnapshotForUi } from '../../agent/project-messages-for-ui'
 import { resolveAcpWorkspacePath } from '../../agent/provider-factory'
 import { runTracker } from '../../agent/run-tracker'
 import type { AgentSession, SessionStore } from '../../agent/session-store'
@@ -1093,16 +1093,10 @@ export class ChatService {
     messages: UIMessage[],
   ): UIMessage[] {
     const valid = filterValidMessages(messages)
-    // Deep-clone so strip/spill cannot touch agent transcript object graphs.
-    const clone = structuredClone(valid) as UIMessage[]
-    stripUIImageOutputs(
-      clone,
-      conversationId,
-      this.deps.sessionStore.imageStore,
-    )
-    return projectMessagesForUi(clone, {
+    return projectMessagesSnapshotForUi(valid, {
       sessionId: conversationId,
       outputStore: this.deps.sessionStore.outputStore,
+      imageStore: this.deps.sessionStore.imageStore,
     })
   }
 

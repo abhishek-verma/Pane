@@ -6,7 +6,11 @@
 
 import { describe, expect, it } from 'bun:test'
 import type { UIMessage } from 'ai'
-import { projectMessagesForUi } from '../../src/agent/project-messages-for-ui'
+import { stripUIImageOutputs } from '../../src/agent/message-validation'
+import {
+  projectMessagesForUi,
+  projectMessagesSnapshotForUi,
+} from '../../src/agent/project-messages-for-ui'
 
 class MemoryOutputStore {
   map = new Map<string, string>()
@@ -27,6 +31,90 @@ class MemoryOutputStore {
 }
 
 describe('projectMessagesForUi', () => {
+  it('snapshot projection preserves legacy output and isolates source and later writes', () => {
+    const original: UIMessage[] = [
+      {
+        id: 'snapshot',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-screenshot',
+            toolCallId: 'image',
+            state: 'output-available',
+            input: { target: { tab: 1 } },
+            output: {
+              content: [
+                { type: 'image', data: 'abc123', mimeType: 'image/png' },
+              ],
+              structuredContent: {
+                image: 'abc123',
+                format: 'png',
+                nested: { value: 1 },
+              },
+            },
+          } as never,
+        ],
+      },
+    ]
+    const saved = structuredClone(original)
+    const imageWrites: unknown[][] = []
+    const options = {
+      sessionId: 'snapshot-test',
+      imageStore: {
+        store: (...args: unknown[]) => {
+          imageWrites.push(args)
+          return true
+        },
+      } as never,
+      outputStore: new MemoryOutputStore() as never,
+    }
+    const legacy = structuredClone(original)
+    stripUIImageOutputs(legacy, options.sessionId, options.imageStore)
+    const expected = projectMessagesForUi(legacy, options)
+    imageWrites.length = 0
+    const actual = projectMessagesSnapshotForUi(original, options)
+    expect(actual).toEqual(expected)
+    expect(imageWrites).toHaveLength(2)
+    expect(original).toEqual(saved)
+    const sourcePart = original[0].parts[0] as any
+    sourcePart.input.target.tab = 2
+    sourcePart.output.structuredContent.nested.value = 2
+    expect(actual).toEqual(expected)
+    const projectedPart = actual[0].parts[0] as any
+    projectedPart.input.target.tab = 3
+    expect(sourcePart.input.target.tab).toBe(2)
+  })
+
+  it('snapshot projection matches the previous path for long histories and large approvals', () => {
+    const original: UIMessage[] = Array.from({ length: 100 }, (_, index) => ({
+      id: String(index),
+      role: 'assistant',
+      parts: [
+        {
+          type: 'tool-write',
+          toolCallId: `tool-${index}`,
+          state: 'approval-requested',
+          approval: { id: `approval-${index}` },
+          input: { content: 'source'.repeat(30_000) },
+        } as never,
+      ],
+    }))
+    const options = {
+      sessionId: 'long-snapshot',
+      imageStore: { store: () => true } as never,
+      outputStore: new MemoryOutputStore() as never,
+    }
+    const actual = projectMessagesSnapshotForUi(original, options)
+    expect(actual).toEqual(
+      projectMessagesForUi(structuredClone(original), options),
+    )
+    expect(actual).toHaveLength(60)
+    expect((actual.at(-1)!.parts[0] as any).inputPreviewed).toBe(true)
+    expect((original.at(-1)!.parts[0] as any).input.content.length).toBe(
+      180_000,
+    )
+  })
+
   it('does not mutate the agent transcript', () => {
     const fat = 'x'.repeat(8_000)
     const original: UIMessage[] = [

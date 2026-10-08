@@ -41,6 +41,7 @@ export class ManagedLayerRuntime {
   private layers: InstalledLayer[] = []
   private timer: ReturnType<typeof setTimeout> | undefined
   private disposed = false
+  private observing = false
   private styleRepairs = 0
   private currentUrl: string
 
@@ -64,19 +65,10 @@ export class ManagedLayerRuntime {
     this.style = document.createElement('style')
     this.style.dataset.paneLayerOwned = 'true'
     this.style.textContent = `.${this.hiddenClass}{display:none!important}.${this.highlightClass}{outline:2px solid #718a35!important;outline-offset:2px!important}`
-    document.documentElement.append(this.style)
     this.observer = new MutationObserver((records) => {
       if (records.every((record) => this.isOwned(record.target))) return
       this.schedule()
     })
-    this.observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ['class', 'id', 'contenteditable', 'href'],
-    })
-    document.addEventListener('focusout', this.schedule)
   }
 
   update(layers: InstalledLayer[], url = this.document.location.href): void {
@@ -86,7 +78,40 @@ export class ManagedLayerRuntime {
       this.currentUrl = url
     }
     this.layers = layers
+    this.setObserving(
+      layers.some(
+        (layer) =>
+          layer.definition.mode === 'managed' &&
+          layer.definition.operations.length > 0 &&
+          layerMatchesUrl(layer.definition.scope, this.currentUrl),
+      ),
+    )
     this.reconcile()
+  }
+
+  /** Most tabs have no applicable Layer. They should pay no DOM-observer cost.
+   * Keep observing unmatched anchors for applicable Layers so lazy/SPA content
+   * still mounts as soon as it arrives. */
+  private setObserving(enabled: boolean): void {
+    if (this.observing === enabled) return
+    this.observing = enabled
+    if (enabled) {
+      this.document.documentElement.append(this.style)
+      this.observer.observe(this.document.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['class', 'id', 'contenteditable', 'href'],
+      })
+      this.document.addEventListener('focusout', this.schedule)
+    } else {
+      this.observer.disconnect()
+      this.document.removeEventListener('focusout', this.schedule)
+      if (this.timer) clearTimeout(this.timer)
+      this.timer = undefined
+      this.style.remove()
+    }
   }
 
   /** Trusted harness evidence: report every operation, including unmatched ones. */
@@ -112,7 +137,7 @@ export class ManagedLayerRuntime {
   }
 
   private readonly schedule = (): void => {
-    if (this.timer || this.disposed) return
+    if (this.timer || this.disposed || !this.observing) return
     this.timer = setTimeout(() => {
       this.timer = undefined
       this.reconcile()
@@ -161,7 +186,7 @@ export class ManagedLayerRuntime {
 
   private reconcile(): void {
     if (this.disposed) return
-    if (!this.style.isConnected) {
+    if (this.observing && !this.style.isConnected) {
       this.styleRepairs += 1
       if (this.styleRepairs > 5) {
         this.clear()
