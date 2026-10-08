@@ -72,7 +72,8 @@ const TabPickerMentionPopover: FC<TabPickerMentionPopoverProps> = ({
     () => new Set(selectedTabs.map((t) => t.id)),
     [selectedTabs],
   )
-  const tabs = matchedTabs.filter((tab) => !selectedTabIds.has(tab.id))
+  // Mentioning an already attached tab also refreshes its page snapshot.
+  const tabs = matchedTabs
   const [focusedIndex, setFocusedIndex] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 

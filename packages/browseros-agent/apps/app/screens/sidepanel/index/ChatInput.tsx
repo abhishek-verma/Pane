@@ -33,7 +33,7 @@ interface ChatInputProps {
   isTurnActive?: boolean
   sendDisabled?: boolean
   selectedTabs: chrome.tabs.Tab[]
-  onToggleTab: (tab: chrome.tabs.Tab) => void
+  onSelectTab: (tab: chrome.tabs.Tab) => void
   onTabMentionOpenChange?: (open: boolean) => void
   voice?: VoiceInputState
   onOpenVoiceMode?: () => void
@@ -93,8 +93,8 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
             filterText={query ?? ''}
             selectedTabs={props.selectedTabs}
             onToggleTab={(tab) => {
-              if (!props.selectedTabs.some((item) => item.id === tab.id))
-                props.onToggleTab(tab)
+              if (tab.id != null) seenTabs.current.set(tab.id, tab)
+              props.onSelectTab(tab)
               editor.current?.commit(tab)
               closeMention()
             }}
@@ -116,7 +116,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
                   tab &&
                   !props.selectedTabs.some((selected) => selected.id === id)
                 )
-                  props.onToggleTab(tab)
+                  props.onSelectTab(tab)
               }
               props.onInputChange(value)
             }}

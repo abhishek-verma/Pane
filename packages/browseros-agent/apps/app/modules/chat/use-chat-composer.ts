@@ -16,6 +16,7 @@ import {
   recoverComposer,
   updateComposer,
 } from './composer-store'
+import { snapshotComposerDraft } from './snapshot-composer-draft'
 
 export function useChatComposer() {
   const session = useChatSessionContext()
@@ -199,9 +200,10 @@ export function useChatComposer() {
       const selection = tabs[0]?.id
         ? (selectionMap[String(tabs[0].id)] ?? null)
         : null
-      await updateComposer(key, (value) => {
-        const draft = value.draft
-        if (!draft.text.trim() && !draft.attachments.length) return value
+      await updateComposer(key, async (value) => {
+        if (!value.draft.text.trim() && !value.draft.attachments.length)
+          return value
+        const draft = await snapshotComposerDraft(value.draft)
         const message = {
           target: session.selectedProvider
             ? {

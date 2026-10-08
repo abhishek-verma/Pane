@@ -25,6 +25,18 @@ export const emptyDraft = (): ChatDraft => ({
   tabs: [],
   attachments: [],
 })
+
+/** Explicitly selecting a tab refreshes its snapshot, including when its ID
+ * is already attached (for example after navigation or restoring a draft). */
+export function selectComposerTab(
+  tabs: chrome.tabs.Tab[],
+  tab: chrome.tabs.Tab,
+): chrome.tabs.Tab[] {
+  if (tab.id == null) return tabs
+  return tabs.some((item) => item.id === tab.id)
+    ? tabs.map((item) => (item.id === tab.id ? tab : item))
+    : [...tabs, tab]
+}
 export const emptyComposer = (): ComposerState => ({
   draft: emptyDraft(),
   queue: [],
@@ -66,11 +78,11 @@ export async function readComposer(key: string): Promise<ComposerState> {
 /** Web Locks + profile-scoped extension storage serialize panel/full-page writes. */
 export async function updateComposer(
   key: string,
-  update: (state: ComposerState) => ComposerState,
+  update: (state: ComposerState) => ComposerState | Promise<ComposerState>,
 ) {
   return navigator.locks.request(`${key}:write`, async () => {
     const current = await readComposer(key)
-    const next = update(current)
+    const next = await update(current)
     if (next === current) return current
     const saved = { ...next, revision: (current.revision ?? 0) + 1 }
     await chrome.storage.local.set({ [key]: saved })
