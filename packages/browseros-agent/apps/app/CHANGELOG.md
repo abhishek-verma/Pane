@@ -1,5 +1,12 @@
 # BrowserOS Agent Extension
 
+## v0.0.190 (2026-10-08)
+
+## What's Changed
+
+- perf: reduce idle layer work and bound chat snapshots for Pane 0.47.0.101 (#307)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
