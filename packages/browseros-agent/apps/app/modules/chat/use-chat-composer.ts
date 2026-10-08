@@ -39,10 +39,14 @@ export function useChatComposer() {
   draftRef.current = state.draft
   const ready = loaded === key
   const [dispatchTick, setDispatchTick] = useState(0)
+  const needsDispatchRetry = ready && !state.paused && state.queue.length > 0
   useEffect(() => {
+    // Storage/session changes start dispatch immediately. Retry only while a
+    // queue exists, avoiding a whole-composer render every 2s in every idle tab.
+    if (!needsDispatchRetry) return
     const timer = setInterval(() => setDispatchTick((value) => value + 1), 2000)
     return () => clearInterval(timer)
-  }, [])
+  }, [needsDispatchRetry])
 
   const report = useCallback((error: unknown) => {
     setError(

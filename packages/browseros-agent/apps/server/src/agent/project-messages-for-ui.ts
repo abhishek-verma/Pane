@@ -11,13 +11,30 @@ import { AGENT_LIMITS } from '@browseros/shared/constants/limits'
 import { previewToolInput } from '@browseros/shared/tool-input-preview'
 import { boundUiTranscript } from '@browseros/shared/ui-transcript-window'
 import type { UIMessage } from 'ai'
-import type { ToolOutputStore } from './session-store'
+import { stripUIImageOutputs } from './message-validation'
+import type { ToolImageStore, ToolOutputStore } from './session-store'
 
 export type ProjectMessagesForUiOptions = {
   sessionId: string
   outputStore: ToolOutputStore
   /** Inline preview budget (agent transcript unchanged). */
   previewMaxChars?: number
+}
+
+/** Detach the bounded wire snapshot, not the entire model transcript. Image
+ * stripping replaces only part.output and builds new nested output objects;
+ * copying the message/part shells protects the source before that operation.
+ * The final clone isolates even small unchanged values from later SDK writes. */
+export function projectMessagesSnapshotForUi(
+  messages: UIMessage[],
+  options: ProjectMessagesForUiOptions & { imageStore: ToolImageStore },
+): UIMessage[] {
+  const shells = messages.map((message) => ({
+    ...message,
+    parts: message.parts.map((part) => ({ ...part })),
+  }))
+  stripUIImageOutputs(shells, options.sessionId, options.imageStore)
+  return structuredClone(projectMessagesForUi(shells, options))
 }
 
 function truncateText(text: string, maxChars: number): string {

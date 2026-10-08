@@ -4,7 +4,7 @@ import {
   hasEarlierUiMessages,
 } from '@browseros/shared/ui-transcript-window'
 import type { UIMessage } from 'ai'
-import { Bot } from 'lucide-react'
+import { Bot, Loader2 } from 'lucide-react'
 import {
   type FC,
   memo,
@@ -371,12 +371,24 @@ export const ChatMessages: FC<ChatMessagesProps> = ({
     <>
       <Conversation className="ph-mask">
         <ConversationContent>
-          {showTopSentinel ? (
+          {showTopSentinel || loadingOlder ? (
             <div
               ref={topSentinelRef}
-              className="h-1 w-full shrink-0"
-              aria-hidden
-            />
+              className="flex h-8 w-full shrink-0 items-center justify-center"
+            >
+              {loadingOlder ? (
+                <div
+                  role="status"
+                  className="flex items-center gap-2 text-muted-foreground text-xs"
+                >
+                  <Loader2
+                    aria-hidden="true"
+                    className="size-3.5 animate-spin motion-reduce:animate-none"
+                  />
+                  Loading earlier messages…
+                </div>
+              ) : null}
+            </div>
           ) : null}
           {visibleMessages.map((message, visibleIndex) => {
             const messageIndex = hiddenCount + visibleIndex
