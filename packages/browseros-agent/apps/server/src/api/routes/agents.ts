@@ -585,6 +585,18 @@ function streamExistingTurn(
   if (!frames) {
     return c.json({ error: 'Unknown turn' }, 404)
   }
+  // Sidepanel repository followers use the same SDK framing as the initial
+  // POST, while command-center subscribers retain raw harness events.
+  if (url.searchParams.get('format') === 'ui') {
+    return createAcpUIMessageStreamResponse(
+      turnFramesToAgentEvents(frames, {
+        onCancel: () => {},
+      }),
+      {
+        headers: { 'X-Session-Id': input.sessionId, 'X-Turn-Id': turnId },
+      },
+    )
+  }
   return streamTurnFrames(c, frames, {
     sessionId: input.sessionId,
     turnId,

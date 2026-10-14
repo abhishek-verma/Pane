@@ -107,3 +107,32 @@ describe('POST /acpx/probe', () => {
     expect(res.status).toBe(400)
   })
 })
+
+describe('POST /acpx/probe/codex/sign-in', () => {
+  it('uses the release resources and reports completion', async () => {
+    let called = false
+    const app = createAcpxProbeRoutes({
+      resourcesDir: '/release/resources',
+      signIn: async (input) => {
+        expect(input.resourcesDir).toBe('/release/resources')
+        expect(input.signal).toBeInstanceOf(AbortSignal)
+        called = true
+      },
+    })
+    const response = await app.request('/codex/sign-in', { method: 'POST' })
+    expect(response.status).toBe(200)
+    expect(called).toBe(true)
+  })
+  it('returns sign-in failure for the UI', async () => {
+    const app = createAcpxProbeRoutes({
+      signIn: async () => {
+        throw new Error('Codex sign-in timed out. Try again.')
+      },
+    })
+    const response = await app.request('/codex/sign-in', { method: 'POST' })
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({
+      error: 'Codex sign-in timed out. Try again.',
+    })
+  })
+})

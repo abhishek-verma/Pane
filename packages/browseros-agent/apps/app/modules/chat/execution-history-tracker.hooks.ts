@@ -9,6 +9,7 @@ import type {
   ExecutionTaskRecord,
   ExecutionTaskStatus,
 } from '@/lib/execution-history/types'
+import { ExecutionHistoryWriteBuffer } from '@/lib/execution-history/write-buffer'
 import { sentry } from '@/lib/sentry/sentry'
 
 interface StartExecutionTaskInput {
@@ -62,34 +63,29 @@ function getFinishedStatus(
 
 export function useExecutionHistoryTracker() {
   const activeTaskRef = useRef<ExecutionTaskRecord | null>(null)
-  const lastSavedHashRef = useRef('')
-  const writeQueueRef = useRef(Promise.resolve())
-
-  const persistTask = useCallback((task: ExecutionTaskRecord) => {
-    const taskHash = JSON.stringify(task)
-    if (taskHash === lastSavedHashRef.current) return
-
-    activeTaskRef.current = task
-    writeQueueRef.current = writeQueueRef.current
-      .then(async () => {
-        await upsertConversationExecutionTask(task)
-        lastSavedHashRef.current = taskHash
-      })
-      .catch((error) => {
+  const writerRef = useRef<ExecutionHistoryWriteBuffer | null>(null)
+  if (!writerRef.current) {
+    writerRef.current = new ExecutionHistoryWriteBuffer(
+      upsertConversationExecutionTask,
+      (error, task) =>
         sentry.captureException(error, {
           extra: {
             message: 'Failed to persist execution history task',
             conversationId: task.conversationId,
             taskId: task.id,
           },
-        })
-      })
+        }),
+    )
+  }
+
+  const persistTask = useCallback((task: ExecutionTaskRecord) => {
+    activeTaskRef.current = task
+    writerRef.current?.enqueue(task)
   }, [])
 
   const startTask = useCallback(
     (input: StartExecutionTaskInput) => {
       const task = createTask(input)
-      lastSavedHashRef.current = ''
       persistTask(task)
       return task.id
     },
@@ -152,7 +148,6 @@ export function useExecutionHistoryTracker() {
 
   const clearActiveTask = useCallback(() => {
     activeTaskRef.current = null
-    lastSavedHashRef.current = ''
   }, [])
 
   return {

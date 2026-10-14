@@ -40,6 +40,10 @@ export class ManagedLayerRuntime {
   private readonly style: HTMLStyleElement
   private layers: InstalledLayer[] = []
   private timer: ReturnType<typeof setTimeout> | undefined
+  private pass: Generator<void, void, void> | undefined
+  private dirty = false
+  private passCost = 0
+  private lastPassCost = 0
   private disposed = false
   private observing = false
   private styleRepairs = 0
@@ -73,6 +77,7 @@ export class ManagedLayerRuntime {
 
   update(layers: InstalledLayer[], url = this.document.location.href): void {
     if (this.disposed) return
+    this.cancelPass()
     if (url !== this.currentUrl) {
       this.clear()
       this.currentUrl = url
@@ -86,7 +91,7 @@ export class ManagedLayerRuntime {
           layerMatchesUrl(layer.definition.scope, this.currentUrl),
       ),
     )
-    this.reconcile()
+    this.startPass()
   }
 
   /** Most tabs have no applicable Layer. They should pay no DOM-observer cost.
@@ -131,17 +136,65 @@ export class ManagedLayerRuntime {
     this.disposed = true
     this.observer.disconnect()
     this.document.removeEventListener('focusout', this.schedule)
-    if (this.timer) clearTimeout(this.timer)
+    this.cancelPass()
     this.clear()
     this.style.remove()
   }
 
+  private cancelPass(): void {
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = undefined
+    this.pass = undefined
+    this.dirty = false
+  }
+
   private readonly schedule = (): void => {
-    if (this.timer || this.disposed || !this.observing) return
+    if (this.disposed || !this.observing) return
+    this.dirty = true
+    if (this.timer || this.pass) return
+    // Bound repeated scanning under continuous DOM churn. Hidden web pages
+    // still converge (including pages used by tools), at a lower frequency.
+    const delay = Math.max(
+      this.document.hidden ? 250 : 32,
+      this.lastPassCost * 4,
+    )
     this.timer = setTimeout(() => {
       this.timer = undefined
-      this.reconcile()
-    }, 32)
+      this.startPass()
+    }, delay)
+  }
+
+  private startPass(): void {
+    this.dirty = false
+    this.passCost = 0
+    this.pass = this.reconcile()
+    this.continuePass()
+  }
+
+  private continuePass(): void {
+    const pass = this.pass
+    if (!pass || this.disposed) return
+    const start = performance.now()
+    let done = false
+    // A native selector cannot be interrupted, but never run a whole Layer's
+    // expensive selector list in one task. Small Layers still mount inline.
+    do {
+      done = Boolean(pass.next().done)
+    } while (!done && performance.now() - start < 8)
+    this.passCost += performance.now() - start
+    if (done) {
+      this.pass = undefined
+      this.lastPassCost = this.passCost
+      if (this.dirty) this.schedule()
+    } else {
+      this.timer = setTimeout(
+        () => {
+          this.timer = undefined
+          this.continuePass()
+        },
+        this.document.hidden ? 50 : 16,
+      )
+    }
   }
 
   private clear(): void {
@@ -184,7 +237,7 @@ export class ManagedLayerRuntime {
     )
   }
 
-  private reconcile(): void {
+  private *reconcile(): Generator<void, void, void> {
     if (this.disposed) return
     if (this.observing && !this.style.isConnected) {
       this.styleRepairs += 1
@@ -255,6 +308,7 @@ export class ManagedLayerRuntime {
         }
         reason = this.reconcileOperation(key, entry) ?? reason
         count += entry.effects.size
+        yield
       }
       statuses.push({
         layerId: layer.id,

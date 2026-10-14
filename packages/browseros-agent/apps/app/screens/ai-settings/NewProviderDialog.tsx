@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ExternalLink,
   Loader2,
+  RefreshCw,
   XCircle,
 } from 'lucide-react'
 import {
@@ -98,6 +99,7 @@ import { useAgentServerUrl } from '@/modules/browseros/agent-server-url.hooks'
 import { useCapabilities } from '@/modules/browseros/capabilities.hooks'
 import { useAcpProbe } from '@/modules/llm-providers/acp-probe.hooks'
 import { useProviderModels } from '@/modules/llm-providers/model-catalog.hooks'
+import { CodexSignIn } from './CodexSignIn'
 import { ProviderModelCatalogStatus } from './ProviderModelCatalogStatus'
 import { ProviderSignIn } from './ProviderSignIn'
 import {
@@ -527,17 +529,17 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
             ? 'Claude Code'
             : 'custom agent'
       const banner = (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-green-700 text-sm dark:border-green-800 dark:bg-green-950 dark:text-green-300">
-          Credentials are managed by the local {agentLabel} runtime. No API key
-          needed.
-          {watchedType !== 'acp-custom' && (
-            <p className="mt-2">
-              To sign in or reconnect, run{' '}
-              <code>
-                {watchedType === 'codex' ? 'codex login' : 'claude auth login'}
-              </code>{' '}
-              in your terminal, then refresh models here.
-            </p>
+        <div className="rounded-lg border bg-muted/30 p-3 text-muted-foreground text-sm">
+          {watchedType === 'acp-custom'
+            ? 'Your custom agent manages its own sign-in and model access.'
+            : `Pane includes ${agentLabel} and reuses your existing sign-in. No separate installation or API key is needed.`}
+          {watchedType === 'codex' && open && (
+            <CodexSignIn
+              serverUrl={agentServerUrl}
+              onSuccess={() => {
+                void acpProbe.refetch()
+              }}
+            />
           )}
         </div>
       )
@@ -602,7 +604,26 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
             name="modelId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Model *</FormLabel>
+                <div className="flex items-center justify-between gap-2">
+                  <FormLabel>Model *</FormLabel>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-muted-foreground"
+                    aria-label="Refresh available models"
+                    disabled={acpProbe.isFetching}
+                    onClick={() => acpProbe.refetch()}
+                  >
+                    <RefreshCw
+                      className={cn(
+                        'mr-1.5 size-3.5',
+                        acpProbe.isFetching && 'animate-spin',
+                      )}
+                    />
+                    {acpProbe.isFetching ? 'Refreshing…' : 'Refresh'}
+                  </Button>
+                </div>
                 <Popover
                   open={modelPickerOpen}
                   onOpenChange={setModelPickerOpen}
@@ -682,23 +703,9 @@ export const NewProviderDialog: FC<NewProviderDialogProps> = ({
                   </PopoverContent>
                 </Popover>
                 <FormDescription>
-                  Models reported by your local {agentLabel} runtime. You can
-                  enter another model ID; use Test to check local availability.
+                  Models available through {agentLabel}. You can enter another
+                  model ID; use Test to check local availability.
                 </FormDescription>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={acpProbe.isFetching}
-                  onClick={() => acpProbe.refetch()}
-                >
-                  {acpProbe.isFetching && (
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                  )}
-                  {acpProbe.isFetching
-                    ? 'Refreshing models…'
-                    : 'Refresh models'}
-                </Button>
                 {probeError && (
                   <p role="alert" className="text-destructive text-sm">
                     Could not load models: {probeError}

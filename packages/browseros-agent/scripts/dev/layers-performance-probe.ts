@@ -35,6 +35,8 @@ const browser = await puppeteer.launch({
   args: [
     '--disable-browseros-server',
     '--disable-background-networking',
+    '--disable-breakpad',
+    '--disable-crash-reporter',
     '--no-first-run',
   ],
 })
@@ -49,6 +51,7 @@ try {
     ).join('')
   })
   await page.addScriptTag({ path: join(dir, 'runtime.js') })
+  await page.bringToFront()
   const result = await page.evaluate(async () => {
     const root = globalThis as any
     const scope = {
@@ -183,6 +186,72 @@ try {
     throw new Error(`Mount p95 exceeds 100ms: ${result.mountP95Ms}`)
   if (result.layersChurnMs > result.baselineChurnMs * 1.5 + 100)
     throw new Error('Feed churn exceeded the regression budget')
+  const scheduling = await page.evaluate(async () => {
+    const root = globalThis as any
+    const runtime = root.createRuntime()
+    const layer = {
+      id: 'expensive',
+      version: 'b'.repeat(64),
+      definition: {
+        mode: 'managed',
+        scope: {
+          origin: location.origin,
+          paths: ['/*'],
+          excludePaths: [],
+          query: {},
+        },
+        operations: Array.from({ length: 100 }, (_, i) => ({
+          id: `expensive-${i}`,
+          kind: 'highlight',
+          anchor: {
+            selector: `section:has(p):nth-child(${i * 40 + 1})`,
+            maxMatches: 1,
+          },
+        })),
+      },
+    }
+    let heartbeats = 0
+    const pulse = setInterval(() => heartbeats++, 10)
+    const until = async (ready: () => boolean) => {
+      const deadline = performance.now() + 15000
+      while (!ready()) {
+        if (performance.now() > deadline)
+          throw new Error('Layer failed to converge')
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
+    }
+    const mounted = () =>
+      runtime
+        .inspect(layer.id)
+        .reduce((sum: number, op: any) => sum + op.affectedElements, 0)
+    try {
+      runtime.update([layer])
+      const inlineMounts = mounted()
+      if (inlineMounts === 100) throw new Error('Expensive Layer did not yield')
+      await until(() => mounted() === 100)
+      if (heartbeats < 5) throw new Error('Layer starved the event loop')
+      // Update while a continuation is pending must invalidate its generator.
+      runtime.update([layer])
+      runtime.update([])
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      if (runtime.inspect(layer.id).length)
+        throw new Error('Disabled Layer remounted from a stale pass')
+      runtime.update([layer])
+      runtime.update([layer], 'https://excluded.invalid/')
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      if (runtime.inspect(layer.id).length)
+        throw new Error('Old route remounted from a stale pass')
+      runtime.update([layer], location.href)
+      runtime.dispose()
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      if (document.querySelector('[class*="pane-layer-"]'))
+        throw new Error('Disposed continuation retained effects')
+      return { inlineMounts, heartbeats, convergedOperations: 100 }
+    } finally {
+      clearInterval(pulse)
+      runtime.dispose()
+    }
+  })
   const tabs = await Promise.all(
     Array.from({ length: 12 }, () => browser.newPage()),
   )
@@ -213,7 +282,7 @@ try {
     throw new Error('Inactive Layer observers woke up during 12-tab DOM churn')
   console.log(
     JSON.stringify(
-      { ...result, idleTabs: 12, idleTabReconciliations },
+      { ...result, scheduling, idleTabs: 12, idleTabReconciliations },
       null,
       2,
     ),

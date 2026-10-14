@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { agentFetch } from '@/lib/browseros/agent-fetch'
+import { withRequestDeadline } from '@/lib/browseros/request-deadline'
 import type { ProviderType } from '@/lib/llm-providers/types'
 import { useAgentServerUrl } from '../browseros/agent-server-url.hooks'
 
@@ -68,6 +69,35 @@ export function isAcpProbeEnabled(
   return Boolean(agentId)
 }
 
+export async function fetchAcpProbe(
+  serverUrl: string,
+  input: { agentId?: string; command?: string; cwd?: string },
+  signal?: AbortSignal,
+  request: typeof agentFetch = agentFetch,
+): Promise<AcpProbeResult> {
+  return withRequestDeadline(
+    async (requestSignal) => {
+      const res = await request(`${serverUrl}/acpx/probe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+        signal: requestSignal,
+      })
+      const body = (await res.json()) as AcpProbeResult
+      if (!res.ok || body.error) {
+        const error = body.error as AcpProbeError | string | undefined
+        throw new Error(
+          typeof error === 'string'
+            ? error
+            : (error?.message ?? 'Could not load models. Try again.'),
+        )
+      }
+      return body
+    },
+    { signal, timeoutMs: 125_000 },
+  )
+}
+
 export function useAcpProbe(opts: UseAcpProbeOptions) {
   const { baseUrl: agentServerUrl } = useAgentServerUrl()
   const agentId = resolveAcpAgentId(opts)
@@ -76,6 +106,7 @@ export function useAcpProbe(opts: UseAcpProbeOptions) {
   return useQuery<AcpProbeResult>({
     queryKey: [
       'acpx-probe',
+      agentServerUrl,
       opts.providerType,
       agentId,
       opts.command,
@@ -83,23 +114,12 @@ export function useAcpProbe(opts: UseAcpProbeOptions) {
     ],
     enabled,
     staleTime: PROBE_STALE_TIME_MS,
-    queryFn: async () => {
-      const res = await agentFetch(`${agentServerUrl}/acpx/probe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agentId,
-          command: opts.command,
-          cwd: opts.cwd,
-        }),
-      })
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as {
-          error?: AcpProbeError
-        }
-        throw new Error(body.error?.message ?? 'Probe request failed')
-      }
-      return (await res.json()) as AcpProbeResult
-    },
+    retry: false,
+    queryFn: ({ signal }) =>
+      fetchAcpProbe(
+        agentServerUrl as string,
+        { agentId, command: opts.command, cwd: opts.cwd },
+        signal,
+      ),
   })
 }
