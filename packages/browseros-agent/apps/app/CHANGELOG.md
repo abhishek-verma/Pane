@@ -1,5 +1,12 @@
 # BrowserOS Agent Extension
 
+## v0.0.192 (2026-10-14)
+
+## What's Changed
+
+- feat(chat): make shared turns durable across views and providers (#315)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
