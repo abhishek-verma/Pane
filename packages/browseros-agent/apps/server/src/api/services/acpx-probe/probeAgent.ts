@@ -250,9 +250,26 @@ function normalizeProbeResult(r: AgentProbeResult): ServerAcpxProbeResult {
     error: r.error
       ? {
           code: r.error.code,
-          message: r.error.message,
+          message: probeErrorMessage(r.error),
           acpErrorCode: r.error.acpError?.code,
         }
       : undefined,
   }
+}
+
+function probeErrorMessage(
+  error: NonNullable<AgentProbeResult['error']>,
+): string {
+  // ACP puts the actionable cause in error.data, beneath the generic JSON-RPC
+  // "Internal error" message. Do not expose stderr or arbitrary data objects.
+  const data: unknown = error.acpError?.data
+  const detail =
+    typeof data === 'string'
+      ? data
+      : data && typeof data === 'object'
+        ? ((data as { details?: unknown; message?: unknown }).details ??
+          (data as { message?: unknown }).message)
+        : undefined
+  if (typeof detail !== 'string' || !detail.trim()) return error.message
+  return `${error.message}: ${detail.trim().slice(0, 1500)}`
 }

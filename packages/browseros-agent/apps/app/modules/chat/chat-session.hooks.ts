@@ -3,13 +3,12 @@ import { TIMEOUTS } from '@browseros/shared/constants/timeouts'
 import type { ConsequenceClass } from '@browseros/shared/trust/consequence-class'
 import { hasEarlierUiMessages } from '@browseros/shared/ui-transcript-window'
 import { useQueryClient } from '@tanstack/react-query'
-import { DefaultChatTransport, type UIMessage } from 'ai'
+import type { UIMessage } from 'ai'
 import { compact } from 'es-toolkit/array'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import useDeepCompareEffect from 'use-deep-compare-effect'
 import type { Provider } from '@/components/chat/chatComponentTypes'
-import { agentFetch } from '@/lib/browseros/agent-fetch'
 import {
   clearLastActiveConversation,
   getLastActiveConversation,
@@ -26,6 +25,14 @@ import {
 import { sidePanelPerWindowStorage } from '@/lib/browseros/sidePanelOpenStateStorage'
 import type { ChatAction } from '@/lib/chat-actions/types'
 import {
+  chatRepositoryClient,
+  readRepositoryChat,
+  readRepositoryPage,
+  repositoryTransport,
+} from '@/lib/chat-repository/client'
+import { RepositoryChatController } from '@/lib/chat-repository/controller'
+import { durableChatRequest } from '@/lib/chat-repository/queue-request'
+import {
   CONVERSATION_RESET_EVENT,
   GLOW_STOP_CLICKED_EVENT,
   MESSAGE_DISLIKE_EVENT,
@@ -35,14 +42,9 @@ import {
 } from '@/lib/constants/analyticsEvents'
 import { productFeatures } from '@/lib/constants/product-features'
 import {
-  attachChatTurnStream,
-  fetchActiveChatTurn,
-} from '@/lib/conversations/chat-turn-api'
-import {
   excludeInFlightUserMessage,
   formatConversationHistory,
 } from '@/lib/conversations/formatConversationHistory'
-import { fetchChatMessagePage } from '@/lib/conversations/server-chat-history'
 import { declinedAppsStorage } from '@/lib/declined-apps/storage'
 import { resolveChatProvider } from '@/lib/llm-providers/provider-runtime'
 import { resolveStoredChatProvider } from '@/lib/llm-providers/storage'
@@ -81,13 +83,13 @@ import { useInvalidateCredits } from '@/modules/credits/credits.hooks'
 import { useGraphqlQuery } from '@/modules/graphql/graphql-query.hooks'
 import type { ToolInvocationInfo } from '@/screens/sidepanel/index/getMessageSegments'
 import { isBenignClientRenderError } from './benign-client-render-error'
+import { ChatCompletionTracker } from './chat-completion-tracker'
 import { useChatRefs } from './chat-refs.hooks'
 import { GetConversationWithMessagesDocument } from './chat-session-document'
 import {
   buildSidepanelPreparedSendMessagesRequest,
   toProviderOption,
 } from './chat-session-request'
-import { ChatTurnController } from './chat-turn-controller'
 import type { ChatMode } from './chat-types'
 import {
   collectToolApprovalResponses,
@@ -106,7 +108,6 @@ import { useNotifyActiveTab } from './notify-active-tab.hooks'
 import { prepareMessagesForClientTurn } from './prepare-messages-for-turn'
 import {
   hasApprovalRespondedParts,
-  hasAssistantText,
   hydrateClientMessagesFromServer,
 } from './reconcile-tool-states'
 import { useRemoteConversationSave } from './remote-conversation-save.hooks'
@@ -116,10 +117,6 @@ import {
 } from './searchActionDedup'
 import { shouldResumeLastActiveConversation } from './shouldResumeLastActiveConversation'
 import { toLlmProviderConfig } from './sidepanel-chat-targets'
-
-/** How long status may stay submitted/streaming with no message growth
- *  before we ask the server whether the turn already finished. */
-const STUCK_STREAM_HYDRATE_MS = 12_000
 
 const getLastMessageText = (messages: UIMessage[]) => {
   const lastMessage = messages[messages.length - 1]
@@ -336,12 +333,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // The tab this panel belongs to, resolved on mount in per-tab scope.
   const tabIdRef = useRef<number | null>(null)
   const sessionMountedRef = useRef(true)
-  const turnControllerRef = useRef(new ChatTurnController())
+  const turnControllerRef = useRef(new RepositoryChatController())
   const [isTurnActive, setIsTurnActive] = useState(false)
   const [activityKnown, setActivityKnown] = useState(false)
   const [activityError, setActivityError] = useState<Error | null>(null)
   const composerDeliveryRef = useRef<{
     outcome: 'done' | 'paused'
+    coordinatorOutcome?: 'done' | 'paused' | 'pending'
     onAccepted?: (started: {
       turnId: string
       conversationId: string
@@ -359,6 +357,12 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     return turnControllerRef.current.subscribe(
       ({ isTurnActive: active, activityKnown, activityError }) => {
         setIsTurnActive(active)
+        const vm = turnControllerRef.current.vmStatus
+        setVmStatus((previous) =>
+          previous?.status === vm?.status && previous?.progress === vm?.progress
+            ? previous
+            : vm,
+        )
         setActivityKnown(activityKnown)
         setActivityError(activityError)
       },
@@ -379,7 +383,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     sessionMountedRef.current = true
     return () => {
       sessionMountedRef.current = false
-      controller.detachAttachOnly()
+      controller.dispose()
     }
   }, [])
 
@@ -491,6 +495,186 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     ? toProviderOption(selectedChatTarget)
     : providers[0]
 
+  const prepareRepositoryRequest = async ({
+    messages,
+  }: {
+    messages: UIMessage[]
+  }) => {
+    const requestConversationId =
+      (
+        messages.findLast((item) => item.role === 'user')?.metadata as
+          | { conversationId?: string }
+          | undefined
+      )?.conversationId ?? conversationIdRef.current
+    const lastUser = messages.findLast((message) => message.role === 'user')
+    const composer = composerMetadata(lastUser)
+    const target = composer?.target
+      ? chatTargetsRef.current.find(
+          (item) =>
+            item.id === composer.target?.id &&
+            item.kind === composer.target?.kind,
+        )
+      : selectedChatTargetRef.current
+    if (composer?.target && !target)
+      throw new Error(
+        'The queued model or agent is no longer available. Restore this message and choose another model.',
+      )
+    const fallbackProvider =
+      (target?.kind === 'llm' ? target.provider : undefined) ??
+      resolveChatProvider(
+        selectedLlmProviderRef.current ? [selectedLlmProviderRef.current] : [],
+      ) ??
+      (await resolveStoredChatProvider())
+    if (!fallbackProvider) {
+      throw new Error(
+        'No AI provider configured. Add one in Settings → AI & Agents.',
+      )
+    }
+    const activeTabsList = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    })
+    const activeTab = activeTabsList?.[0] ?? undefined
+    const activeTabSelection = activeTab?.id
+      ? (selectionMapRef.current[String(activeTab.id)] ?? null)
+      : null
+    let isPrivate: boolean | undefined
+    if (activeTab?.windowId != null) {
+      try {
+        const win = await chrome.windows.get(activeTab.windowId)
+        isPrivate = win.incognito === true
+      } catch {
+        // Window may have closed between query and get; omit the flag.
+      }
+    }
+    const currentMode = composer?.mode ?? modeRef.current
+    const enabledMcpServers = enabledMcpServersRef.current
+    const customMcpServers = enabledCustomServersRef.current
+    const lastUserMessage = getLastUserMessageText(messages)
+    const action =
+      composer?.action ?? textToActionRef.current.get(lastUserMessage)
+    const requestBrowserContext = buildRequestBrowserContext({
+      activeTab: composer ? action?.tabs?.[0] : activeTab,
+      action,
+      enabledMcpServers,
+      customMcpServers,
+      isPrivate,
+    })
+
+    const declinedApps = await declinedAppsStorage.getValue()
+    // Approval decisions to replay on the server (see
+    // `collectToolApprovalResponses`). Sent on resume turns so the server
+    // can update its stored tool parts and re-run the loop.
+    const toolApprovalResponses = collectToolApprovalResponses(
+      messages,
+      reviewedApprovalInputsRef.current,
+    )
+    const isApprovalResume = toolApprovalResponses.length > 0
+
+    // Prefer the prepareSend `messages` snapshot over messagesRef: the ref
+    // is updated in an effect and often already includes the optimistic
+    // user by the time these awaits finish. previousConversation must be
+    // prior turns only (#263); request.message carries the in-flight user.
+    const inFlightUserText = isApprovalResume
+      ? ''
+      : getLastUserMessageText(messages)
+    const priorMessages = excludeInFlightUserMessage(messages, inFlightUserText)
+    const history =
+      priorMessages.length > 0
+        ? formatConversationHistory(priorMessages)
+        : undefined
+    const previousConversation = history?.length ? history : undefined
+
+    const userSystemPrompt = getUserSystemPrompt(
+      options?.origin,
+      personalizationRef.current,
+    )
+    const agentSessionStrategy = options?.agentSessionStrategy ?? 'conversation'
+    const agentSessionId =
+      agentSessionStrategy === 'main' ? 'main' : requestConversationId
+
+    // Read pins from storage (not only the ref) so "Allow always" that
+    // just wrote to storage is included in this same approval-resume
+    // request. The ref can lag one tick behind storage.watch.
+    const convoPins = await conversationTrustStorage.getValue()
+    const activeConvoPins = convoPins[requestConversationId] ?? {}
+    const storedPins = await trustPinsStorage.getValue()
+    trustPinsRef.current = storedPins ?? {}
+    const mergedPins = { ...trustPinsRef.current }
+    for (const [cls, isTrusted] of Object.entries(activeConvoPins)) {
+      if (isTrusted) {
+        mergedPins[cls as ConsequenceClass] = { pinned: true }
+      }
+    }
+    const requireBrowserInputApproval =
+      (await requireBrowserInputApprovalStorage.getValue()) ?? false
+
+    const commonRequest = {
+      conversationId: requestConversationId,
+      agentSessionId,
+      mode: currentMode,
+      browserContext: requestBrowserContext,
+      userSystemPrompt,
+      userWorkingDir: workingDirRef.current,
+      workspaceId: workspaceIdRef.current,
+      bucketId: bucketIdRef.current ?? 'default',
+      trustPins: mergedPins,
+      requireBrowserInputApproval,
+      previousConversation,
+      declinedApps,
+      toolApprovalResponses,
+    }
+
+    const message = isApprovalResume ? '' : getLastUserMessageText(messages)
+
+    const currentAgentServerUrl = agentUrlRef.current
+    if (!currentAgentServerUrl) {
+      throw (
+        agentUrlErrorRef.current ??
+        new Error('Agent server URL not configured.')
+      )
+    }
+
+    const result = buildSidepanelPreparedSendMessagesRequest({
+      agentServerUrl: currentAgentServerUrl,
+      target,
+      fallbackProvider,
+      message,
+      ...commonRequest,
+      attachments: isApprovalResume
+        ? undefined
+        : messageAttachments(lastUser).map((item) => item.payload),
+      revision: composer?.revision,
+      clientMessageId: lastUser?.id,
+      composer: composer,
+      selectedText: composer
+        ? composer.selection?.text
+        : activeTabSelection?.text,
+      selectedTextSource: composer
+        ? composer.selection
+          ? {
+              url: composer.selection.pageUrl,
+              title: composer.selection.pageTitle,
+            }
+          : undefined
+        : activeTabSelection
+          ? {
+              url: activeTabSelection.url,
+              title: activeTabSelection.title,
+            }
+          : undefined,
+    })
+
+    // Track which tab's selection was sent so we can clear it on success
+    pendingSelectionTabKeyRef.current =
+      activeTabSelection && activeTab?.id ? String(activeTab.id) : null
+
+    return result
+  }
+
+  const prepareRepositoryRequestRef = useRef(prepareRepositoryRequest)
+  prepareRepositoryRequestRef.current = prepareRepositoryRequest
+
   const {
     messages,
     sendMessage: baseSendMessage,
@@ -498,7 +682,6 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     status,
     stop,
     error: chatError,
-    addToolApprovalResponse,
     clearError,
     regenerate,
   } = useChat({
@@ -508,241 +691,27 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     // heavy content re-runs the full render pipeline hundreds of times per
     // stream.
     experimental_throttle: TIMEOUTS.CHAT_STREAM_RENDER_THROTTLE,
-    // The AI SDK does not auto-resume after `addToolApprovalResponse` unless
-    // `sendAutomaticallyWhen` is configured. Without this, approving/denying a
-    // consequential tool only flips the local part to `approval-responded` and
-    // never sends the resume request, so the server never re-executes the
-    // approved tool (and the model never sees the result). Resume whenever the
-    // last message carries a tool part the user just responded to.
-    sendAutomaticallyWhen: ({ messages }) => {
-      // ACP harness chat does not apply Pane toolApprovalResponses; auto-resume
-      // would POST an empty message and 400. Approvals only resume on LLM /chat.
-      if (selectedChatTargetRef.current?.kind === 'acp') return false
-      const lastMessage = messages[messages.length - 1]
-      if (lastMessage?.role !== 'assistant' || !lastMessage.parts) return false
-
-      let hasAnyResponded = false
-      for (const part of lastMessage.parts) {
-        if (!part.type) continue
-        const isTool =
-          part.type === 'dynamic-tool' || part.type.startsWith('tool-')
-        if (!isTool) continue
-        const toolPart = part as { state: string }
-        // If ANY tool is still waiting for approval, hold off — resuming now
-        // would send approval-requested state to the server loop which causes
-        // a TypeValidationError when multiple tools need approval simultaneously.
-        if (toolPart.state === 'approval-requested') return false
-        if (toolPart.state === 'approval-responded') hasAnyResponded = true
-      }
-      return hasAnyResponded
-    },
-    transport: new DefaultChatTransport({
-      fetch: (async (input: RequestInfo | URL, init?: RequestInit) => {
-        const delivery = composerDeliveryRef.current
-        const requestConversationId =
-          typeof init?.body === 'string'
-            ? ((JSON.parse(init.body) as { conversationId?: string })
-                .conversationId ?? conversationIdRef.current)
-            : conversationIdRef.current
-        const response = await agentFetch(input, init)
-        const turnId = response.headers.get('X-Turn-Id')
-        if (turnId) {
+    // Approval decisions and resumes are owned by the repository outbox.
+    transport: repositoryTransport(prepareRepositoryRequest, () => {
+      const delivery = composerDeliveryRef.current
+      return {
+        accepted: async (receipt) => {
           if (delivery) {
-            delivery.started = { turnId, conversationId: requestConversationId }
-            await delivery.onAccepted?.(delivery.started)
+            delivery.started = receipt
+            await delivery.onAccepted?.(receipt)
           }
-          if (requestConversationId !== conversationIdRef.current)
-            return response
-          setLastTurnSucceeded(false)
-          turnControllerRef.current.noteStartedTurn(
-            turnId,
-            conversationIdRef.current,
-          )
-          void setLastActiveConversation(
-            conversationIdRef.current,
-            tabIdRef.current,
-          )
-        }
-        return response
-      }) as typeof fetch,
-      prepareSendMessagesRequest: async ({ messages }) => {
-        const requestConversationId =
-          (
-            messages.findLast((item) => item.role === 'user')?.metadata as
-              | { conversationId?: string }
-              | undefined
-          )?.conversationId ?? conversationIdRef.current
-        const lastUser = messages.findLast((message) => message.role === 'user')
-        const composer = composerMetadata(lastUser)
-        const target = composer?.target
-          ? chatTargetsRef.current.find(
-              (item) =>
-                item.id === composer.target?.id &&
-                item.kind === composer.target?.kind,
+          if (receipt.conversationId === conversationIdRef.current) {
+            setLastTurnSucceeded(false)
+            void setLastActiveConversation(
+              receipt.conversationId,
+              tabIdRef.current,
             )
-          : selectedChatTargetRef.current
-        if (composer?.target && !target)
-          throw new Error(
-            'The queued model or agent is no longer available. Restore this message and choose another model.',
-          )
-        const fallbackProvider =
-          (target?.kind === 'llm' ? target.provider : undefined) ??
-          resolveChatProvider(
-            selectedLlmProviderRef.current
-              ? [selectedLlmProviderRef.current]
-              : [],
-          ) ??
-          (await resolveStoredChatProvider())
-        if (!fallbackProvider) {
-          throw new Error(
-            'No AI provider configured. Add one in Settings → AI & Agents.',
-          )
-        }
-        const activeTabsList = await chrome.tabs.query({
-          active: true,
-          currentWindow: true,
-        })
-        const activeTab = activeTabsList?.[0] ?? undefined
-        const activeTabSelection = activeTab?.id
-          ? (selectionMapRef.current[String(activeTab.id)] ?? null)
-          : null
-        let isPrivate: boolean | undefined
-        if (activeTab?.windowId != null) {
-          try {
-            const win = await chrome.windows.get(activeTab.windowId)
-            isPrivate = win.incognito === true
-          } catch {
-            // Window may have closed between query and get; omit the flag.
           }
-        }
-        const currentMode = composer?.mode ?? modeRef.current
-        const enabledMcpServers = enabledMcpServersRef.current
-        const customMcpServers = enabledCustomServersRef.current
-        const lastUserMessage = getLastUserMessageText(messages)
-        const action =
-          composer?.action ?? textToActionRef.current.get(lastUserMessage)
-        const requestBrowserContext = buildRequestBrowserContext({
-          activeTab: composer ? action?.tabs?.[0] : activeTab,
-          action,
-          enabledMcpServers,
-          customMcpServers,
-          isPrivate,
-        })
-
-        const declinedApps = await declinedAppsStorage.getValue()
-        // Approval decisions to replay on the server (see
-        // `collectToolApprovalResponses`). Sent on resume turns so the server
-        // can update its stored tool parts and re-run the loop.
-        const toolApprovalResponses = collectToolApprovalResponses(
-          messages,
-          reviewedApprovalInputsRef.current,
-        )
-        const isApprovalResume = toolApprovalResponses.length > 0
-
-        // Prefer the prepareSend `messages` snapshot over messagesRef: the ref
-        // is updated in an effect and often already includes the optimistic
-        // user by the time these awaits finish. previousConversation must be
-        // prior turns only (#263); request.message carries the in-flight user.
-        const inFlightUserText = isApprovalResume
-          ? ''
-          : getLastUserMessageText(messages)
-        const priorMessages = excludeInFlightUserMessage(
-          messages,
-          inFlightUserText,
-        )
-        const history =
-          priorMessages.length > 0
-            ? formatConversationHistory(priorMessages)
-            : undefined
-        const previousConversation = history?.length ? history : undefined
-
-        const userSystemPrompt = getUserSystemPrompt(
-          options?.origin,
-          personalizationRef.current,
-        )
-        const agentSessionStrategy =
-          options?.agentSessionStrategy ?? 'conversation'
-        const agentSessionId =
-          agentSessionStrategy === 'main' ? 'main' : requestConversationId
-
-        // Read pins from storage (not only the ref) so "Allow always" that
-        // just wrote to storage is included in this same approval-resume
-        // request. The ref can lag one tick behind storage.watch.
-        const convoPins = await conversationTrustStorage.getValue()
-        const activeConvoPins = convoPins[requestConversationId] ?? {}
-        const storedPins = await trustPinsStorage.getValue()
-        trustPinsRef.current = storedPins ?? {}
-        const mergedPins = { ...trustPinsRef.current }
-        for (const [cls, isTrusted] of Object.entries(activeConvoPins)) {
-          if (isTrusted) {
-            mergedPins[cls as ConsequenceClass] = { pinned: true }
-          }
-        }
-        const requireBrowserInputApproval =
-          (await requireBrowserInputApprovalStorage.getValue()) ?? false
-
-        const commonRequest = {
-          conversationId: requestConversationId,
-          agentSessionId,
-          mode: currentMode,
-          browserContext: requestBrowserContext,
-          userSystemPrompt,
-          userWorkingDir: workingDirRef.current,
-          workspaceId: workspaceIdRef.current,
-          bucketId: bucketIdRef.current ?? 'default',
-          trustPins: mergedPins,
-          requireBrowserInputApproval,
-          previousConversation,
-          declinedApps,
-          toolApprovalResponses,
-        }
-
-        const message = isApprovalResume ? '' : getLastUserMessageText(messages)
-
-        const currentAgentServerUrl = agentUrlRef.current
-        if (!currentAgentServerUrl) {
-          throw (
-            agentUrlErrorRef.current ??
-            new Error('Agent server URL not configured.')
-          )
-        }
-
-        const result = buildSidepanelPreparedSendMessagesRequest({
-          agentServerUrl: currentAgentServerUrl,
-          target,
-          fallbackProvider,
-          message,
-          ...commonRequest,
-          attachments: isApprovalResume
-            ? undefined
-            : messageAttachments(lastUser).map((item) => item.payload),
-          revision: composer?.revision,
-          clientMessageId: lastUser?.id,
-          composer: composer,
-          selectedText: composer
-            ? composer.selection?.text
-            : activeTabSelection?.text,
-          selectedTextSource: composer
-            ? composer.selection
-              ? {
-                  url: composer.selection.pageUrl,
-                  title: composer.selection.pageTitle,
-                }
-              : undefined
-            : activeTabSelection
-              ? {
-                  url: activeTabSelection.url,
-                  title: activeTabSelection.title,
-                }
-              : undefined,
-        })
-
-        // Track which tab's selection was sent so we can clear it on success
-        pendingSelectionTabKeyRef.current =
-          activeTabSelection && activeTab?.id ? String(activeTab.id) : null
-
-        return result
-      },
+        },
+        completed: (result) => {
+          if (delivery) delivery.coordinatorOutcome = result.outcome
+        },
+      }
     }),
     onData: (part) => {
       if (part.type !== 'data-vm-status') return
@@ -838,6 +807,42 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     },
   })
 
+  const [commandError, setCommandError] = useState<Error>()
+  const addToolApprovalResponse = useCallback(
+    async (decision: { id: string; approved: boolean }) => {
+      try {
+        setCommandError(undefined)
+        const id = conversationIdRef.current
+        const part = messagesRef.current
+          .at(-1)
+          ?.parts.find(
+            (part) => 'approval' in part && part.approval?.id === decision.id,
+          )
+        const input =
+          part && 'toolCallId' in part
+            ? reviewedApprovalInputsRef.current.get(part.toolCallId)
+            : undefined
+        const prepared = await prepareRepositoryRequestRef.current({
+          messages: messagesRef.current,
+        })
+        await chatRepositoryClient.request('approve', id, {
+          decision: { ...decision, input },
+          request: {
+            path: new URL(prepared.api).pathname,
+            body: prepared.body,
+          },
+        })
+      } catch (error) {
+        setCommandError(
+          error instanceof Error ? error : new Error(String(error)),
+        )
+      } finally {
+        setApprovalResumeInFlight(false)
+      }
+    },
+    [],
+  )
+
   // Bound live useChat heap: truncate fat tool bodies as they stream in.
   // Server still holds full fidelity; spilled expand uses /tool-outputs.
   //
@@ -918,7 +923,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const baseUrl = agentUrlRef.current
     if (!conversationId || !baseUrl) return
     let cancelled = false
-    void fetchChatMessagePage(conversationId, {
+    void readRepositoryPage(conversationId, {
       limit: CHAT_PAGE_SIZE,
       baseUrl,
     })
@@ -961,112 +966,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     clearError()
   }, [chatError, clearError])
 
-  // Safety net when status never settles (SSE finish dropped but server
-  // already checkpointed). Never cancel a turn the server still reports active.
-  const stuckHydrateInFlightRef = useRef(false)
-  const lastMessageGrowthAtRef = useRef(Date.now())
-  const lastAssistant = messages[messages.length - 1]
-  const lastTextLen =
-    lastAssistant?.role === 'assistant'
-      ? (lastAssistant.parts ?? [])
-          .filter((p) => p.type === 'text' || p.type === 'reasoning')
-          .map((p) => ('text' in p ? String(p.text ?? '') : ''))
-          .join('').length
-      : 0
-  const messagesGrowthKey = `${messages.length}:${lastAssistant?.id ?? ''}:${lastAssistant?.parts?.length ?? 0}:${lastTextLen}`
-  useEffect(() => {
-    void messagesGrowthKey
-    lastMessageGrowthAtRef.current = Date.now()
-  }, [messagesGrowthKey])
-
-  useEffect(() => {
-    const busy =
-      status === 'submitted' || status === 'streaming' || isTurnActive
-    if (!busy) {
-      stuckHydrateInFlightRef.current = false
-      return
-    }
-    const conversationId = conversationIdRef.current
-    const baseUrl = agentUrlRef.current
-    if (!conversationId || !baseUrl) return
-
-    let cancelled = false
-    const timer = setInterval(() => {
-      if (cancelled || stuckHydrateInFlightRef.current) return
-      if (
-        Date.now() - lastMessageGrowthAtRef.current <
-        STUCK_STREAM_HYDRATE_MS
-      ) {
-        return
-      }
-      stuckHydrateInFlightRef.current = true
-      void (async () => {
-        try {
-          const stillActive = await turnControllerRef.current.refreshActive()
-          if (cancelled) return
-          if (!turnControllerRef.current.hasResolvedActivity) return
-          if (stillActive) {
-            // Reconnect a lost snapshot stream in restored views.
-            if (status !== 'submitted' && status !== 'streaming')
-              turnControllerRef.current.ensureAttached((next) => {
-                if (!cancelled && conversationIdRef.current === conversationId)
-                  setMessages(
-                    prepareMessagesForClientTurn(
-                      slimMessagesForClientUi(
-                        stripFatInlineImagesFromMessages(next),
-                      ),
-                      { settleApprovals: false, settleIncomplete: false },
-                    ),
-                  )
-              })
-            lastMessageGrowthAtRef.current = Date.now()
-            return
-          }
-
-          const page = await fetchChatMessagePage(conversationId, {
-            limit: CHAT_PAGE_SIZE,
-            baseUrl,
-          })
-          if (cancelled) return
-          const serverAssistant = [...page.messages]
-            .reverse()
-            .find((m) => m.role === 'assistant')
-          if (!hasAssistantText(serverAssistant)) {
-            lastMessageGrowthAtRef.current = Date.now()
-            return
-          }
-
-          let hydrated = false
-          setHasMoreAbove((prev) => prev || page.hasMore)
-          setMessages((current) => {
-            const result = hydrateClientMessagesFromServer(
-              current,
-              stripFatInlineImagesFromMessages(page.messages),
-            )
-            hydrated = result.hydratedAssistantTurn
-            return result.messages
-          })
-          if (hydrated) {
-            // Server turn finished; detach orphaned useChat SSE only.
-            void stop()
-            turnControllerRef.current.markInactive()
-            clearError()
-          } else {
-            lastMessageGrowthAtRef.current = Date.now()
-          }
-        } catch {
-          lastMessageGrowthAtRef.current = Date.now()
-        } finally {
-          stuckHydrateInFlightRef.current = false
-        }
-      })()
-    }, 2_000)
-
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [status, isTurnActive, setMessages, stop, clearError])
+  // The coordinator probes accepted turns and recovers stalled transports once
+  // per conversation; views only observe its busy state.
 
   // Disabled while: agent URL isn't ready, a turn is in flight, a resume
   // was just triggered but hasn't flipped `status` yet, or an approval
@@ -1100,7 +1001,13 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // (`approval-responded`) parts — the server may have already executed them.
   // Settle unanswered approvals only, then reconcile from the server transcript.
   const stopAndSettle = useCallback(() => {
-    void turnControllerRef.current.cancel('user-stop')
+    void turnControllerRef.current
+      .cancel('user-stop')
+      .catch((error) =>
+        setCommandError(
+          error instanceof Error ? error : new Error(String(error)),
+        ),
+      )
     stop()
     // Stop aborts the in-flight resume SSE; clear the local gate so Retry
     // is not treated as a second click against a still-"running" resume.
@@ -1117,7 +1024,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     const conversationId = conversationIdRef.current
     const baseUrl = agentUrlRef.current
     if (!conversationId || !baseUrl) return
-    void fetchChatMessagePage(conversationId, {
+    void readRepositoryPage(conversationId, {
       limit: CHAT_PAGE_SIZE,
       baseUrl,
     })
@@ -1141,6 +1048,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   // ready, then regenerate — this drops the poisoned last assistant message
   // and resends the last user message through the normal transport path.
   const retryLastTurn = useCallback(() => {
+    setCommandError(undefined)
     setMessages((current) => prepareMessagesForClientTurn(current))
     clearError()
     void regenerate()
@@ -1230,17 +1138,16 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         // Only cloud history needs a live-turn probe to choose its source.
         // Local transcripts load independently of provider/turn liveness.
         if (options?.preferLiveOnly) {
-          const active = await fetchActiveChatTurn(restoredId, baseUrl)
+          const active = (
+            await chatRepositoryClient.request<
+              import('@/lib/chat-repository/types').ChatSnapshot
+            >('refresh', restoredId)
+          ).active
           if (cancelled || abortController.signal.aborted) return 'unknown'
           if (active?.status !== 'running') return 'inactive'
         }
 
-        const page = await fetchChatMessagePage(conversationIdParam, {
-          limit: CHAT_PAGE_SIZE,
-          baseUrl,
-          signal: abortController.signal,
-          allowMissing: true,
-        })
+        const page = await readRepositoryChat(conversationIdParam)
         if (cancelled || abortController.signal.aborted) return 'unknown'
         // Running turns need the live attach path; still start from a page
         // and let attach replace with projected snapshots.
@@ -1256,27 +1163,8 @@ export const useChatSession = (options?: ChatSessionOptions) => {
           }),
         )
         setRestoredConversationId(conversationIdParam)
-        // Attaching follows restoration; a stalled probe cannot hide history.
-        void turnControllerRef.current
-          .restoreAndAttach({
-            conversationId: restoredId,
-            onMessages: (next) => {
-              if (cancelled || conversationIdRef.current !== restoredId) return
-              const projected = slimMessagesForClientUi(
-                stripFatInlineImagesFromMessages(next),
-              )
-              setMessages(
-                prepareMessagesForClientTurn(projected, {
-                  settleApprovals: false,
-                  settleIncomplete: false,
-                }),
-              )
-            },
-          })
-          .catch((error) => {
-            if (!cancelled) sentry.captureException(error)
-            // The conversation follower retries liveness independently.
-          })
+        // The visible follower attaches after restoration. Keeping attachment
+        // in one effect also prevents hidden restores from opening a stream.
         return 'restored'
       } catch (error) {
         if (cancelled || abortController.signal.aborted) return 'unknown'
@@ -1337,91 +1225,29 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     agentServerUrl,
   ])
 
-  // Every open view follows the conversation, including turns started in
-  // another window. Poll only when the SDK is not already streaming locally.
+  // The view subscribes to one profile-wide owner. It never polls or opens
+  // its own follower stream; hidden subscriptions are handled by the bridge.
   useEffect(() => {
-    if (
-      !agentServerUrl ||
-      (conversationIdParam && restoredConversationId !== conversationIdParam)
-    )
+    if (conversationIdParam && restoredConversationId !== conversationIdParam)
       return
-    let cancelled = false
-    let checking = false
-    let lastHistoryCheck = 0
-    let lastHistorySnapshot = ''
     const controller = turnControllerRef.current
-    const apply = (next: UIMessage[]) => {
-      if (cancelled || conversationIdRef.current !== conversationId) return
-      setMessages(
-        prepareMessagesForClientTurn(
-          slimMessagesForClientUi(stripFatInlineImagesFromMessages(next)),
+    if (status === 'submitted' || status === 'streaming') return
+    controller.ensureAttached((next) => {
+      setHasMoreAbove((previous) => previous || controller.hasMore)
+      if (conversationIdRef.current !== conversationId) return
+      setMessages((current) => {
+        const first = current.findIndex((message) => message.id === next[0]?.id)
+        return prepareMessagesForClientTurn(
+          first >= 0 ? [...current.slice(0, first), ...next] : next,
           { settleApprovals: false, settleIncomplete: false },
-        ),
-      )
-    }
-    const check = async () => {
-      if (
-        checking ||
-        cancelled ||
-        status === 'submitted' ||
-        status === 'streaming'
-      )
-        return
-      checking = true
-      try {
-        const wasActive = controller.isTurnActive
-        const active = await controller.refreshActive()
-        if (cancelled || conversationIdRef.current !== conversationId) return
-        if (!controller.hasResolvedActivity) return
-        if (active) controller.ensureAttached(apply)
-        else if (wasActive || Date.now() - lastHistoryCheck > 10_000) {
-          const page = await fetchChatMessagePage(conversationId, {
-            limit: CHAT_PAGE_SIZE,
-            baseUrl: agentServerUrl,
-          })
-          lastHistoryCheck = Date.now()
-          if (cancelled || conversationIdRef.current !== conversationId) return
-          const projected = slimMessagesForClientUi(
-            stripFatInlineImagesFromMessages(page.messages),
-          )
-          const snapshot = JSON.stringify(projected)
-          if (snapshot === lastHistorySnapshot) return
-          lastHistorySnapshot = snapshot
-          if (!projected.length) return
-          setHasMoreAbove((previous) => previous || page.hasMore)
-          setMessages((current) => {
-            const first = current.findIndex(
-              (item) => item.id === projected[0].id,
-            )
-            const merged =
-              first >= 0
-                ? [...current.slice(0, first), ...projected]
-                : projected
-            return prepareMessagesForClientTurn(merged, {
-              settleApprovals: false,
-            })
-          })
-        }
-      } finally {
-        checking = false
-      }
-    }
-    void check().catch(() => {})
-    const timer = setInterval(() => {
-      void check().catch(() => {})
-    }, 2000)
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-      // Dispose the stream with its callback so it cannot silently consume
-      // snapshots after this effect stops applying them.
-      controller.detachAttachOnly()
-    }
+        )
+      })
+    })
+    return () => controller.detachAttachOnly()
   }, [
     conversationId,
     conversationIdParam,
     restoredConversationId,
-    agentServerUrl,
     status,
     setMessages,
   ])
@@ -1574,16 +1400,17 @@ export const useChatSession = (options?: ChatSessionOptions) => {
   }, [messages, status, syncExecutionHistory])
 
   // Save conversation only after streaming completes — not on every token
-  const previousStatusRef = useRef(status)
+  const completionTrackerRef = useRef(new ChatCompletionTracker())
   // biome-ignore lint/correctness/useExhaustiveDependencies: only save when streaming finishes
   useEffect(() => {
-    const wasStreaming =
-      previousStatusRef.current === 'streaming' ||
-      previousStatusRef.current === 'submitted'
-    const justFinished = wasStreaming && status === 'ready'
-    previousStatusRef.current = status
-
-    if (!justFinished) return
+    if (
+      !completionTrackerRef.current.update({
+        conversationId,
+        status,
+        repositoryBusy: turnControllerRef.current.isTurnActive,
+      })
+    )
+      return
 
     // Clear the selected text that was sent with this request
     const tabKey = pendingSelectionTabKeyRef.current
@@ -1598,7 +1425,11 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       })
     }
 
-    const messagesToSave = messages.filter((m) => m.parts?.length > 0)
+    // Read the snapshot directly: notifying activity can precede the React
+    // render that applies its final transcript to the SDK replica.
+    const messagesToSave = (
+      turnControllerRef.current.messages ?? messages
+    ).filter((m) => m.parts?.length > 0)
     if (messagesToSave.length === 0) return
 
     // Server SQLite already persists on turn finish. Only dual-write to
@@ -1612,7 +1443,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     })
 
     invalidateCredits()
-  }, [status])
+  }, [conversationId, status, isTurnActive])
 
   useEffect(() => {
     if (chatError) invalidateCredits()
@@ -1757,6 +1588,33 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     dispatchMessage(params.text)
   }
 
+  const prepareQueuedMessage = async (draft: ComposerMessage, id: string) => {
+    const user: UIMessage = {
+      id,
+      role: 'user',
+      parts: [
+        {
+          type: 'text',
+          text: draft.text || 'Please review the attached files.',
+        },
+        ...composerFileParts(draft.attachments),
+      ],
+      metadata: { conversationId: conversationIdRef.current, composer: draft },
+    }
+    const prepared = await prepareRepositoryRequest({
+      messages: [...messagesRef.current, user],
+    })
+    return durableChatRequest({
+      path: new URL(prepared.api).pathname,
+      body: {
+        ...prepared.body,
+        message: draft.text || 'Please review the attached files.',
+        toolApprovalResponses: undefined,
+        attachments: draft.attachments?.map((item) => item.payload),
+      },
+    })
+  }
+
   const sendComposerMessage = async (
     draft: ComposerMessage,
     onAccepted?: NonNullable<typeof composerDeliveryRef.current>['onAccepted'],
@@ -1795,24 +1653,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         conversationIdRef.current === dispatchConversationId
         ? delivery.outcome
         : 'paused'
-    const started = delivery.started
-    if (!started) return 'paused'
-    // SDK readiness or a closed HTTP stream is not a completion receipt.
-    // Replay the specific server turn's terminal event before advancing FIFO.
-    let confirmed: 'done' | 'paused' | 'pending' = 'pending'
-    try {
-      await attachChatTurnStream({
-        ...started,
-        signal: AbortSignal.timeout(30_000),
-        onEvent: (event) => {
-          if (event.type === 'done')
-            confirmed = event.status === 'done' ? 'done' : 'paused'
-        },
-      })
-    } catch {
-      return 'pending'
-    }
-    return confirmed
+    return delivery.coordinatorOutcome ?? 'pending'
   }
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only need to run this once
@@ -2064,7 +1905,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
         const baseUrl = agentUrlRef.current
         if (conversationId && baseUrl) {
           try {
-            const page = await fetchChatMessagePage(conversationId, {
+            const page = await readRepositoryPage(conversationId, {
               limit: CHAT_PAGE_SIZE,
               baseUrl,
             })
@@ -2174,7 +2015,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
       return
     const oldestId = messagesRef.current[0]?.id
     if (!oldestId) return
-    const page = await fetchChatMessagePage(conversationId, {
+    const page = await readRepositoryPage(conversationId, {
       beforeId: oldestId,
       limit: CHAT_PAGE_SIZE,
       baseUrl,
@@ -2210,8 +2051,19 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     messages,
     sendMessage,
     sendComposerMessage,
+    prepareQueuedMessage,
+    onComposerEnqueued: () => {
+      trackMessageSent()
+      if (options?.origin === 'newtab') {
+        setRestoredConversationId(conversationIdRef.current)
+        setSearchParams(
+          { conversationId: conversationIdRef.current },
+          { replace: true },
+        )
+      }
+    },
     lastTurnSucceeded,
-    status,
+    status: isTurnActive ? ('streaming' as const) : status,
     isStreaming,
     isTurnActive,
     stop: stopAndSettle,
@@ -2227,7 +2079,7 @@ export const useChatSession = (options?: ChatSessionOptions) => {
     retryRestoreConversation,
     activityError,
     agentUrlError,
-    chatError,
+    chatError: chatError ?? commandError,
     handleSelectProvider,
     getActionForMessage,
     resetConversation,

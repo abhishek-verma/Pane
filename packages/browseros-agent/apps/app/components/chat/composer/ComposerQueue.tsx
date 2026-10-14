@@ -10,9 +10,16 @@ export function ComposerQueue({
 }) {
   const [open, setOpen] = useState(true)
   const { queue, paused, note } = composer.state
-  const pending = queue.filter((item) => item.state !== 'sending')
+  const pending = queue.filter(
+    (item) => item.state !== 'sending' && item.kind !== 'approval',
+  )
   const needsReview = pending.some((item) => item.state === 'review')
-  if (!pending.length) return null
+  if (!pending.length)
+    return note ? (
+      <p role="status" className="mb-2 text-muted-foreground text-xs">
+        {note}
+      </p>
+    ) : null
 
   return (
     <div className="mb-2 text-xs">
@@ -37,7 +44,7 @@ export function ComposerQueue({
             </span>
           )}
         </button>
-        {paused && !pending.some((item) => item.state === 'review') && (
+        {paused && !queue.some((item) => item.state === 'review') && (
           <button
             type="button"
             onClick={() => composer.resume()}

@@ -10,6 +10,7 @@ import {
   toggleSidePanel,
 } from '@/lib/browseros/toggleSidePanel'
 import { checkAndShowChangelog } from '@/lib/changelog/changelog-notifier'
+import { startChatRepository } from '@/lib/chat-repository/background'
 import {
   setupLlmProvidersBackupToBrowserOS,
   setupLlmProvidersSyncToBackend,
@@ -47,6 +48,7 @@ const cleanupLegacyToolApprovalStorage = async () => {
 }
 
 export default defineBackground(() => {
+  startChatRepository()
   // The service worker is a separate JS realm from app/sidepanel pages — it
   // needs its own Sentry.init() or `sentry.captureException` calls elsewhere
   // in background-invoked code (e.g. syncSchedulesToBackend.ts) are no-ops.

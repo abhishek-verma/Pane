@@ -49,13 +49,14 @@ export async function fetchActiveChatTurn(
 
 export async function cancelChatTurn(
   conversationId: string,
-  options: { reason?: string; baseUrl?: string } = {},
+  options: { reason?: string; baseUrl?: string; signal?: AbortSignal } = {},
 ): Promise<{ cancelled: boolean }> {
   const url = options.baseUrl ?? (await getAgentServerUrl())
   const response = await agentFetch(
     `${url}/chat/${encodeURIComponent(conversationId)}/cancel`,
     {
       method: 'POST',
+      signal: options.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...(options.reason ? { reason: options.reason } : {}),
@@ -106,6 +107,7 @@ export async function attachChatTurnStream(input: {
   let buffer = ''
   let pendingId: number | undefined
   let pendingData: string[] = []
+  let terminal = false
 
   const flush = async () => {
     if (pendingData.length === 0) return
@@ -118,28 +120,37 @@ export async function attachChatTurnStream(input: {
       const parsed = JSON.parse(data) as ChatTurnStreamEvent
       if (parsed && typeof parsed === 'object' && 'type' in parsed) {
         await input.onEvent(parsed, seq)
+        terminal = parsed.type === 'done'
       }
     } catch {
       // ignore malformed frames
     }
   }
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
-    for (const line of lines) {
-      if (line.startsWith('id:')) {
-        const n = Number.parseInt(line.slice(3).trim(), 10)
-        if (Number.isFinite(n)) pendingId = n
-      } else if (line.startsWith('data:')) {
-        pendingData.push(line.slice(5).trimStart())
-      } else if (line === '') {
-        await flush()
+  try {
+    while (!terminal) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        if (line.startsWith('id:')) {
+          const n = Number.parseInt(line.slice(3).trim(), 10)
+          if (Number.isFinite(n)) pendingId = n
+        } else if (line.startsWith('data:')) {
+          pendingData.push(line.slice(5).trimStart())
+        } else if (line === '') {
+          await flush()
+          if (terminal) break
+        }
       }
     }
+    if (!terminal) await flush()
+  } finally {
+    // A terminal event is the receipt. Do not hold the composer dispatch lock
+    // waiting for the HTTP connection to close (or its 30-second timeout).
+    if (terminal) void reader.cancel().catch(() => {})
+    reader.releaseLock()
   }
-  await flush()
 }

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { stageAttachments } from '@/lib/attachments'
 import { createBrowserOSAction } from '@/lib/chat-actions/types'
+import { chatRepositoryClient } from '@/lib/chat-repository/client'
 import { selectedTextStorage } from '@/lib/selected-text/selectedTextStorage'
 import { sentry } from '@/lib/sentry/sentry'
 import { useChatSessionContext } from './chat-session-context'
-import { dispatchNextComposerMessage } from './composer-dispatch'
 import {
   type ChatDraft,
   type ComposerState,
@@ -34,21 +34,9 @@ export function useChatComposer() {
   const staging = useRef(Promise.resolve())
   const currentKey = useRef(key)
   currentKey.current = key
-  const sessionRef = useRef(session)
-  sessionRef.current = session
   const draftRef = useRef(state.draft)
   draftRef.current = state.draft
   const ready = loaded === key
-  const [dispatchTick, setDispatchTick] = useState(0)
-  const needsDispatchRetry = ready && !state.paused && state.queue.length > 0
-  useEffect(() => {
-    // Storage/session changes start dispatch immediately. Retry only while a
-    // queue exists, avoiding a whole-composer render every 2s in every idle tab.
-    if (!needsDispatchRetry) return
-    const timer = setInterval(() => setDispatchTick((value) => value + 1), 2000)
-    return () => clearInterval(timer)
-  }, [needsDispatchRetry])
-
   const report = useCallback((error: unknown) => {
     setError(
       error instanceof Error
@@ -221,6 +209,8 @@ export function useChatComposer() {
           }),
           selection,
         }
+        const id = crypto.randomUUID()
+        const prepared = await session.prepareQueuedMessage(message, id)
         return {
           ...value,
           draft: emptyDraft(),
@@ -229,7 +219,8 @@ export function useChatComposer() {
           queue: [
             ...value.queue,
             {
-              id: crypto.randomUUID(),
+              id,
+              prepared,
               message,
               state: 'queued',
               waitsForSuccess: session.isStreaming,
@@ -237,45 +228,20 @@ export function useChatComposer() {
           ],
         }
       })
+      session.onComposerEnqueued()
     } catch (error) {
       report(error)
     }
   }
 
-  // The dispatch lock spans the complete turn. A second panel can manage the
-  // queue but cannot send it. Recovered 'sending' items are never auto-retried.
+  // The worker observes durable queue changes and owns dispatch even after
+  // this view closes. Wake it immediately when an existing queue is opened.
   useEffect(() => {
-    void dispatchTick
-    if (
-      !ready ||
-      state.paused ||
-      !state.queue.length ||
-      (!session.canSend && state.queue[0]?.state !== 'sending') ||
-      session.isRestoringConversation
-    )
-      return
-    const controller = new AbortController()
-    void dispatchNextComposerMessage({
-      key,
-      dispatchKey,
-      conversationId: session.conversationId,
-      signal: controller.signal,
-      isCurrent: () => currentKey.current === key,
-      getSession: () => sessionRef.current,
-    }).catch(report)
-    return () => controller.abort()
-  }, [
-    key,
-    dispatchKey,
-    ready,
-    state.paused,
-    state.queue,
-    dispatchTick,
-    session.conversationId,
-    session.canSend,
-    session.isRestoringConversation,
-    report,
-  ])
+    if (ready)
+      void chatRepositoryClient
+        .request('queue', session.conversationId)
+        .catch(report)
+  }, [ready, session.conversationId, report])
 
   return {
     draftKey: key,
@@ -337,6 +303,8 @@ export function useChatComposer() {
           to < 0 ||
           to >= queue.length ||
           queue[index].state !== 'queued' ||
+          queue[index].kind === 'approval' ||
+          queue[to].kind === 'approval' ||
           queue[to].state !== 'queued'
         )
           return value

@@ -680,6 +680,14 @@ describe('createAgentRoutes', () => {
     expect(response.headers.get('x-vercel-ai-ui-message-stream')).toBe('v1')
     expect(response.headers.get('X-Session-Id')).toBe(conversationId)
     expect(await response.text()).toContain('"type":"text-delta"')
+    const replay = await route.request(
+      `/agents/agent-1/sessions/${conversationId}/chat/stream?format=ui&turnId=${response.headers.get('X-Turn-Id')}`,
+    )
+    expect(replay.status).toBe(200)
+    expect(replay.headers.get('x-vercel-ai-ui-message-stream')).toBe('v1')
+    const replayBody = await replay.text()
+    expect(replayBody).toContain('"type":"text-delta"')
+    expect(replayBody).toContain('"type":"finish"')
     expect(service._lastStartTurnInput).toMatchObject({
       agentId: 'agent-1',
       sessionId: conversationId,

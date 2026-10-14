@@ -7,6 +7,10 @@ export interface ChatDraft {
   attachments: StagedAttachment[]
 }
 export interface QueuedMessage {
+  kind?: 'approval'
+  pauseAfter?: boolean
+  startedAt?: string
+  prepared?: import('@/lib/chat-repository/types').PreparedChatRequest
   id: string
   message: ComposerMessage
   state: 'queued' | 'sending' | 'review'

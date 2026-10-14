@@ -13,6 +13,7 @@ import {
   type ServerAcpxProbeInput,
   type ServerAcpxProbeResult,
 } from '../services/acpx-probe/probeAgent'
+import { signInToCodex } from '../services/acpx-probe/signIn'
 
 export type ProbeAcpAgentFn = (
   input: ServerAcpxProbeInput,
@@ -30,14 +31,35 @@ const probeRequestSchema = z
   })
 
 export function createAcpxProbeRoutes(
-  options: { probe?: ProbeAcpAgentFn; resourcesDir?: string | null } = {},
+  options: {
+    probe?: ProbeAcpAgentFn
+    resourcesDir?: string | null
+    signIn?: typeof signInToCodex
+  } = {},
 ) {
   const probe = options.probe ?? probeAcpAgent
   const resourcesDir = options.resourcesDir
-  return new Hono().post(
-    '/',
-    zValidator('json', probeRequestSchema),
-    async (c) => {
+  return new Hono()
+    .post('/codex/sign-in', async (c) => {
+      try {
+        await (options.signIn ?? signInToCodex)({
+          resourcesDir,
+          signal: c.req.raw.signal,
+        })
+        return c.json({ success: true })
+      } catch (error) {
+        return c.json(
+          {
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Codex sign-in did not complete.',
+          },
+          500,
+        )
+      }
+    })
+    .post('/', zValidator('json', probeRequestSchema), async (c) => {
       const body = c.req.valid('json')
       try {
         const result = await probe({ ...body, resourcesDir })
@@ -60,6 +82,5 @@ export function createAcpxProbeRoutes(
           500,
         )
       }
-    },
-  )
+    })
 }

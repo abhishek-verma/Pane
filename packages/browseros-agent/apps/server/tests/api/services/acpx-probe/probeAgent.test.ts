@@ -26,7 +26,9 @@ mock.module('../../../../src/lib/agents/host-acp/binary-resolver', () => ({
   resolveHostBinary: async () => null,
 }))
 
+const actualProbe = await import('acp-probe')
 mock.module('acp-probe', () => ({
+  ...actualProbe,
   probeAgent: async (input: CapturedCall) => {
     lastCall = input
     return nextResult
@@ -412,5 +414,37 @@ describe('probeAcpAgent — normalisation', () => {
     const out = await probeAcpAgent({ agentId: 'claude' })
     expect(out.error?.code).toBe('auth_required')
     expect(out.error?.acpErrorCode).toBe(-32603)
+  })
+
+  it.each([
+    'Failed to load configured model',
+    { details: 'Failed to load configured model' },
+    { message: 'Failed to load configured model' },
+  ])('preserves actionable internal-error details', async (data) => {
+    nextResult = baseProbeResult({
+      error: {
+        code: 'unknown',
+        message: 'Internal error',
+        acpError: { code: -32603, message: 'Internal error', data },
+      },
+    })
+    const out = await probeAcpAgent({ agentId: 'claude' })
+    expect(out.error?.message).toBe(
+      'Internal error: Failed to load configured model',
+    )
+  })
+
+  it('does not return stderr or unrelated error data to the UI', async () => {
+    nextResult = baseProbeResult({
+      error: {
+        code: 'unknown',
+        message: 'Internal error',
+        stderr: 'private diagnostic output',
+        acpError: { code: -32603, data: { token: 'private-token' } },
+      },
+    })
+    const out = await probeAcpAgent({ agentId: 'claude' })
+    expect(out.error?.message).toBe('Internal error')
+    expect(JSON.stringify(out)).not.toContain('private')
   })
 })

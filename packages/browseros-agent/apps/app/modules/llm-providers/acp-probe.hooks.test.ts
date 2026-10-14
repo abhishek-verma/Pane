@@ -121,3 +121,72 @@ describe('isAcpProbeEnabled', () => {
     ).toBe(false)
   })
 })
+
+const { fetchAcpProbe } = await import('./acp-probe.hooks')
+const { QueryClient } = await import('@tanstack/react-query')
+
+describe('model refresh failures', () => {
+  it('keeps previously loaded models when the adapter returns an HTTP 200 error', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const models = {
+      models: [{ id: 'available-model' }],
+      reasoning: null,
+      supportsConfigOption: false,
+      agentInfo: null,
+      protocolVersion: 1,
+    }
+    let payload: unknown = models
+    const request = async () => Response.json(payload)
+    const options = {
+      queryKey: ['probe'],
+      queryFn: () =>
+        fetchAcpProbe(
+          'http://localhost',
+          { agentId: 'codex' },
+          undefined,
+          request,
+        ),
+    }
+    await client.fetchQuery(options)
+    payload = {
+      ...models,
+      models: [],
+      error: {
+        code: 'session_failed',
+        message: 'Internal error: account requires sign-in',
+      },
+    }
+    await expect(client.fetchQuery(options)).rejects.toThrow(
+      'account requires sign-in',
+    )
+    expect(client.getQueryData<typeof models>(options.queryKey)).toEqual(models)
+    client.clear()
+  })
+
+  it('surfaces server errors returned as strings', async () => {
+    await expect(
+      fetchAcpProbe('http://localhost', {}, undefined, async () =>
+        Response.json({ error: 'Server unavailable' }, { status: 503 }),
+      ),
+    ).rejects.toThrow('Server unavailable')
+  })
+
+  it('cancels pending requests when the dialog closes', async () => {
+    const controller = new AbortController()
+    let requestSignal: AbortSignal | null | undefined
+    const pending = fetchAcpProbe(
+      'http://localhost',
+      {},
+      controller.signal,
+      async (_url, init) => {
+        requestSignal = init?.signal
+        return new Promise<Response>(() => {})
+      },
+    )
+    controller.abort(new Error('Dialog closed'))
+    await expect(pending).rejects.toThrow('Dialog closed')
+    expect(requestSignal?.aborted).toBe(true)
+  })
+})
