@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.180 (2026-09-09)
+
+## What's Changed
+
+- chore: prepare Pane 0.47.0.90 (#252)
+- fix(layers): size popup and ignore foreign messages (#251)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
