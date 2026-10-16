@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.171 (2026-08-12)
+
+## What's Changed
+
+- chore(release): bump versions for v0.47.0.80 (#199)
+- fix(capture): fix Teams Free and short-URL capture detection (#198)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
