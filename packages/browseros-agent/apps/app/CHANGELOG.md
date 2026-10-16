@@ -1,5 +1,12 @@
 # BrowserOS Agent Extension
 
+## v0.0.187 (2026-10-05)
+
+## What's Changed
+
+- feat: refresh provider models and fix layer activation (#293)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
