@@ -1,5 +1,13 @@
 # BrowserOS Agent Extension
 
+## v0.0.175 (2026-08-27)
+
+## What's Changed
+
+- chore(release): bump to v0.47.0.85, extension v0.0.175 (#230)
+- fix(app): keep live dictation caption scrolled to its tail (#228)
+
+
 ## v0.0.102 (2026-07-12)
 
 ## What's Changed
